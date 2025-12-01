@@ -1,0 +1,70 @@
+/* Global Text Overflow Fixes */
+
+/* Prevent text overflow in all containers */
+* {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Truncate utility */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Responsive text sizes */
+@media (max-width: 640px) {
+  h1 { font-size: 1.5rem !important; }
+  h2 { font-size: 1.25rem !important; }
+  h3 { font-size: 1rem !important; }
+}
+
+/* Ensure buttons don't overflow */
+button {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Select dropdowns */
+select {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Input fields */
+input {
+  max-width: 100%;
+}
+
+/* Card content */
+.card-content {
+  overflow: hidden;
+}
+
+/* Table cells */
+td, th {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  td, th {
+    max-width: 150px;
+    font-size: 0.75rem;
+  }
+}
