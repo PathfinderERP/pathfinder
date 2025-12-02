@@ -12,6 +12,7 @@ import examTagRoutes from "./routes/examTag/examTag.routes.js";
 import departmentRoutes from "./routes/department/department.routes.js";
 import admissionRoutes from "./routes/Admission/admission.routes.js";
 import paymentReminderRoutes from "./routes/payment/paymentReminder.routes.js";
+import paymentRoutes from "./routes/payment/payment.routes.js";
 import centreRoutes from "./routes/centre/centre.routes.js";
 import { startPaymentReminderCron } from "./services/cronService.js";
 
@@ -52,6 +53,9 @@ app.use("/api/admission", admissionRoutes);
 
 //payment reminder routes
 app.use("/api/payment-reminder", paymentReminderRoutes);
+
+//payment routes
+app.use("/api/payment", paymentRoutes);
 
 //centre routes
 app.use("/api/centre", centreRoutes);

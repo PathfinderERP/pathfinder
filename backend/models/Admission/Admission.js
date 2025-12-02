@@ -81,9 +81,15 @@ const admissionSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
-    gstAmount: {
+    cgstAmount: {
         type: Number,
-        required: true
+        required: true,
+        default: 0
+    },
+    sgstAmount: {
+        type: Number,
+        required: true,
+        default: 0
     },
     totalFees: { // Final amount including GST
         type: Number,

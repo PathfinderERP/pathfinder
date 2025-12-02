@@ -58,6 +58,29 @@ const paymentSchema = new mongoose.Schema({
     recordedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "NormalAdmin"
+    },
+
+    // Bill Details
+    billId: {
+        type: String,
+        unique: true,
+        sparse: true // Allows null/undefined values to not conflict
+    },
+    cgst: {
+        type: Number,
+        default: 0
+    },
+    sgst: {
+        type: Number,
+        default: 0
+    },
+    courseFee: {
+        type: Number, // The base amount before tax
+        default: 0
+    },
+    totalAmount: {
+        type: Number, // The final amount including taxes
+        default: 0
     }
 }, { timestamps: true });
 

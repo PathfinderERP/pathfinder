@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { FaArrowLeft, FaCalculator, FaMoneyBillWave } from 'react-icons/fa';
+import { FaArrowLeft, FaCalculator, FaMoneyBillWave, FaFileInvoice } from 'react-icons/fa';
+import BillGenerator from '../components/Finance/BillGenerator';
 
 const StudentAdmissionPage = () => {
     const { studentId } = useParams();
@@ -30,13 +31,17 @@ const StudentAdmissionPage = () => {
 
     const [feeBreakdown, setFeeBreakdown] = useState({
         baseFees: 0,
-        gstAmount: 0,
+        cgstAmount: 0,
+        sgstAmount: 0,
         totalFees: 0,
         downPayment: 0,
         remainingAmount: 0,
         installmentAmount: 0,
         paymentSchedule: []
     });
+    
+    const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
+    const [createdAdmission, setCreatedAdmission] = useState(null);
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -116,11 +121,12 @@ const StudentAdmissionPage = () => {
         // Calculate Taxable Amount (Base Fees - Waiver)
         const taxableAmount = Math.max(0, baseFees - feeWaiver);
 
-        // Calculate GST (18%)
-        const gstAmount = Math.round(taxableAmount * 0.18);
+        // Calculate CGST (9%) and SGST (9%)
+        const cgstAmount = Math.round(taxableAmount * 0.09);
+        const sgstAmount = Math.round(taxableAmount * 0.09);
 
         // Total Fees
-        const totalFees = taxableAmount + gstAmount;
+        const totalFees = taxableAmount + cgstAmount + sgstAmount;
 
         const downPayment = parseFloat(formData.downPayment) || 0;
         const remainingAmount = Math.max(0, totalFees - downPayment);
@@ -146,7 +152,8 @@ const StudentAdmissionPage = () => {
 
         setFeeBreakdown({
             baseFees,
-            gstAmount,
+            cgstAmount,
+            sgstAmount,
             totalFees,
             downPayment,
             remainingAmount,
@@ -182,7 +189,25 @@ const StudentAdmissionPage = () => {
 
             if (response.ok) {
                 toast.success("Admission created successfully!");
-                setTimeout(() => navigate("/admissions"), 2000);
+                setCreatedAdmission(data.admission);
+                
+                // If down payment was made, automatically open bill generator
+                if (data.admission.downPayment > 0) {
+                    toast.success("Admission created! Generating bill...", { autoClose: 3000 });
+                    setBillModal({ 
+                        show: true, 
+                        admission: data.admission, 
+                        installment: { 
+                            installmentNumber: 0, 
+                            amount: data.admission.downPayment, 
+                            paidAmount: data.admission.downPayment,
+                            paidDate: new Date(),
+                            paymentMethod: "CASH" // Default or from form data
+                        } 
+                    });
+                } else {
+                    setTimeout(() => navigate("/admissions"), 2000);
+                }
             } else {
                 toast.error(data.message || "Failed to create admission");
             }
@@ -421,8 +446,12 @@ const StudentAdmissionPage = () => {
                                             </div>
                                         )}
                                         <div className="flex justify-between items-center">
-                                            <span className="text-gray-400">GST (18%)</span>
-                                            <span className="text-white">₹{feeBreakdown.gstAmount.toLocaleString()}</span>
+                                            <span className="text-gray-400">CGST (9%)</span>
+                                            <span className="text-white">₹{feeBreakdown.cgstAmount.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-gray-400">SGST (9%)</span>
+                                            <span className="text-white">₹{feeBreakdown.sgstAmount.toLocaleString()}</span>
                                         </div>
                                     </div>
 
@@ -490,6 +519,52 @@ const StudentAdmissionPage = () => {
                     </button>
                 </div>
             </form>
+
+            {/* Success/Bill Generation Modal */}
+            {createdAdmission && (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                    <div className="bg-[#1a1f24] rounded-xl border border-gray-700 p-6 max-w-md w-full text-center">
+                        <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <FaMoneyBillWave className="text-3xl text-green-500" />
+                        </div>
+                        <h3 className="text-xl font-bold text-white mb-2">Admission Successful!</h3>
+                        <p className="text-gray-400 mb-6">
+                            Student has been successfully admitted to {createdAdmission.course?.courseName}.
+                        </p>
+                        
+                        <div className="space-y-3">
+                            {createdAdmission.downPayment > 0 && (
+                                <button
+                                    onClick={() => setBillModal({ 
+                                        show: true, 
+                                        admission: createdAdmission, 
+                                        installment: { installmentNumber: 0, amount: createdAdmission.downPayment, paidDate: new Date() } 
+                                    })}
+                                    className="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg flex items-center justify-center gap-2"
+                                >
+                                    <FaFileInvoice /> Generate Bill (Down Payment)
+                                </button>
+                            )}
+                            
+                            <button
+                                onClick={() => navigate("/admissions")}
+                                className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg"
+                            >
+                                Go to Admissions List
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Bill Generator Modal */}
+            {billModal.show && (
+                <BillGenerator
+                    admission={billModal.admission}
+                    installment={billModal.installment}
+                    onClose={() => setBillModal({ show: false, admission: null, installment: null })}
+                />
+            )}
         </div>
     );
 };

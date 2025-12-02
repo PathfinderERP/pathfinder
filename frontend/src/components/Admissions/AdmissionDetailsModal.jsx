@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { FaTimes, FaUser, FaGraduationCap, FaMoneyBillWave, FaCalendar, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
+import { FaTimes, FaUser, FaGraduationCap, FaMoneyBillWave, FaCalendar, FaCheckCircle, FaExclamationCircle, FaFileInvoice } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import BillGenerator from '../Finance/BillGenerator';
 
 const AdmissionDetailsModal = ({ admission, onClose, onUpdate }) => {
     const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -11,6 +12,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate }) => {
         transactionId: "",
         remarks: ""
     });
+    const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -256,8 +258,12 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate }) => {
                                         </div>
                                     )}
                                     <div className="flex justify-between items-center">
-                                        <span className="text-gray-400">GST (18%)</span>
-                                        <span className="text-white">₹{admission.gstAmount?.toLocaleString()}</span>
+                                        <span className="text-gray-400">CGST (9%)</span>
+                                        <span className="text-white">₹{(admission.cgstAmount || 0).toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-400">SGST (9%)</span>
+                                        <span className="text-white">₹{(admission.sgstAmount || 0).toLocaleString()}</span>
                                     </div>
                                 </div>
                                 <div className="flex justify-between items-center p-3 bg-cyan-500/20 rounded border border-cyan-500/50 mt-3">
@@ -308,12 +314,19 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate }) => {
                                                     </span>
                                                 </td>
                                                 <td className="p-3">
-                                                    {payment.status !== "PAID" && (
+                                                    {payment.status !== "PAID" ? (
                                                         <button
                                                             onClick={() => openPaymentModal(payment)}
                                                             className="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white text-sm rounded transition-colors"
                                                         >
                                                             Pay Now
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => setBillModal({ show: true, admission: admission, installment: payment })}
+                                                            className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-cyan-400 text-sm rounded transition-colors flex items-center gap-1"
+                                                        >
+                                                            <FaFileInvoice /> Bill
                                                         </button>
                                                     )}
                                                 </td>
@@ -448,6 +461,14 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate }) => {
                         </form>
                     </div>
                 </div>
+            )}
+            {/* Bill Generator Modal */}
+            {billModal.show && (
+                <BillGenerator
+                    admission={billModal.admission}
+                    installment={billModal.installment}
+                    onClose={() => setBillModal({ show: false, admission: null, installment: null })}
+                />
             )}
         </>
     );

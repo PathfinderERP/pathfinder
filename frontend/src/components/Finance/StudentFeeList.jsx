@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { FaSearch, FaEye, FaCommentDots, FaCheckCircle, FaExclamationCircle, FaTimesCircle, FaPaperPlane } from 'react-icons/fa';
+import { FaSearch, FaEye, FaCommentDots, FaCheckCircle, FaExclamationCircle, FaTimesCircle, FaPaperPlane, FaFileInvoice } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import BillGenerator from './BillGenerator';
 
 const StudentFeeList = () => {
     const [students, setStudents] = useState([]);
@@ -11,6 +12,7 @@ const StudentFeeList = () => {
     const [customMessage, setCustomMessage] = useState('');
     const [selectedTemplate, setSelectedTemplate] = useState('REMINDER');
     const [sending, setSending] = useState(false);
+    const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -202,6 +204,14 @@ const StudentFeeList = () => {
                                             {inst.paidDate && (
                                                 <div className="text-xs text-green-400 mt-1">Paid on: {new Date(inst.paidDate).toLocaleDateString('en-IN')}</div>
                                             )}
+                                            {inst.status === 'PAID' && (
+                                                <button
+                                                    onClick={() => setBillModal({ show: true, admission: { _id: selectedStudent.admissionId, student: { name: selectedStudent.studentName, admissionNumber: selectedStudent.admissionNumber, phoneNumber: selectedStudent.phoneNumber, email: selectedStudent.email || 'N/A' }, course: { courseName: selectedStudent.courseName }, department: {}, examTag: {}, class: {} }, installment: inst })}
+                                                    className="mt-2 w-full px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black font-semibold rounded text-xs flex items-center justify-center gap-1"
+                                                >
+                                                    <FaFileInvoice /> Generate Bill
+                                                </button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -271,6 +281,15 @@ const StudentFeeList = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Bill Generator Modal */}
+            {billModal.show && (
+                <BillGenerator
+                    admission={billModal.admission}
+                    installment={billModal.installment}
+                    onClose={() => setBillModal({ show: false, admission: null, installment: null })}
+                />
             )}
         </div>
     );

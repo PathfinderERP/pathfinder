@@ -1,6 +1,7 @@
 import Admission from "../../models/Admission/Admission.js";
 import Course from "../../models/Master_data/Courses.js";
 import Student from "../../models/Students.js";
+import Payment from "../../models/Payment/Payment.js";
 
 export const createAdmission = async (req, res) => {
     try {
@@ -33,8 +34,11 @@ export const createAdmission = async (req, res) => {
         // Calculate Fees
         const baseFees = course.feesStructure.reduce((sum, fee) => sum + fee.value, 0);
         const taxableAmount = Math.max(0, baseFees - Number(feeWaiver));
-        const gstAmount = Math.round(taxableAmount * 0.18); // 18% GST
-        const totalFees = taxableAmount + gstAmount;
+        
+        // Calculate CGST (9%) and SGST (9%)
+        const cgstAmount = Math.round(taxableAmount * 0.09);
+        const sgstAmount = Math.round(taxableAmount * 0.09);
+        const totalFees = taxableAmount + cgstAmount + sgstAmount;
 
         const remainingAmount = totalFees - downPayment;
         
@@ -66,14 +70,15 @@ export const createAdmission = async (req, res) => {
         const admission = new Admission({
             student: studentId,
             course: courseId,
-            class: classId,
+            class: classId || null,
             examTag: examTagId,
             department: departmentId || null, // Optional
             centre,
             academicSession,
             baseFees,
             discountAmount: Number(feeWaiver),
-            gstAmount,
+            cgstAmount,
+            sgstAmount,
             totalFees,
             downPayment,
             remainingAmount,
@@ -99,6 +104,37 @@ export const createAdmission = async (req, res) => {
                 }
             }
         });
+
+        // Create Payment record for Down Payment
+        if (downPayment > 0) {
+            // Calculate tax breakdown for down payment (pro-rated)
+            // For down payment, we treat it as a payment that includes taxes
+            // Base amount = Down Payment / 1.18
+            const dpBaseAmount = downPayment / 1.18;
+            const dpCgst = dpBaseAmount * 0.09;
+            const dpSgst = dpBaseAmount * 0.09;
+            const dpCourseFee = downPayment - dpCgst - dpSgst;
+
+            const payment = new Payment({
+                admission: admission._id,
+                installmentNumber: 0, // 0 for down payment
+                amount: downPayment,
+                paidAmount: downPayment,
+                dueDate: new Date(),
+                paidDate: new Date(),
+                status: "PAID",
+                paymentMethod: "CASH", // Default to CASH for initial, can be updated
+                remarks: "Down Payment at Admission",
+                recordedBy: req.user.id,
+                // Bill Details
+                billId: `BILL${Date.now()}${Math.floor(Math.random() * 1000)}`,
+                cgst: parseFloat(dpCgst.toFixed(2)),
+                sgst: parseFloat(dpSgst.toFixed(2)),
+                courseFee: parseFloat(dpCourseFee.toFixed(2)),
+                totalAmount: parseFloat(Number(downPayment).toFixed(2))
+            });
+            await payment.save();
+        }
 
         const populatedAdmission = await Admission.findById(admission._id)
             .populate('student')

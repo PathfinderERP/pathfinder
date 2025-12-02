@@ -1,4 +1,5 @@
 import Admission from "../../models/Admission/Admission.js";
+import Payment from "../../models/Payment/Payment.js";
 
 export const updatePaymentInstallment = async (req, res) => {
     try {
@@ -49,6 +50,58 @@ export const updatePaymentInstallment = async (req, res) => {
         });
 
         await admission.save();
+
+        // Create or update Payment record with bill details if status is PAID
+        if (installment.status === "PAID") {
+            // Calculate tax amounts (CGST and SGST are typically 9% each = 18% total)
+            // paidAmount is inclusive of 18% GST
+            const baseAmount = paidAmount / 1.18;
+            const cgst = baseAmount * 0.09;
+            const sgst = baseAmount * 0.09;
+            const courseFee = baseAmount;
+            const totalAmount = paidAmount;
+
+            // Check if payment record already exists
+            let payment = await Payment.findOne({
+                admission: admissionId,
+                installmentNumber: parseInt(installmentNumber)
+            });
+
+            if (!payment) {
+                // Create new payment record
+                payment = new Payment({
+                    admission: admissionId,
+                    installmentNumber: parseInt(installmentNumber),
+                    amount: installment.amount,
+                    paidAmount: paidAmount,
+                    dueDate: installment.dueDate,
+                    paidDate: installment.paidDate,
+                    status: installment.status,
+                    paymentMethod: paymentMethod,
+                    transactionId: transactionId,
+                    remarks: remarks,
+                    recordedBy: req.user?.id,
+                    cgst: parseFloat(cgst.toFixed(2)),
+                    sgst: parseFloat(sgst.toFixed(2)),
+                    courseFee: parseFloat(courseFee.toFixed(2)),
+                    totalAmount: parseFloat(totalAmount.toFixed(2))
+                });
+                await payment.save();
+            } else {
+                // Update existing payment record
+                payment.paidAmount = paidAmount;
+                payment.paidDate = installment.paidDate;
+                payment.status = installment.status;
+                payment.paymentMethod = paymentMethod;
+                payment.transactionId = transactionId;
+                payment.remarks = remarks;
+                payment.cgst = parseFloat(cgst.toFixed(2));
+                payment.sgst = parseFloat(sgst.toFixed(2));
+                payment.courseFee = parseFloat(courseFee.toFixed(2));
+                payment.totalAmount = parseFloat(totalAmount.toFixed(2));
+                await payment.save();
+            }
+        }
 
         const updatedAdmission = await Admission.findById(admissionId)
             .populate('student')
