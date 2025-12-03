@@ -1,11 +1,42 @@
 import Payment from "../../models/Payment/Payment.js";
 import Admission from "../../models/Admission/Admission.js";
 
-// Generate a unique bill ID
-const generateBillId = () => {
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 1000);
-    return `BILL${timestamp}${random}`;
+
+// Generate a unique sequential bill ID starting with PATH
+const generateBillId = async () => {
+    try {
+        // Find the last payment with a billId starting with PATH
+        const lastPayment = await Payment.findOne({
+            billId: { $regex: /^PATH/ }
+        }).sort({ createdAt: -1 });
+
+        if (!lastPayment || !lastPayment.billId) {
+            return 'PATH0001';
+        }
+
+        // Extract the number part
+        const lastId = lastPayment.billId;
+        const numberPart = lastId.replace('PATH', '');
+        const nextNumber = parseInt(numberPart) + 1;
+
+        // Pad with zeros to ensure 4 digits
+        return `PATH${nextNumber.toString().padStart(4, '0')}`;
+    } catch (error) {
+        // Fallback to timestamp if something goes wrong
+        return `PATH${Date.now()}`;
+    }
+};
+
+// Generate a random GST-like number
+const generateGSTNumber = () => {
+    const stateCode = "19"; // West Bengal code (example)
+    const pan = Math.random().toString(36).substring(2, 7).toUpperCase() +
+        Math.floor(1000 + Math.random() * 9000) +
+        Math.random().toString(36).substring(2, 3).toUpperCase();
+    const entityNumber = "1";
+    const z = "Z";
+    const checkSum = Math.floor(Math.random() * 10);
+    return `${stateCode}${pan}${entityNumber}${z}${checkSum}`;
 };
 
 // Generate bill for a payment
@@ -74,7 +105,7 @@ export const generateBill = async (req, res) => {
 
         // If payment exists but doesn't have a bill ID, generate one
         if (!payment.billId) {
-            payment.billId = generateBillId();
+            payment.billId = await generateBillId();
 
             // Ensure tax calculations are present
             if (!payment.cgst || !payment.sgst || !payment.courseFee) {
@@ -88,10 +119,12 @@ export const generateBill = async (req, res) => {
             await payment.save();
         }
 
+
         // Prepare bill data
         const billData = {
             billId: payment.billId,
             billDate: payment.paidDate || new Date(),
+            gstNumber: generateGSTNumber(), // Add generated GST number
             student: {
                 id: admission.student._id,
                 name: admission.student.name,
@@ -103,7 +136,8 @@ export const generateBill = async (req, res) => {
                 name: admission.course?.courseName || 'N/A',
                 department: admission.department?.departmentName || 'N/A',
                 examTag: admission.examTag?.examTagName || 'N/A',
-                class: admission.class?.className || 'N/A'
+                class: admission.class?.className || 'N/A',
+                session: admission.academicSession || 'N/A'
             },
             payment: {
                 installmentNumber: payment.installmentNumber,
@@ -168,7 +202,8 @@ export const getBillById = async (req, res) => {
                 name: admission.course?.courseName || 'N/A',
                 department: admission.department?.departmentName || 'N/A',
                 examTag: admission.examTag?.examTagName || 'N/A',
-                class: admission.class?.className || 'N/A'
+                class: admission.class?.className || 'N/A',
+                session: admission.academicSession || 'N/A'
             },
             payment: {
                 installmentNumber: payment.installmentNumber,
