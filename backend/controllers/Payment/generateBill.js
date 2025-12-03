@@ -12,6 +12,7 @@ const generateBillId = () => {
 export const generateBill = async (req, res) => {
     try {
         const { admissionId, installmentNumber } = req.params;
+        const installmentNum = parseInt(installmentNumber);
 
         // Find the admission
         const admission = await Admission.findById(admissionId)
@@ -25,68 +26,67 @@ export const generateBill = async (req, res) => {
             return res.status(404).json({ message: "Admission not found" });
         }
 
-        // Find the installment in payment breakdown
-        const installment = admission.paymentBreakdown.find(
-            p => p.installmentNumber === parseInt(installmentNumber)
-        );
+        let installment;
+        let isDownPayment = false;
 
-        if (!installment) {
-            return res.status(404).json({ message: "Installment not found" });
-        }
+        // Check if this is the down payment (installment 0)
+        if (installmentNum === 0) {
+            // Down payment is not in paymentBreakdown, create a virtual installment object
+            isDownPayment = true;
+            installment = {
+                installmentNumber: 0,
+                amount: admission.downPayment,
+                paidAmount: admission.downPayment,
+                dueDate: admission.admissionDate,
+                paidDate: admission.admissionDate,
+                status: "PAID",
+                paymentMethod: "CASH", // Default, will be overridden by actual payment record
+                remarks: "Down Payment at Admission"
+            };
+        } else {
+            // Find the installment in payment breakdown
+            installment = admission.paymentBreakdown.find(
+                p => p.installmentNumber === installmentNum
+            );
 
-        if (installment.status !== "PAID") {
-            return res.status(400).json({ message: "Cannot generate bill for unpaid installment" });
+            if (!installment) {
+                return res.status(404).json({ message: "Installment not found" });
+            }
+
+            if (installment.status !== "PAID") {
+                return res.status(400).json({ message: "Cannot generate bill for unpaid installment" });
+            }
         }
 
         // Check if bill already exists for this payment
         let payment = await Payment.findOne({
             admission: admissionId,
-            installmentNumber: parseInt(installmentNumber)
+            installmentNumber: installmentNum
         });
 
-        // Calculate tax amounts (CGST and SGST are typically 9% each = 18% total)
-        // paidAmount is inclusive of 18% GST
-        const baseAmount = installment.paidAmount / 1.18;
-        const cgst = baseAmount * 0.09;
-        const sgst = baseAmount * 0.09;
-        const courseFee = baseAmount;
-        const totalAmount = installment.paidAmount;
-
         if (!payment) {
-            // Create new payment record with bill details
-            payment = new Payment({
-                admission: admissionId,
-                installmentNumber: parseInt(installmentNumber),
-                amount: installment.amount,
-                paidAmount: installment.paidAmount,
-                dueDate: installment.dueDate,
-                paidDate: installment.paidDate,
-                status: installment.status,
-                paymentMethod: installment.paymentMethod,
-                transactionId: installment.transactionId,
-                remarks: installment.remarks,
-                recordedBy: req.user?.id,
-                billId: generateBillId(),
-                cgst: parseFloat(cgst.toFixed(2)),
-                sgst: parseFloat(sgst.toFixed(2)),
-                courseFee: parseFloat(courseFee.toFixed(2)),
-                totalAmount: parseFloat(totalAmount.toFixed(2))
+            return res.status(404).json({
+                message: isDownPayment
+                    ? "Down payment record not found. Please contact administration."
+                    : "Payment record not found. Please record the payment first."
             });
-
-            await payment.save();
-        } else if (!payment.billId) {
-            // Update existing payment with bill details
-            payment.billId = generateBillId();
-            payment.cgst = parseFloat(cgst.toFixed(2));
-            payment.sgst = parseFloat(sgst.toFixed(2));
-            payment.courseFee = parseFloat(courseFee.toFixed(2));
-            payment.totalAmount = parseFloat(totalAmount.toFixed(2));
-            
-            await payment.save();
         }
 
-        // Populate the payment with admission details
-        await payment.populate('admission');
+        // If payment exists but doesn't have a bill ID, generate one
+        if (!payment.billId) {
+            payment.billId = generateBillId();
+
+            // Ensure tax calculations are present
+            if (!payment.cgst || !payment.sgst || !payment.courseFee) {
+                const baseAmount = payment.paidAmount / 1.18;
+                payment.cgst = parseFloat((baseAmount * 0.09).toFixed(2));
+                payment.sgst = parseFloat((baseAmount * 0.09).toFixed(2));
+                payment.courseFee = parseFloat(baseAmount.toFixed(2));
+                payment.totalAmount = parseFloat(payment.paidAmount.toFixed(2));
+            }
+
+            await payment.save();
+        }
 
         // Prepare bill data
         const billData = {
@@ -200,7 +200,7 @@ export const getBillsByAdmission = async (req, res) => {
     try {
         const { admissionId } = req.params;
 
-        const payments = await Payment.find({ 
+        const payments = await Payment.find({
             admission: admissionId,
             billId: { $exists: true, $ne: null }
         }).populate({
