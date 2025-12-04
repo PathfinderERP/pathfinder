@@ -61,11 +61,6 @@ const StudentRegistrationForm = () => {
         careerAspiration: "",
     });
 
-    useEffect(() => {
-        fetchCentres();
-        fetchExamTags();
-    }, []);
-
     const fetchCentres = async () => {
         try {
             const token = localStorage.getItem("token");
@@ -103,6 +98,11 @@ const StudentRegistrationForm = () => {
             console.error("Error fetching exam tags:", error);
         }
     };
+
+    useEffect(() => {
+        fetchCentres();
+        fetchExamTags();
+    }, []);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -188,7 +188,7 @@ const StudentRegistrationForm = () => {
                         scienceMathParcent: formData.scienceMathParcent,
                     }
                 ],
-                section: [{ type: formData.sectionType }],
+                section: formData.sectionType ? [{ type: formData.sectionType }] : [],
                 sessionExamCourse: [
                     {
                         session: formData.session,
@@ -204,6 +204,10 @@ const StudentRegistrationForm = () => {
                 ]
             };
 
+            // Log the payload being sent for debugging
+            console.log("📤 Sending student registration payload:");
+            console.log(JSON.stringify(payload, null, 2));
+
             const response = await fetch(`${import.meta.env.VITE_API_URL}/normalAdmin/createStudent`, {
                 method: "POST",
                 headers: {
@@ -214,13 +218,36 @@ const StudentRegistrationForm = () => {
             });
 
             const data = await response.json();
+            
+            // Log the full response for debugging
+            console.log("Response status:", response.status);
+            console.log("Response data:", data);
+            
             if (!response.ok) {
-                toast.error(data.message || "Failed to register student");
+                // Log detailed error information
+                console.error("❌ Student Registration Failed!");
+                console.error("Status:", response.status);
+                console.error("Error Message:", data.message);
+                if (data.errors) {
+                    console.error("Validation Errors:", data.errors);
+                }
+                if (data.details) {
+                    console.error("Error Details:", data.details);
+                }
+                if (data.error) {
+                    console.error("Server Error:", data.error);
+                }
+                
+                // Show user-friendly error
+                const errorMsg = data.details || data.message || "Failed to register student";
+                toast.error(errorMsg);
             } else {
+                console.log("✅ Student registered successfully!");
                 toast.success("Student registered successfully!");
                 // navigate("/admissions"); 
             }
         } catch (err) {
+            console.error("❌ Network or Server Error:");
             console.error(err);
             toast.error("Server error. Please try again.");
         }
@@ -313,6 +340,7 @@ const StudentRegistrationForm = () => {
                                 </select>
                                 <input type="text" name="examStatus" required value={formData.examStatus} onChange={handleChange} placeholder="Exam Status *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="markAgregate" required value={formData.markAgregate} onChange={handleChange} placeholder="Mark Aggregate *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <input type="text" name="scienceMathParcent" required value={formData.scienceMathParcent} onChange={handleChange} placeholder="Science/Math Percent *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                             </div>
                         </div>
 
@@ -320,7 +348,7 @@ const StudentRegistrationForm = () => {
                         <div>
                             <h4 className="text-lg font-semibold text-cyan-400 mb-3">Course & Section</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <input type="text" name="sectionType" required value={formData.sectionType} onChange={handleChange} placeholder="Section Type *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <input type="text" name="sectionType" value={formData.sectionType} onChange={handleChange} placeholder="Section Type" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="session" required value={formData.session} onChange={handleChange} placeholder="Session *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <select name="examTag" required value={formData.examTag} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
                                     <option value="">Select Exam Tag *</option>

@@ -356,8 +356,8 @@ const AdmissionsContent = () => {
                         options={[
                             { value: "Hot", label: "Hot" },
                             { value: "Cold", label: "Cold" },
-                            { value: "Negative", label: "Negative" },
-                            { value: "Lead", label: "Lead" }
+                            { value: "Negative", label: "Negative" }
+                            
                         ]}
                         selectedValues={filterLeadStatus}
                         onChange={setFilterLeadStatus}

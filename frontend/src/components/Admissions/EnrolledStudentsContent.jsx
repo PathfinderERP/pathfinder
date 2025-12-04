@@ -367,7 +367,7 @@ const EnrolledStudentsContent = () => {
                                 <th className="p-4 font-medium">Course</th>
                                 <th className="p-4 font-medium">Centre</th>
                                 <th className="p-4 font-medium">Session</th>
-                                <th className="p-4 font-medium">Lead Status</th>
+                                {/* <th className="p-4 font-medium">Lead Status</th> */}
                                 <th className="p-4 font-medium">Total Fees</th>
                                 <th className="p-4 font-medium">Payment Status</th>
                                 <th className="p-4 font-medium">Status</th>
@@ -420,11 +420,11 @@ const EnrolledStudentsContent = () => {
                                             <td className="p-4 text-gray-300">{admission.course?.courseName || "N/A"}</td>
                                             <td className="p-4 text-gray-300">{centre}</td>
                                             <td className="p-4 text-gray-300">{admission.academicSession}</td>
-                                            <td className="p-4">
+                                            {/* <td className="p-4">
                                                 <span className={`font-medium ${getLeadStatusColor(leadStatus)}`}>
                                                     {leadStatus}
                                                 </span>
-                                            </td>
+                                            </td> */}
                                             <td className="p-4 text-white font-semibold">₹{admission.totalFees?.toLocaleString()}</td>
                                             <td className="p-4">
                                                 <span className={`px-3 py-1 rounded-full text-xs font-bold ${getPaymentStatusColor(admission.paymentStatus)}`}>

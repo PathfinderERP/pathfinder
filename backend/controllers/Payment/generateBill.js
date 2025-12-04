@@ -1,5 +1,6 @@
 import Payment from "../../models/Payment/Payment.js";
 import Admission from "../../models/Admission/Admission.js";
+import CentreSchema from "../../models/Master_data/Centre.js";
 
 
 // Generate a unique sequential bill ID starting with PATH
@@ -45,6 +46,8 @@ export const generateBill = async (req, res) => {
         const { admissionId, installmentNumber } = req.params;
         const installmentNum = parseInt(installmentNumber);
 
+        console.log(`🧾 Generating bill for Admission: ${admissionId}, Installment: ${installmentNum}`);
+
         // Find the admission
         const admission = await Admission.findById(admissionId)
             .populate('student')
@@ -54,7 +57,29 @@ export const generateBill = async (req, res) => {
             .populate('class');
 
         if (!admission) {
+            console.error(`❌ Admission not found: ${admissionId}`);
             return res.status(404).json({ message: "Admission not found" });
+        }
+
+        // Fetch centre information (Try exact match first, then case-insensitive)
+        let centre = await CentreSchema.findOne({ centreName: admission.centre });
+        
+        if (!centre) {
+            // Try case-insensitive search
+            centre = await CentreSchema.findOne({ 
+                centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } 
+            });
+        }
+
+        if (!centre) {
+            console.warn(`⚠️ Centre not found: ${admission.centre}. Using default centre info.`);
+            // Fallback to default centre info instead of failing
+            centre = {
+                centreName: admission.centre,
+                address: '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
+                phoneNumber: '033 2455-1840 / 2454-4817 / 4668',
+                enterGstNo: 'N/A'
+            };
         }
 
         let installment;
@@ -81,26 +106,55 @@ export const generateBill = async (req, res) => {
             );
 
             if (!installment) {
+                console.error(`❌ Installment #${installmentNum} not found in admission`);
                 return res.status(404).json({ message: "Installment not found" });
             }
 
             if (installment.status !== "PAID") {
+                console.error(`❌ Installment #${installmentNum} is not PAID. Status: ${installment.status}`);
                 return res.status(400).json({ message: "Cannot generate bill for unpaid installment" });
             }
         }
 
-        // Check if bill already exists for this payment
+        // Check if payment record exists
+        console.log(`🔍 Looking for payment record: Admission ${admissionId}, Installment ${installmentNum}`);
         let payment = await Payment.findOne({
             admission: admissionId,
             installmentNumber: installmentNum
         });
 
+        // If payment record is missing but installment is PAID, create it (Self-healing)
         if (!payment) {
-            return res.status(404).json({
-                message: isDownPayment
-                    ? "Down payment record not found. Please contact administration."
-                    : "Payment record not found. Please record the payment first."
+            console.warn(`⚠️ Payment record missing for PAID installment. Creating one now...`);
+            
+            // Calculate tax amounts
+            const paidAmount = installment.paidAmount;
+            const baseAmount = paidAmount / 1.18;
+            const cgst = baseAmount * 0.09;
+            const sgst = baseAmount * 0.09;
+            const courseFee = baseAmount;
+            const totalAmount = paidAmount;
+
+            payment = new Payment({
+                admission: admissionId,
+                installmentNumber: installmentNum,
+                amount: installment.amount,
+                paidAmount: paidAmount,
+                dueDate: installment.dueDate,
+                paidDate: installment.paidDate || new Date(),
+                status: "PAID",
+                paymentMethod: installment.paymentMethod || "CASH",
+                transactionId: installment.transactionId,
+                remarks: installment.remarks,
+                recordedBy: req.user?.id, // Might be undefined if not authenticated, but that's okay for recovery
+                cgst: parseFloat(cgst.toFixed(2)),
+                sgst: parseFloat(sgst.toFixed(2)),
+                courseFee: parseFloat(courseFee.toFixed(2)),
+                totalAmount: parseFloat(totalAmount.toFixed(2))
             });
+
+            await payment.save();
+            console.log(`✅ Created missing payment record: ${payment._id}`);
         }
 
         // If payment exists but doesn't have a bill ID, generate one
@@ -125,18 +179,24 @@ export const generateBill = async (req, res) => {
             billId: payment.billId,
             billDate: payment.paidDate || new Date(),
             gstNumber: generateGSTNumber(), // Add generated GST number
+            centre: {
+                name: centre.centreName,
+                address: centre.address || 'N/A',
+                phoneNumber: centre.phoneNumber || 'N/A',
+                gstNumber: centre.enterGstNo || 'N/A'
+            },
             student: {
                 id: admission.student._id,
-                name: admission.student.name,
+                name: admission.student.studentsDetails?.[0]?.studentName || 'N/A',
                 admissionNumber: admission.admissionNumber,
-                phoneNumber: admission.student.phoneNumber,
-                email: admission.student.email
+                phoneNumber: admission.student.studentsDetails?.[0]?.mobileNum || 'N/A',
+                email: admission.student.studentsDetails?.[0]?.studentEmail || 'N/A'
             },
             course: {
                 name: admission.course?.courseName || 'N/A',
                 department: admission.department?.departmentName || 'N/A',
-                examTag: admission.examTag?.examTagName || 'N/A',
-                class: admission.class?.className || 'N/A',
+                examTag: admission.examTag?.name || 'N/A',
+                class: admission.class?.name || 'N/A',
                 session: admission.academicSession || 'N/A'
             },
             payment: {
@@ -188,21 +248,33 @@ export const getBillById = async (req, res) => {
 
         const admission = payment.admission;
 
+        // Fetch centre information
+        const centre = await CentreSchema.findOne({ centreName: admission.centre });
+        if (!centre) {
+            return res.status(404).json({ message: "Centre information not found" });
+        }
+
         const billData = {
             billId: payment.billId,
             billDate: payment.paidDate || new Date(),
+            centre: {
+                name: centre.centreName,
+                address: centre.address || 'N/A',
+                phoneNumber: centre.phoneNumber || 'N/A',
+                gstNumber: centre.enterGstNo || 'N/A'
+            },
             student: {
                 id: admission.student._id,
-                name: admission.student.name,
+                name: admission.student.studentsDetails?.[0]?.studentName || 'N/A',
                 admissionNumber: admission.admissionNumber,
-                phoneNumber: admission.student.phoneNumber,
-                email: admission.student.email
+                phoneNumber: admission.student.studentsDetails?.[0]?.mobileNum || 'N/A',
+                email: admission.student.studentsDetails?.[0]?.studentEmail || 'N/A'
             },
             course: {
                 name: admission.course?.courseName || 'N/A',
                 department: admission.department?.departmentName || 'N/A',
-                examTag: admission.examTag?.examTagName || 'N/A',
-                class: admission.class?.className || 'N/A',
+                examTag: admission.examTag?.name || 'N/A',
+                class: admission.class?.name || 'N/A',
                 session: admission.academicSession || 'N/A'
             },
             payment: {

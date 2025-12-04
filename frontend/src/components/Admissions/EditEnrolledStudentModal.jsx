@@ -54,7 +54,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate }) => {
     const fetchCentres = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/centre/getAllCentre`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/centre/`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -71,7 +71,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate }) => {
     const fetchExamTags = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/examTag/getAllExamTag`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/examTag/`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
