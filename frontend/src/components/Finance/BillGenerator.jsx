@@ -303,19 +303,19 @@ const BillGenerator = ({ admission, installment, onClose }) => {
 
             // Col 1
             doc.rect(margin, yPos, colWidth, valueBoxHeight);
-            doc.text((billData.amounts?.courseFee || 0).toFixed(2) + ' Rs.', margin + colWidth / 2, yPos + 12, { align: 'center' });
+            doc.text('Rs. ' + (billData.amounts?.courseFee || 0).toFixed(2), margin + colWidth / 2, yPos + 12, { align: 'center' });
 
             // Col 2
             doc.rect(margin + colWidth, yPos, colWidth, valueBoxHeight);
-            doc.text((billData.amounts?.sgst || 0).toFixed(2) + ' Rs.', margin + colWidth + colWidth / 2, yPos + 12, { align: 'center' });
+            doc.text('Rs. ' + (billData.amounts?.sgst || 0).toFixed(2), margin + colWidth + colWidth / 2, yPos + 12, { align: 'center' });
 
             // Col 3
             doc.rect(margin + 2 * colWidth, yPos, colWidth, valueBoxHeight);
-            doc.text((billData.amounts?.cgst || 0).toFixed(2) + ' Rs.', margin + 2 * colWidth + colWidth / 2, yPos + 12, { align: 'center' });
+            doc.text('Rs. ' + (billData.amounts?.cgst || 0).toFixed(2), margin + 2 * colWidth + colWidth / 2, yPos + 12, { align: 'center' });
 
             // Col 4
             doc.rect(margin + 3 * colWidth, yPos, colWidth, valueBoxHeight);
-            doc.text((billData.amounts?.totalAmount || 0).toFixed(2) + ' Rs.', margin + 3 * colWidth + colWidth / 2, yPos + 12, { align: 'center' });
+            doc.text('Rs. ' + (billData.amounts?.totalAmount || 0).toFixed(2), margin + 3 * colWidth + colWidth / 2, yPos + 12, { align: 'center' });
 
             yPos += valueBoxHeight;
 
@@ -346,12 +346,17 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             const paymentMethod = safeStr(billData.payment?.paymentMethod).toUpperCase();
             const isCash = paymentMethod === 'CASH';
 
-            if (!isCash) {
-                doc.text('Transaction ID:', midPoint + 2, yPos + 5.5);
-                doc.setFont('helvetica', 'bold');
+            doc.text('Transaction ID:', midPoint + 2, yPos + 5.5);
+            doc.setFont('helvetica', 'bold');
+
+            if (isCash) {
+                // For Cash payments, show "/cash"
+                doc.text('/cash', midPoint + 35, yPos + 5.5);
+            } else {
+                // For other payment methods, show actual transaction ID
                 doc.text(safeStr(billData.payment?.transactionId), midPoint + 35, yPos + 5.5);
             }
-            // For Cash, we leave the box empty as requested
+
 
             yPos += rowHeight;
 
