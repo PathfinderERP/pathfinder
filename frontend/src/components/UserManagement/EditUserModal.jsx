@@ -169,7 +169,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                             <label className="block text-gray-400 text-sm mb-1">Role *</label>
                             <select name="role" required value={formData.role} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white">
                                 {roles.map(role => (
-                                    <option key={role} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</option>
+                                    <option key={role} value={role}>{role === "superAdmin" ? "SuperAdmin" : role.charAt(0).toUpperCase() + role.slice(1)}</option>
                                 ))}
                             </select>
                             {!isSuperAdmin && formData.role === "superAdmin" && (

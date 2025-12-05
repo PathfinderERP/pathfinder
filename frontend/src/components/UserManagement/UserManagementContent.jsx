@@ -13,6 +13,7 @@ const UserManagementContent = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
     const [filterRole, setFilterRole] = useState("all");
+    const [openTooltipUserId, setOpenTooltipUserId] = useState(null);
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -84,12 +85,18 @@ const UserManagementContent = () => {
 
     const getRoleBadgeColor = (role) => {
         const colors = {
+            superAdmin: "bg-red-500/20 text-red-400 border-red-500/50",
             admin: "bg-blue-500/20 text-blue-400 border-blue-500/50",
             teacher: "bg-green-500/20 text-green-400 border-green-500/50",
             telecaller: "bg-purple-500/20 text-purple-400 border-purple-500/50",
             counsellor: "bg-orange-500/20 text-orange-400 border-orange-500/50",
         };
         return colors[role] || "bg-gray-500/20 text-gray-400 border-gray-500/50";
+    };
+
+    const getRoleDisplayName = (role) => {
+        if (role === "superAdmin") return "SuperAdmin";
+        return role.charAt(0).toUpperCase() + role.slice(1);
     };
 
     return (
@@ -148,11 +155,12 @@ const UserManagementContent = () => {
                                     <div>
                                         <h3 className="text-lg font-bold text-white">{user.name}</h3>
                                         <span className={`inline-block px-2 py-1 text-xs font-semibold rounded border ${getRoleBadgeColor(user.role)}`}>
-                                            {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                                            {getRoleDisplayName(user.role)}
                                         </span>
                                     </div>
                                 </div>
-                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {/* Buttons - Always visible on mobile, hover on desktop */}
+                                <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                     <button
                                         onClick={() => handleEdit(user)}
                                         className="p-2 bg-gray-800 text-yellow-400 rounded hover:bg-gray-700"
@@ -202,27 +210,12 @@ const UserManagementContent = () => {
                                         ))}
                                         {user.permissions.length > 3 && (
                                             <div className="relative group">
-                                                <span className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded cursor-help">
+                                                <span
+                                                    className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded cursor-pointer"
+                                                    onClick={() => setOpenTooltipUserId(openTooltipUserId === user._id ? null : user._id)}
+                                                >
                                                     +{user.permissions.length - 3} more
                                                 </span>
-                                                {/* Tooltip */}
-                                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-50">
-                                                    <div className="bg-gray-900 border border-cyan-500/50 rounded-lg p-3 shadow-xl min-w-[200px] max-w-[300px]">
-                                                        <p className="text-xs text-cyan-400 font-semibold mb-2">All Permissions ({user.permissions.length})</p>
-                                                        <div className="space-y-1">
-                                                            {user.permissions.map((perm, idx) => (
-                                                                <div key={idx} className="text-xs text-gray-300 flex items-center gap-2">
-                                                                    <span className="text-cyan-500">•</span>
-                                                                    {perm}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                    {/* Arrow */}
-                                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
-                                                        <div className="border-8 border-transparent border-t-cyan-500/50"></div>
-                                                    </div>
-                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -232,6 +225,39 @@ const UserManagementContent = () => {
                     ))
                 )}
             </div>
+
+            {/* Permissions Modal - Centered overlay */}
+            {openTooltipUserId && (
+                <div
+                    className="fixed inset-0 flex items-center justify-center z-50 bg-black/50"
+                    onClick={() => setOpenTooltipUserId(null)}
+                >
+                    <div
+                        className="bg-gray-900 border border-cyan-500/50 rounded-lg p-4 shadow-2xl w-[90%] max-w-[400px] m-4"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex justify-between items-center mb-3">
+                            <p className="text-sm font-bold text-cyan-400">
+                                All Permissions ({users.find(u => u._id === openTooltipUserId)?.permissions.length})
+                            </p>
+                            <button
+                                onClick={() => setOpenTooltipUserId(null)}
+                                className="text-gray-400 hover:text-white text-lg font-bold"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
+                            {users.find(u => u._id === openTooltipUserId)?.permissions.map((perm, idx) => (
+                                <div key={idx} className="text-sm text-gray-300 flex items-center gap-2 bg-gray-800/50 p-2 rounded">
+                                    <span className="text-cyan-500">•</span>
+                                    <span className="break-words">{perm}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {showAddModal && (
                 <AddUserModal

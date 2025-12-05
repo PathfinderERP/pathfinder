@@ -32,8 +32,8 @@ export const getAllTeachersBySuperAdmin = async (req, res) => {
 
 export const getAllUsersBySuperAdmin = async (req, res) => {
   try {
-    // Fetch all users except superAdmin, populate centre details
-    const users = await User.find({ role: { $ne: "superAdmin" } }).populate("centre", "centreName enterCode");
+    // Fetch ALL users including superAdmins, populate centre details
+    const users = await User.find({}).populate("centre", "centreName enterCode");
 
     res.status(200).json({
       message: "List of all users",

@@ -35,7 +35,8 @@ const AddUserModal = ({ onClose, onSuccess }) => {
         "Marketing & CRM",
         "Franchise Mgmt",
         "Master Data",
-        "Course Management"
+        "Course Management",
+        "User Management"
     ];
 
     useEffect(() => {
@@ -70,6 +71,16 @@ const AddUserModal = ({ onClose, onSuccess }) => {
             ? formData.permissions.filter(p => p !== permission)
             : [...formData.permissions, permission];
         setFormData({ ...formData, permissions: updatedPermissions });
+    };
+
+    // Quick fill all permissions for SuperAdmin
+    const handleQuickFillSuperAdmin = () => {
+        setFormData({
+            ...formData,
+            role: "superAdmin",
+            permissions: [...availablePermissions]
+        });
+        toast.success("All permissions selected for SuperAdmin!");
     };
 
     const handleSubmit = async (e) => {
@@ -114,6 +125,25 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {/* Quick Fill SuperAdmin Button */}
+                    {isSuperAdmin && (
+                        <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-red-400 font-semibold">Quick Create SuperAdmin</p>
+                                    <p className="text-xs text-gray-400 mt-1">Automatically select all permissions and set role to SuperAdmin</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleQuickFillSuperAdmin}
+                                    className="px-4 py-2 bg-red-500 text-white font-bold rounded-lg hover:bg-red-400 transition-colors"
+                                >
+                                    Quick Fill
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-gray-400 text-sm mb-1">Name *</label>
@@ -139,7 +169,7 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                             <label className="block text-gray-400 text-sm mb-1">Role *</label>
                             <select name="role" required value={formData.role} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white">
                                 {roles.map(role => (
-                                    <option key={role} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</option>
+                                    <option key={role} value={role}>{role === "superAdmin" ? "SuperAdmin" : role.charAt(0).toUpperCase() + role.slice(1)}</option>
                                 ))}
                             </select>
                         </div>
