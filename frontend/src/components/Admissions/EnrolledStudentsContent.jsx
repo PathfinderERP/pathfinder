@@ -312,8 +312,8 @@ const EnrolledStudentsContent = () => {
                         options={[
                             { value: "ACTIVE", label: "Active" },
                             { value: "INACTIVE", label: "Inactive" },
-                            { value: "COMPLETED", label: "Completed" },
-                            { value: "CANCELLED", label: "Cancelled" }
+                            { value: "COMPLETED", label: "Completed" }
+
                         ]}
                         selectedValues={filterStatus}
                         onChange={setFilterStatus}
@@ -327,7 +327,7 @@ const EnrolledStudentsContent = () => {
                         onChange={setFilterCentre}
                     />
 
-                    <MultiSelectFilter
+                    {/* <MultiSelectFilter
                         label="Lead Status"
                         placeholder="All Lead Status"
                         options={[
@@ -337,7 +337,7 @@ const EnrolledStudentsContent = () => {
                         ]}
                         selectedValues={filterLeadStatus}
                         onChange={setFilterLeadStatus}
-                    />
+                    /> */}
 
                     <button
                         onClick={handleRefresh}

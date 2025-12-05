@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaArrowLeft, FaRobot, FaLightbulb } from "react-icons/fa";
+import { FaArrowLeft } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -9,6 +9,14 @@ const StudentRegistrationForm = () => {
     const [loading, setLoading] = useState(false);
     const [centres, setCentres] = useState([]);
     const [examTags, setExamTags] = useState([]);
+
+    const indianStates = [
+        "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana",
+        "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur",
+        "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana",
+        "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands", "Chandigarh",
+        "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry"
+    ];
 
     const [formData, setFormData] = useState({
         // Student Details
@@ -55,10 +63,6 @@ const StudentRegistrationForm = () => {
         // Student Status
         status: "",
         enrolledStatus: "Not Enrolled",
-
-        // Counseling (Frontend only mostly, but useful)
-        painPoints: [],
-        careerAspiration: "",
     });
 
     const fetchCentres = async () => {
@@ -105,18 +109,8 @@ const StudentRegistrationForm = () => {
     }, []);
 
     const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        if (type === "checkbox") {
-            let updatedPoints = [...formData.painPoints];
-            if (checked) {
-                updatedPoints.push(value);
-            } else {
-                updatedPoints = updatedPoints.filter((p) => p !== value);
-            }
-            setFormData({ ...formData, painPoints: updatedPoints });
-        } else {
-            setFormData({ ...formData, [name]: value });
-        }
+        const { name, value } = e.target;
+        setFormData({ ...formData, [name]: value });
     };
 
     const handleSubmit = async (e) => {
@@ -126,6 +120,7 @@ const StudentRegistrationForm = () => {
         try {
             const token = localStorage.getItem("token");
 
+            // Construct payload based on StudentSchema structure
             const payload = {
                 studentsDetails: [
                     {
@@ -142,6 +137,7 @@ const StudentRegistrationForm = () => {
                         pincode: formData.pincode,
                         source: formData.source,
                         address: formData.address,
+                        // Nested schemas inside StudentsDetailsSchema
                         guardians: [
                             {
                                 guardianName: formData.guardianName,
@@ -166,6 +162,7 @@ const StudentRegistrationForm = () => {
                         ]
                     }
                 ],
+                // Root level schemas in StudentSchema
                 guardians: [
                     {
                         guardianName: formData.guardianName,
@@ -204,9 +201,7 @@ const StudentRegistrationForm = () => {
                 ]
             };
 
-            // Log the payload being sent for debugging
-            console.log("📤 Sending student registration payload:");
-            console.log(JSON.stringify(payload, null, 2));
+            console.log("📤 Sending student registration payload:", JSON.stringify(payload, null, 2));
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/normalAdmin/createStudent`, {
                 method: "POST",
@@ -218,37 +213,19 @@ const StudentRegistrationForm = () => {
             });
 
             const data = await response.json();
-            
-            // Log the full response for debugging
-            console.log("Response status:", response.status);
-            console.log("Response data:", data);
-            
+
             if (!response.ok) {
-                // Log detailed error information
-                console.error("❌ Student Registration Failed!");
-                console.error("Status:", response.status);
-                console.error("Error Message:", data.message);
-                if (data.errors) {
-                    console.error("Validation Errors:", data.errors);
-                }
-                if (data.details) {
-                    console.error("Error Details:", data.details);
-                }
-                if (data.error) {
-                    console.error("Server Error:", data.error);
-                }
-                
-                // Show user-friendly error
+                console.error("❌ Student Registration Failed!", data);
                 const errorMsg = data.details || data.message || "Failed to register student";
                 toast.error(errorMsg);
             } else {
                 console.log("✅ Student registered successfully!");
                 toast.success("Student registered successfully!");
-                // navigate("/admissions"); 
+                // Optional: Reset form or navigate
+                // navigate("/admissions");
             }
         } catch (err) {
-            console.error("❌ Network or Server Error:");
-            console.error(err);
+            console.error("❌ Network or Server Error:", err);
             toast.error("Server error. Please try again.");
         }
         setLoading(false);
@@ -260,21 +237,21 @@ const StudentRegistrationForm = () => {
 
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-white">Registration & Counseling</h2>
+                <h2 className="text-2xl font-bold text-white">Student Registration</h2>
                 <button
                     onClick={() => navigate("/admissions")}
-                    className="px-4 py-2 bg-[#1a1f24] text-gray-300 rounded-lg border border-gray-700 hover:bg-gray-800 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-[#1a1f24] text-gray-300 rounded-lg border border-gray-700 hover:bg-gray-800 transition-colors"
                 >
-                    Back to Leads
+                    <FaArrowLeft /> Back to Leads
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Column: Registration Form */}
-                <div className="lg:col-span-2 bg-[#1a1f24] p-6 rounded-xl border border-gray-800">
+            <div className="grid grid-cols-1 gap-6">
+                {/* Registration Form */}
+                <div className="bg-[#1a1f24] p-6 rounded-xl border border-gray-800">
                     <div className="flex items-center gap-2 mb-6 border-b border-gray-800 pb-4">
                         <span className="text-xl">📝</span>
-                        <h3 className="text-xl font-bold text-white">Student Registration Form</h3>
+                        <h3 className="text-xl font-bold text-white">Registration Form</h3>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
@@ -282,7 +259,7 @@ const StudentRegistrationForm = () => {
                         {/* Student Details Section */}
                         <div>
                             <h4 className="text-lg font-semibold text-cyan-400 mb-3">Student Details</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                                 <input type="text" name="studentName" required value={formData.studentName} onChange={handleChange} placeholder="Student Name *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="date" name="dateOfBirth" required value={formData.dateOfBirth} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <select name="gender" required value={formData.gender} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
@@ -298,27 +275,32 @@ const StudentRegistrationForm = () => {
                                     ))}
                                 </select>
                                 <input type="text" name="board" required value={formData.board} onChange={handleChange} placeholder="Board *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <input type="text" name="state" required value={formData.state} onChange={handleChange} placeholder="State *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <select name="state" required value={formData.state} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
+                                    <option value="">Select State *</option>
+                                    {indianStates.map((state) => (
+                                        <option key={state} value={state}>{state}</option>
+                                    ))}
+                                </select>
                                 <input type="email" name="studentEmail" required value={formData.studentEmail} onChange={handleChange} placeholder="Student Email *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <input type="text" name="mobileNum" required value={formData.mobileNum} onChange={handleChange} placeholder="Mobile Number *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <input type="text" name="whatsappNumber" required value={formData.whatsappNumber} onChange={handleChange} placeholder="WhatsApp Number *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <input type="text" name="mobileNum" required pattern="[0-9]{10}" value={formData.mobileNum} onChange={handleChange} placeholder="Mobile Number (10 digits) *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <input type="text" name="whatsappNumber" required pattern="[0-9]{10}" value={formData.whatsappNumber} onChange={handleChange} placeholder="WhatsApp Number (10 digits) *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="schoolName" required value={formData.schoolName} onChange={handleChange} placeholder="School Name *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="pincode" required value={formData.pincode} onChange={handleChange} placeholder="Pincode *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <input type="text" name="source" required value={formData.source} onChange={handleChange} placeholder="Source *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <textarea name="address" required value={formData.address} onChange={handleChange} placeholder="Address *" rows="2" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full md:col-span-2 resize-none"></textarea>
+                                <input type="text" name="source" value={formData.source} onChange={handleChange} placeholder="Source" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <textarea name="address" required value={formData.address} onChange={handleChange} placeholder="Address *" rows="2" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full md:col-span-2 lg:col-span-3 resize-none"></textarea>
                             </div>
                         </div>
 
                         {/* Guardian Details Section */}
                         <div>
                             <h4 className="text-lg font-semibold text-cyan-400 mb-3">Guardian Details</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <input type="text" name="guardianName" required value={formData.guardianName} onChange={handleChange} placeholder="Guardian Name *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <input type="text" name="qualification" required value={formData.qualification} onChange={handleChange} placeholder="Qualification *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <input type="email" name="guardianEmail" required value={formData.guardianEmail} onChange={handleChange} placeholder="Guardian Email *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <input type="text" name="guardianMobile" required value={formData.guardianMobile} onChange={handleChange} placeholder="Guardian Mobile *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <input type="text" name="occupation" required value={formData.occupation} onChange={handleChange} placeholder="Occupation *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <input type="text" name="annualIncome" required value={formData.annualIncome} onChange={handleChange} placeholder="Annual Income *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                <input type="text" name="guardianName" value={formData.guardianName} onChange={handleChange} placeholder="Guardian Name" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <input type="text" name="qualification" value={formData.qualification} onChange={handleChange} placeholder="Qualification" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <input type="email" name="guardianEmail" value={formData.guardianEmail} onChange={handleChange} placeholder="Guardian Email" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <input type="text" name="guardianMobile" value={formData.guardianMobile} onChange={handleChange} placeholder="Guardian Mobile" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <input type="text" name="occupation" value={formData.occupation} onChange={handleChange} placeholder="Occupation" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <input type="text" name="annualIncome" value={formData.annualIncome} onChange={handleChange} placeholder="Annual Income" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="organizationName" value={formData.organizationName} onChange={handleChange} placeholder="Organization Name" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="designation" value={formData.designation} onChange={handleChange} placeholder="Designation" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="officeAddress" value={formData.officeAddress} onChange={handleChange} placeholder="Office Address" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
@@ -328,7 +310,7 @@ const StudentRegistrationForm = () => {
                         {/* Exam Details Section */}
                         <div>
                             <h4 className="text-lg font-semibold text-cyan-400 mb-3">Exam Details</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                                 <input type="text" name="examName" required value={formData.examName} onChange={handleChange} placeholder="Exam Name *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <select name="class" required value={formData.class} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
                                     <option value="">Select Class *</option>
@@ -347,16 +329,16 @@ const StudentRegistrationForm = () => {
                         {/* Course & Section Details */}
                         <div>
                             <h4 className="text-lg font-semibold text-cyan-400 mb-3">Course & Section</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                                 <input type="text" name="sectionType" value={formData.sectionType} onChange={handleChange} placeholder="Section Type" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <input type="text" name="session" required value={formData.session} onChange={handleChange} placeholder="Session *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <select name="examTag" required value={formData.examTag} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
-                                    <option value="">Select Exam Tag *</option>
+                                <input type="text" name="session" value={formData.session} onChange={handleChange} placeholder="Session" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <select name="examTag" value={formData.examTag} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
+                                    <option value="">Select Exam Tag</option>
                                     {examTags.map((tag) => (
                                         <option key={tag._id} value={tag.name}>{tag.name}</option>
                                     ))}
                                 </select>
-                                <input type="text" name="targetExams" required value={formData.targetExams} onChange={handleChange} placeholder="Target Exams *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <input type="text" name="targetExams" value={formData.targetExams} onChange={handleChange} placeholder="Target Exams" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                             </div>
                         </div>
 
@@ -370,7 +352,7 @@ const StudentRegistrationForm = () => {
                                     <option value="Cold">Cold Lead</option>
                                     <option value="Negative">Negative</option>
                                 </select>
-                                <select name="enrolledStatus" value={formData.enrolledStatus} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
+                                <select name="enrolledStatus" required value={formData.enrolledStatus} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
                                     <option value="Not Enrolled">Not Enrolled</option>
                                     <option value="Enrolled">Enrolled</option>
                                 </select>
@@ -385,65 +367,6 @@ const StudentRegistrationForm = () => {
                             {loading ? "Registering..." : "Register Student"}
                         </button>
                     </form>
-                </div>
-
-                {/* Right Column: Counseling */}
-                <div className="space-y-6">
-                    <div className="bg-[#1a1f24] p-6 rounded-xl border border-gray-800">
-                        <div className="flex items-center gap-2 mb-4 border-b border-gray-800 pb-3">
-                            <span className="text-xl text-orange-500">🎯</span>
-                            <h3 className="text-lg font-bold text-white">Counseling Notes</h3>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-2">Pain Points Discovered</label>
-                                <div className="space-y-2">
-                                    {["Weak in specific subjects", "Time management issues", "Lack of proper guidance", "Previous coaching dissatisfaction", "Exam anxiety/pressure", "Poor study habits", "Need personalized attention", "Career confusion"].map((point) => (
-                                        <label key={point} className="flex items-center gap-2 cursor-pointer group">
-                                            <input
-                                                type="checkbox"
-                                                name="painPoints"
-                                                value={point}
-                                                checked={formData.painPoints.includes(point)}
-                                                onChange={handleChange}
-                                                className="w-4 h-4 rounded border-gray-600 bg-[#131619] text-cyan-500 focus:ring-offset-[#1a1f24] focus:ring-cyan-500"
-                                            />
-                                            <span className="text-sm text-gray-400 group-hover:text-white transition-colors">{point}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-2">Career Aspiration</label>
-                                <select
-                                    name="careerAspiration"
-                                    value={formData.careerAspiration}
-                                    onChange={handleChange}
-                                    className="w-full bg-[#131619] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500"
-                                >
-                                    <option value="">Select aspiration</option>
-                                    <option value="Engineering">Engineering (IIT/NIT)</option>
-                                    <option value="Medical">Medical (NEET)</option>
-                                    <option value="Research">Research</option>
-                                    <option value="Civil Services">Civil Services</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-[#1a1f24] p-6 rounded-xl border border-gray-800 border-l-4 border-l-cyan-500">
-                        <div className="flex items-center gap-2 mb-3">
-                            <FaRobot className="text-cyan-400" />
-                            <h3 className="text-lg font-bold text-white">AI Recommendation</h3>
-                        </div>
-                        <div className="text-sm text-gray-400 space-y-2">
-                            <p>Based on profile:</p>
-                            <p className="text-white font-medium">Recommended batch: <span className="text-cyan-400">Target JEE 2026 (Batch B)</span></p>
-                            <p className="text-white font-medium">Suggested faculty: <span className="text-cyan-400">Dr. Rajesh (Physics), Prof. Sumit (Chemistry)</span></p>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

@@ -235,31 +235,31 @@ const CourseContent = () => {
     };
 
     return (
-        <div className="flex-1 bg-[#131619] p-6 overflow-y-auto text-white">
+        <div className="flex-1 bg-[#131619] p-3 sm:p-6 overflow-y-auto text-white">
             <ToastContainer position="top-right" theme="dark" />
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-cyan-400">Course Master Data</h2>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 sm:mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-cyan-400">Course Master Data</h2>
                 <button
                     onClick={() => openModal()}
-                    className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-colors"
+                    className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base w-full sm:w-auto justify-center"
                 >
                     <FaPlus /> Add Course
                 </button>
             </div>
 
             {/* Filter Section */}
-            <div className="bg-[#1a1f24] p-4 rounded-lg border border-gray-800 mb-4">
+            <div className="bg-[#1a1f24] p-3 sm:p-4 rounded-lg border border-gray-800 mb-4">
                 <div className="flex items-center gap-2 mb-3">
-                    <FaFilter className="text-cyan-400" />
-                    <h3 className="text-lg font-semibold text-white">Filters</h3>
+                    <FaFilter className="text-cyan-400 text-sm sm:text-base" />
+                    <h3 className="text-base sm:text-lg font-semibold text-white">Filters</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
                     <div>
-                        <label className="block text-gray-400 mb-1 text-sm">Mode</label>
+                        <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Mode</label>
                         <select
                             value={filters.mode}
                             onChange={(e) => handleFilterChange('mode', e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-cyan-500"
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-xs sm:text-sm focus:outline-none focus:border-cyan-500"
                         >
                             <option value="">All Modes</option>
                             <option value="ONLINE">ONLINE</option>
@@ -267,11 +267,11 @@ const CourseContent = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-gray-400 mb-1 text-sm">Course Type</label>
+                        <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Course Type</label>
                         <select
                             value={filters.courseType}
                             onChange={(e) => handleFilterChange('courseType', e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-cyan-500"
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-xs sm:text-sm focus:outline-none focus:border-cyan-500"
                         >
                             <option value="">All Types</option>
                             <option value="INSTATION">INSTATION</option>
@@ -279,22 +279,22 @@ const CourseContent = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-gray-400 mb-1 text-sm">Class</label>
+                        <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Class</label>
                         <select
                             value={filters.class}
                             onChange={(e) => handleFilterChange('class', e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-cyan-500"
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-xs sm:text-sm focus:outline-none focus:border-cyan-500"
                         >
                             <option value="">All Classes</option>
                             {classes.map(cls => <option key={cls._id} value={cls._id}>{cls.name}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-gray-400 mb-1 text-sm">Exam Tag</label>
+                        <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Exam Tag</label>
                         <select
                             value={filters.examTag}
                             onChange={(e) => handleFilterChange('examTag', e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-cyan-500"
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-xs sm:text-sm focus:outline-none focus:border-cyan-500"
                         >
                             <option value="">All Exam Tags</option>
                             {examTags.map(tag => <option key={tag._id} value={tag._id}>{tag.name}</option>)}
@@ -304,14 +304,15 @@ const CourseContent = () => {
                 <div className="mt-3 flex justify-end">
                     <button
                         onClick={clearFilters}
-                        className="text-sm text-cyan-400 hover:text-cyan-300"
+                        className="text-xs sm:text-sm text-cyan-400 hover:text-cyan-300"
                     >
                         Clear Filters
                     </button>
                 </div>
             </div>
 
-            <div className="bg-[#1a1f24] rounded-lg border border-gray-800 overflow-hidden">
+            {/* Desktop Table View - Hidden on Mobile */}
+            <div className="hidden lg:block bg-[#1a1f24] rounded-lg border border-gray-800 overflow-hidden">
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-gray-800 text-gray-300">
@@ -378,6 +379,79 @@ const CourseContent = () => {
                         )}
                     </tbody>
                 </table>
+            </div>
+
+            {/* Mobile Card View - Shown on Mobile/Tablet */}
+            <div className="lg:hidden space-y-3">
+                {loading ? (
+                    <div className="bg-[#1a1f24] p-4 rounded-lg border border-gray-800 text-center text-gray-500 text-sm">
+                        Loading...
+                    </div>
+                ) : filteredCourses.length === 0 ? (
+                    <div className="bg-[#1a1f24] p-4 rounded-lg border border-gray-800 text-center text-gray-500 text-sm">
+                        No courses found
+                    </div>
+                ) : (
+                    filteredCourses.map((course) => (
+                        <div key={course._id} className="bg-[#1a1f24] p-3 sm:p-4 rounded-lg border border-gray-800 hover:border-cyan-500/50 transition-all">
+                            <div className="flex justify-between items-start mb-3">
+                                <div className="flex-1">
+                                    <h3 className="text-sm sm:text-base font-bold text-white mb-1">{course.courseName}</h3>
+                                    <p className="text-xs text-gray-400">{course.department?.departmentName || "-"}</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => openDetailModal(course)}
+                                        className="text-cyan-400 hover:text-cyan-300 p-2"
+                                        title="View"
+                                    >
+                                        <FaEye size={14} />
+                                    </button>
+                                    <button
+                                        onClick={() => openModal(course)}
+                                        className="text-blue-400 hover:text-blue-300 p-2"
+                                        title="Edit"
+                                    >
+                                        <FaEdit size={14} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(course._id)}
+                                        className="text-red-400 hover:text-red-300 p-2"
+                                        title="Delete"
+                                    >
+                                        <FaTrash size={14} />
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                    <span className="text-gray-500">Class:</span>
+                                    <p className="text-gray-300">{course.class?.name || "-"}</p>
+                                </div>
+                                <div>
+                                    <span className="text-gray-500">Exam Tag:</span>
+                                    <p className="text-gray-300">{course.examTag?.name || "-"}</p>
+                                </div>
+                                <div>
+                                    <span className="text-gray-500">Mode:</span>
+                                    <p>
+                                        <span className={`px-2 py-0.5 rounded text-xs ${course.mode === 'ONLINE' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'}`}>
+                                            {course.mode}
+                                        </span>
+                                    </p>
+                                </div>
+                                <div>
+                                    <span className="text-gray-500">Type:</span>
+                                    <p>
+                                        <span className={`px-2 py-0.5 rounded text-xs ${course.courseType === 'INSTATION' ? 'bg-purple-500/20 text-purple-400' : 'bg-orange-500/20 text-orange-400'}`}>
+                                            {course.courseType}
+                                        </span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                )}
             </div>
 
             {/* Edit/Create Modal */}

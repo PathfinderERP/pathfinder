@@ -254,7 +254,7 @@ const AdmissionsContent = () => {
 
             {/* Tabs */}
             <div className="flex border-b border-gray-800 mb-6">
-                {["All Leads (8)", "Today's Follow-ups (41)", "Walk-ins", "Admissions", "Telecalling"].map((tab, index) => (
+                {["All Leads (8)", "Walk-ins", "Admissions", "Telecalling"].map((tab, index) => (
                     <button
                         key={index}
                         onClick={() => {
@@ -357,7 +357,7 @@ const AdmissionsContent = () => {
                             { value: "Hot", label: "Hot" },
                             { value: "Cold", label: "Cold" },
                             { value: "Negative", label: "Negative" }
-                            
+
                         ]}
                         selectedValues={filterLeadStatus}
                         onChange={setFilterLeadStatus}

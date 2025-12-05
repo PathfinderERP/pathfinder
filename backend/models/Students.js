@@ -2,12 +2,12 @@ import mongoose from "mongoose";
 
 
 const GuardianSchema = new mongoose.Schema({
-  guardianName: { type: String, required: true },
-  qualification: { type: String, required: true },
-  guardianEmail: { type: String, required: true },
-  guardianMobile: { type: String, required: true },
-  occupation: { type: String, required: true },
-  annualIncome: { type: String, required: true },
+  guardianName: { type: String },
+  qualification: { type: String },
+  guardianEmail: { type: String },
+  guardianMobile: { type: String },
+  occupation: { type: String },
+  annualIncome: { type: String },
   organizationName: { type: String },
   designation: { type: String },
   officeAddress: { type: String },
@@ -50,22 +50,22 @@ const StudentsDetailsSchema = new mongoose.Schema({
   source: { type: String },
   address: { type: String, required: true },
 
-  guardians: { type: [GuardianSchema], required: true },
-  examSchema: { type: [ExamSchema], required: true },
+  guardians: { type: [GuardianSchema] },
+  examSchema: { type: [ExamSchema] },
 });
 
 const StudentStatusSchema = new mongoose.Schema({
-  status:{type:String, enum:["Hot","Cold","Negative"],required:true},
-  enrolledStatus:{type:String,enum:["Enrolled","Not Enrolled"],default:"Not Enrolled",required:true},
+  status: { type: String, enum: ["Hot", "Cold", "Negative"], required: true },
+  enrolledStatus: { type: String, enum: ["Enrolled", "Not Enrolled"], default: "Not Enrolled", required: true },
 });
 
 const StudentSchema = new mongoose.Schema({
   studentsDetails: { type: [StudentsDetailsSchema], required: true },
-  guardians: { type: [GuardianSchema], required: true },
+  guardians: { type: [GuardianSchema] },
   examSchema: { type: [ExamSchema], required: true },
   section: { type: [SectionSchema], required: false },
-  sessionExamCourse: { type: [SessionExamCourseSchema], required: true },
-  studentStatus:{type:[StudentStatusSchema],required:true}
+  sessionExamCourse: { type: [SessionExamCourseSchema] },
+  studentStatus: { type: [StudentStatusSchema], required: true }
 });
 
 const Student = mongoose.model("Student", StudentSchema);

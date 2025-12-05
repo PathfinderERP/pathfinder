@@ -5,13 +5,15 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
-    employeeId:{
-        type:String,
-        required:true,
+    employeeId: {
+        type: String,
+        required: true,
+        unique: true,
     },
     email: {
         type: String,
         required: true,
+        unique: true,
     },
     mobNum: {
         type: String,
@@ -23,16 +25,21 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['teacher', 'admin', 'superAdmin'],
-        default: 'admin', 
+        enum: ['teacher', 'admin', 'superAdmin', 'telecaller', 'counsellor'],
+        default: 'admin',
         required: true,
     },
-    centre:{
-        type:String,
-        required:true,
+    centre: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'CentreSchema',
+        required: false, // SuperAdmin might not belong to a specific centre
+    },
+    permissions: {
+        type: [String], // Array of strings representing accessible modules e.g., ['admissions', 'finance']
+        default: [],
     }
 
-},{ timestamps:true });
+}, { timestamps: true });
 
 const User = mongoose.model("User", userSchema);
 export default User;

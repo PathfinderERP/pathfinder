@@ -48,6 +48,7 @@ import MasterDataDepartment from "./pages/MasterDataDepartment";
 import MasterDataCourse from "./pages/MasterDataCourse";
 import MasterDataCentre from "./pages/MasterDataCentre";
 import EnrolledStudents from "./pages/EnrolledStudents";
+import UserManagement from "./pages/UserManagement";
 
 function App() {
   return (
@@ -70,6 +71,7 @@ function App() {
         <Route path="/master-data/centre" element={<MasterDataCentre />} />
         <Route path="/course-management" element={<MasterDataCourse />} />
         <Route path="/enrolled-students" element={<EnrolledStudents />} />
+        <Route path="/user-management" element={<UserManagement />} />
       </Routes>
     </BrowserRouter>
   );

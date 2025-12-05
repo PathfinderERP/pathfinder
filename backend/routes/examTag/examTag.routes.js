@@ -4,13 +4,15 @@ import { getExamTags } from "../../controllers/examTag/getExamTags.js";
 import { getExamTagById } from "../../controllers/examTag/getExamTagById.js";
 import { updateExamTag } from "../../controllers/examTag/updateExamTag.js";
 import { deleteExamTag } from "../../controllers/examTag/deleteExamTag.js";
-import { requireNormalOrSuper } from "../../middleware/authMiddleware.js";
+import { requirePermission } from "../../middleware/permissionMiddleware.js";
+
 const router = express.Router();
 
-router.post("/create", requireNormalOrSuper, createExamTag);
-router.get("/", requireNormalOrSuper, getExamTags);
-router.get("/:id", requireNormalOrSuper, getExamTagById);
-router.put("/:id", requireNormalOrSuper,updateExamTag);
-router.delete("/:id", requireNormalOrSuper,deleteExamTag);
+// All exam tag routes require "Master Data" permission
+router.post("/create", requirePermission("Master Data"), createExamTag);
+router.get("/", requirePermission("Master Data"), getExamTags);
+router.get("/:id", requirePermission("Master Data"), getExamTagById);
+router.put("/:id", requirePermission("Master Data"), updateExamTag);
+router.delete("/:id", requirePermission("Master Data"), deleteExamTag);
 
 export default router;

@@ -21,7 +21,12 @@ const CentreContent = () => {
 
     const fetchCentres = async () => {
         try {
-            const response = await fetch(`${apiUrl}/centre`);
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${apiUrl}/centre`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
             const data = await response.json();
             if (response.ok) {
                 setCentres(data);
@@ -40,8 +45,12 @@ const CentreContent = () => {
         if (!window.confirm("Are you sure you want to delete this centre?")) return;
 
         try {
+            const token = localStorage.getItem("token");
             const response = await fetch(`${apiUrl}/centre/${id}`, {
                 method: "DELETE",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
             });
 
             if (response.ok) {
