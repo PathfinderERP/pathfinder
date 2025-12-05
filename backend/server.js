@@ -14,6 +14,7 @@ import admissionRoutes from "./routes/Admission/admission.routes.js";
 import paymentReminderRoutes from "./routes/payment/paymentReminder.routes.js";
 import paymentRoutes from "./routes/payment/payment.routes.js";
 import centreRoutes from "./routes/centre/centre.routes.js";
+import profileRoutes from "./routes/profile/profile.routes.js";
 import { startPaymentReminderCron } from "./services/cronService.js";
 
 dotenv.config();
@@ -59,6 +60,9 @@ app.use("/api/payment", paymentRoutes);
 
 //centre routes
 app.use("/api/centre", centreRoutes);
+
+//profile routes
+app.use("/api/profile", profileRoutes);
 
 app.listen(process.env.PORT, () => {
     console.log(`Server is running on port ${process.env.PORT}`);

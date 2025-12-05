@@ -1,10 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
 const Pagination = ({ currentPage, totalItems, itemsPerPage, onPageChange }) => {
     const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const [pageInput, setPageInput] = useState('');
 
     if (totalPages <= 1) return null;
+
+    const handleGoToPage = (e) => {
+        e.preventDefault();
+        const pageNum = parseInt(pageInput);
+        if (pageNum >= 1 && pageNum <= totalPages) {
+            onPageChange(pageNum);
+            setPageInput('');
+        } else {
+            alert(`Please enter a page number between 1 and ${totalPages}`);
+        }
+    };
 
     const getPageNumbers = () => {
         const pages = [];
@@ -74,7 +86,29 @@ const Pagination = ({ currentPage, totalItems, itemsPerPage, onPageChange }) => 
                         Showing <span className="font-medium text-white">{Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}</span> to <span className="font-medium text-white">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of <span className="font-medium text-white">{totalItems}</span> results
                     </p>
                 </div>
-                <div>
+                <div className="flex items-center gap-4">
+                    {/* Go to Page Input */}
+                    <form onSubmit={handleGoToPage} className="flex items-center gap-2">
+                        <label htmlFor="pageInput" className="text-sm text-gray-400">Go to page:</label>
+                        <input
+                            id="pageInput"
+                            type="number"
+                            min="1"
+                            max={totalPages}
+                            value={pageInput}
+                            onChange={(e) => setPageInput(e.target.value)}
+                            placeholder={`1-${totalPages}`}
+                            className="w-20 px-2 py-1 text-sm bg-[#131619] text-white border border-gray-700 rounded focus:outline-none focus:border-cyan-500"
+                        />
+                        <button
+                            type="submit"
+                            className="px-3 py-1 text-sm bg-cyan-500 text-black font-semibold rounded hover:bg-cyan-400 transition-colors"
+                        >
+                            Go
+                        </button>
+                    </form>
+
+                    {/* Page Number Buttons */}
                     <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
                         <button
                             onClick={() => onPageChange(Math.max(1, currentPage - 1))}
@@ -91,10 +125,10 @@ const Pagination = ({ currentPage, totalItems, itemsPerPage, onPageChange }) => 
                                 onClick={() => typeof page === 'number' ? onPageChange(page) : null}
                                 disabled={page === '...'}
                                 className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-gray-700 focus:z-20 focus:outline-offset-0 ${page === currentPage
-                                        ? 'z-10 bg-cyan-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600'
-                                        : page === '...'
-                                            ? 'text-gray-400 cursor-default'
-                                            : 'text-gray-300 hover:bg-gray-800'
+                                    ? 'z-10 bg-cyan-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600'
+                                    : page === '...'
+                                        ? 'text-gray-400 cursor-default'
+                                        : 'text-gray-300 hover:bg-gray-800'
                                     }`}
                             >
                                 {page}

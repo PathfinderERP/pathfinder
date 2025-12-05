@@ -63,11 +63,11 @@ export const generateBill = async (req, res) => {
 
         // Fetch centre information (Try exact match first, then case-insensitive)
         let centre = await CentreSchema.findOne({ centreName: admission.centre });
-        
+
         if (!centre) {
             // Try case-insensitive search
-            centre = await CentreSchema.findOne({ 
-                centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } 
+            centre = await CentreSchema.findOne({
+                centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') }
             });
         }
 
@@ -78,7 +78,9 @@ export const generateBill = async (req, res) => {
                 centreName: admission.centre,
                 address: '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
                 phoneNumber: '033 2455-1840 / 2454-4817 / 4668',
-                enterGstNo: 'N/A'
+                enterGstNo: 'N/A',
+                enterCorporateOfficeAddress: '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
+                enterCorporateOfficePhoneNumber: '033 2455-1840 / 2454-4817 / 4668'
             };
         }
 
@@ -126,7 +128,7 @@ export const generateBill = async (req, res) => {
         // If payment record is missing but installment is PAID, create it (Self-healing)
         if (!payment) {
             console.warn(`⚠️ Payment record missing for PAID installment. Creating one now...`);
-            
+
             // Calculate tax amounts
             const paidAmount = installment.paidAmount;
             const baseAmount = paidAmount / 1.18;
@@ -183,7 +185,9 @@ export const generateBill = async (req, res) => {
                 name: centre.centreName,
                 address: centre.address || 'N/A',
                 phoneNumber: centre.phoneNumber || 'N/A',
-                gstNumber: centre.enterGstNo || 'N/A'
+                gstNumber: centre.enterGstNo || 'N/A',
+                corporateAddress: centre.enterCorporateOfficeAddress || '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
+                corporatePhone: centre.enterCorporateOfficePhoneNumber || '033 2455-1840 / 2454-4817 / 4668'
             },
             student: {
                 id: admission.student._id,
@@ -261,7 +265,9 @@ export const getBillById = async (req, res) => {
                 name: centre.centreName,
                 address: centre.address || 'N/A',
                 phoneNumber: centre.phoneNumber || 'N/A',
-                gstNumber: centre.enterGstNo || 'N/A'
+                gstNumber: centre.enterGstNo || 'N/A',
+                corporateAddress: centre.enterCorporateOfficeAddress || '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
+                corporatePhone: centre.enterCorporateOfficePhoneNumber || '033 2455-1840 / 2454-4817 / 4668'
             },
             student: {
                 id: admission.student._id,

@@ -2,7 +2,7 @@ import User from "../../../models/User.js";
 
 export const getAllAdminsBySuperAdmin = async (req, res) => {
   try {
-    const admins = await User.find({ role: "admin" }).populate("centre", "centreName enterCode");
+    const admins = await User.find({ role: "admin" }).populate("centres", "centreName enterCode");
 
     res.status(200).json({
       message: "List of all admin users",
@@ -17,7 +17,7 @@ export const getAllAdminsBySuperAdmin = async (req, res) => {
 
 export const getAllTeachersBySuperAdmin = async (req, res) => {
   try {
-    const teachers = await User.find({ role: "teacher" }).populate("centre", "centreName enterCode");
+    const teachers = await User.find({ role: "teacher" }).populate("centres", "centreName enterCode");
 
     res.status(200).json({
       message: "List of all teachers users",
@@ -32,8 +32,19 @@ export const getAllTeachersBySuperAdmin = async (req, res) => {
 
 export const getAllUsersBySuperAdmin = async (req, res) => {
   try {
-    // Fetch ALL users including superAdmins, populate centre details
-    const users = await User.find({}).populate("centre", "centreName enterCode");
+    // Get the requesting user's role from the authenticated user
+    const requestingUser = req.user;
+
+    let query = {};
+
+    // If not SuperAdmin, filter to show only users with the same role
+    if (requestingUser.role !== "superAdmin") {
+      query.role = requestingUser.role;
+    }
+    // SuperAdmin sees ALL users (no filter)
+
+    // Fetch users based on query, populate centre details
+    const users = await User.find(query).populate("centres", "centreName enterCode");
 
     res.status(200).json({
       message: "List of all users",

@@ -69,11 +69,11 @@ const BillGenerator = ({ admission, installment, onClose }) => {
 
     const numberToWords = (num) => {
         if (!num) return "Zero Only";
-        
+
         const units = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
         const teens = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
         const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
-        
+
         const convertLessThanOneThousand = (n) => {
             if (n === 0) return "";
             if (n < 10) return units[n];
@@ -84,7 +84,7 @@ const BillGenerator = ({ admission, installment, onClose }) => {
 
         let str = "";
         let n = Math.floor(num);
-        
+
         if (n >= 10000000) {
             str += convertLessThanOneThousand(Math.floor(n / 10000000)) + " Crore ";
             n %= 10000000;
@@ -98,13 +98,13 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             n %= 1000;
         }
         str += convertLessThanOneThousand(n);
-        
+
         return str.trim() + " Only";
     };
 
     const createPDFDoc = () => {
         const doc = new jsPDF();
-        
+
         const drawBillPage = (copyType) => {
             const pageWidth = doc.internal.pageSize.getWidth();
             const pageHeight = doc.internal.pageSize.getHeight();
@@ -134,11 +134,14 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             doc.setTextColor(0, 0, 0);
             doc.setFont('helvetica', 'bold');
             doc.text('PATHFINDER', pageWidth / 2, yPos, { align: 'center' });
-            
-            // Centre Name
+
+            // Centre Address (instead of name)
             yPos += 5;
             doc.setFontSize(10);
-            doc.text(safeStr(billData.centre?.name), pageWidth / 2, yPos, { align: 'center' });
+            const address = safeStr(billData.centre?.address || billData.centre?.name);
+            const splitAddress = doc.splitTextToSize(address, pageWidth - 2 * margin);
+            doc.text(splitAddress, pageWidth / 2, yPos, { align: 'center' });
+            yPos += (splitAddress.length * 4);
 
             // Address below title - Dynamic from centre data
             // doc.setFontSize(8);
@@ -198,12 +201,12 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(10);
             doc.text('GSTN:', margin + 2, yPos + 5.5);
-            
+
             // Use Centre GST if available, otherwise use Bill generated GST
-            const gstToDisplay = (billData.centre?.gstNumber && billData.centre?.gstNumber !== 'N/A') 
-                ? billData.centre.gstNumber 
+            const gstToDisplay = (billData.centre?.gstNumber && billData.centre?.gstNumber !== 'N/A')
+                ? billData.centre.gstNumber
                 : billData.gstNumber;
-                
+
             doc.text(safeStr(gstToDisplay), margin + 15, yPos + 5.5);
             yPos += rowHeight;
 
@@ -300,23 +303,19 @@ const BillGenerator = ({ admission, installment, onClose }) => {
 
             // Col 1
             doc.rect(margin, yPos, colWidth, valueBoxHeight);
-            doc.text('Rs.', margin + colWidth / 2, yPos + 5, { align: 'center' });
-            doc.text((billData.amounts?.courseFee || 0).toFixed(2), margin + colWidth / 2, yPos + 15, { align: 'center' });
+            doc.text((billData.amounts?.courseFee || 0).toFixed(2) + ' Rs.', margin + colWidth / 2, yPos + 12, { align: 'center' });
 
             // Col 2
             doc.rect(margin + colWidth, yPos, colWidth, valueBoxHeight);
-            doc.text('Rs.', margin + colWidth + colWidth / 2, yPos + 5, { align: 'center' });
-            doc.text((billData.amounts?.sgst || 0).toFixed(2), margin + colWidth + colWidth / 2, yPos + 15, { align: 'center' });
+            doc.text((billData.amounts?.sgst || 0).toFixed(2) + ' Rs.', margin + colWidth + colWidth / 2, yPos + 12, { align: 'center' });
 
             // Col 3
             doc.rect(margin + 2 * colWidth, yPos, colWidth, valueBoxHeight);
-            doc.text('Rs.', margin + 2 * colWidth + colWidth / 2, yPos + 5, { align: 'center' });
-            doc.text((billData.amounts?.cgst || 0).toFixed(2), margin + 2 * colWidth + colWidth / 2, yPos + 15, { align: 'center' });
+            doc.text((billData.amounts?.cgst || 0).toFixed(2) + ' Rs.', margin + 2 * colWidth + colWidth / 2, yPos + 12, { align: 'center' });
 
             // Col 4
             doc.rect(margin + 3 * colWidth, yPos, colWidth, valueBoxHeight);
-            doc.text('Rs.', margin + 3 * colWidth + colWidth / 2, yPos + 5, { align: 'center' });
-            doc.text((billData.amounts?.totalAmount || 0).toFixed(2), margin + 3 * colWidth + colWidth / 2, yPos + 15, { align: 'center' });
+            doc.text((billData.amounts?.totalAmount || 0).toFixed(2) + ' Rs.', margin + 3 * colWidth + colWidth / 2, yPos + 12, { align: 'center' });
 
             yPos += valueBoxHeight;
 
@@ -324,12 +323,12 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             doc.rect(margin, yPos, tableWidth, rowHeight);
             doc.setFont('helvetica', 'bold');
             doc.text('Total Amount (in words):', margin + 2, yPos + 5.5);
-            
+
             // Add Amount in Words
             doc.setFont('helvetica', 'normal');
             const amountInWords = numberToWords(billData.amounts?.totalAmount || 0);
             doc.text(amountInWords, margin + 50, yPos + 5.5);
-            
+
             yPos += rowHeight;
 
             // 11. Mode of Payment | Transaction ID
@@ -343,17 +342,17 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             // Right: Transaction ID
             doc.rect(midPoint, yPos, midPoint - margin, rowHeight);
             doc.setFont('helvetica', 'normal');
-            
+
             const paymentMethod = safeStr(billData.payment?.paymentMethod).toUpperCase();
             const isCash = paymentMethod === 'CASH';
-            
+
             if (!isCash) {
                 doc.text('Transaction ID:', midPoint + 2, yPos + 5.5);
                 doc.setFont('helvetica', 'bold');
                 doc.text(safeStr(billData.payment?.transactionId), midPoint + 35, yPos + 5.5);
             }
             // For Cash, we leave the box empty as requested
-            
+
             yPos += rowHeight;
 
             // 12. Remarks
@@ -377,10 +376,11 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             const noteBoxWidth = tableWidth - signBoxWidth;
 
             doc.rect(margin, yPos, noteBoxWidth, footerHeight);
-            doc.setFontSize(8);
+            doc.setFontSize(7);
             doc.setFont('helvetica', 'bold');
-            doc.text('Note: Fees are not refundable under any circumstances and cannot be adjusted against any other name or', margin + 2, yPos + 5);
-            doc.text('course.', margin + 2, yPos + 10);
+            const noteText = 'Note: Fees are not refundable under any circumstances and cannot be adjusted against any other name or course.';
+            const wrappedNote = doc.splitTextToSize(noteText, noteBoxWidth - 4);
+            doc.text(wrappedNote, margin + 2, yPos + 5);
 
             // Right Box: Sign
             doc.rect(margin + noteBoxWidth, yPos, signBoxWidth, footerHeight);
@@ -395,15 +395,17 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             doc.setFontSize(8);
             doc.setFont('helvetica', 'normal');
             doc.rect(margin, yPos - 4, tableWidth, 6); // Border around footer text
-            doc.text('Corporate Office: 47, Kalidas Patitundi Lane, Kalighat, Kolkata700026, Ph.:033 2455-1840 /2454-4817 / 4668', pageWidth / 2, yPos, { align: 'center' });
+            const corpAddress = billData.centre?.corporateAddress || '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026';
+            const corpPhone = billData.centre?.corporatePhone || '033 2455-1840 / 2454-4817 / 4668';
+            doc.text(`Corporate Office: ${corpAddress}, Ph.:${corpPhone}`, pageWidth / 2, yPos, { align: 'center' });
         };
 
         // Generate Student Copy
         drawBillPage("STUDENT COPY");
-        
+
         // Add new page
         doc.addPage();
-        
+
         // Generate Office Copy
         drawBillPage("OFFICE COPY");
 

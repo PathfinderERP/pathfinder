@@ -10,7 +10,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
         mobNum: "",
         password: "",
         role: "admin",
-        centre: "",
+        centres: [],
         permissions: []
     });
     const [centres, setCentres] = useState([]);
@@ -42,6 +42,14 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
     useEffect(() => {
         fetchCentres();
         if (user) {
+            // Handle both new 'centres' array and legacy 'centre' field
+            let userCentres = [];
+            if (user.centres && Array.isArray(user.centres)) {
+                userCentres = user.centres.map(c => c._id || c);
+            } else if (user.centre) {
+                userCentres = [user.centre._id || user.centre];
+            }
+
             setFormData({
                 name: user.name || "",
                 employeeId: user.employeeId || "",
@@ -49,7 +57,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                 mobNum: user.mobNum || "",
                 password: "", // Don't populate password
                 role: user.role || "admin",
-                centre: user.centre?._id || "",
+                centres: userCentres,
                 permissions: user.permissions || []
             });
         }
@@ -78,6 +86,13 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
+    const handleCentreChange = (centreId) => {
+        const updatedCentres = formData.centres.includes(centreId)
+            ? formData.centres.filter(c => c !== centreId)
+            : [...formData.centres, centreId];
+        setFormData({ ...formData, centres: updatedCentres });
+    };
+
     const handlePermissionChange = (permission) => {
         const updatedPermissions = formData.permissions.includes(permission)
             ? formData.permissions.filter(p => p !== permission)
@@ -99,7 +114,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                 email: formData.email,
                 mobNum: formData.mobNum,
                 role: formData.role,
-                centre: formData.centre || null,
+                centres: formData.centres,
                 permissions: formData.permissions
             };
 
@@ -177,20 +192,23 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                             )}
                         </div>
                         <div className="md:col-span-2">
-                            <label className="block text-gray-400 text-sm mb-1">Centre {formData.role !== "superAdmin" && "*"}</label>
-                            <select
-                                name="centre"
-                                required={formData.role !== "superAdmin"}
-                                value={formData.centre}
-                                onChange={handleChange}
-                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white"
-                                disabled={formData.role === "superAdmin"}
-                            >
-                                <option value="">Select Centre</option>
+                            <label className="block text-gray-400 text-sm mb-1">Centres {formData.role !== "superAdmin" && "*"}</label>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 bg-[#131619] border border-gray-700 rounded-lg p-3 max-h-40 overflow-y-auto">
                                 {centres.map(centre => (
-                                    <option key={centre._id} value={centre._id}>{centre.centreName} ({centre.enterCode})</option>
+                                    <label key={centre._id} className="flex items-center gap-2 cursor-pointer group">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.centres.includes(centre._id)}
+                                            onChange={() => handleCentreChange(centre._id)}
+                                            disabled={formData.role === "superAdmin"}
+                                            className="w-4 h-4 rounded border-gray-600 bg-[#1a1f24] text-cyan-500 focus:ring-offset-[#1a1f24] focus:ring-cyan-500"
+                                        />
+                                        <span className={`text-sm ${formData.role === "superAdmin" ? "text-gray-600" : "text-gray-400 group-hover:text-white"} transition-colors`}>
+                                            {centre.centreName} ({centre.enterCode})
+                                        </span>
+                                    </label>
                                 ))}
-                            </select>
+                            </div>
                             {formData.role === "superAdmin" && (
                                 <p className="text-xs text-gray-500 mt-1">SuperAdmin is not assigned to any centre</p>
                             )}

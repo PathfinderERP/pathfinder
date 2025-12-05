@@ -49,6 +49,7 @@ import MasterDataCourse from "./pages/MasterDataCourse";
 import MasterDataCentre from "./pages/MasterDataCentre";
 import EnrolledStudents from "./pages/EnrolledStudents";
 import UserManagement from "./pages/UserManagement";
+import Profile from "./pages/Profile";
 
 function App() {
   return (
@@ -72,6 +73,7 @@ function App() {
         <Route path="/course-management" element={<MasterDataCourse />} />
         <Route path="/enrolled-students" element={<EnrolledStudents />} />
         <Route path="/user-management" element={<UserManagement />} />
+        <Route path="/profile" element={<Profile />} />
       </Routes>
     </BrowserRouter>
   );

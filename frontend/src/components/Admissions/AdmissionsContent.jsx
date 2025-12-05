@@ -236,9 +236,9 @@ const AdmissionsContent = () => {
             <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-white">Admissions & Sales Engine</h2>
                 <div className="flex gap-3">
-                    <button className="flex items-center gap-2 px-4 py-2 bg-[#1a1f24] text-gray-300 rounded-lg border border-gray-700 hover:bg-gray-800">
+                    {/* <button className="flex items-center gap-2 px-4 py-2 bg-[#1a1f24] text-gray-300 rounded-lg border border-gray-700 hover:bg-gray-800">
                         <FaFilter /> Filter
-                    </button>
+                    </button> */}
 
                     <button
                         onClick={() => {

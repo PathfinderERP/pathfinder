@@ -29,11 +29,10 @@ const userSchema = new mongoose.Schema({
         default: 'admin',
         required: true,
     },
-    centre: {
+    centres: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'CentreSchema',
-        required: false, // SuperAdmin might not belong to a specific centre
-    },
+    }],
     permissions: {
         type: [String], // Array of strings representing accessible modules e.g., ['admissions', 'finance']
         default: [],

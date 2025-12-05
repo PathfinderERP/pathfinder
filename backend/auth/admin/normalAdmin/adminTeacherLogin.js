@@ -6,7 +6,7 @@ export default async function adminTeacherLogin(req, res) {
     try {
         const { email, password } = req.body;
 
-        const user = await User.findOne({ email }).populate("centre", "centreName enterCode");
+        const user = await User.findOne({ email }).populate("centres", "centreName enterCode");
 
         if (!user) {
             return res.status(400).json({ message: "User does not exist" });
@@ -27,7 +27,7 @@ export default async function adminTeacherLogin(req, res) {
                 name: user.name,
                 employeeId: user.employeeId,
                 role: user.role,
-                centre: user.centre,
+                centres: user.centres,
                 permissions: user.permissions || []
             }
         });

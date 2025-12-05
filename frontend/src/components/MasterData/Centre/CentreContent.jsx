@@ -116,7 +116,7 @@ const CentreContent = () => {
                                     <h3 className="text-xl font-bold text-white">{centre.centreName}</h3>
                                     <span className="text-cyan-400 text-sm font-mono">{centre.enterCode}</span>
                                 </div>
-                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                     <button
                                         onClick={() => handleEdit(centre)}
                                         className="p-2 bg-gray-800 text-yellow-400 rounded hover:bg-gray-700"

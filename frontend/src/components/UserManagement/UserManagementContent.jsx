@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { FaPlus, FaSearch, FaEdit, FaTrash, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt } from "react-icons/fa";
+import { FaPlus, FaSearch, FaEdit, FaTrash, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaTable, FaTh, FaFileExcel } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import * as XLSX from "xlsx";
 import AddUserModal from "./AddUserModal";
 import EditUserModal from "./EditUserModal";
 
@@ -14,8 +15,15 @@ const UserManagementContent = () => {
     const [selectedUser, setSelectedUser] = useState(null);
     const [filterRole, setFilterRole] = useState("all");
     const [openTooltipUserId, setOpenTooltipUserId] = useState(null);
+    const [viewMode, setViewMode] = useState("grid"); // "grid" or "table"
 
     const apiUrl = import.meta.env.VITE_API_URL;
+
+    // Get current logged-in user's role
+    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+    const currentUserRole = currentUser.role || "";
+    const isSuperAdminOrAdmin = currentUserRole === "superAdmin" || currentUserRole === "admin";
+    const isSuperAdmin = currentUserRole === "superAdmin";
 
     useEffect(() => {
         fetchUsers();
@@ -72,6 +80,35 @@ const UserManagementContent = () => {
         setShowEditModal(true);
     };
 
+    const getCentresDisplay = (user) => {
+        if (user.centres && user.centres.length > 0) {
+            return user.centres.map(c => `${c.centreName} (${c.enterCode})`).join(", ");
+        }
+        if (user.centre) {
+            return `${user.centre.centreName} (${user.centre.enterCode})`;
+        }
+        return "N/A";
+    };
+
+    const handleExport = () => {
+        if (!isSuperAdmin) return;
+
+        const exportData = filteredUsers.map(user => ({
+            "Name": user.name,
+            "Role": getRoleDisplayName(user.role),
+            "Employee ID": user.employeeId,
+            "Email": user.email,
+            "Mobile": user.mobNum,
+            "Centres": getCentresDisplay(user),
+            "Permissions": user.permissions ? user.permissions.join(", ") : ""
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Users");
+        XLSX.writeFile(workbook, "User_List.xlsx");
+    };
+
     const filteredUsers = users.filter(user => {
         const matchesSearch =
             user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -103,14 +140,45 @@ const UserManagementContent = () => {
         <div className="flex-1 p-6 overflow-y-auto bg-[#131619]">
             <ToastContainer position="top-right" theme="dark" />
 
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
                 <h2 className="text-2xl font-bold text-white">User Management</h2>
-                <button
-                    onClick={() => setShowAddModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-semibold rounded-lg hover:bg-cyan-400 transition-colors"
-                >
-                    <FaPlus /> Add User
-                </button>
+
+                <div className="flex items-center gap-3">
+                    {/* View Toggle */}
+                    <div className="bg-[#1a1f24] p-1 rounded-lg border border-gray-800 flex">
+                        <button
+                            onClick={() => setViewMode("grid")}
+                            className={`p-2 rounded ${viewMode === "grid" ? "bg-cyan-500/20 text-cyan-400" : "text-gray-400 hover:text-white"}`}
+                            title="Grid View"
+                        >
+                            <FaTh />
+                        </button>
+                        <button
+                            onClick={() => setViewMode("table")}
+                            className={`p-2 rounded ${viewMode === "table" ? "bg-cyan-500/20 text-cyan-400" : "text-gray-400 hover:text-white"}`}
+                            title="Table View"
+                        >
+                            <FaTable />
+                        </button>
+                    </div>
+
+                    {/* Export Button - SuperAdmin Only */}
+                    {isSuperAdmin && (
+                        <button
+                            onClick={handleExport}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-600/20 text-green-400 border border-green-600/50 rounded-lg hover:bg-green-600/30 transition-colors"
+                        >
+                            <FaFileExcel /> Export
+                        </button>
+                    )}
+
+                    <button
+                        onClick={() => setShowAddModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-semibold rounded-lg hover:bg-cyan-400 transition-colors"
+                    >
+                        <FaPlus /> Add User
+                    </button>
+                </div>
             </div>
 
             <div className="bg-[#1a1f24] p-4 rounded-xl border border-gray-800 mb-6">
@@ -125,27 +193,31 @@ const UserManagementContent = () => {
                             className="w-full bg-[#131619] text-white pl-10 pr-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
                         />
                     </div>
-                    <select
-                        value={filterRole}
-                        onChange={(e) => setFilterRole(e.target.value)}
-                        className="bg-[#131619] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
-                    >
-                        <option value="all">All Roles</option>
-                        <option value="admin">Admin</option>
-                        <option value="teacher">Teacher</option>
-                        <option value="telecaller">Telecaller</option>
-                        <option value="counsellor">Counsellor</option>
-                    </select>
+                    {/* Role filter - Only show for SuperAdmin and Admin */}
+                    {isSuperAdminOrAdmin && (
+                        <select
+                            value={filterRole}
+                            onChange={(e) => setFilterRole(e.target.value)}
+                            className="bg-[#131619] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                        >
+                            <option value="all">All Roles</option>
+                            <option value="superAdmin">SuperAdmin</option>
+                            <option value="admin">Admin</option>
+                            <option value="teacher">Teacher</option>
+                            <option value="telecaller">Telecaller</option>
+                            <option value="counsellor">Counsellor</option>
+                        </select>
+                    )}
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {loading ? (
-                    <p className="text-gray-400">Loading users...</p>
-                ) : filteredUsers.length === 0 ? (
-                    <p className="text-gray-400">No users found.</p>
-                ) : (
-                    filteredUsers.map((user) => (
+            {loading ? (
+                <p className="text-gray-400">Loading users...</p>
+            ) : filteredUsers.length === 0 ? (
+                <p className="text-gray-400">No users found.</p>
+            ) : viewMode === "grid" ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredUsers.map((user) => (
                         <div key={user._id} className="bg-[#1a1f24] p-6 rounded-xl border border-gray-800 hover:border-cyan-500/50 transition-all group">
                             <div className="flex justify-between items-start mb-4">
                                 <div className="flex items-center gap-3">
@@ -159,7 +231,6 @@ const UserManagementContent = () => {
                                         </span>
                                     </div>
                                 </div>
-                                {/* Buttons - Always visible on mobile, hover on desktop */}
                                 <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                     <button
                                         onClick={() => handleEdit(user)}
@@ -191,12 +262,10 @@ const UserManagementContent = () => {
                                     <FaPhone className="text-gray-500" />
                                     <span>{user.mobNum}</span>
                                 </div>
-                                {user.centre && (
-                                    <div className="flex items-center gap-2">
-                                        <FaMapMarkerAlt className="text-gray-500" />
-                                        <span>{user.centre.centreName} ({user.centre.enterCode})</span>
-                                    </div>
-                                )}
+                                <div className="flex items-start gap-2">
+                                    <FaMapMarkerAlt className="text-gray-500 mt-1" />
+                                    <span className="break-words">{getCentresDisplay(user)}</span>
+                                </div>
                             </div>
 
                             {user.permissions && user.permissions.length > 0 && (
@@ -222,9 +291,73 @@ const UserManagementContent = () => {
                                 </div>
                             )}
                         </div>
-                    ))
-                )}
-            </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="bg-[#1a1f24] rounded-xl border border-gray-800 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-800/50 text-gray-400 text-sm uppercase">
+                                    <th className="p-4 border-b border-gray-800">Name</th>
+                                    <th className="p-4 border-b border-gray-800">Role</th>
+                                    <th className="p-4 border-b border-gray-800">Employee ID</th>
+                                    <th className="p-4 border-b border-gray-800">Contact</th>
+                                    <th className="p-4 border-b border-gray-800">Centres</th>
+                                    <th className="p-4 border-b border-gray-800 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-800">
+                                {filteredUsers.map((user) => (
+                                    <tr key={user._id} className="hover:bg-gray-800/30 transition-colors">
+                                        <td className="p-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-cyan-900 flex items-center justify-center text-cyan-400 font-bold text-xs">
+                                                    {user.name.charAt(0).toUpperCase()}
+                                                </div>
+                                                <span className="text-white font-medium">{user.name}</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-4">
+                                            <span className={`inline-block px-2 py-1 text-xs font-semibold rounded border ${getRoleBadgeColor(user.role)}`}>
+                                                {getRoleDisplayName(user.role)}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 text-gray-400 text-sm">{user.employeeId}</td>
+                                        <td className="p-4 text-gray-400 text-sm">
+                                            <div className="flex flex-col">
+                                                <span>{user.email}</span>
+                                                <span className="text-xs text-gray-500">{user.mobNum}</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-4 text-gray-400 text-sm">
+                                            <span className="text-gray-400">{getCentresDisplay(user)}</span>
+                                        </td>
+                                        <td className="p-4 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={() => handleEdit(user)}
+                                                    className="p-2 text-yellow-400 hover:bg-gray-700 rounded transition-colors"
+                                                    title="Edit"
+                                                >
+                                                    <FaEdit />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(user._id)}
+                                                    className="p-2 text-red-400 hover:bg-gray-700 rounded transition-colors"
+                                                    title="Delete"
+                                                >
+                                                    <FaTrash />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             {/* Permissions Modal - Centered overlay */}
             {openTooltipUserId && (

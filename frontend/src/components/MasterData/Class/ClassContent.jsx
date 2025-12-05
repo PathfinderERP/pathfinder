@@ -125,49 +125,51 @@ const ClassContent = () => {
             {error && <div className="bg-red-500/20 text-red-400 p-3 rounded-lg mb-4">{error}</div>}
 
             <div className="bg-[#1a1f24] rounded-lg border border-gray-800 overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="bg-gray-800 text-gray-300">
-                            <th className="p-4 border-b border-gray-700">#</th>
-                            <th className="p-4 border-b border-gray-700">Class Name</th>
-                            <th className="p-4 border-b border-gray-700 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr>
-                                <td colSpan="3" className="p-4 text-center text-gray-500">Loading...</td>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-gray-800 text-gray-300">
+                                <th className="p-4 border-b border-gray-700">#</th>
+                                <th className="p-4 border-b border-gray-700">Class Name</th>
+                                <th className="p-4 border-b border-gray-700 text-right">Actions</th>
                             </tr>
-                        ) : classes.length === 0 ? (
-                            <tr>
-                                <td colSpan="3" className="p-4 text-center text-gray-500">No classes found</td>
-                            </tr>
-                        ) : (
-                            classes.map((cls, index) => (
-                                <tr key={cls._id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
-                                    <td className="p-4 text-gray-400">{index + 1}</td>
-                                    <td className="p-4 font-medium">{cls.name}</td>
-                                    <td className="p-4 text-right">
-                                        <button
-                                            onClick={() => openModal(cls)}
-                                            className="text-blue-400 hover:text-blue-300 mr-3"
-                                            title="Edit"
-                                        >
-                                            <FaEdit />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(cls._id)}
-                                            className="text-red-400 hover:text-red-300"
-                                            title="Delete"
-                                        >
-                                            <FaTrash />
-                                        </button>
-                                    </td>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td colSpan="3" className="p-4 text-center text-gray-500">Loading...</td>
                                 </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                            ) : classes.length === 0 ? (
+                                <tr>
+                                    <td colSpan="3" className="p-4 text-center text-gray-500">No classes found</td>
+                                </tr>
+                            ) : (
+                                classes.map((cls, index) => (
+                                    <tr key={cls._id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                                        <td className="p-4 text-gray-400">{index + 1}</td>
+                                        <td className="p-4 font-medium">{cls.name}</td>
+                                        <td className="p-4 text-right">
+                                            <button
+                                                onClick={() => openModal(cls)}
+                                                className="text-blue-400 hover:text-blue-300 mr-3"
+                                                title="Edit"
+                                            >
+                                                <FaEdit />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(cls._id)}
+                                                className="text-red-400 hover:text-red-300"
+                                                title="Delete"
+                                            >
+                                                <FaTrash />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* Modal */}

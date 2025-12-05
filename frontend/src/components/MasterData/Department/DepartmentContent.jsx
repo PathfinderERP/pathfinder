@@ -126,51 +126,53 @@ const DepartmentContent = () => {
             </div>
 
             <div className="bg-[#1a1f24] rounded-lg border border-gray-800 overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="bg-gray-800 text-gray-300">
-                            <th className="p-4 border-b border-gray-700">#</th>
-                            <th className="p-4 border-b border-gray-700">Department Name</th>
-                            <th className="p-4 border-b border-gray-700">Description</th>
-                            <th className="p-4 border-b border-gray-700 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr>
-                                <td colSpan="4" className="p-4 text-center text-gray-500">Loading...</td>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-gray-800 text-gray-300">
+                                <th className="p-4 border-b border-gray-700">#</th>
+                                <th className="p-4 border-b border-gray-700">Department Name</th>
+                                <th className="p-4 border-b border-gray-700">Description</th>
+                                <th className="p-4 border-b border-gray-700 text-right">Actions</th>
                             </tr>
-                        ) : departments.length === 0 ? (
-                            <tr>
-                                <td colSpan="4" className="p-4 text-center text-gray-500">No departments found</td>
-                            </tr>
-                        ) : (
-                            departments.map((dept, index) => (
-                                <tr key={dept._id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
-                                    <td className="p-4 text-gray-400">{index + 1}</td>
-                                    <td className="p-4 font-medium">{dept.departmentName}</td>
-                                    <td className="p-4 text-gray-400">{dept.description || "-"}</td>
-                                    <td className="p-4 text-right">
-                                        <button
-                                            onClick={() => openModal(dept)}
-                                            className="text-blue-400 hover:text-blue-300 mr-3"
-                                            title="Edit"
-                                        >
-                                            <FaEdit />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(dept._id)}
-                                            className="text-red-400 hover:text-red-300"
-                                            title="Delete"
-                                        >
-                                            <FaTrash />
-                                        </button>
-                                    </td>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td colSpan="4" className="p-4 text-center text-gray-500">Loading...</td>
                                 </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                            ) : departments.length === 0 ? (
+                                <tr>
+                                    <td colSpan="4" className="p-4 text-center text-gray-500">No departments found</td>
+                                </tr>
+                            ) : (
+                                departments.map((dept, index) => (
+                                    <tr key={dept._id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                                        <td className="p-4 text-gray-400">{index + 1}</td>
+                                        <td className="p-4 font-medium">{dept.departmentName}</td>
+                                        <td className="p-4 text-gray-400">{dept.description || "-"}</td>
+                                        <td className="p-4 text-right">
+                                            <button
+                                                onClick={() => openModal(dept)}
+                                                className="text-blue-400 hover:text-blue-300 mr-3"
+                                                title="Edit"
+                                            >
+                                                <FaEdit />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(dept._id)}
+                                                className="text-red-400 hover:text-red-300"
+                                                title="Delete"
+                                            >
+                                                <FaTrash />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* Modal */}
