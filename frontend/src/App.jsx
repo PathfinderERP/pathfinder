@@ -37,6 +37,7 @@ import Dashboard from "./pages/Dashboard";
 import Admissions from "./pages/Admissions";
 import StudentRegistration from "./pages/StudentRegistration";
 import Finance from "./pages/Finance";
+import Sales from "./pages/Sales";
 import HR from "./pages/HR";
 import Academics from "./pages/Academics";
 import StudentAdmission from "./pages/StudentAdmission";
@@ -63,6 +64,7 @@ function App() {
         <Route path="/student-admission/:studentId" element={<StudentAdmission />} />
         <Route path="/admission/:studentId" element={<StudentAdmissionPage />} />
         <Route path="/finance" element={<Finance />} />
+        <Route path="/sales" element={<Sales />} />
         <Route path="/hr" element={<HR />} />
         <Route path="/academics" element={<Academics />} />
         <Route path="/master-data" element={<MasterData />} />

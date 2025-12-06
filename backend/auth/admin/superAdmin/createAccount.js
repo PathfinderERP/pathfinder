@@ -8,7 +8,7 @@ dotenv.config();
 
 export async function createAccountBySuperAdmin(req, res) {
     try {
-        const { name, employeeId, email, mobNum, password, role, centres, permissions } = req.body;
+        const { name, employeeId, email, mobNum, password, role, centres, permissions, canEditUsers, canDeleteUsers } = req.body;
 
         // Basic validation
         if (!name || !employeeId || !email || !mobNum || !password || !role) {
@@ -36,7 +36,9 @@ export async function createAccountBySuperAdmin(req, res) {
             password: hashedPassword,
             role: role || "admin",
             centres: centres || [], // Handle optional centres array
-            permissions: permissions || [] // Handle permissions
+            permissions: permissions || [], // Handle permissions
+            canEditUsers: canEditUsers || false, // Handle user edit permission
+            canDeleteUsers: canDeleteUsers || false // Handle user delete permission
         });
 
         await newUser.save();
@@ -54,7 +56,9 @@ export async function createAccountBySuperAdmin(req, res) {
                 mobNum: newUser.mobNum,
                 role: newUser.role,
                 centres: newUser.centres,
-                permissions: newUser.permissions
+                permissions: newUser.permissions,
+                canEditUsers: newUser.canEditUsers,
+                canDeleteUsers: newUser.canDeleteUsers
             }
         });
 

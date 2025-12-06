@@ -24,6 +24,12 @@ const UserManagementContent = () => {
     const currentUserRole = currentUser.role || "";
     const isSuperAdminOrAdmin = currentUserRole === "superAdmin" || currentUserRole === "admin";
     const isSuperAdmin = currentUserRole === "superAdmin";
+    
+    // Check if current user can edit/delete other users
+    // SuperAdmin always can, others need the specific permissions
+    const canEditUsers = isSuperAdmin || currentUser.canEditUsers === true;
+    const canDeleteUsers = isSuperAdmin || currentUser.canDeleteUsers === true;
+    const canAddUsers = isSuperAdmin || currentUser.canEditUsers === true; // Can add if can edit
 
     useEffect(() => {
         fetchUsers();
@@ -172,12 +178,15 @@ const UserManagementContent = () => {
                         </button>
                     )}
 
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-semibold rounded-lg hover:bg-cyan-400 transition-colors"
-                    >
-                        <FaPlus /> Add User
-                    </button>
+                    {/* Add User Button - Only for users with canEditUsers permission */}
+                    {canAddUsers && (
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-semibold rounded-lg hover:bg-cyan-400 transition-colors"
+                        >
+                            <FaPlus /> Add User
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -232,20 +241,24 @@ const UserManagementContent = () => {
                                     </div>
                                 </div>
                                 <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                    <button
-                                        onClick={() => handleEdit(user)}
-                                        className="p-2 bg-gray-800 text-yellow-400 rounded hover:bg-gray-700"
-                                        title="Edit"
-                                    >
-                                        <FaEdit />
-                                    </button>
-                                    <button
-                                        onClick={() => handleDelete(user._id)}
-                                        className="p-2 bg-gray-800 text-red-400 rounded hover:bg-gray-700"
-                                        title="Delete"
-                                    >
-                                        <FaTrash />
-                                    </button>
+                                    {canEditUsers && (
+                                        <button
+                                            onClick={() => handleEdit(user)}
+                                            className="p-2 bg-gray-800 text-yellow-400 rounded hover:bg-gray-700"
+                                            title="Edit"
+                                        >
+                                            <FaEdit />
+                                        </button>
+                                    )}
+                                    {canDeleteUsers && (
+                                        <button
+                                            onClick={() => handleDelete(user._id)}
+                                            className="p-2 bg-gray-800 text-red-400 rounded hover:bg-gray-700"
+                                            title="Delete"
+                                        >
+                                            <FaTrash />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
@@ -335,20 +348,24 @@ const UserManagementContent = () => {
                                         </td>
                                         <td className="p-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
-                                                <button
-                                                    onClick={() => handleEdit(user)}
-                                                    className="p-2 text-yellow-400 hover:bg-gray-700 rounded transition-colors"
-                                                    title="Edit"
-                                                >
-                                                    <FaEdit />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(user._id)}
-                                                    className="p-2 text-red-400 hover:bg-gray-700 rounded transition-colors"
-                                                    title="Delete"
-                                                >
-                                                    <FaTrash />
-                                                </button>
+                                                {canEditUsers && (
+                                                    <button
+                                                        onClick={() => handleEdit(user)}
+                                                        className="p-2 text-yellow-400 hover:bg-gray-700 rounded transition-colors"
+                                                        title="Edit"
+                                                    >
+                                                        <FaEdit />
+                                                    </button>
+                                                )}
+                                                {canDeleteUsers && (
+                                                    <button
+                                                        onClick={() => handleDelete(user._id)}
+                                                        className="p-2 text-red-400 hover:bg-gray-700 rounded transition-colors"
+                                                        title="Delete"
+                                                    >
+                                                        <FaTrash />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

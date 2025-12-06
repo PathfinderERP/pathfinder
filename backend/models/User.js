@@ -36,6 +36,14 @@ const userSchema = new mongoose.Schema({
     permissions: {
         type: [String], // Array of strings representing accessible modules e.g., ['admissions', 'finance']
         default: [],
+    },
+    canEditUsers: {
+        type: Boolean,
+        default: false, // Only SuperAdmin can grant this permission
+    },
+    canDeleteUsers: {
+        type: Boolean,
+        default: false, // Only SuperAdmin can grant this permission
     }
 
 }, { timestamps: true });

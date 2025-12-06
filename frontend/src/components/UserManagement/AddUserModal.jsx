@@ -11,7 +11,9 @@ const AddUserModal = ({ onClose, onSuccess }) => {
         password: "",
         role: "admin",
         centres: [],
-        permissions: []
+        permissions: [],
+        canEditUsers: false,
+        canDeleteUsers: false
     });
     const [centres, setCentres] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -203,6 +205,50 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                             )}
                         </div>
                     </div>
+
+                    {/* User Management Permissions - SuperAdmin Only */}
+                    {isSuperAdmin && (
+                        <div className="pt-4 border-t border-gray-700">
+                            <label className="block text-orange-400 font-semibold mb-3">User Management Permissions</label>
+                            <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 space-y-3">
+                                <label className="flex items-start gap-3 cursor-pointer group">
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.canEditUsers}
+                                        onChange={(e) => setFormData({ ...formData, canEditUsers: e.target.checked })}
+                                        className="w-5 h-5 mt-0.5 rounded border-gray-600 bg-[#131619] text-orange-500 focus:ring-offset-[#1a1f24] focus:ring-orange-500"
+                                    />
+                                    <div>
+                                        <span className="text-sm font-semibold text-orange-300 group-hover:text-orange-200 transition-colors">
+                                            Can Edit Other Users
+                                        </span>
+                                        <p className="text-xs text-gray-400 mt-1">
+                                            Grant this user permission to edit other users of the same or lower role. 
+                                            Without this permission, they will not see edit buttons for other users.
+                                        </p>
+                                    </div>
+                                </label>
+                                
+                                <label className="flex items-start gap-3 cursor-pointer group">
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.canDeleteUsers}
+                                        onChange={(e) => setFormData({ ...formData, canDeleteUsers: e.target.checked })}
+                                        className="w-5 h-5 mt-0.5 rounded border-gray-600 bg-[#131619] text-red-500 focus:ring-offset-[#1a1f24] focus:ring-red-500"
+                                    />
+                                    <div>
+                                        <span className="text-sm font-semibold text-red-300 group-hover:text-red-200 transition-colors">
+                                            Can Delete Other Users
+                                        </span>
+                                        <p className="text-xs text-gray-400 mt-1">
+                                            Grant this user permission to delete other users of the same or lower role. 
+                                            Without this permission, they will not see delete buttons for other users.
+                                        </p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="pt-4 border-t border-gray-700">
                         <label className="block text-cyan-400 font-semibold mb-3">Permissions (Access Control)</label>

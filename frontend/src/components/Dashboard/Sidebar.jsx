@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import {
     FaChartBar, FaBullseye, FaBook, FaMoneyBillWave, FaUserTie, FaCogs, FaMobileAlt,
-    FaBullhorn, FaThLarge, FaDatabase, FaChevronDown, FaChevronUp, FaTimes, FaUsers
+    FaBullhorn, FaThLarge, FaDatabase, FaChevronDown, FaChevronUp, FaTimes, FaUsers, FaShoppingCart
 } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -24,6 +24,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         { name: "Admissions", icon: <FaBullseye />, path: "/admissions" },
         { name: "Academics", icon: <FaBook />, path: "/academics" },
         { name: "Finance & Fees", icon: <FaMoneyBillWave />, path: "/finance" },
+        { name: "Sales", icon: <FaShoppingCart />, path: "/sales" },
         { name: "HR & Manpower", icon: <FaUserTie />, path: "/hr" },
         { name: "Operations", icon: <FaCogs />, path: "#" },
         { name: "Digital Portal", icon: <FaMobileAlt />, path: "#" },

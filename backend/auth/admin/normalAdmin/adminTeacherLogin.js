@@ -28,7 +28,9 @@ export default async function adminTeacherLogin(req, res) {
                 employeeId: user.employeeId,
                 role: user.role,
                 centres: user.centres,
-                permissions: user.permissions || []
+                permissions: user.permissions || [],
+                canEditUsers: user.canEditUsers || false,
+                canDeleteUsers: user.canDeleteUsers || false
             }
         });
     } catch (error) {
