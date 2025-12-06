@@ -8,6 +8,7 @@ import ExportButton from '../common/ExportButton';
 import MultiSelectFilter from '../common/MultiSelectFilter';
 import Pagination from '../common/Pagination';
 import { downloadCSV, downloadExcel } from '../../utils/exportUtils';
+import './AdmissionsWave.css';
 
 const AdmissionsContent = () => {
     const navigate = useNavigate();
@@ -554,7 +555,7 @@ const AdmissionsContent = () => {
                                         const isEnrolled = enrolledStatus === "Enrolled";
 
                                         return (
-                                            <tr key={student._id} className="hover:bg-[#252b32] transition-colors group">
+                                            <tr key={student._id} className="admissions-row-wave transition-colors group">
 
                                                 {/* 1️⃣ STUDENT NAME */}
                                                 <td className="p-4 text-white font-medium">

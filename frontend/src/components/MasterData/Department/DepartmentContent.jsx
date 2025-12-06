@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaEdit, FaTrash, FaPlus, FaTimes } from 'react-icons/fa';
+import '../MasterDataWave.css';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -147,7 +148,7 @@ const DepartmentContent = () => {
                                 </tr>
                             ) : (
                                 departments.map((dept, index) => (
-                                    <tr key={dept._id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                                    <tr key={dept._id} className="master-data-row-wave border-b border-gray-800 transition-colors">
                                         <td className="p-4 text-gray-400">{index + 1}</td>
                                         <td className="p-4 font-medium">{dept.departmentName}</td>
                                         <td className="p-4 text-gray-400">{dept.description || "-"}</td>

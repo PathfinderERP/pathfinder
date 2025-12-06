@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaEdit, FaTrash, FaPlus, FaTimes, FaEye, FaFilter } from 'react-icons/fa';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import '../MasterDataWave.css';
 
 const CourseContent = () => {
     const [courses, setCourses] = useState([]);
@@ -336,7 +337,7 @@ const CourseContent = () => {
                             </tr>
                         ) : (
                             filteredCourses.map((course) => (
-                                <tr key={course._id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                                <tr key={course._id} className="master-data-row-wave border-b border-gray-800 transition-colors">
                                     <td className="p-4 font-medium">{course.courseName}</td>
                                     <td className="p-4 text-gray-400">{course.department?.departmentName || "-"}</td>
                                     <td className="p-4 text-gray-400">{course.class?.name || "-"}</td>
@@ -393,7 +394,7 @@ const CourseContent = () => {
                     </div>
                 ) : (
                     filteredCourses.map((course) => (
-                        <div key={course._id} className="bg-[#1a1f24] p-3 sm:p-4 rounded-lg border border-gray-800 hover:border-cyan-500/50 transition-all">
+                        <div key={course._id} className="master-data-card-wave bg-[#1a1f24] p-3 sm:p-4 rounded-lg border border-gray-800 transition-all">
                             <div className="flex justify-between items-start mb-3">
                                 <div className="flex-1">
                                     <h3 className="text-sm sm:text-base font-bold text-white mb-1">{course.courseName}</h3>

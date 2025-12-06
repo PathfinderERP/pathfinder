@@ -7,7 +7,9 @@ import AdmissionDetailsModal from './AdmissionDetailsModal';
 import EditEnrolledStudentModal from './EditEnrolledStudentModal';
 import ExportButton from '../common/ExportButton';
 import MultiSelectFilter from '../common/MultiSelectFilter';
+import Pagination from '../common/Pagination';
 import { downloadCSV, downloadExcel } from '../../utils/exportUtils';
+import './AdmissionsWave.css';
 
 const EnrolledStudentsContent = () => {
     const navigate = useNavigate();
@@ -19,6 +21,8 @@ const EnrolledStudentsContent = () => {
     const [filterLeadStatus, setFilterLeadStatus] = useState([]);
     const [selectedAdmission, setSelectedAdmission] = useState(null);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -58,11 +62,16 @@ const EnrolledStudentsContent = () => {
         }
     };
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, filterStatus, filterCentre, filterLeadStatus]);
+
     const handleRefresh = () => {
         setSearchQuery("");
         setFilterStatus([]);
         setFilterCentre([]);
         setFilterLeadStatus([]);
+        setCurrentPage(1);
         setLoading(true);
         fetchAdmissions();
         toast.info("Refreshed data and filters");
@@ -386,7 +395,9 @@ const EnrolledStudentsContent = () => {
                                     </td>
                                 </tr>
                             ) : (
-                                filteredAdmissions.map((admission) => {
+                                filteredAdmissions
+                                    .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                                    .map((admission) => {
                                     const student = admission.student?.studentsDetails?.[0] || {};
                                     const studentImage = admission.studentImage || student.studentImage || null;
                                     const centre = admission.centre || student.centre || admission.department?.departmentName || "N/A";
@@ -396,7 +407,7 @@ const EnrolledStudentsContent = () => {
                                     const leadStatus = currentStatusObj.status || "N/A";
 
                                     return (
-                                        <tr key={admission._id} className="hover:bg-[#252b32] transition-colors group">
+                                        <tr key={admission._id} className="admissions-row-wave transition-colors group">
                                             <td className="p-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white font-bold overflow-hidden">
@@ -465,6 +476,13 @@ const EnrolledStudentsContent = () => {
                     </table>
                 </div>
             </div>
+
+            <Pagination
+                currentPage={currentPage}
+                totalItems={filteredAdmissions.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+            />
 
             {/* Admission Details Modal */}
             {

@@ -5,6 +5,7 @@ import "react-toastify/dist/ReactToastify.css";
 import * as XLSX from "xlsx";
 import AddUserModal from "./AddUserModal";
 import EditUserModal from "./EditUserModal";
+import "./UserCardWave.css";
 
 const UserManagementContent = () => {
     const [users, setUsers] = useState([]);
@@ -227,7 +228,7 @@ const UserManagementContent = () => {
             ) : viewMode === "grid" ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredUsers.map((user) => (
-                        <div key={user._id} className="bg-[#1a1f24] p-6 rounded-xl border border-gray-800 hover:border-cyan-500/50 transition-all group">
+                        <div key={user._id} className="user-card-wave-dramatic bg-[#1a1f24] p-6 rounded-xl border border-gray-800 transition-all group">
                             <div className="flex justify-between items-start mb-4">
                                 <div className="flex items-center gap-3">
                                     <div className="w-12 h-12 rounded-full bg-cyan-900 flex items-center justify-center text-cyan-400 font-bold text-lg">
@@ -322,7 +323,7 @@ const UserManagementContent = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-800">
                                 {filteredUsers.map((user) => (
-                                    <tr key={user._id} className="hover:bg-gray-800/30 transition-colors">
+                                    <tr key={user._id} className="user-table-row-wave transition-colors">
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-cyan-900 flex items-center justify-center text-cyan-400 font-bold text-xs">

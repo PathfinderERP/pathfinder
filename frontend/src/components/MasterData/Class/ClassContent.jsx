@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaEdit, FaTrash, FaPlus, FaTimes } from 'react-icons/fa';
+import '../MasterDataWave.css';
 
 const ClassContent = () => {
     const [classes, setClasses] = useState([]);
@@ -145,7 +146,7 @@ const ClassContent = () => {
                                 </tr>
                             ) : (
                                 classes.map((cls, index) => (
-                                    <tr key={cls._id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                                    <tr key={cls._id} className="master-data-row-wave border-b border-gray-800 transition-colors">
                                         <td className="p-4 text-gray-400">{index + 1}</td>
                                         <td className="p-4 font-medium">{cls.name}</td>
                                         <td className="p-4 text-right">

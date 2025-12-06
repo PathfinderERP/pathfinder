@@ -1,0 +1,124 @@
+/* Shared Wavy Shadow Animation for Master Data Tables and Cards */
+
+/* Table Row Wavy Shadow Effect */
+.master-data-row-wave {
+  position: relative;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  transform-origin: center;
+}
+
+.master-data-row-wave:hover,
+.master-data-row-wave:active {
+  animation: wave-shadow-master 3s ease-in-out infinite;
+  background-color: rgba(6, 182, 212, 0.05) !important;
+  transform: scale(1.02);
+  z-index: 10;
+}
+
+/* Master Data wave animation */
+@keyframes wave-shadow-master {
+  0% {
+    box-shadow: 
+      0 0 20px rgba(6, 182, 212, 0.4),
+      0 0 40px rgba(14, 116, 144, 0.3),
+      0 0 60px rgba(22, 78, 99, 0.2);
+  }
+  25% {
+    box-shadow: 
+      5px 5px 25px rgba(6, 182, 212, 0.5),
+      10px 5px 45px rgba(14, 116, 144, 0.35),
+      5px 0 65px rgba(22, 78, 99, 0.25);
+  }
+  50% {
+    box-shadow: 
+      -5px 10px 30px rgba(6, 182, 212, 0.6),
+      -10px 10px 50px rgba(14, 116, 144, 0.4),
+      -5px 5px 70px rgba(22, 78, 99, 0.3);
+  }
+  75% {
+    box-shadow: 
+      -10px -5px 25px rgba(6, 182, 212, 0.5),
+      -5px -5px 45px rgba(14, 116, 144, 0.35),
+      5px 0 65px rgba(22, 78, 99, 0.25);
+  }
+  100% {
+    box-shadow: 
+      0 0 20px rgba(6, 182, 212, 0.4),
+      0 0 40px rgba(14, 116, 144, 0.3),
+      0 0 60px rgba(22, 78, 99, 0.2);
+  }
+}
+
+/* Mobile touch support */
+@media (hover: none) and (pointer: coarse) {
+  .master-data-row-wave:active {
+    animation: wave-shadow-master 3s ease-in-out infinite;
+    background-color: rgba(6, 182, 212, 0.05) !important;
+    transform: scale(1.02);
+  }
+}
+
+/* Enhanced glow for table cells */
+.master-data-row-wave:hover td,
+.master-data-row-wave:active td {
+  border-color: rgba(6, 182, 212, 0.3) !important;
+}
+
+/* Card view wavy shadow (for grid layouts) */
+.master-data-card-wave {
+  position: relative;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.master-data-card-wave:hover,
+.master-data-card-wave:active {
+  animation: wave-shadow-card 4s ease-in-out infinite;
+  border-color: rgba(6, 182, 212, 0.6) !important;
+  transform: translateY(-3px) scale(1.01);
+}
+
+/* Card wave animation - more dramatic */
+@keyframes wave-shadow-card {
+  0% {
+    box-shadow: 0 0 30px rgba(6, 182, 212, 0.5),
+      0 0 60px rgba(14, 116, 144, 0.4), 0 0 90px rgba(22, 78, 99, 0.3);
+  }
+  20% {
+    box-shadow: 10px 10px 35px rgba(6, 182, 212, 0.6),
+      15px 5px 65px rgba(14, 116, 144, 0.45),
+      5px -5px 95px rgba(22, 78, 99, 0.35);
+  }
+  40% {
+    box-shadow: -10px 15px 40px rgba(6, 182, 212, 0.7),
+      -5px 10px 70px rgba(14, 116, 144, 0.5),
+      -10px 0 100px rgba(22, 78, 99, 0.4);
+  }
+  60% {
+    box-shadow: -15px -10px 35px rgba(6, 182, 212, 0.6),
+      -10px -5px 65px rgba(14, 116, 144, 0.45),
+      -5px 5px 95px rgba(22, 78, 99, 0.35);
+  }
+  80% {
+    box-shadow: 10px -15px 40px rgba(6, 182, 212, 0.7),
+      5px -10px 70px rgba(14, 116, 144, 0.5), 10px 0 100px rgba(22, 78, 99, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 30px rgba(6, 182, 212, 0.5),
+      0 0 60px rgba(14, 116, 144, 0.4), 0 0 90px rgba(22, 78, 99, 0.3);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .master-data-row-wave:hover,
+  .master-data-row-wave:active {
+    transform: scale(1.01); /* Smaller scale on mobile */
+  }
+  
+  .master-data-card-wave:hover,
+  .master-data-card-wave:active {
+    transform: translateY(-2px) scale(1.005); /* Smaller effect on mobile */
+  }
+}

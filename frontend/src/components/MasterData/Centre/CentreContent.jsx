@@ -4,6 +4,7 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import AddCentreModal from "./AddCentreModal";
 import EditCentreModal from "./EditCentreModal";
+import "../MasterDataWave.css";
 
 const CentreContent = () => {
     const [centres, setCentres] = useState([]);
@@ -110,7 +111,7 @@ const CentreContent = () => {
                     <p className="text-gray-400">No centres found.</p>
                 ) : (
                     filteredCentres.map((centre) => (
-                        <div key={centre._id} className="bg-[#1a1f24] p-6 rounded-xl border border-gray-800 hover:border-cyan-500/50 transition-all group">
+                        <div key={centre._id} className="master-data-card-wave bg-[#1a1f24] p-6 rounded-xl border border-gray-800 transition-all group">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
                                     <h3 className="text-xl font-bold text-white">{centre.centreName}</h3>

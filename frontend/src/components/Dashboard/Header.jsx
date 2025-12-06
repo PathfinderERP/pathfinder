@@ -68,8 +68,9 @@
 
 
 import React from "react";
-import { FaBars, FaSignOutAlt, FaUser } from "react-icons/fa";
+import { FaBars, FaSignOutAlt, FaUser, FaCheckCircle } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 const Header = ({ toggleSidebar }) => {
     const navigate = useNavigate();
@@ -80,12 +81,84 @@ const Header = ({ toggleSidebar }) => {
     const userRole = userInfo.role || "";
 
     const handleLogout = () => {
-        // Clear all localStorage data
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
+        // Custom confirmation toast with bluish theme
+        const ConfirmToast = ({ closeToast }) => (
+            <div className="flex flex-col gap-3">
+                <p className="text-white font-semibold text-base">
+                    Are you sure you want to logout?
+                </p>
+                <div className="flex gap-2 justify-end">
+                    <button
+                        onClick={() => {
+                            closeToast();
+                            // Perform logout
+                            localStorage.removeItem("token");
+                            localStorage.removeItem("user");
+                            
+                            // Show success toast with checkmark
+                            toast.success(
+                                <div className="flex items-center gap-2">
+                                    <FaCheckCircle className="text-cyan-400 text-xl" />
+                                    <span className="font-semibold">Logged out successfully!</span>
+                                </div>,
+                                {
+                                    position: "top-right",
+                                    autoClose: 2000,
+                                    hideProgressBar: false,
+                                    closeOnClick: true,
+                                    pauseOnHover: true,
+                                    draggable: true,
+                                    style: {
+                                        background: "linear-gradient(135deg, #0e7490 0%, #06b6d4 100%)",
+                                        color: "white",
+                                        borderRadius: "12px",
+                                        border: "1px solid rgba(6, 182, 212, 0.3)",
+                                        boxShadow: "0 4px 20px rgba(6, 182, 212, 0.3)"
+                                    },
+                                    progressStyle: {
+                                        background: "rgba(255, 255, 255, 0.3)"
+                                    }
+                                }
+                            );
+                            
+                            // Redirect to login after a short delay
+                            setTimeout(() => {
+                                navigate("/login");
+                            }, 500);
+                        }}
+                        className="px-4 py-2 bg-cyan-500 text-white font-semibold rounded-lg hover:bg-cyan-400 transition-colors shadow-lg"
+                    >
+                        Yes
+                    </button>
+                    <button
+                        onClick={closeToast}
+                        className="px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-500 transition-colors"
+                    >
+                        No
+                    </button>
+                </div>
+            </div>
+        );
 
-        // Redirect to login page
-        navigate("/login");
+        // Show confirmation toast with bluish theme
+        toast(<ConfirmToast />, {
+            position: "top-center",
+            autoClose: false,
+            hideProgressBar: true,
+            closeOnClick: false,
+            pauseOnHover: true,
+            draggable: false,
+            closeButton: false,
+            style: {
+                background: "linear-gradient(135deg, #164e63 0%, #0e7490 100%)",
+                color: "white",
+                borderRadius: "12px",
+                border: "2px solid rgba(6, 182, 212, 0.5)",
+                boxShadow: "0 8px 32px rgba(6, 182, 212, 0.4)",
+                minWidth: "320px",
+                maxWidth: "90vw"
+            }
+        });
     };
 
     const getRoleDisplayName = (role) => {

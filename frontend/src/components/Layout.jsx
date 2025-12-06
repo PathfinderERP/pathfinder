@@ -43,18 +43,16 @@
 
 
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Sidebar from "./Dashboard/Sidebar";
 import Header from "./Dashboard/Header";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const Layout = ({ children, activePage }) => {
-    const [sidebarOpen, setSidebarOpen] = useState(false);
-
-    useEffect(() => {
-        if (window.innerWidth >= 1024) {
-            setSidebarOpen(true); // open sidebar on large screens
-        }
-    }, []);
+    const [sidebarOpen, setSidebarOpen] = useState(() => {
+        return typeof window !== 'undefined' && window.innerWidth >= 1024;
+    });
 
     const toggleSidebar = () => {
         setSidebarOpen((prev) => !prev);
@@ -62,6 +60,20 @@ const Layout = ({ children, activePage }) => {
 
     return (
         <div className="flex h-screen bg-[#131619] font-sans overflow-hidden">
+            {/* Toast Container */}
+            <ToastContainer
+                position="top-center"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop={true}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="dark"
+            />
+
             {/* Sidebar */}
             <Sidebar activePage={activePage} isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
 
