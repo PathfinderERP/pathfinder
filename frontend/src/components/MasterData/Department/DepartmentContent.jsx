@@ -3,6 +3,7 @@ import { FaEdit, FaTrash, FaPlus, FaTimes } from 'react-icons/fa';
 import '../MasterDataWave.css';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { hasPermission } from '../../../config/permissions';
 
 const DepartmentContent = () => {
     const [departments, setDepartments] = useState([]);
@@ -10,6 +11,12 @@ const DepartmentContent = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentDepartment, setCurrentDepartment] = useState(null);
     const [formData, setFormData] = useState({ departmentName: "", description: "" });
+
+    // Permission checks
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canCreate = hasPermission(user, 'masterData', 'department', 'create');
+    const canEdit = hasPermission(user, 'masterData', 'department', 'edit');
+    const canDelete = hasPermission(user, 'masterData', 'department', 'delete');
 
     const fetchDepartments = async () => {
         setLoading(true);
@@ -118,12 +125,14 @@ const DepartmentContent = () => {
             <ToastContainer position="top-right" theme="dark" />
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-cyan-400">Department Master Data</h2>
-                <button
-                    onClick={() => openModal()}
-                    className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-colors"
-                >
-                    <FaPlus /> Add Department
-                </button>
+                {canCreate && (
+                    <button
+                        onClick={() => openModal()}
+                        className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-colors"
+                    >
+                        <FaPlus /> Add Department
+                    </button>
+                )}
             </div>
 
             <div className="bg-[#1a1f24] rounded-lg border border-gray-800 overflow-hidden">
@@ -153,20 +162,26 @@ const DepartmentContent = () => {
                                         <td className="p-4 font-medium">{dept.departmentName}</td>
                                         <td className="p-4 text-gray-400">{dept.description || "-"}</td>
                                         <td className="p-4 text-right">
-                                            <button
-                                                onClick={() => openModal(dept)}
-                                                className="text-blue-400 hover:text-blue-300 mr-3"
-                                                title="Edit"
-                                            >
-                                                <FaEdit />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(dept._id)}
-                                                className="text-red-400 hover:text-red-300"
-                                                title="Delete"
-                                            >
-                                                <FaTrash />
-                                            </button>
+                                            <div className="flex justify-end gap-2">
+                                                {canEdit && (
+                                                    <button
+                                                        onClick={() => openModal(dept)}
+                                                        className="text-blue-400 hover:text-blue-300"
+                                                        title="Edit"
+                                                    >
+                                                        <FaEdit />
+                                                    </button>
+                                                )}
+                                                {canDelete && (
+                                                    <button
+                                                        onClick={() => handleDelete(dept._id)}
+                                                        className="text-red-400 hover:text-red-300"
+                                                        title="Delete"
+                                                    >
+                                                        <FaTrash />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))

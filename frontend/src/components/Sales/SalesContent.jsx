@@ -4,9 +4,14 @@ import {
     FaDollarSign, FaArrowUp, FaArrowDown, FaCalendarAlt,
     FaFilter, FaDownload, FaPlus
 } from "react-icons/fa";
+import { hasPermission } from "../../config/permissions";
 
 const SalesContent = () => {
     const [selectedPeriod, setSelectedPeriod] = useState("month");
+
+    // Permission checks
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canCreate = hasPermission(user.granularPermissions, 'sales', 'sales', 'create');
 
     // Demo data
     const salesStats = [
@@ -112,9 +117,11 @@ const SalesContent = () => {
                         <FaDownload /> Export
                     </button>
 
-                    <button className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-semibold rounded-lg hover:bg-cyan-400 transition-colors">
-                        <FaPlus /> New Order
-                    </button>
+                    {canCreate && (
+                        <button className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-semibold rounded-lg hover:bg-cyan-400 transition-colors">
+                            <FaPlus /> New Order
+                        </button>
+                    )}
                 </div>
             </div>
 

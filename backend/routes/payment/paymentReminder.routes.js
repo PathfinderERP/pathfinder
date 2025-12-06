@@ -7,12 +7,12 @@ import {
     getAllStudentFeeDetails,
     sendCustomMessage
 } from "../../services/paymentReminderService.js";
-import { requireNormalOrSuper } from "../../middleware/authMiddleware.js";
+import { requireAuth, requireGranularPermission } from "../../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
 // Get all overdue payments
-router.get("/overdue", requireNormalOrSuper, async (req, res) => {
+router.get("/overdue", requireAuth, async (req, res) => {
     try {
         const overduePayments = await getOverduePaymentsSummary();
         res.status(200).json({
@@ -30,7 +30,7 @@ router.get("/overdue", requireNormalOrSuper, async (req, res) => {
 });
 
 // Get comprehensive fee details for all students
-router.get("/student-fees", requireNormalOrSuper, async (req, res) => {
+router.get("/student-fees", requireAuth, async (req, res) => {
     try {
         const feeDetails = await getAllStudentFeeDetails();
         res.status(200).json({
@@ -48,7 +48,7 @@ router.get("/student-fees", requireNormalOrSuper, async (req, res) => {
 });
 
 // Send reminders manually (only overdue)
-router.post("/send-reminders", requireNormalOrSuper, async (req, res) => {
+router.post("/send-reminders", requireGranularPermission("finance", "fees", "edit"), async (req, res) => {
     try {
         const result = await sendOverdueReminders();
         res.status(200).json({
@@ -66,7 +66,7 @@ router.post("/send-reminders", requireNormalOrSuper, async (req, res) => {
 });
 
 // Send reminders to ALL pending payments (including not yet due) - for testing
-router.post("/send-all-reminders", requireNormalOrSuper, async (req, res) => {
+router.post("/send-all-reminders", requireGranularPermission("finance", "fees", "edit"), async (req, res) => {
     try {
         const result = await sendAllPendingReminders();
         res.status(200).json({
@@ -84,7 +84,7 @@ router.post("/send-all-reminders", requireNormalOrSuper, async (req, res) => {
 });
 
 // Send custom message to a student
-router.post("/send-custom-message", requireNormalOrSuper, async (req, res) => {
+router.post("/send-custom-message", requireGranularPermission("finance", "fees", "edit"), async (req, res) => {
     try {
         const { phoneNumber, message, studentId } = req.body;
         
@@ -120,7 +120,7 @@ router.post("/send-custom-message", requireNormalOrSuper, async (req, res) => {
 });
 
 // Check overdue payments (update status)
-router.get("/check-overdue", requireNormalOrSuper, async (req, res) => {
+router.get("/check-overdue", requireAuth, async (req, res) => {
     try {
         const overduePayments = await checkOverduePayments();
         res.status(200).json({
@@ -138,7 +138,7 @@ router.get("/check-overdue", requireNormalOrSuper, async (req, res) => {
 });
 
 // Test SMS endpoint - send a test message to verify SMS gateway
-router.post("/test-sms", requireNormalOrSuper, async (req, res) => {
+router.post("/test-sms", requireGranularPermission("finance", "fees", "edit"), async (req, res) => {
     try {
         const { phoneNumber } = req.body;
         

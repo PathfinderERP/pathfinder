@@ -123,7 +123,7 @@ const Header = ({ toggleSidebar }) => {
                             
                             // Redirect to login after a short delay
                             setTimeout(() => {
-                                navigate("/login");
+                                navigate("/");
                             }, 500);
                         }}
                         className="px-4 py-2 bg-cyan-500 text-white font-semibold rounded-lg hover:bg-cyan-400 transition-colors shadow-lg"

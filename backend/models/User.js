@@ -33,17 +33,45 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'CentreSchema',
     }],
+    // Granular Permissions Structure
+    // Format: { module: { section: { create: bool, edit: bool, delete: bool } } }
+    granularPermissions: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {},
+        /* Example structure:
+        {
+            "admissions": {
+                "allLeads": { "create": true, "edit": true, "delete": false },
+                "enrolledStudents": { "create": false, "edit": true, "delete": false }
+            },
+            "masterData": {
+                "class": { "create": true, "edit": true, "delete": true },
+                "examTag": { "create": true, "edit": false, "delete": false },
+                "department": { "create": false, "edit": true, "delete": false },
+                "centre": { "create": true, "edit": true, "delete": true },
+                "course": { "create": true, "edit": true, "delete": false }
+            },
+            "finance": {
+                "fees": { "create": true, "edit": true, "delete": false }
+            },
+            "userManagement": {
+                "users": { "create": true, "edit": true, "delete": false }
+            }
+        }
+        */
+    },
+    // Legacy permissions field (kept for backward compatibility)
     permissions: {
-        type: [String], // Array of strings representing accessible modules e.g., ['admissions', 'finance']
+        type: [String],
         default: [],
     },
     canEditUsers: {
         type: Boolean,
-        default: false, // Only SuperAdmin can grant this permission
+        default: false,
     },
     canDeleteUsers: {
         type: Boolean,
-        default: false, // Only SuperAdmin can grant this permission
+        default: false,
     }
 
 }, { timestamps: true });

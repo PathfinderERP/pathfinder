@@ -56,8 +56,8 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<Login />} />
+        {/* <Route path="/" element={<LandingPage />} /> */}
+        <Route path="/" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/admissions" element={<Admissions />} />
         <Route path="/student-registration" element={<StudentRegistration />} />

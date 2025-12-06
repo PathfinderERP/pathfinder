@@ -6,6 +6,8 @@ import {
 } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 
+import { hasModuleAccess, hasPermission } from "../../config/permissions";
+
 const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -13,6 +15,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     // Get user from localStorage
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const userPermissions = user.permissions || [];
+    const granularPermissions = user.granularPermissions || {};
     const isSuperAdmin = user.role === "superAdmin";
 
     const [openMenus, setOpenMenus] = useState({
@@ -20,28 +23,29 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     });
 
     const menuItems = [
-        { name: "CEO Control Tower", icon: <FaChartBar />, path: "/dashboard" },
-        { name: "Admissions", icon: <FaBullseye />, path: "/admissions" },
-        { name: "Academics", icon: <FaBook />, path: "/academics" },
-        { name: "Finance & Fees", icon: <FaMoneyBillWave />, path: "/finance" },
-        { name: "Sales", icon: <FaShoppingCart />, path: "/sales" },
-        { name: "HR & Manpower", icon: <FaUserTie />, path: "/hr" },
-        { name: "Operations", icon: <FaCogs />, path: "#" },
-        { name: "Digital Portal", icon: <FaMobileAlt />, path: "#" },
-        { name: "Marketing & CRM", icon: <FaBullhorn />, path: "#" },
-        { name: "Franchise Mgmt", icon: <FaThLarge />, path: "#" },
+        { name: "CEO Control Tower", icon: <FaChartBar />, path: "/dashboard", permissionModule: "ceoControlTower" },
+        { name: "Admissions", icon: <FaBullseye />, path: "/admissions", permissionModule: "admissionsSales" },
+        { name: "Academics", icon: <FaBook />, path: "/academics", permissionModule: "academics" },
+        { name: "Finance & Fees", icon: <FaMoneyBillWave />, path: "/finance", permissionModule: "financeFees" },
+        { name: "Sales", icon: <FaShoppingCart />, path: "/sales", permissionModule: "admissionsSales" },
+        { name: "HR & Manpower", icon: <FaUserTie />, path: "/hr", permissionModule: "hrManpower" },
+        { name: "Operations", icon: <FaCogs />, path: "#", permissionModule: "operations" },
+        { name: "Digital Portal", icon: <FaMobileAlt />, path: "#", permissionModule: "digitalPortal" },
+        { name: "Marketing & CRM", icon: <FaBullhorn />, path: "#", permissionModule: "marketingCRM" },
+        { name: "Franchise Mgmt", icon: <FaThLarge />, path: "#", permissionModule: "franchiseMgmt" },
         {
             name: "Master Data",
             icon: <FaDatabase />,
+            permissionModule: "masterData",
             subItems: [
-                { name: "Class", path: "/master-data/class" },
-                { name: "Exam Tag", path: "/master-data/exam-tag" },
-                { name: "Department", path: "/master-data/department" },
-                { name: "Centre", path: "/master-data/centre" },
+                { name: "Class", path: "/master-data/class", permissionSection: "class" },
+                { name: "Exam Tag", path: "/master-data/exam-tag", permissionSection: "examTag" },
+                { name: "Department", path: "/master-data/department", permissionSection: "department" },
+                { name: "Centre", path: "/master-data/centre", permissionSection: "centre" },
             ],
         },
-        { name: "Course Management", icon: <FaBook />, path: "/course-management" },
-        { name: "User Management", icon: <FaUsers />, path: "/user-management" },
+        { name: "Course Management", icon: <FaBook />, path: "/course-management", permissionModule: "courseManagement", permissionSection: "courses" },
+        { name: "User Management", icon: <FaUsers />, path: "/user-management", permissionModule: "userManagement" },
     ];
 
     const toggleMenu = (name) =>
@@ -51,8 +55,49 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     const filteredMenuItems = menuItems.filter(item => {
         // SuperAdmin sees everything
         if (isSuperAdmin) return true;
-        // Check if user has permission for this menu item
+
+        // Check granular permissions first
+        if (item.permissionModule) {
+            // Special case for items that map to a specific section (like Course Management)
+            if (item.permissionSection) {
+                // Check if user has ANY access (create, edit, or delete) to this section
+                const section = granularPermissions[item.permissionModule]?.[item.permissionSection];
+                if (section && (section.create || section.edit || section.delete)) {
+                    return true;
+                }
+            } 
+            // Standard module check
+            else if (hasModuleAccess(user, item.permissionModule)) {
+                // For Master Data, check if any sub-items are accessible
+                if (item.subItems) {
+                    const accessibleSubItems = item.subItems.filter(sub => {
+                        const section = granularPermissions[item.permissionModule]?.[sub.permissionSection];
+                        return section && (section.create || section.edit || section.delete);
+                    });
+                    // Only show parent if at least one child is accessible
+                    if (accessibleSubItems.length > 0) {
+                        // We'll filter subItems later in the render or modify the item copy here
+                        // For now, just return true if module is accessible, but better to be precise
+                        return true;
+                    }
+                    return false;
+                }
+                return true;
+            }
+        }
+
+        // Fallback to legacy permissions
         return userPermissions.includes(item.name);
+    }).map(item => {
+        // Filter sub-items if they exist
+        if (item.subItems && !isSuperAdmin) {
+            const filteredSubItems = item.subItems.filter(sub => {
+                const section = granularPermissions[item.permissionModule]?.[sub.permissionSection];
+                return section && (section.create || section.edit || section.delete);
+            });
+            return { ...item, subItems: filteredSubItems };
+        }
+        return item;
     });
 
     return (

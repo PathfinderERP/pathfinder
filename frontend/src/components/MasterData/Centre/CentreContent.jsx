@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { FaPlus, FaSearch, FaEdit, FaTrash, FaMapMarkerAlt, FaPhone, FaEnvelope } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import AddCentreModal from "./AddCentreModal";
 import EditCentreModal from "./EditCentreModal";
 import "../MasterDataWave.css";
+import { hasPermission } from "../../../config/permissions";
 
 const CentreContent = () => {
     const [centres, setCentres] = useState([]);
@@ -16,11 +17,14 @@ const CentreContent = () => {
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
-    useEffect(() => {
-        fetchCentres();
-    }, []);
+    // Permission checks - pass full user object for SuperAdmin support
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const isSuperAdmin = user.role === "superAdmin";
+    const canCreate = hasPermission(user, 'masterData', 'centre', 'create');
+    const canEdit = hasPermission(user, 'masterData', 'centre', 'edit');
+    const canDelete = hasPermission(user, 'masterData', 'centre', 'delete');
 
-    const fetchCentres = async () => {
+    const fetchCentres = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${apiUrl}/centre`, {
@@ -40,7 +44,11 @@ const CentreContent = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [apiUrl]);
+
+    useEffect(() => {
+        fetchCentres();
+    }, [fetchCentres]);
 
     const handleDelete = async (id) => {
         if (!window.confirm("Are you sure you want to delete this centre?")) return;
@@ -83,12 +91,14 @@ const CentreContent = () => {
 
             <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-white">Centre Management</h2>
-                <button
-                    onClick={() => setShowAddModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-semibold rounded-lg hover:bg-cyan-400 transition-colors"
-                >
-                    <FaPlus /> Add Centre
-                </button>
+                {canCreate && (
+                    <button
+                        onClick={() => setShowAddModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-semibold rounded-lg hover:bg-cyan-400 transition-colors"
+                    >
+                        <FaPlus /> Add Centre
+                    </button>
+                )}
             </div>
 
             <div className="bg-[#1a1f24] p-4 rounded-xl border border-gray-800 mb-6">
@@ -99,7 +109,7 @@ const CentreContent = () => {
                         placeholder="Search by name, code, or location..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-[#131619] text-white pl-10 pr-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                        className="w-full pl-10 pr-4 py-2 bg-[#131619] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
                     />
                 </div>
             </div>
@@ -118,20 +128,24 @@ const CentreContent = () => {
                                     <span className="text-cyan-400 text-sm font-mono">{centre.enterCode}</span>
                                 </div>
                                 <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                    <button
-                                        onClick={() => handleEdit(centre)}
-                                        className="p-2 bg-gray-800 text-yellow-400 rounded hover:bg-gray-700"
-                                        title="Edit"
-                                    >
-                                        <FaEdit />
-                                    </button>
-                                    <button
-                                        onClick={() => handleDelete(centre._id)}
-                                        className="p-2 bg-gray-800 text-red-400 rounded hover:bg-gray-700"
-                                        title="Delete"
-                                    >
-                                        <FaTrash />
-                                    </button>
+                                    {canEdit && (
+                                        <button
+                                            onClick={() => handleEdit(centre)}
+                                            className="p-2 bg-gray-800 text-yellow-400 rounded hover:bg-gray-700"
+                                            title="Edit"
+                                        >
+                                            <FaEdit />
+                                        </button>
+                                    )}
+                                    {canDelete && (
+                                        <button
+                                            onClick={() => handleDelete(centre._id)}
+                                            className="p-2 bg-gray-800 text-red-400 rounded hover:bg-gray-700"
+                                            title="Delete"
+                                        >
+                                            <FaTrash />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 

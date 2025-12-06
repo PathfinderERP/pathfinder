@@ -118,3 +118,47 @@ export const requireAnyPermission = (requiredPermissions) => {
         }
     };
 };
+
+/**
+ * Middleware to check granular permissions
+ * Usage: requireGranularPermission("masterData", "class", "create")
+ */
+export const requireGranularPermission = (module, section, action) => {
+    return async (req, res, next) => {
+        try {
+            const authHeader = req.headers.authorization;
+            if (!authHeader || !authHeader.startsWith("Bearer ")) {
+                return res.status(401).json({ message: "No token provided" });
+            }
+
+            const token = authHeader.split(" ")[1];
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+            const user = await User.findById(decoded.id);
+            if (!user) {
+                return res.status(401).json({ message: "User not found" });
+            }
+
+            // SuperAdmin has access to everything
+            if (user.role === "superAdmin") {
+                req.user = user;
+                return next();
+            }
+
+            // Granular Permission Check
+            const hasAccess = user.granularPermissions?.[module]?.[section]?.[action] === true;
+
+            if (!hasAccess) {
+                return res.status(403).json({
+                    message: `Access denied. Required permission: ${module}.${section}.${action}`
+                });
+            }
+
+            req.user = user;
+            next();
+        } catch (error) {
+            console.error(error);
+            return res.status(401).json({ message: "Invalid or expired token" });
+        }
+    };
+};

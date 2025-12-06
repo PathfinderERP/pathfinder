@@ -1,0 +1,271 @@
+// Granular Permissions Configuration
+// Defines all modules, sections, and available operations
+
+export const PERMISSION_MODULES = {
+    ceoControlTower: {
+        label: "CEO Control Tower",
+        sections: {
+            dashboard: {
+                label: "Dashboard",
+                operations: ["create", "edit", "delete"]
+            },
+            analytics: {
+                label: "Analytics",
+                operations: ["create", "edit", "delete"]
+            },
+            reports: {
+                label: "Reports",
+                operations: ["create", "edit", "delete"]
+            }
+        }
+    },
+    admissionsSales: {
+        label: "Admissions & Sales",
+        sections: {
+            allLeads: {
+                label: "All Leads",
+                operations: ["create", "edit", "delete"]
+            },
+            enrolledStudents: {
+                label: "Enrolled Students",
+                operations: ["create", "edit", "delete"]
+            },
+            salesDashboard: {
+                label: "Sales Dashboard",
+                operations: ["create", "edit", "delete"]
+            }
+        }
+    },
+    academics: {
+        label: "Academics",
+        sections: {
+            courses: {
+                label: "Courses",
+                operations: ["create", "edit", "delete"]
+            },
+            classes: {
+                label: "Classes",
+                operations: ["create", "edit", "delete"]
+            },
+            students: {
+                label: "Students",
+                operations: ["create", "edit", "delete"]
+            },
+            teachers: {
+                label: "Teachers",
+                operations: ["create", "edit", "delete"]
+            }
+        }
+    },
+    financeFees: {
+        label: "Finance & Fees",
+        sections: {
+            feeManagement: {
+                label: "Fee Management",
+                operations: ["create", "edit", "delete"]
+            },
+            billGeneration: {
+                label: "Bill Generation",
+                operations: ["create", "edit", "delete"]
+            },
+            payments: {
+                label: "Payments",
+                operations: ["create", "edit", "delete"]
+            },
+            paymentReminders: {
+                label: "Payment Reminders",
+                operations: ["create", "edit", "delete"]
+            }
+        }
+    },
+    hrManpower: {
+        label: "HR & Manpower",
+        sections: {
+            employees: {
+                label: "Employees",
+                operations: ["create", "edit", "delete"]
+            },
+            attendance: {
+                label: "Attendance",
+                operations: ["create", "edit", "delete"]
+            },
+            payroll: {
+                label: "Payroll",
+                operations: ["create", "edit", "delete"]
+            }
+        }
+    },
+    operations: {
+        label: "Operations",
+        sections: {
+            centres: {
+                label: "Centres",
+                operations: ["create", "edit", "delete"]
+            },
+            inventory: {
+                label: "Inventory",
+                operations: ["create", "edit", "delete"]
+            },
+            facilities: {
+                label: "Facilities",
+                operations: ["create", "edit", "delete"]
+            }
+        }
+    },
+    digitalPortal: {
+        label: "Digital Portal",
+        sections: {
+            studentPortal: {
+                label: "Student Portal",
+                operations: ["create", "edit", "delete"]
+            },
+            teacherPortal: {
+                label: "Teacher Portal",
+                operations: ["create", "edit", "delete"]
+            },
+            parentPortal: {
+                label: "Parent Portal",
+                operations: ["create", "edit", "delete"]
+            }
+        }
+    },
+    marketingCRM: {
+        label: "Marketing & CRM",
+        sections: {
+            campaigns: {
+                label: "Campaigns",
+                operations: ["create", "edit", "delete"]
+            },
+            leads: {
+                label: "Leads",
+                operations: ["create", "edit", "delete"]
+            },
+            communications: {
+                label: "Communications",
+                operations: ["create", "edit", "delete"]
+            }
+        }
+    },
+    franchiseMgmt: {
+        label: "Franchise Mgmt",
+        sections: {
+            franchises: {
+                label: "Franchises",
+                operations: ["create", "edit", "delete"]
+            },
+            agreements: {
+                label: "Agreements",
+                operations: ["create", "edit", "delete"]
+            },
+            royalties: {
+                label: "Royalties",
+                operations: ["create", "edit", "delete"]
+            }
+        }
+    },
+    masterData: {
+        label: "Master Data",
+        sections: {
+            class: {
+                label: "Class",
+                operations: ["create", "edit", "delete"]
+            },
+            examTag: {
+                label: "Exam Tag",
+                operations: ["create", "edit", "delete"]
+            },
+            department: {
+                label: "Department",
+                operations: ["create", "edit", "delete"]
+            },
+            centre: {
+                label: "Centre",
+                operations: ["create", "edit", "delete"]
+            },
+            subjects: {
+                label: "Subjects",
+                operations: ["create", "edit", "delete"]
+            }
+        }
+    },
+    courseManagement: {
+        label: "Course Management",
+        sections: {
+            courses: {
+                label: "Courses",
+                operations: ["create", "edit", "delete"]
+            },
+            curriculum: {
+                label: "Curriculum",
+                operations: ["create", "edit", "delete"]
+            },
+            materials: {
+                label: "Materials",
+                operations: ["create", "edit", "delete"]
+            }
+        }
+    },
+    userManagement: {
+        label: "User Management",
+        sections: {
+            users: {
+                label: "Users",
+                operations: ["create", "edit", "delete"]
+            },
+            roles: {
+                label: "Roles",
+                operations: ["create", "edit", "delete"]
+            },
+            permissions: {
+                label: "Permissions",
+                operations: ["create", "edit", "delete"]
+            }
+        }
+    }
+};
+
+// Helper function to check if user has permission
+// Accepts either (granularPermissions, module, section, operation) or (user, module, section, operation)
+export const hasPermission = (granularPermissionsOrUser, module, section, operation) => {
+    // Check if first argument is a user object with role
+    if (granularPermissionsOrUser && granularPermissionsOrUser.role === 'superAdmin') {
+        return true; // SuperAdmin has all permissions
+    }
+    
+    // Otherwise treat it as granularPermissions object
+    const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
+    
+    if (!granularPermissions) return false;
+    if (!granularPermissions[module]) return false;
+    if (!granularPermissions[module][section]) return false;
+    return granularPermissions[module][section][operation] === true;
+};
+
+// Helper function to check if user has any permission in a module
+export const hasModuleAccess = (granularPermissionsOrUser, module) => {
+    // Check if first argument is a user object with role
+    if (granularPermissionsOrUser && granularPermissionsOrUser.role === 'superAdmin') {
+        return true; // SuperAdmin has access to all modules
+    }
+    
+    const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
+    if (!granularPermissions || !granularPermissions[module]) return false;
+    const sections = granularPermissions[module];
+    return Object.keys(sections).length > 0;
+};
+
+// Helper function to get all accessible modules
+export const getAccessibleModules = (granularPermissionsOrUser) => {
+    // Check if first argument is a user object with role
+    if (granularPermissionsOrUser && granularPermissionsOrUser.role === 'superAdmin') {
+        return Object.keys(PERMISSION_MODULES); // SuperAdmin has access to all modules
+    }
+    
+    const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
+    if (!granularPermissions) return [];
+    return Object.keys(granularPermissions).filter(module => 
+        hasModuleAccess(granularPermissions, module)
+    );
+};
+
+export default PERMISSION_MODULES;

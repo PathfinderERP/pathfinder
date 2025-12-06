@@ -10,6 +10,7 @@ import MultiSelectFilter from '../common/MultiSelectFilter';
 import Pagination from '../common/Pagination';
 import { downloadCSV, downloadExcel } from '../../utils/exportUtils';
 import './AdmissionsWave.css';
+import { hasPermission } from '../../config/permissions';
 
 const EnrolledStudentsContent = () => {
     const navigate = useNavigate();
@@ -23,6 +24,11 @@ const EnrolledStudentsContent = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
+
+    // Permission checks
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const isSuperAdmin = user.role === "superAdmin";
+    const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'edit');
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -456,16 +462,18 @@ const EnrolledStudentsContent = () => {
                                                     >
                                                         <FaEye />
                                                     </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedAdmission(admission);
-                                                            setShowEditModal(true);
-                                                        }}
-                                                        className="p-2 bg-yellow-500/10 text-yellow-400 rounded hover:bg-yellow-500/20 transition-opacity"
-                                                        title="Edit Student Details"
-                                                    >
-                                                        <FaUserGraduate />
-                                                    </button>
+                                                    {canEdit && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedAdmission(admission);
+                                                                setShowEditModal(true);
+                                                            }}
+                                                            className="p-2 bg-yellow-500/10 text-yellow-400 rounded hover:bg-yellow-500/20 transition-opacity"
+                                                            title="Edit Student Details"
+                                                        >
+                                                            <FaUserGraduate />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>

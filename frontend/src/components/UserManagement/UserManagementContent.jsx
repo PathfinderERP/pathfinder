@@ -6,6 +6,7 @@ import * as XLSX from "xlsx";
 import AddUserModal from "./AddUserModal";
 import EditUserModal from "./EditUserModal";
 import "./UserCardWave.css";
+import { hasPermission } from "../../config/permissions";
 
 const UserManagementContent = () => {
     const [users, setUsers] = useState([]);
@@ -28,9 +29,9 @@ const UserManagementContent = () => {
     
     // Check if current user can edit/delete other users
     // SuperAdmin always can, others need the specific permissions
-    const canEditUsers = isSuperAdmin || currentUser.canEditUsers === true;
-    const canDeleteUsers = isSuperAdmin || currentUser.canDeleteUsers === true;
-    const canAddUsers = isSuperAdmin || currentUser.canEditUsers === true; // Can add if can edit
+    const canEditUsers = isSuperAdmin || hasPermission(currentUser.granularPermissions, 'userManagement', 'users', 'edit');
+    const canDeleteUsers = isSuperAdmin || hasPermission(currentUser.granularPermissions, 'userManagement', 'users', 'delete');
+    const canAddUsers = isSuperAdmin || hasPermission(currentUser.granularPermissions, 'userManagement', 'users', 'create');
 
     useEffect(() => {
         fetchUsers();

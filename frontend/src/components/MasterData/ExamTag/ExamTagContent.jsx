@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaEdit, FaTrash, FaPlus, FaTimes } from 'react-icons/fa';
 import '../MasterDataWave.css';
+import { hasPermission } from '../../../config/permissions';
 
 const ExamTagContent = () => {
     const [examTags, setExamTags] = useState([]);
@@ -9,6 +10,12 @@ const ExamTagContent = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentExamTag, setCurrentExamTag] = useState(null);
     const [formData, setFormData] = useState({ name: "" });
+
+    // Permission checks
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canCreate = hasPermission(user, 'masterData', 'examTag', 'create');
+    const canEdit = hasPermission(user, 'masterData', 'examTag', 'edit');
+    const canDelete = hasPermission(user, 'masterData', 'examTag', 'delete');
 
     const fetchExamTags = async () => {
         setLoading(true);
@@ -115,12 +122,14 @@ const ExamTagContent = () => {
         <div className="flex-1 bg-[#131619] p-6 overflow-y-auto text-white">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-cyan-400">Exam Tag Master Data</h2>
-                <button
-                    onClick={() => openModal()}
-                    className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-colors"
-                >
-                    <FaPlus /> Add Exam Tag
-                </button>
+                {canCreate && (
+                    <button
+                        onClick={() => openModal()}
+                        className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-colors"
+                    >
+                        <FaPlus /> Add Exam Tag
+                    </button>
+                )}
             </div>
 
             {error && <div className="bg-red-500/20 text-red-400 p-3 rounded-lg mb-4">{error}</div>}
@@ -150,20 +159,26 @@ const ExamTagContent = () => {
                                         <td className="p-4 text-gray-400">{index + 1}</td>
                                         <td className="p-4 font-medium">{tag.name}</td>
                                         <td className="p-4 text-right">
-                                            <button
-                                                onClick={() => openModal(tag)}
-                                                className="text-blue-400 hover:text-blue-300 mr-3"
-                                                title="Edit"
-                                            >
-                                                <FaEdit />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(tag._id)}
-                                                className="text-red-400 hover:text-red-300"
-                                                title="Delete"
-                                            >
-                                                <FaTrash />
-                                            </button>
+                                            <div className="flex justify-end gap-2">
+                                                {canEdit && (
+                                                    <button
+                                                        onClick={() => openModal(tag)}
+                                                        className="text-blue-400 hover:text-blue-300"
+                                                        title="Edit"
+                                                    >
+                                                        <FaEdit />
+                                                    </button>
+                                                )}
+                                                {canDelete && (
+                                                    <button
+                                                        onClick={() => handleDelete(tag._id)}
+                                                        className="text-red-400 hover:text-red-300"
+                                                        title="Delete"
+                                                    >
+                                                        <FaTrash />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))

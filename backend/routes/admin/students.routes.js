@@ -3,15 +3,17 @@ import { getAllStudents } from "../../controllers/admin/getAllStudents.js";
 import { getStudentById, admitStudent } from "../../controllers/admin/studentAdmission.js";
 import { updateStudent } from "../../controllers/admin/updateStudent.js";
 import { deleteStudent } from "../../controllers/admin/deleteStudent.js";
-import { requirePermission } from "../../middleware/permissionMiddleware.js";
+import { requireAuth, requireGranularPermission } from "../../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
-// All student routes require "Admissions & Sales" permission
-router.get("/getAllStudents", requirePermission("Admissions & Sales"), getAllStudents);
-router.get("/getStudent/:studentId", requirePermission("Admissions & Sales"), getStudentById);
-router.post("/admitStudent/:studentId", requirePermission("Admissions & Sales"), admitStudent);
-router.put("/updateStudent/:studentId", requirePermission("Admissions & Sales"), updateStudent);
-router.delete("/deleteStudent/:studentId", requirePermission("Admissions & Sales"), deleteStudent);
+// Read routes - Accessible to authenticated users
+router.get("/getAllStudents", requireAuth, getAllStudents);
+router.get("/getStudent/:studentId", requireAuth, getStudentById);
+
+// Write routes - Require granular permissions
+router.post("/admitStudent/:studentId", requireGranularPermission("admissions", "allLeads", "edit"), admitStudent);
+router.put("/updateStudent/:studentId", requireGranularPermission("admissions", "allLeads", "edit"), updateStudent);
+router.delete("/deleteStudent/:studentId", requireGranularPermission("admissions", "allLeads", "delete"), deleteStudent);
 
 export default router;

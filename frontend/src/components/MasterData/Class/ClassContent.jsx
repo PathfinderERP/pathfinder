@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaEdit, FaTrash, FaPlus, FaTimes } from 'react-icons/fa';
 import '../MasterDataWave.css';
+import { hasPermission } from '../../../config/permissions';
 
 const ClassContent = () => {
     const [classes, setClasses] = useState([]);
@@ -9,6 +10,12 @@ const ClassContent = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentClass, setCurrentClass] = useState(null);
     const [formData, setFormData] = useState({ name: "" });
+
+    // Permission checks
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canCreate = hasPermission(user, 'masterData', 'class', 'create');
+    const canEdit = hasPermission(user, 'masterData', 'class', 'edit');
+    const canDelete = hasPermission(user, 'masterData', 'class', 'delete');
 
     const fetchClasses = async () => {
         setLoading(true);
@@ -103,74 +110,83 @@ const ClassContent = () => {
             if (response.ok) {
                 fetchClasses();
             } else {
-                const data = await response.json();
-                alert(data.message || "Failed to delete");
+                setError("Failed to delete class");
             }
         } catch (err) {
-            alert("Server error");
+            setError("Server error");
         }
     };
 
     return (
-        <div className="flex-1 bg-[#131619] p-6 overflow-y-auto text-white">
+        <div className="p-6">
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-cyan-400">Class Master Data</h2>
-                <button
-                    onClick={() => openModal()}
-                    className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-colors"
-                >
-                    <FaPlus /> Add Class
-                </button>
+                <h2 className="text-2xl font-bold text-white">Class Management</h2>
+                {canCreate && (
+                    <button
+                        onClick={() => openModal()}
+                        className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-bold rounded-lg hover:bg-cyan-400 transition-colors"
+                    >
+                        <FaPlus /> Add Class
+                    </button>
+                )}
             </div>
 
-            {error && <div className="bg-red-500/20 text-red-400 p-3 rounded-lg mb-4">{error}</div>}
-
-            <div className="bg-[#1a1f24] rounded-lg border border-gray-800 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-gray-800 text-gray-300">
-                                <th className="p-4 border-b border-gray-700">#</th>
-                                <th className="p-4 border-b border-gray-700">Class Name</th>
-                                <th className="p-4 border-b border-gray-700 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr>
-                                    <td colSpan="3" className="p-4 text-center text-gray-500">Loading...</td>
-                                </tr>
-                            ) : classes.length === 0 ? (
-                                <tr>
-                                    <td colSpan="3" className="p-4 text-center text-gray-500">No classes found</td>
-                                </tr>
-                            ) : (
-                                classes.map((cls, index) => (
-                                    <tr key={cls._id} className="master-data-row-wave border-b border-gray-800 transition-colors">
-                                        <td className="p-4 text-gray-400">{index + 1}</td>
-                                        <td className="p-4 font-medium">{cls.name}</td>
-                                        <td className="p-4 text-right">
-                                            <button
-                                                onClick={() => openModal(cls)}
-                                                className="text-blue-400 hover:text-blue-300 mr-3"
-                                                title="Edit"
-                                            >
-                                                <FaEdit />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(cls._id)}
-                                                className="text-red-400 hover:text-red-300"
-                                                title="Delete"
-                                            >
-                                                <FaTrash />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+            {error && (
+                <div className="bg-red-500/10 border border-red-500 text-red-500 p-4 rounded-lg mb-6">
+                    {error}
                 </div>
+            )}
+
+            <div className="bg-[#1a1f24] rounded-xl border border-gray-800 overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                    <thead>
+                        <tr className="bg-[#252b32] text-gray-400 text-sm uppercase">
+                            <th className="p-4 font-medium">#</th>
+                            <th className="p-4 font-medium">Class Name</th>
+                            <th className="p-4 font-medium text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800">
+                        {loading ? (
+                            <tr>
+                                <td colSpan="3" className="p-8 text-center text-gray-500">Loading...</td>
+                            </tr>
+                        ) : classes.length === 0 ? (
+                            <tr>
+                                <td colSpan="3" className="p-8 text-center text-gray-500">No classes found</td>
+                            </tr>
+                        ) : (
+                            classes.map((cls, index) => (
+                                <tr key={cls._id} className="master-data-row-wave border-b border-gray-800 transition-colors">
+                                    <td className="p-4 text-gray-400">{index + 1}</td>
+                                    <td className="p-4 font-medium">{cls.name}</td>
+                                    <td className="p-4 text-right">
+                                        <div className="flex justify-end gap-2">
+                                            {canEdit && (
+                                                <button
+                                                    onClick={() => openModal(cls)}
+                                                    className="p-2 text-cyan-400 hover:bg-cyan-400/10 rounded-lg transition-colors"
+                                                    title="Edit"
+                                                >
+                                                    <FaEdit />
+                                                </button>
+                                            )}
+                                            {canDelete && (
+                                                <button
+                                                    onClick={() => handleDelete(cls._id)}
+                                                    className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                                                    title="Delete"
+                                                >
+                                                    <FaTrash />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
             </div>
 
             {/* Modal */}

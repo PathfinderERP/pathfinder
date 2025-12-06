@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { FaSearch, FaFileInvoice, FaFilter, FaPlus, FaBell, FaExclamationTriangle, FaClock, FaCheckCircle, FaSyncAlt } from "react-icons/fa";
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { hasPermission } from '../../config/permissions';
 import SMSTestPanel from './SMSTestPanel';
 import StudentFeeList from './StudentFeeList';
 
@@ -13,6 +14,12 @@ const FinanceContent = () => {
     const [loading, setLoading] = useState(false);
     const [sendingReminders, setSendingReminders] = useState(false);
     const [sendingAllReminders, setSendingAllReminders] = useState(false);
+
+    // Permission checks
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const isSuperAdmin = user.role === "superAdmin";
+    const canCreate = isSuperAdmin || hasPermission(user.granularPermissions, 'finance', 'finance', 'create');
+    const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'finance', 'finance', 'edit');
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -185,27 +192,33 @@ const FinanceContent = () => {
                     >
                         <FaSyncAlt className={loading ? "animate-spin" : ""} /> Refresh
                     </button>
-                    <button
-                        onClick={sendReminders}
-                        disabled={sendingReminders || overduePayments.length === 0}
-                        className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-xs md:text-sm whitespace-nowrap"
-                    >
-                        <FaBell /> {sendingReminders ? "Sending..." : "Reminders"}
-                    </button>
-                    <button
-                        onClick={sendAllReminders}
-                        disabled={sendingAllReminders}
-                        className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-xs md:text-sm whitespace-nowrap"
-                        title="Send reminders to ALL students"
-                    >
-                        <FaBell /> {sendingAllReminders ? "Sending..." : "Test All"}
-                    </button>
+                    {canEdit && (
+                        <>
+                            <button
+                                onClick={sendReminders}
+                                disabled={sendingReminders || overduePayments.length === 0}
+                                className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-xs md:text-sm whitespace-nowrap"
+                            >
+                                <FaBell /> {sendingReminders ? "Sending..." : "Reminders"}
+                            </button>
+                            <button
+                                onClick={sendAllReminders}
+                                disabled={sendingAllReminders}
+                                className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-xs md:text-sm whitespace-nowrap"
+                                title="Send reminders to ALL students"
+                            >
+                                <FaBell /> {sendingAllReminders ? "Sending..." : "Test All"}
+                            </button>
+                        </>
+                    )}
                     <button className="hidden md:flex items-center gap-2 px-4 py-2 bg-[#1a1f24] text-gray-300 rounded-lg border border-gray-700 hover:bg-gray-800 text-sm">
                         <FaFileInvoice /> Reports
                     </button>
-                    <button className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 bg-cyan-500 text-black font-semibold rounded-lg hover:bg-cyan-400 text-xs md:text-sm whitespace-nowrap">
-                        <FaPlus /> Collect Fee
-                    </button>
+                    {canCreate && (
+                        <button className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 bg-cyan-500 text-black font-semibold rounded-lg hover:bg-cyan-400 text-xs md:text-sm whitespace-nowrap">
+                            <FaPlus /> Collect Fee
+                        </button>
+                    )}
                 </div>
             </div>
 

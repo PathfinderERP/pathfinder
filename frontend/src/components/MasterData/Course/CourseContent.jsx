@@ -3,6 +3,7 @@ import { FaEdit, FaTrash, FaPlus, FaTimes, FaEye, FaFilter } from 'react-icons/f
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import '../MasterDataWave.css';
+import { hasPermission } from '../../../config/permissions';
 
 const CourseContent = () => {
     const [courses, setCourses] = useState([]);
@@ -15,6 +16,12 @@ const CourseContent = () => {
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [currentCourse, setCurrentCourse] = useState(null);
     const [selectedCourse, setSelectedCourse] = useState(null);
+
+    // Permission checks - pass full user object for SuperAdmin support
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canCreate = hasPermission(user, 'courseManagement', 'courses', 'create');
+    const canEdit = hasPermission(user, 'courseManagement', 'courses', 'edit');
+    const canDelete = hasPermission(user, 'courseManagement', 'courses', 'delete');
 
     // Filter states
     const [filters, setFilters] = useState({
@@ -240,12 +247,14 @@ const CourseContent = () => {
             <ToastContainer position="top-right" theme="dark" />
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 sm:mb-6">
                 <h2 className="text-xl sm:text-2xl font-bold text-cyan-400">Course Master Data</h2>
-                <button
-                    onClick={() => openModal()}
-                    className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base w-full sm:w-auto justify-center"
-                >
-                    <FaPlus /> Add Course
-                </button>
+                {canCreate && (
+                    <button
+                        onClick={() => openModal()}
+                        className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base w-full sm:w-auto justify-center"
+                    >
+                        <FaPlus /> Add Course
+                    </button>
+                )}
             </div>
 
             {/* Filter Section */}
@@ -360,20 +369,24 @@ const CourseContent = () => {
                                         >
                                             <FaEye />
                                         </button>
-                                        <button
-                                            onClick={() => openModal(course)}
-                                            className="text-blue-400 hover:text-blue-300 mr-3"
-                                            title="Edit"
-                                        >
-                                            <FaEdit />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(course._id)}
-                                            className="text-red-400 hover:text-red-300"
-                                            title="Delete"
-                                        >
-                                            <FaTrash />
-                                        </button>
+                                        {canEdit && (
+                                            <button
+                                                onClick={() => openModal(course)}
+                                                className="text-blue-400 hover:text-blue-300 mr-3"
+                                                title="Edit"
+                                            >
+                                                <FaEdit />
+                                            </button>
+                                        )}
+                                        {canDelete && (
+                                            <button
+                                                onClick={() => handleDelete(course._id)}
+                                                className="text-red-400 hover:text-red-300"
+                                                title="Delete"
+                                            >
+                                                <FaTrash />
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             ))
@@ -408,20 +421,24 @@ const CourseContent = () => {
                                     >
                                         <FaEye size={14} />
                                     </button>
-                                    <button
-                                        onClick={() => openModal(course)}
-                                        className="text-blue-400 hover:text-blue-300 p-2"
-                                        title="Edit"
-                                    >
-                                        <FaEdit size={14} />
-                                    </button>
-                                    <button
-                                        onClick={() => handleDelete(course._id)}
-                                        className="text-red-400 hover:text-red-300 p-2"
-                                        title="Delete"
-                                    >
-                                        <FaTrash size={14} />
-                                    </button>
+                                    {canEdit && (
+                                        <button
+                                            onClick={() => openModal(course)}
+                                            className="text-blue-400 hover:text-blue-300 p-2"
+                                            title="Edit"
+                                        >
+                                            <FaEdit size={14} />
+                                        </button>
+                                    )}
+                                    {canDelete && (
+                                        <button
+                                            onClick={() => handleDelete(course._id)}
+                                            className="text-red-400 hover:text-red-300 p-2"
+                                            title="Delete"
+                                        >
+                                            <FaTrash size={14} />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-2 text-xs">
@@ -649,15 +666,17 @@ const CourseContent = () => {
                         </div>
 
                         <div className="mt-6 flex justify-end gap-3">
-                            <button
-                                onClick={() => {
-                                    closeDetailModal();
-                                    openModal(selectedCourse);
-                                }}
-                                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors"
-                            >
-                                Edit Course
-                            </button>
+                            {canEdit && (
+                                <button
+                                    onClick={() => {
+                                        closeDetailModal();
+                                        openModal(selectedCourse);
+                                    }}
+                                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors"
+                                >
+                                    Edit Course
+                                </button>
+                            )}
                             <button
                                 onClick={closeDetailModal}
                                 className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"

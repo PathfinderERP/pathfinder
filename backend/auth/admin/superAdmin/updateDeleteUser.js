@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 export const updateUserBySuperAdmin = async (req, res) => {
     try {
         const { userId } = req.params;
-        const { name, employeeId, email, mobNum, password, role, centres, permissions, canEditUsers, canDeleteUsers } = req.body;
+        const { name, employeeId, email, mobNum, password, role, centres, permissions, canEditUsers, canDeleteUsers, granularPermissions } = req.body;
 
         // Find the user to update
         const user = await User.findById(userId);
@@ -36,6 +36,7 @@ export const updateUserBySuperAdmin = async (req, res) => {
         if (role) user.role = role;
         if (centres !== undefined) user.centres = centres || [];
         if (permissions !== undefined) user.permissions = permissions;
+        if (granularPermissions !== undefined) user.granularPermissions = granularPermissions;
         if (canEditUsers !== undefined) user.canEditUsers = canEditUsers;
         if (canDeleteUsers !== undefined) user.canDeleteUsers = canDeleteUsers;
 
@@ -61,6 +62,7 @@ export const updateUserBySuperAdmin = async (req, res) => {
                 role: user.role,
                 centres: user.centres,
                 permissions: user.permissions,
+                granularPermissions: user.granularPermissions,
                 canEditUsers: user.canEditUsers,
                 canDeleteUsers: user.canDeleteUsers
             }

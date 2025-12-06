@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FaTimes } from "react-icons/fa";
 import { toast } from "react-toastify";
+import GranularPermissionsEditor from "./GranularPermissionsEditor";
 
 const AddUserModal = ({ onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
@@ -12,6 +13,7 @@ const AddUserModal = ({ onClose, onSuccess }) => {
         role: "admin",
         centres: [],
         permissions: [],
+        granularPermissions: {},
         canEditUsers: false,
         canDeleteUsers: false
     });
@@ -26,20 +28,7 @@ const AddUserModal = ({ onClose, onSuccess }) => {
         ? ["admin", "teacher", "telecaller", "counsellor", "superAdmin"]
         : ["admin", "teacher", "telecaller", "counsellor"];
 
-    const availablePermissions = [
-        "CEO Control Tower",
-        "Admissions & Sales",
-        "Academics",
-        "Finance & Fees",
-        "HR & Manpower",
-        "Operations",
-        "Digital Portal",
-        "Marketing & CRM",
-        "Franchise Mgmt",
-        "Master Data",
-        "Course Management",
-        "User Management"
-    ];
+
 
     useEffect(() => {
         fetchCentres();
@@ -75,22 +64,9 @@ const AddUserModal = ({ onClose, onSuccess }) => {
         setFormData({ ...formData, centres: updatedCentres });
     };
 
-    const handlePermissionChange = (permission) => {
-        const updatedPermissions = formData.permissions.includes(permission)
-            ? formData.permissions.filter(p => p !== permission)
-            : [...formData.permissions, permission];
-        setFormData({ ...formData, permissions: updatedPermissions });
-    };
 
-    // Quick fill all permissions for SuperAdmin
-    const handleQuickFillSuperAdmin = () => {
-        setFormData({
-            ...formData,
-            role: "superAdmin",
-            permissions: [...availablePermissions]
-        });
-        toast.success("All permissions selected for SuperAdmin!");
-    };
+
+
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -133,25 +109,8 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                     </button>
                 </div>
 
+
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    {/* Quick Fill SuperAdmin Button */}
-                    {isSuperAdmin && (
-                        <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-red-400 font-semibold">Quick Create SuperAdmin</p>
-                                    <p className="text-xs text-gray-400 mt-1">Automatically select all permissions and set role to SuperAdmin</p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={handleQuickFillSuperAdmin}
-                                    className="px-4 py-2 bg-red-500 text-white font-bold rounded-lg hover:bg-red-400 transition-colors"
-                                >
-                                    Quick Fill
-                                </button>
-                            </div>
-                        </div>
-                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -200,18 +159,8 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                                     </label>
                                 ))}
                             </div>
-                            {formData.role === "superAdmin" && (
-                                <p className="text-xs text-gray-500 mt-1">SuperAdmin is not assigned to any centre</p>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* User Management Permissions - SuperAdmin Only */}
-                    {isSuperAdmin && (
-                        <div className="pt-4 border-t border-gray-700">
-                            <label className="block text-orange-400 font-semibold mb-3">User Management Permissions</label>
-                            <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 space-y-3">
-                                <label className="flex items-start gap-3 cursor-pointer group">
+                            {formData.role !== "superAdmin" && (
+                                <label className="flex items-start gap-3 p-3 border border-orange-500/30 bg-orange-500/10 rounded-lg cursor-pointer group hover:bg-orange-500/20 transition-all mt-4">
                                     <input
                                         type="checkbox"
                                         checked={formData.canEditUsers}
@@ -228,7 +177,9 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                                         </p>
                                     </div>
                                 </label>
+                            )}
                                 
+                            {formData.role !== "superAdmin" && (
                                 <label className="flex items-start gap-3 cursor-pointer group">
                                     <input
                                         type="checkbox"
@@ -246,26 +197,17 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                                         </p>
                                     </div>
                                 </label>
+                            )}
                             </div>
                         </div>
-                    )}
 
                     <div className="pt-4 border-t border-gray-700">
-                        <label className="block text-cyan-400 font-semibold mb-3">Permissions (Access Control)</label>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                            {availablePermissions.map(permission => (
-                                <label key={permission} className="flex items-center gap-2 cursor-pointer group">
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.permissions.includes(permission)}
-                                        onChange={() => handlePermissionChange(permission)}
-                                        className="w-4 h-4 rounded border-gray-600 bg-[#131619] text-cyan-500 focus:ring-offset-[#1a1f24] focus:ring-cyan-500"
-                                    />
-                                    <span className="text-sm text-gray-400 group-hover:text-white transition-colors">{permission}</span>
-                                </label>
-                            ))}
-                        </div>
+                        <GranularPermissionsEditor
+                            granularPermissions={formData.granularPermissions}
+                            onChange={(newPermissions) => setFormData({ ...formData, granularPermissions: newPermissions })}
+                        />
                     </div>
+
 
                     <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
                         <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600">Cancel</button>

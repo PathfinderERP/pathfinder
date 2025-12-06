@@ -3,15 +3,17 @@ import { createCentre } from "../../controllers/centre/createCentre.js";
 import { getCentres, getCentreById } from "../../controllers/centre/getCentres.js";
 import { updateCentre } from "../../controllers/centre/updateCentre.js";
 import { deleteCentre } from "../../controllers/centre/deleteCentre.js";
-import { requirePermission } from "../../middleware/permissionMiddleware.js";
+import { requireAuth, requireGranularPermission } from "../../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
-// All centre routes require "Master Data" permission
-router.post("/create", requirePermission("Master Data"), createCentre);
-router.get("/", requirePermission("Master Data"), getCentres);
-router.get("/:id", requirePermission("Master Data"), getCentreById);
-router.put("/:id", requirePermission("Master Data"), updateCentre);
-router.delete("/:id", requirePermission("Master Data"), deleteCentre);
+// Read routes - Accessible to authenticated users
+router.get("/", requireAuth, getCentres);
+router.get("/:id", requireAuth, getCentreById);
+
+// Write routes - Require granular permissions
+router.post("/create", requireGranularPermission("masterData", "centre", "create"), createCentre);
+router.put("/:id", requireGranularPermission("masterData", "centre", "edit"), updateCentre);
+router.delete("/:id", requireGranularPermission("masterData", "centre", "delete"), deleteCentre);
 
 export default router;

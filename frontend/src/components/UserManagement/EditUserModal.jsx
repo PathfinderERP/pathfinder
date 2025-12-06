@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FaTimes } from "react-icons/fa";
 import { toast } from "react-toastify";
+import GranularPermissionsEditor from "./GranularPermissionsEditor";
 
 const EditUserModal = ({ user, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
@@ -12,6 +13,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
         role: "admin",
         centres: [],
         permissions: [],
+        granularPermissions: {},
         canEditUsers: false,
         canDeleteUsers: false
     });
@@ -26,20 +28,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
         ? ["admin", "teacher", "telecaller", "counsellor", "superAdmin"]
         : ["admin", "teacher", "telecaller", "counsellor"];
 
-    const availablePermissions = [
-        "CEO Control Tower",
-        "Admissions & Sales",
-        "Academics",
-        "Finance & Fees",
-        "HR & Manpower",
-        "Operations",
-        "Digital Portal",
-        "Marketing & CRM",
-        "Franchise Mgmt",
-        "Master Data",
-        "Course Management",
-        "User Management"
-    ];
+
 
     useEffect(() => {
         fetchCentres();
@@ -61,6 +50,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                 role: user.role || "admin",
                 centres: userCentres,
                 permissions: user.permissions || [],
+                granularPermissions: user.granularPermissions || {},
                 canEditUsers: user.canEditUsers || false,
                 canDeleteUsers: user.canDeleteUsers || false
             });
@@ -97,12 +87,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
         setFormData({ ...formData, centres: updatedCentres });
     };
 
-    const handlePermissionChange = (permission) => {
-        const updatedPermissions = formData.permissions.includes(permission)
-            ? formData.permissions.filter(p => p !== permission)
-            : [...formData.permissions, permission];
-        setFormData({ ...formData, permissions: updatedPermissions });
-    };
+
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -120,6 +105,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                 role: formData.role,
                 centres: formData.centres,
                 permissions: formData.permissions,
+                granularPermissions: formData.granularPermissions,
                 canEditUsers: formData.canEditUsers,
                 canDeleteUsers: formData.canDeleteUsers
             };
@@ -221,6 +207,16 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                         </div>
                     </div>
 
+                    {/* Granular Permissions Editor */}
+                    <div className="mb-6">
+                        <GranularPermissionsEditor
+                            granularPermissions={formData.granularPermissions}
+                            onChange={(newPermissions) =>
+                                setFormData({ ...formData, granularPermissions: newPermissions })
+                            }
+                        />
+                    </div>
+
                     {/* User Management Permissions - SuperAdmin Only */}
                     {isSuperAdmin && (
                         <div className="pt-4 border-t border-gray-700">
@@ -265,22 +261,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                         </div>
                     )}
 
-                    <div className="pt-4 border-t border-gray-700">
-                        <label className="block text-cyan-400 font-semibold mb-3">Permissions (Access Control)</label>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                            {availablePermissions.map(permission => (
-                                <label key={permission} className="flex items-center gap-2 cursor-pointer group">
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.permissions.includes(permission)}
-                                        onChange={() => handlePermissionChange(permission)}
-                                        className="w-4 h-4 rounded border-gray-600 bg-[#131619] text-cyan-500 focus:ring-offset-[#1a1f24] focus:ring-cyan-500"
-                                    />
-                                    <span className="text-sm text-gray-400 group-hover:text-white transition-colors">{permission}</span>
-                                </label>
-                            ))}
-                        </div>
-                    </div>
+
 
                     <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
                         <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600">Cancel</button>

@@ -29,6 +29,7 @@ export default async function adminTeacherLogin(req, res) {
                 role: user.role,
                 centres: user.centres,
                 permissions: user.permissions || [],
+                granularPermissions: user.granularPermissions || {},
                 canEditUsers: user.canEditUsers || false,
                 canDeleteUsers: user.canDeleteUsers || false
             }
