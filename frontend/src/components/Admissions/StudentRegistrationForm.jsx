@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { FaArrowLeft } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const StudentRegistrationForm = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [loading, setLoading] = useState(false);
     const [centres, setCentres] = useState([]);
     const [examTags, setExamTags] = useState([]);
@@ -64,6 +65,42 @@ const StudentRegistrationForm = () => {
         status: "",
         enrolledStatus: "Not Enrolled",
     });
+
+    useEffect(() => {
+        if (location.state?.leadData) {
+            const lead = location.state.leadData;
+
+            // Map Lead Status
+            let statusMap = {
+                "HOT LEAD": "Hot",
+                "COLD LEAD": "Cold",
+                "NEGATIVE": "Negative"
+            };
+
+            // Extract Class Number
+            let classVal = "";
+            if (lead.className?.name) {
+                const match = lead.className.name.match(/\d+/);
+                if (match) classVal = match[0];
+            }
+
+            setFormData(prev => ({
+                ...prev,
+                studentName: lead.name || "",
+                studentEmail: lead.email || "",
+                mobileNum: lead.phoneNumber || "",
+                schoolName: lead.schoolName || "",
+                centre: lead.centre?.centreName || "",
+                source: lead.source || "",
+                targetExams: lead.targetExam || "",
+                status: statusMap[lead.leadType] || "",
+                class: classVal,
+                whatsappNumber: lead.phoneNumber || "" // Use phone as WA default
+            }));
+
+            toast.info("Lead details autofilled");
+        }
+    }, [location.state]);
 
     const fetchCentres = async () => {
         try {

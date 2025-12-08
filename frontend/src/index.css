@@ -29,3 +29,95 @@
 .input-field {
   @apply border border-gray-300 dark:border-gray-600 rounded px-3 py-2 w-full bg-white dark:bg-gray-700 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500;
 }
+
+/* =========================================
+   HOVER WAVE EFFECTS (from UserManagement)
+   ========================================= */
+
+@keyframes wave-shadow-dramatic {
+  0% {
+    box-shadow: 0 0 30px rgba(6, 182, 212, 0.5),
+      0 0 60px rgba(14, 116, 144, 0.4), 0 0 90px rgba(22, 78, 99, 0.3);
+  }
+
+  20% {
+    box-shadow: 10px 10px 35px rgba(6, 182, 212, 0.6),
+      15px 5px 65px rgba(14, 116, 144, 0.45),
+      5px -5px 95px rgba(22, 78, 99, 0.35);
+  }
+
+  40% {
+    box-shadow: -10px 15px 40px rgba(6, 182, 212, 0.7),
+      -5px 10px 70px rgba(14, 116, 144, 0.5),
+      -10px 0 100px rgba(22, 78, 99, 0.4);
+  }
+
+  60% {
+    box-shadow: -15px -10px 35px rgba(6, 182, 212, 0.6),
+      -10px -5px 65px rgba(14, 116, 144, 0.45),
+      -5px 5px 95px rgba(22, 78, 99, 0.35);
+  }
+
+  80% {
+    box-shadow: 10px -15px 40px rgba(6, 182, 212, 0.7),
+      5px -10px 70px rgba(14, 116, 144, 0.5), 10px 0 100px rgba(22, 78, 99, 0.4);
+  }
+
+  100% {
+    box-shadow: 0 0 30px rgba(6, 182, 212, 0.5),
+      0 0 60px rgba(14, 116, 144, 0.4), 0 0 90px rgba(22, 78, 99, 0.3);
+  }
+}
+
+.hover-wave-card {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.hover-wave-card:hover {
+  animation: wave-shadow-dramatic 4s ease-in-out infinite;
+  border-color: rgba(6, 182, 212, 0.6) !important;
+  transform: translateY(-3px) scale(1.01);
+  z-index: 10;
+}
+
+@keyframes wave-shadow-table {
+  0% {
+    box-shadow:
+      0 0 20px rgba(6, 182, 212, 0.4),
+      0 0 40px rgba(14, 116, 144, 0.3),
+      0 0 60px rgba(22, 78, 99, 0.2);
+  }
+
+  50% {
+    box-shadow:
+      -5px 10px 30px rgba(6, 182, 212, 0.6),
+      -10px 10px 50px rgba(14, 116, 144, 0.4),
+      -5px 5px 70px rgba(22, 78, 99, 0.3);
+  }
+
+  100% {
+    box-shadow:
+      0 0 20px rgba(6, 182, 212, 0.4),
+      0 0 40px rgba(14, 116, 144, 0.3),
+      0 0 60px rgba(22, 78, 99, 0.2);
+  }
+}
+
+.hover-wave-row {
+  position: relative;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.hover-wave-row:hover {
+  animation: wave-shadow-table 3s ease-in-out infinite;
+  background-color: rgba(6, 182, 212, 0.05) !important;
+  transform: scale(1.01);
+  z-index: 10;
+  border-color: rgba(6, 182, 212, 0.3);
+}
+
+.hover-wave-row:hover td {
+  border-color: rgba(6, 182, 212, 0.3) !important;
+}

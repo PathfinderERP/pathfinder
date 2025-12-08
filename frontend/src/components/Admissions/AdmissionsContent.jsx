@@ -9,6 +9,7 @@ import MultiSelectFilter from '../common/MultiSelectFilter';
 import Pagination from '../common/Pagination';
 import { downloadCSV, downloadExcel } from '../../utils/exportUtils';
 import './AdmissionsWave.css';
+import { hasPermission } from '../../config/permissions';
 
 const AdmissionsContent = () => {
     const navigate = useNavigate();
@@ -24,6 +25,13 @@ const AdmissionsContent = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
+
+    // Permission checks
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const isSuperAdmin = user.role === "superAdmin";
+    const canCreate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'allLeads', 'create');
+    const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'allLeads', 'edit');
+    const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'allLeads', 'delete');
 
     useEffect(() => {
         fetchStudents();
@@ -235,27 +243,29 @@ const AdmissionsContent = () => {
         <div className="flex-1 p-6 overflow-y-auto bg-[#131619]">
             {/* Header Section */}
             <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-white">Admissions & Sales Engine</h2>
+                <h2 className="text-2xl font-bold text-white">Admissions</h2>
                 <div className="flex gap-3">
                     {/* <button className="flex items-center gap-2 px-4 py-2 bg-[#1a1f24] text-gray-300 rounded-lg border border-gray-700 hover:bg-gray-800">
                         <FaFilter /> Filter
                     </button> */}
 
-                    <button
-                        onClick={() => {
-                            console.log("Navigating to student registration");
-                            navigate("/student-registration");
-                        }}
-                        className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-semibold rounded-lg hover:bg-cyan-400"
-                    >
-                        <FaPlus /> New Lead
-                    </button>
+                    {canCreate && (
+                        <button
+                            onClick={() => {
+                                console.log("Navigating to student registration");
+                                navigate("/student-registration");
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-semibold rounded-lg hover:bg-cyan-400"
+                        >
+                            <FaPlus /> New Registration
+                        </button>
+                    )}
                 </div>
             </div>
 
             {/* Tabs */}
             <div className="flex border-b border-gray-800 mb-6">
-                {["All Leads (8)", "Walk-ins", "Admissions", "Telecalling"].map((tab, index) => (
+                {["All Leads", "Admissions", "Telecalling"].map((tab, index) => (
                     <button
                         key={index}
                         onClick={() => {
@@ -278,15 +288,17 @@ const AdmissionsContent = () => {
                 <button className="bg-[#1a1f24] text-gray-300 py-3 px-4 rounded-lg border border-gray-700 hover:bg-[#252b32] hover:border-gray-600 transition-all text-sm font-medium">
                     Counselor Performance
                 </button>
-                <button
-                    onClick={() => {
-                        console.log("Navigating to student registration");
-                        navigate("/student-registration");
-                    }}
-                    className="bg-[#1a1f24] text-gray-300 py-3 px-4 rounded-lg border border-gray-700 hover:bg-[#252b32] hover:border-gray-600 transition-all text-sm font-medium"
-                >
-                    Walk-in Registration
-                </button>
+                {canCreate && (
+                    <button
+                        onClick={() => {
+                            console.log("Navigating to student registration");
+                            navigate("/student-registration");
+                        }}
+                        className="bg-[#1a1f24] text-gray-300 py-3 px-4 rounded-lg border border-gray-700 hover:bg-[#252b32] hover:border-gray-600 transition-all text-sm font-medium"
+                    >
+                        Walk-in Registration
+                    </button>
+                )}
                 <button className="bg-[#1a1f24] text-gray-300 py-3 px-4 rounded-lg border border-gray-700 hover:bg-[#252b32] hover:border-gray-600 transition-all text-sm font-medium">
                     Telecalling Console
                 </button>
@@ -595,14 +607,14 @@ const AdmissionsContent = () => {
                                                             <span className="px-3 py-1 bg-green-500/10 text-green-400 rounded text-sm font-semibold border border-green-500/20">
                                                                 ✓ Enrolled
                                                             </span>
-                                                        ) : (
+                                                        ) : canCreate ? (
                                                             <button
                                                                 onClick={() => navigate(`/admission/${student._id}`)}
                                                                 className="px-3 py-1 bg-cyan-500 text-black rounded hover:bg-cyan-400 text-sm font-semibold transition-colors"
                                                             >
                                                                 Admit
                                                             </button>
-                                                        )}
+                                                        ) : null}
 
                                                         <button
                                                             onClick={() => handleViewStudent(student)}
@@ -612,21 +624,25 @@ const AdmissionsContent = () => {
                                                             <FaEye />
                                                         </button>
 
-                                                        <button
-                                                            onClick={() => handleEditStudent(student)}
-                                                            className="p-2 bg-yellow-500/10 text-yellow-400 rounded hover:bg-yellow-500/20 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                            title="Edit"
-                                                        >
-                                                            <FaEdit />
-                                                        </button>
+                                                        {canEdit && (
+                                                            <button
+                                                                onClick={() => handleEditStudent(student)}
+                                                                className="p-2 bg-yellow-500/10 text-yellow-400 rounded hover:bg-yellow-500/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                title="Edit"
+                                                            >
+                                                                <FaEdit />
+                                                            </button>
+                                                        )}
 
-                                                        <button
-                                                            onClick={() => handleDeleteStudent(student._id)}
-                                                            className="p-2 bg-red-500/10 text-red-400 rounded hover:bg-red-500/20 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                            title="Delete"
-                                                        >
-                                                            <FaTrash />
-                                                        </button>
+                                                        {canDelete && (
+                                                            <button
+                                                                onClick={() => handleDeleteStudent(student._id)}
+                                                                className="p-2 bg-red-500/10 text-red-400 rounded hover:bg-red-500/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                title="Delete"
+                                                            >
+                                                                <FaTrash />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>

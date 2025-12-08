@@ -28,7 +28,9 @@ const EnrolledStudentsContent = () => {
     // Permission checks
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const isSuperAdmin = user.role === "superAdmin";
+    const canCreate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'create');
     const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'edit');
+    const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'delete');
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -404,81 +406,81 @@ const EnrolledStudentsContent = () => {
                                 filteredAdmissions
                                     .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                                     .map((admission) => {
-                                    const student = admission.student?.studentsDetails?.[0] || {};
-                                    const studentImage = admission.studentImage || student.studentImage || null;
-                                    const centre = admission.centre || student.centre || admission.department?.departmentName || "N/A";
+                                        const student = admission.student?.studentsDetails?.[0] || {};
+                                        const studentImage = admission.studentImage || student.studentImage || null;
+                                        const centre = admission.centre || student.centre || admission.department?.departmentName || "N/A";
 
-                                    const studentStatusList = admission.student?.studentStatus || [];
-                                    const currentStatusObj = studentStatusList.length > 0 ? studentStatusList[studentStatusList.length - 1] : {};
-                                    const leadStatus = currentStatusObj.status || "N/A";
+                                        const studentStatusList = admission.student?.studentStatus || [];
+                                        const currentStatusObj = studentStatusList.length > 0 ? studentStatusList[studentStatusList.length - 1] : {};
+                                        const leadStatus = currentStatusObj.status || "N/A";
 
-                                    return (
-                                        <tr key={admission._id} className="admissions-row-wave transition-colors group">
-                                            <td className="p-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white font-bold overflow-hidden">
-                                                        {studentImage ? (
-                                                            <img src={studentImage} alt={student.studentName} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            student.studentName?.charAt(0).toUpperCase() || "S"
-                                                        )}
+                                        return (
+                                            <tr key={admission._id} className="admissions-row-wave transition-colors group">
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white font-bold overflow-hidden">
+                                                            {studentImage ? (
+                                                                <img src={studentImage} alt={student.studentName} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                student.studentName?.charAt(0).toUpperCase() || "S"
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-white font-medium">{student.studentName || "N/A"}</p>
+                                                            <p className="text-gray-400 text-xs">{student.studentEmail || ""}</p>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <p className="text-white font-medium">{student.studentName || "N/A"}</p>
-                                                        <p className="text-gray-400 text-xs">{student.studentEmail || ""}</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="p-4">
-                                                <span className="text-cyan-400 font-mono font-semibold">
-                                                    {admission.admissionNumber}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 text-gray-300">{admission.course?.courseName || "N/A"}</td>
-                                            <td className="p-4 text-gray-300">{centre}</td>
-                                            <td className="p-4 text-gray-300">{admission.academicSession}</td>
-                                            {/* <td className="p-4">
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className="text-cyan-400 font-mono font-semibold">
+                                                        {admission.admissionNumber}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-gray-300">{admission.course?.courseName || "N/A"}</td>
+                                                <td className="p-4 text-gray-300">{centre}</td>
+                                                <td className="p-4 text-gray-300">{admission.academicSession}</td>
+                                                {/* <td className="p-4">
                                                 <span className={`font-medium ${getLeadStatusColor(leadStatus)}`}>
                                                     {leadStatus}
                                                 </span>
                                             </td> */}
-                                            <td className="p-4 text-white font-semibold">₹{admission.totalFees?.toLocaleString()}</td>
-                                            <td className="p-4">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${getPaymentStatusColor(admission.paymentStatus)}`}>
-                                                    {admission.paymentStatus}
-                                                </span>
-                                            </td>
-                                            <td className="p-4">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(admission.admissionStatus)}`}>
-                                                    {admission.admissionStatus}
-                                                </span>
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        onClick={() => setSelectedAdmission(admission)}
-                                                        className="p-2 bg-cyan-500/10 text-cyan-400 rounded hover:bg-cyan-500/20 transition-opacity"
-                                                        title="View Details"
-                                                    >
-                                                        <FaEye />
-                                                    </button>
-                                                    {canEdit && (
+                                                <td className="p-4 text-white font-semibold">₹{admission.totalFees?.toLocaleString()}</td>
+                                                <td className="p-4">
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${getPaymentStatusColor(admission.paymentStatus)}`}>
+                                                        {admission.paymentStatus}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(admission.admissionStatus)}`}>
+                                                        {admission.admissionStatus}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex gap-2">
                                                         <button
-                                                            onClick={() => {
-                                                                setSelectedAdmission(admission);
-                                                                setShowEditModal(true);
-                                                            }}
-                                                            className="p-2 bg-yellow-500/10 text-yellow-400 rounded hover:bg-yellow-500/20 transition-opacity"
-                                                            title="Edit Student Details"
+                                                            onClick={() => setSelectedAdmission(admission)}
+                                                            className="p-2 bg-cyan-500/10 text-cyan-400 rounded hover:bg-cyan-500/20 transition-opacity"
+                                                            title="View Details"
                                                         >
-                                                            <FaUserGraduate />
+                                                            <FaEye />
                                                         </button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
+                                                        {canEdit && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setSelectedAdmission(admission);
+                                                                    setShowEditModal(true);
+                                                                }}
+                                                                className="p-2 bg-yellow-500/10 text-yellow-400 rounded hover:bg-yellow-500/20 transition-opacity"
+                                                                title="Edit Student Details"
+                                                            >
+                                                                <FaUserGraduate />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                             )}
                         </tbody>
                     </table>
@@ -502,6 +504,7 @@ const EnrolledStudentsContent = () => {
                             fetchAdmissions();
                             setSelectedAdmission(null);
                         }}
+                        canEdit={canEdit}
                     />
                 )
             }

@@ -23,6 +23,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     });
 
     const menuItems = [
+        { name: "Lead Management", icon: <FaBullseye />, path: "/lead-management", permissionModule: "leadManagement" },
         { name: "CEO Control Tower", icon: <FaChartBar />, path: "/dashboard", permissionModule: "ceoControlTower" },
         { name: "Admissions", icon: <FaBullseye />, path: "/admissions", permissionModule: "admissionsSales" },
         { name: "Academics", icon: <FaBook />, path: "/academics", permissionModule: "academics" },
@@ -42,6 +43,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Exam Tag", path: "/master-data/exam-tag", permissionSection: "examTag" },
                 { name: "Department", path: "/master-data/department", permissionSection: "department" },
                 { name: "Centre", path: "/master-data/centre", permissionSection: "centre" },
+                { name: "Source", path: "/master-data/source", permissionSection: "source" },
             ],
         },
         { name: "Course Management", icon: <FaBook />, path: "/course-management", permissionModule: "courseManagement", permissionSection: "courses" },
@@ -65,7 +67,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 if (section && (section.create || section.edit || section.delete)) {
                     return true;
                 }
-            } 
+            }
             // Standard module check
             else if (hasModuleAccess(user, item.permissionModule)) {
                 // For Master Data, check if any sub-items are accessible

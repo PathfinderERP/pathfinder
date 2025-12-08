@@ -218,7 +218,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                     </div>
 
                     {/* User Management Permissions - SuperAdmin Only */}
-                    {isSuperAdmin && (
+                    {/* {isSuperAdmin && (
                         <div className="pt-4 border-t border-gray-700">
                             <label className="block text-orange-400 font-semibold mb-3">User Management Permissions</label>
                             <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 space-y-3">
@@ -259,7 +259,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                                 </label>
                             </div>
                         </div>
-                    )}
+                    )} */}
 
 
 

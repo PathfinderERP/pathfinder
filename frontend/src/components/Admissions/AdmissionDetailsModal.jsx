@@ -3,7 +3,7 @@ import { FaTimes, FaUser, FaGraduationCap, FaMoneyBillWave, FaCalendar, FaCheckC
 import { toast } from 'react-toastify';
 import BillGenerator from '../Finance/BillGenerator';
 
-const AdmissionDetailsModal = ({ admission, onClose, onUpdate }) => {
+const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }) => {
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [selectedInstallment, setSelectedInstallment] = useState(null);
     const [paymentData, setPaymentData] = useState({
@@ -98,20 +98,22 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate }) => {
                             <p className="text-cyan-400 font-mono text-sm mt-1">{admission.admissionNumber}</p>
                         </div>
                         <div className="flex items-center gap-3">
-                            <button
-                                onClick={() => {
-                                    // Close this modal and open edit modal
-                                    onClose();
-                                    // You'll need to pass an onEdit callback from parent
-                                    if (window.openEditModal) {
-                                        window.openEditModal(admission);
-                                    }
-                                }}
-                                className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-lg transition-colors flex items-center gap-2"
-                            >
-                                <FaUser />
-                                Edit Student Details
-                            </button>
+                            {canEdit && (
+                                <button
+                                    onClick={() => {
+                                        // Close this modal and open edit modal
+                                        onClose();
+                                        // You'll need to pass an onEdit callback from parent
+                                        if (window.openEditModal) {
+                                            window.openEditModal(admission);
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-lg transition-colors flex items-center gap-2"
+                                >
+                                    <FaUser />
+                                    Edit Student Details
+                                </button>
+                            )}
                             <button onClick={onClose} className="text-gray-400 hover:text-white">
                                 <FaTimes size={24} />
                             </button>
@@ -314,20 +316,31 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate }) => {
                                                     </span>
                                                 </td>
                                                 <td className="p-3">
-                                                    {payment.status !== "PAID" ? (
-                                                        <button
-                                                            onClick={() => openPaymentModal(payment)}
-                                                            className="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white text-sm rounded transition-colors"
-                                                        >
-                                                            Pay Now
-                                                        </button>
+                                                    {canEdit ? (
+                                                        payment.status !== "PAID" ? (
+                                                            <button
+                                                                onClick={() => openPaymentModal(payment)}
+                                                                className="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white text-sm rounded transition-colors"
+                                                            >
+                                                                Pay Now
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => setBillModal({ show: true, admission: admission, installment: payment })}
+                                                                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-cyan-400 text-sm rounded transition-colors flex items-center gap-1"
+                                                            >
+                                                                <FaFileInvoice /> Bill
+                                                            </button>
+                                                        )
                                                     ) : (
-                                                        <button
-                                                            onClick={() => setBillModal({ show: true, admission: admission, installment: payment })}
-                                                            className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-cyan-400 text-sm rounded transition-colors flex items-center gap-1"
-                                                        >
-                                                            <FaFileInvoice /> Bill
-                                                        </button>
+                                                        payment.status === "PAID" && (
+                                                            <button
+                                                                onClick={() => setBillModal({ show: true, admission: admission, installment: payment })}
+                                                                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-cyan-400 text-sm rounded transition-colors flex items-center gap-1"
+                                                            >
+                                                                <FaFileInvoice /> Bill
+                                                            </button>
+                                                        )
                                                     )}
                                                 </td>
                                             </tr>

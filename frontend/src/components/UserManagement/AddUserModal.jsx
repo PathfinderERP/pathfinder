@@ -159,7 +159,7 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                                     </label>
                                 ))}
                             </div>
-                            {formData.role !== "superAdmin" && (
+                            {/* {formData.role !== "superAdmin" && (
                                 <label className="flex items-start gap-3 p-3 border border-orange-500/30 bg-orange-500/10 rounded-lg cursor-pointer group hover:bg-orange-500/20 transition-all mt-4">
                                     <input
                                         type="checkbox"
@@ -172,14 +172,14 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                                             Can Edit Other Users
                                         </span>
                                         <p className="text-xs text-gray-400 mt-1">
-                                            Grant this user permission to edit other users of the same or lower role. 
+                                            Grant this user permission to edit other users of the same or lower role.
                                             Without this permission, they will not see edit buttons for other users.
                                         </p>
                                     </div>
                                 </label>
-                            )}
-                                
-                            {formData.role !== "superAdmin" && (
+                            )} */}
+
+                            {/* {formData.role !== "superAdmin" && (
                                 <label className="flex items-start gap-3 cursor-pointer group">
                                     <input
                                         type="checkbox"
@@ -197,9 +197,9 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                                         </p>
                                     </div>
                                 </label>
-                            )}
-                            </div>
+                            )} */}
                         </div>
+                    </div>
 
                     <div className="pt-4 border-t border-gray-700">
                         <GranularPermissionsEditor

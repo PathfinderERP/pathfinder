@@ -15,6 +15,8 @@ import paymentReminderRoutes from "./routes/payment/paymentReminder.routes.js";
 import paymentRoutes from "./routes/payment/payment.routes.js";
 import centreRoutes from "./routes/centre/centre.routes.js";
 import profileRoutes from "./routes/profile/profile.routes.js";
+import leadManagementRoutes from "./routes/leadManagement/leadManagement.routes.js";
+import sourceRoutes from "./routes/source/source.routes.js";
 import { startPaymentReminderCron } from "./services/cronService.js";
 
 dotenv.config();
@@ -63,6 +65,12 @@ app.use("/api/centre", centreRoutes);
 
 //profile routes
 app.use("/api/profile", profileRoutes);
+
+//lead management routes
+app.use("/api/lead-management", leadManagementRoutes);
+
+//source routes
+app.use("/api/source", sourceRoutes);
 
 app.listen(process.env.PORT, () => {
     console.log(`Server is running on port ${process.env.PORT}`);

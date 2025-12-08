@@ -19,8 +19,8 @@ export const PERMISSION_MODULES = {
             }
         }
     },
-    admissionsSales: {
-        label: "Admissions & Sales",
+    admissions: {
+        label: "Admissions",
         sections: {
             allLeads: {
                 label: "All Leads",
@@ -231,10 +231,10 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
     if (granularPermissionsOrUser && granularPermissionsOrUser.role === 'superAdmin') {
         return true; // SuperAdmin has all permissions
     }
-    
+
     // Otherwise treat it as granularPermissions object
     const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
-    
+
     if (!granularPermissions) return false;
     if (!granularPermissions[module]) return false;
     if (!granularPermissions[module][section]) return false;
@@ -247,7 +247,7 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
     if (granularPermissionsOrUser && granularPermissionsOrUser.role === 'superAdmin') {
         return true; // SuperAdmin has access to all modules
     }
-    
+
     const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
     if (!granularPermissions || !granularPermissions[module]) return false;
     const sections = granularPermissions[module];
@@ -260,10 +260,10 @@ export const getAccessibleModules = (granularPermissionsOrUser) => {
     if (granularPermissionsOrUser && granularPermissionsOrUser.role === 'superAdmin') {
         return Object.keys(PERMISSION_MODULES); // SuperAdmin has access to all modules
     }
-    
+
     const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
     if (!granularPermissions) return [];
-    return Object.keys(granularPermissions).filter(module => 
+    return Object.keys(granularPermissions).filter(module =>
         hasModuleAccess(granularPermissions, module)
     );
 };

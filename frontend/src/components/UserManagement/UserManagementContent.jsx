@@ -5,8 +5,9 @@ import "react-toastify/dist/ReactToastify.css";
 import * as XLSX from "xlsx";
 import AddUserModal from "./AddUserModal";
 import EditUserModal from "./EditUserModal";
+import PermissionsDetailModal from "./PermissionsDetailModal";
 import "./UserCardWave.css";
-import { hasPermission } from "../../config/permissions";
+import { hasPermission, getAccessibleModules, PERMISSION_MODULES } from "../../config/permissions";
 
 const UserManagementContent = () => {
     const [users, setUsers] = useState([]);
@@ -16,7 +17,8 @@ const UserManagementContent = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
     const [filterRole, setFilterRole] = useState("all");
-    const [openTooltipUserId, setOpenTooltipUserId] = useState(null);
+    const [selectedPermUser, setSelectedPermUser] = useState(null);
+    const [showPermModal, setShowPermModal] = useState(false);
     const [viewMode, setViewMode] = useState("grid"); // "grid" or "table"
 
     const apiUrl = import.meta.env.VITE_API_URL;
@@ -26,7 +28,7 @@ const UserManagementContent = () => {
     const currentUserRole = currentUser.role || "";
     const isSuperAdminOrAdmin = currentUserRole === "superAdmin" || currentUserRole === "admin";
     const isSuperAdmin = currentUserRole === "superAdmin";
-    
+
     // Check if current user can edit/delete other users
     // SuperAdmin always can, others need the specific permissions
     const canEditUsers = isSuperAdmin || hasPermission(currentUser.granularPermissions, 'userManagement', 'users', 'edit');
@@ -283,28 +285,43 @@ const UserManagementContent = () => {
                                 </div>
                             </div>
 
-                            {user.permissions && user.permissions.length > 0 && (
-                                <div className="mt-4 pt-4 border-t border-gray-800">
-                                    <p className="text-xs text-gray-500 mb-2">Permissions:</p>
-                                    <div className="flex flex-wrap gap-1">
-                                        {user.permissions.slice(0, 3).map((perm, idx) => (
-                                            <span key={idx} className="text-xs bg-gray-800 text-cyan-400 px-2 py-1 rounded">
-                                                {perm}
-                                            </span>
-                                        ))}
-                                        {user.permissions.length > 3 && (
-                                            <div className="relative group">
-                                                <span
-                                                    className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded cursor-pointer"
-                                                    onClick={() => setOpenTooltipUserId(openTooltipUserId === user._id ? null : user._id)}
-                                                >
-                                                    +{user.permissions.length - 3} more
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
+                            {/* Granular Permissions Display */}
+                            <div className="mt-4 pt-4 border-t border-gray-800">
+                                <p className="text-xs text-gray-500 mb-2">Permissions:</p>
+                                <div
+                                    className="flex flex-wrap gap-1 cursor-pointer hover:bg-gray-800/50 p-1 rounded transition-colors -ml-1 border border-transparent hover:border-gray-700"
+                                    onClick={() => { setSelectedPermUser(user); setShowPermModal(true); }}
+                                >
+                                    {user.role === 'superAdmin' ? (
+                                        <span className="text-xs bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-1 rounded">
+                                            Super Admin (All Access)
+                                        </span>
+                                    ) : (
+                                        (() => {
+                                            const modules = getAccessibleModules(user);
+                                            if (modules.length === 0) return <span className="text-xs text-gray-500 italic">No permissions</span>;
+
+                                            const displayModules = modules.slice(0, 3);
+                                            const remaining = modules.length - 3;
+
+                                            return (
+                                                <>
+                                                    {displayModules.map(modKey => (
+                                                        <span key={modKey} className="text-xs bg-gray-800 text-cyan-400 px-2 py-1 rounded">
+                                                            {PERMISSION_MODULES[modKey]?.label || modKey}
+                                                        </span>
+                                                    ))}
+                                                    {remaining > 0 && (
+                                                        <span className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded">
+                                                            +{remaining} more
+                                                        </span>
+                                                    )}
+                                                </>
+                                            );
+                                        })()
+                                    )}
                                 </div>
-                            )}
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -378,37 +395,15 @@ const UserManagementContent = () => {
                 </div>
             )}
 
-            {/* Permissions Modal - Centered overlay */}
-            {openTooltipUserId && (
-                <div
-                    className="fixed inset-0 flex items-center justify-center z-50 bg-black/50"
-                    onClick={() => setOpenTooltipUserId(null)}
-                >
-                    <div
-                        className="bg-gray-900 border border-cyan-500/50 rounded-lg p-4 shadow-2xl w-[90%] max-w-[400px] m-4"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="flex justify-between items-center mb-3">
-                            <p className="text-sm font-bold text-cyan-400">
-                                All Permissions ({users.find(u => u._id === openTooltipUserId)?.permissions.length})
-                            </p>
-                            <button
-                                onClick={() => setOpenTooltipUserId(null)}
-                                className="text-gray-400 hover:text-white text-lg font-bold"
-                            >
-                                ✕
-                            </button>
-                        </div>
-                        <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
-                            {users.find(u => u._id === openTooltipUserId)?.permissions.map((perm, idx) => (
-                                <div key={idx} className="text-sm text-gray-300 flex items-center gap-2 bg-gray-800/50 p-2 rounded">
-                                    <span className="text-cyan-500">•</span>
-                                    <span className="break-words">{perm}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+            {/* Permissions Modal */}
+            {showPermModal && selectedPermUser && (
+                <PermissionsDetailModal
+                    user={selectedPermUser}
+                    onClose={() => {
+                        setShowPermModal(false);
+                        setSelectedPermUser(null);
+                    }}
+                />
             )}
 
             {showAddModal && (

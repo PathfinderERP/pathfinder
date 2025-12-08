@@ -145,11 +145,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate }) => {
                             organizationName: formData.organizationName,
                             designation: formData.designation,
                             officeAddress: formData.officeAddress
-                        }],
-                        examSchema: admission.student?.examSchema || [],
-                        section: admission.student?.section || [],
-                        sessionExamCourse: admission.student?.sessionExamCourse || [],
-                        studentStatus: admission.student?.studentStatus || []
+                        }]
                     })
                 }
             );

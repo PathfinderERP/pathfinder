@@ -51,6 +51,8 @@ import MasterDataCentre from "./pages/MasterDataCentre";
 import EnrolledStudents from "./pages/EnrolledStudents";
 import UserManagement from "./pages/UserManagement";
 import Profile from "./pages/Profile";
+import LeadManagement from "./pages/LeadManagement";
+import MasterDataSource from "./pages/MasterDataSource";
 
 function App() {
   return (
@@ -58,6 +60,7 @@ function App() {
       <Routes>
         {/* <Route path="/" element={<LandingPage />} /> */}
         <Route path="/" element={<Login />} />
+        <Route path="/lead-management" element={<LeadManagement />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/admissions" element={<Admissions />} />
         <Route path="/student-registration" element={<StudentRegistration />} />
@@ -72,6 +75,7 @@ function App() {
         <Route path="/master-data/exam-tag" element={<MasterDataExamTag />} />
         <Route path="/master-data/department" element={<MasterDataDepartment />} />
         <Route path="/master-data/centre" element={<MasterDataCentre />} />
+        <Route path="/master-data/source" element={<MasterDataSource />} />
         <Route path="/course-management" element={<MasterDataCourse />} />
         <Route path="/enrolled-students" element={<EnrolledStudents />} />
         <Route path="/user-management" element={<UserManagement />} />
