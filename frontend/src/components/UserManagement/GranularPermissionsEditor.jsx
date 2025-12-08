@@ -23,30 +23,43 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
 
     const handleModuleToggle = (moduleKey) => {
         const newPermissions = { ...granularPermissions };
-        
+
         if (newPermissions[moduleKey]) {
             // Remove entire module
             delete newPermissions[moduleKey];
             // Collapse the module
             setExpandedModules(prev => ({ ...prev, [moduleKey]: false }));
         } else {
-            // Add module with all sections disabled
+            // Add module with all sections enabled (view only) but operations disabled
             newPermissions[moduleKey] = {};
+
+            // Auto-enable all sections for this module
+            const moduleData = PERMISSION_MODULES[moduleKey];
+            if (moduleData && moduleData.sections) {
+                Object.keys(moduleData.sections).forEach(sectionKey => {
+                    newPermissions[moduleKey][sectionKey] = {
+                        create: false,
+                        edit: false,
+                        delete: false
+                    };
+                });
+            }
+
             // Auto-expand the module so user can see sections
             setExpandedModules(prev => ({ ...prev, [moduleKey]: true }));
         }
-        
+
         onChange(newPermissions);
     };
 
     const handleSectionToggle = (moduleKey, sectionKey) => {
         const newPermissions = { ...granularPermissions };
         const sectionExpandKey = `${moduleKey}-${sectionKey}`;
-        
+
         if (!newPermissions[moduleKey]) {
             newPermissions[moduleKey] = {};
         }
-        
+
         if (newPermissions[moduleKey][sectionKey]) {
             // Remove section
             delete newPermissions[moduleKey][sectionKey];
@@ -62,17 +75,17 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
             // Auto-expand the section so user can see operations
             setExpandedSections(prev => ({ ...prev, [sectionExpandKey]: true }));
         }
-        
+
         onChange(newPermissions);
     };
 
     const handleOperationToggle = (moduleKey, sectionKey, operation) => {
         const newPermissions = { ...granularPermissions };
-        
+
         if (!newPermissions[moduleKey]) {
             newPermissions[moduleKey] = {};
         }
-        
+
         if (!newPermissions[moduleKey][sectionKey]) {
             newPermissions[moduleKey][sectionKey] = {
                 create: false,
@@ -80,10 +93,10 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
                 delete: false
             };
         }
-        
-        newPermissions[moduleKey][sectionKey][operation] = 
+
+        newPermissions[moduleKey][sectionKey][operation] =
             !newPermissions[moduleKey][sectionKey][operation];
-        
+
         onChange(newPermissions);
     };
 
@@ -137,7 +150,7 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
                                     >
                                         {moduleExpanded ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />}
                                     </button>
-                                    
+
                                     <label className="flex items-center gap-2 cursor-pointer flex-1">
                                         <input
                                             type="checkbox"
@@ -148,7 +161,7 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
                                         <span className="text-white font-medium">{moduleData.label}</span>
                                     </label>
                                 </div>
-                                
+
                                 {moduleEnabled && (
                                     <span className="text-xs text-cyan-400 font-semibold">
                                         {Object.keys(granularPermissions[moduleKey] || {}).length} sections
@@ -177,7 +190,7 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
                                                         >
                                                             {sectionExpanded ? <FaChevronDown size={10} /> : <FaChevronRight size={10} />}
                                                         </button>
-                                                        
+
                                                         <label className="flex items-center gap-2 cursor-pointer flex-1">
                                                             <input
                                                                 type="checkbox"
@@ -197,7 +210,7 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
                                                     <div className="flex flex-wrap gap-2">
                                                         {sectionData.operations.map((operation) => {
                                                             const operationEnabled = isOperationEnabled(moduleKey, sectionKey, operation);
-                                                            
+
                                                             return (
                                                                 <button
                                                                     key={operation}
@@ -205,7 +218,7 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
                                                                     onClick={() => handleOperationToggle(moduleKey, sectionKey, operation)}
                                                                     className={`
                                                                         flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all
-                                                                        ${operationEnabled 
+                                                                        ${operationEnabled
                                                                             ? getOperationColor(operation)
                                                                             : 'text-gray-500 border-gray-700 bg-gray-800/50 hover:bg-gray-800'
                                                                         }

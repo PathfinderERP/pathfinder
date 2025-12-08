@@ -221,6 +221,23 @@ export const PERMISSION_MODULES = {
                 operations: ["create", "edit", "delete"]
             }
         }
+    },
+    leadManagement: {
+        label: "Lead Management",
+        sections: {
+            leads: {
+                label: "Leads",
+                operations: ["create", "edit", "delete"]
+            },
+            allocations: {
+                label: "Allocations",
+                operations: ["create", "edit", "delete"]
+            },
+            leadStatus: {
+                label: "Lead Status",
+                operations: ["create", "edit", "delete"]
+            }
+        }
     }
 };
 
