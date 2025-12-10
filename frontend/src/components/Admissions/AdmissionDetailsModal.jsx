@@ -273,7 +273,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                     <span className="text-cyan-400 font-bold text-lg">₹{admission.totalFees?.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between items-center p-3 bg-green-500/20 rounded">
-                                    <span className="text-green-400">Down Payment</span>
+                                    <span className="text-green-400">Initial Payment</span>
                                     <span className="text-green-400 font-semibold">₹{admission.downPayment?.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between items-center p-3 bg-yellow-500/20 rounded">

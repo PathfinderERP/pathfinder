@@ -1,7 +1,7 @@
 import React from "react";
-import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaMapMarkerAlt, FaBook, FaInfoCircle, FaBullseye } from "react-icons/fa";
+import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaMapMarkerAlt, FaBook, FaInfoCircle, FaBullseye, FaTrash, FaEdit, FaCommentAlt } from "react-icons/fa";
 
-const LeadDetailsModal = ({ lead, onClose }) => {
+const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCounseling, onShowHistory }) => {
     if (!lead) return null;
 
     const getLeadTypeColor = (type) => {
@@ -135,9 +135,52 @@ const LeadDetailsModal = ({ lead, onClose }) => {
                         ID: {lead._id}
                     </p>
                 </div>
+
+                {/* Actions Footer */}
+                <div className="bg-[#131619] border-t border-gray-800 p-4">
+                    <div className="flex flex-wrap items-center justify-end gap-3">
+                        {/* Left Side Buttons */}
+                        <div className="mr-auto flex gap-3">
+                            <button
+                                onClick={() => onShowHistory(lead)}
+                                className="px-4 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition-colors flex items-center gap-2 font-medium border border-gray-600"
+                            >
+                                <FaCommentAlt size={16} /> Show Follow Ups
+                            </button>
+                            <button
+                                onClick={() => onCounseling(lead)}
+                                className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-500 transition-colors flex items-center gap-2 font-medium shadow-[0_0_15px_rgba(34,197,94,0.3)]"
+                            >
+                                <FaUser size={16} /> Counseling
+                            </button>
+                        </div>
+
+                        {/* Right Side Buttons */}
+                        <button
+                            onClick={() => onDelete(lead._id)}
+                            className="px-4 py-2 rounded-lg bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500/20 transition-colors flex items-center gap-2 font-medium"
+                        >
+                            <FaTrash size={16} /> Delete
+                        </button>
+                        <button
+                            onClick={() => onEdit(lead)}
+                            className="px-4 py-2 rounded-lg bg-cyan-500/10 text-cyan-500 border border-cyan-500/30 hover:bg-cyan-500/20 transition-colors flex items-center gap-2 font-medium"
+                        >
+                            <FaEdit size={16} /> Edit
+                        </button>
+                        <button
+                            onClick={() => onFollowUp(lead)}
+                            className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors flex items-center gap-2 font-bold shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_20px_rgba(59,130,246,0.5)]"
+                        >
+                            <FaCommentAlt size={16} /> Add Follow Up
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );
 };
 
+
 export default LeadDetailsModal;
+

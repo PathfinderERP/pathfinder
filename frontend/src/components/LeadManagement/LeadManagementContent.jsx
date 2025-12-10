@@ -8,6 +8,8 @@ import AddLeadModal from "./AddLeadModal";
 import EditLeadModal from "./EditLeadModal";
 import BulkLeadModal from "./BulkLeadModal";
 import LeadDetailsModal from "./LeadDetailsModal";
+import AddFollowUpModal from "./AddFollowUpModal";
+import FollowUpHistoryModal from "./FollowUpHistoryModal";
 
 const LeadManagementContent = () => {
     const navigate = useNavigate();
@@ -17,6 +19,8 @@ const LeadManagementContent = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showBulkModal, setShowBulkModal] = useState(false);
+    const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [selectedLead, setSelectedLead] = useState(null);
     const [selectedDetailLead, setSelectedDetailLead] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
@@ -534,6 +538,66 @@ const LeadManagementContent = () => {
                         setShowDetailModal(false);
                         setSelectedDetailLead(null);
                     }}
+                    onEdit={(lead) => {
+                        setShowDetailModal(false);
+                        handleEdit(lead);
+                    }}
+                    onDelete={(id) => {
+                        handleDelete(id);
+                        // Close modal if deleted, though handleDelete usually refreshes list. 
+                        // If delete successful, we might need to close modal.
+                        // Assuming fetchLeads handles the refresh, we should close modal to avoid showing stale data.
+                        setShowDetailModal(false);
+                        setSelectedDetailLead(null);
+                    }}
+                    onFollowUp={(lead) => {
+                        setShowDetailModal(false);
+                        setSelectedLead(lead);
+                        setShowFollowUpModal(true);
+                    }}
+                    onCounseling={(lead) => {
+                        handleCounseling(lead);
+                    }}
+                    onShowHistory={(lead) => {
+                        // Keep details open? Or open history on top?
+                        // User said "show pop up... entire screen".
+                        // I'll show history modal.
+                        // I might want to keep detail modal open underneath if history is an overlay, 
+                        // but usually better to switch context or simple overlay.
+                        // Implemeting as separate modal state.
+                        // Let's close detail modal to focus on history or keep it open?
+                        // If "entire screen", it will cover everything anyway.
+                        // I will NOT close detail modal so when they close history they return to details?
+                        // Actually, simplified ux: close details, show history.
+                        // But user might want to go back.
+                        // I'll keep detail modal state as is (open) and render history on top (z-index higher).
+                        // wait, if I don't close it, it's still there.
+                        // If I render HistoryModal conditionally, I need state.
+                        setSelectedDetailLead(lead);
+                        setShowHistoryModal(true);
+                    }}
+                />
+            )}
+
+            {showFollowUpModal && selectedLead && (
+                <AddFollowUpModal
+                    lead={selectedLead}
+                    onClose={() => {
+                        setShowFollowUpModal(false);
+                        setSelectedLead(null);
+                    }}
+                    onSuccess={() => {
+                        setShowFollowUpModal(false);
+                        setSelectedLead(null);
+                        fetchLeads();
+                    }}
+                />
+            )}
+
+            {showHistoryModal && selectedDetailLead && (
+                <FollowUpHistoryModal
+                    lead={selectedDetailLead}
+                    onClose={() => setShowHistoryModal(false)}
                 />
             )}
         </div>

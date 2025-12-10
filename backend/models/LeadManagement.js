@@ -42,7 +42,26 @@ const leadManagementSchema = new mongoose.Schema({
     },
     leadResponsibility: {
         type: String,
-    }
+    },
+    followUps: [{
+        date: {
+            type: Date,
+            default: Date.now
+        },
+        feedback: {
+            type: String, // Static feedback text
+            required: true
+        },
+        remarks: {
+            type: String // Optional detailed remarks
+        },
+        nextFollowUpDate: {
+            type: Date
+        },
+        updatedBy: {
+            type: String // Optional: store who added the follow-up
+        }
+    }]
 });
 
 const LeadManagement = new mongoose.model("LeadManagement", leadManagementSchema);
