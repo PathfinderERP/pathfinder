@@ -133,13 +133,13 @@ const TargetAchievementReport = () => {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-white">Target Achievement Report</h1>
-                        <p className="text-cyan-400">Target vs Achieved Analysis</p>
+                        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Target Achievement Report</h1>
+                        <p className="text-gray-600 dark:text-gray-400">Target vs Achieved Analysis</p>
                     </div>
                 </div>
 
                 {/* Filters Section */}
-                <div className="bg-[#1a1f24] p-5 rounded-xl border border-gray-800 shadow-lg flex flex-col gap-4">
+                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-4">
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <div className="flex flex-wrap items-center gap-3">
                             {/* View Mode Tabs */}
@@ -236,8 +236,8 @@ const TargetAchievementReport = () => {
                 </div>
 
                 {/* Chart Section */}
-                <div className="bg-[#1a1f24] p-6 rounded-xl border border-gray-800 shadow-xl min-h-[500px]">
-                    <h3 className="text-white font-bold text-lg mb-6 text-center">
+                <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-md min-h-[500px]">
+                    <h3 className="text-gray-800 font-bold text-lg mb-6 text-center">
                         Target vs Achieved ({viewMode.toLowerCase()})
                     </h3>
 
@@ -252,21 +252,21 @@ const TargetAchievementReport = () => {
                                 data={data}
                                 margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
                             >
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#374151" />
-                                <XAxis type="number" tick={{ fill: '#9CA3AF' }} axisLine={{ stroke: '#4B5563' }} />
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
+                                <XAxis type="number" tick={{ fill: '#6b7280' }} axisLine={{ stroke: '#d1d5db' }} />
                                 <YAxis
                                     dataKey="centreName"
                                     type="category"
                                     width={120}
-                                    tick={{ fontSize: 12, fontWeight: 'bold', fill: '#E5E7EB' }}
-                                    axisLine={{ stroke: '#4B5563' }}
+                                    tick={{ fontSize: 12, fontWeight: 'bold', fill: '#374151' }}
+                                    axisLine={{ stroke: '#d1d5db' }}
                                 />
                                 <Tooltip
-                                    contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', color: '#F3F4F6', borderRadius: '8px' }}
+                                    contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', color: '#374151', borderRadius: '8px' }}
                                     formatter={(value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value)}
-                                    cursor={{ fill: '#374151', opacity: 0.4 }}
+                                    cursor={{ fill: '#f3f4f6', opacity: 0.4 }}
                                 />
-                                <Legend verticalAlign="top" height={36} wrapperStyle={{ color: '#9CA3AF' }} />
+                                <Legend verticalAlign="top" height={36} wrapperStyle={{ color: '#6b7280' }} />
                                 <Bar dataKey="target" name="Target" fill="#FF8BA7" barSize={20} radius={[0, 5, 5, 0]} />
                                 <Bar dataKey="achieved" name="Achieved" fill="#4ECDC4" barSize={20} radius={[0, 5, 5, 0]} />
                             </BarChart>

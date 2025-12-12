@@ -2,6 +2,39 @@
 // Defines all modules, sections, and available operations
 
 export const PERMISSION_MODULES = {
+    sales: {
+        label: "Sales Portal",
+        sections: {
+            admissionReport: {
+                label: "Admission Report",
+                operations: ["create", "edit", "delete"]
+            },
+            centreRank: {
+                label: "Centre Rank",
+                operations: ["create", "edit", "delete"]
+            },
+            centreTarget: {
+                label: "Centre Target",
+                operations: ["create", "edit", "delete"]
+            },
+            courseReport: {
+                label: "Course Report",
+                operations: ["create", "edit", "delete"]
+            },
+            discountReport: {
+                label: "Discount Report",
+                operations: ["create", "edit", "delete"]
+            },
+            targetAchievementReport: {
+                label: "Target Achievement Report",
+                operations: ["create", "edit", "delete"]
+            },
+            transactionReport: {
+                label: "Transaction Report",
+                operations: ["create", "edit", "delete"]
+            }
+        }
+    },
     ceoControlTower: {
         label: "CEO Control Tower",
         sections: {

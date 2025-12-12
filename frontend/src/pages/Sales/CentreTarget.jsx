@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import AddTargetModal from "../../components/Sales/AddTargetModal";
+import { hasPermission } from "../../config/permissions";
 
 const CentreTarget = () => {
     const [targets, setTargets] = useState([]);
@@ -21,6 +22,12 @@ const CentreTarget = () => {
     const [filterFinancialYear, setFilterFinancialYear] = useState("2025-2026");
     const [filterYear, setFilterYear] = useState(new Date().getFullYear());
     const [viewMode, setViewMode] = useState("Monthly");
+
+    // Permission Checks
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canCreate = hasPermission(user, 'sales', 'centreTarget', 'create');
+    const canEdit = hasPermission(user, 'sales', 'centreTarget', 'edit');
+    const canDelete = hasPermission(user, 'sales', 'centreTarget', 'delete');
 
     useEffect(() => {
         fetchCentres();
@@ -226,12 +233,14 @@ const CentreTarget = () => {
                             <FaSync className={loading ? "animate-spin" : ""} /> Sync
                         </button>
 
-                        <button
-                            onClick={() => { setSelectedTarget(null); setShowAddModal(true); }}
-                            className="p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-blue-600/20"
-                        >
-                            <FaPlus /> Add Target
-                        </button>
+                        {canCreate && (
+                            <button
+                                onClick={() => { setSelectedTarget(null); setShowAddModal(true); }}
+                                className="p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-blue-600/20"
+                            >
+                                <FaPlus /> Add Target
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -269,25 +278,29 @@ const CentreTarget = () => {
                                             <td className="px-6 py-4 text-white font-bold tracking-wide">{target.targetAmount.toLocaleString()}</td>
                                             <td className="px-6 py-4 text-blue-400 font-semibold">{target.achievedAmount.toLocaleString()}</td>
                                             <td className={`px-6 py-4 font-bold ${parseFloat(target.achievementPercentage) > 50 ? "text-green-500" :
-                                                    parseFloat(target.achievementPercentage) === 50 ? "text-yellow-400" : "text-red-500"
+                                                parseFloat(target.achievementPercentage) === 50 ? "text-yellow-400" : "text-red-500"
                                                 }`}>
                                                 {target.achievementPercentage}%
                                             </td>
                                             <td className="px-6 py-4 text-right flex justify-end gap-3">
-                                                <button
-                                                    onClick={() => { setSelectedTarget(target); setShowAddModal(true); }}
-                                                    className="text-gray-400 hover:text-blue-400 transition-colors"
-                                                    title="Edit"
-                                                >
-                                                    <FaEdit size={16} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(target._id)}
-                                                    className="text-gray-400 hover:text-red-400 transition-colors"
-                                                    title="Delete"
-                                                >
-                                                    <FaTrash size={15} />
-                                                </button>
+                                                {canEdit && (
+                                                    <button
+                                                        onClick={() => { setSelectedTarget(target); setShowAddModal(true); }}
+                                                        className="text-gray-400 hover:text-blue-400 transition-colors"
+                                                        title="Edit"
+                                                    >
+                                                        <FaEdit size={16} />
+                                                    </button>
+                                                )}
+                                                {canDelete && (
+                                                    <button
+                                                        onClick={() => handleDelete(target._id)}
+                                                        className="text-gray-400 hover:text-red-400 transition-colors"
+                                                        title="Delete"
+                                                    >
+                                                        <FaTrash size={15} />
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))

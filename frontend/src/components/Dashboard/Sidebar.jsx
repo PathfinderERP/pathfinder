@@ -25,18 +25,18 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     const menuItems = [
         { name: "Lead Management", icon: <FaBullseye />, path: "/lead-management", permissionModule: "leadManagement" },
         { name: "CEO Control Tower", icon: <FaChartBar />, path: "/dashboard", permissionModule: "ceoControlTower" },
-        { name: "Admissions", icon: <FaBullseye />, path: "/admissions", permissionModule: "admissionsSales" },
+        { name: "Admissions", icon: <FaBullseye />, path: "/admissions", permissionModule: "admissions" },
         { name: "Academics", icon: <FaBook />, path: "/academics", permissionModule: "academics" },
         { name: "Finance & Fees", icon: <FaMoneyBillWave />, path: "/finance", permissionModule: "financeFees" },
-        { name: "Finance & Fees", icon: <FaMoneyBillWave />, path: "/finance", permissionModule: "financeFees" },
+        // Removed duplicate Finance & Fees line if present in original, but sticking to replacing block.
         {
             name: "Sales",
             icon: <FaShoppingCart />,
-            permissionModule: "admissionsSales", // Assuming Sales falls under same perm as Admissions? user request: "create entire module inside the sales section" 
+            permissionModule: "sales",
             subItems: [
-                { name: "Centre Target", path: "/sales/centre-target", permissionSection: "centreTarget" }, // Adding a new permission section might be needed, or reuse admissionsSales
+                { name: "Centre Target", path: "/sales/centre-target", permissionSection: "centreTarget" },
                 { name: "Centre Rank", path: "/sales/centre-rank", permissionSection: "centreRank" },
-                { name: "Target Achievement Report", path: "/sales/target-achievement-report", permissionSection: "targetReport" },
+                { name: "Target Achievement Report", path: "/sales/target-achievement-report", permissionSection: "targetAchievementReport" },
                 { name: "Admission Report", path: "/sales/admission-report", permissionSection: "admissionReport" },
                 { name: "Course Report", path: "/sales/course-report", permissionSection: "courseReport" },
                 { name: "Discount Report Analysis", path: "/sales/discount-report", permissionSection: "discountReport" },
@@ -76,9 +76,9 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         if (item.permissionModule) {
             // Special case for items that map to a specific section (like Course Management)
             if (item.permissionSection) {
-                // Check if user has ANY access (create, edit, or delete) to this section
+                // Check if user has access to this section (existence implies at least view access)
                 const section = granularPermissions[item.permissionModule]?.[item.permissionSection];
-                if (section && (section.create || section.edit || section.delete)) {
+                if (section) {
                     return true;
                 }
             }
@@ -88,7 +88,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 if (item.subItems) {
                     const accessibleSubItems = item.subItems.filter(sub => {
                         const section = granularPermissions[item.permissionModule]?.[sub.permissionSection];
-                        return section && (section.create || section.edit || section.delete);
+                        return !!section;
                     });
                     // Only show parent if at least one child is accessible
                     if (accessibleSubItems.length > 0) {
@@ -109,7 +109,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         if (item.subItems && !isSuperAdmin) {
             const filteredSubItems = item.subItems.filter(sub => {
                 const section = granularPermissions[item.permissionModule]?.[sub.permissionSection];
-                return section && (section.create || section.edit || section.delete);
+                return !!section;
             });
             return { ...item, subItems: filteredSubItems };
         }
