@@ -1,5 +1,6 @@
 import Admission from "../../models/Admission/Admission.js";
 import Payment from "../../models/Payment/Payment.js";
+import { updateCentreTargetAchieved } from "../../services/centreTargetService.js";
 
 export const updatePaymentInstallment = async (req, res) => {
     try {
@@ -30,7 +31,7 @@ export const updatePaymentInstallment = async (req, res) => {
 
         // Update total paid amount
         admission.totalPaidAmount = admission.paymentBreakdown.reduce(
-            (sum, p) => sum + (p.paidAmount || 0), 
+            (sum, p) => sum + (p.paidAmount || 0),
             0
         ) + admission.downPayment;
 
@@ -39,6 +40,11 @@ export const updatePaymentInstallment = async (req, res) => {
             admission.paymentStatus = "COMPLETED";
         } else if (admission.totalPaidAmount > 0) {
             admission.paymentStatus = "PARTIAL";
+        }
+
+        // Update Centre Target Achieved if payment was successful
+        if (installment.status === "PAID" && admission.centre) {
+            await updateCentreTargetAchieved(admission.centre, installment.paidDate || new Date());
         }
 
         // Check for overdue installments

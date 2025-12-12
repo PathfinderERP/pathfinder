@@ -28,7 +28,21 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         { name: "Admissions", icon: <FaBullseye />, path: "/admissions", permissionModule: "admissionsSales" },
         { name: "Academics", icon: <FaBook />, path: "/academics", permissionModule: "academics" },
         { name: "Finance & Fees", icon: <FaMoneyBillWave />, path: "/finance", permissionModule: "financeFees" },
-        { name: "Sales", icon: <FaShoppingCart />, path: "/sales", permissionModule: "admissionsSales" },
+        { name: "Finance & Fees", icon: <FaMoneyBillWave />, path: "/finance", permissionModule: "financeFees" },
+        {
+            name: "Sales",
+            icon: <FaShoppingCart />,
+            permissionModule: "admissionsSales", // Assuming Sales falls under same perm as Admissions? user request: "create entire module inside the sales section" 
+            subItems: [
+                { name: "Centre Target", path: "/sales/centre-target", permissionSection: "centreTarget" }, // Adding a new permission section might be needed, or reuse admissionsSales
+                { name: "Centre Rank", path: "/sales/centre-rank", permissionSection: "centreRank" },
+                { name: "Target Achievement Report", path: "/sales/target-achievement-report", permissionSection: "targetReport" },
+                { name: "Admission Report", path: "/sales/admission-report", permissionSection: "admissionReport" },
+                { name: "Course Report", path: "/sales/course-report", permissionSection: "courseReport" },
+                { name: "Discount Report Analysis", path: "/sales/discount-report", permissionSection: "discountReport" },
+                { name: "Transaction Report", path: "/sales/transaction-report", permissionSection: "transactionReport" },
+            ]
+        },
         { name: "HR & Manpower", icon: <FaUserTie />, path: "/hr", permissionModule: "hrManpower" },
         { name: "Operations", icon: <FaCogs />, path: "#", permissionModule: "operations" },
         { name: "Digital Portal", icon: <FaMobileAlt />, path: "#", permissionModule: "digitalPortal" },

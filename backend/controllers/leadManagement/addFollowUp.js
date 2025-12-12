@@ -15,10 +15,17 @@ export const addFollowUp = async (req, res) => {
             feedback,
             remarks,
             nextFollowUpDate,
-            updatedBy
+            updatedBy: updatedBy || (req.user ? req.user.name : 'Unknown')
         };
 
         lead.followUps.push(newFollowUp);
+        
+        // Update root fields
+        lead.lastFollowUpDate = newFollowUp.date;
+        if (nextFollowUpDate) {
+            lead.nextFollowUpDate = nextFollowUpDate;
+        }
+
         await lead.save();
 
         res.status(200).json({

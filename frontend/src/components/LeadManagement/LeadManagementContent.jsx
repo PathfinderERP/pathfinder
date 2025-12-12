@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaPlus, FaEdit, FaTrash, FaSearch, FaFilter, FaRedo, FaFileExcel, FaDownload, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FaPlus, FaEdit, FaTrash, FaSearch, FaFilter, FaRedo, FaFileExcel, FaDownload, FaChevronLeft, FaChevronRight, FaHistory } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
@@ -10,6 +10,7 @@ import BulkLeadModal from "./BulkLeadModal";
 import LeadDetailsModal from "./LeadDetailsModal";
 import AddFollowUpModal from "./AddFollowUpModal";
 import FollowUpHistoryModal from "./FollowUpHistoryModal";
+import FollowUpListModal from "./FollowUpListModal";
 
 const LeadManagementContent = () => {
     const navigate = useNavigate();
@@ -21,6 +22,7 @@ const LeadManagementContent = () => {
     const [showBulkModal, setShowBulkModal] = useState(false);
     const [showFollowUpModal, setShowFollowUpModal] = useState(false);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
+    const [showFollowUpListModal, setShowFollowUpListModal] = useState(false);
     const [selectedLead, setSelectedLead] = useState(null);
     const [selectedDetailLead, setSelectedDetailLead] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
@@ -265,6 +267,12 @@ const LeadManagementContent = () => {
                         className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-500 transition-colors"
                     >
                         <FaFileExcel /> Import Excel
+                    </button>
+                    <button
+                        onClick={() => setShowFollowUpListModal(true)}
+                        className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-500 transition-colors"
+                    >
+                        <FaHistory /> Follow Up List
                     </button>
                     <button
                         onClick={() => setShowAddModal(true)}
@@ -598,6 +606,24 @@ const LeadManagementContent = () => {
                 <FollowUpHistoryModal
                     lead={selectedDetailLead}
                     onClose={() => setShowHistoryModal(false)}
+                />
+            )}
+
+            {showFollowUpListModal && (
+                <FollowUpListModal
+                    onClose={() => setShowFollowUpListModal(false)}
+                    onShowHistory={(lead) => {
+                        // User might want to see detailed history from the list
+                        // We can reuse history modal here.
+                        // Assuming we want to show history on top of list or instead of list?
+                        // User said "button which will be all follow up, after licking on it all the follow up details will be opne"
+                        // I implemented that button inside the ListModal rows.
+                        // So I need to handle opening HistoryModal.
+                        // I'll open history modal on top of list modal (z-index should handle it if history is higher).
+                        // FollowUpHistoryModal z-index is 70, ListModal is 60. So it works.
+                        setSelectedDetailLead(lead);
+                        setShowHistoryModal(true);
+                    }}
                 />
             )}
         </div>

@@ -2,6 +2,7 @@ import Admission from "../../models/Admission/Admission.js";
 import Course from "../../models/Master_data/Courses.js";
 import Student from "../../models/Students.js";
 import Payment from "../../models/Payment/Payment.js";
+import { updateCentreTargetAchieved } from "../../services/centreTargetService.js";
 
 export const createAdmission = async (req, res) => {
     try {
@@ -34,14 +35,14 @@ export const createAdmission = async (req, res) => {
         // Calculate Fees
         const baseFees = course.feesStructure.reduce((sum, fee) => sum + fee.value, 0);
         const taxableAmount = Math.max(0, baseFees - Number(feeWaiver));
-        
+
         // Calculate CGST (9%) and SGST (9%)
         const cgstAmount = Math.round(taxableAmount * 0.09);
         const sgstAmount = Math.round(taxableAmount * 0.09);
         const totalFees = taxableAmount + cgstAmount + sgstAmount;
 
         const remainingAmount = totalFees - downPayment;
-        
+
         if (remainingAmount < 0) {
             return res.status(400).json({ message: "Down payment cannot exceed total fees" });
         }
@@ -51,15 +52,15 @@ export const createAdmission = async (req, res) => {
         // Generate payment breakdown
         const paymentBreakdown = [];
         const currentDate = new Date();
-        
+
         for (let i = 0; i < numberOfInstallments; i++) {
             const dueDate = new Date(currentDate);
             dueDate.setMonth(dueDate.getMonth() + i + 1);
-            
+
             paymentBreakdown.push({
                 installmentNumber: i + 1,
                 dueDate: dueDate,
-                amount: i === numberOfInstallments - 1 
+                amount: i === numberOfInstallments - 1
                     ? remainingAmount - (installmentAmount * (numberOfInstallments - 1))
                     : installmentAmount,
                 status: "PENDING"
@@ -105,6 +106,10 @@ export const createAdmission = async (req, res) => {
             }
         });
 
+        // Update Centre Target Achieved
+        if (downPayment > 0 && centre) {
+            updateCentreTargetAchieved(centre, new Date());
+        }
         // Create Payment record for Down Payment
         if (downPayment > 0) {
             // Calculate tax breakdown for down payment (pro-rated)

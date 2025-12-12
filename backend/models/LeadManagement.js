@@ -43,6 +43,13 @@ const leadManagementSchema = new mongoose.Schema({
     leadResponsibility: {
         type: String,
     },
+    // New fields for easier querying
+    lastFollowUpDate: {
+        type: Date
+    },
+    nextFollowUpDate: {
+        type: Date
+    },
     followUps: [{
         date: {
             type: Date,
@@ -62,7 +69,7 @@ const leadManagementSchema = new mongoose.Schema({
             type: String // Optional: store who added the follow-up
         }
     }]
-});
+}, { timestamps: true });
 
 const LeadManagement = new mongoose.model("LeadManagement", leadManagementSchema);
 export default LeadManagement;

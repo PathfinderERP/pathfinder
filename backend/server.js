@@ -72,6 +72,10 @@ app.use("/api/lead-management", leadManagementRoutes);
 //source routes
 app.use("/api/source", sourceRoutes);
 
+//sales routes
+import salesRoutes from "./routes/sales/sales.routes.js";
+app.use("/api/sales", salesRoutes);
+
 app.listen(process.env.PORT, () => {
     console.log(`Server is running on port ${process.env.PORT}`);
 });
