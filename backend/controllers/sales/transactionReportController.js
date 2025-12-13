@@ -1,24 +1,34 @@
 import Payment from "../../models/Payment/Payment.js";
 import Admission from "../../models/Admission/Admission.js";
+import Centre from "../../models/Master_data/Centre.js";
+import Course from "../../models/Master_data/Courses.js";
+import Student from "../../models/Students.js"; // Importing to ensure schema registration for lookups if needed
 import mongoose from "mongoose";
 
 export const getTransactionReport = async (req, res) => {
     try {
         const {
             year,
+            startDate,
+            endDate,
             centreIds,
             courseIds,
             examTagId,
             session // e.g., "2025-2026"
         } = req.query;
 
-        // Base Match for Payment (Status PAID)
+        // Base Match for Payment (paidAmount > 0)
         let paymentMatch = {
-            status: { $in: ["PAID", "PARTIAL", "COMPLETED"] } // Include all valid payment states
+            paidAmount: { $gt: 0 } // Include all payments with value
         };
 
-        // Filter by Year (payment date)
-        if (year && !isNaN(parseInt(year))) {
+        // Filter by Date Range (startDate/endDate OR year)
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999); // End of day
+            paymentMatch.paidDate = { $gte: start, $lte: end };
+        } else if (year && !isNaN(parseInt(year))) {
             const targetYear = parseInt(year);
             const startOfYear = new Date(targetYear, 0, 1);
             const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59);
@@ -32,23 +42,33 @@ export const getTransactionReport = async (req, res) => {
             admissionMatch["admissionInfo.academicSession"] = session;
         }
 
+        // Fix: Resolve Centre IDs to Centre Names (since Admission stores Centre Name)
         if (centreIds) {
             const cIds = typeof centreIds === 'string' ? centreIds.split(',') : centreIds;
-            if (cIds.length > 0) {
-                admissionMatch["admissionInfo.centre"] = { $in: cIds };
+            // Valid Hex IDs only
+            const validIds = cIds.filter(id => mongoose.Types.ObjectId.isValid(id.trim()));
+            if (validIds.length > 0) {
+                const centres = await Centre.find({ _id: { $in: validIds } }).select("centreName");
+                const centreNames = centres.map(c => c.centreName);
+                if (centreNames.length > 0) {
+                    admissionMatch["admissionInfo.centre"] = { $in: centreNames };
+                } else {
+                    admissionMatch["admissionInfo.centre"] = { $in: ["__NO_MATCH__"] };
+                }
             }
         }
 
         if (courseIds) {
-            const coIds = typeof courseIds === 'string' ? courseIds.split(',') : courseIds;
-            if (coIds.length > 0) {
+            const coIds = typeof courseIds === 'string' ? courseIds.split(',') : coIds;
+            const validIds = coIds.filter(id => mongoose.Types.ObjectId.isValid(id.trim()));
+            if (validIds.length > 0) {
                 // Course is ObjectId
-                const objectIds = coIds.map(id => new mongoose.Types.ObjectId(id));
+                const objectIds = validIds.map(id => new mongoose.Types.ObjectId(id));
                 admissionMatch["admissionInfo.course"] = { $in: objectIds };
             }
         }
 
-        if (examTagId) {
+        if (examTagId && mongoose.Types.ObjectId.isValid(examTagId)) {
             admissionMatch["admissionInfo.examTag"] = new mongoose.Types.ObjectId(examTagId);
         }
 
@@ -78,7 +98,8 @@ export const getTransactionReport = async (req, res) => {
                         {
                             $group: {
                                 _id: { $month: "$paidDate" },
-                                revenue: { $sum: "$paidAmount" } // Use actual paid amount
+                                revenue: { $sum: "$paidAmount" }, // Use actual paid amount
+                                count: { $sum: 1 }
                             }
                         },
                         { $sort: { _id: 1 } }
@@ -93,10 +114,101 @@ export const getTransactionReport = async (req, res) => {
                                 count: { $sum: 1 }
                             }
                         }
+                    ],
+
+                    // Chart 3: Centre Wise Revenue
+                    centreRevenue: [
+                        {
+                            $group: {
+                                _id: "$admissionInfo.centre",
+                                revenue: { $sum: "$paidAmount" },
+                                count: { $sum: 1 }
+                            }
+                        },
+                        { $sort: { revenue: -1 } }
+                    ],
+
+                    // Chart 4: Course Wise Revenue
+                    courseRevenue: [
+                        {
+                            $group: {
+                                _id: "$admissionInfo.course",
+                                revenue: { $sum: "$paidAmount" },
+                                count: { $sum: 1 }
+                            }
+                        },
+                        {
+                            $lookup: {
+                                from: "courses",
+                                localField: "_id",
+                                foreignField: "_id",
+                                as: "courseDetails"
+                            }
+                        },
+                        { $unwind: "$courseDetails" },
+                        {
+                            $project: {
+                                name: "$courseDetails.courseName",
+                                revenue: 1,
+                                count: 1
+                            }
+                        },
+                        { $sort: { revenue: -1 } }
                     ]
                 }
             }
         ]);
+
+        // Process Detailed Report (Separate Query for Flattened Data)
+        // We reuse the pipeline logic but project detailed fields
+        const detailedData = await Payment.aggregate([
+            { $match: paymentMatch },
+            {
+                $lookup: {
+                    from: "admissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfo"
+                }
+            },
+            { $unwind: "$admissionInfo" },
+            { $match: admissionMatch },
+            {
+                $lookup: {
+                    from: "students",
+                    localField: "admissionInfo.student",
+                    foreignField: "_id",
+                    as: "studentInfo"
+                }
+            },
+            { $unwind: "$studentInfo" },
+            {
+                $lookup: {
+                    from: "courses",
+                    localField: "admissionInfo.course",
+                    foreignField: "_id",
+                    as: "courseInfo"
+                }
+            },
+            { $unwind: "$courseInfo" },
+            { $sort: { paidDate: -1 } },
+            {
+                $project: {
+                    transactionId: "$transactionId",
+                    paymentDate: "$paidDate",
+                    amount: "$paidAmount",
+                    method: "$paymentMethod",
+                    status: "$status",
+
+                    // Admission/Student Info
+                    studentName: { $arrayElemAt: ["$studentInfo.studentsDetails.studentName", 0] },
+                    centre: "$admissionInfo.centre",
+                    course: "$courseInfo.courseName",
+                    admissionNumber: "$admissionInfo.admissionNumber"
+                }
+            }
+        ]);
+
 
         // Process Results
         const result = reportData[0];
@@ -106,6 +218,7 @@ export const getTransactionReport = async (req, res) => {
         const formattedMonthly = result.monthlyRevenue.map(item => ({
             month: monthNames[item._id - 1],
             revenue: item.revenue,
+            count: item.count,
             fullMonth: item._id // For sorting if needed
         }));
 
@@ -113,7 +226,7 @@ export const getTransactionReport = async (req, res) => {
         // Optional: Ensure all 12 months present
         const finalMonthly = monthNames.map((m, i) => {
             const found = formattedMonthly.find(x => x.month === m);
-            return found || { month: m, revenue: 0, fullMonth: i + 1 };
+            return found || { month: m, revenue: 0, count: 0, fullMonth: i + 1 };
         });
 
         // Calculate Total
@@ -130,6 +243,9 @@ export const getTransactionReport = async (req, res) => {
         res.status(200).json({
             monthlyRevenue: finalMonthly,
             paymentMethods: formattedMethods,
+            centreRevenue: result.centreRevenue, // New
+            courseRevenue: result.courseRevenue, // New
+            detailedReport: detailedData,        // New
             totalRevenue
         });
 

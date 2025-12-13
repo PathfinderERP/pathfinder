@@ -1,13 +1,17 @@
 
 import Admission from "../../models/Admission/Admission.js";
 import Course from "../../models/Master_data/Courses.js";
-import Centre from "../../models/Master_data/Centre.js"; // Import Centre
+import Centre from "../../models/Master_data/Centre.js";
+import mongoose from "mongoose";
 
 export const getCourseReport = async (req, res) => {
     try {
         const {
             year,
+            startDate,
+            endDate,
             centreIds,
+            courseIds,
             examTagId,
             session // e.g., "2025-2027"
         } = req.query;
@@ -16,11 +20,13 @@ export const getCourseReport = async (req, res) => {
 
         let matchStage = {};
 
-        // Filter by Year (Admission Date) if "This Year" logic is used, 
-        // OR rely on Academic Session if that's the primary filter for courses.
-        // The screenshot shows "2025-2027" (Session) AND "This Year" (Time Period).
-        // Usually "This Year" implies the Admission Date is within current calendar year.
-        if (year) {
+        // 1. Date Filter (Range or Year)
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            matchStage.admissionDate = { $gte: start, $lte: end };
+        } else if (year) {
             const targetYear = parseInt(year);
             if (!isNaN(targetYear)) {
                 const startOfYear = new Date(targetYear, 0, 1);
@@ -29,30 +35,46 @@ export const getCourseReport = async (req, res) => {
             }
         }
 
+        // 2. Session Filter
         if (session) {
             matchStage.academicSession = session;
         }
 
+        // 3. Centre Filter (Fix: Resolve IDs to Names)
         if (centreIds) {
-            const cIds = typeof centreIds === 'string' ? centreIds.split(',') : centreIds;
-            if (cIds.length > 0) {
-                matchStage.centre = { $in: cIds };
+            const rawIds = typeof centreIds === 'string' ? centreIds.split(',') : centreIds;
+            const validIds = rawIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
+
+            if (validIds.length > 0) {
+                const centres = await Centre.find({ _id: { $in: validIds } }).select("centreName");
+                const centreNames = centres.map(c => c.centreName);
+
+                if (centreNames.length > 0) {
+                    matchStage.centre = { $in: centreNames };
+                } else {
+                    matchStage.centre = { $in: ["__NO_MATCH__"] };
+                }
             }
         }
 
-        if (examTagId) {
-            // Exam Tag in Admission is ObjectId
-            // We need to cast it to ObjectId if using aggregate? 
-            // Mongoose usually handles this but in aggregate sometimes strict.
-            // Let's rely on mongoose automatic casting or pass as string if it matches schema.
-            // Admission schema: examTag: ObjectId.
-            // req.query.examTagId is string.
-            // matchStage.examTag = new mongoose.Types.ObjectId(examTagId); // Better be safe
-            matchStage.examTag = examTagId; // Try simple assign first, often works if passed to find/match via mongoose
+        // 4. Course Filter (New: Implement with ObjectId casting)
+        if (courseIds) {
+            const rawIds = typeof courseIds === 'string' ? courseIds.split(',') : courseIds;
+            const validIds = rawIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
+            const objectIds = validIds.map(id => new mongoose.Types.ObjectId(id));
+
+            if (objectIds.length > 0) {
+                matchStage.course = { $in: objectIds };
+            }
+        }
+
+        // 5. Exam Tag Filter (Fix: Explicit ObjectId)
+        if (examTagId && mongoose.Types.ObjectId.isValid(examTagId)) {
+            matchStage.examTag = new mongoose.Types.ObjectId(examTagId);
         }
 
         // Parallel Aggregation
-        const [courseStats, centreStats] = await Promise.all([
+        const [courseStats, centreStats, detailedStats] = await Promise.all([
             // 1. Course Aggregation
             Admission.aggregate([
                 { $match: matchStage },
@@ -92,6 +114,36 @@ export const getCourseReport = async (req, res) => {
                         revenue: { $sum: "$totalFees" }
                     }
                 }
+            ]),
+
+            // 3. Detailed Aggregation (Course + Centre) for Excel
+            Admission.aggregate([
+                { $match: matchStage },
+                {
+                    $group: {
+                        _id: { course: "$course", centre: "$centre" },
+                        count: { $sum: 1 },
+                        revenue: { $sum: "$totalFees" }
+                    }
+                },
+                {
+                    $lookup: {
+                        from: "courses",
+                        localField: "_id.course",
+                        foreignField: "_id",
+                        as: "courseInfo"
+                    }
+                },
+                { $unwind: "$courseInfo" },
+                {
+                    $project: {
+                        courseName: "$courseInfo.courseName",
+                        centre: "$_id.centre",
+                        count: 1,
+                        revenue: 1
+                    }
+                },
+                { $sort: { courseName: 1, count: -1 } }
             ])
         ]);
 
@@ -108,8 +160,6 @@ export const getCourseReport = async (req, res) => {
         }));
 
         // Process Centre Data (Need to map IDs to Names)
-        // Since Admission.centre is String ID, we need to fetch Centre names.
-        // Optimization: Fetch only needed centres or all cached? Fetching all is fine (usually < 100).
         const allCentres = await Centre.find({}, 'centreName _id');
         const centreMap = {};
         allCentres.forEach(c => {
@@ -120,15 +170,23 @@ export const getCourseReport = async (req, res) => {
             name: centreMap[item._id] || item._id, // Fallback to ID if name not found
             enrollment: item.count,
             revenue: item.revenue
-        })).sort((a, b) => b.revenue - a.revenue); // Sort by revenue by default
+        })).sort((a, b) => b.revenue - a.revenue);
 
-        console.log("Calculated Course Data:", JSON.stringify(courseData, null, 2));
+        // Process Detailed Report for Excel
+        const detailedReport = detailedStats.map(item => ({
+            courseName: item.courseName,
+            centreName: centreMap[item.centre] || item.centre,
+            count: item.count,
+            percent: totalEnrollments > 0 ? ((item.count / totalEnrollments) * 100).toFixed(2) : 0,
+            revenue: item.revenue
+        }));
 
         console.log("Calculated Course Data:", JSON.stringify(courseData, null, 2));
 
         res.status(200).json({
             data: courseData,
             centreData: centreData,
+            detailedReport: detailedReport,
             total: totalEnrollments,
             totalRevenue // Optional if needed on frontend
         });

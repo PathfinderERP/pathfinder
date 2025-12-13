@@ -12,6 +12,7 @@ const DiscountReport = () => {
     // ---- State ----
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState([]);
+    const [detailedReport, setDetailedReport] = useState([]);
     const [totalDiscount, setTotalDiscount] = useState(0);
 
     // Master Data
@@ -26,7 +27,9 @@ const DiscountReport = () => {
     const [selectedCourses, setSelectedCourses] = useState([]); // Array of IDs
     const [selectedExamTag, setSelectedExamTag] = useState(""); // Single ID
     const [selectedSession, setSelectedSession] = useState("2025-2026");
-    const [timePeriod, setTimePeriod] = useState("This Year"); // "This Year", "Last Year"
+    const [timePeriod, setTimePeriod] = useState("This Year"); // "This Year", "Last Year", "This Month", "Last Month", "Custom"
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
 
     // Dropdown Visibility
     const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
@@ -53,8 +56,11 @@ const DiscountReport = () => {
     }, []);
 
     useEffect(() => {
+        if (timePeriod === "Custom" && (!startDate || !endDate)) {
+            return;
+        }
         fetchReportData();
-    }, [selectedCentres, selectedCourses, selectedExamTag, selectedSession, timePeriod]);
+    }, [selectedCentres, selectedCourses, selectedExamTag, selectedSession, timePeriod, startDate, endDate]);
 
     // Debug Log
     useEffect(() => {
@@ -90,10 +96,31 @@ const DiscountReport = () => {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams();
 
-            // Calculate Year based on Time Period
-            const currentYear = new Date().getFullYear();
-            const year = timePeriod === "This Year" ? currentYear : currentYear - 1;
-            params.append("year", year);
+            // Calculate Date Range or Year based on Time Period
+            const now = new Date();
+            let start, end;
+            let yearParam = "";
+
+            if (timePeriod === "Custom") {
+                if (!startDate || !endDate) return;
+                params.append("startDate", startDate);
+                params.append("endDate", endDate);
+            } else if (timePeriod === "This Month") {
+                start = new Date(now.getFullYear(), now.getMonth(), 1);
+                end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                params.append("startDate", start.toISOString().split('T')[0]);
+                params.append("endDate", end.toISOString().split('T')[0]);
+            } else if (timePeriod === "Last Month") {
+                start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                end = new Date(now.getFullYear(), now.getMonth(), 0);
+                params.append("startDate", start.toISOString().split('T')[0]);
+                params.append("endDate", end.toISOString().split('T')[0]);
+            } else {
+                // Year based
+                const currentYear = now.getFullYear();
+                yearParam = timePeriod === "This Year" ? currentYear : currentYear - 1;
+                params.append("year", yearParam);
+            }
 
             if (selectedSession) params.append("session", selectedSession);
             if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
@@ -107,6 +134,7 @@ const DiscountReport = () => {
             if (response.ok) {
                 const result = await response.json();
                 setReportData(result.data || []);
+                setDetailedReport(result.detailedReport || []);
                 setTotalDiscount(result.totalDiscount || 0);
             } else {
                 setReportData([]);
@@ -139,6 +167,8 @@ const DiscountReport = () => {
         setSelectedExamTag("");
         setSelectedSession("2025-2026");
         setTimePeriod("This Year");
+        setStartDate("");
+        setEndDate("");
         toast.info("Filters reset");
     };
 
@@ -148,16 +178,79 @@ const DiscountReport = () => {
             return;
         }
 
-        const ws = XLSX.utils.json_to_sheet(reportData.map(item => ({
-            "Centre Name": item.name,
-            "Original Fees": item.originalFees,
-            "Committed Fees": item.committedFees,
-            "Discount Given": item.discountGiven,
-            "Efficiency (%)": item.efficiency + "%",
-            "Enrollment Count": item.count
-        })));
-
         const wb = XLSX.utils.book_new();
+        const dateStr = new Date().toLocaleString();
+
+        let dateRangeStr = timePeriod;
+        if (timePeriod === "Custom" && startDate && endDate) {
+            dateRangeStr = `${startDate} to ${endDate}`;
+        } else if (timePeriod === "This Year") {
+            dateRangeStr = `This Financial Year (${new Date().getFullYear()})`;
+        } else if (timePeriod === "Last Year") {
+            dateRangeStr = `Last Financial Year (${new Date().getFullYear() - 1})`;
+        } else if (timePeriod === "This Month") {
+            dateRangeStr = `This Month (${new Date().toLocaleString('default', { month: 'long' })})`;
+        } else if (timePeriod === "Last Month") {
+            const d = new Date();
+            d.setMonth(d.getMonth() - 1);
+            dateRangeStr = `Last Month (${d.toLocaleString('default', { month: 'long' })})`;
+        }
+
+
+        const metadata = [
+            ["Fee Discount Analytics Report"],
+            ["Generated on:", dateStr],
+            ["Date Range:", dateRangeStr, "Session:", selectedSession || "All", "Exam Tag:", selectedExamTag ? (examTags.find(e => e._id === selectedExamTag)?.name || "Selected") : "All"],
+            ["Centers:", selectedCentres.length ? "Selected" : "All Centers", "Courses:", selectedCourses.length ? "Selected" : "All Courses"],
+            [], // Empty row
+        ];
+
+        // Headers matching the image
+        const headers = [
+            "Center Name",
+            "Total Students",
+            "Total Original Fees (₹)",
+            "Total Discounted Fees (₹)",
+            "Total Discount Given (₹)",
+            "Average Discount %",
+            "Discount Efficiency %",
+            "Discount per Student (₹)"
+        ];
+
+        // Summary Data Mapping
+        const summaryData = reportData.map(item => {
+            const original = item.originalFees || 0;
+            const discount = item.discountGiven || 0;
+            const committed = item.committedFees || 0; // "Discounted Fees" usually means fees after discount (committed)
+            const count = item.count || 0;
+
+            const avgDiscountPercent = original > 0 ? (discount / original) * 100 : 0;
+            const discountPerStudent = count > 0 ? (discount / count) : 0;
+
+            // Discount Efficiency % (re-using item.efficiency or calculating logic)
+            // Image shows "Discount Efficiency %" - likely Discount / Original * 100 OR committed / original * 100?
+            // Usually Efficiency = Collected / Target. Here maybe Discount / Original?
+            // Re-using item.efficiency which is (discount/original)*100 based on backend logic
+
+            return [
+                item.name,
+                count,
+                original.toFixed(2),
+                committed.toFixed(2),
+                discount.toFixed(2),
+                avgDiscountPercent.toFixed(2) + "%",
+                item.efficiency + "%", // Based on backend
+                discountPerStudent.toFixed(2)
+            ];
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet([...metadata, headers, ...summaryData]);
+
+        // Widths
+        ws['!cols'] = [
+            { wch: 30 }, { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 20 }, { wch: 20 }, { wch: 25 }
+        ];
+
         XLSX.utils.book_append_sheet(wb, ws, "Discount Report");
         const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
         const data = new Blob([excelBuffer], { type: "application/octet-stream" });
@@ -304,7 +397,7 @@ const DiscountReport = () => {
                     </div>
 
                     {/* Time Period Filter Center */}
-                    <div className="flex justify-center mt-2">
+                    <div className="flex justify-center mt-2 items-center gap-4">
                         <select
                             value={timePeriod}
                             onChange={(e) => setTimePeriod(e.target.value)}
@@ -312,7 +405,27 @@ const DiscountReport = () => {
                         >
                             <option value="This Year">This Year</option>
                             <option value="Last Year">Last Year</option>
+                            <option value="This Month">This Month</option>
+                            <option value="Last Month">Last Month</option>
+                            <option value="Custom">Custom</option>
                         </select>
+                        {timePeriod === "Custom" && (
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="h-9 px-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none shadow-sm"
+                                />
+                                <span className="text-gray-500">to</span>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="h-9 px-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none shadow-sm"
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
 

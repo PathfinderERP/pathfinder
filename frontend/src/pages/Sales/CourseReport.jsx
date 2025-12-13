@@ -14,6 +14,7 @@ const CourseReport = () => {
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState([]);
     const [centreData, setCentreData] = useState([]);
+    const [detailedReport, setDetailedReport] = useState([]);
     const [totalEnrollments, setTotalEnrollments] = useState(0);
 
     // Debug Log
@@ -32,6 +33,8 @@ const CourseReport = () => {
     const [selectedExamTag, setSelectedExamTag] = useState("");
     const [selectedSession, setSelectedSession] = useState("2025-2026"); // Default? Or fetch?
     const [timePeriod, setTimePeriod] = useState("This Year");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
 
     // Dropdowns
     const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
@@ -58,8 +61,11 @@ const CourseReport = () => {
     }, []);
 
     useEffect(() => {
+        if (timePeriod === "Custom" && (!startDate || !endDate)) {
+            return;
+        }
         fetchReportData();
-    }, [selectedCentres, selectedCourses, selectedExamTag, selectedSession, timePeriod]);
+    }, [selectedCentres, selectedCourses, selectedExamTag, selectedSession, timePeriod, startDate, endDate]);
 
 
     const fetchMasterData = async () => {
@@ -87,10 +93,15 @@ const CourseReport = () => {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams();
 
-            const currentYear = new Date().getFullYear();
-            const year = timePeriod === "This Year" ? currentYear : currentYear - 1;
-
-            params.append("year", year);
+            if (timePeriod === "Custom") {
+                if (!startDate || !endDate) return;
+                params.append("startDate", startDate);
+                params.append("endDate", endDate);
+            } else {
+                const currentYear = new Date().getFullYear();
+                const year = timePeriod === "This Year" ? currentYear : currentYear - 1;
+                params.append("year", year);
+            }
             if (selectedSession) params.append("session", selectedSession);
             if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
             if (selectedCourses.length > 0) params.append("courseIds", selectedCourses.join(","));
@@ -104,10 +115,12 @@ const CourseReport = () => {
                 const result = await response.json();
                 setReportData(result.data || []);
                 setCentreData(result.centreData || []);
+                setDetailedReport(result.detailedReport || []);
                 setTotalEnrollments(result.total || 0);
             } else {
                 setReportData([]);
                 setCentreData([]);
+                setDetailedReport([]);
                 setTotalEnrollments(0);
             }
         } catch (error) {
@@ -123,20 +136,79 @@ const CourseReport = () => {
         setSelectedExamTag("");
         setSelectedSession("2025-2026");
         setTimePeriod("This Year");
+        setStartDate("");
+        setEndDate("");
     };
 
     const handleDownloadExcel = () => {
-        if (!reportData.length) {
+        if (!detailedReport.length && !reportData.length) {
             toast.warn("No data to download");
             return;
         }
-        const ws = XLSX.utils.json_to_sheet(reportData.map(r => ({
-            "Course Name": r.name,
-            "Enrollments": r.value,
-            "Percentage": r.percent + "%"
-        })));
+
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "CourseReport");
+        const dateStr = new Date().toLocaleString();
+
+        let dateRangeStr = timePeriod;
+        if (timePeriod === "Custom" && startDate && endDate) {
+            dateRangeStr = `${startDate} to ${endDate}`;
+        } else if (timePeriod === "This Year") {
+            dateRangeStr = `This Financial Year (${new Date().getFullYear()})`;
+        } else if (timePeriod === "Last Year") {
+            dateRangeStr = `Last Financial Year (${new Date().getFullYear() - 1})`;
+        }
+
+        const metadata = [
+            ["Generated on:", dateStr],
+            ["Date Range:", dateRangeStr],
+            ["Session:", selectedSession || "All"],
+            ["Exam Tag:", selectedExamTag ? (examTags.find(e => e._id === selectedExamTag)?.name || "Selected") : "All"],
+            ["Centers:", selectedCentres.length ? "Selected" : "All Centers"],
+            [], // Empty row
+        ];
+
+        // --- Sheet 1: Course Enrollments (Detailed) ---
+        const sheet1Headers = ["Course Name", "Center Name", "Total Students", "Percentage of Total"];
+        const sheet1Data = detailedReport.map(r => [
+            r.courseName,
+            r.centreName,
+            r.count,
+            r.percent + "%"
+        ]);
+        const ws1 = XLSX.utils.aoa_to_sheet([...metadata, ["Course Enrollment Analytics Report"], [], sheet1Headers, ...sheet1Data]);
+
+        // Col Widths
+        ws1['!cols'] = [{ wch: 40 }, { wch: 30 }, { wch: 15 }, { wch: 20 }];
+        XLSX.utils.book_append_sheet(wb, ws1, "Course Enrollments");
+
+        // --- Sheet 2: Revenue Per Course ---
+        const totalRev = reportData.reduce((acc, curr) => acc + (curr.revenue || 0), 0);
+        const sheet2Headers = ["Course Name", "Total Revenue (₹)", "Percentage of Total", "Average Revenue"];
+        const sheet2Data = reportData.map(r => [
+            r.name,
+            r.revenue,
+            (totalRev > 0 ? ((r.revenue / totalRev) * 100).toFixed(2) : "0") + "%",
+            (r.value > 0 ? (r.revenue / r.value).toFixed(2) : "0")
+        ]);
+        const ws2 = XLSX.utils.aoa_to_sheet([...metadata, ["Revenue Per Course Report"], [], sheet2Headers, ...sheet2Data]);
+        ws2['!cols'] = [{ wch: 40 }, { wch: 20 }, { wch: 20 }, { wch: 20 }];
+        XLSX.utils.book_append_sheet(wb, ws2, "Revenue Per Course");
+
+        // --- Sheet 3: Revenue Per Center ---
+        // Calc total revenue from centreData just to be safe or use state
+        const totalCentreRev = centreData.reduce((acc, curr) => acc + (curr.revenue || 0), 0);
+        const sheet3Headers = ["Center Name", "Total Revenue (₹)", "Total Enrollments", "Average Revenue per Student", "Percentage of Total Revenue"];
+        const sheet3Data = centreData.map(r => [
+            r.name,
+            r.revenue,
+            r.enrollment,
+            (r.enrollment > 0 ? (r.revenue / r.enrollment).toFixed(2) : "0"),
+            (totalCentreRev > 0 ? ((r.revenue / totalCentreRev) * 100).toFixed(2) : "0") + "%"
+        ]);
+        const ws3 = XLSX.utils.aoa_to_sheet([...metadata, ["Revenue Per Center Report"], [], sheet3Headers, ...sheet3Data]);
+        ws3['!cols'] = [{ wch: 30 }, { wch: 20 }, { wch: 20 }, { wch: 25 }, { wch: 25 }];
+        XLSX.utils.book_append_sheet(wb, ws3, "Revenue Per Center");
+
         const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
         const data = new Blob([excelBuffer], { type: "application/octet-stream" });
         saveAs(data, `Course_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -245,7 +317,7 @@ const CourseReport = () => {
                         </button>
                     </div>
 
-                    <div className="flex justify-center mt-4">
+                    <div className="flex justify-center mt-4 items-center gap-4">
                         <select
                             value={timePeriod}
                             onChange={(e) => setTimePeriod(e.target.value)}
@@ -253,7 +325,25 @@ const CourseReport = () => {
                         >
                             <option value="This Year">This Year</option>
                             <option value="Last Year">Last Year</option>
+                            <option value="Custom">Custom</option>
                         </select>
+                        {timePeriod === "Custom" && (
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="h-9 px-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none shadow-sm"
+                                />
+                                <span className="text-gray-500">to</span>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="h-9 px-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none shadow-sm"
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
 

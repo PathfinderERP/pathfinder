@@ -1,10 +1,13 @@
 import Admission from "../../models/Admission/Admission.js";
 import Centre from "../../models/Master_data/Centre.js";
+import mongoose from "mongoose";
 
 export const getDiscountReport = async (req, res) => {
     try {
         const {
             year,
+            startDate,
+            endDate,
             centreIds,
             courseIds,
             examTagId, // Usually string from query, but stored as ObjectId in DB
@@ -15,8 +18,13 @@ export const getDiscountReport = async (req, res) => {
 
         let matchStage = {};
 
-        // 1. Time Period / Year Filter
-        if (year) {
+        // 1. Time Period / Date Filter
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            matchStage.admissionDate = { $gte: start, $lte: end };
+        } else if (year) {
             const targetYear = parseInt(year);
             if (!isNaN(targetYear)) {
                 const startOfYear = new Date(targetYear, 0, 1);
@@ -30,29 +38,37 @@ export const getDiscountReport = async (req, res) => {
             matchStage.academicSession = session;
         }
 
-        // 3. Centre Filter
+        // 3. Centre Filter (Fix: Resolve IDs to Names)
         if (centreIds) {
-            const cIds = typeof centreIds === 'string' ? centreIds.split(',') : centreIds;
-            if (cIds.length > 0) {
-                matchStage.centre = { $in: cIds };
+            const rawIds = typeof centreIds === 'string' ? centreIds.split(',') : centreIds;
+            const validIds = rawIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
+
+            if (validIds.length > 0) {
+                const centres = await Centre.find({ _id: { $in: validIds } }).select("centreName");
+                const centreNames = centres.map(c => c.centreName);
+
+                if (centreNames.length > 0) {
+                    matchStage.centre = { $in: centreNames };
+                } else {
+                    matchStage.centre = { $in: ["__NO_MATCH__"] };
+                }
             }
         }
 
-        // 4. Course Filter
+        // 4. Course Filter (Fix: Cast to ObjectId)
         if (courseIds) {
-            const coIds = typeof courseIds === 'string' ? courseIds.split(',') : courseIds;
-            if (coIds.length > 0) {
-                // Course in Admission is ObjectId
-                // Mongoose aggregate auto-cast usually works if we use $in with ObjectIds
-                // But passed as strings. 
-                // Let's rely on Mongoose's casting match.
-                matchStage.course = { $in: coIds };
+            const rawIds = typeof courseIds === 'string' ? courseIds.split(',') : courseIds;
+            const validIds = rawIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
+            const objectIds = validIds.map(id => new mongoose.Types.ObjectId(id));
+
+            if (objectIds.length > 0) {
+                matchStage.course = { $in: objectIds };
             }
         }
 
-        // 5. Exam Tag Filter
-        if (examTagId) {
-            matchStage.examTag = examTagId;
+        // 5. Exam Tag Filter (Fix: Cast to ObjectId)
+        if (examTagId && mongoose.Types.ObjectId.isValid(examTagId)) {
+            matchStage.examTag = new mongoose.Types.ObjectId(examTagId);
         }
 
         // Aggregation: Group by Centre
@@ -98,8 +114,34 @@ export const getDiscountReport = async (req, res) => {
 
         const totalDiscount = reportData.reduce((acc, curr) => acc + curr.discountGiven, 0);
 
+        // Detailed Report for Excel (Student-wise)
+        const detailedStats = await Admission.find(matchStage)
+            .populate({
+                path: 'student',
+                select: 'studentsDetails'
+            })
+            .populate('course', 'courseName')
+            .sort({ admissionDate: -1 })
+            .lean();
+
+        const detailedReport = detailedStats.map(adm => {
+            const details = adm.student?.studentsDetails?.[0] || {};
+            return {
+                admissionNumber: adm.admissionNumber || "-",
+                studentName: details.studentName || "Unknown",
+                centre: adm.centre || "Unknown",
+                course: adm.course?.courseName || "Unknown",
+                admissionDate: adm.admissionDate ? new Date(adm.admissionDate).toLocaleDateString() : "-",
+                originalFees: adm.baseFees || 0,
+                discountGiven: adm.discountAmount || 0,
+                committedFees: adm.totalFees || 0,
+                remarks: adm.remarks || ""
+            };
+        });
+
         res.status(200).json({
             data: reportData,
+            detailedReport,
             totalDiscount
         });
 

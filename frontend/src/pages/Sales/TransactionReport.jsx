@@ -15,7 +15,10 @@ const TransactionReport = () => {
     // ---- State ----
     const [loading, setLoading] = useState(false);
     const [monthlyData, setMonthlyData] = useState([]);
+    const [centreRevenueData, setCentreRevenueData] = useState([]);
+    const [courseRevenueData, setCourseRevenueData] = useState([]);
     const [paymentMethodData, setPaymentMethodData] = useState([]);
+    const [detailedReport, setDetailedReport] = useState([]);
     const [totalRevenue, setTotalRevenue] = useState(0);
 
     // Master Data
@@ -28,8 +31,10 @@ const TransactionReport = () => {
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedCourses, setSelectedCourses] = useState([]);
     const [selectedExamTag, setSelectedExamTag] = useState("");
-    const [selectedSession, setSelectedSession] = useState("2025-2026"); // Default to match other reports
-    const [timePeriod, setTimePeriod] = useState("This Year");
+    const [selectedSession, setSelectedSession] = useState("");
+    const [timePeriod, setTimePeriod] = useState("All Time"); // Default to All Time for broader view
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
 
     // Dropdown Refs
     const centreDropdownRef = useRef(null);
@@ -53,8 +58,11 @@ const TransactionReport = () => {
     }, []);
 
     useEffect(() => {
+        if (timePeriod === "Custom" && (!startDate || !endDate)) {
+            return;
+        }
         fetchReportData();
-    }, [selectedCentres, selectedCourses, selectedExamTag, selectedSession, timePeriod]);
+    }, [selectedCentres, selectedCourses, selectedExamTag, selectedSession, timePeriod, startDate, endDate]);
 
     // ---- API Calls ----
     const fetchMasterData = async () => {
@@ -82,9 +90,44 @@ const TransactionReport = () => {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams();
 
-            const currentYear = new Date().getFullYear();
-            const year = timePeriod === "This Year" ? currentYear : currentYear - 1;
-            params.append("year", year);
+            const now = new Date();
+            let start, end;
+
+            // Financial Year Calculation
+            // FY starts April 1.
+            // If Month is Jan-Mar (0-2), we are in FY (Year-1)-Year.
+            // If Month is Apr-Dec (3-11), we are in FY Year-(Year+1).
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+            const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+
+            if (timePeriod === "Custom") {
+                if (!startDate || !endDate) return;
+                params.append("startDate", startDate);
+                params.append("endDate", endDate);
+            } else if (timePeriod === "This Financial Year") {
+                start = new Date(fyStartYear, 3, 1); // April 1st
+                end = now; // Until Today
+                params.append("startDate", start.toISOString().split('T')[0]);
+                params.append("endDate", end.toISOString().split('T')[0]);
+            } else if (timePeriod === "Last Financial Year") {
+                start = new Date(fyStartYear - 1, 3, 1); // April 1st Previous FY
+                end = new Date(fyStartYear, 2, 31); // March 31st Current FY Start Year
+                params.append("startDate", start.toISOString().split('T')[0]);
+                params.append("endDate", end.toISOString().split('T')[0]);
+            } else if (timePeriod === "All Time") {
+                // No Date Filter
+            } else if (timePeriod === "This Month") {
+                start = new Date(now.getFullYear(), now.getMonth(), 1);
+                end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                params.append("startDate", start.toISOString().split('T')[0]);
+                params.append("endDate", end.toISOString().split('T')[0]);
+            } else if (timePeriod === "Last Month") {
+                start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                end = new Date(now.getFullYear(), now.getMonth(), 0);
+                params.append("startDate", start.toISOString().split('T')[0]);
+                params.append("endDate", end.toISOString().split('T')[0]);
+            }
 
             if (selectedSession) params.append("session", selectedSession);
             if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
@@ -98,11 +141,18 @@ const TransactionReport = () => {
             if (response.ok) {
                 const result = await response.json();
                 setMonthlyData(result.monthlyRevenue || []);
+                setCentreRevenueData(result.centreRevenue || []);
+                setCourseRevenueData(result.courseRevenue || []);
                 setPaymentMethodData(result.paymentMethods || []);
+                setDetailedReport(result.detailedReport || []);
                 setTotalRevenue(result.totalRevenue || 0);
             } else {
                 setMonthlyData([]);
+                setCentreRevenueData([]);
+                setCourseRevenueData([]);
                 setPaymentMethodData([]);
+                setDetailedReport([]);
+                setTotalRevenue(0);
             }
         } catch (error) {
             console.error("Error fetching report", error);
@@ -116,8 +166,10 @@ const TransactionReport = () => {
         setSelectedCentres([]);
         setSelectedCourses([]);
         setSelectedExamTag("");
-        setSelectedSession("2025-2026");
-        setTimePeriod("This Year");
+        setSelectedSession("");
+        setTimePeriod("All Time");
+        setStartDate("");
+        setEndDate("");
         toast.info("Filters reset");
     };
 
@@ -128,22 +180,100 @@ const TransactionReport = () => {
         }
 
         const wb = XLSX.utils.book_new();
+        const dateStr = new Date().toLocaleString();
 
-        // Sheet 1: Monthly Revenue
-        const ws1 = XLSX.utils.json_to_sheet(monthlyData.map(m => ({
-            "Month": m.month,
-            "Revenue": m.revenue
-        })));
+        let dateRangeStr = timePeriod;
+        if (timePeriod === "Custom" && startDate && endDate) {
+            dateRangeStr = `${startDate} to ${endDate}`;
+        } else if (timePeriod === "All Time") {
+            dateRangeStr = "All Time";
+        } else if (timePeriod === "This Financial Year") {
+            const now = new Date();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+            const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+            dateRangeStr = `This Financial Year (01/04/${fyStartYear} - ${now.toLocaleDateString()})`;
+        } else if (timePeriod === "Last Financial Year") {
+            const now = new Date();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+            const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+            dateRangeStr = `Last Financial Year (01/04/${fyStartYear - 1} - 31/03/${fyStartYear})`;
+        } else if (timePeriod === "This Month") {
+            dateRangeStr = `This Month (${new Date().toLocaleString('default', { month: 'long' })})`;
+        } else if (timePeriod === "Last Month") {
+            const d = new Date();
+            d.setMonth(d.getMonth() - 1);
+            dateRangeStr = `Last Month (${d.toLocaleString('default', { month: 'long' })})`;
+        }
+
+        const metadata = [
+            ["Monthly Revenue Report"], // Title
+            ["Generated on:", dateStr],
+            ["Date Range:", dateRangeStr],
+            ["Session:", selectedSession || "All Sessions", "Exam Tag:", selectedExamTag ? (examTags.find(e => e._id === selectedExamTag)?.name || "Selected") : "All"],
+            ["Centers:", selectedCentres.length ? "Selected" : "All Centers", "Courses:", selectedCourses.length ? "Selected" : "All Courses"],
+            [], // Empty row
+        ];
+
+        // --- Sheet 1: Monthly Revenue Report ---
+        // Sort Monthly Data by Financial Year (Apr -> Mar)
+        const fyOrder = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
+
+        const sortedMonthlyData = [...monthlyData].sort((a, b) => {
+            const indexA = fyOrder.indexOf(a.month);
+            const indexB = fyOrder.indexOf(b.month);
+            return (indexA === -1 ? 100 : indexA) - (indexB === -1 ? 100 : indexB);
+        });
+
+        const ws1Headers = ["Month", "Year", "Total Revenue (₹)", "Transaction Count"];
+
+        // Helper to guess year for display in excel (Apr-Dec = FY Start, Jan-Mar = FY End)
+        const getDisplayYear = (month) => {
+            const now = new Date();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+            const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+
+            // If we are looking at "Last FY", subtract 1
+            if (timePeriod === "All Time") return "-";
+            const baseStartYear = timePeriod === "Last Financial Year" ? fyStartYear - 1 : fyStartYear;
+
+            if (["Jan", "Feb", "Mar"].includes(month)) return baseStartYear + 1;
+            return baseStartYear;
+        };
+
+        const ws1Data = sortedMonthlyData.map(m => [
+            m.month,
+            getDisplayYear(m.month),
+            m.revenue,
+            m.count || 0
+        ]);
+        // Add Total Row
+        const totalRev = monthlyData.reduce((acc, c) => acc + c.revenue, 0);
+        const totalCount = monthlyData.reduce((acc, c) => acc + (c.count || 0), 0);
+        ws1Data.push(["TOTAL", "", totalRev, totalCount]);
+
+        const ws1 = XLSX.utils.aoa_to_sheet([...metadata, [], ws1Headers, ...ws1Data]);
+        ws1['!cols'] = [{ wch: 15 }, { wch: 10 }, { wch: 20 }, { wch: 20 }];
         XLSX.utils.book_append_sheet(wb, ws1, "Monthly Revenue");
 
-        // Sheet 2: Payment Methods
-        const ws2 = XLSX.utils.json_to_sheet(paymentMethodData.map(p => ({
-            "Method": p.name,
-            "Amount": p.value,
-            "Count": p.count,
-            "Percentage": p.percent + "%"
-        })));
-        XLSX.utils.book_append_sheet(wb, ws2, "Payment Methods");
+        // --- Sheet 2: Payment Type Distribution Report ---
+        const ws2Headers = ["Payment Type", "Total Amount (₹)", "Transaction Count", "Average Amount (₹)"];
+        const ws2Data = paymentMethodData.map(p => [
+            p.name,
+            p.value,
+            p.count,
+            p.count > 0 ? (p.value / p.count).toFixed(2) : "0"
+        ]);
+        // Add Total
+        const totalPayRev = paymentMethodData.reduce((acc, p) => acc + p.value, 0);
+        const totalPayCount = paymentMethodData.reduce((acc, p) => acc + p.count, 0);
+        ws2Data.push(["TOTAL", totalPayRev, totalPayCount, ""]);
+
+        const ws2 = XLSX.utils.aoa_to_sheet([...metadata, ["Payment Type Distribution Report"], [], ws2Headers, ...ws2Data]);
+        ws2['!cols'] = [{ wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }];
+        XLSX.utils.book_append_sheet(wb, ws2, "Payment Distribution");
 
         const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
         const data = new Blob([excelBuffer], { type: "application/octet-stream" });
@@ -282,11 +412,32 @@ const TransactionReport = () => {
                             <FaEraser size={18} />
                         </button>
                     </div>
-                    <div className="flex justify-center mt-2">
+                    <div className="flex justify-center mt-2 gap-2 items-center">
                         <select value={timePeriod} onChange={(e) => setTimePeriod(e.target.value)} className="h-9 px-4 bg-white border border-gray-300 rounded-md text-sm font-semibold text-gray-700 outline-none shadow-sm cursor-pointer">
-                            <option value="This Year">This Year</option>
-                            <option value="Last Year">Last Year</option>
+                            <option value="All Time">All Time</option>
+                            <option value="This Financial Year">This Financial Year</option>
+                            <option value="Last Financial Year">Last Financial Year</option>
+                            <option value="This Month">This Month</option>
+                            <option value="Last Month">Last Month</option>
+                            <option value="Custom">Custom</option>
                         </select>
+                        {timePeriod === "Custom" && (
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="h-9 px-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none shadow-sm"
+                                />
+                                <span className="text-gray-500">to</span>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="h-9 px-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none shadow-sm"
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -317,6 +468,50 @@ const TransactionReport = () => {
                 </div>
 
                 {/* 2. Payment Methods */}
+                {/* 2. Centre & Course Revenue (New) */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Centre Revenue */}
+                    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                        <h3 className="text-xl font-bold text-gray-800 mb-6">Revenue by Centre</h3>
+                        <div className="h-[400px]">
+                            {centreRevenueData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={centreRevenueData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                                        <XAxis type="number" hide />
+                                        <YAxis dataKey="_id" type="category" width={100} tick={{ fontSize: 12 }} />
+                                        <Tooltip content={<CustomBarTooltip />} cursor={{ fill: 'transparent' }} />
+                                        <Bar dataKey="revenue" fill="#00e396" barSize={20} radius={[0, 4, 4, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-full flex items-center justify-center text-gray-400">No Data</div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Course Revenue */}
+                    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                        <h3 className="text-xl font-bold text-gray-800 mb-6">Revenue by Course</h3>
+                        <div className="h-[400px]">
+                            {courseRevenueData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={courseRevenueData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                                        <XAxis type="number" hide />
+                                        <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12 }} />
+                                        <Tooltip content={<CustomBarTooltip />} cursor={{ fill: 'transparent' }} />
+                                        <Bar dataKey="revenue" fill="#feb019" barSize={20} radius={[0, 4, 4, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-full flex items-center justify-center text-gray-400">No Data</div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* 3. Payment Methods */}
                 <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
                     <h3 className="text-xl font-bold text-gray-800 mb-6">Payment Methods</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">

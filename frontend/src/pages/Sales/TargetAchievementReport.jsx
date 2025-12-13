@@ -96,19 +96,66 @@ const TargetAchievementReport = () => {
             toast.warn("No data to export");
             return;
         }
-        const exportData = data.map(item => ({
-            "Centre": item.centreName,
-            "Target": item.target,
-            "Achieved": item.achieved,
-            "Achieved %": item.target > 0 ? ((item.achieved / item.target) * 100).toFixed(2) + "%" : "0%"
-        }));
 
-        const workbook = XLSX.utils.book_new();
-        const worksheet = XLSX.utils.json_to_sheet(exportData);
-        XLSX.utils.book_append_sheet(workbook, worksheet, "TargetAchievement");
-        const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+        const wb = XLSX.utils.book_new();
+
+        // 1. Prepare Header Info
+        const reportType = `Report Type: ${viewMode} Target Report`;
+        const finYear = `Financial Year: ${filterFinancialYear}`;
+        const currentMonth = `Month: ${filterMonth}`;
+        const selectedCentreCount = `Selected Centres: ${selectedCentres.length}`;
+        const generatedOn = `Generated on: ${new Date().toLocaleDateString()}`;
+        const yearVal = `Year: ${filterYear}`;
+
+        // 2. Prepare Data Rows
+        const dataRows = data.map(item => {
+            const achievementPct = item.target > 0
+                ? ((item.achieved / item.target) * 100).toFixed(2) + "%"
+                : "0%";
+
+            return [
+                item.centreName,        // Center Name
+                filterFinancialYear,    // Financial Year
+                filterYear,             // Year
+                item.target,            // Target (Number)
+                item.achieved,          // Achieved (Number)
+                achievementPct,         // Achievement %
+                filterMonth             // Month
+            ];
+        });
+
+        // 3. Construct Sheet Data (Array of Arrays)
+        const sheetData = [
+            // Row 1: Meta Headers can be side-by-side or combined. 
+            // Based on user request image, they seem to be in consecutive columns or merged.
+            // Let's put them in separate cells for simplicity as per "excel like this" request.
+            [reportType, finYear, yearVal, currentMonth, selectedCentreCount, generatedOn],
+            [], // Empty Row 2
+            // Row 3: Table Headers
+            ["Center Name", "Financial Year", "Year", "Target", "Achieved", "Achievement %", "Month"],
+            // Data Rows
+            ...dataRows
+        ];
+
+        // 4. Create Sheet
+        const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+        // Optional: Simple column width adjustments
+        const wscols = [
+            { wch: 20 }, // Center Name
+            { wch: 15 }, // Fin Year
+            { wch: 10 }, // Year
+            { wch: 15 }, // Target
+            { wch: 15 }, // Achieved
+            { wch: 15 }, // %
+            { wch: 15 }, // Month
+        ];
+        ws['!cols'] = wscols;
+
+        XLSX.utils.book_append_sheet(wb, ws, "Target Report");
+        const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
         const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
-        saveAs(blob, `Target_Achievement_${viewMode}_${new Date().getTime()}.xlsx`);
+        saveAs(blob, `Target_Report_${viewMode}_${new Date().toISOString().slice(0, 10)}.xlsx`);
     };
 
     const toggleCentre = (id) => {
