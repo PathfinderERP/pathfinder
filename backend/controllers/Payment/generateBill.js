@@ -179,7 +179,9 @@ export const generateBill = async (req, res) => {
                 cgst: parseFloat(cgst.toFixed(2)),
                 sgst: parseFloat(sgst.toFixed(2)),
                 courseFee: parseFloat(courseFee.toFixed(2)),
-                totalAmount: parseFloat(totalAmount.toFixed(2))
+                totalAmount: parseFloat(totalAmount.toFixed(2)),
+                accountHolderName: installment.accountHolderName,
+                chequeDate: installment.chequeDate
             });
 
             await payment.save();
@@ -234,7 +236,9 @@ export const generateBill = async (req, res) => {
                 installmentNumber: payment.installmentNumber,
                 paymentMethod: payment.paymentMethod,
                 transactionId: payment.transactionId,
-                paidDate: payment.paidDate
+                paidDate: payment.paidDate,
+                accountHolderName: payment.accountHolderName,
+                chequeDate: payment.chequeDate
             },
             amounts: {
                 courseFee: payment.courseFee,
@@ -314,7 +318,9 @@ export const getBillById = async (req, res) => {
                 installmentNumber: payment.installmentNumber,
                 paymentMethod: payment.paymentMethod,
                 transactionId: payment.transactionId,
-                paidDate: payment.paidDate
+                paidDate: payment.paidDate,
+                accountHolderName: payment.accountHolderName,
+                chequeDate: payment.chequeDate
             },
             amounts: {
                 courseFee: payment.courseFee,

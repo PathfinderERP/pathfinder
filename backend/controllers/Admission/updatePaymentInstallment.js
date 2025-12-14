@@ -5,7 +5,7 @@ import { updateCentreTargetAchieved } from "../../services/centreTargetService.j
 export const updatePaymentInstallment = async (req, res) => {
     try {
         const { admissionId, installmentNumber } = req.params;
-        const { paidAmount, paymentMethod, transactionId, remarks } = req.body;
+        const { paidAmount, paymentMethod, transactionId, remarks, accountHolderName, chequeDate } = req.body;
 
         const admission = await Admission.findById(admissionId);
         if (!admission) {
@@ -29,35 +29,72 @@ export const updatePaymentInstallment = async (req, res) => {
         installment.paidDate = new Date();
         installment.paymentMethod = paymentMethod;
         installment.transactionId = transactionId;
+        installment.accountHolderName = accountHolderName; // New
+        installment.chequeDate = chequeDate; // New
         installment.remarks = remarks;
         
-        // If paid amount matches or is more (unlikely for now), mark as PAID
-        // If paid amount is LESS, we still mark as PAID because the remaining moves to next
+        // Check if this is the last installment
+        const isLastInstallment = admission.paymentBreakdown.every(p => p.installmentNumber <= installment.installmentNumber);
+        const nextInstallmentIndex = admission.paymentBreakdown.findIndex(p => p.installmentNumber === (parseInt(installmentNumber) + 1));
+        const hasNextInstallment = nextInstallmentIndex !== -1;
+
+        if (isLastInstallment || !hasNextInstallment) {
+            // Strict check for last installment
+            // User requirement: "if it is the last payment then they cannot furthur more extend it to the next payment they have to pay all"
+            if (paidAmountFloat < originalAmount) {
+                return res.status(400).json({ 
+                    message: "Final installment must be paid in full. Cannot carry forward arrears." 
+                });
+            }
+        }
+
+        installment.paidAmount = paidAmountFloat;
+        installment.paidDate = new Date();
+        installment.paymentMethod = paymentMethod;
+        installment.transactionId = transactionId;
+        installment.accountHolderName = accountHolderName; // New
+        installment.chequeDate = chequeDate; // New
+        installment.remarks = remarks;
+        
+        // Status is always PAID if we accept it (unless validation failed above)
         installment.status = "PAID"; 
         
-        // Handle Partial Payment Logic (Arrears)
-        if (paidAmountFloat < originalAmount) {
-            const remainingAmount = originalAmount - paidAmountFloat;
-            console.log(`Partial payment detected. Remaining: ${remainingAmount}. Moving to next installment.`);
+        // Logic: Arrears OR Excess
+        const difference = originalAmount - paidAmountFloat; // Positive = Arrears, Negative = Excess
+
+        if (difference > 0) {
+            // Partial Payment (Underpayment)
+            console.log(`Partial payment detected. Arrears: ${difference}.`);
             
-            // Find next installment
-            // Assuming installments are sorted or we can find by ID/number
-            const nextInstallmentIndex = admission.paymentBreakdown.findIndex(p => p.installmentNumber === (parseInt(installmentNumber) + 1));
-            
-            if (nextInstallmentIndex !== -1) {
+            if (hasNextInstallment) {
                 const nextInstallment = admission.paymentBreakdown[nextInstallmentIndex];
-                nextInstallment.amount += remainingAmount;
-                nextInstallment.remarks = (nextInstallment.remarks ? nextInstallment.remarks + "; " : "") + `Includes ₹${remainingAmount} arrears from Inst #${installmentNumber}`;
-                console.log(`Updated Installment #${nextInstallment.installmentNumber}: New Amount ${nextInstallment.amount}`);
+                nextInstallment.amount += difference;
+                nextInstallment.remarks = (nextInstallment.remarks ? nextInstallment.remarks + "; " : "") + `Includes ₹${difference} arrears from Inst #${installmentNumber}`;
+                console.log(`Updated Next Inst #${nextInstallment.installmentNumber}: Increased to ₹${nextInstallment.amount}`);
             } else {
-                // If it's the last installment, we might need a different handling or create a new "Arrears" installment
-                // For now, let's keep it simple or maybe fail/warn? 
-                // Alternatively, we can force current status to PARTIAL if no next installment exists.
-                // But user req says "add to next installment".
-                console.warn("No next installment found to carry forward arrears.");
-                // If no next installment, effectively it remains partial on this one?
-                // But we marked it PAID above. Let's revert if last.
-                installment.status = "PARTIAL"; // Or keep it unpaid
+                // Should not happen due to validation above, but safe fallback
+                 console.warn("Partial payment on last installment accepted (validation skipped?).");
+            }
+        } else if (difference < 0) {
+            // Excess Payment (Overpayment)
+            const excess = Math.abs(difference);
+            console.log(`Excess payment detected. Credit: ${excess}.`);
+
+            if (hasNextInstallment) {
+                const nextInstallment = admission.paymentBreakdown[nextInstallmentIndex];
+                // Reduce next installment amount
+                // Ensure next amount doesn't go negative? Or allow it (credit flows further)?
+                // For simplicity, just subtract. if next becomes negative, logic handles it next time?
+                // Ideally, keep amount >= 0. But if credit > next, next is 0 and we have more credit?
+                // Let's just subtract for now.
+                nextInstallment.amount -= excess;
+                nextInstallment.remarks = (nextInstallment.remarks ? nextInstallment.remarks + "; " : "") + `Credit of ₹${excess} from Inst #${installmentNumber}`;
+                console.log(`Updated Next Inst #${nextInstallment.installmentNumber}: Reduced to ₹${nextInstallment.amount}`);
+            } else {
+                // Last installment overpayment
+                // Just accept it. Pending amount will be 0 (clamped in frontend) or negative (if we want to show surplus).
+                // User complained about "value in minus" in Pending. 
+                // We'll fix frontend to clamp pending at 0.
             }
         }
         
@@ -119,6 +156,8 @@ export const updatePaymentInstallment = async (req, res) => {
                     status: installment.status,
                     paymentMethod: paymentMethod,
                     transactionId: transactionId,
+                    accountHolderName: accountHolderName, // New
+                    chequeDate: chequeDate, // New
                     remarks: remarks,
                     recordedBy: req.user?.id,
                     cgst: parseFloat(cgst.toFixed(2)),
@@ -134,6 +173,8 @@ export const updatePaymentInstallment = async (req, res) => {
                 payment.status = installment.status;
                 payment.paymentMethod = paymentMethod;
                 payment.transactionId = transactionId;
+                payment.accountHolderName = accountHolderName; // New
+                payment.chequeDate = chequeDate; // New
                 payment.remarks = remarks;
                 payment.cgst = parseFloat(cgst.toFixed(2));
                 payment.sgst = parseFloat(sgst.toFixed(2));

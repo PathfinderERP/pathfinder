@@ -17,6 +17,8 @@ const paymentBreakdownSchema = new mongoose.Schema({
         default: null
     },
     transactionId: { type: String },
+    accountHolderName: { type: String },
+    chequeDate: { type: Date },
     remarks: { type: String }
 });
 

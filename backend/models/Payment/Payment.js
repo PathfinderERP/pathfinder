@@ -49,6 +49,14 @@ const paymentSchema = new mongoose.Schema({
     transactionId: { 
         type: String 
     },
+
+    accountHolderName: { 
+        type: String 
+    },
+
+    chequeDate: { 
+        type: Date 
+    },
     
     remarks: { 
         type: String 

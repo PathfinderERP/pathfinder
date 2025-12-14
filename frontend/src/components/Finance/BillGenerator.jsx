@@ -217,7 +217,7 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             yPos += rowHeight;
 
             // 3. Branch
-            drawRow(yPos, 'Branch :', safeStr(billData.course?.department));
+            drawRow(yPos, 'Branch :', safeStr(billData.centre?.name));
             yPos += rowHeight;
 
             // 4. Receipt No. | Date
@@ -359,6 +359,26 @@ const BillGenerator = ({ admission, installment, onClose }) => {
 
 
             yPos += rowHeight;
+
+            // 11b. Cheque/Bank Details (Conditional)
+            if (['CHEQUE', 'BANK_TRANSFER'].includes(paymentMethod)) {
+                // Left: Payer Name
+                doc.rect(margin, yPos, midPoint - margin, rowHeight);
+                doc.setFont('helvetica', 'normal');
+                doc.text(paymentMethod === 'CHEQUE' ? 'Chq Name:' : 'Payer:', margin + 2, yPos + 5.5);
+                doc.setFont('helvetica', 'bold');
+                doc.text(safeStr(billData.payment?.accountHolderName), margin + 22, yPos + 5.5);
+
+                // Right: Cheque Date
+                doc.rect(midPoint, yPos, midPoint - margin, rowHeight);
+                doc.setFont('helvetica', 'normal');
+                doc.text(paymentMethod === 'CHEQUE' ? 'Chq Date:' : 'Pay Date:', midPoint + 2, yPos + 5.5);
+                doc.setFont('helvetica', 'bold');
+                const cDate = billData.payment?.chequeDate ? new Date(billData.payment?.chequeDate).toLocaleDateString('en-IN') : 'N/A';
+                doc.text(cDate, midPoint + 20, yPos + 5.5);
+
+                yPos += rowHeight;
+            }
 
             // 12. Remarks
             doc.rect(margin, yPos, tableWidth, rowHeight);
@@ -542,6 +562,12 @@ const BillGenerator = ({ admission, installment, onClose }) => {
                                             <div><span className="text-gray-400">Transaction ID:</span> <span className="text-white font-medium">{billData.payment.transactionId || 'N/A'}</span></div>
                                         )}
                                         <div><span className="text-gray-400">Payment Date:</span> <span className="text-white font-medium">{new Date(billData.payment.paidDate).toLocaleDateString('en-IN')}</span></div>
+                                        {['CHEQUE', 'BANK_TRANSFER'].includes(billData.payment.paymentMethod) && (
+                                            <>
+                                                <div><span className="text-gray-400">Payer Name:</span> <span className="text-white font-medium">{billData.payment.accountHolderName || 'N/A'}</span></div>
+                                                <div><span className="text-gray-400">Cheque Date:</span> <span className="text-white font-medium">{billData.payment.chequeDate ? new Date(billData.payment.chequeDate).toLocaleDateString('en-IN') : 'N/A'}</span></div>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
 

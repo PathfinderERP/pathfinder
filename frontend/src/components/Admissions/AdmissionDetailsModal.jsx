@@ -11,6 +11,8 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
         paidAmount: 0,
         paymentMethod: "CASH",
         transactionId: "",
+        accountHolderName: "",
+        chequeDate: "",
         remarks: ""
     });
     const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
@@ -79,6 +81,8 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
             paidAmount: installment.amount,
             paymentMethod: "CASH",
             transactionId: "",
+            accountHolderName: "",
+            chequeDate: new Date().toISOString().split('T')[0],
             remarks: ""
         });
         setShowPaymentModal(true);
@@ -387,7 +391,10 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                     <span className="text-gray-400 text-sm">Pending</span>
                                 </div>
                                 <p className="text-yellow-400 text-2xl font-bold">
-                                    ₹{(admission.totalFees - admission.totalPaidAmount)?.toLocaleString()}
+                                    {(admission.totalFees - admission.totalPaidAmount) >= 0 
+                                        ? `₹${(admission.totalFees - admission.totalPaidAmount).toLocaleString()}`
+                                        : `+₹${(admission.totalPaidAmount - admission.totalFees).toLocaleString()} (Excess)`
+                                    }
                                 </p>
                             </div>
                             <div className="bg-cyan-500/10 p-4 rounded-lg border border-cyan-500/20">
@@ -403,8 +410,8 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
 
             {/* Payment Modal */}
             {showPaymentModal && selectedInstallment && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60]">
-                    <div className="bg-[#1a1f24] p-6 rounded-lg w-full max-w-md border border-gray-700">
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-[#1a1f24] p-6 rounded-lg w-full max-w-md border border-gray-700 max-h-[90vh] overflow-y-auto relative shadow-xl">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-xl font-bold text-white">Payment Details</h3>
                             <button onClick={() => setShowPaymentModal(false)} className="text-gray-400 hover:text-white">
@@ -429,41 +436,108 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                     className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
                                     required
                                 />
-                                {selectedInstallment.amount - paymentData.paidAmount > 0 && (
-                                    <div className="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-xs text-yellow-400">
-                                        Remaining <span className="font-bold">₹{selectedInstallment.amount - paymentData.paidAmount}</span> will be added to the next installment.
-                                    </div>
-                                )}
+                                {(() => {
+                                    const diff = selectedInstallment.amount - paymentData.paidAmount;
+                                    if (diff > 0) {
+                                        return (
+                                            <div className="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-xs text-yellow-400">
+                                                Partial Payment: Remaining <span className="font-bold">₹{diff.toLocaleString()}</span> will be added to the next installment.
+                                            </div>
+                                        );
+                                    } else if (diff < 0) {
+                                        return (
+                                            <div className="mt-2 p-2 bg-green-500/10 border border-green-500/30 rounded text-xs text-green-400">
+                                                Excess Payment: Credit of <span className="font-bold">₹{Math.abs(diff).toLocaleString()}</span> will be deducted from next installment.
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()}
                             </div>
                             <div>
-                                <label className="block text-gray-400 mb-2 text-sm">Payment Method *</label>
-                                <select
-                                    value={paymentData.paymentMethod}
-                                    onChange={(e) => {
-                                        const newMethod = e.target.value;
-                                        if (newMethod === "CASH" || newMethod === "CHEQUE") {
-                                            setPaymentData({ ...paymentData, paymentMethod: newMethod, transactionId: "" });
-                                        } else {
-                                            setPaymentData({ ...paymentData, paymentMethod: newMethod });
-                                        }
-                                    }}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
-                                    required
-                                >
-                                    <option value="CASH">Cash</option>
-                                    <option value="UPI">UPI</option>
-                                    <option value="CARD">Card</option>
-                                    <option value="BANK_TRANSFER">Bank Transfer</option>
-                                    <option value="CHEQUE">Cheque</option>
-                                </select>
+                                <label className="block text-gray-400 mb-2 text-sm">Payment Option *</label>
+                                <div className="flex gap-4 items-center bg-gray-800 p-3 rounded-lg border border-gray-700">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="paymentMethod"
+                                            value="CASH"
+                                            checked={paymentData.paymentMethod === "CASH"}
+                                            onChange={(e) => setPaymentData({ ...paymentData, paymentMethod: "CASH", transactionId: "", accountHolderName: "" })}
+                                            className="text-cyan-600 focus:ring-cyan-500 bg-gray-700 border-gray-600"
+                                        />
+                                        <span className="text-white">Cash</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="paymentMethod"
+                                            value="UPI"
+                                            checked={["UPI", "CARD"].includes(paymentData.paymentMethod)}
+                                            onChange={(e) => setPaymentData({ ...paymentData, paymentMethod: "UPI", transactionId: "", accountHolderName: "" })}
+                                            className="text-cyan-600 focus:ring-cyan-500 bg-gray-700 border-gray-600"
+                                        />
+                                        <span className="text-white">Online</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="paymentMethod"
+                                            value="CHEQUE"
+                                            checked={["CHEQUE", "BANK_TRANSFER"].includes(paymentData.paymentMethod)}
+                                            onChange={(e) => setPaymentData({ ...paymentData, paymentMethod: "CHEQUE" })}
+                                            className="text-cyan-600 focus:ring-cyan-500 bg-gray-700 border-gray-600"
+                                        />
+                                        <span className="text-white">Cheque/Bank Transfer</span>
+                                    </label>
+                                </div>
                             </div>
 
-                            {/* Conditional Transaction ID field - only for online payments */}
-                            {["UPI", "CARD", "BANK_TRANSFER"].includes(paymentData.paymentMethod) && (
+                            {/* Conditional Fields based on Selection */}
+                            
+                            {/* Cheque/Bank Transfer Fields */}
+                            {(paymentData.paymentMethod === "CHEQUE" || paymentData.paymentMethod === "BANK_TRANSFER") && (
+                                <>
+                                    <div>
+                                        <label className="block text-gray-400 mb-2 text-sm">Name on Cheque/Bank *</label>
+                                        <input
+                                            type="text"
+                                            value={paymentData.accountHolderName}
+                                            onChange={(e) => setPaymentData({ ...paymentData, accountHolderName: e.target.value })}
+                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
+                                            placeholder="Enter name written in Cheque"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-2 text-sm">Cheque No/ Transaction No. *</label>
+                                        <input
+                                            type="text"
+                                            value={paymentData.transactionId}
+                                            onChange={(e) => setPaymentData({ ...paymentData, transactionId: e.target.value })}
+                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
+                                            placeholder="Enter Cheque no."
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-2 text-sm">Payment Date *</label>
+                                        <input
+                                            type="date"
+                                            value={paymentData.chequeDate ? new Date(paymentData.chequeDate).toISOString().split('T')[0] : ""}
+                                            onChange={(e) => setPaymentData({ ...paymentData, chequeDate: e.target.value })}
+                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
+                                            required
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Online Fields */}
+                            {(paymentData.paymentMethod === "UPI" || paymentData.paymentMethod === "CARD") && (
                                 <div>
                                     <label className="block text-gray-400 mb-2 text-sm">
                                         Transaction ID *
-                                        <span className="text-xs text-cyan-400 ml-2">(Required for online payments)</span>
                                     </label>
                                     <input
                                         type="text"
