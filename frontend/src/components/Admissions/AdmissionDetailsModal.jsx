@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { FaTimes, FaUser, FaGraduationCap, FaMoneyBillWave, FaCalendar, FaCheckCircle, FaExclamationCircle, FaFileInvoice } from 'react-icons/fa';
+import { FaTimes, FaUser, FaGraduationCap, FaMoneyBillWave, FaCalendar, FaCheckCircle, FaExclamationCircle, FaFileInvoice, FaSync } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import BillGenerator from '../Finance/BillGenerator';
 
 const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }) => {
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [selectedInstallment, setSelectedInstallment] = useState(null);
+    const [processingPayment, setProcessingPayment] = useState(false);
     const [paymentData, setPaymentData] = useState({
         paidAmount: 0,
         paymentMethod: "CASH",
@@ -29,37 +30,50 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
         const onlinePaymentMethods = ["UPI", "CARD", "BANK_TRANSFER"];
         const isOnlinePayment = onlinePaymentMethods.includes(paymentData.paymentMethod);
 
-        // Validate transaction ID for online payments
         if (isOnlinePayment && !paymentData.transactionId.trim()) {
             toast.error("Transaction ID is required for online payment methods");
             return;
         }
 
+        setProcessingPayment(true);
         try {
             const token = localStorage.getItem("token");
+            let successCount = 0;
+            
+            // Sort installments to ensure sequential payment
+            // Process single installment payment
+            const installment = selectedInstallment;
+            const amountToPay = paymentData.paidAmount;
+
             const response = await fetch(
-                `${apiUrl}/admission/${admission._id}/payment/${selectedInstallment.installmentNumber}`,
+                `${apiUrl}/admission/${admission._id}/payment/${installment.installmentNumber}`,
                 {
                     method: "PUT",
                     headers: {
                         "Content-Type": "application/json",
                         "Authorization": `Bearer ${token}`
                     },
-                    body: JSON.stringify(paymentData)
+                    body: JSON.stringify({
+                        ...paymentData,
+                        paidAmount: amountToPay
+                    })
                 }
             );
 
-            const data = await response.json();
-
             if (response.ok) {
-                toast.success("Payment updated successfully");
+                toast.success(`Successfully processed payment`);
                 setShowPaymentModal(false);
+                setSelectedInstallment(null);
                 onUpdate();
             } else {
-                toast.error(data.message || "Failed to update payment");
+                const data = await response.json();
+                toast.error(`Failed to pay installment #${installment.installmentNumber}: ${data.message}`);
             }
         } catch (err) {
-            toast.error("Server error");
+            console.error(err);
+            toast.error("Server error during payment processing");
+        } finally {
+            setProcessingPayment(false);
         }
     };
 
@@ -73,6 +87,8 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
         });
         setShowPaymentModal(true);
     };
+
+
 
     const getInstallmentStatusColor = (status) => {
         switch (status) {
@@ -303,11 +319,27 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {admission.paymentBreakdown?.map((payment, index) => (
+                                        {admission.paymentBreakdown?.map((payment, index) => {
+                                            // Determine if enable (button/checkbox)
+                                            // Enabled if it's the first unpaid installment OR previous one is paid
+                                            // Actually user said: "after completing the first then the next pay now button will be clickable"
+                                            // So button disabled if index > 0 and breakdown[index-1] is not PAID.
+                                            
+                                            const previousPaid = index === 0 || admission.paymentBreakdown[index - 1].status === "PAID";
+                                            const isPaid = payment.status === "PAID";
+
+                                            return (
                                             <tr key={index} className="border-t border-gray-800">
                                                 <td className="p-3 text-white">#{payment.installmentNumber}</td>
                                                 <td className="p-3 text-gray-300">{new Date(payment.dueDate).toLocaleDateString()}</td>
-                                                <td className="p-3 text-white font-medium">₹{payment.amount?.toLocaleString()}</td>
+                                                <td className="p-3 text-white font-medium">
+                                                    ₹{payment.amount?.toLocaleString()}
+                                                    {payment.carriedOverAmount > 0 && (
+                                                        <span className="text-xs text-yellow-500 block">
+                                                            + ₹{payment.carriedOverAmount.toLocaleString()} from previous
+                                                        </span>
+                                                    )}
+                                                </td>
                                                 <td className="p-3 text-green-400">₹{payment.paidAmount?.toLocaleString() || 0}</td>
                                                 <td className="p-3 text-gray-300">{payment.paymentMethod || "-"}</td>
                                                 <td className="p-3">
@@ -317,10 +349,11 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                                 </td>
                                                 <td className="p-3">
                                                     {canEdit ? (
-                                                        payment.status !== "PAID" ? (
+                                                        !isPaid ? (
                                                             <button
                                                                 onClick={() => openPaymentModal(payment)}
-                                                                className="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white text-sm rounded transition-colors"
+                                                                disabled={!previousPaid}
+                                                                className={`px-3 py-1 text-white text-sm rounded transition-colors ${previousPaid ? 'bg-cyan-600 hover:bg-cyan-500' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
                                                             >
                                                                 Pay Now
                                                             </button>
@@ -333,7 +366,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                                             </button>
                                                         )
                                                     ) : (
-                                                        payment.status === "PAID" && (
+                                                        isPaid && (
                                                             <button
                                                                 onClick={() => setBillModal({ show: true, admission: admission, installment: payment })}
                                                                 className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-cyan-400 text-sm rounded transition-colors flex items-center gap-1"
@@ -344,7 +377,8 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                                     )}
                                                 </td>
                                             </tr>
-                                        ))}
+                                        );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
@@ -391,11 +425,13 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                         </div>
                         <form onSubmit={handlePaymentSubmit} className="space-y-4">
                             <div>
-                                <label className="block text-gray-400 mb-2 text-sm">Installment #{selectedInstallment.installmentNumber}</label>
-                                <p className="text-white">Due Amount: ₹{selectedInstallment.amount?.toLocaleString()}</p>
+                                <label className="block text-gray-400 mb-2 text-sm">
+                                    {`Installment #${selectedInstallment?.installmentNumber}`}
+                                </label>
+                                <p className="text-white text-lg font-bold">Total Due: ₹{selectedInstallment?.amount?.toLocaleString()}</p>
                             </div>
                             <div>
-                                <label className="block text-gray-400 mb-2 text-sm">Paid Amount *</label>
+                                <label className="block text-gray-400 mb-2 text-sm">Payment Amount *</label>
                                 <input
                                     type="number"
                                     value={paymentData.paidAmount}
@@ -461,14 +497,16 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                     type="button"
                                     onClick={() => setShowPaymentModal(false)}
                                     className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
+                                    disabled={processingPayment}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg"
+                                    className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors flex justify-center items-center"
+                                    disabled={processingPayment}
                                 >
-                                    Submit Payment
+                                    {processingPayment ? <FaSync className="animate-spin" /> : "Submit Payment"}
                                 </button>
                             </div>
                         </form>

@@ -217,7 +217,8 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             yPos += rowHeight;
 
             // 3. Branch
-            drawRow(yPos, 'Branch :', safeStr(billData.course?.department));
+            // 3. Branch
+            drawRow(yPos, 'Branch :', safeStr(billData.centre?.name));
             yPos += rowHeight;
 
             // 4. Receipt No. | Date

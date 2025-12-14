@@ -3,28 +3,54 @@ import Admission from "../../models/Admission/Admission.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
 
 
-// Generate a unique sequential bill ID starting with PATH
-const generateBillId = async () => {
+// Generate a unique sequential bill ID
+const generateBillId = async (centreCode) => {
     try {
-        // Find the last payment with a billId starting with PATH
+        // Calculate Financial Year String (e.g., "2526")
+        const date = new Date();
+        const month = date.getMonth(); // 0-11
+        const year = date.getFullYear(); // 2025
+        
+        const currentYear = year;
+        const currentMonth = month; // 0-11
+        
+        let startYear, endYear;
+        // Financial Year is April to March
+        if (currentMonth >= 3) { // April onwards: 2025-2026
+            startYear = currentYear;
+            endYear = currentYear + 1;
+        } else { // Jan-March: 2024-2025
+            startYear = currentYear - 1;
+            endYear = currentYear;
+        }
+        
+        // Format: YYYY-YY (e.g., 2025-26)
+        const yearStr = `${startYear}-${endYear.toString().slice(-2)}`;
+        const prefix = `PATH/${centreCode}/${yearStr}/`;
+
+        // Find the last payment with a billId matching the pattern
         const lastPayment = await Payment.findOne({
-            billId: { $regex: /^PATH/ }
+            billId: { $regex: new RegExp(`^${prefix.replace(/\//g, '\\/')}\\d+$`) }
         }).sort({ createdAt: -1 });
 
-        if (!lastPayment || !lastPayment.billId) {
-            return 'PATH0001';
+        let nextNumber = 1;
+
+        if (lastPayment && lastPayment.billId) {
+            // Extract the number part
+            const lastId = lastPayment.billId;
+            const parts = lastId.split('/');
+            const lastSeq = parts[parts.length - 1]; 
+            
+            if (lastSeq && !isNaN(lastSeq)) {
+                nextNumber = parseInt(lastSeq) + 1;
+            }
         }
 
-        // Extract the number part
-        const lastId = lastPayment.billId;
-        const numberPart = lastId.replace('PATH', '');
-        const nextNumber = parseInt(numberPart) + 1;
-
-        // Pad with zeros to ensure 4 digits
-        return `PATH${nextNumber.toString().padStart(4, '0')}`;
+        // Pad with zeros to ensure 6 digits
+        return `${prefix}${nextNumber.toString().padStart(6, '0')}`;
     } catch (error) {
-        // Fallback to timestamp if something goes wrong
-        return `PATH${Date.now()}`;
+        console.error("Bill ID Gen Error:", error);
+        return `PATH/${centreCode || 'GEN'}/${Date.now()}`;
     }
 };
 
@@ -76,6 +102,7 @@ export const generateBill = async (req, res) => {
             // Fallback to default centre info instead of failing
             centre = {
                 centreName: admission.centre,
+                enterCode: 'GEN',
                 address: '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
                 phoneNumber: '033 2455-1840 / 2454-4817 / 4668',
                 enterGstNo: 'N/A',
@@ -161,7 +188,7 @@ export const generateBill = async (req, res) => {
 
         // If payment exists but doesn't have a bill ID, generate one
         if (!payment.billId) {
-            payment.billId = await generateBillId();
+            payment.billId = await generateBillId(centre.enterCode || 'GEN');
 
             // Ensure tax calculations are present
             if (!payment.cgst || !payment.sgst || !payment.courseFee) {
