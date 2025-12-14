@@ -22,13 +22,45 @@ export const updatePaymentInstallment = async (req, res) => {
         }
 
         // Update installment
-        installment.paidAmount = paidAmount;
+        const originalAmount = installment.amount;
+        const paidAmountFloat = parseFloat(paidAmount);
+        
+        installment.paidAmount = paidAmountFloat;
         installment.paidDate = new Date();
         installment.paymentMethod = paymentMethod;
         installment.transactionId = transactionId;
         installment.remarks = remarks;
-        installment.status = paidAmount >= installment.amount ? "PAID" : "PENDING";
-
+        
+        // If paid amount matches or is more (unlikely for now), mark as PAID
+        // If paid amount is LESS, we still mark as PAID because the remaining moves to next
+        installment.status = "PAID"; 
+        
+        // Handle Partial Payment Logic (Arrears)
+        if (paidAmountFloat < originalAmount) {
+            const remainingAmount = originalAmount - paidAmountFloat;
+            console.log(`Partial payment detected. Remaining: ${remainingAmount}. Moving to next installment.`);
+            
+            // Find next installment
+            // Assuming installments are sorted or we can find by ID/number
+            const nextInstallmentIndex = admission.paymentBreakdown.findIndex(p => p.installmentNumber === (parseInt(installmentNumber) + 1));
+            
+            if (nextInstallmentIndex !== -1) {
+                const nextInstallment = admission.paymentBreakdown[nextInstallmentIndex];
+                nextInstallment.amount += remainingAmount;
+                nextInstallment.remarks = (nextInstallment.remarks ? nextInstallment.remarks + "; " : "") + `Includes ₹${remainingAmount} arrears from Inst #${installmentNumber}`;
+                console.log(`Updated Installment #${nextInstallment.installmentNumber}: New Amount ${nextInstallment.amount}`);
+            } else {
+                // If it's the last installment, we might need a different handling or create a new "Arrears" installment
+                // For now, let's keep it simple or maybe fail/warn? 
+                // Alternatively, we can force current status to PARTIAL if no next installment exists.
+                // But user req says "add to next installment".
+                console.warn("No next installment found to carry forward arrears.");
+                // If no next installment, effectively it remains partial on this one?
+                // But we marked it PAID above. Let's revert if last.
+                installment.status = "PARTIAL"; // Or keep it unpaid
+            }
+        }
+        
         // Update total paid amount
         admission.totalPaidAmount = admission.paymentBreakdown.reduce(
             (sum, p) => sum + (p.paidAmount || 0),
@@ -43,8 +75,9 @@ export const updatePaymentInstallment = async (req, res) => {
         }
 
         // Update Centre Target Achieved if payment was successful
-        if (installment.status === "PAID" && admission.centre) {
-            await updateCentreTargetAchieved(admission.centre, installment.paidDate || new Date());
+        // We consider it successful participation
+        if (admission.centre) {
+             await updateCentreTargetAchieved(admission.centre, installment.paidDate || new Date());
         }
 
         // Check for overdue installments
@@ -57,15 +90,16 @@ export const updatePaymentInstallment = async (req, res) => {
 
         await admission.save();
 
-        // Create or update Payment record with bill details if status is PAID
-        if (installment.status === "PAID") {
-            // Calculate tax amounts (CGST and SGST are typically 9% each = 18% total)
-            // paidAmount is inclusive of 18% GST
-            const baseAmount = paidAmount / 1.18;
+        // Create or update Payment record with bill details if status is PAID or PARTIAL (since we accepted money)
+        // We log the payment for the amount that WAS paid.
+        if (installment.paidAmount > 0) {
+            // Calculate tax amounts
+            const baseAmount = paidAmountFloat / 1.18;
             const cgst = baseAmount * 0.09;
             const sgst = baseAmount * 0.09;
             const courseFee = baseAmount;
-            const totalAmount = paidAmount;
+            const totalAmount = paidAmountFloat;
+
 
             // Check if payment record already exists
             let payment = await Payment.findOne({
