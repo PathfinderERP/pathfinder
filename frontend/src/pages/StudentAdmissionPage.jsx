@@ -37,9 +37,11 @@ const StudentAdmissionPage = () => {
         downPayment: 0,
         remainingAmount: 0,
         installmentAmount: 0,
+        installmentAmount: 0,
+        previousBalance: 0,
         paymentSchedule: []
     });
-    
+
     const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
     const [createdAdmission, setCreatedAdmission] = useState(null);
 
@@ -125,8 +127,9 @@ const StudentAdmissionPage = () => {
         const cgstAmount = Math.round(taxableAmount * 0.09);
         const sgstAmount = Math.round(taxableAmount * 0.09);
 
-        // Total Fees
-        const totalFees = taxableAmount + cgstAmount + sgstAmount;
+        // Total Fees with Previous Balance
+        const previousBalance = student?.carryForwardBalance || 0;
+        const totalFees = taxableAmount + cgstAmount + sgstAmount + previousBalance;
 
         const downPayment = parseFloat(formData.downPayment) || 0;
         const remainingAmount = Math.max(0, totalFees - downPayment);
@@ -154,6 +157,7 @@ const StudentAdmissionPage = () => {
             baseFees,
             cgstAmount,
             sgstAmount,
+            previousBalance,
             totalFees,
             downPayment,
             remainingAmount,
@@ -190,20 +194,20 @@ const StudentAdmissionPage = () => {
             if (response.ok) {
                 toast.success("Admission created successfully!");
                 setCreatedAdmission(data.admission);
-                
+
                 // If down payment was made, automatically open bill generator
                 if (data.admission.downPayment > 0) {
                     toast.success("Admission created! Generating bill...", { autoClose: 3000 });
-                    setBillModal({ 
-                        show: true, 
-                        admission: data.admission, 
-                        installment: { 
-                            installmentNumber: 0, 
-                            amount: data.admission.downPayment, 
+                    setBillModal({
+                        show: true,
+                        admission: data.admission,
+                        installment: {
+                            installmentNumber: 0,
+                            amount: data.admission.downPayment,
                             paidAmount: data.admission.downPayment,
                             paidDate: new Date(),
                             paymentMethod: "CASH" // Default or from form data
-                        } 
+                        }
                     });
                 } else {
                     setTimeout(() => navigate("/admissions"), 2000);
@@ -453,6 +457,12 @@ const StudentAdmissionPage = () => {
                                             <span className="text-gray-400">SGST (9%)</span>
                                             <span className="text-white">₹{feeBreakdown.sgstAmount.toLocaleString()}</span>
                                         </div>
+                                        {feeBreakdown.previousBalance > 0 && (
+                                            <div className="flex justify-between items-center bg-yellow-500/10 p-2 rounded">
+                                                <span className="text-yellow-400">Previous Balance (Carry Forward)</span>
+                                                <span className="text-yellow-400 font-bold">+₹{feeBreakdown.previousBalance.toLocaleString()}</span>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="flex justify-between items-center p-3 bg-cyan-500/20 rounded border border-cyan-500/50 mt-3">
@@ -531,21 +541,21 @@ const StudentAdmissionPage = () => {
                         <p className="text-gray-400 mb-6">
                             Student has been successfully admitted to {createdAdmission.course?.courseName}.
                         </p>
-                        
+
                         <div className="space-y-3">
                             {createdAdmission.downPayment > 0 && (
                                 <button
-                                    onClick={() => setBillModal({ 
-                                        show: true, 
-                                        admission: createdAdmission, 
-                                        installment: { installmentNumber: 0, amount: createdAdmission.downPayment, paidDate: new Date() } 
+                                    onClick={() => setBillModal({
+                                        show: true,
+                                        admission: createdAdmission,
+                                        installment: { installmentNumber: 0, amount: createdAdmission.downPayment, paidDate: new Date() }
                                     })}
                                     className="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg flex items-center justify-center gap-2"
                                 >
                                     <FaFileInvoice /> Generate Bill (Down Payment)
                                 </button>
                             )}
-                            
+
                             <button
                                 onClick={() => navigate("/admissions")}
                                 className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg"

@@ -13,7 +13,9 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
         transactionId: "",
         accountHolderName: "",
         chequeDate: "",
-        remarks: ""
+        chequeDate: "",
+        remarks: "",
+        carryForward: false
     });
     const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
 
@@ -40,7 +42,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
         setProcessingPayment(true);
         try {
             const token = localStorage.getItem("token");
-            
+
             const response = await fetch(
                 `${apiUrl}/admission/${admission._id}/payment/${selectedInstallment.installmentNumber}`,
                 {
@@ -83,7 +85,9 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
             transactionId: "",
             accountHolderName: "",
             chequeDate: new Date().toISOString().split('T')[0],
-            remarks: ""
+            chequeDate: new Date().toISOString().split('T')[0],
+            remarks: "",
+            carryForward: false
         });
         setShowPaymentModal(true);
     };
@@ -391,7 +395,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                     <span className="text-gray-400 text-sm">Pending</span>
                                 </div>
                                 <p className="text-yellow-400 text-2xl font-bold">
-                                    {(admission.totalFees - admission.totalPaidAmount) >= 0 
+                                    {(admission.totalFees - admission.totalPaidAmount) >= 0
                                         ? `₹${(admission.totalFees - admission.totalPaidAmount).toLocaleString()}`
                                         : `+₹${(admission.totalPaidAmount - admission.totalFees).toLocaleString()} (Excess)`
                                     }
@@ -440,8 +444,26 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                     const diff = selectedInstallment.amount - paymentData.paidAmount;
                                     if (diff > 0) {
                                         return (
-                                            <div className="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-xs text-yellow-400">
-                                                Partial Payment: Remaining <span className="font-bold">₹{diff.toLocaleString()}</span> will be added to the next installment.
+                                            <div className="mt-2 space-y-2">
+                                                <div className="p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-xs text-yellow-400">
+                                                    Partial Payment: Remaining <span className="font-bold">₹{diff.toLocaleString()}</span> is outstanding.
+                                                </div>
+
+                                                {/* Carry Forward Option */}
+                                                <label className="flex items-center gap-2 p-2 bg-purple-500/10 border border-purple-500/30 rounded cursor-pointer hover:bg-purple-500/20 transition-colors">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={paymentData.carryForward}
+                                                        onChange={(e) => setPaymentData({ ...paymentData, carryForward: e.target.checked })}
+                                                        className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500 bg-gray-700 border-gray-600"
+                                                    />
+                                                    <div className="flex-1">
+                                                        <span className="text-purple-400 font-bold text-sm block">Carry Forward Balance</span>
+                                                        <span className="text-gray-400 text-xs">
+                                                            Add remaining ₹{diff.toLocaleString()} to student's balance for future course adjustment.
+                                                        </span>
+                                                    </div>
+                                                </label>
                                             </div>
                                         );
                                     } else if (diff < 0) {
@@ -494,7 +516,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                             </div>
 
                             {/* Conditional Fields based on Selection */}
-                            
+
                             {/* Cheque/Bank Transfer Fields */}
                             {(paymentData.paymentMethod === "CHEQUE" || paymentData.paymentMethod === "BANK_TRANSFER") && (
                                 <>

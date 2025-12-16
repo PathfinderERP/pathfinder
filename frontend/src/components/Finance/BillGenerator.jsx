@@ -534,7 +534,7 @@ const BillGenerator = ({ admission, installment, onClose }) => {
                                     <div className="grid grid-cols-2 gap-3 text-sm">
                                         <div><span className="text-gray-400">Name:</span> <span className="text-white font-medium">{billData.student.name}</span></div>
                                         <div><span className="text-gray-400">Admission No:</span> <span className="text-white font-medium">{billData.student.admissionNumber}</span></div>
-                                        <div><span className="text-gray-400">Student ID:</span> <span className="text-white font-medium">{billData.student.id}</span></div>
+                                        <div><span className="text-gray-400">Student ID:</span> <span className="text-white font-medium">{billData.student.id || 'N/A'}</span></div>
                                         <div><span className="text-gray-400">Phone:</span> <span className="text-white font-medium">{billData.student.phoneNumber}</span></div>
                                         <div className="col-span-2"><span className="text-gray-400">Email:</span> <span className="text-white font-medium">{billData.student.email || 'N/A'}</span></div>
                                     </div>

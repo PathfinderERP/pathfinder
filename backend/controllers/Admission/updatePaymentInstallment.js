@@ -1,11 +1,12 @@
 import Admission from "../../models/Admission/Admission.js";
 import Payment from "../../models/Payment/Payment.js";
+import Student from "../../models/Students.js";
 import { updateCentreTargetAchieved } from "../../services/centreTargetService.js";
 
 export const updatePaymentInstallment = async (req, res) => {
     try {
         const { admissionId, installmentNumber } = req.params;
-        const { paidAmount, paymentMethod, transactionId, remarks, accountHolderName, chequeDate } = req.body;
+        const { paidAmount, paymentMethod, transactionId, remarks, accountHolderName, chequeDate, carryForward } = req.body;
 
         const admission = await Admission.findById(admissionId);
         if (!admission) {
@@ -24,7 +25,7 @@ export const updatePaymentInstallment = async (req, res) => {
         // Update installment
         const originalAmount = installment.amount;
         const paidAmountFloat = parseFloat(paidAmount);
-        
+
         installment.paidAmount = paidAmountFloat;
         installment.paidDate = new Date();
         installment.paymentMethod = paymentMethod;
@@ -32,48 +33,60 @@ export const updatePaymentInstallment = async (req, res) => {
         installment.accountHolderName = accountHolderName; // New
         installment.chequeDate = chequeDate; // New
         installment.remarks = remarks;
-        
+
         // Check if this is the last installment
         const isLastInstallment = admission.paymentBreakdown.every(p => p.installmentNumber <= installment.installmentNumber);
         const nextInstallmentIndex = admission.paymentBreakdown.findIndex(p => p.installmentNumber === (parseInt(installmentNumber) + 1));
         const hasNextInstallment = nextInstallmentIndex !== -1;
 
-        if (isLastInstallment || !hasNextInstallment) {
-            // Strict check for last installment
-            // User requirement: "if it is the last payment then they cannot furthur more extend it to the next payment they have to pay all"
+        if ((isLastInstallment || !hasNextInstallment) && !carryForward) {
+            // Strict check for last installment ONLY if NOT carrying forward
             if (paidAmountFloat < originalAmount) {
-                return res.status(400).json({ 
-                    message: "Final installment must be paid in full. Cannot carry forward arrears." 
+                return res.status(400).json({
+                    message: "Final installment must be paid in full unless carrying forward."
                 });
             }
         }
 
-        installment.paidAmount = paidAmountFloat;
-        installment.paidDate = new Date();
-        installment.paymentMethod = paymentMethod;
-        installment.transactionId = transactionId;
-        installment.accountHolderName = accountHolderName; // New
-        installment.chequeDate = chequeDate; // New
-        installment.remarks = remarks;
-        
-        // Status is always PAID if we accept it (unless validation failed above)
-        installment.status = "PAID"; 
-        
+        installment.status = "PAID";
+
         // Logic: Arrears OR Excess
         const difference = originalAmount - paidAmountFloat; // Positive = Arrears, Negative = Excess
 
         if (difference > 0) {
             // Partial Payment (Underpayment)
             console.log(`Partial payment detected. Arrears: ${difference}.`);
-            
-            if (hasNextInstallment) {
+
+            if (carryForward) {
+                // Add to Student's Carry Forward Balance
+                try {
+                    const studentId = admission.student._id || admission.student;
+                    const updatedStudent = await Student.findByIdAndUpdate(
+                        studentId,
+                        {
+                            $inc: { carryForwardBalance: difference },
+                            $set: { markedForCarryForward: true }
+                        },
+                        { new: true, runValidators: false }
+                    );
+
+                    if (updatedStudent) {
+                        installment.remarks = (installment.remarks ? installment.remarks + "; " : "") + `Carried Forward Arrears: ₹${difference}`;
+                        console.log(`Updated Student ${updatedStudent._id}: Carry Forward Balance increased by ₹${difference}`);
+                    } else {
+                        console.error(`Student not found with ID: ${studentId}`);
+                    }
+                } catch (error) {
+                    console.error(`Error updating student carry forward balance:`, error);
+                    throw new Error(`Failed to update carry forward balance: ${error.message}`);
+                }
+            } else if (hasNextInstallment) {
                 const nextInstallment = admission.paymentBreakdown[nextInstallmentIndex];
                 nextInstallment.amount += difference;
                 nextInstallment.remarks = (nextInstallment.remarks ? nextInstallment.remarks + "; " : "") + `Includes ₹${difference} arrears from Inst #${installmentNumber}`;
                 console.log(`Updated Next Inst #${nextInstallment.installmentNumber}: Increased to ₹${nextInstallment.amount}`);
             } else {
-                // Should not happen due to validation above, but safe fallback
-                 console.warn("Partial payment on last installment accepted (validation skipped?).");
+                console.warn("Partial payment on last installment accepted (validation skipped?).");
             }
         } else if (difference < 0) {
             // Excess Payment (Overpayment)
@@ -97,7 +110,7 @@ export const updatePaymentInstallment = async (req, res) => {
                 // We'll fix frontend to clamp pending at 0.
             }
         }
-        
+
         // Update total paid amount
         admission.totalPaidAmount = admission.paymentBreakdown.reduce(
             (sum, p) => sum + (p.paidAmount || 0),
@@ -114,7 +127,7 @@ export const updatePaymentInstallment = async (req, res) => {
         // Update Centre Target Achieved if payment was successful
         // We consider it successful participation
         if (admission.centre) {
-             await updateCentreTargetAchieved(admission.centre, installment.paidDate || new Date());
+            await updateCentreTargetAchieved(admission.centre, installment.paidDate || new Date());
         }
 
         // Check for overdue installments

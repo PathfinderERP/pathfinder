@@ -26,6 +26,14 @@ export const createAdmission = async (req, res) => {
             return res.status(400).json({ message: "All required fields must be provided (including Centre)" });
         }
 
+        // Fetch student details for carry forward balance
+        const student = await Student.findById(studentId);
+        if (!student) {
+            return res.status(404).json({ message: "Student not found" });
+        }
+
+        const previousBalance = student.carryForwardBalance || 0;
+
         // Fetch course details
         const course = await Course.findById(courseId);
         if (!course) {
@@ -39,7 +47,9 @@ export const createAdmission = async (req, res) => {
         // Calculate CGST (9%) and SGST (9%)
         const cgstAmount = Math.round(taxableAmount * 0.09);
         const sgstAmount = Math.round(taxableAmount * 0.09);
-        const totalFees = taxableAmount + cgstAmount + sgstAmount;
+
+        // Total Fees = Current + Previous Arrears
+        const totalFees = taxableAmount + cgstAmount + sgstAmount + previousBalance;
 
         const remainingAmount = totalFees - downPayment;
 
@@ -63,7 +73,8 @@ export const createAdmission = async (req, res) => {
                 amount: i === numberOfInstallments - 1
                     ? remainingAmount - (installmentAmount * (numberOfInstallments - 1))
                     : installmentAmount,
-                status: "PENDING"
+                status: "PENDING",
+                remarks: i === 0 && previousBalance > 0 ? `Includes previous balance: ₹${previousBalance}` : ""
             });
         }
 
@@ -78,6 +89,7 @@ export const createAdmission = async (req, res) => {
             academicSession,
             baseFees,
             discountAmount: Number(feeWaiver),
+            previousBalance, // Store previous balance
             cgstAmount,
             sgstAmount,
             totalFees,
@@ -88,7 +100,7 @@ export const createAdmission = async (req, res) => {
             paymentBreakdown,
             feeStructureSnapshot: course.feesStructure,
             studentImage: studentImage || null,
-            remarks,
+            remarks: remarks ? `${remarks} (Prev Balance: ₹${previousBalance})` : (previousBalance > 0 ? `Previous Balance Included: ₹${previousBalance}` : ""),
             createdBy: req.user.id,
             totalPaidAmount: downPayment,
             paymentStatus: downPayment >= totalFees ? "COMPLETED" : "PARTIAL"
@@ -96,14 +108,15 @@ export const createAdmission = async (req, res) => {
 
         await admission.save();
 
-        // Update student enrollment status
+        // Update student enrollment status and reset carryForwardBalance
         await Student.findByIdAndUpdate(studentId, {
             $push: {
                 studentStatus: {
                     status: "Enrolled",
                     enrolledStatus: "Enrolled"
                 }
-            }
+            },
+            $set: { carryForwardBalance: 0 } // Reset balance as it's now part of this admission
         });
 
         // Update Centre Target Achieved

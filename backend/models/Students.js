@@ -65,7 +65,9 @@ const StudentSchema = new mongoose.Schema({
   examSchema: { type: [ExamSchema], required: true },
   section: { type: [SectionSchema], required: false },
   sessionExamCourse: { type: [SessionExamCourseSchema] },
-  studentStatus: { type: [StudentStatusSchema], required: true }
+  studentStatus: { type: [StudentStatusSchema], required: true },
+  carryForwardBalance: { type: Number, default: 0 },
+  markedForCarryForward: { type: Boolean, default: false }
 });
 
 const Student = mongoose.model("Student", StudentSchema);

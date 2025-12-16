@@ -60,7 +60,16 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Source", path: "/master-data/source", permissionSection: "source" },
             ],
         },
-        { name: "Course Management", icon: <FaBook />, path: "/course-management", permissionModule: "courseManagement", permissionSection: "courses" },
+        {
+            name: "Course Management",
+            icon: <FaBook />,
+            permissionModule: "courseManagement",
+            subItems: [
+                { name: "Course List", path: "/course-management", permissionSection: "courses" },
+                { name: "Carry Forward", path: "/course-management/carry-forward", permissionSection: "courses" },
+                { name: "Course Transfer", path: "/course-management/course-transfer", permissionSection: "courses" },
+            ]
+        },
         { name: "User Management", icon: <FaUsers />, path: "/user-management", permissionModule: "userManagement" },
     ];
 

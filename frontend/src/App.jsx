@@ -60,6 +60,8 @@ import UserManagement from "./pages/UserManagement";
 import Profile from "./pages/Profile";
 import LeadManagement from "./pages/LeadManagement";
 import MasterDataSource from "./pages/MasterDataSource";
+import CarryForward from "./pages/CarryForward";
+import CourseTransfer from "./pages/CourseTransfer";
 
 function App() {
   return (
@@ -91,6 +93,8 @@ function App() {
         <Route path="/master-data/centre" element={<MasterDataCentre />} />
         <Route path="/master-data/source" element={<MasterDataSource />} />
         <Route path="/course-management" element={<MasterDataCourse />} />
+        <Route path="/course-management/carry-forward" element={<CarryForward />} />
+        <Route path="/course-management/course-transfer" element={<CourseTransfer />} />
         <Route path="/enrolled-students" element={<EnrolledStudents />} />
         <Route path="/user-management" element={<UserManagement />} />
         <Route path="/profile" element={<Profile />} />

@@ -4,10 +4,10 @@ const paymentBreakdownSchema = new mongoose.Schema({
     installmentNumber: { type: Number, required: true },
     dueDate: { type: Date, required: true },
     amount: { type: Number, required: true },
-    status: { 
-        type: String, 
-        enum: ["PENDING", "PAID", "OVERDUE"], 
-        default: "PENDING" 
+    status: {
+        type: String,
+        enum: ["PENDING", "PAID", "OVERDUE"],
+        default: "PENDING"
     },
     paidDate: { type: Date },
     paidAmount: { type: Number, default: 0 },
@@ -75,6 +75,10 @@ const admissionSchema = new mongoose.Schema({
     },
 
     // Fee Details
+    previousBalance: {
+        type: Number,
+        default: 0
+    },
     baseFees: {
         type: Number,
         required: true
@@ -154,7 +158,7 @@ const admissionSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Generate admission number before saving
-admissionSchema.pre('save', async function() {
+admissionSchema.pre('save', async function () {
     if (!this.admissionNumber) {
         const year = new Date().getFullYear();
         const count = await this.constructor.countDocuments();
