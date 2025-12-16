@@ -63,6 +63,25 @@ import MasterDataSource from "./pages/MasterDataSource";
 import CarryForward from "./pages/CarryForward";
 import CourseTransfer from "./pages/CourseTransfer";
 
+// Academics Pages
+import TeacherList from "./pages/Academics/TeacherList";
+import StudentTeacherReview from "./pages/Academics/StudentTeacherReview";
+import LiveClassReview from "./pages/Academics/LiveClassReview";
+import CCTeacherReview from "./pages/Academics/CCTeacherReview";
+import HodList from "./pages/Academics/HodList";
+import CentreManagement from "./pages/Academics/CentreManagement";
+import RMList from "./pages/Academics/RMList";
+import ClassCoordinator from "./pages/Academics/ClassCoordinator";
+import Classes from "./pages/Academics/Classes";
+import MentalSessionTable from "./pages/Academics/MentalSessionTable";
+import ClassManagement from "./pages/Academics/ClassManagement";
+import ClassList from "./pages/Academics/ClassManagement/ClassList";
+import SubjectList from "./pages/Academics/ClassManagement/SubjectList";
+import ChapterList from "./pages/Academics/ClassManagement/ChapterList";
+import TopicList from "./pages/Academics/ClassManagement/TopicList";
+import SectionLeaderBoard from "./pages/Academics/SectionLeaderBoard";
+import ExamLeaderBoard from "./pages/Academics/ExamLeaderBoard";
+
 function App() {
   return (
     <BrowserRouter>
@@ -86,6 +105,23 @@ function App() {
         <Route path="/sales/transaction-report" element={<TransactionReport />} />
         <Route path="/hr" element={<HR />} />
         <Route path="/academics" element={<Academics />} />
+        <Route path="/academics/teacher-list" element={<TeacherList />} />
+        <Route path="/academics/student-teacher-review" element={<StudentTeacherReview />} />
+        <Route path="/academics/live-class-review" element={<LiveClassReview />} />
+        <Route path="/academics/cc-teacher-review" element={<CCTeacherReview />} />
+        <Route path="/academics/hod-list" element={<HodList />} />
+        <Route path="/academics/centre-management" element={<CentreManagement />} />
+        <Route path="/academics/rm-list" element={<RMList />} />
+        <Route path="/academics/class-coordinator" element={<ClassCoordinator />} />
+        <Route path="/academics/classes" element={<Classes />} />
+        <Route path="/academics/mental-session-table" element={<MentalSessionTable />} />
+        <Route path="/academics/class-management" element={<ClassManagement />} />
+        <Route path="/academics/class-list" element={<ClassList />} />
+        <Route path="/academics/create-subject" element={<SubjectList />} />
+        <Route path="/academics/create-chapter" element={<ChapterList />} />
+        <Route path="/academics/create-topic" element={<TopicList />} />
+        <Route path="/academics/section-leader-board" element={<SectionLeaderBoard />} />
+        <Route path="/academics/exam-leader-board" element={<ExamLeaderBoard />} />
         <Route path="/master-data" element={<MasterData />} />
         <Route path="/master-data/class" element={<MasterDataClass />} />
         <Route path="/master-data/exam-tag" element={<MasterDataExamTag />} />

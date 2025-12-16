@@ -7,14 +7,18 @@ import { deleteAdmission } from "../../controllers/Admission/deleteAdmission.js"
 import { updatePaymentInstallment } from "../../controllers/Admission/updatePaymentInstallment.js";
 import { requireAuth, requireGranularPermission } from "../../middleware/permissionMiddleware.js";
 
+import { searchAdmission, transferCourse } from "../../controllers/Admission/courseTransfer.js";
+
 const router = express.Router();
 
 // Read routes - Accessible to authenticated users
 router.get("/", requireAuth, getAdmissions);
+router.get("/search", requireAuth, searchAdmission); // New Search Route
 router.get("/:id", requireAuth, getAdmissionById);
 
 // Write routes - Require granular permissions
 router.post("/create", requireGranularPermission("admissions", "enrolledStudents", "create"), createAdmission);
+router.post("/transfer", requireGranularPermission("admissions", "enrolledStudents", "edit"), transferCourse); // New Transfer Route
 router.put("/:id", requireGranularPermission("admissions", "enrolledStudents", "edit"), updateAdmission);
 router.delete("/:id", requireGranularPermission("admissions", "enrolledStudents", "delete"), deleteAdmission);
 router.put("/:admissionId/payment/:installmentNumber", requireGranularPermission("admissions", "enrolledStudents", "edit"), updatePaymentInstallment);

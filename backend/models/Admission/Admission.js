@@ -60,8 +60,8 @@ const admissionSchema = new mongoose.Schema({
         default: Date.now
     },
     admissionNumber: {
-        type: String,
-        unique: true
+        type: String
+        // Removed unique constraint to allow same ID for multiple courses of same student
     },
     academicSession: {
         type: String,
@@ -143,7 +143,7 @@ const admissionSchema = new mongoose.Schema({
     // Admission Status
     admissionStatus: {
         type: String,
-        enum: ["ACTIVE", "INACTIVE", "CANCELLED", "COMPLETED"],
+        enum: ["ACTIVE", "INACTIVE", "CANCELLED", "COMPLETED", "TRANSFERRED"],
         default: "ACTIVE"
     },
 

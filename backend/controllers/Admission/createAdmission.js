@@ -78,9 +78,14 @@ export const createAdmission = async (req, res) => {
             });
         }
 
+        // Check for existing admission to reuse Admission Number
+        const existingAdmission = await Admission.findOne({ student: studentId }).sort({ createdAt: -1 });
+        const admissionNumber = existingAdmission ? existingAdmission.admissionNumber : undefined;
+
         // Create admission
         const admission = new Admission({
             student: studentId,
+            admissionNumber, // Reuse if exists, otherwise schema hook generates new
             course: courseId,
             class: classId || null,
             examTag: examTagId,

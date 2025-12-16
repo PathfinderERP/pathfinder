@@ -265,7 +265,7 @@ const AdmissionsContent = () => {
 
             {/* Tabs */}
             <div className="flex border-b border-gray-800 mb-6">
-                {["All Leads", "Admissions", "Telecalling"].map((tab, index) => (
+                {["All Leads", "Admissions"].map((tab, index) => (
                     <button
                         key={index}
                         onClick={() => {
@@ -284,7 +284,7 @@ const AdmissionsContent = () => {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-4 gap-4 mb-8">
+            {/* <div className="grid grid-cols-4 gap-4 mb-8">
                 <button className="bg-[#1a1f24] text-gray-300 py-3 px-4 rounded-lg border border-gray-700 hover:bg-[#252b32] hover:border-gray-600 transition-all text-sm font-medium">
                     Counselor Performance
                 </button>
@@ -305,7 +305,7 @@ const AdmissionsContent = () => {
                 <button className="bg-[#1a1f24] text-gray-300 py-3 px-4 rounded-lg border border-gray-700 hover:bg-[#252b32] hover:border-gray-600 transition-all text-sm font-medium">
                     Admission Enrollment
                 </button>
-            </div>
+            </div> */}
 
             {/* KPI Cards */}
             <div className="grid grid-cols-3 gap-6 mb-8">

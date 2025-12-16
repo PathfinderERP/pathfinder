@@ -37,7 +37,7 @@ const StudentAdmissionPage = () => {
         downPayment: 0,
         remainingAmount: 0,
         installmentAmount: 0,
-        installmentAmount: 0,
+
         previousBalance: 0,
         paymentSchedule: []
     });

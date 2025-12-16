@@ -76,6 +76,21 @@ app.use("/api/source", sourceRoutes);
 import salesRoutes from "./routes/sales/sales.routes.js";
 app.use("/api/sales", salesRoutes);
 
+// Academics Routes
+import teacherRoutes from "./routes/Academics/teacher.routes.js";
+import academicsClassRoutes from "./routes/Academics/academics_class.routes.js";
+import academicsSubjectRoutes from "./routes/Academics/academics_subject.routes.js";
+import academicsChapterRoutes from "./routes/Academics/academics_chapter.routes.js";
+import academicsTopicRoutes from "./routes/Academics/academics_topic.routes.js";
+
+app.use("/api/academics/teacher", teacherRoutes);
+app.use("/api/academics/class", academicsClassRoutes);
+app.use("/api/academics/subject", academicsSubjectRoutes);
+app.use("/api/academics/chapter", academicsChapterRoutes);
+app.use("/api/academics/topic", academicsTopicRoutes);
+
+
+
 app.listen(process.env.PORT, () => {
     console.log(`Server is running on port ${process.env.PORT}`);
 });

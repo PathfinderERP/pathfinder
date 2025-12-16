@@ -72,22 +72,23 @@ export const PERMISSION_MODULES = {
     academics: {
         label: "Academics",
         sections: {
-            courses: {
-                label: "Courses",
-                operations: ["create", "edit", "delete"]
-            },
-            classes: {
-                label: "Classes",
-                operations: ["create", "edit", "delete"]
-            },
-            students: {
-                label: "Students",
-                operations: ["create", "edit", "delete"]
-            },
-            teachers: {
-                label: "Teachers",
-                operations: ["create", "edit", "delete"]
-            }
+            courses: { label: "Courses", operations: ["create", "edit", "delete"] },
+            classes: { label: "Classes", operations: ["create", "edit", "delete"] },
+            students: { label: "Students", operations: ["create", "edit", "delete"] },
+            teachers: { label: "Teachers", operations: ["create", "edit", "delete"] },
+
+            // New Sections
+            studentTeacherReview: { label: "Student Teacher Review", operations: ["create", "edit", "delete"] },
+            liveClassReview: { label: "Live Class Review", operations: ["create", "edit", "delete"] },
+            ccTeacherReview: { label: "CC Teacher Review", operations: ["create", "edit", "delete"] },
+            hodList: { label: "HoD List", operations: ["create", "edit", "delete"] },
+            centreManagement: { label: "Centre Management", operations: ["create", "edit", "delete"] },
+            rmList: { label: "RM List", operations: ["create", "edit", "delete"] },
+            classCoordinator: { label: "Class Coordinator", operations: ["create", "edit", "delete"] },
+            mentalSessionTable: { label: "Mental Session Table", operations: ["create", "edit", "delete"] },
+            classManagement: { label: "Class Management", operations: ["create", "edit", "delete"] },
+            sectionLeaderBoard: { label: "Section Leader Board", operations: ["create", "edit", "delete"] },
+            examLeaderBoard: { label: "Exam Leader Board", operations: ["create", "edit", "delete"] }
         }
     },
     financeFees: {

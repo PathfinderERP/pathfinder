@@ -33,6 +33,31 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'CentreSchema',
     }],
+    favourites: [{ // Kept for legacy or general use
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Student'
+    }],
+
+    // Teacher Specific Fields
+    subject: { type: String },
+    teacherDepartment: {
+        type: String,
+        enum: ['Foundation', 'All India', 'Board'], // Capitalized to match frontend
+        default: null
+    },
+    boardType: { type: String }, // e.g. JEE, NEET, CBSE
+    teacherType: {
+        type: String,
+        enum: ['Full Time', 'Part Time'],
+        default: null
+    },
+    designation: { type: String },
+
+    // HOD Flags
+    isDeptHod: { type: Boolean, default: false },
+    isBoardHod: { type: Boolean, default: false },
+    isSubjectHod: { type: Boolean, default: false },
+
     // Granular Permissions Structure
     // Format: { module: { section: { create: bool, edit: bool, delete: bool } } }
     granularPermissions: {

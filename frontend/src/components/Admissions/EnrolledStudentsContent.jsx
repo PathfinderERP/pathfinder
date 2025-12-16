@@ -618,7 +618,7 @@ const EnrolledStudentsContent = () => {
                                 </h4>
 
                                 <div className="space-y-6">
-                                    {studentAdmissions.map((admission, index) => (
+                                    {[...studentAdmissions].sort((a, b) => new Date(a.admissionDate) - new Date(b.admissionDate)).map((admission, index) => (
                                         <div key={admission._id} className="bg-gray-800/50 rounded-lg border border-gray-700 overflow-hidden">
                                             {/* Course Header */}
                                             <div className="bg-gray-800 p-4 flex justify-between items-center">
@@ -811,6 +811,31 @@ const EnrolledStudentsContent = () => {
                                             </div>
                                         </div>
                                     ))}
+                                </div>
+                            </div>
+
+                            {/* Grand Total Summary */}
+                            <div className="border-t border-gray-700 pt-6 mt-6">
+                                <h4 className="text-xl font-bold text-white mb-4">Grand Total Summary</h4>
+                                <div className="grid grid-cols-3 gap-6">
+                                    <div className="bg-cyan-900/20 p-4 rounded-xl border border-cyan-500/30">
+                                        <p className="text-gray-400 text-sm mb-1">Total Course Amount</p>
+                                        <p className="text-3xl font-bold text-cyan-400">
+                                            ₹{studentAdmissions.reduce((sum, ad) => sum + (ad.totalFees || 0), 0).toLocaleString()}
+                                        </p>
+                                    </div>
+                                    <div className="bg-green-900/20 p-4 rounded-xl border border-green-500/30">
+                                        <p className="text-gray-400 text-sm mb-1">Total Paid Amount</p>
+                                        <p className="text-3xl font-bold text-green-400">
+                                            ₹{studentAdmissions.reduce((sum, ad) => sum + (ad.totalPaidAmount || 0), 0).toLocaleString()}
+                                        </p>
+                                    </div>
+                                    <div className="bg-yellow-900/20 p-4 rounded-xl border border-yellow-500/30">
+                                        <p className="text-gray-400 text-sm mb-1">Total Pending Amount</p>
+                                        <p className="text-3xl font-bold text-yellow-400">
+                                            ₹{studentAdmissions.reduce((sum, ad) => sum + ((ad.totalFees || 0) - (ad.totalPaidAmount || 0)), 0).toLocaleString()}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>

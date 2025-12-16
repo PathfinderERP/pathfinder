@@ -13,7 +13,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
         transactionId: "",
         accountHolderName: "",
         chequeDate: "",
-        chequeDate: "",
+
         remarks: "",
         carryForward: false
     });
@@ -85,7 +85,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
             transactionId: "",
             accountHolderName: "",
             chequeDate: new Date().toISOString().split('T')[0],
-            chequeDate: new Date().toISOString().split('T')[0],
+
             remarks: "",
             carryForward: false
         });

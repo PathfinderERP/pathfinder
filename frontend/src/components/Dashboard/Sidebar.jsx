@@ -25,8 +25,46 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     const menuItems = [
         { name: "Lead Management", icon: <FaBullseye />, path: "/lead-management", permissionModule: "leadManagement" },
         { name: "CEO Control Tower", icon: <FaChartBar />, path: "/dashboard", permissionModule: "ceoControlTower" },
-        { name: "Admissions", icon: <FaBullseye />, path: "/admissions", permissionModule: "admissions" },
-        { name: "Academics", icon: <FaBook />, path: "/academics", permissionModule: "academics" },
+        {
+            name: "Admissions",
+            icon: <FaBullseye />,
+            permissionModule: "admissions",
+            subItems: [
+                { name: "All Leads", path: "/admissions", permissionSection: "allLeads" },
+                { name: "Admissions", path: "/enrolled-students", permissionSection: "enrolledStudents" },
+                { name: "Walk-in Registration", path: "/student-registration", permissionSection: "allLeads" },
+                { name: "Telecalling Console", path: "/admissions", permissionSection: "allLeads" },
+            ]
+        },
+        {
+            name: "Academics",
+            icon: <FaBook />,
+            permissionModule: "academics",
+            subItems: [
+                { name: "Teacher List", path: "/academics/teacher-list", permissionSection: "teachers" },
+                { name: "Student Teacher Review", path: "/academics/student-teacher-review", permissionSection: "studentTeacherReview" },
+                { name: "Live Class Review", path: "/academics/live-class-review", permissionSection: "liveClassReview" },
+                { name: "CC Teacher Review", path: "/academics/cc-teacher-review", permissionSection: "ccTeacherReview" },
+                { name: "HoD List", path: "/academics/hod-list", permissionSection: "hodList" },
+                { name: "Centre Management", path: "/academics/centre-management", permissionSection: "centreManagement" },
+                { name: "RM List", path: "/academics/rm-list", permissionSection: "rmList" },
+                { name: "Class Coordinator", path: "/academics/class-coordinator", permissionSection: "classCoordinator" },
+                { name: "Classes", path: "/academics/classes", permissionSection: "classes" },
+                { name: "Mental Session Table", path: "/academics/mental-session-table", permissionSection: "mentalSessionTable" },
+                {
+                    name: "Class Management",
+                    permissionSection: "classManagement",
+                    subItems: [
+                        { name: "Create Class", path: "/academics/class-list", permissionSection: "classManagement" },
+                        { name: "Create Subject", path: "/academics/create-subject", permissionSection: "classManagement" },
+                        { name: "Create Chapter", path: "/academics/create-chapter", permissionSection: "classManagement" },
+                        { name: "Create Topic", path: "/academics/create-topic", permissionSection: "classManagement" },
+                    ]
+                },
+                { name: "Section Leader Board", path: "/academics/section-leader-board", permissionSection: "sectionLeaderBoard" },
+                { name: "Exam Leader Board", path: "/academics/exam-leader-board", permissionSection: "examLeaderBoard" },
+            ]
+        },
         { name: "Finance & Fees", icon: <FaMoneyBillWave />, path: "/finance", permissionModule: "financeFees" },
         // Removed duplicate Finance & Fees line if present in original, but sticking to replacing block.
         {
@@ -181,15 +219,48 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                         {item.subItems && openMenus[item.name] && (
                             <div className="ml-4 mt-1 space-y-1 border-l border-gray-700 pl-2">
                                 {item.subItems.map((sub, idx) => (
-                                    <div
-                                        key={idx}
-                                        onClick={() => navigate(sub.path)}
-                                        className={`p-2 rounded-lg cursor-pointer text-sm transition-colors ${location.pathname === sub.path
-                                            ? "text-cyan-400 font-semibold bg-gray-800"
-                                            : "hover:text-white hover:bg-gray-800/50"
-                                            }`}
-                                    >
-                                        {sub.name}
+                                    <div key={idx}>
+                                        {sub.subItems ? (
+                                            /* Nested Sub Menu (e.g. Class Management) */
+                                            <div>
+                                                <div
+                                                    onClick={() => toggleMenu(sub.name)}
+                                                    className="p-2 rounded-lg cursor-pointer text-sm transition-colors hover:text-white hover:bg-gray-800/50 flex justify-between items-center"
+                                                >
+                                                    <span>{sub.name}</span>
+                                                    <span className="text-xs">
+                                                        {openMenus[sub.name] ? <FaChevronUp /> : <FaChevronDown />}
+                                                    </span>
+                                                </div>
+                                                {openMenus[sub.name] && (
+                                                    <div className="ml-4 mt-1 space-y-1 border-l border-gray-700 pl-2">
+                                                        {sub.subItems.map((nestedSub, nestedIdx) => (
+                                                            <div
+                                                                key={nestedIdx}
+                                                                onClick={() => navigate(nestedSub.path)}
+                                                                className={`p-2 rounded-lg cursor-pointer text-sm transition-colors ${location.pathname === nestedSub.path
+                                                                    ? "text-cyan-400 font-semibold bg-gray-800"
+                                                                    : "hover:text-white hover:bg-gray-800/50"
+                                                                    }`}
+                                                            >
+                                                                {nestedSub.name}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            /* Standard Sub Item */
+                                            <div
+                                                onClick={() => navigate(sub.path)}
+                                                className={`p-2 rounded-lg cursor-pointer text-sm transition-colors ${location.pathname === sub.path
+                                                    ? "text-cyan-400 font-semibold bg-gray-800"
+                                                    : "hover:text-white hover:bg-gray-800/50"
+                                                    }`}
+                                            >
+                                                {sub.name}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
