@@ -17,6 +17,7 @@ import centreRoutes from "./routes/centre/centre.routes.js";
 import profileRoutes from "./routes/profile/profile.routes.js";
 import leadManagementRoutes from "./routes/leadManagement/leadManagement.routes.js";
 import sourceRoutes from "./routes/source/source.routes.js";
+import batchRoutes from "./routes/batch/batch.routes.js";
 import { startPaymentReminderCron } from "./services/cronService.js";
 
 dotenv.config();
@@ -71,6 +72,11 @@ app.use("/api/lead-management", leadManagementRoutes);
 
 //source routes
 app.use("/api/source", sourceRoutes);
+app.use("/api/batch", batchRoutes);
+import sessionRoutes from "./routes/session/session.routes.js";
+app.use("/api/session", sessionRoutes);
+import scriptRoutes from "./routes/script/script.routes.js";
+app.use("/api/script", scriptRoutes);
 
 //sales routes
 import salesRoutes from "./routes/sales/sales.routes.js";
@@ -82,12 +88,18 @@ import academicsClassRoutes from "./routes/Academics/academics_class.routes.js";
 import academicsSubjectRoutes from "./routes/Academics/academics_subject.routes.js";
 import academicsChapterRoutes from "./routes/Academics/academics_chapter.routes.js";
 import academicsTopicRoutes from "./routes/Academics/academics_topic.routes.js";
+import classScheduleRoutes from "./routes/Academics/classSchedule.routes.js";
+import rmRoutes from "./routes/Academics/rm.routes.js";
+import hodRoutes from "./routes/Academics/hod.routes.js";
 
 app.use("/api/academics/teacher", teacherRoutes);
 app.use("/api/academics/class", academicsClassRoutes);
 app.use("/api/academics/subject", academicsSubjectRoutes);
 app.use("/api/academics/chapter", academicsChapterRoutes);
 app.use("/api/academics/topic", academicsTopicRoutes);
+app.use("/api/academics/class-schedule", classScheduleRoutes);
+app.use("/api/academics/rm", rmRoutes);
+app.use("/api/academics/hod", hodRoutes);
 
 
 

@@ -1,7 +1,7 @@
 import React from "react";
 import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaMapMarkerAlt, FaBook, FaInfoCircle, FaBullseye, FaTrash, FaEdit, FaCommentAlt } from "react-icons/fa";
 
-const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCounseling, onShowHistory }) => {
+const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCounseling, onShowHistory, canEdit, canDelete }) => {
     if (!lead) return null;
 
     const getLeadTypeColor = (type) => {
@@ -41,7 +41,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                     </button>
 
                     {/* Background decoration */}
-                    <div className="absolute -right-10 -top-10 w-40 h-40 bg-cyan-500/5 rounded-full blur-3xl"></div>
+                    <div className="absolute -right-10 -top-10 w-40 h-40 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none"></div>
                 </div>
 
                 {/* Content */}
@@ -156,18 +156,22 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                         </div>
 
                         {/* Right Side Buttons */}
-                        <button
-                            onClick={() => onDelete(lead._id)}
-                            className="px-4 py-2 rounded-lg bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500/20 transition-colors flex items-center gap-2 font-medium"
-                        >
-                            <FaTrash size={16} /> Delete
-                        </button>
-                        <button
-                            onClick={() => onEdit(lead)}
-                            className="px-4 py-2 rounded-lg bg-cyan-500/10 text-cyan-500 border border-cyan-500/30 hover:bg-cyan-500/20 transition-colors flex items-center gap-2 font-medium"
-                        >
-                            <FaEdit size={16} /> Edit
-                        </button>
+                        {canDelete && (
+                            <button
+                                onClick={() => onDelete(lead._id)}
+                                className="px-4 py-2 rounded-lg bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500/20 transition-colors flex items-center gap-2 font-medium"
+                            >
+                                <FaTrash size={16} /> Delete
+                            </button>
+                        )}
+                        {canEdit && (
+                            <button
+                                onClick={() => onEdit(lead)}
+                                className="px-4 py-2 rounded-lg bg-cyan-500/10 text-cyan-500 border border-cyan-500/30 hover:bg-cyan-500/20 transition-colors flex items-center gap-2 font-medium"
+                            >
+                                <FaEdit size={16} /> Edit
+                            </button>
+                        )}
                         <button
                             onClick={() => onFollowUp(lead)}
                             className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors flex items-center gap-2 font-bold shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_20px_rgba(59,130,246,0.5)]"

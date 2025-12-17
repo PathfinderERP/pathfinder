@@ -32,6 +32,17 @@ export const getAllSubjects = async (req, res) => {
     }
 };
 
+// Get Subjects by Class ID
+export const getSubjectsByClass = async (req, res) => {
+    try {
+        const { classId } = req.params;
+        const subjects = await AcademicsSubject.find({ classId }).sort({ createdAt: -1 });
+        res.status(200).json(subjects);
+    } catch (error) {
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
+
 // Update Subject
 export const updateSubject = async (req, res) => {
     try {

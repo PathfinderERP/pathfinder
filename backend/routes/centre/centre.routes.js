@@ -9,6 +9,7 @@ const router = express.Router();
 
 // Read routes - Accessible to authenticated users
 router.get("/", requireAuth, getCentres);
+router.get("/list", requireAuth, getCentres); // Alias for consistency
 router.get("/:id", requireAuth, getCentreById);
 
 // Write routes - Require granular permissions

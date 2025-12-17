@@ -59,7 +59,10 @@ import EnrolledStudents from "./pages/EnrolledStudents";
 import UserManagement from "./pages/UserManagement";
 import Profile from "./pages/Profile";
 import LeadManagement from "./pages/LeadManagement";
+import MasterDataBatch from "./pages/MasterDataBatch";
 import MasterDataSource from "./pages/MasterDataSource";
+import MasterDataSession from "./pages/MasterDataSession";
+import MasterDataScript from "./pages/MasterDataScript";
 import CarryForward from "./pages/CarryForward";
 import CourseTransfer from "./pages/CourseTransfer";
 
@@ -73,6 +76,7 @@ import CentreManagement from "./pages/Academics/CentreManagement";
 import RMList from "./pages/Academics/RMList";
 import ClassCoordinator from "./pages/Academics/ClassCoordinator";
 import Classes from "./pages/Academics/Classes";
+import AddClass from "./pages/Academics/AddClass";
 import MentalSessionTable from "./pages/Academics/MentalSessionTable";
 import ClassManagement from "./pages/Academics/ClassManagement";
 import ClassList from "./pages/Academics/ClassManagement/ClassList";
@@ -114,6 +118,7 @@ function App() {
         <Route path="/academics/rm-list" element={<RMList />} />
         <Route path="/academics/class-coordinator" element={<ClassCoordinator />} />
         <Route path="/academics/classes" element={<Classes />} />
+        <Route path="/academics/class/add" element={<AddClass />} />
         <Route path="/academics/mental-session-table" element={<MentalSessionTable />} />
         <Route path="/academics/class-management" element={<ClassManagement />} />
         <Route path="/academics/class-list" element={<ClassList />} />
@@ -127,7 +132,10 @@ function App() {
         <Route path="/master-data/exam-tag" element={<MasterDataExamTag />} />
         <Route path="/master-data/department" element={<MasterDataDepartment />} />
         <Route path="/master-data/centre" element={<MasterDataCentre />} />
+        <Route path="/master-data/batch" element={<MasterDataBatch />} />
         <Route path="/master-data/source" element={<MasterDataSource />} />
+        <Route path="/master-data/session" element={<MasterDataSession />} />
+        <Route path="/master-data/script" element={<MasterDataScript />} />
         <Route path="/course-management" element={<MasterDataCourse />} />
         <Route path="/course-management/carry-forward" element={<CarryForward />} />
         <Route path="/course-management/course-transfer" element={<CourseTransfer />} />

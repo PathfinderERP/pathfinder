@@ -16,6 +16,11 @@ export const getLeads = async (req, res) => {
         if (course) query.course = course;
         if (leadResponsibility) query.leadResponsibility = leadResponsibility;
 
+        // Restriction for Telecallers: Can only see their own assigned leads
+        if (req.user && req.user.role === 'telecaller') {
+            query.leadResponsibility = req.user.name;
+        }
+
         if (search) {
             query.$or = [
                 { name: { $regex: search, $options: "i" } },

@@ -219,6 +219,22 @@ export const PERMISSION_MODULES = {
             subjects: {
                 label: "Subjects",
                 operations: ["create", "edit", "delete"]
+            },
+            batch: {
+                label: "Batch",
+                operations: ["create", "edit", "delete"]
+            },
+            source: {
+                label: "Source",
+                operations: ["create", "edit", "delete"]
+            },
+            session: {
+                label: "Session",
+                operations: ["create", "edit", "delete"]
+            },
+            script: {
+                label: "Script",
+                operations: ["create", "edit", "delete"]
             }
         }
     },

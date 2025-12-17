@@ -49,7 +49,14 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Centre Management", path: "/academics/centre-management", permissionSection: "centreManagement" },
                 { name: "RM List", path: "/academics/rm-list", permissionSection: "rmList" },
                 { name: "Class Coordinator", path: "/academics/class-coordinator", permissionSection: "classCoordinator" },
-                { name: "Classes", path: "/academics/classes", permissionSection: "classes" },
+                {
+                    name: "Classes",
+                    permissionSection: "classes",
+                    subItems: [
+                        { name: "Class List", path: "/academics/classes", permissionSection: "classes" },
+                        { name: "Class Add", path: "/academics/class/add", permissionSection: "classes" },
+                    ]
+                },
                 { name: "Mental Session Table", path: "/academics/mental-session-table", permissionSection: "mentalSessionTable" },
                 {
                     name: "Class Management",
@@ -95,7 +102,10 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Exam Tag", path: "/master-data/exam-tag", permissionSection: "examTag" },
                 { name: "Department", path: "/master-data/department", permissionSection: "department" },
                 { name: "Centre", path: "/master-data/centre", permissionSection: "centre" },
+                { name: "Batch", path: "/master-data/batch", permissionSection: "batch" }, // Assuming 'batch' permission key
                 { name: "Source", path: "/master-data/source", permissionSection: "source" },
+                { name: "Session", path: "/master-data/session", permissionSection: "session" },
+                { name: "Script", path: "/master-data/script", permissionSection: "script" },
             ],
         },
         {

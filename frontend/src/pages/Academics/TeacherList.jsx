@@ -90,6 +90,18 @@ const TeacherList = () => {
     // Handle Input Change
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
+
+        // HOD Mutually Exclusive Logic
+        if (["isDeptHod", "isBoardHod", "isSubjectHod"].includes(name) && checked) {
+            setFormData(prev => ({
+                ...prev,
+                isDeptHod: name === "isDeptHod",
+                isBoardHod: name === "isBoardHod",
+                isSubjectHod: name === "isSubjectHod"
+            }));
+            return;
+        }
+
         setFormData(prev => ({
             ...prev,
             [name]: type === "checkbox" ? checked : value

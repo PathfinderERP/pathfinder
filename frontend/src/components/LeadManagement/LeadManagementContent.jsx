@@ -11,6 +11,7 @@ import LeadDetailsModal from "./LeadDetailsModal";
 import AddFollowUpModal from "./AddFollowUpModal";
 import FollowUpHistoryModal from "./FollowUpHistoryModal";
 import FollowUpListModal from "./FollowUpListModal";
+import { hasPermission } from "../../config/permissions";
 
 const LeadManagementContent = () => {
     const navigate = useNavigate();
@@ -26,6 +27,12 @@ const LeadManagementContent = () => {
     const [selectedLead, setSelectedLead] = useState(null);
     const [selectedDetailLead, setSelectedDetailLead] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
+
+    // Permission states
+    const [user, setUser] = useState(null);
+    const [canCreate, setCanCreate] = useState(false);
+    const [canEdit, setCanEdit] = useState(false);
+    const [canDelete, setCanDelete] = useState(false);
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -49,6 +56,14 @@ const LeadManagementContent = () => {
     const [telecallers, setTelecallers] = useState([]);
 
     useEffect(() => {
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+            const parsedUser = JSON.parse(storedUser);
+            setUser(parsedUser);
+            setCanCreate(hasPermission(parsedUser, 'leadManagement', 'leads', 'create'));
+            setCanEdit(hasPermission(parsedUser, 'leadManagement', 'leads', 'edit'));
+            setCanDelete(hasPermission(parsedUser, 'leadManagement', 'leads', 'delete'));
+        }
         fetchFilterData();
     }, []);
 
@@ -262,24 +277,29 @@ const LeadManagementContent = () => {
                     >
                         <FaDownload /> Export Excel
                     </button>
-                    <button
-                        onClick={() => setShowBulkModal(true)}
-                        className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-500 transition-colors"
-                    >
-                        <FaFileExcel /> Import Excel
-                    </button>
+                    {/* Only show Import if Create is allowed? Or separate permission? Assuming Create permission allows Bulk Import too for simplify */}
+                    {canCreate && (
+                        <button
+                            onClick={() => setShowBulkModal(true)}
+                            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-500 transition-colors"
+                        >
+                            <FaFileExcel /> Import Excel
+                        </button>
+                    )}
                     <button
                         onClick={() => setShowFollowUpListModal(true)}
                         className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-500 transition-colors"
                     >
                         <FaHistory /> Follow Up List
                     </button>
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        className="flex items-center gap-2 bg-cyan-500 text-black px-4 py-2 rounded-lg font-semibold hover:bg-cyan-400 transition-colors"
-                    >
-                        <FaPlus /> Add Lead
-                    </button>
+                    {canCreate && (
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="flex items-center gap-2 bg-cyan-500 text-black px-4 py-2 rounded-lg font-semibold hover:bg-cyan-400 transition-colors"
+                        >
+                            <FaPlus /> Add Lead
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -444,18 +464,22 @@ const LeadManagementContent = () => {
                                                 >
                                                     Counseling
                                                 </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleEdit(lead); }}
-                                                    className="text-cyan-400 hover:text-cyan-300 transition-colors"
-                                                >
-                                                    <FaEdit size={16} />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleDelete(lead._id); }}
-                                                    className="text-red-400 hover:text-red-300 transition-colors"
-                                                >
-                                                    <FaTrash size={16} />
-                                                </button>
+                                                {canEdit && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleEdit(lead); }}
+                                                        className="text-cyan-400 hover:text-cyan-300 transition-colors"
+                                                    >
+                                                        <FaEdit size={16} />
+                                                    </button>
+                                                )}
+                                                {canDelete && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleDelete(lead._id); }}
+                                                        className="text-red-400 hover:text-red-300 transition-colors"
+                                                    >
+                                                        <FaTrash size={16} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -542,6 +566,8 @@ const LeadManagementContent = () => {
             {showDetailModal && selectedDetailLead && (
                 <LeadDetailsModal
                     lead={selectedDetailLead}
+                    canEdit={canEdit}
+                    canDelete={canDelete}
                     onClose={() => {
                         setShowDetailModal(false);
                         setSelectedDetailLead(null);

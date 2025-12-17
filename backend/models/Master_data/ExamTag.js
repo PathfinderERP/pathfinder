@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
 
 const examTagSchema = new mongoose.Schema({
-    name:{
-        type:String,
+    name: {
+        type: String,
     },
 });
 
-const ExamTag = new mongoose.model("ExamTag",examTagSchema);
+const ExamTag = mongoose.model("ExamTag", examTagSchema);
 export default ExamTag;

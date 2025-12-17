@@ -41,6 +41,17 @@ export const getAllTopics = async (req, res) => {
     }
 };
 
+// Get Topics by Chapter ID
+export const getTopicsByChapter = async (req, res) => {
+    try {
+        const { chapterId } = req.params;
+        const topics = await AcademicsTopic.find({ chapterId }).sort({ createdAt: -1 });
+        res.status(200).json(topics);
+    } catch (error) {
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
+
 // Update Topic
 export const updateTopic = async (req, res) => {
     try {
