@@ -5,9 +5,12 @@ import { getFollowUpLeads } from "../../controllers/leadManagement/getFollowUpLe
 import { updateLead } from "../../controllers/leadManagement/updateLead.js";
 import { deleteLead } from "../../controllers/leadManagement/deleteLead.js";
 import { addFollowUp } from "../../controllers/leadManagement/addFollowUp.js";
+import uploadRecording from "../../controllers/leadManagement/uploadRecording.js";
 import { requireAuth } from "../../middleware/permissionMiddleware.js";
+import multer from "multer";
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 // All lead management routes require authentication
 router.get("/", requireAuth, getLeads);
@@ -16,6 +19,7 @@ router.get("/:id", requireAuth, getLeadById);
 router.post("/create", requireAuth, createLead);
 router.put("/:id", requireAuth, updateLead);
 router.put("/:id/follow-up", requireAuth, addFollowUp);
+router.post("/:leadId/upload-recording", requireAuth, upload.single('audio'), uploadRecording);
 router.delete("/:id", requireAuth, deleteLead);
 
 export default router;

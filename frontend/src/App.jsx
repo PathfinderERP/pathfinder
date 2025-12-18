@@ -49,6 +49,7 @@ import HR from "./pages/HR";
 import Academics from "./pages/Academics";
 import StudentAdmission from "./pages/StudentAdmission";
 import StudentAdmissionPage from "./pages/StudentAdmissionPage";
+import TelecallingConsole from "./pages/TelecallingConsole";
 import MasterData from "./pages/MasterData";
 import MasterDataClass from "./pages/MasterDataClass";
 import MasterDataExamTag from "./pages/MasterDataExamTag";
@@ -95,6 +96,7 @@ function App() {
         <Route path="/lead-management" element={<LeadManagement />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/admissions" element={<Admissions />} />
+        <Route path="/admissions/telecalling-console" element={<TelecallingConsole />} />
         <Route path="/student-registration" element={<StudentRegistration />} />
         <Route path="/student-admission/:studentId" element={<StudentAdmission />} />
         <Route path="/admission/:studentId" element={<StudentAdmissionPage />} />

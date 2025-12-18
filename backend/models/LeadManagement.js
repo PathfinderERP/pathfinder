@@ -68,6 +68,22 @@ const leadManagementSchema = new mongoose.Schema({
         updatedBy: {
             type: String // Optional: store who added the follow-up
         }
+    }],
+    recordings: [{
+        audioUrl: {
+            type: String,
+            required: true
+        },
+        fileName: {
+            type: String
+        },
+        uploadedAt: {
+            type: Date,
+            default: Date.now
+        },
+        uploadedBy: {
+            type: String
+        }
     }]
 }, { timestamps: true });
 

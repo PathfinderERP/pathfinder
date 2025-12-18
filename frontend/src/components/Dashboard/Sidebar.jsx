@@ -33,7 +33,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "All Leads", path: "/admissions", permissionSection: "allLeads" },
                 { name: "Admissions", path: "/enrolled-students", permissionSection: "enrolledStudents" },
                 { name: "Walk-in Registration", path: "/student-registration", permissionSection: "allLeads" },
-                { name: "Telecalling Console", path: "/admissions", permissionSection: "allLeads" },
+                { name: "Telecalling Console", path: "/admissions/telecalling-console", permissionSection: "allLeads" },
             ]
         },
         {

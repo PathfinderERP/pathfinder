@@ -1,7 +1,18 @@
 import React from "react";
-import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaMapMarkerAlt, FaBook, FaInfoCircle, FaBullseye, FaTrash, FaEdit, FaCommentAlt } from "react-icons/fa";
+import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaMapMarkerAlt, FaBook, FaInfoCircle, FaBullseye, FaTrash, FaEdit, FaCommentAlt, FaMicrophone, FaUpload, FaPlay, FaSpinner } from "react-icons/fa";
+import { toast } from "react-toastify";
 
 const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCounseling, onShowHistory, canEdit, canDelete }) => {
+    const [uploading, setUploading] = React.useState(false);
+    const [recordings, setRecordings] = React.useState(lead?.recordings || []);
+    const fileInputRef = React.useRef(null);
+
+    React.useEffect(() => {
+        if (lead) {
+            setRecordings(lead.recordings || []);
+        }
+    }, [lead]);
+
     if (!lead) return null;
 
     const getLeadTypeColor = (type) => {
@@ -10,6 +21,47 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             case "COLD LEAD": return "text-blue-400 border-blue-500/50 bg-blue-500/10";
             case "NEGATIVE": return "text-gray-400 border-gray-500/50 bg-gray-500/10";
             default: return "text-gray-400 border-gray-500/50 bg-gray-500/10";
+        }
+    };
+
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Check if it's an audio file
+        if (!file.type.startsWith('audio/')) {
+            toast.error("Please upload an audio file");
+            return;
+        }
+
+        setUploading(true);
+        const formData = new FormData();
+        formData.append('audio', file);
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/${lead._id}/upload-recording`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                toast.success("Recording uploaded successfully");
+                setRecordings(prev => [...prev, data.recording]);
+            } else {
+                toast.error(data.message || "Failed to upload recording");
+            }
+        } catch (error) {
+            console.error("Error uploading recording:", error);
+            toast.error("Error uploading recording");
+        } finally {
+            setUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
         }
     };
 
@@ -33,96 +85,144 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                             </p>
                         </div>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="text-gray-400 hover:text-white transition-colors bg-gray-800 hover:bg-gray-700 p-2 rounded-full"
-                    >
-                        <FaTimes size={20} />
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            accept="audio/*"
+                            onChange={handleFileUpload}
+                        />
+                        <button
+                            onClick={() => fileInputRef.current.click()}
+                            disabled={uploading}
+                            className="px-4 py-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/20 transition-all flex items-center gap-2 font-medium"
+                        >
+                            {uploading ? <FaSpinner className="animate-spin" /> : <FaMicrophone />}
+                            {uploading ? "Uploading..." : "Upload Audio"}
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="text-gray-400 hover:text-white transition-colors bg-gray-800 hover:bg-gray-700 p-2 rounded-full"
+                        >
+                            <FaTimes size={20} />
+                        </button>
+                    </div>
 
                     {/* Background decoration */}
                     <div className="absolute -right-10 -top-10 w-40 h-40 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none"></div>
                 </div>
 
                 {/* Content */}
-                <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Personal Info */}
+                        <div className="space-y-4">
+                            <h3 className="text-cyan-400 text-sm font-bold uppercase tracking-wider mb-2 border-b border-gray-800 pb-2">Personal Details</h3>
 
-                    {/* Personal Info */}
-                    <div className="space-y-4">
-                        <h3 className="text-cyan-400 text-sm font-bold uppercase tracking-wider mb-2 border-b border-gray-800 pb-2">Personal Details</h3>
-
-                        <div className="flex items-center gap-3 text-gray-300 group">
-                            <div className="w-8 h-8 rounded bg-gray-800 flex items-center justify-center text-gray-500 group-hover:text-cyan-400 transition-colors">
-                                <FaPhone size={14} />
+                            <div className="flex items-center gap-3 text-gray-300 group">
+                                <div className="w-8 h-8 rounded bg-gray-800 flex items-center justify-center text-gray-500 group-hover:text-cyan-400 transition-colors">
+                                    <FaPhone size={14} />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-500">Phone Number</p>
+                                    <p className="font-medium">{lead.phoneNumber || "N/A"}</p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-xs text-gray-500">Phone Number</p>
-                                <p className="font-medium">{lead.phoneNumber || "N/A"}</p>
+
+                            <div className="flex items-center gap-3 text-gray-300 group">
+                                <div className="w-8 h-8 rounded bg-gray-800 flex items-center justify-center text-gray-500 group-hover:text-cyan-400 transition-colors">
+                                    <FaSchool size={14} />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-500">School Name</p>
+                                    <p className="font-medium">{lead.schoolName || "N/A"}</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 text-gray-300 group">
+                                <div className="w-8 h-8 rounded bg-gray-800 flex items-center justify-center text-gray-500 group-hover:text-cyan-400 transition-colors">
+                                    <FaBook size={14} />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-500">Class</p>
+                                    <p className="font-medium">{lead.className?.name || "N/A"}</p>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-3 text-gray-300 group">
-                            <div className="w-8 h-8 rounded bg-gray-800 flex items-center justify-center text-gray-500 group-hover:text-cyan-400 transition-colors">
-                                <FaSchool size={14} />
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500">School Name</p>
-                                <p className="font-medium">{lead.schoolName || "N/A"}</p>
-                            </div>
-                        </div>
+                        {/* Academic Info */}
+                        <div className="space-y-4">
+                            <h3 className="text-cyan-400 text-sm font-bold uppercase tracking-wider mb-2 border-b border-gray-800 pb-2">Academic & System</h3>
 
-                        <div className="flex items-center gap-3 text-gray-300 group">
-                            <div className="w-8 h-8 rounded bg-gray-800 flex items-center justify-center text-gray-500 group-hover:text-cyan-400 transition-colors">
-                                <FaBook size={14} />
+                            <div className="flex items-center gap-3 text-gray-300 group">
+                                <div className="w-8 h-8 rounded bg-gray-800 flex items-center justify-center text-gray-500 group-hover:text-cyan-400 transition-colors">
+                                    <FaMapMarkerAlt size={14} />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-500">Centre</p>
+                                    <p className="font-medium">{lead.centre?.centreName || "N/A"}</p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-xs text-gray-500">Class</p>
-                                <p className="font-medium">{lead.className?.name || "N/A"}</p>
+
+                            <div className="flex items-center gap-3 text-gray-300 group">
+                                <div className="w-8 h-8 rounded bg-gray-800 flex items-center justify-center text-gray-500 group-hover:text-cyan-400 transition-colors">
+                                    <FaBullseye size={14} />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-500">Course & Target</p>
+                                    <p className="font-medium">
+                                        {lead.course?.courseName || "N/A"}
+                                        {lead.targetExam && <span className="text-gray-500 text-sm"> ({lead.targetExam})</span>}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 text-gray-300 group">
+                                <div className="w-8 h-8 rounded bg-gray-800 flex items-center justify-center text-gray-500 group-hover:text-cyan-400 transition-colors">
+                                    <FaInfoCircle size={14} />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-500">Status & Source</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className={`px-2 py-0.5 rounded text-xs border font-semibold ${getLeadTypeColor(lead.leadType)}`}>
+                                            {lead.leadType || "N/A"}
+                                        </span>
+                                        <span className="text-sm text-gray-400">• {lead.source || "Unknown Source"}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Academic Info */}
+                    {/* Recordings Section */}
                     <div className="space-y-4">
-                        <h3 className="text-cyan-400 text-sm font-bold uppercase tracking-wider mb-2 border-b border-gray-800 pb-2">Academic & System</h3>
-
-                        <div className="flex items-center gap-3 text-gray-300 group">
-                            <div className="w-8 h-8 rounded bg-gray-800 flex items-center justify-center text-gray-500 group-hover:text-cyan-400 transition-colors">
-                                <FaMapMarkerAlt size={14} />
+                        <h3 className="text-cyan-400 text-sm font-bold uppercase tracking-wider mb-2 border-b border-gray-800 pb-2 flex items-center gap-2">
+                            Call Recordings ({recordings.length})
+                        </h3>
+                        {recordings.length === 0 ? (
+                            <p className="text-gray-500 text-sm italic">No call recordings uploaded yet.</p>
+                        ) : (
+                            <div className="space-y-3">
+                                {recordings.map((rec, idx) => (
+                                    <div key={idx} className="bg-[#131619] border border-gray-800 rounded-xl p-3 flex items-center justify-between group hover:border-cyan-500/30 transition-all">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-400">
+                                                <FaPlay size={14} />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-white">{rec.fileName || `Recording ${idx + 1}`}</p>
+                                                <p className="text-xs text-gray-500">{new Date(rec.uploadedAt).toLocaleString()}</p>
+                                            </div>
+                                        </div>
+                                        <audio controls className="h-8 w-48 opacity-60 hover:opacity-100 transition-opacity">
+                                            <source src={rec.audioUrl} type="audio/mpeg" />
+                                            Your browser does not support the audio element.
+                                        </audio>
+                                    </div>
+                                ))}
                             </div>
-                            <div>
-                                <p className="text-xs text-gray-500">Centre</p>
-                                <p className="font-medium">{lead.centre?.centreName || "N/A"}</p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 text-gray-300 group">
-                            <div className="w-8 h-8 rounded bg-gray-800 flex items-center justify-center text-gray-500 group-hover:text-cyan-400 transition-colors">
-                                <FaBullseye size={14} />
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500">Course & Target</p>
-                                <p className="font-medium">
-                                    {lead.course?.courseName || "N/A"}
-                                    {lead.targetExam && <span className="text-gray-500 text-sm"> ({lead.targetExam})</span>}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 text-gray-300 group">
-                            <div className="w-8 h-8 rounded bg-gray-800 flex items-center justify-center text-gray-500 group-hover:text-cyan-400 transition-colors">
-                                <FaInfoCircle size={14} />
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500">Status & Source</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <span className={`px-2 py-0.5 rounded text-xs border font-semibold ${getLeadTypeColor(lead.leadType)}`}>
-                                        {lead.leadType || "N/A"}
-                                    </span>
-                                    <span className="text-sm text-gray-400">• {lead.source || "Unknown Source"}</span>
-                                </div>
-                            </div>
-                        </div>
+                        )}
                     </div>
                 </div>
 
@@ -184,7 +284,6 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
         </div>
     );
 };
-
 
 export default LeadDetailsModal;
 
