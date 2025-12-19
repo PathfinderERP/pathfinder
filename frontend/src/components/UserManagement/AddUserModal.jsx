@@ -15,9 +15,11 @@ const AddUserModal = ({ onClose, onSuccess }) => {
         permissions: [],
         granularPermissions: {},
         canEditUsers: false,
-        canDeleteUsers: false
+        canDeleteUsers: false,
+        assignedScript: ""
     });
     const [centres, setCentres] = useState([]);
+    const [scripts, setScripts] = useState([]);
     const [loading, setLoading] = useState(false);
 
     // Get current logged-in user to check if they're SuperAdmin
@@ -28,10 +30,9 @@ const AddUserModal = ({ onClose, onSuccess }) => {
         ? ["admin", "teacher", "telecaller", "counsellor", "superAdmin"]
         : ["admin", "teacher", "telecaller", "counsellor"];
 
-
-
     useEffect(() => {
         fetchCentres();
+        fetchScripts();
     }, []);
 
     const fetchCentres = async () => {
@@ -50,6 +51,21 @@ const AddUserModal = ({ onClose, onSuccess }) => {
             }
         } catch (error) {
             console.error("Error fetching centres:", error);
+        }
+    };
+
+    const fetchScripts = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/script/list`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setScripts(data);
+            }
+        } catch (error) {
+            console.error("Error fetching scripts:", error);
         }
     };
 
@@ -141,6 +157,24 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                                 ))}
                             </select>
                         </div>
+                        {formData.role === "telecaller" && (
+                            <div>
+                                <label className="block text-gray-400 text-sm mb-1 text-cyan-400 font-bold">Assign Calling Script *</label>
+                                <select
+                                    name="assignedScript"
+                                    required
+                                    value={formData.assignedScript}
+                                    onChange={handleChange}
+                                    className="w-full bg-[#131619] border border-cyan-500/50 rounded-lg p-2 text-white focus:border-cyan-500"
+                                >
+                                    <option value="">Select a Script</option>
+                                    {scripts.map(script => (
+                                        <option key={script._id} value={script._id}>{script.scriptName}</option>
+                                    ))}
+                                </select>
+                                <p className="text-[10px] text-cyan-500/70 mt-1 uppercase font-bold tracking-wider">Analysis will be based on this script</p>
+                            </div>
+                        )}
                         <div className="md:col-span-2">
                             <label className="block text-gray-400 text-sm mb-1">Centres {formData.role !== "superAdmin" && "*"}</label>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 bg-[#131619] border border-gray-700 rounded-lg p-3 max-h-40 overflow-y-auto">

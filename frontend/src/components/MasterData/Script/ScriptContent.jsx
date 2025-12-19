@@ -9,7 +9,7 @@ const ScriptContent = () => {
     const [error, setError] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentScript, setCurrentScript] = useState(null);
-    const [formData, setFormData] = useState({ scriptName: "" });
+    const [formData, setFormData] = useState({ scriptName: "", scriptContent: "" });
 
     // Permissions
     const [canCreate, setCanCreate] = useState(false);
@@ -56,10 +56,10 @@ const ScriptContent = () => {
     const openModal = (script = null) => {
         if (script) {
             setCurrentScript(script);
-            setFormData({ scriptName: script.scriptName });
+            setFormData({ scriptName: script.scriptName, scriptContent: script.scriptContent || "" });
         } else {
             setCurrentScript(null);
-            setFormData({ scriptName: "" });
+            setFormData({ scriptName: "", scriptContent: "" });
         }
         setIsModalOpen(true);
     };
@@ -67,7 +67,7 @@ const ScriptContent = () => {
     const closeModal = () => {
         setIsModalOpen(false);
         setCurrentScript(null);
-        setFormData({ scriptName: "" });
+        setFormData({ scriptName: "", scriptContent: "" });
         setError("");
     };
 
@@ -219,6 +219,19 @@ const ScriptContent = () => {
                                     placeholder="Enter script name"
                                     required
                                 />
+                            </div>
+                            <div className="mb-4">
+                                <label className="block text-gray-400 mb-2 text-sm">Script Content</label>
+                                <textarea
+                                    name="scriptContent"
+                                    value={formData.scriptContent}
+                                    onChange={handleInputChange}
+                                    rows="6"
+                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500 resize-none"
+                                    placeholder="Paste the master calling script here..."
+                                    required
+                                />
+                                <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold tracking-widest">STT Analysis will compare recordings against this text</p>
                             </div>
                             <div className="flex justify-end gap-3">
                                 <button

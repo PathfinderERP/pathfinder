@@ -3,10 +3,10 @@ import Script from "../../models/Master_data/Script.js";
 // Create Script
 export const createScript = async (req, res) => {
     try {
-        const { scriptName } = req.body;
-        if (!scriptName) return res.status(400).json({ message: "Script name is required" });
+        const { scriptName, scriptContent } = req.body;
+        if (!scriptName || !scriptContent) return res.status(400).json({ message: "Script name and content are required" });
 
-        const newScript = new Script({ scriptName });
+        const newScript = new Script({ scriptName, scriptContent });
         await newScript.save();
         res.status(201).json({ message: "Script created successfully", script: newScript });
     } catch (error) {
@@ -28,8 +28,8 @@ export const getScripts = async (req, res) => {
 export const updateScript = async (req, res) => {
     try {
         const { id } = req.params;
-        const { scriptName } = req.body;
-        const updatedScript = await Script.findByIdAndUpdate(id, { scriptName }, { new: true });
+        const { scriptName, scriptContent } = req.body;
+        const updatedScript = await Script.findByIdAndUpdate(id, { scriptName, scriptContent }, { new: true });
         if (!updatedScript) return res.status(404).json({ message: "Script not found" });
         res.status(200).json({ message: "Script updated", script: updatedScript });
     } catch (error) {

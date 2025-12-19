@@ -55,6 +55,9 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                     subItems: [
                         { name: "Class List", path: "/academics/classes", permissionSection: "classes" },
                         { name: "Class Add", path: "/academics/class/add", permissionSection: "classes" },
+                        { name: "Upcoming Class", path: "/academics/upcoming-class", permissionSection: "upcomingClass" },
+                        { name: "Ongoing Class", path: "/academics/ongoing-class", permissionSection: "ongoingClass" },
+                        { name: "Previous Class", path: "/academics/previous-class", permissionSection: "previousClass" },
                     ]
                 },
                 { name: "Mental Session Table", path: "/academics/mental-session-table", permissionSection: "mentalSessionTable" },

@@ -78,6 +78,9 @@ import RMList from "./pages/Academics/RMList";
 import ClassCoordinator from "./pages/Academics/ClassCoordinator";
 import Classes from "./pages/Academics/Classes";
 import AddClass from "./pages/Academics/AddClass";
+import UpcomingClass from "./pages/Academics/UpcomingClass";
+import OngoingClass from "./pages/Academics/OngoingClass";
+import PreviousClass from "./pages/Academics/PreviousClass";
 import MentalSessionTable from "./pages/Academics/MentalSessionTable";
 import ClassManagement from "./pages/Academics/ClassManagement";
 import ClassList from "./pages/Academics/ClassManagement/ClassList";
@@ -121,6 +124,9 @@ function App() {
         <Route path="/academics/class-coordinator" element={<ClassCoordinator />} />
         <Route path="/academics/classes" element={<Classes />} />
         <Route path="/academics/class/add" element={<AddClass />} />
+        <Route path="/academics/upcoming-class" element={<UpcomingClass />} />
+        <Route path="/academics/ongoing-class" element={<OngoingClass />} />
+        <Route path="/academics/previous-class" element={<PreviousClass />} />
         <Route path="/academics/mental-session-table" element={<MentalSessionTable />} />
         <Route path="/academics/class-management" element={<ClassManagement />} />
         <Route path="/academics/class-list" element={<ClassList />} />

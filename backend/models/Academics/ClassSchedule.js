@@ -80,7 +80,21 @@ const classScheduleSchema = new mongoose.Schema({
     message: {
         type: String,
         default: ""
-    }
+    },
+    status: {
+        type: String,
+        enum: ["Upcoming", "Ongoing", "Completed"],
+        default: "Upcoming"
+    },
+    actualStartTime: {
+        type: Date
+    },
+    actualEndTime: {
+        type: Date
+    },
+    feedbackName: { type: String, default: "" },
+    feedbackContent: { type: String, default: "" },
+    teacherAttendance: { type: Boolean, default: false }
 }, { timestamps: true });
 
 export default mongoose.model("ClassSchedule", classScheduleSchema);

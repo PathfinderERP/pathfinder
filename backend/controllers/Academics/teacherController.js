@@ -103,6 +103,10 @@ export const updateTeacher = async (req, res) => {
             delete updates.password; // For security, handle password change separately if needed
         }
 
+        if (updates.assignedScript === "") {
+            updates.assignedScript = null;
+        }
+
         const updatedTeacher = await User.findByIdAndUpdate(id, updates, { new: true });
 
         if (!updatedTeacher) {

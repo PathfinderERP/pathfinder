@@ -83,6 +83,22 @@ const leadManagementSchema = new mongoose.Schema({
         },
         uploadedBy: {
             type: String
+        },
+        transcription: {
+            type: String
+        },
+        accuracyScore: {
+            type: Number,
+            default: 0
+        },
+        analysisData: {
+            clarity: { type: Number, default: 0 },
+            pace: { type: Number, default: 0 },
+            confidence: { type: Number, default: 0 }
+        },
+        scriptUsed: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Script'
         }
     }]
 }, { timestamps: true });

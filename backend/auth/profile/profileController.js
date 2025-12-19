@@ -7,6 +7,7 @@ export const getMyProfile = async (req, res) => {
 
         const user = await User.findById(userId)
             .populate("centres", "centreName enterCode")
+            .populate("assignedScript")
             .select("-password"); // Exclude password from response
 
         if (!user) {
@@ -63,6 +64,7 @@ export const updateMyProfile = async (req, res) => {
         // Return updated user without password
         const updatedUser = await User.findById(userId)
             .populate("centres", "centreName enterCode")
+            .populate("assignedScript")
             .select("-password");
 
         res.status(200).json({

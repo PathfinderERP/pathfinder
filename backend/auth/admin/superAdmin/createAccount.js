@@ -8,12 +8,17 @@ dotenv.config();
 
 export async function createAccountBySuperAdmin(req, res) {
     try {
-        const { name, employeeId, email, mobNum, password, role, centres, permissions, canEditUsers, canDeleteUsers, granularPermissions } = req.body;
+        const { name, employeeId, email, mobNum, password, role, centres, permissions, canEditUsers, canDeleteUsers, granularPermissions, assignedScript } = req.body;
 
         // Basic validation
         if (!name || !employeeId || !email || !mobNum || !password || !role) {
             console.log("All fields are required");
             return res.status(400).json({ message: "All fields are required" });
+        }
+
+        // Additional validation for telecallers
+        if (role === 'telecaller' && !assignedScript) {
+            return res.status(400).json({ message: "A script must be assigned to telecallers" });
         }
 
         // Check if user exists
@@ -39,7 +44,8 @@ export async function createAccountBySuperAdmin(req, res) {
             permissions: permissions || [],
             granularPermissions: granularPermissions || {}, // Add granular permissions
             canEditUsers: canEditUsers || false,
-            canDeleteUsers: canDeleteUsers || false
+            canDeleteUsers: canDeleteUsers || false,
+            assignedScript: role === 'telecaller' ? assignedScript : undefined
         });
 
         await newUser.save();

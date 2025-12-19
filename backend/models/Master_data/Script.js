@@ -4,6 +4,10 @@ const scriptSchema = new mongoose.Schema({
     scriptName: {
         type: String,
         required: true,
+    },
+    scriptContent: {
+        type: String,
+        required: true,
     }
 });
 

@@ -88,7 +88,10 @@ export const PERMISSION_MODULES = {
             mentalSessionTable: { label: "Mental Session Table", operations: ["create", "edit", "delete"] },
             classManagement: { label: "Class Management", operations: ["create", "edit", "delete"] },
             sectionLeaderBoard: { label: "Section Leader Board", operations: ["create", "edit", "delete"] },
-            examLeaderBoard: { label: "Exam Leader Board", operations: ["create", "edit", "delete"] }
+            examLeaderBoard: { label: "Exam Leader Board", operations: ["create", "edit", "delete"] },
+            upcomingClass: { label: "Upcoming Class", operations: ["create", "edit", "delete"] },
+            ongoingClass: { label: "Ongoing Class", operations: ["create", "edit", "delete"] },
+            previousClass: { label: "Previous Class", operations: ["create", "edit", "delete"] }
         }
     },
     financeFees: {

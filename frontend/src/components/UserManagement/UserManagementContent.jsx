@@ -283,6 +283,14 @@ const UserManagementContent = () => {
                                     <FaMapMarkerAlt className="text-gray-500 mt-1" />
                                     <span className="break-words">{getCentresDisplay(user)}</span>
                                 </div>
+                                {user.role === "telecaller" && (
+                                    <div className="flex items-center gap-2 mt-3 pt-2 border-t border-gray-800/50">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-500"></div>
+                                        <span className="text-xs font-bold text-cyan-400">
+                                            Script: {user.assignedScript?.scriptName || "Unassigned"}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Granular Permissions Display */}
@@ -336,6 +344,7 @@ const UserManagementContent = () => {
                                     <th className="p-4 border-b border-gray-800">Employee ID</th>
                                     <th className="p-4 border-b border-gray-800">Contact</th>
                                     <th className="p-4 border-b border-gray-800">Centres</th>
+                                    <th className="p-4 border-b border-gray-800">Assigned Script</th>
                                     <th className="p-4 border-b border-gray-800 text-right">Actions</th>
                                 </tr>
                             </thead>
@@ -364,6 +373,11 @@ const UserManagementContent = () => {
                                         </td>
                                         <td className="p-4 text-gray-400 text-sm">
                                             <span className="text-gray-400">{getCentresDisplay(user)}</span>
+                                        </td>
+                                        <td className="p-4 text-gray-400 text-sm">
+                                            <span className={user.role === 'telecaller' ? "text-cyan-400 font-bold" : ""}>
+                                                {user.assignedScript?.scriptName || (user.role === 'telecaller' ? "Unassigned" : "N/A")}
+                                            </span>
                                         </td>
                                         <td className="p-4 text-right">
                                             <div className="flex items-center justify-end gap-2">

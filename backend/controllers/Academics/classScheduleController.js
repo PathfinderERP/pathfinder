@@ -59,6 +59,7 @@ export const getClassSchedules = async (req, res) => {
             fromDate,
             toDate,
             search,
+            status,
             page = 1,
             limit = 10
         } = req.query;
@@ -66,10 +67,17 @@ export const getClassSchedules = async (req, res) => {
         // Build Query
         const query = {};
 
+        // If not superAdmin or admin, restrict to self
+        if (req.user && req.user.role !== 'superAdmin' && req.user.role !== 'admin') {
+            query.teacherId = req.user.id;
+        } else if (teacherId) {
+            query.teacherId = teacherId;
+        }
+
         if (centreId) query.centreId = centreId;
         if (batchId) query.batchId = batchId;
         if (subjectId) query.subjectId = subjectId;
-        if (teacherId) query.teacherId = teacherId;
+        if (status) query.status = status;
 
         if (fromDate || toDate) {
             query.date = {};
@@ -84,7 +92,7 @@ export const getClassSchedules = async (req, res) => {
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
         const classes = await ClassSchedule.find(query)
-            .populate("subjectId", "subjectName topicName") // Validating field names
+            .populate("subjectId", "subjectName topicName")
             .populate("teacherId", "name userType")
             .populate("examId", "name tagName")
             .populate("courseId", "courseName name")
@@ -104,6 +112,114 @@ export const getClassSchedules = async (req, res) => {
         });
     } catch (error) {
         console.error("Error fetching class schedules:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+// Start a class
+export const startClass = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const currentClass = await ClassSchedule.findById(id);
+
+        if (!currentClass) {
+            return res.status(404).json({ message: "Class not found" });
+        }
+
+        currentClass.status = "Ongoing";
+        currentClass.actualStartTime = new Date();
+        await currentClass.save();
+
+        res.status(200).json({ message: "Class started successfully", class: currentClass });
+    } catch (error) {
+        console.error("Error starting class:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+// End a class
+export const endClass = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const currentClass = await ClassSchedule.findById(id);
+
+        if (!currentClass) {
+            return res.status(404).json({ message: "Class not found" });
+        }
+
+        currentClass.status = "Completed";
+        currentClass.actualEndTime = new Date();
+        await currentClass.save();
+
+        res.status(200).json({ message: "Class ended successfully", class: currentClass });
+    } catch (error) {
+        console.error("Error ending class:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+// Delete a class schedule
+export const deleteClassSchedule = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const deletedClass = await ClassSchedule.findByIdAndDelete(id);
+
+        if (!deletedClass) {
+            return res.status(404).json({ message: "Class schedule not found" });
+        }
+
+        res.status(200).json({ message: "Class schedule deleted successfully" });
+    } catch (error) {
+        console.error("Error deleting class schedule:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+// Submit feedback for a class
+export const submitFeedback = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { feedbackName, feedbackContent } = req.body;
+
+        const currentClass = await ClassSchedule.findById(id);
+        if (!currentClass) {
+            return res.status(404).json({ message: "Class not found" });
+        }
+
+        currentClass.feedbackName = feedbackName;
+        currentClass.feedbackContent = feedbackContent;
+        await currentClass.save();
+
+        res.status(200).json({ message: "Feedback submitted successfully", class: currentClass });
+    } catch (error) {
+        console.error("Error submitting feedback:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+// Mark teacher attendance
+export const markTeacherAttendance = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const currentClass = await ClassSchedule.findById(id);
+
+        if (!currentClass) {
+            return res.status(404).json({ message: "Class not found" });
+        }
+
+        // Only allow teachers to mark their own attendance
+        if (req.user.role !== 'admin' && req.user.role !== 'superAdmin') {
+            if (currentClass.teacherId.toString() !== req.user.id) {
+                return res.status(403).json({ message: "You can only mark attendance for your own classes" });
+            }
+        }
+
+        currentClass.teacherAttendance = true;
+        await currentClass.save();
+
+        res.status(200).json({ message: "Attendance marked successfully", class: currentClass });
+    } catch (error) {
+        console.error("Error marking attendance:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };

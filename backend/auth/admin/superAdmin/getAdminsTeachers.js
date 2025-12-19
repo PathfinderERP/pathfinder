@@ -44,7 +44,9 @@ export const getAllUsersBySuperAdmin = async (req, res) => {
     // SuperAdmin sees ALL users (no filter)
 
     // Fetch users based on query, populate centre details
-    const users = await User.find(query).populate("centres", "centreName enterCode");
+    const users = await User.find(query)
+      .populate("centres", "centreName enterCode")
+      .populate("assignedScript", "scriptName scriptContent");
 
     res.status(200).json({
       message: "List of all users",

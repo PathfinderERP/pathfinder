@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { FaTimes } from "react-icons/fa";
+import { FaTimes, FaMapMarkerAlt, FaLocationArrow } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { INDIAN_STATES } from "../../../constants/states";
+import InteractiveMap from "./InteractiveMap";
 
 const EditCentreModal = ({ centre, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
@@ -16,9 +17,15 @@ const EditCentreModal = ({ centre, onClose, onSuccess }) => {
         locationPreview: "",
         enterGstNo: "",
         enterCorporateOfficeAddress: "",
-        enterCorporateOfficePhoneNumber: ""
+        enterCorporateOfficePhoneNumber: "",
+        latitude: null,
+        longitude: null
     });
     const [loading, setLoading] = useState(false);
+    const [gettingLocation, setGettingLocation] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState([]);
+    const [searching, setSearching] = useState(false);
 
     useEffect(() => {
         if (centre) {
@@ -34,13 +41,96 @@ const EditCentreModal = ({ centre, onClose, onSuccess }) => {
                 locationPreview: centre.locationPreview || "",
                 enterGstNo: centre.enterGstNo || "",
                 enterCorporateOfficeAddress: centre.enterCorporateOfficeAddress || "",
-                enterCorporateOfficePhoneNumber: centre.enterCorporateOfficePhoneNumber || ""
+                enterCorporateOfficePhoneNumber: centre.enterCorporateOfficePhoneNumber || "",
+                latitude: centre.latitude || null,
+                longitude: centre.longitude || null
             });
         }
     }, [centre]);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleGetCurrentLocation = () => {
+        if (!navigator.geolocation) {
+            toast.error("Geolocation is not supported by your browser");
+            return;
+        }
+
+        setGettingLocation(true);
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                setFormData({
+                    ...formData,
+                    latitude: latitude,
+                    longitude: longitude
+                });
+                toast.success("Location captured successfully!");
+                setGettingLocation(false);
+            },
+            (error) => {
+                toast.error("Unable to retrieve your location");
+                console.error(error);
+                setGettingLocation(false);
+            }
+        );
+    };
+
+    const handleSearchLocation = async () => {
+        if (!searchQuery.trim()) {
+            toast.error("Please enter a location to search");
+            return;
+        }
+
+        setSearching(true);
+        setSearchResults([]);
+
+        try {
+            // Using Nominatim (OpenStreetMap) API for geocoding - free and no API key required
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5`,
+                {
+                    headers: {
+                        'User-Agent': 'PathfinderERP/1.0' // Required by Nominatim
+                    }
+                }
+            );
+            const data = await response.json();
+
+            if (data && data.length > 0) {
+                setSearchResults(data);
+                toast.success(`Found ${data.length} location(s)`);
+            } else {
+                toast.info("No locations found. Try a different search term.");
+            }
+        } catch (error) {
+            console.error("Error searching location:", error);
+            toast.error("Error searching for location");
+        } finally {
+            setSearching(false);
+        }
+    };
+
+    const handleSelectSearchResult = (result) => {
+        setFormData({
+            ...formData,
+            latitude: parseFloat(result.lat),
+            longitude: parseFloat(result.lon)
+        });
+        setSearchResults([]);
+        setSearchQuery("");
+        toast.success("Location selected successfully!");
+    };
+
+    const handleMapClick = (lat, lng) => {
+        setFormData({
+            ...formData,
+            latitude: lat,
+            longitude: lng
+        });
+        toast.success(`Location updated: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
     };
 
     const handleSubmit = async (e) => {
@@ -137,6 +227,129 @@ const EditCentreModal = ({ centre, onClose, onSuccess }) => {
                             <label className="block text-gray-400 text-sm mb-1">Location Map URL</label>
                             <input type="text" name="locationPreview" value={formData.locationPreview} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
                         </div>
+
+                        {/* Geolocation Section */}
+                        <div className="md:col-span-2">
+                            <h4 className="text-cyan-400 font-semibold mt-2 mb-3 flex items-center gap-2">
+                                <FaMapMarkerAlt /> Geolocation
+                            </h4>
+
+                            {/* Location Search */}
+                            <div className="mb-4">
+                                <label className="block text-gray-400 text-sm mb-2">Search Location by Name</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && handleSearchLocation()}
+                                        placeholder="e.g., Kolkata, Park Street, Mumbai..."
+                                        className="flex-1 bg-[#131619] border border-gray-700 rounded-lg p-2 text-white placeholder:text-gray-600"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleSearchLocation}
+                                        disabled={searching}
+                                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold"
+                                    >
+                                        {searching ? "Searching..." : "Search"}
+                                    </button>
+                                </div>
+
+                                {/* Search Results Dropdown */}
+                                {searchResults.length > 0 && (
+                                    <div className="mt-2 bg-[#131619] border border-gray-700 rounded-lg max-h-48 overflow-y-auto">
+                                        {searchResults.map((result, index) => (
+                                            <div
+                                                key={index}
+                                                onClick={() => handleSelectSearchResult(result)}
+                                                className="p-3 hover:bg-gray-800 cursor-pointer border-b border-gray-800 last:border-b-0 transition-colors"
+                                            >
+                                                <div className="text-white text-sm font-medium">{result.display_name}</div>
+                                                <div className="text-gray-500 text-xs mt-1">
+                                                    Lat: {parseFloat(result.lat).toFixed(6)}, Lon: {parseFloat(result.lon).toFixed(6)}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Auto Capture Button */}
+                            <button
+                                type="button"
+                                onClick={handleGetCurrentLocation}
+                                disabled={gettingLocation}
+                                className="mb-4 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            >
+                                <FaLocationArrow className={gettingLocation ? "animate-spin" : ""} />
+                                {gettingLocation ? "Getting Location..." : "Capture Current Location"}
+                            </button>
+
+                            {/* Manual Input Fields */}
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-gray-400 text-sm mb-1">Latitude</label>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        name="latitude"
+                                        value={formData.latitude || ""}
+                                        onChange={handleChange}
+                                        placeholder="e.g., 22.5726"
+                                        className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-gray-400 text-sm mb-1">Longitude</label>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        name="longitude"
+                                        value={formData.longitude || ""}
+                                        onChange={handleChange}
+                                        placeholder="e.g., 88.3639"
+                                        className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Interactive Map Display */}
+                            {formData.latitude && formData.longitude ? (
+                                <div className="mt-4">
+                                    <label className="block text-gray-400 text-sm mb-2">📍 Click anywhere on the map to update location</label>
+                                    <InteractiveMap
+                                        latitude={formData.latitude}
+                                        longitude={formData.longitude}
+                                        onLocationSelect={handleMapClick}
+                                    />
+                                    <div className="mt-2 flex items-center justify-between">
+                                        <p className="text-xs text-gray-500 flex items-center gap-2">
+                                            <FaMapMarkerAlt className="text-cyan-400" />
+                                            Coordinates: {parseFloat(formData.latitude).toFixed(6)}, {parseFloat(formData.longitude).toFixed(6)}
+                                        </p>
+                                        <a
+                                            href={`https://www.google.com/maps?q=${formData.latitude},${formData.longitude}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-xs text-blue-400 hover:text-blue-300 underline"
+                                        >
+                                            Open in Google Maps
+                                        </a>
+                                    </div>
+                                    <p className="text-xs text-green-400 mt-2 bg-green-900/20 p-2 rounded border border-green-800/30">
+                                        ✨ Click anywhere on the map to set a new location instantly!
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="mt-4 p-6 bg-gray-800/50 rounded-lg border border-gray-700 text-center">
+                                    <p className="text-gray-400 text-sm">
+                                        Enter coordinates or search for a location to see the interactive map
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+
                         <div className="md:col-span-2">
                             <h4 className="text-cyan-400 font-semibold mt-2 mb-2">Corporate Office Details</h4>
                         </div>

@@ -97,6 +97,10 @@ const userSchema = new mongoose.Schema({
     canDeleteUsers: {
         type: Boolean,
         default: false,
+    },
+    assignedScript: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Script'
     }
 
 }, { timestamps: true });

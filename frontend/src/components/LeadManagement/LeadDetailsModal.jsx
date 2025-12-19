@@ -7,11 +7,29 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
     const [recordings, setRecordings] = React.useState(lead?.recordings || []);
     const fileInputRef = React.useRef(null);
 
+    const [userProfile, setUserProfile] = React.useState(null);
+
     React.useEffect(() => {
         if (lead) {
             setRecordings(lead.recordings || []);
         }
+        fetchUserProfile();
     }, [lead]);
+
+    const fetchUserProfile = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/profile/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setUserProfile(data.user);
+            }
+        } catch (error) {
+            console.error("Error fetching profile:", error);
+        }
+    };
 
     if (!lead) return null;
 
@@ -34,6 +52,11 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             return;
         }
 
+        if (!userProfile?.assignedScript) {
+            toast.error("You don't have an assigned script. Please contact admin.");
+            return;
+        }
+
         setUploading(true);
         const formData = new FormData();
         formData.append('audio', file);
@@ -51,7 +74,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             const data = await response.json();
 
             if (response.ok) {
-                toast.success("Recording uploaded successfully");
+                toast.success("Recording uploaded and analyzed successfully");
                 setRecordings(prev => [...prev, data.recording]);
             } else {
                 toast.error(data.message || "Failed to upload recording");
@@ -99,7 +122,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                             className="px-4 py-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/20 transition-all flex items-center gap-2 font-medium"
                         >
                             {uploading ? <FaSpinner className="animate-spin" /> : <FaMicrophone />}
-                            {uploading ? "Uploading..." : "Upload Audio"}
+                            {uploading ? "Analyzing..." : "Analyze Call"}
                         </button>
                         <button
                             onClick={onClose}
@@ -194,6 +217,33 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                             </div>
                         </div>
                     </div>
+
+                    {/* Assigned Script Section */}
+                    {userProfile?.assignedScript && (
+                        <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-2xl p-6 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4">
+                                <FaMicrophone className="text-cyan-500/20 text-4xl" />
+                            </div>
+                            <h3 className="text-cyan-400 text-xs font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                                <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></div>
+                                Your Assigned Script
+                            </h3>
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-white font-bold">{userProfile.assignedScript.scriptName}</span>
+                                    <span className="text-[10px] bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">Active Strategy</span>
+                                </div>
+                                <div className="bg-[#131619] border border-gray-800 rounded-xl p-4 max-h-40 overflow-y-auto custom-scrollbar">
+                                    <p className="text-sm text-gray-300 leading-relaxed italic whitespace-pre-wrap">
+                                        "{userProfile.assignedScript.scriptContent || "No content provided for this script."}"
+                                    </p>
+                                </div>
+                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-2">
+                                    * Please follow this script during the call for accurate performance analysis
+                                </p>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Recordings Section */}
                     <div className="space-y-4">
