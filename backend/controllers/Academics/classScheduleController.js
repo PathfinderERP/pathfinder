@@ -96,7 +96,7 @@ export const getClassSchedules = async (req, res) => {
             .populate("teacherId", "name userType")
             .populate("examId", "name tagName")
             .populate("courseId", "courseName name")
-            .populate("centreId", "centreName centerName name")
+            .populate("centreId", "centreName centerName name latitude longitude")
             .populate("batchId", "batchName name")
             .sort({ date: -1 })
             .skip(skip)
@@ -214,7 +214,12 @@ export const markTeacherAttendance = async (req, res) => {
             }
         }
 
+        console.log("Reviewing Attendance Request. Body:", req.body);
+        const { latitude, longitude } = req.body || {};
         currentClass.teacherAttendance = true;
+
+        if (latitude) currentClass.attendanceLatitude = latitude;
+        if (longitude) currentClass.attendanceLongitude = longitude;
         await currentClass.save();
 
         res.status(200).json({ message: "Attendance marked successfully", class: currentClass });

@@ -12,6 +12,7 @@ const OngoingClass = () => {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalRecords, setTotalRecords] = useState(0);
+    const [verifyingId, setVerifyingId] = useState(null);
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const isAdmin = user.role === "admin" || user.role === "superAdmin";
@@ -71,23 +72,99 @@ const OngoingClass = () => {
         }
     };
 
-    const handleAttendance = async (classId) => {
-        try {
-            const token = localStorage.getItem("token");
-            const response = await fetch(`${API_URL}/academics/class-schedule/mark-attendance/${classId}`, {
-                method: "PUT",
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const data = await response.json();
-            if (response.ok) {
-                toast.success("Attendance marked successfully!");
-                fetchClasses(); // Refresh the list
-            } else {
-                toast.error(data.message || "Failed to mark attendance");
-            }
-        } catch (error) {
-            toast.error("Error marking attendance");
+    const handleAttendance = async (classId, centreLat, centreLng) => {
+        if (verifyingId === classId) return;
+
+        const cLat = parseFloat(centreLat);
+        const cLng = parseFloat(centreLng);
+
+        console.log("Teacher Attendance Check:");
+        console.log("Centre Coordinates:", cLat, cLng);
+
+        if (isNaN(cLat) || isNaN(cLng)) {
+            toast.error("Center location coordinates are invalid or missing.");
+            return;
         }
+
+        if (!navigator.geolocation) {
+            toast.error("Geolocation is not supported by your browser.");
+            return;
+        }
+
+        setVerifyingId(classId);
+        const toastId = toast.loading("Acquiring precise location...");
+
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const userLat = position.coords.latitude;
+                const userLng = position.coords.longitude;
+                const accuracy = position.coords.accuracy || 0;
+
+                console.log(`User Coordinates: ${userLat}, ${userLng} (Accuracy: ${accuracy}m)`);
+
+                const distance = getDistanceFromLatLonInMeters(userLat, userLng, cLat, cLng);
+                console.log("Calculated Distance (m):", distance);
+
+                // Allow 20 meters to account for GPS drift
+                const MAX_DISTANCE = 20;
+
+                if (distance > MAX_DISTANCE) {
+                    let msg = `You are ${Math.round(distance)}m away from center.`;
+
+                    if (accuracy > 100) {
+                        msg += ` Warning: Your device accuracy is poor (${Math.round(accuracy)}m). Please use a Mobile Phone with GPS.`;
+                    } else {
+                        msg += ` Max allowed is ${MAX_DISTANCE}m.`;
+                    }
+
+                    toast.update(toastId, {
+                        render: msg,
+                        type: "error",
+                        isLoading: false,
+                        autoClose: 8000
+                    });
+                    setVerifyingId(null);
+                    return;
+                }
+
+                try {
+                    const token = localStorage.getItem("token");
+                    const response = await fetch(`${API_URL}/academics/class-schedule/mark-attendance/${classId}`, {
+                        method: "PUT",
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            latitude: userLat,
+                            longitude: userLng
+                        })
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        toast.update(toastId, { render: "Attendance marked successfully!", type: "success", isLoading: false, autoClose: 3000 });
+                        fetchClasses();
+                    } else {
+                        toast.update(toastId, { render: data.message || "Failed to mark attendance", type: "error", isLoading: false, autoClose: 3000 });
+                    }
+                } catch (error) {
+                    toast.update(toastId, { render: "Error marking attendance", type: "error", isLoading: false, autoClose: 3000 });
+                } finally {
+                    setVerifyingId(null);
+                }
+            },
+            (error) => {
+                console.error("Geolocation error:", error);
+                let errorMsg = "Unable to retrieve location.";
+                if (error.code === 1) errorMsg = "Location access denied. Please enable location permissions.";
+                else if (error.code === 2) errorMsg = "Location unavailable. Ensure GPS is on.";
+                else if (error.code === 3) errorMsg = "Location request timed out.";
+
+                toast.update(toastId, { render: errorMsg, type: "error", isLoading: false, autoClose: 4000 });
+                setVerifyingId(null);
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        );
     };
 
     const formatDate = (dateString) => {
@@ -192,7 +269,7 @@ const OngoingClass = () => {
                                                         <input
                                                             type="checkbox"
                                                             checked={cls.teacherAttendance || false}
-                                                            onChange={() => !cls.teacherAttendance && handleAttendance(cls._id)}
+                                                            onChange={() => !cls.teacherAttendance && handleAttendance(cls._id, cls.centreId?.latitude, cls.centreId?.longitude)}
                                                             disabled={cls.teacherAttendance}
                                                             className="w-5 h-5 rounded border-2 border-blue-500 text-blue-600 focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
                                                         />
@@ -254,6 +331,19 @@ const OngoingClass = () => {
             </div>
         </Layout>
     );
+};
+
+const getDistanceFromLatLonInMeters = (lat1, lon1, lat2, lon2) => {
+    const R = 6371e3; // Radius of the earth in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const d = R * c; // Distance in meters
+    return d;
 };
 
 export default OngoingClass;

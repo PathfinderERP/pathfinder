@@ -94,7 +94,9 @@ const classScheduleSchema = new mongoose.Schema({
     },
     feedbackName: { type: String, default: "" },
     feedbackContent: { type: String, default: "" },
-    teacherAttendance: { type: Boolean, default: false }
+    teacherAttendance: { type: Boolean, default: false },
+    attendanceLatitude: { type: Number },
+    attendanceLongitude: { type: Number }
 }, { timestamps: true });
 
 export default mongoose.model("ClassSchedule", classScheduleSchema);
