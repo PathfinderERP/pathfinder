@@ -18,6 +18,17 @@ import profileRoutes from "./routes/profile/profile.routes.js";
 import leadManagementRoutes from "./routes/leadManagement/leadManagement.routes.js";
 import sourceRoutes from "./routes/source/source.routes.js";
 import batchRoutes from "./routes/batch/batch.routes.js";
+import sessionRoutes from "./routes/session/session.routes.js";
+import scriptRoutes from "./routes/script/script.routes.js";
+import salesRoutes from "./routes/sales/sales.routes.js";
+import teacherRoutes from "./routes/Academics/teacher.routes.js";
+import academicsClassRoutes from "./routes/Academics/academics_class.routes.js";
+import academicsSubjectRoutes from "./routes/Academics/academics_subject.routes.js";
+import academicsChapterRoutes from "./routes/Academics/academics_chapter.routes.js";
+import academicsTopicRoutes from "./routes/Academics/academics_topic.routes.js";
+import classScheduleRoutes from "./routes/Academics/classSchedule.routes.js";
+import rmRoutes from "./routes/Academics/rm.routes.js";
+import hodRoutes from "./routes/Academics/hod.routes.js";
 import { startPaymentReminderCron } from "./services/cronService.js";
 
 dotenv.config();
@@ -37,67 +48,33 @@ app.get("/", (req, res) => {
     res.send("Backend server is running");
 })
 
-//admin routes
+// admin routes
 app.use("/api/superAdmin", adminRoutes);
 app.use("/api/normalAdmin", normalAdmin);
 app.use("/api/normalAdmin", studentRoutes);
 app.use("/api/course", courseRoutes);
-
-//class routes
 app.use("/api/class", classRoutes);
-
-//exam tag routes
 app.use("/api/examTag", examTagRoutes);
-
-//department routes
 app.use("/api/department", departmentRoutes);
-
-//admission routes
 app.use("/api/admission", admissionRoutes);
-
-//payment reminder routes
 app.use("/api/payment-reminder", paymentReminderRoutes);
-
-//payment routes
 app.use("/api/payment", paymentRoutes);
-
-//centre routes
 app.use("/api/centre", centreRoutes);
-
-//profile routes
 app.use("/api/profile", profileRoutes);
-
-//lead management routes
 app.use("/api/lead-management", leadManagementRoutes);
-
-//source routes
 app.use("/api/source", sourceRoutes);
 app.use("/api/batch", batchRoutes);
-import sessionRoutes from "./routes/session/session.routes.js";
 app.use("/api/session", sessionRoutes);
-import scriptRoutes from "./routes/script/script.routes.js";
 app.use("/api/script", scriptRoutes);
-
-//sales routes
-import salesRoutes from "./routes/sales/sales.routes.js";
 app.use("/api/sales", salesRoutes);
 
 // Academics Routes
-import teacherRoutes from "./routes/Academics/teacher.routes.js";
-import academicsClassRoutes from "./routes/Academics/academics_class.routes.js";
-import academicsSubjectRoutes from "./routes/Academics/academics_subject.routes.js";
-import academicsChapterRoutes from "./routes/Academics/academics_chapter.routes.js";
-import academicsTopicRoutes from "./routes/Academics/academics_topic.routes.js";
-import classScheduleRoutes from "./routes/Academics/classSchedule.routes.js";
-import rmRoutes from "./routes/Academics/rm.routes.js";
-import hodRoutes from "./routes/Academics/hod.routes.js";
-
 app.use("/api/academics/teacher", teacherRoutes);
+app.use("/api/academics/class-schedule", classScheduleRoutes);
 app.use("/api/academics/class", academicsClassRoutes);
 app.use("/api/academics/subject", academicsSubjectRoutes);
 app.use("/api/academics/chapter", academicsChapterRoutes);
 app.use("/api/academics/topic", academicsTopicRoutes);
-app.use("/api/academics/class-schedule", classScheduleRoutes);
 app.use("/api/academics/rm", rmRoutes);
 app.use("/api/academics/hod", hodRoutes);
 

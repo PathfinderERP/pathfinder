@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
-import { FaSearch, FaCheckCircle } from "react-icons/fa";
+import { FaSearch, FaCheckCircle, FaTimes } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -13,10 +13,20 @@ const PreviousClass = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalRecords, setTotalRecords] = useState(0);
 
+    // Feedback State
+    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+    const [selectedClassForFeedback, setSelectedClassForFeedback] = useState(null);
+    const [feedbackData, setFeedbackData] = useState({
+        feedbackName: "",
+        feedbackContent: "",
+        feedbackRating: ""
+    });
+
     const API_URL = import.meta.env.VITE_API_URL;
 
     useEffect(() => {
         fetchClasses();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, limit]);
 
     const fetchClasses = async () => {
@@ -45,6 +55,33 @@ const PreviousClass = () => {
             toast.error("Error fetching previous classes");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSubmitFeedback = async (e) => {
+        e.preventDefault();
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${API_URL}/academics/class-schedule/${selectedClassForFeedback._id}/feedback`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(feedbackData)
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                toast.success("Feedback submitted successfully");
+                setShowFeedbackModal(false);
+                fetchClasses();
+                setFeedbackData({ feedbackName: "", feedbackContent: "", feedbackRating: "" }); // Reset
+            } else {
+                toast.error(data.message || "Failed to submit feedback");
+            }
+        } catch (error) {
+            toast.error("Error submitting feedback");
         }
     };
 
@@ -96,13 +133,14 @@ const PreviousClass = () => {
                                     <th className="p-4">Actual Time</th>
                                     <th className="p-4">Subject</th>
                                     <th className="p-4 text-center">Status</th>
+                                    <th className="p-4 text-center">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-700">
                                 {loading ? (
-                                    <tr><td colSpan="6" className="p-8 text-center text-gray-500">Loading...</td></tr>
+                                    <tr><td colSpan="7" className="p-8 text-center text-gray-500">Loading...</td></tr>
                                 ) : classes.length === 0 ? (
-                                    <tr><td colSpan="6" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No previous classes found</td></tr>
+                                    <tr><td colSpan="7" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No previous classes found</td></tr>
                                 ) : (
                                     classes.map((cls) => (
                                         <tr key={cls._id} className="hover:bg-[#252b32] transition-colors text-sm text-gray-300">
@@ -119,6 +157,22 @@ const PreviousClass = () => {
                                                 <span className="bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full text-xs font-bold border border-blue-600/50 flex items-center justify-center gap-1 mx-auto w-fit">
                                                     <FaCheckCircle size={10} /> Completed
                                                 </span>
+                                            </td>
+                                            <td className="p-4 text-center">
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedClassForFeedback(cls);
+                                                        setFeedbackData({
+                                                            feedbackName: cls.feedbackName || "",
+                                                            feedbackContent: cls.feedbackContent || "",
+                                                            feedbackRating: cls.feedbackRating || ""
+                                                        });
+                                                        setShowFeedbackModal(true);
+                                                    }}
+                                                    className="bg-purple-600/10 text-purple-400 px-3 py-1 rounded text-[10px] font-bold uppercase border border-purple-600/30 hover:bg-purple-600 hover:text-white transition-all shadow-lg shadow-purple-900/10"
+                                                >
+                                                    Feedback
+                                                </button>
                                             </td>
                                         </tr>
                                     ))
@@ -150,6 +204,68 @@ const PreviousClass = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* Feedback Modal */}
+                {showFeedbackModal && (
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="bg-[#1e2530] w-full max-w-md rounded-2xl border border-gray-700 shadow-2xl overflow-hidden animate-fade-in-up">
+                            <div className="p-6 border-b border-gray-700 flex justify-between items-center bg-[#252b32]">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-1 h-6 bg-purple-500 rounded-full"></div>
+                                    <h2 className="text-lg font-bold text-white uppercase tracking-wider">Class Feedback</h2>
+                                </div>
+                                <button
+                                    onClick={() => setShowFeedbackModal(false)}
+                                    className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-full"
+                                >
+                                    <FaTimes />
+                                </button>
+                            </div>
+                            <form onSubmit={handleSubmitFeedback} className="p-6 space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Rating</label>
+                                    <select
+                                        required
+                                        value={feedbackData.feedbackRating}
+                                        onChange={(e) => setFeedbackData({ ...feedbackData, feedbackRating: e.target.value })}
+                                        className="w-full bg-[#131619] text-white p-3 rounded-xl border border-gray-700 focus:border-purple-500 outline-none transition-all"
+                                    >
+                                        <option value="">Select Rating</option>
+                                        <option value="Excellent">Excellent</option>
+                                        <option value="Good">Good</option>
+                                        <option value="Average">Average</option>
+                                        <option value="Bad">Bad</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Remarks (Optional)</label>
+                                    <textarea
+                                        value={feedbackData.feedbackContent}
+                                        onChange={(e) => setFeedbackData({ ...feedbackData, feedbackContent: e.target.value })}
+                                        placeholder="Describe the teacher's performance or class observations..."
+                                        rows="4"
+                                        className="w-full bg-[#131619] text-white p-3 rounded-xl border border-gray-700 focus:border-purple-500 outline-none transition-all placeholder:text-gray-600 resize-none"
+                                    ></textarea>
+                                </div>
+                                <div className="flex gap-3 pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowFeedbackModal(false)}
+                                        className="flex-1 px-4 py-3 bg-gray-700 text-white rounded-xl font-bold uppercase hover:bg-gray-600 transition-all text-xs"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-bold uppercase hover:shadow-lg hover:shadow-purple-900/40 transition-all text-xs"
+                                    >
+                                        Save Feedback
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
             </div>
         </Layout>
     );

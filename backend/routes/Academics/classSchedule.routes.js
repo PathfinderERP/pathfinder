@@ -7,7 +7,8 @@ import {
     endClass,
     deleteClassSchedule,
     submitFeedback,
-    markTeacherAttendance
+    markTeacherAttendance,
+    markCoordinatorAttendance
 } from "../../controllers/Academics/classScheduleController.js";
 import verifyToken from "../../middleware/authMiddleware.js"; // Assuming auth middleware exists
 
@@ -21,5 +22,6 @@ router.put("/end/:id", verifyToken, endClass);
 router.delete("/delete/:id", verifyToken, deleteClassSchedule);
 router.put("/feedback/:id", verifyToken, submitFeedback);
 router.put("/mark-attendance/:id", verifyToken, markTeacherAttendance);
+router.put("/mark-coordinator-attendance/:id", verifyToken, markCoordinatorAttendance);
 
 export default router;

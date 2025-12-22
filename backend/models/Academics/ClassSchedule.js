@@ -94,9 +94,22 @@ const classScheduleSchema = new mongoose.Schema({
     },
     feedbackName: { type: String, default: "" },
     feedbackContent: { type: String, default: "" },
+    feedbackRating: {
+        type: String,
+        enum: ["Excellent", "Good", "Average", "Bad"],
+        default: null
+    },
     teacherAttendance: { type: Boolean, default: false },
     attendanceLatitude: { type: Number },
-    attendanceLongitude: { type: Number }
+    attendanceLongitude: { type: Number },
+    coordinatorId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: false
+    },
+    coordinatorAttendance: { type: Boolean, default: false },
+    coordinatorAttendanceLatitude: { type: Number },
+    coordinatorAttendanceLongitude: { type: Number }
 }, { timestamps: true });
 
 export default mongoose.model("ClassSchedule", classScheduleSchema);

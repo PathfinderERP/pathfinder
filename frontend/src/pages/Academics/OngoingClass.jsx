@@ -16,11 +16,14 @@ const OngoingClass = () => {
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const isAdmin = user.role === "admin" || user.role === "superAdmin";
+    const isCoordinator = user.role === "Class_Coordinator";
+    const isTeacher = user.role === "teacher";
 
     const API_URL = import.meta.env.VITE_API_URL;
 
     useEffect(() => {
         fetchClasses();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, limit]);
 
     const fetchClasses = async () => {
@@ -72,13 +75,13 @@ const OngoingClass = () => {
         }
     };
 
-    const handleAttendance = async (classId, centreLat, centreLng) => {
+    const handleAttendance = async (classId, centreLat, centreLng, type = 'teacher') => {
         if (verifyingId === classId) return;
 
         const cLat = parseFloat(centreLat);
         const cLng = parseFloat(centreLng);
 
-        console.log("Teacher Attendance Check:");
+        console.log(`${type === 'coordinator' ? 'Coordinator' : 'Teacher'} Attendance Check:`);
         console.log("Centre Coordinates:", cLat, cLng);
 
         if (isNaN(cLat) || isNaN(cLng)) {
@@ -129,7 +132,11 @@ const OngoingClass = () => {
 
                 try {
                     const token = localStorage.getItem("token");
-                    const response = await fetch(`${API_URL}/academics/class-schedule/mark-attendance/${classId}`, {
+                    const endpoint = type === 'coordinator'
+                        ? `${API_URL}/academics/class-schedule/mark-coordinator-attendance/${classId}`
+                        : `${API_URL}/academics/class-schedule/mark-attendance/${classId}`;
+
+                    const response = await fetch(endpoint, {
                         method: "PUT",
                         headers: {
                             Authorization: `Bearer ${token}`,
@@ -264,24 +271,43 @@ const OngoingClass = () => {
                                             </td>
                                             <td className="p-4">{cls.subjectId?.subjectName || cls.subjectId?.name || "-"}</td>
                                             <td className="p-4 text-center">
-                                                <div className="flex items-center justify-center">
-                                                    <label className="flex items-center gap-2 cursor-pointer group">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={cls.teacherAttendance || false}
-                                                            onChange={() => !cls.teacherAttendance && handleAttendance(cls._id, cls.centreId?.latitude, cls.centreId?.longitude)}
-                                                            disabled={cls.teacherAttendance}
-                                                            className="w-5 h-5 rounded border-2 border-blue-500 text-blue-600 focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
-                                                        />
-                                                        <span className={`text-xs font-bold uppercase ${cls.teacherAttendance ? 'text-green-400' : 'text-gray-400 group-hover:text-blue-400'}`}>
-                                                            {cls.teacherAttendance ? 'Present' : 'Mark'}
-                                                        </span>
-                                                    </label>
+                                                <div className="flex flex-col gap-2 items-center justify-center">
+                                                    {(isTeacher || isAdmin) && (
+                                                        <label className="flex items-center gap-2 cursor-pointer group">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={cls.teacherAttendance || false}
+                                                                onChange={() => (isTeacher || isAdmin) && !cls.teacherAttendance && handleAttendance(cls._id, cls.centreId?.latitude, cls.centreId?.longitude, 'teacher')}
+                                                                disabled={cls.teacherAttendance}
+                                                                className="w-4 h-4 rounded border-2 border-green-500 text-green-600 focus:ring-2 focus:ring-green-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
+                                                            />
+                                                            <span className={`text-[10px] font-bold uppercase ${cls.teacherAttendance ? 'text-green-400' : 'text-gray-400 group-hover:text-green-400'}`}>
+                                                                {cls.teacherAttendance ? 'Teacher: Present' : 'Teacher: Mark'}
+                                                            </span>
+                                                        </label>
+                                                    )}
+
+                                                    {(isCoordinator || isAdmin) && (
+                                                        <label className="flex items-center gap-2 cursor-pointer group">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={cls.coordinatorAttendance || false}
+                                                                onChange={() => (isCoordinator || isAdmin) && !cls.coordinatorAttendance && handleAttendance(cls._id, cls.centreId?.latitude, cls.centreId?.longitude, 'coordinator')}
+                                                                disabled={cls.coordinatorAttendance}
+                                                                className="w-4 h-4 rounded border-2 border-blue-500 text-blue-600 focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
+                                                            />
+                                                            <span className={`text-[10px] font-bold uppercase ${cls.coordinatorAttendance ? 'text-blue-400' : 'text-gray-400 group-hover:text-blue-400'}`}>
+                                                                {cls.coordinatorAttendance ? 'Coordinator: Present' : 'Coordinator: Mark'}
+                                                            </span>
+                                                        </label>
+                                                    )}
+
+                                                    {/* If Admin and no attendance marked yet, show buttons or statuses? I assume Admin doesn't mark. */}
                                                 </div>
                                             </td>
                                             <td className="p-4 text-center">
                                                 <div className="relative group/hover inline-block">
-                                                    {isAdmin ? (
+                                                    {(isAdmin || isCoordinator) ? (
                                                         <button
                                                             onClick={() => handleEndClass(cls._id)}
                                                             className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-xs uppercase transition shadow-lg shadow-red-900/20"

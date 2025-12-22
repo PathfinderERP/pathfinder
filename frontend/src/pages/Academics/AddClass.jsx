@@ -18,6 +18,7 @@ const AddClass = () => {
         courseId: "",
         centreId: "",
         batchId: "",
+        coordinatorId: "",
         // New Academic Fields
         acadClassId: "",
         acadSubjectId: "",
@@ -34,6 +35,7 @@ const AddClass = () => {
         courses: [],
         centres: [],
         batches: [],
+        coordinators: [],
         academicClasses: []
     });
 
@@ -230,6 +232,13 @@ const AddClass = () => {
                             <select name="teacherId" value={formData.teacherId} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" required>
                                 <option value="">Select a teacher</option>
                                 {dropdownData.teachers.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                            </select>
+                        </div>
+                        <div className="md:col-span-1">
+                            <label className="block text-gray-400 text-sm font-semibold mb-2">Class Coordinator (Optional)</label>
+                            <select name="coordinatorId" value={formData.coordinatorId} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none">
+                                <option value="">Select a coordinator</option>
+                                {dropdownData.coordinators?.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                             </select>
                         </div>
                         <div className="md:col-span-1">

@@ -22,7 +22,8 @@ export const createClassSchedule = async (req, res) => {
             examId,
             courseId,
             centreId,
-            batchId
+            batchId,
+            coordinatorId
         } = req.body;
 
         const newClass = new ClassSchedule({
@@ -37,7 +38,8 @@ export const createClassSchedule = async (req, res) => {
             examId,
             courseId,
             centreId,
-            batchId
+            batchId,
+            coordinatorId
         });
 
         await newClass.save();
@@ -56,6 +58,7 @@ export const getClassSchedules = async (req, res) => {
             batchId,
             subjectId,
             teacherId,
+            coordinatorId,
             fromDate,
             toDate,
             search,
@@ -67,11 +70,16 @@ export const getClassSchedules = async (req, res) => {
         // Build Query
         const query = {};
 
-        // If not superAdmin or admin, restrict to self
-        if (req.user && req.user.role !== 'superAdmin' && req.user.role !== 'admin') {
+        // Role-based filtering
+        if (req.user && req.user.role === 'Class_Coordinator') {
+            query.coordinatorId = req.user.id;
+        } else if (req.user && req.user.role !== 'superAdmin' && req.user.role !== 'admin') {
+            // Teachers (or strictly restrict other non-admin roles)
             query.teacherId = req.user.id;
-        } else if (teacherId) {
-            query.teacherId = teacherId;
+        } else {
+            // Admins
+            if (teacherId) query.teacherId = teacherId;
+            if (coordinatorId) query.coordinatorId = coordinatorId;
         }
 
         if (centreId) query.centreId = centreId;
@@ -97,6 +105,7 @@ export const getClassSchedules = async (req, res) => {
             .populate("examId", "name tagName")
             .populate("courseId", "courseName name")
             .populate("centreId", "centreName centerName name latitude longitude")
+            .populate("coordinatorId", "name")
             .populate("batchId", "batchName name")
             .sort({ date: -1 })
             .skip(skip)
@@ -126,6 +135,11 @@ export const startClass = async (req, res) => {
             return res.status(404).json({ message: "Class not found" });
         }
 
+        // Permission Check
+        if (req.user.role !== 'admin' && req.user.role !== 'superAdmin' && req.user.role !== 'Class_Coordinator') {
+            return res.status(403).json({ message: "Access denied" });
+        }
+
         currentClass.status = "Ongoing";
         currentClass.actualStartTime = new Date();
         await currentClass.save();
@@ -145,6 +159,11 @@ export const endClass = async (req, res) => {
 
         if (!currentClass) {
             return res.status(404).json({ message: "Class not found" });
+        }
+
+        // Permission Check
+        if (req.user.role !== 'admin' && req.user.role !== 'superAdmin' && req.user.role !== 'Class_Coordinator') {
+            return res.status(403).json({ message: "Access denied" });
         }
 
         currentClass.status = "Completed";
@@ -179,15 +198,16 @@ export const deleteClassSchedule = async (req, res) => {
 export const submitFeedback = async (req, res) => {
     try {
         const { id } = req.params;
-        const { feedbackName, feedbackContent } = req.body;
+        const { feedbackName, feedbackContent, feedbackRating } = req.body;
 
         const currentClass = await ClassSchedule.findById(id);
         if (!currentClass) {
             return res.status(404).json({ message: "Class not found" });
         }
 
-        currentClass.feedbackName = feedbackName;
-        currentClass.feedbackContent = feedbackContent;
+        currentClass.feedbackName = feedbackName || "";
+        currentClass.feedbackContent = feedbackContent || "";
+        currentClass.feedbackRating = feedbackRating || null;
         await currentClass.save();
 
         res.status(200).json({ message: "Feedback submitted successfully", class: currentClass });
@@ -229,12 +249,46 @@ export const markTeacherAttendance = async (req, res) => {
     }
 };
 
+// Mark Coordinator attendance
+export const markCoordinatorAttendance = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const currentClass = await ClassSchedule.findById(id);
+
+        if (!currentClass) {
+            return res.status(404).json({ message: "Class not found" });
+        }
+
+        // Only allow coordinators to mark their own attendance
+        if (req.user.role !== 'admin' && req.user.role !== 'superAdmin') {
+            // Assuming we check by coordinatorId
+            if (currentClass.coordinatorId && currentClass.coordinatorId.toString() !== req.user.id) {
+                return res.status(403).json({ message: "You can only mark attendance for your own classes" });
+            }
+        }
+
+        console.log("Reviewing Coordinator Attendance Request. Body:", req.body);
+        const { latitude, longitude } = req.body || {};
+        currentClass.coordinatorAttendance = true;
+
+        if (latitude) currentClass.coordinatorAttendanceLatitude = latitude;
+        if (longitude) currentClass.coordinatorAttendanceLongitude = longitude;
+        await currentClass.save();
+
+        res.status(200).json({ message: "Coordinator attendance marked successfully", class: currentClass });
+    } catch (error) {
+        console.error("Error marking coordinator attendance:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
 // Get required data for dropdowns (Helper endpoint)
 export const getClassDropdownData = async (req, res) => {
     try {
         const subjects = await AcademicsSubject.find();
         // user role teacher
         const teachers = await User.find({ role: "teacher" });
+        const coordinators = await User.find({ role: "Class_Coordinator" });
         const courses = await Course.find();
         const centres = await Centre.find();
         const batches = await Batch.find();
@@ -253,7 +307,8 @@ export const getClassDropdownData = async (req, res) => {
             batches,
             exams,
             sessions,
-            academicClasses
+            academicClasses,
+            coordinators
         });
     } catch (error) {
         console.error("Error fetching dropdown data:", error);

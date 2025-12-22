@@ -16,6 +16,7 @@ const Classes = () => {
         batchId: "",
         subjectId: "",
         teacherId: "",
+        coordinatorId: "",
         fromDate: "",
         toDate: "",
         search: ""
@@ -35,7 +36,8 @@ const Classes = () => {
         centres: [],
         batches: [],
         subjects: [],
-        teachers: []
+        teachers: [],
+        coordinators: []
     });
 
     // Feedback State
@@ -43,7 +45,8 @@ const Classes = () => {
     const [selectedClassForFeedback, setSelectedClassForFeedback] = useState(null);
     const [feedbackData, setFeedbackData] = useState({
         feedbackName: "",
-        feedbackContent: ""
+        feedbackContent: "",
+        feedbackRating: ""
     });
 
     const API_URL = import.meta.env.VITE_API_URL;
@@ -136,6 +139,7 @@ const Classes = () => {
             batchId: "",
             subjectId: "",
             teacherId: "",
+            coordinatorId: "",
             fromDate: "",
             toDate: "",
             search: ""
@@ -312,6 +316,20 @@ const Classes = () => {
                             </select>
                         </div>
 
+                        {/* Coordinator */}
+                        <div className="flex flex-col">
+                            <label className="text-xs font-bold text-gray-400 mb-1 ml-1 uppercase letter-spacing-wide">Coordinator</label>
+                            <select
+                                name="coordinatorId"
+                                value={filters.coordinatorId}
+                                onChange={handleFilterChange}
+                                className="bg-[#131619] text-white p-2 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none text-sm transition-all"
+                            >
+                                <option value="">Select Coordinator</option>
+                                {dropdownData.coordinators?.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                            </select>
+                        </div>
+
                         {/* From Date */}
                         <div className="flex flex-col">
                             <label className="text-xs font-bold text-gray-400 mb-1 ml-1 uppercase letter-spacing-wide">From Date</label>
@@ -392,6 +410,7 @@ const Classes = () => {
                                     <th className="p-4">Center</th>
                                     <th className="p-4">Subject</th>
                                     <th className="p-4">Teacher</th>
+                                    <th className="p-4">Coordinator</th>
                                     <th className="p-4">Date</th>
                                     <th className="p-4">Start Time</th>
                                     <th className="p-4">End Time</th>
@@ -419,6 +438,7 @@ const Classes = () => {
                                             <td className="p-4">{cls.centreId?.centreName || cls.centreId?.name || "-"}</td>
                                             <td className="p-4">{cls.subjectId?.subjectName || cls.subjectId?.name || "-"}</td>
                                             <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
+                                            <td className="p-4">{cls.coordinatorId?.name || "-"}</td>
                                             <td className="p-4 font-mono">{formatDate(cls.date)}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.startTime}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.endTime}</td>
@@ -440,7 +460,8 @@ const Classes = () => {
                                                             setSelectedClassForFeedback(cls);
                                                             setFeedbackData({
                                                                 feedbackName: cls.feedbackName || "",
-                                                                feedbackContent: cls.feedbackContent || ""
+                                                                feedbackContent: cls.feedbackContent || "",
+                                                                feedbackRating: cls.feedbackRating || ""
                                                             });
                                                             setShowFeedbackModal(true);
                                                         }}
@@ -455,7 +476,7 @@ const Classes = () => {
                                             <td className="p-4">
                                                 <div className="relative group/hover">
                                                     {cls.status === "Upcoming" && (
-                                                        isAdmin ? (
+                                                        (isAdmin || user.role === "Class_Coordinator") ? (
                                                             <button
                                                                 onClick={() => handleStartClass(cls._id)}
                                                                 className="bg-green-600/10 text-green-400 px-3 py-1 rounded text-[10px] font-bold uppercase border border-green-600/30 hover:bg-green-600 hover:text-white transition-all shadow-lg shadow-green-900/10"
@@ -544,15 +565,19 @@ const Classes = () => {
                             </div>
                             <form onSubmit={handleSubmitFeedback} className="p-6 space-y-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Feedback Title</label>
-                                    <input
-                                        type="text"
+                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Rating</label>
+                                    <select
                                         required
-                                        value={feedbackData.feedbackName}
-                                        onChange={(e) => setFeedbackData({ ...feedbackData, feedbackName: e.target.value })}
-                                        placeholder="Enter feedback subject (e.g. Performance Review)"
-                                        className="w-full bg-[#131619] text-white p-3 rounded-xl border border-gray-700 focus:border-purple-500 outline-none transition-all placeholder:text-gray-600"
-                                    />
+                                        value={feedbackData.feedbackRating}
+                                        onChange={(e) => setFeedbackData({ ...feedbackData, feedbackRating: e.target.value })}
+                                        className="w-full bg-[#131619] text-white p-3 rounded-xl border border-gray-700 focus:border-purple-500 outline-none transition-all"
+                                    >
+                                        <option value="">Select Rating</option>
+                                        <option value="Excellent">Excellent</option>
+                                        <option value="Good">Good</option>
+                                        <option value="Average">Average</option>
+                                        <option value="Bad">Bad</option>
+                                    </select>
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Feedback Content</label>

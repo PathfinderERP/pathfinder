@@ -27,8 +27,8 @@ const AddUserModal = ({ onClose, onSuccess }) => {
     const isSuperAdmin = currentUser.role === "superAdmin";
 
     const roles = isSuperAdmin
-        ? ["admin", "teacher", "telecaller", "counsellor", "superAdmin"]
-        : ["admin", "teacher", "telecaller", "counsellor"];
+        ? ["admin", "teacher", "telecaller", "counsellor", "Class_Coordinator", "superAdmin"]
+        : ["admin", "teacher", "telecaller", "counsellor", "Class_Coordinator"];
 
     useEffect(() => {
         fetchCentres();
