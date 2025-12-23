@@ -1,0 +1,46 @@
+import express from "express";
+import {
+    createEmployee,
+    getEmployees,
+    getEmployeeById,
+    updateEmployee,
+    deleteEmployee,
+    addSalaryStructure,
+    getEmployeesForDropdown,
+    upload
+} from "../../controllers/HR/employeeController.js";
+import authMiddleware from "../../middleware/authMiddleware.js";
+
+const router = express.Router();
+
+// Define multer fields for file uploads
+const uploadFields = upload.fields([
+    { name: "aadharProof", maxCount: 1 },
+    { name: "panProof", maxCount: 1 },
+    { name: "bankStatement", maxCount: 1 },
+    { name: "educationalQualification1", maxCount: 1 },
+    { name: "educationalQualification2", maxCount: 1 },
+    { name: "educationalQualification3", maxCount: 1 },
+    { name: "form16", maxCount: 1 },
+    { name: "insuranceDocument", maxCount: 1 },
+    { name: "tdsCertificate", maxCount: 1 },
+    { name: "profileImage", maxCount: 1 }
+]);
+
+// All routes require authentication
+router.use(authMiddleware);
+
+// Get employees for dropdown (managers)
+router.get("/dropdown", getEmployeesForDropdown);
+
+// CRUD routes
+router.post("/", uploadFields, createEmployee);
+router.get("/", getEmployees);
+router.get("/:id", getEmployeeById);
+router.put("/:id", uploadFields, updateEmployee);
+router.delete("/:id", deleteEmployee);
+
+// Add salary structure
+router.post("/:id/salary", addSalaryStructure);
+
+export default router;

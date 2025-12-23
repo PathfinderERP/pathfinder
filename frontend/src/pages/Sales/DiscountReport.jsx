@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaFilter, FaDownload, FaChevronDown, FaEraser } from "react-icons/fa";
+import { FaFilter, FaDownload, FaChevronDown, FaEraser, FaChartBar, FaTable, FaTh, FaPercentage } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -30,6 +30,7 @@ const DiscountReport = () => {
     const [timePeriod, setTimePeriod] = useState("This Year"); // "This Year", "Last Year", "This Month", "Last Month", "Custom"
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
+    const [displayMode, setDisplayMode] = useState("chart"); // chart, table, card
 
     // Dropdown Visibility
     const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
@@ -284,6 +285,32 @@ const DiscountReport = () => {
                             Discount Report Analysis
                         </h1>
                     </div>
+                    <div className="flex items-center gap-2 bg-gray-100 dark:bg-[#1a1f24] p-1.5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-inner">
+                        <button
+                            onClick={() => setDisplayMode("chart")}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "chart" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            title="Chart View"
+                        >
+                            <FaChartBar size={18} />
+                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Chart</span>
+                        </button>
+                        <button
+                            onClick={() => setDisplayMode("table")}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "table" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            title="Table View"
+                        >
+                            <FaTable size={18} />
+                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Table</span>
+                        </button>
+                        <button
+                            onClick={() => setDisplayMode("card")}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "card" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            title="Card View"
+                        >
+                            <FaTh size={18} />
+                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Cards</span>
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filters Section */}
@@ -429,111 +456,163 @@ const DiscountReport = () => {
                     </div>
                 </div>
 
-                {/* Charts Area */}
-                <div className="space-y-8">
+                {/* View Content Area */}
+                <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 min-h-[500px]">
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-8 flex items-center gap-3">
+                        <div className="w-2 h-8 bg-orange-500 rounded-full"></div>
+                        Fee Discount Analysis ({timePeriod})
+                    </h3>
 
-                    {/* 1. Original vs Discounted Fees */}
-                    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                        <div className="text-center mb-6">
-                            <h3 className="text-xl font-bold text-gray-800">Original vs Discounted Fees (₹)</h3>
-                            <div className="flex justify-center gap-4 mt-2">
-                                <div className="flex items-center gap-2"><div className="w-4 h-4 bg-[#ff4d4f]"></div><span className="text-sm text-gray-600">Original Fees</span></div>
-                                <div className="flex items-center gap-2"><div className="w-4 h-4 bg-[#00e396]"></div><span className="text-sm text-gray-600">Committed Fees</span></div>
+                    {loading ? (
+                        <div className="flex h-96 items-center justify-center">
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                                <p className="text-gray-500 dark:text-gray-400 font-medium animate-pulse tracking-[0.2em] text-xs">CALCULATING DISCOUNTS...</p>
                             </div>
                         </div>
-                        <div className="h-[400px]">
-                            {reportData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={reportData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} />
-                                        <XAxis
-                                            dataKey="name"
-                                            angle={-45}
-                                            textAnchor="end"
-                                            height={80}
-                                            interval={0}
-                                            tick={{ fontSize: 12, fill: '#666' }}
-                                        />
-                                        <YAxis tick={{ fontSize: 12 }} />
-                                        <Tooltip content={<CustomTooltip formatter={(val) => `₹${val.toLocaleString()}`} />} />
-                                        <Bar dataKey="originalFees" name="Original Fees" fill="#ff4d4f" barSize={15} radius={[4, 4, 0, 0]} />
-                                        <Bar dataKey="committedFees" name="Committed Fees" fill="#00e396" barSize={15} radius={[4, 4, 0, 0]} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <div className="h-full flex items-center justify-center text-gray-400">No Data Available</div>
+                    ) : reportData.length === 0 ? (
+                        <div className="flex h-96 items-center justify-center text-gray-400 flex-col gap-4 bg-gray-50 dark:bg-[#131619] rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
+                            <FaPercentage size={48} className="opacity-20" />
+                            <p className="uppercase tracking-[0.2em] text-sm font-bold opacity-50">No discount data available</p>
+                        </div>
+                    ) : (
+                        <>
+                            {displayMode === "chart" && (
+                                <div className="space-y-12 animate-fade-in">
+                                    {/* 1. Original vs Discounted Fees */}
+                                    <div className="bg-gray-50 dark:bg-[#131619] p-6 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                                        <div className="text-center mb-6">
+                                            <h3 className="text-lg font-bold text-gray-800 dark:text-white uppercase tracking-wider">Original vs Discounted Fees (₹)</h3>
+                                            <div className="flex justify-center gap-6 mt-4">
+                                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#ff4d4f] rounded-full"></div><span className="text-[10px] font-bold text-gray-500 uppercase">Original</span></div>
+                                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#00e396] rounded-full"></div><span className="text-[10px] font-bold text-gray-500 uppercase">Discounted</span></div>
+                                            </div>
+                                        </div>
+                                        <div className="h-[400px]">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <BarChart data={reportData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" opacity={0.5} />
+                                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} interval={0} tick={{ fontSize: 10, fill: '#6b7280', fontWeight: 'bold' }} />
+                                                    <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} />
+                                                    <Tooltip cursor={{ fill: '#f3f4f6', opacity: 0.4 }} content={<CustomTooltip formatter={(val) => `₹${val.toLocaleString()}`} />} />
+                                                    <Bar dataKey="originalFees" name="Original" fill="#ff4d4f" barSize={15} radius={[4, 4, 0, 0]} />
+                                                    <Bar dataKey="committedFees" name="Discounted" fill="#00e396" barSize={15} radius={[4, 4, 0, 0]} />
+                                                </BarChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+
+                                    {/* 2. Total Discount Given */}
+                                    <div className="bg-gray-50 dark:bg-[#131619] p-6 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                                        <div className="text-center mb-6">
+                                            <h3 className="text-lg font-bold text-gray-800 dark:text-white uppercase tracking-wider">Total Discount Given (₹)</h3>
+                                            <div className="flex justify-center gap-4 mt-2">
+                                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#feb019] rounded-full"></div><span className="text-[10px] font-bold text-gray-500 uppercase">Discount Amount</span></div>
+                                            </div>
+                                        </div>
+                                        <div className="h-[400px]">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <BarChart data={reportData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" opacity={0.5} />
+                                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} interval={0} tick={{ fontSize: 10, fill: '#6b7280', fontWeight: 'bold' }} />
+                                                    <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} />
+                                                    <Tooltip cursor={{ fill: '#f3f4f6', opacity: 0.4 }} content={<CustomTooltip formatter={(val) => `₹${val.toLocaleString()}`} />} />
+                                                    <Bar dataKey="discountGiven" name="Discount" fill="#feb019" barSize={20} radius={[4, 4, 0, 0]} />
+                                                </BarChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+                                </div>
                             )}
-                        </div>
-                    </div>
 
-                    {/* 2. Total Discount Given */}
-                    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                        <div className="text-center mb-6">
-                            <h3 className="text-xl font-bold text-gray-800">Total Discount Given (₹)</h3>
-                            <div className="flex justify-center gap-4 mt-2">
-                                <div className="flex items-center gap-2"><div className="w-4 h-4 bg-[#feb019]"></div><span className="text-sm text-gray-600">Discount Amount</span></div>
-                            </div>
-                        </div>
-                        <div className="h-[400px]">
-                            {reportData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={reportData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} />
-                                        <XAxis
-                                            dataKey="name"
-                                            angle={-45}
-                                            textAnchor="end"
-                                            height={80}
-                                            interval={0}
-                                            tick={{ fontSize: 12, fill: '#666' }}
-                                        />
-                                        <YAxis tick={{ fontSize: 12 }} />
-                                        <Tooltip content={<CustomTooltip formatter={(val) => `₹${val.toLocaleString()}`} />} />
-                                        <Bar dataKey="discountGiven" name="Discount Amount" fill="#feb019" barSize={20} radius={[4, 4, 0, 0]} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <div className="h-full flex items-center justify-center text-gray-400">No Data Available</div>
+                            {displayMode === "table" && (
+                                <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Centre Name</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Original Fees</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Discounted</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right text-orange-500">Discount Given</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Efficiency %</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            {reportData.map((item, idx) => (
+                                                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+                                                    <td className="p-5 font-bold text-gray-800 dark:text-white uppercase text-sm group-hover:text-orange-500 transition-colors">{item.name}</td>
+                                                    <td className="p-5 text-right font-medium text-gray-500 dark:text-gray-400 text-xs">₹{item.originalFees.toLocaleString('en-IN')}</td>
+                                                    <td className="p-5 text-right font-bold text-gray-900 dark:text-white">₹{item.committedFees.toLocaleString('en-IN')}</td>
+                                                    <td className="p-5 text-right font-black text-orange-600">₹{item.discountGiven.toLocaleString('en-IN')}</td>
+                                                    <td className="p-5 text-center">
+                                                        <div className="flex flex-col items-center gap-1">
+                                                            <span className="text-xs font-black text-blue-600">{item.efficiency}%</span>
+                                                            <div className="w-24 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className={`h-full rounded-full transition-all duration-1000 ${item.efficiency > 20 ? 'bg-red-500' : item.efficiency > 10 ? 'bg-orange-500' : 'bg-green-500'}`}
+                                                                    style={{ width: `${Math.min(item.efficiency, 100)}%` }}
+                                                                ></div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             )}
-                        </div>
-                    </div>
 
-                    {/* 3. Discount Efficiency */}
-                    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                        <div className="text-center mb-6">
-                            <h3 className="text-xl font-bold text-gray-800">Discount Efficiency (%)</h3>
-                            <div className="flex justify-center gap-4 mt-2">
-                                <div className="flex items-center gap-2"><div className="w-4 h-4 bg-[#008ffb]"></div><span className="text-sm text-gray-600">Discount %</span></div>
-                            </div>
-                        </div>
-                        <div className="h-[400px]">
-                            {reportData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={reportData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} />
-                                        <XAxis
-                                            dataKey="name"
-                                            angle={-45}
-                                            textAnchor="end"
-                                            height={80}
-                                            interval={0}
-                                            tick={{ fontSize: 12, fill: '#666' }}
-                                        />
-                                        <YAxis tick={{ fontSize: 12 }} domain={[0, 100]} />
-                                        <Tooltip content={<CustomTooltip formatter={(val) => `${val}%`} />} />
-                                        <Bar dataKey="efficiency" name="Discount %" fill="#008ffb" barSize={20} radius={[4, 4, 0, 0]} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <div className="h-full flex items-center justify-center text-gray-400">No Data Available</div>
+                            {displayMode === "card" && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
+                                    {reportData.map((item, idx) => (
+                                        <div key={idx} className="bg-white dark:bg-[#131619] rounded-2xl border border-gray-200 dark:border-gray-800 p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group relative">
+                                            <div className="flex justify-between items-start mb-6">
+                                                <h4 className="font-black text-gray-800 dark:text-white uppercase text-xs tracking-tight line-clamp-1 flex-1">{item.name}</h4>
+                                                <div className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${item.efficiency > 20 ? 'bg-red-500 text-white' : item.efficiency > 10 ? 'bg-orange-600 text-white' : 'bg-green-600 text-white'}`}>
+                                                    {item.efficiency}% AVG
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                <div className="flex justify-between items-end">
+                                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Discount Given</div>
+                                                    <div className="text-lg font-black text-orange-600">₹{item.discountGiven.toLocaleString('en-IN')}</div>
+                                                </div>
+
+                                                <div className="pt-2">
+                                                    <div className="flex justify-between text-[9px] font-black uppercase mb-1.5 opacity-50">
+                                                        <span>Revenue Retained</span>
+                                                        <span>{(100 - item.efficiency).toFixed(1)}%</span>
+                                                    </div>
+                                                    <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-gradient-to-r from-orange-400 to-orange-600 rounded-full transition-all duration-1000"
+                                                            style={{ width: `${item.efficiency}%` }}
+                                                        ></div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                                                    <div>
+                                                        <div className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter mb-1">Students</div>
+                                                        <div className="text-sm font-black text-gray-900 dark:text-white">{item.count}</div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter mb-1">Avg/Student</div>
+                                                        <div className="text-sm font-black text-gray-900 dark:text-white">₹{(item.discountGiven / (item.count || 1)).toFixed(0)}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             )}
-                        </div>
-                    </div>
+                        </>
+                    )}
+                </div>
 
-                    <div className="text-center text-gray-400 text-sm mt-8">
-                        ©ADS.All Rights Reserved.
-                    </div>
-
+                <div className="text-center text-gray-400 text-sm mt-8">
+                    ©ADS.All Rights Reserved.
                 </div>
             </div>
         </Layout>

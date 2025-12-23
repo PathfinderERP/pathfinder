@@ -92,13 +92,12 @@ const classScheduleSchema = new mongoose.Schema({
     actualEndTime: {
         type: Date
     },
-    feedbackName: { type: String, default: "" },
-    feedbackContent: { type: String, default: "" },
-    feedbackRating: {
-        type: String,
-        enum: ["Excellent", "Good", "Average", "Bad"],
-        default: null
-    },
+    teacherFeedback: [
+        {
+            criteria: { type: String, required: true },
+            rating: { type: String, enum: ["Excellent", "Good", "Average", "Bad"], default: "Good" }
+        }
+    ],
     teacherAttendance: { type: Boolean, default: false },
     attendanceLatitude: { type: Number },
     attendanceLongitude: { type: Number },

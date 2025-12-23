@@ -16,11 +16,20 @@ const PreviousClass = () => {
     // Feedback State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [selectedClassForFeedback, setSelectedClassForFeedback] = useState(null);
-    const [feedbackData, setFeedbackData] = useState({
-        feedbackName: "",
-        feedbackContent: "",
-        feedbackRating: ""
-    });
+    const [teacherFeedback, setTeacherFeedback] = useState([]);
+
+    const staticFeedbackCriteria = [
+        "Explains concepts clearly and uses real-world examples to improve understanding.",
+        "Maintains excellent classroom discipline and encourages student participation.",
+        "Always well-prepared and delivers structured, easy-to-follow lessons.",
+        "Provides timely feedback and supports students beyond classroom hours.",
+        "Demonstrates strong subject knowledge and effective teaching methodologies.",
+        "Creates a positive learning environment that motivates students to perform better.",
+        "Uses interactive teaching methods and digital tools effectively.",
+        "Regularly tracks student progress and addresses learning gaps proactively.",
+        "Encourages critical thinking and problem-solving skills among students.",
+        "Shows professionalism, punctuality, and dedication towards student success."
+    ];
 
     const API_URL = import.meta.env.VITE_API_URL;
 
@@ -62,21 +71,21 @@ const PreviousClass = () => {
         e.preventDefault();
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${API_URL}/academics/class-schedule/${selectedClassForFeedback._id}/feedback`, {
+            const response = await fetch(`${API_URL}/academics/class-schedule/feedback/${selectedClassForFeedback._id}`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify(feedbackData)
+                body: JSON.stringify({ teacherFeedback })
             });
 
             const data = await response.json();
             if (response.ok) {
                 toast.success("Feedback submitted successfully");
                 setShowFeedbackModal(false);
+                setTeacherFeedback([]);
                 fetchClasses();
-                setFeedbackData({ feedbackName: "", feedbackContent: "", feedbackRating: "" }); // Reset
             } else {
                 toast.error(data.message || "Failed to submit feedback");
             }
@@ -162,16 +171,15 @@ const PreviousClass = () => {
                                                 <button
                                                     onClick={() => {
                                                         setSelectedClassForFeedback(cls);
-                                                        setFeedbackData({
-                                                            feedbackName: cls.feedbackName || "",
-                                                            feedbackContent: cls.feedbackContent || "",
-                                                            feedbackRating: cls.feedbackRating || ""
-                                                        });
+                                                        const existingFeedback = cls.teacherFeedback && cls.teacherFeedback.length > 0
+                                                            ? cls.teacherFeedback
+                                                            : staticFeedbackCriteria.map(criteria => ({ criteria, rating: "Good" }));
+                                                        setTeacherFeedback(existingFeedback);
                                                         setShowFeedbackModal(true);
                                                     }}
                                                     className="bg-purple-600/10 text-purple-400 px-3 py-1 rounded text-[10px] font-bold uppercase border border-purple-600/30 hover:bg-purple-600 hover:text-white transition-all shadow-lg shadow-purple-900/10"
                                                 >
-                                                    Feedback
+                                                    {cls.teacherFeedback && cls.teacherFeedback.length > 0 ? "Feedback" : "Add Feedback"}
                                                 </button>
                                             </td>
                                         </tr>
@@ -212,7 +220,7 @@ const PreviousClass = () => {
                             <div className="p-6 border-b border-gray-700 flex justify-between items-center bg-[#252b32]">
                                 <div className="flex items-center gap-2">
                                     <div className="w-1 h-6 bg-purple-500 rounded-full"></div>
-                                    <h2 className="text-lg font-bold text-white uppercase tracking-wider">Class Feedback</h2>
+                                    <h2 className="text-lg font-bold text-white uppercase tracking-wider">Teacher Performance Feedback</h2>
                                 </div>
                                 <button
                                     onClick={() => setShowFeedbackModal(false)}
@@ -221,33 +229,42 @@ const PreviousClass = () => {
                                     <FaTimes />
                                 </button>
                             </div>
-                            <form onSubmit={handleSubmitFeedback} className="p-6 space-y-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Rating</label>
-                                    <select
-                                        required
-                                        value={feedbackData.feedbackRating}
-                                        onChange={(e) => setFeedbackData({ ...feedbackData, feedbackRating: e.target.value })}
-                                        className="w-full bg-[#131619] text-white p-3 rounded-xl border border-gray-700 focus:border-purple-500 outline-none transition-all"
-                                    >
-                                        <option value="">Select Rating</option>
-                                        <option value="Excellent">Excellent</option>
-                                        <option value="Good">Good</option>
-                                        <option value="Average">Average</option>
-                                        <option value="Bad">Bad</option>
-                                    </select>
+                            <form onSubmit={handleSubmitFeedback} className="p-0">
+                                <div className="p-6 overflow-y-auto max-h-[60vh] space-y-6">
+                                    {teacherFeedback.map((item, index) => (
+                                        <div key={index} className="bg-[#131619] p-4 rounded-xl border border-gray-800 space-y-3">
+                                            <div className="flex gap-3">
+                                                <span className="bg-purple-600/20 text-purple-400 w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold border border-purple-600/30 flex-shrink-0">
+                                                    {index + 1}
+                                                </span>
+                                                <p className="text-gray-300 text-sm leading-relaxed">{item.criteria}</p>
+                                            </div>
+                                            <div className="flex gap-2 justify-end">
+                                                {["Excellent", "Good", "Average", "Bad"].map((r) => (
+                                                    <button
+                                                        key={r}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const updated = [...teacherFeedback];
+                                                            updated[index].rating = r;
+                                                            setTeacherFeedback(updated);
+                                                        }}
+                                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase border transition-all ${item.rating === r
+                                                            ? r === "Excellent" ? "bg-green-600 border-green-500 text-white shadow-lg shadow-green-900/40"
+                                                                : r === "Good" ? "bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/40"
+                                                                    : r === "Average" ? "bg-orange-600 border-orange-500 text-white shadow-lg shadow-orange-900/40"
+                                                                        : "bg-red-600 border-red-500 text-white shadow-lg shadow-red-900/40"
+                                                            : "bg-[#1e2530] border-gray-700 text-gray-500 hover:text-gray-300"
+                                                            }`}
+                                                    >
+                                                        {r}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Remarks (Optional)</label>
-                                    <textarea
-                                        value={feedbackData.feedbackContent}
-                                        onChange={(e) => setFeedbackData({ ...feedbackData, feedbackContent: e.target.value })}
-                                        placeholder="Describe the teacher's performance or class observations..."
-                                        rows="4"
-                                        className="w-full bg-[#131619] text-white p-3 rounded-xl border border-gray-700 focus:border-purple-500 outline-none transition-all placeholder:text-gray-600 resize-none"
-                                    ></textarea>
-                                </div>
-                                <div className="flex gap-3 pt-2">
+                                <div className="p-6 border-t border-gray-700 flex gap-3 bg-[#252b32]">
                                     <button
                                         type="button"
                                         onClick={() => setShowFeedbackModal(false)}
@@ -259,7 +276,7 @@ const PreviousClass = () => {
                                         type="submit"
                                         className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-bold uppercase hover:shadow-lg hover:shadow-purple-900/40 transition-all text-xs"
                                     >
-                                        Save Feedback
+                                        Save All Feedback
                                     </button>
                                 </div>
                             </form>

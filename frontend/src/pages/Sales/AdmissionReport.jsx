@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaFilter, FaDownload, FaChevronDown, FaCalendarAlt, FaChartLine, FaChartPie, FaPlus } from "react-icons/fa";
+import { FaFilter, FaDownload, FaChevronDown, FaCalendarAlt, FaChartLine, FaChartPie, FaPlus, FaChartBar, FaTable, FaTh } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -97,6 +97,7 @@ const AdmissionReport = () => {
     const [timePeriod, setTimePeriod] = useState("This Year"); // "This Year", "Last Year", "Custom"
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
+    const [displayMode, setDisplayMode] = useState("chart"); // chart, table, card
 
     // Dropdown Visibility - Managed by SearchableDropdown component now
 
@@ -347,7 +348,32 @@ const AdmissionReport = () => {
                             Admission Report
                         </h1>
                     </div>
-                    {/* User Profile/Notification Icons (Usually in Layout, but screenshot has them) */}
+                    <div className="flex items-center gap-2 bg-gray-100 dark:bg-[#1a1f24] p-1.5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-inner">
+                        <button
+                            onClick={() => setDisplayMode("chart")}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "chart" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            title="Chart View"
+                        >
+                            <FaChartBar size={18} />
+                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Chart</span>
+                        </button>
+                        <button
+                            onClick={() => setDisplayMode("table")}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "table" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            title="Table View"
+                        >
+                            <FaTable size={18} />
+                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Table</span>
+                        </button>
+                        <button
+                            onClick={() => setDisplayMode("card")}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "card" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            title="Card View"
+                        >
+                            <FaTh size={18} />
+                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Cards</span>
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filters Section */}
@@ -436,38 +462,117 @@ const AdmissionReport = () => {
                 </div>
 
                 {/* Charts Section */}
-                {/* Monthly Trend */}
-                <div className="bg-white dark:bg-white p-6 rounded-xl shadow-md border border-gray-200">
-                    <h3 className="text-lg font-bold text-gray-800 mb-6">Monthly Admissions Trend -</h3>
-                    <div className="h-[400px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={reportData.trend} margin={{ top: 20, right: 30, left: 0, bottom: 10 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="#E5E7EB" />
-                                <XAxis
-                                    dataKey="month"
-                                    stroke="#6B7280"
-                                    fontSize={12}
-                                    tickLine={false}
-                                />
-                                <YAxis
-                                    stroke="#6B7280"
-                                    fontSize={12}
-                                    tickLine={false}
-                                />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#fff', borderColor: '#E5E7EB', color: '#1F2937' }}
-                                />
-                                <Line
-                                    type="monotone"
-                                    dataKey="count"
-                                    stroke="#8b5cf6"
-                                    strokeWidth={3}
-                                    dot={{ r: 4, stroke: '#8b5cf6', fill: '#fff', strokeWidth: 2 }}
-                                    activeDot={{ r: 6, fill: '#8b5cf6' }}
-                                />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
+                {/* Charts/Views Section */}
+                <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 min-h-[500px]">
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-8 flex items-center gap-3">
+                        <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
+                        Monthly Admissions Trend ({timePeriod})
+                    </h3>
+
+                    {loading ? (
+                        <div className="flex h-96 items-center justify-center">
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                <p className="text-gray-500 dark:text-gray-400 font-medium animate-pulse tracking-[0.2em] text-xs">LOADING REPORT...</p>
+                            </div>
+                        </div>
+                    ) : reportData.trend.length === 0 ? (
+                        <div className="flex h-96 items-center justify-center text-gray-400 flex-col gap-4 bg-gray-50 dark:bg-[#131619] rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
+                            <FaChartLine size={48} className="opacity-20" />
+                            <p className="uppercase tracking-[0.2em] text-sm font-bold opacity-50">No admission data found</p>
+                        </div>
+                    ) : (
+                        <>
+                            {displayMode === "chart" && (
+                                <div className="h-[400px] w-full animate-fade-in">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={reportData.trend} margin={{ top: 20, right: 30, left: 0, bottom: 10 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="#E5E7EB" />
+                                            <XAxis dataKey="month" stroke="#6B7280" fontSize={12} tickLine={false} />
+                                            <YAxis stroke="#6B7280" fontSize={12} tickLine={false} />
+                                            <Tooltip contentStyle={{ backgroundColor: '#fff', borderColor: '#E5E7EB', color: '#1F2937', borderRadius: '12px' }} />
+                                            <Line type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, stroke: '#8b5cf6', fill: '#fff', strokeWidth: 2 }} activeDot={{ r: 6, fill: '#8b5cf6' }} />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+
+                            {displayMode === "table" && (
+                                <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Month</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Admissions</th>
+                                                {/* <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Trend Bar</th> */}
+                                                {/* <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Action</th> */}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            {reportData.trend.map((item, idx) => {
+                                                const maxCount = Math.max(...reportData.trend.map(d => d.count), 1);
+                                                const pct = (item.count / maxCount) * 100;
+                                                return (
+                                                    <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+                                                        <td className="p-5 font-bold text-gray-800 dark:text-white uppercase text-sm">{item.month}</td>
+                                                        <td className="p-5 text-center font-black text-blue-600 dark:text-blue-400 text-lg">{item.count}</td>
+                                                        {/* <td className="p-5">
+                                                            <div className="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className="h-full bg-gradient-to-r from-blue-600 to-indigo-500 rounded-full transition-all duration-1000"
+                                                                    style={{ width: `${pct}%` }}
+                                                                ></div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-5 text-right">
+                                                            <button className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-600 transition-colors">Details</button>
+                                                        </td> */}
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {displayMode === "card" && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
+                                    {reportData.trend.map((item, idx) => {
+                                        const maxCount = Math.max(...reportData.trend.map(d => d.count), 1);
+                                        const pct = (item.count / maxCount) * 100;
+                                        return (
+                                            <div key={idx} className="bg-white dark:bg-[#131619] rounded-2xl border border-gray-200 dark:border-gray-800 p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group">
+                                                <div className="flex justify-between items-center mb-6">
+                                                    <h4 className="font-black text-gray-400 uppercase text-[10px] tracking-widest">{item.month}</h4>
+                                                    <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
+                                                        <FaChartLine size={12} />
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-4">
+                                                    <div>
+                                                        <div className="text-3xl font-black text-gray-900 dark:text-white">{item.count}</div>
+                                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter mt-1">Total Admissions</div>
+                                                    </div>
+                                                    <div className="pt-2">
+                                                        <div className="flex justify-between text-[10px] font-black uppercase mb-2">
+                                                            <span className="text-gray-400 font-bold">Volume</span>
+                                                            <span className="text-blue-500">{pct.toFixed(0)}%</span>
+                                                        </div>
+                                                        <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                            <div
+                                                                className="h-full bg-blue-600 rounded-full"
+                                                                style={{ width: `${pct}%` }}
+                                                            ></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
 
                 {/* Admission Status */}

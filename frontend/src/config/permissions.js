@@ -118,18 +118,25 @@ export const PERMISSION_MODULES = {
     hrManpower: {
         label: "HR & Manpower",
         sections: {
-            employees: {
-                label: "Employees",
-                operations: ["create", "edit", "delete"]
-            },
-            attendance: {
-                label: "Attendance",
-                operations: ["create", "edit", "delete"]
-            },
-            payroll: {
-                label: "Payroll",
-                operations: ["create", "edit", "delete"]
-            }
+            employees: { label: "Employees", operations: ["create", "edit", "delete"] },
+            attendance: { label: "Attendance", operations: ["create", "edit", "delete"] },
+            holidayManagement: { label: "Holiday Management", operations: ["create", "edit", "delete"] },
+            holidayList: { label: "Holiday List", operations: ["create", "edit", "delete"] },
+            leaveType: { label: "Leaves Type", operations: ["create", "edit", "delete"] },
+            leaveManagement: { label: "Leave Management", operations: ["create", "edit", "delete"] },
+            regularizeTable: { label: "Regularize Table", operations: ["create", "edit", "delete"] },
+            department: { label: "Department", operations: ["create", "edit", "delete"] },
+            designation: { label: "Designation", operations: ["create", "edit", "delete"] },
+            center: { label: "Center Management", operations: ["create", "edit", "delete"] },
+            centerDetails: { label: "Center On/Off Details", operations: ["create", "edit", "delete"] },
+            training: { label: "Training List", operations: ["create", "edit", "delete"] },
+            posh: { label: "POSH Table", operations: ["create", "edit", "delete"] },
+            upload: { label: "Upload File", operations: ["create", "edit", "delete"] },
+            feedback: { label: "All Feedback", operations: ["create", "edit", "delete"] },
+            reimbursement: { label: "Reimbursement List", operations: ["create", "edit", "delete"] },
+            resign: { label: "Resign Request", operations: ["create", "edit", "delete"] },
+            birthday: { label: "Birthday Lists", operations: ["create", "edit", "delete"] },
+            payroll: { label: "Payroll", operations: ["create", "edit", "delete"] }
         }
     },
     operations: {
@@ -213,6 +220,10 @@ export const PERMISSION_MODULES = {
             },
             department: {
                 label: "Department",
+                operations: ["create", "edit", "delete"]
+            },
+            designation: {
+                label: "Designation",
                 operations: ["create", "edit", "delete"]
             },
             centre: {

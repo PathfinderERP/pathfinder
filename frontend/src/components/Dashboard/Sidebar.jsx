@@ -2,7 +2,9 @@
 import React, { useState } from "react";
 import {
     FaChartBar, FaBullseye, FaBook, FaMoneyBillWave, FaUserTie, FaCogs, FaMobileAlt,
-    FaBullhorn, FaThLarge, FaDatabase, FaChevronDown, FaChevronUp, FaTimes, FaUsers, FaShoppingCart
+    FaBullhorn, FaThLarge, FaDatabase, FaChevronDown, FaChevronUp, FaTimes, FaUsers,
+    FaShoppingCart, FaCalendarCheck, FaBuilding, FaIdCard, FaMapMarkerAlt, FaToggleOn,
+    FaChalkboardTeacher, FaTable, FaFileUpload, FaCommentDots, FaMoneyCheckAlt, FaUserMinus, FaBirthdayCake
 } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -91,7 +93,39 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Transaction Report", path: "/sales/transaction-report", permissionSection: "transactionReport" },
             ]
         },
-        { name: "HR & Manpower", icon: <FaUserTie />, path: "/hr", permissionModule: "hrManpower" },
+        {
+            name: "HR & Manpower",
+            icon: <FaUserTie />,
+            permissionModule: "hrManpower",
+            subItems: [
+                { name: "Employee Management", path: "/hr/employee/list", icon: <FaUsers />, permissionSection: "employees" },
+                {
+                    name: "Attendance Management",
+                    icon: <FaCalendarCheck />,
+                    permissionSection: "attendance",
+                    subItems: [
+                        { name: "Holiday Management", path: "/hr/attendance/holiday-management", permissionSection: "holidayManagement" },
+                        { name: "Holiday List", path: "/hr/attendance/holiday-list", permissionSection: "holidayList" },
+                        { name: "Leaves Type", path: "/hr/attendance/leave-type", permissionSection: "leaveType" },
+                        { name: "Leave Management", path: "/hr/attendance/leave-management", permissionSection: "leaveManagement" },
+                        { name: "Regularize Table", path: "/hr/attendance/regularize-table", permissionSection: "regularizeTable" },
+                        { name: "Daily Attendance", path: "/hr/attendance/daily" },
+                        { name: "Monthly Report", path: "/hr/attendance/monthly" },
+                    ]
+                },
+                { name: "Department", path: "/hr/department", icon: <FaBuilding />, permissionSection: "department" },
+                { name: "Designation", path: "/hr/designation", icon: <FaIdCard />, permissionSection: "designation" },
+                { name: "Center Management", path: "/hr/center", icon: <FaMapMarkerAlt />, permissionSection: "center" },
+                { name: "Center On/Off Details", path: "/hr/center-details", icon: <FaToggleOn />, permissionSection: "centerDetails" },
+                { name: "Training List", path: "/hr/training", icon: <FaChalkboardTeacher />, permissionSection: "training" },
+                { name: "POSH Table", path: "/hr/posh-table", icon: <FaTable />, permissionSection: "posh" },
+                { name: "Upload File", path: "/hr/upload", icon: <FaFileUpload />, permissionSection: "upload" },
+                { name: "All Feedback", path: "/hr/feedback", icon: <FaCommentDots />, permissionSection: "feedback" },
+                { name: "Reimbursement List", path: "/hr/reimbursement", icon: <FaMoneyCheckAlt />, permissionSection: "reimbursement" },
+                { name: "Resign Request", path: "/hr/resign", icon: <FaUserMinus />, permissionSection: "resign" },
+                { name: "Birthday Lists", path: "/hr/birthday", icon: <FaBirthdayCake />, permissionSection: "birthday" },
+            ]
+        },
         { name: "Operations", icon: <FaCogs />, path: "#", permissionModule: "operations" },
         { name: "Digital Portal", icon: <FaMobileAlt />, path: "#", permissionModule: "digitalPortal" },
         { name: "Marketing & CRM", icon: <FaBullhorn />, path: "#", permissionModule: "marketingCRM" },
@@ -104,8 +138,9 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Class", path: "/master-data/class", permissionSection: "class" },
                 { name: "Exam Tag", path: "/master-data/exam-tag", permissionSection: "examTag" },
                 { name: "Department", path: "/master-data/department", permissionSection: "department" },
+                { name: "Designation", path: "/master-data/designation", permissionSection: "designation" },
                 { name: "Centre", path: "/master-data/centre", permissionSection: "centre" },
-                { name: "Batch", path: "/master-data/batch", permissionSection: "batch" }, // Assuming 'batch' permission key
+                { name: "Batch", path: "/master-data/batch", permissionSection: "batch" },
                 { name: "Source", path: "/master-data/source", permissionSection: "source" },
                 { name: "Session", path: "/master-data/session", permissionSection: "session" },
                 { name: "Script", path: "/master-data/script", permissionSection: "script" },
@@ -240,7 +275,10 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                                     onClick={() => toggleMenu(sub.name)}
                                                     className="p-2 rounded-lg cursor-pointer text-sm transition-colors hover:text-white hover:bg-gray-800/50 flex justify-between items-center"
                                                 >
-                                                    <span>{sub.name}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        {sub.icon && <span className="opacity-70">{sub.icon}</span>}
+                                                        <span>{sub.name}</span>
+                                                    </div>
                                                     <span className="text-xs">
                                                         {openMenus[sub.name] ? <FaChevronUp /> : <FaChevronDown />}
                                                     </span>
@@ -266,12 +304,13 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                             /* Standard Sub Item */
                                             <div
                                                 onClick={() => navigate(sub.path)}
-                                                className={`p-2 rounded-lg cursor-pointer text-sm transition-colors ${location.pathname === sub.path
+                                                className={`p-2 rounded-lg cursor-pointer text-sm transition-colors flex items-center gap-2 ${location.pathname === sub.path
                                                     ? "text-cyan-400 font-semibold bg-gray-800"
                                                     : "hover:text-white hover:bg-gray-800/50"
                                                     }`}
                                             >
-                                                {sub.name}
+                                                {sub.icon && <span className="opacity-70">{sub.icon}</span>}
+                                                <span>{sub.name}</span>
                                             </div>
                                         )}
                                     </div>

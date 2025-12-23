@@ -198,16 +198,14 @@ export const deleteClassSchedule = async (req, res) => {
 export const submitFeedback = async (req, res) => {
     try {
         const { id } = req.params;
-        const { feedbackName, feedbackContent, feedbackRating } = req.body;
+        const { teacherFeedback } = req.body;
 
         const currentClass = await ClassSchedule.findById(id);
         if (!currentClass) {
             return res.status(404).json({ message: "Class not found" });
         }
 
-        currentClass.feedbackName = feedbackName || "";
-        currentClass.feedbackContent = feedbackContent || "";
-        currentClass.feedbackRating = feedbackRating || null;
+        currentClass.teacherFeedback = teacherFeedback || [];
         await currentClass.save();
 
         res.status(200).json({ message: "Feedback submitted successfully", class: currentClass });

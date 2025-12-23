@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaFilter, FaDownload, FaChevronDown, FaEraser } from "react-icons/fa";
+import { FaFilter, FaDownload, FaChevronDown, FaEraser, FaChartBar, FaTable, FaTh, FaCreditCard, FaStore } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -31,6 +31,7 @@ const TransactionReport = () => {
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedCourses, setSelectedCourses] = useState([]);
     const [selectedExamTag, setSelectedExamTag] = useState("");
+    const [displayMode, setDisplayMode] = useState("chart"); // chart, table, card
     const [selectedSession, setSelectedSession] = useState("");
     const [timePeriod, setTimePeriod] = useState("All Time"); // Default to All Time for broader view
     const [startDate, setStartDate] = useState("");
@@ -317,6 +318,32 @@ const TransactionReport = () => {
                             Transaction Report
                         </h1>
                     </div>
+                    <div className="flex items-center gap-2 bg-gray-100 dark:bg-[#1a1f24] p-1.5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-inner">
+                        <button
+                            onClick={() => setDisplayMode("chart")}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "chart" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            title="Chart View"
+                        >
+                            <FaChartBar size={18} />
+                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Chart</span>
+                        </button>
+                        <button
+                            onClick={() => setDisplayMode("table")}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "table" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            title="Table View"
+                        >
+                            <FaTable size={18} />
+                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Table</span>
+                        </button>
+                        <button
+                            onClick={() => setDisplayMode("card")}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "card" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            title="Card View"
+                        >
+                            <FaTh size={18} />
+                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Cards</span>
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filters */}
@@ -443,28 +470,133 @@ const TransactionReport = () => {
 
                 {/* Charts */}
 
-                {/* 1. Monthly Revenue */}
-                <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                    <h3 className="text-xl font-bold text-gray-800 mb-6">Monthly Revenue</h3>
-                    <div className="h-[400px]">
-                        {monthlyData.some(d => d.revenue > 0) ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={monthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} tickFormatter={(value) => `₹${value.toLocaleString()}`} />
-                                    <Tooltip content={<CustomBarTooltip />} cursor={{ fill: 'transparent' }} />
-                                    <Bar dataKey="revenue" fill="#8884d8" radius={[4, 4, 0, 0]}>
-                                        {monthlyData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill="#7c73e6" />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <div className="h-full flex items-center justify-center text-gray-400">No Revenue Data</div>
-                        )}
-                    </div>
+                {/* Content Area */}
+                <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 min-h-[500px]">
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-8 flex items-center gap-3">
+                        <div className="w-2 h-8 bg-green-600 rounded-full"></div>
+                        Monthly Revenue Trend ({timePeriod})
+                    </h3>
+
+                    {loading ? (
+                        <div className="flex h-96 items-center justify-center">
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                                <p className="text-gray-500 dark:text-gray-400 font-medium animate-pulse tracking-widest text-xs">COLLECTING FINANCIAL DATA...</p>
+                            </div>
+                        </div>
+                    ) : monthlyData.length === 0 ? (
+                        <div className="flex h-96 items-center justify-center text-gray-400 flex-col gap-4 bg-gray-50 dark:bg-[#131619] rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
+                            <FaCreditCard size={48} className="opacity-20" />
+                            <p className="uppercase tracking-[0.2em] text-sm font-bold opacity-50">No transactions recorded</p>
+                        </div>
+                    ) : (
+                        <>
+                            {displayMode === "chart" && (
+                                <div className="h-[400px] w-full animate-fade-in">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={monthlyData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" opacity={0.5} />
+                                            <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={{ stroke: '#E5E7EB' }} />
+                                            <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={{ stroke: '#E5E7EB' }} />
+                                            <Tooltip
+                                                cursor={{ fill: '#f3f4f6', opacity: 0.4 }}
+                                                contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                                formatter={(value) => [`₹${value.toLocaleString()}`, "Revenue"]}
+                                            />
+                                            <Bar dataKey="revenue" fill="#10b981" radius={[6, 6, 0, 0]} barSize={40}>
+                                                {monthlyData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#10b981' : '#34d399'} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+
+                            {displayMode === "table" && (
+                                <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Month</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Transactions</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right text-green-600">Total Revenue</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Avg/Transaction</th>
+                                                {/* <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Trend</th> */}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            {monthlyData.map((item, idx) => (
+                                                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+                                                    <td className="p-5 font-bold text-gray-800 dark:text-white uppercase text-sm group-hover:text-green-600 transition-colors">{item.month}</td>
+                                                    <td className="p-5 text-right font-medium text-gray-500 dark:text-gray-400 text-lg">{item.count}</td>
+                                                    <td className="p-5 text-right font-black text-gray-900 dark:text-white">₹{item.revenue.toLocaleString('en-IN')}</td>
+                                                    <td className="p-5 text-center text-sm font-bold text-gray-500">
+                                                        ₹{(item.revenue / (item.count || 1)).toFixed(0)}
+                                                    </td>
+                                                    {/* <td className="p-5">
+                                                        <div className="flex justify-center">
+                                                            <div className="w-24 h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className="h-full bg-green-500 rounded-full transition-all duration-1000"
+                                                                    style={{ width: `${Math.min((item.revenue / Math.max(...monthlyData.map(m => m.revenue))) * 100, 100)}%` }}
+                                                                ></div>
+                                                            </div>
+                                                        </div>
+                                                    </td> */}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr className="bg-gray-50 dark:bg-[#131619] font-black">
+                                                <td className="p-5 uppercase text-xs">Total Performance</td>
+                                                <td className="p-5 text-right">{monthlyData.reduce((acc, curr) => acc + (curr.count || 0), 0)}</td>
+                                                <td className="p-5 text-right text-green-600">₹{totalRevenue.toLocaleString('en-IN')}</td>
+                                                <td colSpan="2"></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            )}
+
+                            {displayMode === "card" && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
+                                    {monthlyData.map((item, idx) => {
+                                        const maxRev = Math.max(...monthlyData.map(m => m.revenue));
+                                        const pct = (item.revenue / maxRev) * 100;
+                                        return (
+                                            <div key={idx} className="bg-white dark:bg-[#131619] rounded-2xl border border-gray-200 dark:border-gray-800 p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group border-l-4 border-l-green-500">
+                                                <div className="flex justify-between items-center mb-6">
+                                                    <h4 className="font-black text-gray-400 uppercase text-[10px] tracking-widest">{item.month}</h4>
+                                                    <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center text-green-500">
+                                                        <FaStore size={12} />
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-6">
+                                                    <div>
+                                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 text-right">Revenue</div>
+                                                        <div className="text-3xl font-black text-gray-900 dark:text-white text-right tracking-tighter">₹{item.revenue.toLocaleString('en-IN')}</div>
+                                                    </div>
+                                                    <div className="flex justify-between items-center bg-gray-50 dark:bg-[#1a1f24] p-3 rounded-xl border border-gray-100 dark:border-gray-800">
+                                                        <div className="text-[10px] font-bold text-gray-400 uppercase">Transactions</div>
+                                                        <div className="font-black text-green-600">{item.count}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                            <div
+                                                                className="h-full bg-green-500 rounded-full transition-all duration-1000"
+                                                                style={{ width: `${pct}%` }}
+                                                            ></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
 
                 {/* 2. Payment Methods */}

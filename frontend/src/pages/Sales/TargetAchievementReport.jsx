@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
-import { FaSync, FaDownload } from "react-icons/fa";
+import { FaSync, FaDownload, FaChartBar, FaTable, FaTh } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import * as XLSX from "xlsx";
@@ -11,6 +11,7 @@ const TargetAchievementReport = () => {
     const [loading, setLoading] = useState(false);
     const [centres, setCentres] = useState([]);
     const [selectedCentres, setSelectedCentres] = useState([]); // Array of IDs
+    const [displayMode, setDisplayMode] = useState("chart"); // chart, table, card
 
     // Filters
     const [viewMode, setViewMode] = useState("Monthly"); // Monthly, Quarterly, Yearly
@@ -183,6 +184,33 @@ const TargetAchievementReport = () => {
                         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Target Achievement Report</h1>
                         <p className="text-gray-600 dark:text-gray-400">Target vs Achieved Analysis</p>
                     </div>
+
+                    <div className="flex items-center gap-2 bg-gray-100 dark:bg-[#1a1f24] p-1.5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-inner">
+                        <button
+                            onClick={() => setDisplayMode("chart")}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "chart" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            title="Chart View"
+                        >
+                            <FaChartBar size={18} />
+                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Chart</span>
+                        </button>
+                        <button
+                            onClick={() => setDisplayMode("table")}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "table" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            title="Table View"
+                        >
+                            <FaTable size={18} />
+                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Table</span>
+                        </button>
+                        <button
+                            onClick={() => setDisplayMode("card")}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "card" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            title="Card View"
+                        >
+                            <FaTh size={18} />
+                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Cards</span>
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filters Section */}
@@ -282,42 +310,143 @@ const TargetAchievementReport = () => {
                     </div>
                 </div>
 
-                {/* Chart Section */}
-                <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-md min-h-[500px]">
-                    <h3 className="text-gray-800 font-bold text-lg mb-6 text-center">
-                        Target vs Achieved ({viewMode.toLowerCase()})
+                {/* View Content */}
+                <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xl min-h-[500px] transition-all duration-500">
+                    <h3 className="text-gray-800 dark:text-white font-bold text-xl mb-8 flex items-center gap-3">
+                        <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
+                        Target vs Achieved ({viewMode})
                     </h3>
 
                     {loading ? (
-                        <div className="flex h-64 items-center justify-center text-gray-400">Loading chart...</div>
+                        <div className="flex h-96 items-center justify-center">
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                <p className="text-gray-500 dark:text-gray-400 font-medium animate-pulse uppercase tracking-widest text-sm">Fetching Data...</p>
+                            </div>
+                        </div>
                     ) : data.length === 0 ? (
-                        <div className="flex h-64 items-center justify-center text-gray-400">No data available for selected criteria.</div>
+                        <div className="flex h-96 items-center justify-center text-gray-400 flex-col gap-4 bg-gray-50 dark:bg-[#131619] rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
+                            <FaChartBar size={48} className="opacity-20" />
+                            <p className="uppercase tracking-[0.2em] text-sm font-bold opacity-50">No data available for selected criteria</p>
+                        </div>
                     ) : (
-                        <ResponsiveContainer width="100%" height={Math.max(500, data.length * 50)}>
-                            <BarChart
-                                layout="vertical"
-                                data={data}
-                                margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
-                                <XAxis type="number" tick={{ fill: '#6b7280' }} axisLine={{ stroke: '#d1d5db' }} />
-                                <YAxis
-                                    dataKey="centreName"
-                                    type="category"
-                                    width={120}
-                                    tick={{ fontSize: 12, fontWeight: 'bold', fill: '#374151' }}
-                                    axisLine={{ stroke: '#d1d5db' }}
-                                />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', color: '#374151', borderRadius: '8px' }}
-                                    formatter={(value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value)}
-                                    cursor={{ fill: '#f3f4f6', opacity: 0.4 }}
-                                />
-                                <Legend verticalAlign="top" height={36} wrapperStyle={{ color: '#6b7280' }} />
-                                <Bar dataKey="target" name="Target" fill="#FF8BA7" barSize={20} radius={[0, 5, 5, 0]} />
-                                <Bar dataKey="achieved" name="Achieved" fill="#4ECDC4" barSize={20} radius={[0, 5, 5, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
+                        <>
+                            {displayMode === "chart" && (
+                                <div className="animate-fade-in">
+                                    <ResponsiveContainer width="100%" height={Math.max(500, data.length * 50)}>
+                                        <BarChart
+                                            layout="vertical"
+                                            data={data}
+                                            margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" opacity={0.5} />
+                                            <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={{ stroke: '#d1d5db' }} tickFormatter={(val) => `₹${(val / 100000).toFixed(1)}L`} />
+                                            <YAxis
+                                                dataKey="centreName"
+                                                type="category"
+                                                width={120}
+                                                tick={{ fontSize: 11, fontWeight: 'bold', fill: '#4b5563' }}
+                                                axisLine={{ stroke: '#d1d5db' }}
+                                            />
+                                            <Tooltip
+                                                contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', color: '#374151', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                                formatter={(value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value)}
+                                                cursor={{ fill: '#f3f4f6', opacity: 0.4 }}
+                                            />
+                                            <Legend verticalAlign="top" align="right" height={36} iconType="circle" wrapperStyle={{ paddingBottom: '20px', fontSize: '12px', fontWeight: 'bold' }} />
+                                            <Bar dataKey="target" name="Target" fill="#FF8BA7" barSize={20} radius={[0, 10, 10, 0]} />
+                                            <Bar dataKey="achieved" name="Achieved" fill="#4ECDC4" barSize={20} radius={[0, 10, 10, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+
+                            {displayMode === "table" && (
+                                <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Centre Name</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Target</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Achieved</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Achievement %</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            {data.map((item, idx) => {
+                                                const pct = item.target > 0 ? (item.achieved / item.target) * 100 : 0;
+                                                return (
+                                                    <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+                                                        <td className="p-5 font-bold text-gray-800 dark:text-white uppercase text-sm group-hover:text-blue-600 transition-colors">{item.centreName}</td>
+                                                        <td className="p-5 text-right font-medium text-gray-600 dark:text-gray-300">₹{item.target.toLocaleString('en-IN')}</td>
+                                                        <td className="p-5 text-right font-bold text-gray-900 dark:text-white">₹{item.achieved.toLocaleString('en-IN')}</td>
+                                                        <td className="p-5 text-center">
+                                                            <div className="flex flex-col items-center gap-1">
+                                                                <span className={`text-sm font-black ${pct >= 100 ? 'text-green-500' : pct >= 50 ? 'text-blue-500' : 'text-red-500'}`}>
+                                                                    {pct.toFixed(1)}%
+                                                                </span>
+                                                                <div className="w-24 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className={`h-full rounded-full ${pct >= 100 ? 'bg-green-500' : pct >= 50 ? 'bg-blue-500' : 'bg-red-500'}`}
+                                                                        style={{ width: `${Math.min(pct, 100)}%` }}
+                                                                    ></div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-5 text-center">
+                                                            {pct >= 100 ? (
+                                                                <span className="bg-green-500/10 text-green-500 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border border-green-500/30">Target Met</span>
+                                                            ) : (
+                                                                <span className="bg-gray-500/10 text-gray-400 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border border-gray-500/30">In Progress</span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {displayMode === "card" && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
+                                    {data.map((item, idx) => {
+                                        const pct = item.target > 0 ? (item.achieved / item.target) * 100 : 0;
+                                        return (
+                                            <div key={idx} className="bg-white dark:bg-[#131619] rounded-2xl border border-gray-200 dark:border-gray-800 p-5 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 group hover:-translate-y-1">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <h4 className="font-black text-gray-800 dark:text-white uppercase text-xs tracking-widest flex-1">{item.centreName}</h4>
+                                                    <div className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${pct >= 100 ? 'bg-green-500 text-white' : pct >= 50 ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'}`}>
+                                                        {pct.toFixed(0)}%
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-4">
+                                                    <div className="flex justify-between items-end">
+                                                        <div className="text-[10px] font-bold text-gray-400 uppercase">Target</div>
+                                                        <div className="text-sm font-bold text-gray-600 dark:text-gray-400">₹{item.target.toLocaleString('en-IN')}</div>
+                                                    </div>
+                                                    <div className="flex justify-between items-end">
+                                                        <div className="text-[10px] font-bold text-gray-400 uppercase">Achieved</div>
+                                                        <div className="text-lg font-black text-gray-900 dark:text-white">₹{item.achieved.toLocaleString('en-IN')}</div>
+                                                    </div>
+
+                                                    <div className="pt-2">
+                                                        <div className="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                            <div
+                                                                className={`h-full rounded-full transition-all duration-1000 ${pct >= 100 ? 'bg-gradient-to-r from-green-500 to-emerald-400' : pct >= 50 ? 'bg-gradient-to-r from-blue-600 to-indigo-500' : 'bg-gradient-to-r from-red-600 to-orange-500'}`}
+                                                                style={{ width: `${Math.min(pct, 100)}%` }}
+                                                            ></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </div>

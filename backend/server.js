@@ -29,6 +29,8 @@ import academicsTopicRoutes from "./routes/Academics/academics_topic.routes.js";
 import classScheduleRoutes from "./routes/Academics/classSchedule.routes.js";
 import rmRoutes from "./routes/Academics/rm.routes.js";
 import hodRoutes from "./routes/Academics/hod.routes.js";
+import employeeRoutes from "./routes/HR/employee.routes.js";
+import designationRoutes from "./routes/designation/designation.routes.js";
 import { startPaymentReminderCron } from "./services/cronService.js";
 
 dotenv.config();
@@ -78,6 +80,11 @@ app.use("/api/academics/topic", academicsTopicRoutes);
 app.use("/api/academics/rm", rmRoutes);
 app.use("/api/academics/hod", hodRoutes);
 
+// HR Routes
+app.use("/api/hr/employee", employeeRoutes);
+
+// Master Data Routes
+app.use("/api/designation", designationRoutes);
 
 
 app.listen(process.env.PORT, () => {

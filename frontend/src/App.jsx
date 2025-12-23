@@ -64,6 +64,7 @@ import MasterDataBatch from "./pages/MasterDataBatch";
 import MasterDataSource from "./pages/MasterDataSource";
 import MasterDataSession from "./pages/MasterDataSession";
 import MasterDataScript from "./pages/MasterDataScript";
+import MasterDataDesignation from "./pages/MasterDataDesignation";
 import CarryForward from "./pages/CarryForward";
 import CourseTransfer from "./pages/CourseTransfer";
 
@@ -90,6 +91,10 @@ import TopicList from "./pages/Academics/ClassManagement/TopicList";
 import SectionLeaderBoard from "./pages/Academics/SectionLeaderBoard";
 import ExamLeaderBoard from "./pages/Academics/ExamLeaderBoard";
 
+// HR Pages
+import EmployeeList from "./pages/HR/EmployeeList";
+import AddEmployee from "./pages/HR/AddEmployee";
+
 function App() {
   return (
     <BrowserRouter>
@@ -113,6 +118,9 @@ function App() {
         <Route path="/sales/discount-report" element={<DiscountReport />} />
         <Route path="/sales/transaction-report" element={<TransactionReport />} />
         <Route path="/hr" element={<HR />} />
+        <Route path="/hr/employee/list" element={<EmployeeList />} />
+        <Route path="/hr/employee/add" element={<AddEmployee />} />
+        <Route path="/hr/employee/edit/:id" element={<AddEmployee />} />
         <Route path="/academics" element={<Academics />} />
         <Route path="/academics/teacher-list" element={<TeacherList />} />
         <Route path="/academics/student-teacher-review" element={<StudentTeacherReview />} />
@@ -144,6 +152,7 @@ function App() {
         <Route path="/master-data/source" element={<MasterDataSource />} />
         <Route path="/master-data/session" element={<MasterDataSession />} />
         <Route path="/master-data/script" element={<MasterDataScript />} />
+        <Route path="/master-data/designation" element={<MasterDataDesignation />} />
         <Route path="/course-management" element={<MasterDataCourse />} />
         <Route path="/course-management/carry-forward" element={<CarryForward />} />
         <Route path="/course-management/course-transfer" element={<CourseTransfer />} />
