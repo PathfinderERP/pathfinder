@@ -203,7 +203,7 @@ const MasterDataDesignation = () => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className="px-3 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                                                    {designation.department?.name || "N/A"}
+                                                    {designation.department?.departmentName || "N/A"}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
@@ -283,7 +283,7 @@ const MasterDataDesignation = () => {
                                                     color: '#ff0000ff'
                                                 }}
                                             >
-                                                {dept.name}
+                                                {dept.departmentName}
                                             </option>
                                         ))}
                                     </select>

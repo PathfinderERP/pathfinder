@@ -16,7 +16,6 @@ const AdmissionsContent = () => {
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
-    const [filterLeadStatus, setFilterLeadStatus] = useState([]);
     const [filterCentre, setFilterCentre] = useState([]);
     const [filterBoard, setFilterBoard] = useState([]);
     const [filterExamTag, setFilterExamTag] = useState([]);
@@ -39,7 +38,7 @@ const AdmissionsContent = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, filterLeadStatus, filterCentre, filterBoard, filterExamTag]);
+    }, [searchQuery, filterCentre, filterBoard, filterExamTag]);
 
     const fetchStudents = async () => {
         try {
@@ -52,7 +51,7 @@ const AdmissionsContent = () => {
             const data = await response.json();
             if (response.ok) {
                 // Reverse the array to show newest students first
-                setStudents(data.reverse());
+                setStudents(data);
             } else {
                 console.error("Failed to fetch students");
             }
@@ -66,7 +65,6 @@ const AdmissionsContent = () => {
     const handleRefresh = () => {
         setSearchQuery("");
         setCurrentPage(1);
-        setFilterLeadStatus([]);
         setFilterCentre([]);
         setFilterBoard([]);
         setFilterExamTag([]);
@@ -104,26 +102,17 @@ const AdmissionsContent = () => {
             email.toLowerCase().includes(query) ||
             centre.toLowerCase().includes(query) ||
             school.toLowerCase().includes(query) ||
-            leadStatus.toLowerCase().includes(query) ||
             board.toLowerCase().includes(query) ||
             examTag.toLowerCase().includes(query);
 
-        const matchesLeadStatus = filterLeadStatus.length === 0 || filterLeadStatus.includes(leadStatus);
         const matchesCentre = filterCentre.length === 0 || filterCentre.includes(centre);
         const matchesBoard = filterBoard.length === 0 || filterBoard.includes(board);
         const matchesExamTag = filterExamTag.length === 0 || filterExamTag.includes(examTag);
 
-        return matchesSearch && matchesLeadStatus && matchesCentre && matchesBoard && matchesExamTag;
+        return matchesSearch && matchesCentre && matchesBoard && matchesExamTag;
     });
 
-    const getStatusColor = (status) => {
-        switch (status) {
-            case "Hot": return "bg-red-500/10 text-red-400";
-            case "Cold": return "bg-blue-500/10 text-blue-400";
-            case "Negative": return "bg-gray-500/10 text-gray-400";
-            default: return "bg-gray-500/10 text-gray-400";
-        }
-    };
+
 
     const handleViewStudent = (student) => {
         setSelectedStudent(student);
@@ -179,7 +168,6 @@ const AdmissionsContent = () => {
             { label: 'Board', key: 'studentsDetails.0.board' },
             { label: 'Exam Tag', key: 'sessionExamCourse.0.examTag' },
             { label: 'Mobile', key: 'studentsDetails.0.mobileNum' },
-            { label: 'Lead Status', key: 'studentStatus.-1.status' },
         ];
 
         const exportData = filteredStudents.map(student => ({
@@ -197,7 +185,6 @@ const AdmissionsContent = () => {
             sessionExamCourse: [{
                 examTag: student.sessionExamCourse?.[0]?.examTag || 'N/A',
             }],
-            studentStatus: [student.studentStatus?.[student.studentStatus?.length - 1] || { status: 'N/A' }],
         }));
 
         downloadCSV(exportData, headers, 'admissions_students');
@@ -214,7 +201,6 @@ const AdmissionsContent = () => {
             { label: 'Board', key: 'studentsDetails.0.board' },
             { label: 'Exam Tag', key: 'sessionExamCourse.0.examTag' },
             { label: 'Mobile', key: 'studentsDetails.0.mobileNum' },
-            { label: 'Lead Status', key: 'studentStatus.-1.status' },
         ];
 
         const exportData = filteredStudents.map(student => ({
@@ -232,7 +218,6 @@ const AdmissionsContent = () => {
             sessionExamCourse: [{
                 examTag: student.sessionExamCourse?.[0]?.examTag || 'N/A',
             }],
-            studentStatus: [student.studentStatus?.[student.studentStatus?.length - 1] || { status: 'N/A' }],
         }));
 
         downloadExcel(exportData, headers, 'admissions_students');
@@ -307,47 +292,7 @@ const AdmissionsContent = () => {
                 </button>
             </div> */}
 
-            {/* KPI Cards */}
-            <div className="grid grid-cols-3 gap-6 mb-8">
-                {/* Hot Leads */}
-                <div className="bg-[#1a1f24] p-6 rounded-xl border-l-4 border-red-500 shadow-lg">
-                    <h3 className="text-gray-400 text-sm font-medium mb-2">Hot Leads</h3>
-                    <p className="text-4xl font-bold text-white mb-2">
-                        {students.filter(s => s.studentStatus?.[s.studentStatus?.length - 1]?.status === "Hot").length}
-                    </p>
-                    <p className="text-gray-500 text-xs">
-                        {students.length > 0
-                            ? `${((students.filter(s => s.studentStatus?.[s.studentStatus?.length - 1]?.status === "Hot").length / students.length) * 100).toFixed(1)}% of total`
-                            : "0% of total"}
-                    </p>
-                </div>
-
-                {/* Cold Leads */}
-                <div className="bg-[#1a1f24] p-6 rounded-xl border-l-4 border-blue-400 shadow-lg">
-                    <h3 className="text-gray-400 text-sm font-medium mb-2">Cold Leads</h3>
-                    <p className="text-4xl font-bold text-white mb-2">
-                        {students.filter(s => s.studentStatus?.[s.studentStatus?.length - 1]?.status === "Cold").length}
-                    </p>
-                    <p className="text-gray-500 text-xs">
-                        {students.length > 0
-                            ? `${((students.filter(s => s.studentStatus?.[s.studentStatus?.length - 1]?.status === "Cold").length / students.length) * 100).toFixed(1)}% of total`
-                            : "0% of total"}
-                    </p>
-                </div>
-
-                {/* Negative */}
-                <div className="bg-[#1a1f24] p-6 rounded-xl border-l-4 border-gray-500 shadow-lg">
-                    <h3 className="text-gray-400 text-sm font-medium mb-2">Negative</h3>
-                    <p className="text-4xl font-bold text-white mb-2">
-                        {students.filter(s => s.studentStatus?.[s.studentStatus?.length - 1]?.status === "Negative").length}
-                    </p>
-                    <p className="text-gray-500 text-xs">
-                        {students.length > 0
-                            ? `${((students.filter(s => s.studentStatus?.[s.studentStatus?.length - 1]?.status === "Negative").length / students.length) * 100).toFixed(1)}% of total`
-                            : "0% of total"}
-                    </p>
-                </div>
-            </div>
+            {/* KPI Cards Removed */}
 
             {/* Search & Table Controls */}
             <div className="bg-[#1a1f24] p-4 rounded-xl border border-gray-800 mb-6">
@@ -356,25 +301,12 @@ const AdmissionsContent = () => {
                         <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
                         <input
                             type="text"
-                            placeholder="Search by name, mobile, email, centre, lead status, board, exam..."
+                            placeholder="Search by name, mobile, email, centre, board, exam..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full bg-[#131619] text-white pl-10 pr-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
                         />
                     </div>
-
-                    <MultiSelectFilter
-                        label="Lead Status"
-                        placeholder="All Status"
-                        options={[
-                            { value: "Hot", label: "Hot" },
-                            { value: "Cold", label: "Cold" },
-                            { value: "Negative", label: "Negative" }
-
-                        ]}
-                        selectedValues={filterLeadStatus}
-                        onChange={setFilterLeadStatus}
-                    />
 
                     <MultiSelectFilter
                         label="Centre"
@@ -420,7 +352,7 @@ const AdmissionsContent = () => {
                     <h3 className="text-xl font-bold text-white">Registered Students</h3>
                 </div>
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full text-left border-collapse min-w-[1000px]">
                         {/* <thead>
                             <tr className="bg-[#252b32] text-gray-400 text-sm uppercase">
                                 <th className="p-4 font-medium">Student Name</th>
@@ -438,116 +370,28 @@ const AdmissionsContent = () => {
 
                         <thead>
                             <tr className="bg-[#252b32] text-gray-400 text-sm uppercase">
-                                {/* 1️⃣ Student Name */}
+                                <th className="p-4 font-medium">Reg. Date</th>
                                 <th className="p-4 font-medium">Student Name</th>
-
-                                {/* 2️⃣ Centre */}
+                                <th className="p-4 font-medium">Course</th>
+                                <th className="p-4 font-medium">Batch</th>
                                 <th className="p-4 font-medium">Centre</th>
-
-                                {/* 3️⃣ Email */}
                                 <th className="p-4 font-medium">Email</th>
-
-                                {/* Remaining columns (unchanged order from updated tbody) */}
                                 <th className="p-4 font-medium">Class</th>
-                                <th className="p-4 font-medium">School</th>
-                                <th className="p-4 font-medium">Board</th>
-                                <th className="p-4 font-medium">Exam Tag</th>
                                 <th className="p-4 font-medium">Mobile</th>
-                                <th className="p-4 font-medium">Lead Status</th>
                                 <th className="p-4 font-medium">Actions</th>
                             </tr>
                         </thead>
 
 
-                        {/* <tbody className="divide-y divide-gray-800">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan="10" className="p-8 text-center text-gray-500">Loading students...</td>
-                                </tr>
-                            ) : filteredStudents.length === 0 ? (
-                                <tr>
-                                    <td colSpan="10" className="p-8 text-center text-gray-500">
-                                        {searchQuery ? "No students found matching your search." : "No students found."}
-                                    </td>
-                                </tr>
-                            ) : (
-                                filteredStudents.map((student) => {
-                                    const details = student.studentsDetails?.[0] || {};
-                                    const exam = student.examSchema?.[0] || {};
-                                    const studentStatusList = student.studentStatus || [];
-                                    const currentStatusObj = studentStatusList.length > 0 ? studentStatusList[studentStatusList.length - 1] : {};
-                                    const status = currentStatusObj.status || "N/A";
-                                    const enrolledStatus = currentStatusObj.enrolledStatus || "Not Enrolled";
-                                    const scienceMathPercent = exam.scienceMathParcent || "N/A";
-                                    const sessionExam = student.sessionExamCourse?.[0] || {};
 
-                                    const isEnrolled = enrolledStatus === "Enrolled";
-
-                                    return (
-                                        <tr key={student._id} className="hover:bg-[#252b32] transition-colors group">
-                                            <td className="p-4 text-white font-medium">{details.studentName || "N/A"}</td>
-                                            <td className="p-4 text-gray-300">{exam.class || "N/A"}</td>
-                                            <td className="p-4 text-gray-300">{details.schoolName || "N/A"}</td>
-                                            <td className="p-4 text-gray-300">{details.board || "N/A"}</td>
-                                            <td className="p-4 text-gray-300">{sessionExam.examTag || "N/A"}</td>
-                                            <td className="p-4 text-gray-300">{details.mobileNum || "N/A"}</td>
-                                            <td className="p-4">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(status)}`}>
-                                                    {status}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 text-gray-300">{details.studentEmail || "N/A"}</td>
-                                            <td className="p-4 text-gray-300">{details.centre || "N/A"}</td>
-                                            <td className="p-4">
-                                                <div className="flex gap-2">
-                                                    {isEnrolled ? (
-                                                        <span className="px-3 py-1 bg-green-500/10 text-green-400 rounded text-sm font-semibold border border-green-500/20">
-                                                            ✓ Enrolled
-                                                        </span>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() => navigate(`/admission/${student._id}`)}
-                                                            className="px-3 py-1 bg-cyan-500 text-black rounded hover:bg-cyan-400 text-sm font-semibold transition-colors"
-                                                        >
-                                                            Admit
-                                                        </button>
-                                                    )}
-                                                    <button
-                                                        onClick={() => handleViewStudent(student)}
-                                                        className="p-2 bg-cyan-500/10 text-cyan-400 rounded hover:bg-cyan-500/20 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        title="View"
-                                                    >
-                                                        <FaEye />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleEditStudent(student)}
-                                                        className="p-2 bg-yellow-500/10 text-yellow-400 rounded hover:bg-yellow-500/20 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        title="Edit"
-                                                    >
-                                                        <FaEdit />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteStudent(student._id)}
-                                                        className="p-2 bg-red-500/10 text-red-400 rounded hover:bg-red-500/20 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        title="Delete"
-                                                    >
-                                                        <FaTrash />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody> */}
                         <tbody className="divide-y divide-gray-800">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="10" className="p-8 text-center text-gray-500">Loading students...</td>
+                                    <td colSpan="9" className="p-8 text-center text-gray-500">Loading students...</td>
                                 </tr>
                             ) : filteredStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan="10" className="p-8 text-center text-gray-500">
+                                    <td colSpan="9" className="p-8 text-center text-gray-500">
                                         {searchQuery ? "No students found matching your search." : "No students found."}
                                     </td>
                                 </tr>
@@ -557,51 +401,48 @@ const AdmissionsContent = () => {
                                     .map((student) => {
                                         const details = student.studentsDetails?.[0] || {};
                                         const exam = student.examSchema?.[0] || {};
-                                        const studentStatusList = student.studentStatus || [];
-                                        const currentStatusObj =
-                                            studentStatusList.length > 0 ? studentStatusList[studentStatusList.length - 1] : {};
-                                        const status = currentStatusObj.status || "N/A";
-                                        const enrolledStatus = currentStatusObj.enrolledStatus || "Not Enrolled";
                                         const sessionExam = student.sessionExamCourse?.[0] || {};
-
-                                        const isEnrolled = enrolledStatus === "Enrolled";
+                                        const isEnrolled = student.isEnrolled;
 
                                         return (
                                             <tr key={student._id} className="admissions-row-wave transition-colors group">
 
-                                                {/* 1️⃣ STUDENT NAME */}
+                                                {/* 1️⃣ REG. DATE */}
+                                                <td className="p-4 text-gray-400 text-sm whitespace-nowrap">
+                                                    {student.createdAt ? new Date(student.createdAt).toLocaleDateString('en-GB') : "N/A"}
+                                                </td>
+
+                                                {/* 2️⃣ STUDENT NAME */}
                                                 <td className="p-4 text-white font-medium">
                                                     {details.studentName || "N/A"}
                                                 </td>
 
-                                                {/* 2️⃣ CENTRE */}
+                                                {/* 3️⃣ COURSE */}
+                                                <td className="p-4 text-cyan-400 font-medium">
+                                                    {student.course?.courseName || "N/A"}
+                                                </td>
+
+                                                {/* 4️⃣ BATCH */}
+                                                <td className="p-4 text-yellow-500 text-xs font-semibold">
+                                                    {student.batches && student.batches.length > 0
+                                                        ? student.batches.map(b => b.batchName).join(", ")
+                                                        : "No Batch"}
+                                                </td>
+
+                                                {/* 5️⃣ CENTRE */}
                                                 <td className="p-4 text-gray-300">
                                                     {details.centre || "N/A"}
                                                 </td>
 
-                                                {/* 3️⃣ EMAIL */}
+                                                {/* 6️⃣ EMAIL */}
                                                 <td className="p-4 text-gray-300">
                                                     {details.studentEmail || "N/A"}
                                                 </td>
 
-                                                {/* Rest of the columns (UNCHANGED) */}
                                                 <td className="p-4 text-gray-300">{exam.class || "N/A"}</td>
-                                                <td className="p-4 text-gray-300">{details.schoolName || "N/A"}</td>
-                                                <td className="p-4 text-gray-300">{details.board || "N/A"}</td>
-                                                <td className="p-4 text-gray-300">{sessionExam.examTag || "N/A"}</td>
                                                 <td className="p-4 text-gray-300">{details.mobileNum || "N/A"}</td>
 
-                                                <td className="p-4">
-                                                    <span
-                                                        className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(
-                                                            status
-                                                        )}`}
-                                                    >
-                                                        {status}
-                                                    </span>
-                                                </td>
-
-                                                <td className="p-4">
+                                                <td className="p-4 whitespace-nowrap">
                                                     <div className="flex gap-2">
                                                         {isEnrolled ? (
                                                             <span className="px-3 py-1 bg-green-500/10 text-green-400 rounded text-sm font-semibold border border-green-500/20">
@@ -618,7 +459,7 @@ const AdmissionsContent = () => {
 
                                                         <button
                                                             onClick={() => handleViewStudent(student)}
-                                                            className="p-2 bg-cyan-500/10 text-cyan-400 rounded hover:bg-cyan-500/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            className="p-2 bg-cyan-500/10 text-cyan-400 rounded hover:bg-cyan-500/20 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                                                             title="View"
                                                         >
                                                             <FaEye />
@@ -627,7 +468,7 @@ const AdmissionsContent = () => {
                                                         {canEdit && (
                                                             <button
                                                                 onClick={() => handleEditStudent(student)}
-                                                                className="p-2 bg-yellow-500/10 text-yellow-400 rounded hover:bg-yellow-500/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                className="p-2 bg-yellow-500/10 text-yellow-400 rounded hover:bg-yellow-500/20 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                                                                 title="Edit"
                                                             >
                                                                 <FaEdit />
@@ -637,7 +478,7 @@ const AdmissionsContent = () => {
                                                         {canDelete && (
                                                             <button
                                                                 onClick={() => handleDeleteStudent(student._id)}
-                                                                className="p-2 bg-red-500/10 text-red-400 rounded hover:bg-red-500/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                className="p-2 bg-red-500/10 text-red-400 rounded hover:bg-red-500/20 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                                                                 title="Delete"
                                                             >
                                                                 <FaTrash />
@@ -669,6 +510,10 @@ const AdmissionsContent = () => {
                     onClose={() => {
                         setShowDetailsModal(false);
                         setSelectedStudent(null);
+                    }}
+                    onEdit={() => {
+                        setShowDetailsModal(false);
+                        setShowEditModal(true);
                     }}
                 />
             )}

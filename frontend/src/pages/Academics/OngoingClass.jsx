@@ -3,6 +3,7 @@ import Layout from "../../components/Layout";
 import { FaSearch, FaStop, FaClipboardList, FaCheck } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import StudentAttendanceModal from "../../components/Academics/StudentAttendanceModal";
 
 const OngoingClass = () => {
     const [classes, setClasses] = useState([]);
@@ -13,6 +14,8 @@ const OngoingClass = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalRecords, setTotalRecords] = useState(0);
     const [verifyingId, setVerifyingId] = useState(null);
+    const [showStudentAttendance, setShowStudentAttendance] = useState(false);
+    const [selectedClassId, setSelectedClassId] = useState(null);
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const isAdmin = user.role === "admin" || user.role === "superAdmin";
@@ -174,6 +177,25 @@ const OngoingClass = () => {
         );
     };
 
+    const handleStartStudy = async (id) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${API_URL}/academics/class-schedule/start-study/${id}`, {
+                method: "PUT",
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                toast.success("Study started successfully!");
+                fetchClasses();
+            } else {
+                toast.error(data.message || "Failed to start study");
+            }
+        } catch (error) {
+            toast.error("Error starting study");
+        }
+    };
+
     const formatDate = (dateString) => {
         if (!dateString) return "";
         const date = new Date(dateString);
@@ -246,64 +268,98 @@ const OngoingClass = () => {
                                 <tr className="bg-[#2a3038] text-gray-300 text-xs uppercase font-bold tracking-wider">
                                     <th className="p-4">Class Name</th>
                                     <th className="p-4">Class Mode</th>
-                                    <th className="p-4">Batch</th>
+                                    <th className="p-4">Batches</th>
                                     <th className="p-4">Center</th>
-                                    <th className="p-4">Started At</th>
+                                    <th className="p-4">Allocated Time</th>
+                                    <th className="p-4">Actual Start</th>
                                     <th className="p-4">Subject</th>
-                                    <th className="p-4 text-center">Attendance</th>
+                                    <th className="p-4 text-center">Teacher Attendance</th>
+                                    <th className="p-4 text-center">Study Status</th>
                                     <th className="p-4 text-center">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-700">
                                 {loading ? (
-                                    <tr><td colSpan="8" className="p-8 text-center text-gray-500">Loading...</td></tr>
+                                    <tr><td colSpan="10" className="p-8 text-center text-gray-500">Loading...</td></tr>
                                 ) : classes.length === 0 ? (
-                                    <tr><td colSpan="8" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No classes are currently ongoing</td></tr>
+                                    <tr><td colSpan="10" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No classes are currently ongoing</td></tr>
                                 ) : (
                                     classes.map((cls) => (
                                         <tr key={cls._id} className="hover:bg-[#252b32] transition-colors text-sm text-gray-300">
                                             <td className="p-4 font-semibold text-white">{cls.className}</td>
                                             <td className="p-4">{cls.classMode}</td>
-                                            <td className="p-4">{cls.batchId?.batchName || cls.batchId?.name || "-"}</td>
+                                            <td className="p-4">
+                                                <div className="flex flex-wrap gap-1">
+                                                    {cls.batchIds && cls.batchIds.length > 0 ? (
+                                                        cls.batchIds.map(b => (
+                                                            <span key={b._id} className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 rounded text-[10px] border border-cyan-500/20">
+                                                                {b.batchName || b.name}
+                                                            </span>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-gray-600">-</span>
+                                                    )}
+                                                </div>
+                                            </td>
                                             <td className="p-4">{cls.centreId?.centreName || cls.centreId?.name || "-"}</td>
+                                            <td className="p-4 text-xs font-bold text-gray-400">
+                                                {cls.startTime} - {cls.endTime}
+                                            </td>
                                             <td className="p-4">
                                                 {cls.actualStartTime ? new Date(cls.actualStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
                                             </td>
                                             <td className="p-4">{cls.subjectId?.subjectName || cls.subjectId?.name || "-"}</td>
                                             <td className="p-4 text-center">
-                                                <div className="flex flex-col gap-2 items-center justify-center">
+                                                <div className="flex flex-col gap-2 scale-90">
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedClassId(cls._id);
+                                                            setShowStudentAttendance(true);
+                                                        }}
+                                                        className={`px-3 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-[10px] uppercase transition shadow-lg ${cls.isStudentAttendanceSaved
+                                                            ? 'bg-green-600 text-white shadow-green-900/20'
+                                                            : 'bg-yellow-600 hover:bg-yellow-700 text-white shadow-yellow-900/20'
+                                                            }`}
+                                                    >
+                                                        <FaClipboardList />
+                                                        {cls.isStudentAttendanceSaved ? 'Students ✓' : 'Students'}
+                                                    </button>
+
                                                     {(isTeacher || isAdmin) && (
-                                                        <label className="flex items-center gap-2 cursor-pointer group">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={cls.teacherAttendance || false}
-                                                                onChange={() => (isTeacher || isAdmin) && !cls.teacherAttendance && handleAttendance(cls._id, cls.centreId?.latitude, cls.centreId?.longitude, 'teacher')}
-                                                                disabled={cls.teacherAttendance}
-                                                                className="w-4 h-4 rounded border-2 border-green-500 text-green-600 focus:ring-2 focus:ring-green-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
-                                                            />
-                                                            <span className={`text-[10px] font-bold uppercase ${cls.teacherAttendance ? 'text-green-400' : 'text-gray-400 group-hover:text-green-400'}`}>
-                                                                {cls.teacherAttendance ? 'Teacher: Present' : 'Teacher: Mark'}
-                                                            </span>
-                                                        </label>
+                                                        <button
+                                                            onClick={() => !cls.teacherAttendance && handleAttendance(cls._id, cls.centreId?.latitude, cls.centreId?.longitude, 'teacher')}
+                                                            disabled={!cls.isStudentAttendanceSaved || cls.teacherAttendance}
+                                                            className={`px-3 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-[10px] uppercase transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${cls.teacherAttendance
+                                                                ? 'bg-green-600 text-white shadow-green-900/20'
+                                                                : 'bg-cyan-600 hover:bg-cyan-700 text-white shadow-cyan-900/20'
+                                                                }`}
+                                                        >
+                                                            <FaCheck />
+                                                            {cls.teacherAttendance ? 'Teacher ✓' : 'Teacher'}
+                                                        </button>
                                                     )}
-
-                                                    {(isCoordinator || isAdmin) && (
-                                                        <label className="flex items-center gap-2 cursor-pointer group">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={cls.coordinatorAttendance || false}
-                                                                onChange={() => (isCoordinator || isAdmin) && !cls.coordinatorAttendance && handleAttendance(cls._id, cls.centreId?.latitude, cls.centreId?.longitude, 'coordinator')}
-                                                                disabled={cls.coordinatorAttendance}
-                                                                className="w-4 h-4 rounded border-2 border-blue-500 text-blue-600 focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
-                                                            />
-                                                            <span className={`text-[10px] font-bold uppercase ${cls.coordinatorAttendance ? 'text-blue-400' : 'text-gray-400 group-hover:text-blue-400'}`}>
-                                                                {cls.coordinatorAttendance ? 'Coordinator: Present' : 'Coordinator: Mark'}
-                                                            </span>
-                                                        </label>
-                                                    )}
-
-                                                    {/* If Admin and no attendance marked yet, show buttons or statuses? I assume Admin doesn't mark. */}
                                                 </div>
+                                            </td>
+                                            <td className="p-4 text-center">
+                                                {cls.studyStartTime ? (
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-[10px] font-bold text-green-400 uppercase">Study Started</span>
+                                                        <span className="text-[10px] text-gray-400 font-mono">
+                                                            {new Date(cls.studyStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    isTeacher ? (
+                                                        <button
+                                                            onClick={() => handleStartStudy(cls._id)}
+                                                            className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1 rounded text-[10px] font-bold uppercase transition shadow-lg shadow-cyan-900/20"
+                                                        >
+                                                            Start Study
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-[10px] font-bold text-gray-500 uppercase italic">Not Started</span>
+                                                    )
+                                                )}
                                             </td>
                                             <td className="p-4 text-center">
                                                 <div className="relative group/hover inline-block">
@@ -354,6 +410,17 @@ const OngoingClass = () => {
                         </div>
                     </div>
                 </div>
+
+                {showStudentAttendance && selectedClassId && (
+                    <StudentAttendanceModal
+                        classScheduleId={selectedClassId}
+                        onClose={() => {
+                            setShowStudentAttendance(false);
+                            setSelectedClassId(null);
+                        }}
+                        onSaveSuccess={fetchClasses}
+                    />
+                )}
             </div>
         </Layout>
     );

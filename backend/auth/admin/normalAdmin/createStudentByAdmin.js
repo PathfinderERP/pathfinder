@@ -4,18 +4,19 @@ export const createStudentByAdmin = async (req, res) => {
   try {
     console.log("📥 Received student registration request");
     console.log("Request body:", JSON.stringify(req.body, null, 2));
-    
+
     const {
       studentsDetails,
       guardians,
       examSchema,
       section,
       sessionExamCourse,
-      studentStatus,
+      course,
+      batches,
     } = req.body;
 
     console.log("Validating required fields...");
-    
+
     if (
       !studentsDetails ||
       !Array.isArray(studentsDetails) ||
@@ -28,10 +29,7 @@ export const createStudentByAdmin = async (req, res) => {
       examSchema.length === 0 ||
       !sessionExamCourse ||
       !Array.isArray(sessionExamCourse) ||
-      sessionExamCourse.length === 0 ||
-      !studentStatus ||
-      !Array.isArray(studentStatus) ||
-      studentStatus.length === 0
+      sessionExamCourse.length === 0
     ) {
       console.error("❌ Validation failed: Missing required fields");
       return res.status(400).json({
@@ -42,7 +40,7 @@ export const createStudentByAdmin = async (req, res) => {
 
     console.log("✅ All required fields validated");
     console.log("Creating student document...");
-    
+
     // Create new student document
     const newStudent = new Student({
       studentsDetails,
@@ -50,7 +48,8 @@ export const createStudentByAdmin = async (req, res) => {
       examSchema,
       section: section || [],
       sessionExamCourse,
-      studentStatus,
+      course,
+      batches,
     });
 
     console.log("Saving student to database...");
@@ -66,13 +65,13 @@ export const createStudentByAdmin = async (req, res) => {
     console.error("Error name:", error.name);
     console.error("Error message:", error.message);
     console.error("Full error:", error);
-    
+
     if (error.name === 'ValidationError') {
       console.error("Validation errors details:");
       Object.keys(error.errors).forEach(key => {
         console.error(`  - ${key}: ${error.errors[key].message}`);
       });
-      
+
       const validationErrors = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({
         message: "Validation error",
@@ -80,7 +79,7 @@ export const createStudentByAdmin = async (req, res) => {
         details: error.message
       });
     }
-    
+
     console.error("Stack trace:", error.stack);
     return res.status(500).json({
       message: "Internal server error while adding student",

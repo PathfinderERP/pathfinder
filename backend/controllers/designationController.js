@@ -4,7 +4,7 @@ import Designation from "../models/Master_data/Designation.js";
 export const getDesignations = async (req, res) => {
     try {
         const designations = await Designation.find({ isActive: true })
-            .populate("department", "name")
+            .populate("department", "departmentName")
             .sort({ name: 1 });
         res.status(200).json(designations);
     } catch (error) {
@@ -16,7 +16,7 @@ export const getDesignations = async (req, res) => {
 // Get single designation
 export const getDesignationById = async (req, res) => {
     try {
-        const designation = await Designation.findById(req.params.id).populate("department", "name");
+        const designation = await Designation.findById(req.params.id).populate("department", "departmentName");
         if (!designation) {
             return res.status(404).json({ message: "Designation not found" });
         }

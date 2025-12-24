@@ -10,6 +10,19 @@ const StudentRegistrationForm = () => {
     const [loading, setLoading] = useState(false);
     const [centres, setCentres] = useState([]);
     const [examTags, setExamTags] = useState([]);
+    const [batches, setBatches] = useState([]);
+    const [courses, setCourses] = useState([]);
+    const [classes, setClasses] = useState([]);
+    const [sessions, setSessions] = useState([]);
+    const [filteredCourses, setFilteredCourses] = useState([]);
+    const [selectedBatches, setSelectedBatches] = useState([]);
+
+    const [courseFilters, setCourseFilters] = useState({
+        mode: "",
+        courseType: "",
+        class: "",
+        examTag: ""
+    });
 
     const indianStates = [
         "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana",
@@ -61,9 +74,9 @@ const StudentRegistrationForm = () => {
         examTag: "",
         targetExams: "",
 
-        // Student Status
-        status: "",
-        enrolledStatus: "Not Enrolled",
+        // New Fields
+        course: "",
+        batches: []
     });
 
     useEffect(() => {
@@ -93,7 +106,6 @@ const StudentRegistrationForm = () => {
                 centre: lead.centre?.centreName || "",
                 source: lead.source || "",
                 targetExams: lead.targetExam || "",
-                status: statusMap[lead.leadType] || "",
                 class: classVal,
                 whatsappNumber: lead.phoneNumber || "" // Use phone as WA default
             }));
@@ -140,10 +152,94 @@ const StudentRegistrationForm = () => {
         }
     };
 
+    const fetchBatches = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/batch/list`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await response.json();
+            if (response.ok) setBatches(data);
+        } catch (error) { console.error("Error fetching batches:", error); }
+    };
+
+    const fetchCourses = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/course/`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setCourses(data);
+                setFilteredCourses(data);
+            }
+        } catch (error) { console.error("Error fetching courses:", error); }
+    };
+
+    const fetchClasses = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/class/`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await response.json();
+            if (response.ok) setClasses(data);
+        } catch (error) { console.error("Error fetching classes:", error); }
+    };
+
+    const fetchSessions = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/session/list`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await response.json();
+            if (response.ok) setSessions(data);
+        } catch (error) { console.error("Error fetching sessions:", error); }
+    };
+
     useEffect(() => {
         fetchCentres();
         fetchExamTags();
+        fetchBatches();
+        fetchCourses();
+        fetchClasses();
+        fetchSessions();
     }, []);
+
+    useEffect(() => {
+        let result = courses;
+        if (courseFilters.mode) result = result.filter(v => v.mode === courseFilters.mode);
+        if (courseFilters.courseType) result = result.filter(v => v.courseType === courseFilters.courseType);
+        if (courseFilters.class) result = result.filter(v => v.class?._id === courseFilters.class || v.class === courseFilters.class);
+        if (courseFilters.examTag) result = result.filter(v => v.examTag?._id === courseFilters.examTag || v.examTag === courseFilters.examTag);
+        setFilteredCourses(result);
+    }, [courseFilters, courses]);
+
+    const handleCourseFilterChange = (e) => {
+        const { name, value } = e.target;
+        setCourseFilters(prev => ({ ...prev, [name]: value }));
+    };
+
+    const resetCourseFilters = () => {
+        setCourseFilters({
+            mode: "",
+            courseType: "",
+            class: "",
+            examTag: ""
+        });
+    };
+
+    const handleBatchToggle = (batchId) => {
+        setSelectedBatches(prev => {
+            const updated = prev.includes(batchId)
+                ? prev.filter(id => id !== batchId)
+                : [...prev, batchId];
+            setFormData(f => ({ ...f, batches: updated }));
+            return updated;
+        });
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -230,12 +326,8 @@ const StudentRegistrationForm = () => {
                         targetExams: formData.targetExams,
                     }
                 ],
-                studentStatus: [
-                    {
-                        status: formData.status,
-                        enrolledStatus: formData.enrolledStatus,
-                    }
-                ]
+                course: formData.course,
+                batches: formData.batches
             };
 
             console.log("📤 Sending student registration payload:", JSON.stringify(payload, null, 2));
@@ -365,10 +457,57 @@ const StudentRegistrationForm = () => {
 
                         {/* Course & Section Details */}
                         <div>
-                            <h4 className="text-lg font-semibold text-cyan-400 mb-3">Course & Section</h4>
+                            <h4 className="text-lg font-semibold text-cyan-400 mb-3 flex items-center justify-between">
+                                Course Selection & Filters
+                                <button
+                                    type="button"
+                                    onClick={resetCourseFilters}
+                                    className="text-[10px] bg-gray-800 hover:bg-gray-700 text-gray-400 px-2 py-1 rounded uppercase font-bold transition-all border border-gray-700"
+                                >
+                                    Clear Filters
+                                </button>
+                            </h4>
+                            <div className="bg-[#131619] p-4 rounded-lg border border-gray-700 mb-4">
+                                <p className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider">Refine Course List</p>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <select name="mode" value={courseFilters.mode} onChange={handleCourseFilterChange} className="bg-[#1a1f24] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm">
+                                        <option value="">All Modes</option>
+                                        <option value="ONLINE">ONLINE</option>
+                                        <option value="OFFLINE">OFFLINE</option>
+                                    </select>
+                                    <select name="courseType" value={courseFilters.courseType} onChange={handleCourseFilterChange} className="bg-[#1a1f24] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm">
+                                        <option value="">All Types</option>
+                                        <option value="INSTATION">INSTATION</option>
+                                        <option value="OUTSTATION">OUTSTATION</option>
+                                    </select>
+                                    <select name="class" value={courseFilters.class} onChange={handleCourseFilterChange} className="bg-[#1a1f24] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm">
+                                        <option value="">All Classes</option>
+                                        {classes.map(c => <option key={c._id} value={c._id}>{c.className || c.name}</option>)}
+                                    </select>
+                                    <select name="examTag" value={courseFilters.examTag} onChange={handleCourseFilterChange} className="bg-[#1a1f24] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm">
+                                        <option value="">All Exam Tags</option>
+                                        {examTags.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                <select name="course" value={formData.course} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full lg:col-span-2 border-cyan-700/50 focus:border-cyan-500">
+                                    <option value="">Select Enrolling Course *</option>
+                                    {filteredCourses.map((c) => (
+                                        <option key={c._id} value={c._id}>
+                                            {c.courseName} ({c.mode} - {c.courseType})
+                                        </option>
+                                    ))}
+                                </select>
                                 <input type="text" name="sectionType" value={formData.sectionType} onChange={handleChange} placeholder="Section Type" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <input type="text" name="session" value={formData.session} onChange={handleChange} placeholder="Session" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <select name="session" value={formData.session} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
+                                    <option value="">Select Session</option>
+                                    {sessions.map((session) => (
+                                        <option key={session._id} value={session.sessionName || session.name}>
+                                            {session.sessionName || session.name}
+                                        </option>
+                                    ))}
+                                </select>
                                 <select name="examTag" value={formData.examTag} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
                                     <option value="">Select Exam Tag</option>
                                     {examTags.map((tag) => (
@@ -379,20 +518,25 @@ const StudentRegistrationForm = () => {
                             </div>
                         </div>
 
-                        {/* Student Status */}
+                        {/* Batch Selection */}
                         <div>
-                            <h4 className="text-lg font-semibold text-cyan-400 mb-3">Student Status</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <select name="status" required value={formData.status} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
-                                    <option value="">Select Lead Status *</option>
-                                    <option value="Hot">Hot Lead</option>
-                                    <option value="Cold">Cold Lead</option>
-                                    <option value="Negative">Negative</option>
-                                </select>
-                                <select name="enrolledStatus" required value={formData.enrolledStatus} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
-                                    <option value="Not Enrolled">Not Enrolled</option>
-                                    <option value="Enrolled">Enrolled</option>
-                                </select>
+                            <h4 className="text-lg font-semibold text-cyan-400 mb-3">Batch Allocation (Multiple Selection)</h4>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 bg-[#131619] p-4 rounded-xl border border-gray-800">
+                                {batches.map((batch) => (
+                                    <label key={batch._id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${formData.batches.includes(batch._id) ? 'bg-cyan-600/20 border-cyan-500 text-white shadow-lg' : 'bg-[#1a1f24] border-gray-700 hover:border-gray-500 text-gray-400'}`}>
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.batches.includes(batch._id)}
+                                            onChange={() => handleBatchToggle(batch._id)}
+                                            className="hidden"
+                                        />
+                                        <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center ${formData.batches.includes(batch._id) ? 'bg-cyan-500 border-cyan-500' : 'border-gray-600'}`}>
+                                            {formData.batches.includes(batch._id) && <span className="text-[10px] text-black font-bold">✓</span>}
+                                        </div>
+                                        <span className="text-sm font-medium">{batch.batchName}</span>
+                                    </label>
+                                ))}
+                                {batches.length === 0 && <p className="text-xs text-gray-500 italic col-span-full">No batches found in master data...</p>}
                             </div>
                         </div>
 

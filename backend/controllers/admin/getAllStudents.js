@@ -2,7 +2,10 @@ import Student from "../../models/Students.js";
 
 export const getAllStudents = async (req, res) => {
   try {
-    const students = await Student.find().sort({ createdAt: -1 });
+    const students = await Student.find()
+      .populate('course')
+      .populate('batches')
+      .sort({ createdAt: -1 });
     res.status(200).json(students);
   } catch (error) {
     console.error("Error fetching students:", error);

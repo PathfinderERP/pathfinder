@@ -17,7 +17,7 @@ const AddClass = () => {
         examId: "",
         courseId: "",
         centreId: "",
-        batchId: "",
+        batchIds: [],
         coordinatorId: "",
         // New Academic Fields
         acadClassId: "",
@@ -169,7 +169,7 @@ const AddClass = () => {
                 toast.success("Class scheduled successfully");
                 setFormData({
                     className: "", date: "", classMode: "", startTime: "", endTime: "",
-                    subjectId: "", teacherId: "", session: "", examId: "", courseId: "", centreId: "", batchId: "",
+                    subjectId: "", teacherId: "", session: "", examId: "", courseId: "", centreId: "", batchIds: [],
                     acadClassId: "", acadSubjectId: "", chapterId: "", topicIds: [], message: ""
                 });
                 setSelectedTopics([]);
@@ -270,11 +270,28 @@ const AddClass = () => {
                             </select>
                         </div>
                         <div className="md:col-span-2">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">Batch*</label>
-                            <select name="batchId" value={formData.batchId} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" required>
-                                <option value="">Select a batch</option>
-                                {dropdownData.batches.map(b => <option key={b._id} value={b._id}>{b.batchName}</option>)}
-                            </select>
+                            <label className="block text-gray-400 text-sm font-semibold mb-2">Batches*</label>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 bg-[#131619] p-4 rounded-lg border border-gray-700">
+                                {dropdownData.batches.map(b => (
+                                    <label key={b._id} className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-all ${formData.batchIds.includes(b._id) ? 'bg-cyan-900/30 border-cyan-500 text-cyan-200' : 'bg-[#1a1f24] border-gray-800 text-gray-500 hover:border-gray-600'}`}>
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.batchIds.includes(b._id)}
+                                            onChange={(e) => {
+                                                const checked = e.target.checked;
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    batchIds: checked
+                                                        ? [...prev.batchIds, b._id]
+                                                        : prev.batchIds.filter(id => id !== b._id)
+                                                }));
+                                            }}
+                                            className="hidden"
+                                        />
+                                        <span className="text-xs font-bold truncate">{b.batchName}</span>
+                                    </label>
+                                ))}
+                            </div>
                         </div>
 
                         {/* NEW SECTION: Academic Class Content */}

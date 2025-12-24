@@ -115,13 +115,10 @@ export const createAdmission = async (req, res) => {
 
         // Update student enrollment status and reset carryForwardBalance
         await Student.findByIdAndUpdate(studentId, {
-            $push: {
-                studentStatus: {
-                    status: "Enrolled",
-                    enrolledStatus: "Enrolled"
-                }
-            },
-            $set: { carryForwardBalance: 0 } // Reset balance as it's now part of this admission
+            $set: {
+                isEnrolled: true,
+                carryForwardBalance: 0
+            }
         });
 
         // Update Centre Target Achieved

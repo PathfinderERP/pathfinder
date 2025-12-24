@@ -110,7 +110,7 @@ const EmployeeList = () => {
             "Employee ID": emp.employeeId,
             "Name": emp.name,
             "Email": emp.email,
-            "Department": emp.department?.name || "",
+            "Department": emp.department?.departmentName || "",
             "Designation": emp.designation?.name || "",
             "Centre": emp.primaryCentre?.centreName || "",
             "Status": emp.status
@@ -185,7 +185,7 @@ const EmployeeList = () => {
                         >
                             <option value="">All Departments</option>
                             {departments.map(dept => (
-                                <option key={dept._id} value={dept._id}>{dept.name}</option>
+                                <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
                             ))}
                         </select>
                         <select
@@ -282,7 +282,7 @@ const EmployeeList = () => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className="px-3 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                                                    {employee.department?.name || "N/A"}
+                                                    {employee.department?.departmentName || "N/A"}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">

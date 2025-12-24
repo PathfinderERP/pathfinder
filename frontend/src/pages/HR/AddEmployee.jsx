@@ -434,7 +434,7 @@ const AddEmployee = () => {
                                 >
                                     <option value="">Choose</option>
                                     {masterData.departments.map(dept => (
-                                        <option key={dept._id} value={dept._id}>{dept.name}</option>
+                                        <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
                                     ))}
                                 </select>
                             </div>

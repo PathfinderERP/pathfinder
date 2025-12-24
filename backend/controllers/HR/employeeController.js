@@ -110,6 +110,14 @@ export const createEmployee = async (req, res) => {
         employeeData.createdBy = req.user.id;
         employeeData.updatedBy = req.user.id;
 
+        // Clean up empty strings for ObjectId fields
+        const objectIdFields = ["manager", "department", "designation", "primaryCentre"];
+        objectIdFields.forEach(field => {
+            if (employeeData[field] === "") {
+                delete employeeData[field];
+            }
+        });
+
         const employee = new Employee(employeeData);
         await employee.save();
 
@@ -117,7 +125,7 @@ export const createEmployee = async (req, res) => {
         await employee.populate([
             { path: "primaryCentre", select: "centreName" },
             { path: "centres", select: "centreName" },
-            { path: "department", select: "name" },
+            { path: "department", select: "departmentName" },
             { path: "designation", select: "name" },
             { path: "manager", select: "name employeeId" }
         ]);
@@ -174,7 +182,7 @@ export const getEmployees = async (req, res) => {
         const employees = await Employee.find(query)
             .populate("primaryCentre", "centreName")
             .populate("centres", "centreName")
-            .populate("department", "name")
+            .populate("department", "departmentName")
             .populate("designation", "name")
             .populate("manager", "name employeeId")
             .sort({ createdAt: -1 })
@@ -204,7 +212,7 @@ export const getEmployeeById = async (req, res) => {
         const employee = await Employee.findById(req.params.id)
             .populate("primaryCentre", "centreName")
             .populate("centres", "centreName")
-            .populate("department", "name")
+            .populate("department", "departmentName")
             .populate("designation", "name")
             .populate("manager", "name employeeId");
 
@@ -287,6 +295,14 @@ export const updateEmployee = async (req, res) => {
 
         updateData.updatedBy = req.user.id;
 
+        // Clean up empty strings for ObjectId fields
+        const objectIdFields = ["manager", "department", "designation", "primaryCentre"];
+        objectIdFields.forEach(field => {
+            if (updateData[field] === "") {
+                delete updateData[field];
+            }
+        });
+
         const updatedEmployee = await Employee.findByIdAndUpdate(
             req.params.id,
             updateData,
@@ -294,7 +310,7 @@ export const updateEmployee = async (req, res) => {
         ).populate([
             { path: "primaryCentre", select: "centreName" },
             { path: "centres", select: "centreName" },
-            { path: "department", select: "name" },
+            { path: "department", select: "departmentName" },
             { path: "designation", select: "name" },
             { path: "manager", select: "name employeeId" }
         ]);

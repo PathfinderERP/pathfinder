@@ -13,6 +13,11 @@ const PreviousClass = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalRecords, setTotalRecords] = useState(0);
 
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const isAdmin = user.role === "admin" || user.role === "superAdmin";
+    const isCoordinator = user.role === "Class_Coordinator";
+    const isTeacher = user.role === "teacher";
+
     // Feedback State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [selectedClassForFeedback, setSelectedClassForFeedback] = useState(null);
@@ -139,48 +144,59 @@ const PreviousClass = () => {
                                     <th className="p-4">Class Name</th>
                                     <th className="p-4">Batch</th>
                                     <th className="p-4">Date</th>
+                                    <th className="p-4">Allocated Time</th>
                                     <th className="p-4">Actual Time</th>
                                     <th className="p-4">Subject</th>
+                                    <th className="p-4 text-center">Study Started</th>
                                     <th className="p-4 text-center">Status</th>
                                     <th className="p-4 text-center">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-700">
                                 {loading ? (
-                                    <tr><td colSpan="7" className="p-8 text-center text-gray-500">Loading...</td></tr>
+                                    <tr><td colSpan="9" className="p-8 text-center text-gray-500">Loading...</td></tr>
                                 ) : classes.length === 0 ? (
-                                    <tr><td colSpan="7" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No previous classes found</td></tr>
+                                    <tr><td colSpan="9" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No previous classes found</td></tr>
                                 ) : (
                                     classes.map((cls) => (
                                         <tr key={cls._id} className="hover:bg-[#252b32] transition-colors text-sm text-gray-300">
                                             <td className="p-4 font-semibold text-white">{cls.className}</td>
                                             <td className="p-4">{cls.batchId?.batchName || cls.batchId?.name || "-"}</td>
                                             <td className="p-4">{formatDate(cls.date)}</td>
-                                            <td className="p-4">
+                                            <td className="p-4 text-xs font-bold text-gray-400">
+                                                {cls.startTime} - {cls.endTime}
+                                            </td>
+                                            <td className="p-4 text-xs font-bold text-gray-400">
                                                 {cls.actualStartTime ? new Date(cls.actualStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
                                                 {" - "}
                                                 {cls.actualEndTime ? new Date(cls.actualEndTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
                                             </td>
                                             <td className="p-4">{cls.subjectId?.subjectName || cls.subjectId?.name || "-"}</td>
+                                            <td className="p-4 text-center font-mono text-xs text-cyan-400">
+                                                {cls.studyStartTime ? new Date(cls.studyStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : "-"}
+                                            </td>
                                             <td className="p-4 text-center">
                                                 <span className="bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full text-xs font-bold border border-blue-600/50 flex items-center justify-center gap-1 mx-auto w-fit">
                                                     <FaCheckCircle size={10} /> Completed
                                                 </span>
                                             </td>
                                             <td className="p-4 text-center">
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedClassForFeedback(cls);
-                                                        const existingFeedback = cls.teacherFeedback && cls.teacherFeedback.length > 0
-                                                            ? cls.teacherFeedback
-                                                            : staticFeedbackCriteria.map(criteria => ({ criteria, rating: "Good" }));
-                                                        setTeacherFeedback(existingFeedback);
-                                                        setShowFeedbackModal(true);
-                                                    }}
-                                                    className="bg-purple-600/10 text-purple-400 px-3 py-1 rounded text-[10px] font-bold uppercase border border-purple-600/30 hover:bg-purple-600 hover:text-white transition-all shadow-lg shadow-purple-900/10"
-                                                >
-                                                    {cls.teacherFeedback && cls.teacherFeedback.length > 0 ? "Feedback" : "Add Feedback"}
-                                                </button>
+                                                {(isAdmin || isCoordinator) && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedClassForFeedback(cls);
+                                                            const existingFeedback = cls.teacherFeedback && cls.teacherFeedback.length > 0
+                                                                ? cls.teacherFeedback
+                                                                : staticFeedbackCriteria.map(criteria => ({ criteria, rating: "Good" }));
+                                                            setTeacherFeedback(existingFeedback);
+                                                            setShowFeedbackModal(true);
+                                                        }}
+                                                        className="bg-purple-600/10 text-purple-400 px-3 py-1 rounded text-[10px] font-bold uppercase border border-purple-600/30 hover:bg-purple-600 hover:text-white transition-all shadow-lg shadow-purple-900/10"
+                                                    >
+                                                        {cls.teacherFeedback && cls.teacherFeedback.length > 0 ? "Feedback" : "Add Feedback"}
+                                                    </button>
+                                                )}
+                                                {isTeacher && <span className="text-[10px] font-bold text-gray-500 uppercase italic">Locked</span>}
                                             </td>
                                         </tr>
                                     ))

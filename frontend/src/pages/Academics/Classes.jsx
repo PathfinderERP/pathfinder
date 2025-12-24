@@ -30,6 +30,8 @@ const Classes = () => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const isAdmin = user.role === "admin" || user.role === "superAdmin";
     const isSuperAdmin = user.role === "superAdmin";
+    const isCoordinator = user.role === "Class_Coordinator";
+    const isTeacher = user.role === "teacher";
 
     // Dropdown Data State
     const [dropdownData, setDropdownData] = useState({
@@ -423,7 +425,9 @@ const Classes = () => {
                                     <th className="p-4">Date</th>
                                     <th className="p-4">Start Time</th>
                                     <th className="p-4">End Time</th>
+                                    <th className="p-4">Actual Time</th>
                                     <th className="p-4 text-center">Teacher Attendance</th>
+                                    <th className="p-4 text-center">Study Status</th>
                                     <th className="p-4">Feedback</th>
                                     <th className="p-4">Start/End</th>
                                     <th className="p-4 text-right">Actions</th>
@@ -431,9 +435,9 @@ const Classes = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-700">
                                 {loading ? (
-                                    <tr><td colSpan="13" className="p-8 text-center text-gray-500 bg-[#1e2530]/50 animate-pulse">Fetching class data...</td></tr>
+                                    <tr><td colSpan="16" className="p-8 text-center text-gray-500 bg-[#1e2530]/50 animate-pulse">Fetching class data...</td></tr>
                                 ) : classes.length === 0 ? (
-                                    <tr><td colSpan="13" className="p-12 text-center text-gray-500 uppercase tracking-widest opacity-50">No classes found with selected filters</td></tr>
+                                    <tr><td colSpan="16" className="p-12 text-center text-gray-500 uppercase tracking-widest opacity-50">No classes found with selected filters</td></tr>
                                 ) : (
                                     classes.map((cls) => (
                                         <tr key={cls._id} className="hover:bg-[#252b32] transition-colors text-sm text-gray-300 group">
@@ -451,6 +455,11 @@ const Classes = () => {
                                             <td className="p-4 font-mono">{formatDate(cls.date)}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.startTime}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.endTime}</td>
+                                            <td className="p-4 text-xs font-bold text-gray-400">
+                                                {cls.actualStartTime ? new Date(cls.actualStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
+                                                {" - "}
+                                                {cls.actualEndTime ? new Date(cls.actualEndTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
+                                            </td>
                                             <td className="p-4 text-center">
                                                 {cls.teacherAttendance ? (
                                                     <span className="bg-green-600/20 text-green-400 px-3 py-1 rounded-full text-xs font-bold border border-green-600/50 flex items-center justify-center gap-1 mx-auto w-fit">
@@ -462,8 +471,11 @@ const Classes = () => {
                                                     </span>
                                                 )}
                                             </td>
+                                            <td className="p-4 text-center font-mono text-[10px] text-cyan-400">
+                                                {cls.studyStartTime ? new Date(cls.studyStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
+                                            </td>
                                             <td className="p-4 text-center">
-                                                {cls.status === "Completed" && isAdmin && (
+                                                {cls.status === "Completed" && (isAdmin || isCoordinator) && (
                                                     <button
                                                         onClick={() => {
                                                             setSelectedClassForFeedback(cls);
@@ -478,8 +490,8 @@ const Classes = () => {
                                                         {cls.teacherFeedback && cls.teacherFeedback.length > 0 ? "Feedback" : "Add Feedback"}
                                                     </button>
                                                 )}
+                                                {cls.status === "Completed" && isTeacher && <span className="text-[10px] font-bold text-gray-500 uppercase italic">Locked</span>}
                                                 {cls.status !== "Completed" && "-"}
-                                                {cls.status === "Completed" && !isAdmin && "-"}
                                             </td>
                                             <td className="p-4">
                                                 <div className="relative group/hover">

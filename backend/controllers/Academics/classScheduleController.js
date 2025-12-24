@@ -23,6 +23,7 @@ export const createClassSchedule = async (req, res) => {
             courseId,
             centreId,
             batchId,
+            batchIds,
             coordinatorId
         } = req.body;
 
@@ -38,7 +39,7 @@ export const createClassSchedule = async (req, res) => {
             examId,
             courseId,
             centreId,
-            batchId,
+            batchIds: batchIds || [batchId], // Fallback if old frontend still sends batchId
             coordinatorId
         });
 
@@ -83,7 +84,7 @@ export const getClassSchedules = async (req, res) => {
         }
 
         if (centreId) query.centreId = centreId;
-        if (batchId) query.batchId = batchId;
+        if (batchId) query.batchIds = batchId; // Search in array
         if (subjectId) query.subjectId = subjectId;
         if (status) query.status = status;
 
@@ -106,7 +107,7 @@ export const getClassSchedules = async (req, res) => {
             .populate("courseId", "courseName name")
             .populate("centreId", "centreName centerName name latitude longitude")
             .populate("coordinatorId", "name")
-            .populate("batchId", "batchName name")
+            .populate("batchIds", "batchName name")
             .sort({ date: -1 })
             .skip(skip)
             .limit(parseInt(limit));
@@ -227,9 +228,14 @@ export const markTeacherAttendance = async (req, res) => {
 
         // Only allow teachers to mark their own attendance
         if (req.user.role !== 'admin' && req.user.role !== 'superAdmin') {
-            if (currentClass.teacherId.toString() !== req.user.id) {
+            const teacherId = currentClass.teacherId?._id || currentClass.teacherId;
+            if (teacherId && teacherId.toString() !== req.user.id) {
                 return res.status(403).json({ message: "You can only mark attendance for your own classes" });
             }
+        }
+
+        if (!currentClass.isStudentAttendanceSaved) {
+            return res.status(400).json({ message: "Please save student attendance first" });
         }
 
         console.log("Reviewing Attendance Request. Body:", req.body);
@@ -247,8 +253,10 @@ export const markTeacherAttendance = async (req, res) => {
     }
 };
 
-// Mark Coordinator attendance
-export const markCoordinatorAttendance = async (req, res) => {
+
+
+// Start study (Teacher side)
+export const startStudy = async (req, res) => {
     try {
         const { id } = req.params;
         const currentClass = await ClassSchedule.findById(id);
@@ -257,25 +265,17 @@ export const markCoordinatorAttendance = async (req, res) => {
             return res.status(404).json({ message: "Class not found" });
         }
 
-        // Only allow coordinators to mark their own attendance
-        if (req.user.role !== 'admin' && req.user.role !== 'superAdmin') {
-            // Assuming we check by coordinatorId
-            if (currentClass.coordinatorId && currentClass.coordinatorId.toString() !== req.user.id) {
-                return res.status(403).json({ message: "You can only mark attendance for your own classes" });
-            }
+        // Only allow teachers or admins
+        if (req.user.role !== 'admin' && req.user.role !== 'superAdmin' && req.user.role !== 'teacher') {
+            return res.status(403).json({ message: "Access denied" });
         }
 
-        console.log("Reviewing Coordinator Attendance Request. Body:", req.body);
-        const { latitude, longitude } = req.body || {};
-        currentClass.coordinatorAttendance = true;
-
-        if (latitude) currentClass.coordinatorAttendanceLatitude = latitude;
-        if (longitude) currentClass.coordinatorAttendanceLongitude = longitude;
+        currentClass.studyStartTime = new Date();
         await currentClass.save();
 
-        res.status(200).json({ message: "Coordinator attendance marked successfully", class: currentClass });
+        res.status(200).json({ message: "Study started successfully", class: currentClass });
     } catch (error) {
-        console.error("Error marking coordinator attendance:", error);
+        console.error("Error starting study:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };

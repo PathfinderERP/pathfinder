@@ -8,8 +8,12 @@ import {
     deleteClassSchedule,
     submitFeedback,
     markTeacherAttendance,
-    markCoordinatorAttendance
+    startStudy
 } from "../../controllers/Academics/classScheduleController.js";
+import {
+    getStudentsForAttendance,
+    saveStudentAttendance
+} from "../../controllers/Academics/studentAttendanceController.js";
 import verifyToken from "../../middleware/authMiddleware.js"; // Assuming auth middleware exists
 
 const router = express.Router();
@@ -22,6 +26,10 @@ router.put("/end/:id", verifyToken, endClass);
 router.delete("/delete/:id", verifyToken, deleteClassSchedule);
 router.put("/feedback/:id", verifyToken, submitFeedback);
 router.put("/mark-attendance/:id", verifyToken, markTeacherAttendance);
-router.put("/mark-coordinator-attendance/:id", verifyToken, markCoordinatorAttendance);
+router.put("/start-study/:id", verifyToken, startStudy);
+
+// Student Attendance
+router.get("/student-attendance/:classScheduleId", verifyToken, getStudentsForAttendance);
+router.post("/student-attendance/save/:classScheduleId", verifyToken, saveStudentAttendance);
 
 export default router;

@@ -54,21 +54,18 @@ const StudentsDetailsSchema = new mongoose.Schema({
   examSchema: { type: [ExamSchema] },
 });
 
-const StudentStatusSchema = new mongoose.Schema({
-  status: { type: String, enum: ["Hot", "Cold", "Negative"], required: true },
-  enrolledStatus: { type: String, enum: ["Enrolled", "Not Enrolled"], default: "Not Enrolled", required: true },
-});
-
 const StudentSchema = new mongoose.Schema({
   studentsDetails: { type: [StudentsDetailsSchema], required: true },
   guardians: { type: [GuardianSchema] },
   examSchema: { type: [ExamSchema], required: true },
   section: { type: [SectionSchema], required: false },
   sessionExamCourse: { type: [SessionExamCourseSchema] },
-  studentStatus: { type: [StudentStatusSchema], required: true },
+  batches: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }],
+  course: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+  isEnrolled: { type: Boolean, default: false },
   carryForwardBalance: { type: Number, default: 0 },
   markedForCarryForward: { type: Boolean, default: false }
-});
+}, { timestamps: true });
 
 const Student = mongoose.model("Student", StudentSchema);
 

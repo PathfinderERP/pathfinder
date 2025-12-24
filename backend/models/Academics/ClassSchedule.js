@@ -52,10 +52,19 @@ const classScheduleSchema = new mongoose.Schema({
         ref: "CentreSchema",
         required: true
     },
-    batchId: {
+    batchIds: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Batch",
         required: true
+    }],
+    batchId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Batch",
+        required: false
+    },
+    isStudentAttendanceSaved: {
+        type: Boolean,
+        default: false
     },
     // New Fields from Screenshot (Academics Content)
     acadClassId: {
@@ -108,7 +117,8 @@ const classScheduleSchema = new mongoose.Schema({
     },
     coordinatorAttendance: { type: Boolean, default: false },
     coordinatorAttendanceLatitude: { type: Number },
-    coordinatorAttendanceLongitude: { type: Number }
+    coordinatorAttendanceLongitude: { type: Number },
+    studyStartTime: { type: Date }
 }, { timestamps: true });
 
 export default mongoose.model("ClassSchedule", classScheduleSchema);

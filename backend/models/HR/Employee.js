@@ -212,13 +212,12 @@ const employeeSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Auto-generate Employee ID before saving
-employeeSchema.pre("save", async function (next) {
+// Auto-generate Employee ID before validation
+employeeSchema.pre("validate", async function () {
     if (!this.employeeId) {
         const count = await mongoose.model("Employee").countDocuments();
         this.employeeId = `EMP${String(count + 1).padStart(7, "0")}`;
     }
-    next();
 });
 
 // Update currentSalary when salary structure changes
