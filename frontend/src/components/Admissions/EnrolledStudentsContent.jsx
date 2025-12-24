@@ -678,11 +678,20 @@ const EnrolledStudentsContent = () => {
                                                             ₹{(admission.totalFees - admission.totalPaidAmount).toLocaleString()}
                                                         </p>
                                                     </div>
-                                                    <div className="bg-blue-500/10 p-3 rounded">
+                                                    <div className="bg-blue-500/10 p-3 rounded relative group">
                                                         <p className="text-xs text-gray-400">Down Payment</p>
                                                         <p className="text-lg font-bold text-blue-400">
                                                             ₹{admission.downPayment?.toLocaleString()}
                                                         </p>
+                                                        {admission.downPayment > 0 && (
+                                                            <button
+                                                                onClick={() => setBillModal({ show: true, admission: admission, installment: { installmentNumber: 0 } })}
+                                                                className="mt-2 text-[10px] bg-blue-500 hover:bg-blue-400 text-white px-2 py-1 rounded flex items-center gap-1 w-full justify-center transition-colors shadow-sm"
+                                                                title="Download Down Payment Receipt"
+                                                            >
+                                                                <FaFileInvoice /> Receipt
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
 

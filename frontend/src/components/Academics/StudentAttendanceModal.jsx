@@ -139,7 +139,7 @@ const StudentAttendanceModal = ({ classScheduleId, onClose, onSaveSuccess }) => 
                                         <thead>
                                             <tr className="bg-[#1a1f24] text-[10px] text-gray-500 uppercase tracking-widest font-bold">
                                                 <th className="p-4">Student Name</th>
-                                                <th className="p-4">Enrollment No.</th>
+                                                <th className="p-4">Admission ID</th>
                                                 <th className="p-4">Course</th>
                                                 <th className="p-4">Centre</th>
                                                 <th className="p-4 text-center">Status</th>
@@ -148,7 +148,8 @@ const StudentAttendanceModal = ({ classScheduleId, onClose, onSaveSuccess }) => 
                                         <tbody className="divide-y divide-gray-800/50">
                                             {batch.students.map((student) => {
                                                 const details = student.studentsDetails?.[0] || {};
-                                                const admissionNo = student.studentsDetails?.[0]?.studentAdmissionNumber || student._id.toString().slice(-6).toUpperCase();
+                                                // Used backend-provided admissionNumber
+                                                const admissionNo = student.admissionNumber || "N/A";
                                                 const isPresent = attendanceMap[student._id] === "Present";
 
                                                 return (
@@ -178,8 +179,8 @@ const StudentAttendanceModal = ({ classScheduleId, onClose, onSaveSuccess }) => 
                                                             <button
                                                                 onClick={() => handleToggleAttendance(student._id)}
                                                                 className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isPresent
-                                                                        ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.3)]'
-                                                                        : 'bg-gray-800 text-gray-600 border border-gray-700 hover:border-gray-500'
+                                                                    ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.3)]'
+                                                                    : 'bg-gray-800 text-gray-600 border border-gray-700 hover:border-gray-500'
                                                                     }`}
                                                             >
                                                                 <FaCheck />

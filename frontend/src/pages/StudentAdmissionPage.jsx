@@ -13,6 +13,7 @@ const StudentAdmissionPage = () => {
     const [courses, setCourses] = useState([]);
     const [classes, setClasses] = useState([]);
     const [examTags, setExamTags] = useState([]);
+    const [sessions, setSessions] = useState([]);
     const [selectedCourse, setSelectedCourse] = useState(null);
 
     const [formData, setFormData] = useState({
@@ -97,17 +98,19 @@ const StudentAdmissionPage = () => {
             const token = localStorage.getItem("token");
             const headers = { "Authorization": `Bearer ${token}` };
 
-            const [studentRes, coursesRes, classesRes, tagsRes] = await Promise.all([
+            const [studentRes, coursesRes, classesRes, tagsRes, sessionsRes] = await Promise.all([
                 fetch(`${apiUrl}/normalAdmin/getStudent/${studentId}`, { headers }),
                 fetch(`${apiUrl}/course`, { headers }),
                 fetch(`${apiUrl}/class`, { headers }),
-                fetch(`${apiUrl}/examTag`, { headers })
+                fetch(`${apiUrl}/examTag`, { headers }),
+                fetch(`${apiUrl}/session/list`, { headers })
             ]);
 
             if (studentRes.ok) setStudent(await studentRes.json());
             if (coursesRes.ok) setCourses(await coursesRes.json());
             if (classesRes.ok) setClasses(await classesRes.json());
             if (tagsRes.ok) setExamTags(await tagsRes.json());
+            if (sessionsRes.ok) setSessions(await sessionsRes.json());
 
         } catch (err) {
             toast.error("Failed to fetch data");
@@ -335,15 +338,18 @@ const StudentAdmissionPage = () => {
 
                             <div>
                                 <label className="block text-gray-400 mb-2 text-sm">Academic Session *</label>
-                                <input
-                                    type="text"
+                                <select
                                     name="academicSession"
                                     value={formData.academicSession}
                                     onChange={handleInputChange}
                                     className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-                                    placeholder="e.g. 2025-2026"
                                     required
-                                />
+                                >
+                                    <option value="">Select Session</option>
+                                    {sessions.map(session => (
+                                        <option key={session._id} value={session.sessionName}>{session.sessionName}</option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div>

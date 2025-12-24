@@ -1,6 +1,7 @@
 import StudentAttendance from "../../models/Academics/StudentAttendance.js";
 import ClassSchedule from "../../models/Academics/ClassSchedule.js";
 import Student from "../../models/Students.js";
+import Admission from "../../models/Admission/Admission.js";
 
 // Fetch students for batches related to a class schedule
 export const getStudentsForAttendance = async (req, res) => {
@@ -19,15 +20,34 @@ export const getStudentsForAttendance = async (req, res) => {
 
         // Fetch students enrolled in these batches
         const students = await Student.find({
-            batches: { $in: batchIds }
+            batches: { $in: batchIds },
+            isEnrolled: true
         }).populate("course").select("studentsDetails examSchema batches course isEnrolled");
+
+        // Fetch admissions for these students to get admissionNumber
+        const studentIds = students.map(s => s._id);
+        const admissions = await Admission.find({ student: { $in: studentIds } }, { student: 1, admissionNumber: 1 });
+        const admissionMap = {};
+        admissions.forEach(adm => {
+            if (adm.student) {
+                admissionMap[adm.student.toString()] = adm.admissionNumber;
+            }
+        });
 
         // Format data grouping by batches
         const batchWiseStudents = batchIds.map(batch => {
             const batchIdStr = batch._id ? batch._id.toString() : batch.toString();
             const batchStudents = students.filter(student =>
                 student.batches.some(b => b.toString() === batchIdStr)
-            );
+            ).map(student => {
+                const sObj = student.toObject();
+                // Priority: 1. Admission Model, 2. Student Details, 3. N/A
+                sObj.admissionNumber = admissionMap[student._id.toString()] ||
+                    student.studentsDetails?.[0]?.studentAdmissionNumber ||
+                    "N/A";
+                return sObj;
+            });
+
             return {
                 batchId: batchIdStr,
                 batchName: batch.batchName || batch.name || "Batch",

@@ -19,9 +19,12 @@ const CourseTransfer = () => {
         newCourseId: "",
         newExamTagId: "",
         newAcademicSession: "",
+        sessions: [],
         feeWaiver: 0,
         numberOfInstallments: 1
     });
+
+    const [sessions, setSessions] = useState([]);
 
     const [feeReview, setFeeReview] = useState(null);
 
@@ -32,13 +35,15 @@ const CourseTransfer = () => {
         const fetchDropdowns = async () => {
             try {
                 const token = localStorage.getItem("token");
-                const [coursesRes, tagsRes] = await Promise.all([
+                const [coursesRes, tagsRes, sessionsRes] = await Promise.all([
                     fetch(`${apiUrl}/course`, { headers: { Authorization: `Bearer ${token}` } }),
-                    fetch(`${apiUrl}/examTag`, { headers: { Authorization: `Bearer ${token}` } })
+                    fetch(`${apiUrl}/examTag`, { headers: { Authorization: `Bearer ${token}` } }),
+                    fetch(`${apiUrl}/session/list`, { headers: { Authorization: `Bearer ${token}` } })
                 ]);
 
                 if (coursesRes.ok) setCourses(await coursesRes.json());
                 if (tagsRes.ok) setExamTags(await tagsRes.json());
+                if (sessionsRes.ok) setSessions(await sessionsRes.json());
             } catch (err) {
                 console.error(err);
             }
@@ -330,13 +335,16 @@ const CourseTransfer = () => {
                                 <div className="space-y-4">
                                     <div>
                                         <label className="block text-gray-400 mb-2 text-sm">Select Session</label>
-                                        <input
-                                            type="text"
+                                        <select
                                             value={formData.newAcademicSession}
                                             onChange={(e) => setFormData({ ...formData, newAcademicSession: e.target.value })}
                                             className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white"
-                                            placeholder="e.g. 2025-2026"
-                                        />
+                                        >
+                                            <option value="">Select Session</option>
+                                            {sessions.map(session => (
+                                                <option key={session._id} value={session.sessionName}>{session.sessionName}</option>
+                                            ))}
+                                        </select>
                                     </div>
                                     <div>
                                         <label className="block text-gray-400 mb-2 text-sm">Select Exam Tag</label>

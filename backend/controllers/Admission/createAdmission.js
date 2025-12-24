@@ -2,7 +2,53 @@ import Admission from "../../models/Admission/Admission.js";
 import Course from "../../models/Master_data/Courses.js";
 import Student from "../../models/Students.js";
 import Payment from "../../models/Payment/Payment.js";
+import CentreSchema from "../../models/Master_data/Centre.js";
 import { updateCentreTargetAchieved } from "../../services/centreTargetService.js";
+
+// Generate a unique sequential bill ID
+const generateBillId = async (centreCode) => {
+    try {
+        const date = new Date();
+        const month = date.getMonth();
+        const year = date.getFullYear();
+
+        const currentYear = year;
+        const currentMonth = month;
+
+        let startYear, endYear;
+        if (currentMonth >= 3) {
+            startYear = currentYear;
+            endYear = currentYear + 1;
+        } else {
+            startYear = currentYear - 1;
+            endYear = currentYear;
+        }
+
+        const yearStr = `${startYear}-${endYear.toString().slice(-2)}`;
+        const prefix = `PATH/${centreCode}/${yearStr}/`;
+
+        const lastPayment = await Payment.findOne({
+            billId: { $regex: new RegExp(`^${prefix.replace(/\//g, '\\/')}\\d+$`) }
+        }).sort({ createdAt: -1 });
+
+        let nextNumber = 1;
+
+        if (lastPayment && lastPayment.billId) {
+            const lastId = lastPayment.billId;
+            const parts = lastId.split('/');
+            const lastSeq = parts[parts.length - 1];
+
+            if (lastSeq && !isNaN(lastSeq)) {
+                nextNumber = parseInt(lastSeq) + 1;
+            }
+        }
+
+        return `${prefix}${nextNumber.toString().padStart(6, '0')}`;
+    } catch (error) {
+        console.error("Bill ID Gen Error:", error);
+        return `PATH/${centreCode || 'GEN'}/${Date.now()}`;
+    }
+};
 
 export const createAdmission = async (req, res) => {
     try {
@@ -135,6 +181,14 @@ export const createAdmission = async (req, res) => {
             const dpSgst = dpBaseAmount * 0.09;
             const dpCourseFee = downPayment - dpCgst - dpSgst;
 
+            // Fetch Centre Info for Bill ID
+            let centreObj = await CentreSchema.findOne({ centreName: centre });
+            if (!centreObj) {
+                centreObj = await CentreSchema.findOne({ centreName: { $regex: new RegExp(`^${centre}$`, 'i') } });
+            }
+            const centreCode = centreObj ? centreObj.enterCode : 'GEN';
+            const newBillId = await generateBillId(centreCode);
+
             const payment = new Payment({
                 admission: admission._id,
                 installmentNumber: 0, // 0 for down payment
@@ -147,7 +201,7 @@ export const createAdmission = async (req, res) => {
                 remarks: "Down Payment at Admission",
                 recordedBy: req.user.id,
                 // Bill Details
-                billId: `BILL${Date.now()}${Math.floor(Math.random() * 1000)}`,
+                billId: newBillId,
                 cgst: parseFloat(dpCgst.toFixed(2)),
                 sgst: parseFloat(dpSgst.toFixed(2)),
                 courseFee: parseFloat(dpCourseFee.toFixed(2)),
