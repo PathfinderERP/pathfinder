@@ -10,6 +10,9 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
 console.log("R2 Config: Loading credentials...");
+console.log("R2 Endpoint:", process.env.S3API);
+console.log("R2 Bucket:", process.env.R2_BUCKET_NAME);
+console.log("R2 Public URL:", process.env.R2_PUBLIC_URL);
 if (!process.env.R2_ACCESS_KEY_ID) {
     console.warn("WARNING: R2_ACCESS_KEY_ID is missing from environment variables!");
 }

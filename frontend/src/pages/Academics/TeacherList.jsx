@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { FaEye, FaPlus, FaSearch, FaEdit, FaTrash, FaFilter, FaSync } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
@@ -6,6 +7,7 @@ import "react-toastify/dist/ReactToastify.css";
 import MultiSelectFilter from "../../components/common/MultiSelectFilter";
 
 const TeacherList = () => {
+    const navigate = useNavigate();
     const [teachers, setTeachers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
@@ -357,7 +359,8 @@ const TeacherList = () => {
                                         <td className="p-4 text-sm flex gap-3">
                                             <span
                                                 className="text-cyan-400 cursor-pointer flex items-center gap-1 hover:text-cyan-300 transition-colors"
-                                                title="View Performance"
+                                                title="View Details"
+                                                onClick={() => navigate(`/academics/teacher/view/${teacher._id}`)}
                                             >
                                                 <FaEye />
                                             </span>

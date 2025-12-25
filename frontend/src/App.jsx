@@ -1,34 +1,3 @@
-// import { BrowserRouter, Routes, Route } from "react-router-dom";
-// import Login from "./pages/Login";
-// import Dashboard from "./pages/Dashboard";
-// import Admissions from "./pages/Admissions";
-// import StudentRegistration from "./pages/StudentRegistration";
-// import Finance from "./pages/Finance";
-// import HR from "./pages/HR";
-// import Academics from "./pages/Academics";
-
-// function App() {
-//   return (
-//     <BrowserRouter>
-//       <Routes>
-//         <Route path="/login" element={<Login />} />
-//         <Route path="/dashboard" element={<Dashboard />} />
-//         <Route path="/admissions" element={<Admissions />} />
-//         <Route path="/student-registration" element={<StudentRegistration />} />
-//         <Route path="/finance" element={<Finance />} />
-//         <Route path="/hr" element={<HR />} />
-//         <Route path="/academics" element={<Academics />} />
-//       </Routes>
-//     </BrowserRouter>
-//   );
-// }
-
-// export default App;
-
-
-
-
-
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import './overflow-fix.css';
 import LandingPage from "./pages/LandingPage";
@@ -70,6 +39,7 @@ import CourseTransfer from "./pages/CourseTransfer";
 
 // Academics Pages
 import TeacherList from "./pages/Academics/TeacherList";
+import ViewTeacher from "./pages/Academics/ViewTeacher";
 import StudentTeacherReview from "./pages/Academics/StudentTeacherReview";
 import LiveClassReview from "./pages/Academics/LiveClassReview";
 import CCTeacherReview from "./pages/Academics/CCTeacherReview";
@@ -94,6 +64,7 @@ import ExamLeaderBoard from "./pages/Academics/ExamLeaderBoard";
 // HR Pages
 import EmployeeList from "./pages/HR/EmployeeList";
 import AddEmployee from "./pages/HR/AddEmployee";
+import ViewEmployee from "./pages/HR/ViewEmployee";
 
 function App() {
   return (
@@ -121,8 +92,11 @@ function App() {
         <Route path="/hr/employee/list" element={<EmployeeList />} />
         <Route path="/hr/employee/add" element={<AddEmployee />} />
         <Route path="/hr/employee/edit/:id" element={<AddEmployee />} />
+        <Route path="/hr/employee/view/:id" element={<ViewEmployee />} />
+
         <Route path="/academics" element={<Academics />} />
         <Route path="/academics/teacher-list" element={<TeacherList />} />
+        <Route path="/academics/teacher/view/:id" element={<ViewTeacher />} />
         <Route path="/academics/student-teacher-review" element={<StudentTeacherReview />} />
         <Route path="/academics/live-class-review" element={<LiveClassReview />} />
         <Route path="/academics/cc-teacher-review" element={<CCTeacherReview />} />

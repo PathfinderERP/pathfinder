@@ -98,6 +98,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             icon: <FaUserTie />,
             permissionModule: "hrManpower",
             subItems: [
+                { name: "Overview", path: "/hr", icon: <FaThLarge /> },
                 { name: "Employee Management", path: "/hr/employee/list", icon: <FaUsers />, permissionSection: "employees" },
                 {
                     name: "Attendance Management",

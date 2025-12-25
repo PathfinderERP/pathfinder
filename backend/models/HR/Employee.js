@@ -61,12 +61,12 @@ const employeeSchema = new mongoose.Schema({
     },
     primaryCentre: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Centre",
+        ref: "CentreSchema",
         required: true
     },
     centres: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Centre"
+        ref: "CentreSchema"
     }],
     department: {
         type: mongoose.Schema.Types.ObjectId,
@@ -215,19 +215,24 @@ const employeeSchema = new mongoose.Schema({
 // Auto-generate Employee ID before validation
 employeeSchema.pre("validate", async function () {
     if (!this.employeeId) {
-        const count = await mongoose.model("Employee").countDocuments();
-        this.employeeId = `EMP${String(count + 1).padStart(7, "0")}`;
+        try {
+            const count = await this.constructor.countDocuments();
+            this.employeeId = `EMP${String(count + 1).padStart(7, "0")}`;
+        } catch (error) {
+            throw error;
+        }
     }
 });
 
 // Update currentSalary when salary structure changes
-employeeSchema.pre("save", function (next) {
+employeeSchema.pre("save", async function () {
     if (this.salaryStructure && this.salaryStructure.length > 0) {
         // Sort by effectiveDate descending and get the latest
-        const sortedSalaries = this.salaryStructure.sort((a, b) => b.effectiveDate - a.effectiveDate);
+        const sortedSalaries = [...this.salaryStructure].sort((a, b) =>
+            new Date(b.effectiveDate) - new Date(a.effectiveDate)
+        );
         this.currentSalary = sortedSalaries[0].amount;
     }
-    next();
 });
 
 const Employee = mongoose.model("Employee", employeeSchema);

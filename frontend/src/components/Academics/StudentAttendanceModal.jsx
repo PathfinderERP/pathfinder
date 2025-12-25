@@ -198,8 +198,8 @@ const StudentAttendanceModal = ({ classScheduleId, onClose, onSaveSuccess }) => 
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 border-t border-gray-800 bg-[#252b32] flex justify-between items-center">
-                    <div className="flex items-center gap-4 text-sm text-gray-400">
+                <div className="p-4 md:p-6 border-t border-gray-800 bg-[#252b32] flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div className="flex flex-wrap items-center justify-center gap-3 text-xs md:text-sm text-gray-400 w-full md:w-auto">
                         <div className="flex items-center gap-2">
                             <span className="w-3 h-3 bg-green-500 rounded-sm"></span>
                             Checked = Present
@@ -209,17 +209,17 @@ const StudentAttendanceModal = ({ classScheduleId, onClose, onSaveSuccess }) => 
                             Unchecked = Absent
                         </div>
                     </div>
-                    <div className="flex gap-4">
+                    <div className="flex gap-3 w-full md:w-auto">
                         <button
                             onClick={onClose}
-                            className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold transition-all uppercase text-sm tracking-wider"
+                            className="flex-1 md:flex-none px-4 md:px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold transition-all uppercase text-xs md:text-sm tracking-wider"
                         >
                             Cancel
                         </button>
                         <button
                             onClick={handleSave}
                             disabled={saving || loading || batchWiseStudents.length === 0}
-                            className="px-10 py-2 bg-cyan-500 hover:bg-cyan-400 text-black rounded-xl font-bold transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50 uppercase text-sm tracking-wider"
+                            className="flex-1 md:flex-none px-4 md:px-10 py-2 bg-cyan-500 hover:bg-cyan-400 text-black rounded-xl font-bold transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50 uppercase text-xs md:text-sm tracking-wider whitespace-nowrap"
                         >
                             {saving ? "Saving..." : "Save Attendance"}
                         </button>

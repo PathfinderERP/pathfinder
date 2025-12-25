@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { toast } from "react-toastify";
 import { FaPlus, FaTimes } from "react-icons/fa";
 
 const AddEmployee = () => {
+    const { id } = useParams();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
+    const [isEditMode, setIsEditMode] = useState(false);
     const [formData, setFormData] = useState({
         // Personal Details
         name: "",
@@ -65,7 +67,11 @@ const AddEmployee = () => {
 
     useEffect(() => {
         fetchMasterData();
-    }, []);
+        if (id) {
+            setIsEditMode(true);
+            fetchEmployeeData();
+        }
+    }, [id]);
 
     const fetchMasterData = async () => {
         try {
@@ -88,6 +94,42 @@ const AddEmployee = () => {
         } catch (error) {
             console.error("Error fetching master data:", error);
             toast.error("Failed to load form data");
+        }
+    };
+
+    const fetchEmployeeData = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee/${id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                // Format dates for input fields
+                const formattedData = {
+                    ...data,
+                    dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString().split('T')[0] : "",
+                    dateOfJoining: data.dateOfJoining ? new Date(data.dateOfJoining).toISOString().split('T')[0] : "",
+                    primaryCentre: data.primaryCentre?._id || "",
+                    centres: data.centres?.map(c => c._id) || [],
+                    department: data.department?._id || "",
+                    designation: data.designation?._id || "",
+                    manager: data.manager?._id || "",
+                    salaryStructure: data.salaryStructure?.map(s => ({
+                        ...s,
+                        effectiveDate: new Date(s.effectiveDate).toISOString().split('T')[0]
+                    })) || []
+                };
+                setFormData(formattedData);
+            } else {
+                toast.error("Failed to fetch employee data");
+                navigate("/hr/employee/list");
+            }
+        } catch (error) {
+            console.error("Error fetching employee data:", error);
+            toast.error("Error fetching employee data");
+            navigate("/hr/employee/list");
         }
     };
 
@@ -179,11 +221,17 @@ const AddEmployee = () => {
             const token = localStorage.getItem("token");
             const formDataToSend = new FormData();
 
+            const fileFields = [
+                "aadharProof", "panProof", "bankStatement",
+                "educationalQualification1", "educationalQualification2", "educationalQualification3",
+                "form16", "insuranceDocument", "tdsCertificate", "profileImage"
+            ];
+
             // Append all text fields
             Object.keys(formData).forEach(key => {
                 if (key === "children" || key === "centres" || key === "workingDays" || key === "salaryStructure") {
                     formDataToSend.append(key, JSON.stringify(formData[key]));
-                } else {
+                } else if (!fileFields.includes(key) && key !== "_id" && key !== "__v" && key !== "createdAt" && key !== "updatedAt" && key !== "employeeId") {
                     formDataToSend.append(key, formData[key]);
                 }
             });
@@ -195,8 +243,14 @@ const AddEmployee = () => {
                 }
             });
 
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee`, {
-                method: "POST",
+            const url = isEditMode
+                ? `${import.meta.env.VITE_API_URL}/hr/employee/${id}`
+                : `${import.meta.env.VITE_API_URL}/hr/employee`;
+
+            const method = isEditMode ? "PUT" : "POST";
+
+            const response = await fetch(url, {
+                method,
                 headers: {
                     Authorization: `Bearer ${token}`
                 },
@@ -204,15 +258,15 @@ const AddEmployee = () => {
             });
 
             if (response.ok) {
-                toast.success("Employee created successfully");
+                toast.success(isEditMode ? "Employee updated successfully" : "Employee created successfully");
                 navigate("/hr/employee/list");
             } else {
                 const error = await response.json();
-                toast.error(error.message || "Failed to create employee");
+                toast.error(error.message || `Failed to ${isEditMode ? "update" : "create"} employee`);
             }
         } catch (error) {
-            console.error("Error creating employee:", error);
-            toast.error("Error creating employee");
+            console.error(`Error ${isEditMode ? "updating" : "creating"} employee:`, error);
+            toast.error(`Error ${isEditMode ? "updating" : "creating"} employee`);
         } finally {
             setLoading(false);
         }
@@ -221,7 +275,9 @@ const AddEmployee = () => {
     return (
         <Layout activePage="HR & Manpower">
             <div className="max-w-7xl mx-auto space-y-6 animate-fade-in pb-10">
-                <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Add Employee</h1>
+                <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
+                    {isEditMode ? "Edit Employee" : "Add Employee"}
+                </h1>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {/* Personal Details */}
@@ -476,14 +532,26 @@ const AddEmployee = () => {
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     State
                                 </label>
-                                <input
-                                    type="text"
+                                <select
                                     name="state"
                                     value={formData.state}
                                     onChange={handleInputChange}
-                                    placeholder="West Bengal"
                                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                                />
+                                >
+                                    <option value="">Select State</option>
+                                    {[
+                                        "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
+                                        "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand",
+                                        "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur",
+                                        "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
+                                        "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
+                                        "Uttar Pradesh", "Uttarakhand", "West Bengal",
+                                        "Andaman and Nicobar Islands", "Chandigarh", "Dadra and Nagar Haveli and Daman and Diu",
+                                        "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry"
+                                    ].map(state => (
+                                        <option key={state} value={state}>{state}</option>
+                                    ))}
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -869,17 +937,36 @@ const AddEmployee = () => {
                                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
                                 />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <div className="flex flex-col gap-4">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     Profile Image
                                 </label>
-                                <input
-                                    type="file"
-                                    name="profileImage"
-                                    onChange={handleFileChange}
-                                    accept=".jpg,.jpeg,.png"
-                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                                />
+                                <div className="flex items-center gap-4">
+                                    <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center overflow-hidden">
+                                        {files.profileImage ? (
+                                            <img
+                                                src={URL.createObjectURL(files.profileImage)}
+                                                alt="Preview"
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : formData.profileImage ? (
+                                            <img
+                                                src={formData.profileImage}
+                                                alt="Existing"
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <FaPlus className="text-gray-400" />
+                                        )}
+                                    </div>
+                                    <input
+                                        type="file"
+                                        name="profileImage"
+                                        onChange={handleFileChange}
+                                        accept=".jpg,.jpeg,.png"
+                                        className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white text-sm"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -901,10 +988,10 @@ const AddEmployee = () => {
                             {loading ? (
                                 <>
                                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                    Creating...
+                                    {isEditMode ? "Updating..." : "Creating..."}
                                 </>
                             ) : (
-                                "Add"
+                                isEditMode ? "Update Employee" : "Add Employee"
                             )}
                         </button>
                     </div>

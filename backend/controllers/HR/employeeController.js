@@ -2,10 +2,12 @@ import Employee from "../../models/HR/Employee.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Department from "../../models/Master_data/Department.js";
 import Designation from "../../models/Master_data/Designation.js";
-import { PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import s3Client from "../../config/r2Config.js";
 import multer from "multer";
-
+import dotenv from "dotenv";
+dotenv.config();
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
 export const upload = multer({
@@ -17,7 +19,8 @@ export const upload = multer({
 const uploadToR2 = async (file, folder = "employees") => {
     if (!file) return null;
 
-    const fileName = `${folder}/${Date.now()}_${file.originalname}`;
+    const publicUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, ""); // Remove trailing slash if any
+    const fileName = `${folder}/${Date.now()}_${file.originalname.replace(/\s+/g, "_")}`;
     const uploadParams = {
         Bucket: process.env.R2_BUCKET_NAME,
         Key: fileName,
@@ -26,10 +29,13 @@ const uploadToR2 = async (file, folder = "employees") => {
     };
 
     try {
+        console.log(`R2 Upload: Starting upload for ${fileName} to bucket ${process.env.R2_BUCKET_NAME}`);
         await s3Client.send(new PutObjectCommand(uploadParams));
-        return `${process.env.R2_PUBLIC_URL}/${fileName}`;
+        const finalUrl = `${publicUrl}/${fileName}`;
+        console.log(`R2 Upload: Success. URL: ${finalUrl}`);
+        return finalUrl;
     } catch (error) {
-        console.error("Error uploading to R2:", error);
+        console.error("R2 Upload: Error:", error);
         throw new Error("File upload failed");
     }
 };
@@ -39,15 +45,96 @@ const deleteFromR2 = async (fileUrl) => {
     if (!fileUrl) return;
 
     try {
-        const fileName = fileUrl.replace(`${process.env.R2_PUBLIC_URL}/`, "");
+        const publicUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
+        let key = "";
+
+        if (publicUrl && fileUrl.startsWith(publicUrl)) {
+            key = fileUrl.replace(`${publicUrl}/`, "");
+        } else if (fileUrl.startsWith("undefined/")) {
+            key = fileUrl.replace("undefined/", "");
+        } else {
+            const index = fileUrl.indexOf("employees/");
+            if (index !== -1) {
+                key = fileUrl.substring(index);
+            } else {
+                return; // Not our file
+            }
+        }
+
         const deleteParams = {
             Bucket: process.env.R2_BUCKET_NAME,
-            Key: fileName,
+            Key: key,
         };
         await s3Client.send(new DeleteObjectCommand(deleteParams));
     } catch (error) {
         console.error("Error deleting from R2:", error);
     }
+};
+
+// Helper function to get signed URL for a file
+const getSignedFileUrl = async (fileUrl) => {
+    if (!fileUrl) return null;
+
+    // If it's already a full URL but not to our R2 (e.g. external), return as is
+    // However, in this project, we store the full URL or the key? 
+    // Currently, we store `${publicUrl}/${fileName}`. 
+    // If publicUrl was undefined, it's "undefined/employees/..."
+
+    try {
+        const publicUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
+        let key = "";
+
+        if (publicUrl && fileUrl.startsWith(publicUrl)) {
+            key = fileUrl.replace(`${publicUrl}/`, "");
+        } else if (fileUrl.startsWith("undefined/")) {
+            key = fileUrl.replace("undefined/", "");
+        } else {
+            // Fallback: search for 'employees/' in the string to find the key
+            const index = fileUrl.indexOf("employees/");
+            if (index !== -1) {
+                key = fileUrl.substring(index);
+            } else {
+                return fileUrl; // Probably not our R2 file
+            }
+        }
+
+        // Remove any query parameters from the key if they exist
+        key = key.split('?')[0];
+
+        const command = new GetObjectCommand({
+            Bucket: process.env.R2_BUCKET_NAME,
+            Key: key,
+        });
+
+        // Sign for 1 hour (3600 seconds)
+        const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+        console.log(`Signed URL generated for key ${key}: ${signedUrl.substring(0, 50)}...`);
+        return signedUrl;
+    } catch (error) {
+        console.error("Error signing URL:", error, "for URL:", fileUrl);
+        return fileUrl;
+    }
+};
+
+// Helper function to sign all file fields in an employee object
+const signEmployeeFiles = async (employee) => {
+    if (!employee) return employee;
+
+    const fileFields = [
+        "aadharProof", "panProof", "bankStatement",
+        "educationalQualification1", "educationalQualification2", "educationalQualification3",
+        "form16", "insuranceDocument", "tdsCertificate", "profileImage"
+    ];
+
+    const signedEmployee = employee.toObject ? employee.toObject() : { ...employee };
+
+    for (const field of fileFields) {
+        if (signedEmployee[field]) {
+            signedEmployee[field] = await getSignedFileUrl(signedEmployee[field]);
+        }
+    }
+
+    return signedEmployee;
 };
 
 // Create Employee
@@ -130,12 +217,20 @@ export const createEmployee = async (req, res) => {
             { path: "manager", select: "name employeeId" }
         ]);
 
+        const signedEmployee = await signEmployeeFiles(employee);
+
         res.status(201).json({
             message: "Employee created successfully",
-            employee
+            employee: signedEmployee
         });
     } catch (error) {
         console.error("Error creating employee:", error);
+        if (error.code === 11000) {
+            return res.status(400).json({
+                message: "An employee with this email or ID already exists.",
+                error: "Duplicate key error"
+            });
+        }
         res.status(500).json({
             message: "Error creating employee",
             error: error.message
@@ -191,8 +286,11 @@ export const getEmployees = async (req, res) => {
 
         const total = await Employee.countDocuments(query);
 
+        // Sign URLs for each employee
+        const signedEmployees = await Promise.all(employees.map(emp => signEmployeeFiles(emp)));
+
         res.status(200).json({
-            employees,
+            employees: signedEmployees,
             currentPage: parseInt(page),
             totalPages: Math.ceil(total / parseInt(limit)),
             totalEmployees: total
@@ -220,7 +318,8 @@ export const getEmployeeById = async (req, res) => {
             return res.status(404).json({ message: "Employee not found" });
         }
 
-        res.status(200).json(employee);
+        const signedEmployee = await signEmployeeFiles(employee);
+        res.status(200).json(signedEmployee);
     } catch (error) {
         console.error("Error fetching employee:", error);
         res.status(500).json({
@@ -303,11 +402,14 @@ export const updateEmployee = async (req, res) => {
             }
         });
 
-        const updatedEmployee = await Employee.findByIdAndUpdate(
-            req.params.id,
-            updateData,
-            { new: true, runValidators: true }
-        ).populate([
+        // Update the employee document with new data
+        Object.assign(employee, updateData);
+
+        // Save the employee - this will trigger the pre('save') hook to update currentSalary
+        await employee.save();
+
+        // Re-fetch with population to get the latest state
+        const updatedEmployee = await Employee.findById(req.params.id).populate([
             { path: "primaryCentre", select: "centreName" },
             { path: "centres", select: "centreName" },
             { path: "department", select: "departmentName" },
@@ -315,12 +417,20 @@ export const updateEmployee = async (req, res) => {
             { path: "manager", select: "name employeeId" }
         ]);
 
+        const signedEmployee = await signEmployeeFiles(updatedEmployee);
+
         res.status(200).json({
             message: "Employee updated successfully",
-            employee: updatedEmployee
+            employee: signedEmployee
         });
     } catch (error) {
         console.error("Error updating employee:", error);
+        if (error.code === 11000) {
+            return res.status(400).json({
+                message: "An employee with this email or ID already exists.",
+                error: "Duplicate key error"
+            });
+        }
         res.status(500).json({
             message: "Error updating employee",
             error: error.message

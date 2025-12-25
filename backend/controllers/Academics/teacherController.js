@@ -151,3 +151,21 @@ export const getAllTeachers = async (req, res) => {
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
+// Get Teacher By ID
+export const getTeacherById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const teacher = await User.findOne({ _id: id, role: "teacher" })
+            .select("-password")
+            .populate("centres", "centreName");
+
+        if (!teacher) {
+            return res.status(404).json({ message: "Teacher not found" });
+        }
+
+        res.status(200).json(teacher);
+    } catch (error) {
+        console.error("Get Teacher By ID Error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
