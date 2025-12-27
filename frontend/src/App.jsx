@@ -65,6 +65,21 @@ import ExamLeaderBoard from "./pages/Academics/ExamLeaderBoard";
 import EmployeeList from "./pages/HR/EmployeeList";
 import AddEmployee from "./pages/HR/AddEmployee";
 import ViewEmployee from "./pages/HR/ViewEmployee";
+import EmployeeLetters from "./pages/HR/EmployeeLetters";
+import OfferLetter from "./pages/HR/Letters/OfferLetter";
+import AppointmentLetter from "./pages/HR/Letters/AppointmentLetter";
+import ContractLetter from "./pages/HR/Letters/ContractLetter";
+import ExperienceLetter from "./pages/HR/Letters/ExperienceLetter";
+import VirtualId from "./pages/HR/Letters/VirtualId";
+
+// Attendance Management
+import HolidayCalendar from "./pages/HR/Attendance/HolidayCalendar";
+import HolidayList from "./pages/HR/Attendance/HolidayList";
+import LeaveType from "./pages/HR/Attendance/LeaveType";
+import LeaveManagement from "./pages/HR/Attendance/LeaveManagement";
+import RegularizeTable from "./pages/HR/Attendance/RegularizeTable";
+import LeaveRequest from "./pages/HR/Attendance/LeaveRequest";
+import EmployeeDetails from "./pages/HR/Employee/EmployeeDetails";
 
 function App() {
   return (
@@ -93,6 +108,21 @@ function App() {
         <Route path="/hr/employee/add" element={<AddEmployee />} />
         <Route path="/hr/employee/edit/:id" element={<AddEmployee />} />
         <Route path="/hr/employee/view/:id" element={<ViewEmployee />} />
+        <Route path="/hr/employee/letters/:id" element={<EmployeeLetters />} />
+        <Route path="/hr/employee/letters/:id/offer-letter" element={<OfferLetter />} />
+        <Route path="/hr/employee/letters/:id/appointment-letter" element={<AppointmentLetter />} />
+        <Route path="/hr/employee/letters/:id/contract-letter" element={<ContractLetter />} />
+        <Route path="/hr/employee/letters/:id/experience-letter" element={<ExperienceLetter />} />
+        <Route path="/hr/employee/letters/:id/virtual-id" element={<VirtualId />} />
+
+        {/* Attendance Management Routes */}
+        <Route path="/hr/attendance/holiday-management" element={<HolidayCalendar />} />
+        <Route path="/hr/attendance/holiday-list" element={<HolidayList />} />
+        <Route path="/hr/attendance/leave-type" element={<LeaveType />} />
+        <Route path="/hr/attendance/leave-management" element={<LeaveManagement />} />
+        <Route path="/hr/attendance/leave-request" element={<LeaveRequest />} />
+        <Route path="/hr/attendance/regularize-table" element={<RegularizeTable />} />
+        <Route path="/employee/details" element={<EmployeeDetails />} />
 
         <Route path="/academics" element={<Academics />} />
         <Route path="/academics/teacher-list" element={<TeacherList />} />

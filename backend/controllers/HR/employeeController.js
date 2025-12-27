@@ -19,7 +19,21 @@ export const upload = multer({
 const uploadToR2 = async (file, folder = "employees") => {
     if (!file) return null;
 
-    const publicUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, ""); // Remove trailing slash if any
+    let publicUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
+
+    if (!publicUrl) {
+        console.warn("WARNING: R2_PUBLIC_URL is missing. Using fallback URL construction.");
+        // Fallback to S3API endpoint or a placeholder if available, otherwise relative path
+        // This ensures upload succeeds even if display URL is imperfect
+        if (process.env.S3API) {
+            publicUrl = process.env.S3API.replace(/\/$/, "");
+        } else {
+            // Absolute fallback to generic R2 dev URL structure or even just empty string 
+            // to let frontend handle it (though frontend expects absolute URL mostly)
+            publicUrl = "https://pub-3c9d12dd00618b00795184bc5ff0c333.r2.dev";
+        }
+    }
+
     const fileName = `${folder}/${Date.now()}_${file.originalname.replace(/\s+/g, "_")}`;
     const uploadParams = {
         Bucket: process.env.R2_BUCKET_NAME,
@@ -36,7 +50,9 @@ const uploadToR2 = async (file, folder = "employees") => {
         return finalUrl;
     } catch (error) {
         console.error("R2 Upload: Error:", error);
-        throw new Error("File upload failed");
+        // Don't crash the whole update if one file fails? 
+        // Better to throw so user knows, BUT valid file upload failure is different from config error.
+        throw new Error("File upload failed: " + error.message);
     }
 };
 
@@ -72,7 +88,7 @@ const deleteFromR2 = async (fileUrl) => {
 };
 
 // Helper function to get signed URL for a file
-const getSignedFileUrl = async (fileUrl) => {
+export const getSignedFileUrl = async (fileUrl) => {
     if (!fileUrl) return null;
 
     // If it's already a full URL but not to our R2 (e.g. external), return as is
@@ -89,10 +105,14 @@ const getSignedFileUrl = async (fileUrl) => {
         } else if (fileUrl.startsWith("undefined/")) {
             key = fileUrl.replace("undefined/", "");
         } else {
-            // Fallback: search for 'employees/' in the string to find the key
-            const index = fileUrl.indexOf("employees/");
-            if (index !== -1) {
-                key = fileUrl.substring(index);
+            // Fallback: search for 'employees/' or 'letters/' in the string to find the key
+            const empIndex = fileUrl.indexOf("employees/");
+            const letterIndex = fileUrl.indexOf("letters/");
+
+            if (empIndex !== -1) {
+                key = fileUrl.substring(empIndex);
+            } else if (letterIndex !== -1) {
+                key = fileUrl.substring(letterIndex);
             } else {
                 return fileUrl; // Probably not our R2 file
             }
@@ -117,7 +137,7 @@ const getSignedFileUrl = async (fileUrl) => {
 };
 
 // Helper function to sign all file fields in an employee object
-const signEmployeeFiles = async (employee) => {
+export const signEmployeeFiles = async (employee) => {
     if (!employee) return employee;
 
     const fileFields = [
@@ -131,6 +151,15 @@ const signEmployeeFiles = async (employee) => {
     for (const field of fileFields) {
         if (signedEmployee[field]) {
             signedEmployee[field] = await getSignedFileUrl(signedEmployee[field]);
+        }
+    }
+
+    // Sign URLs in the letters history
+    if (signedEmployee.letters && Array.isArray(signedEmployee.letters)) {
+        for (let i = 0; i < signedEmployee.letters.length; i++) {
+            if (signedEmployee.letters[i].fileUrl) {
+                signedEmployee.letters[i].fileUrl = await getSignedFileUrl(signedEmployee.letters[i].fileUrl);
+            }
         }
     }
 
@@ -372,6 +401,19 @@ export const updateEmployee = async (req, res) => {
             }
         }
 
+        if (typeof updateData.letters === "string") {
+            try {
+                const parsed = JSON.parse(updateData.letters);
+                if (Array.isArray(parsed)) {
+                    updateData.letters = parsed;
+                } else {
+                    delete updateData.letters;
+                }
+            } catch (e) {
+                delete updateData.letters;
+            }
+        }
+
         // Handle file uploads and delete old files
         if (req.files) {
             const fileFields = [
@@ -474,14 +516,13 @@ export const deleteEmployee = async (req, res) => {
 // Add salary structure entry
 export const addSalaryStructure = async (req, res) => {
     try {
-        const { effectiveDate, amount } = req.body;
         const employee = await Employee.findById(req.params.id);
 
         if (!employee) {
             return res.status(404).json({ message: "Employee not found" });
         }
 
-        employee.salaryStructure.push({ effectiveDate, amount });
+        employee.salaryStructure.push(req.body);
         employee.updatedBy = req.user.id;
         await employee.save();
 
@@ -513,5 +554,95 @@ export const getEmployeesForDropdown = async (req, res) => {
             message: "Error fetching employees",
             error: error.message
         });
+    }
+};
+
+// Get current logged-in employee's profile
+export const getMyProfile = async (req, res) => {
+    try {
+        // Find employee linked to the current user
+        const employee = await Employee.findOne({ user: req.user.id })
+            .populate("department", "name")
+            .populate("designation", "name")
+            .populate("manager", "name employeeId")
+            .populate("primaryCentre", "name");
+
+        if (!employee) {
+            return res.status(404).json({ message: "Employee profile not found" });
+        }
+
+        const signedEmployee = await signEmployeeFiles(employee);
+        res.status(200).json(signedEmployee);
+    } catch (error) {
+        console.error("Error fetching profile:", error);
+        res.status(500).json({ message: "Error fetching profile", error: error.message });
+    }
+};
+
+// Update current logged-in employee's profile (restricted fields)
+export const updateMyProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const updates = req.body;
+
+        // Find employee
+        const employee = await Employee.findOne({ user: userId });
+        if (!employee) {
+            return res.status(404).json({ message: "Employee profile not found" });
+        }
+
+        // List of allowed fields to update
+        const allowedUpdates = [
+            "name", "spouseName", "dateOfBirth", "gender", "children",
+            "phoneNumber", "whatsappNumber", "alternativeNumber",
+            "state", "city", "pinCode", "address",
+            "aadharNumber", "panNumber", "bankName", "branchName",
+            "accountNumber", "ifscCode", "profileImage",
+            "aadharProof", "panProof", "bankStatement",
+            "educationalQualification1", "educationalQualification2", "educationalQualification3"
+        ];
+
+        // Apply updates only for allowed fields
+        // Apply updates only for allowed fields
+        Object.keys(updates).forEach(key => {
+            // Exclude file fields from direct text update if they are in allowedUpdates list
+            // (We handle them separately via req.files)
+            if (allowedUpdates.includes(key) && !["profileImage", "aadharProof", "panProof", "bankStatement"].includes(key)) {
+                if (updates[key] !== undefined && updates[key] !== "undefined" && updates[key] !== "null") {
+                    employee[key] = updates[key];
+                }
+            }
+        });
+
+        // Handle file uploads and delete old files
+        if (req.files) {
+            const fileFields = [
+                "aadharProof", "panProof", "bankStatement",
+                "educationalQualification1", "educationalQualification2", "educationalQualification3",
+                "profileImage"
+            ];
+
+            for (const field of fileFields) {
+                if (req.files[field] && req.files[field][0]) {
+                    // Delete old file if exists
+                    if (employee[field]) {
+                        await deleteFromR2(employee[field]);
+                    }
+                    // Upload new file
+                    const fileUrl = await uploadToR2(req.files[field][0]);
+                    employee[field] = fileUrl;
+                }
+            }
+        }
+
+        await employee.save();
+
+        res.status(200).json({
+            message: "Profile updated successfully",
+            employee
+        });
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        res.status(500).json({ message: "Error updating profile", error: error.message });
     }
 };

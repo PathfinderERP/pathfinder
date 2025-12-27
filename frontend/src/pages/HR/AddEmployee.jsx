@@ -65,6 +65,12 @@ const AddEmployee = () => {
         managers: []
     });
 
+    const [salaryModal, setSalaryModal] = useState({
+        isOpen: false,
+        index: -1,
+        tempData: null
+    });
+
     useEffect(() => {
         fetchMasterData();
         if (id) {
@@ -193,7 +199,10 @@ const AddEmployee = () => {
     const addSalaryStructure = () => {
         setFormData(prev => ({
             ...prev,
-            salaryStructure: [...prev.salaryStructure, { effectiveDate: "", amount: 0 }]
+            salaryStructure: [...prev.salaryStructure, {
+                effectiveDate: new Date().toISOString().split('T')[0],
+                amount: 0
+            }]
         }));
     };
 
@@ -205,16 +214,238 @@ const AddEmployee = () => {
     };
 
     const updateSalaryStructure = (index, field, value) => {
-        setFormData(prev => ({
-            ...prev,
-            salaryStructure: prev.salaryStructure.map((salary, i) =>
-                i === index ? { ...salary, [field]: value } : salary
-            )
-        }));
+        setFormData(prev => {
+            const newSalaryStructure = [...prev.salaryStructure];
+            const updatedSalary = { ...newSalaryStructure[index], [field]: value };
+
+            // If Net Salary (amount) is changed, auto-calculate breakdown
+            if (field === "amount" || field === "netSalary") {
+                const amountValue = parseFloat(value) || 0;
+                // Forward calculation: Input is Gross
+                const breakdown = calculateSalaryBreakdown(amountValue);
+                newSalaryStructure[index] = {
+                    ...updatedSalary,
+                    ...breakdown,
+                    amount: amountValue, // Amount is Gross
+                    netSalary: breakdown.netSalary
+                };
+            } else {
+                newSalaryStructure[index] = updatedSalary;
+
+                // Recalculate totals and dependent deductions if components change
+                const s = newSalaryStructure[index];
+                
+                const basic = parseFloat(s.basic) || 0;
+                const totalEarnings = basic +
+                    (parseFloat(s.conveyance) || 0) +
+                    (parseFloat(s.hra) || 0) +
+                    (parseFloat(s.specialAllowance) || 0);
+
+                // PF
+                let pf;
+                if (basic <= 15000) {
+                    pf = Math.round(basic * 0.12);
+                } else {
+                    pf = 1800;
+                }
+
+                // ESI
+                let esi;
+                if (totalEarnings <= 21000) {
+                    esi = Math.ceil(totalEarnings * 0.0075);
+                } else {
+                    esi = 0;
+                }
+
+                // P.Tax
+                let pTax = 0;
+                if (totalEarnings <= 10000) pTax = 0;
+                else if (totalEarnings <= 15000) pTax = 110;
+                else if (totalEarnings <= 25000) pTax = 130;
+                else if (totalEarnings <= 40000) pTax = 150;
+                else pTax = 200;
+
+                const totalDeductions = pf + esi + pTax +
+                    (parseFloat(s.tds) || 0) +
+                    (parseFloat(s.lossOfPay) || 0) +
+                    (parseFloat(s.adjustment) || 0);
+                
+                newSalaryStructure[index].pf = pf;
+                newSalaryStructure[index].esi = esi;
+                newSalaryStructure[index].pTax = pTax;
+                newSalaryStructure[index].totalEarnings = totalEarnings;
+                newSalaryStructure[index].totalDeductions = totalDeductions;
+                newSalaryStructure[index].netSalary = totalEarnings - totalDeductions;
+                newSalaryStructure[index].amount = totalEarnings;
+            }
+
+            return { ...prev, salaryStructure: newSalaryStructure };
+        });
+    };
+
+    const calculateSalaryBreakdown = (grossAmount) => {
+        if (!grossAmount) return {};
+
+        const gross = parseFloat(grossAmount);
+
+        // Basic: 50% of Gross
+        const basic = Math.round(gross * 0.50);
+
+        // HRA: 50% of Basic
+        const hra = Math.round(basic * 0.50);
+
+        // Conveyance: 25% of Basic
+        const conveyance = Math.round(basic * 0.25);
+
+        // Special Allowance: Balance to match Gross
+        const currentEarnings = basic + hra + conveyance;
+        const specialAllowance = gross - currentEarnings;
+
+        // Deductions
+        // PF
+        let pf;
+        if (basic <= 15000) {
+            pf = Math.round(basic * 0.12);
+        } else {
+            pf = 1800;
+        }
+
+        // ESI
+        let esi;
+        if (gross <= 21000) {
+            esi = Math.ceil(gross * 0.0075);
+        } else {
+            esi = 0;
+        }
+
+        // P. Tax
+        let pTax = 0;
+        if (gross <= 10000) pTax = 0;
+        else if (gross <= 15000) pTax = 110;
+        else if (gross <= 25000) pTax = 130;
+        else if (gross <= 40000) pTax = 150;
+        else pTax = 200;
+
+        const totalDeductions = pf + esi + pTax;
+
+        return {
+            basic,
+            hra,
+            conveyance,
+            specialAllowance,
+            adjustment: 0,
+            totalEarnings: gross,
+            pf,
+            esi,
+            pTax,
+            tds: 0,
+            lossOfPay: 0,
+            totalDeductions,
+            netSalary: gross - totalDeductions
+        };
+    };
+
+    const openSalaryModal = (index) => {
+        setSalaryModal({
+            isOpen: true,
+            index,
+            tempData: { ...formData.salaryStructure[index] }
+        });
+    };
+
+    const closeSalaryModal = (save = false) => {
+        if (save) {
+            setFormData(prev => ({
+                ...prev,
+                salaryStructure: prev.salaryStructure.map((s, i) =>
+                    i === salaryModal.index ? salaryModal.tempData : s
+                )
+            }));
+        }
+        setSalaryModal({ isOpen: false, index: -1, tempData: null });
+    };
+
+    const handleSalaryModalInputChange = (field, value) => {
+        const val = field === "effectiveDate" ? value : (parseFloat(value) || 0);
+
+                setSalaryModal(prev => {
+            const updated = { ...prev.tempData, [field]: val };
+
+            if (field === "amount" || field === "grossSalary") {
+                const breakdown = calculateSalaryBreakdown(val);
+                return {
+                    ...prev,
+                    tempData: { 
+                        ...updated, 
+                        ...breakdown, 
+                        effectiveDate: updated.effectiveDate, // Preserve Date
+                        amount: breakdown.totalEarnings 
+                    }
+                };
+            }
+
+            // Recalculate everything
+            const basic = parseFloat(updated.basic) || 0;
+            const totalEarnings = basic +
+                (parseFloat(updated.conveyance) || 0) +
+                (parseFloat(updated.hra) || 0) +
+                (parseFloat(updated.specialAllowance) || 0);
+
+            // PF
+            let pf;
+            if (basic <= 15000) {
+                pf = Math.round(basic * 0.12);
+            } else {
+                pf = 1800;
+            }
+
+            // ESI
+            let esi;
+            if (totalEarnings <= 21000) {
+                esi = Math.ceil(totalEarnings * 0.0075);
+            } else {
+                esi = 0;
+            }
+
+            // P.Tax
+            let pTax = 0;
+            if (totalEarnings <= 10000) pTax = 0;
+            else if (totalEarnings <= 15000) pTax = 110;
+            else if (totalEarnings <= 25000) pTax = 130;
+            else if (totalEarnings <= 40000) pTax = 150;
+            else pTax = 200;
+
+            const totalDeductions = pf + esi + pTax +
+                (parseFloat(updated.tds) || 0) +
+                (parseFloat(updated.lossOfPay) || 0) +
+                (parseFloat(updated.adjustment) || 0);
+
+            return {
+                ...prev,
+                tempData: {
+                    ...updated,
+                    pf,
+                    esi,
+                    pTax,
+                    totalEarnings,
+                    totalDeductions,
+                    netSalary: totalEarnings - totalDeductions,
+                    amount: totalEarnings
+                }
+            };
+        });
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        // Validate Salary Structure Dates
+        if (formData.salaryStructure.some(s => !s.effectiveDate)) {
+            toast.error("Please select an Effective Date for all salary entries.");
+            setLoading(false);
+            return;
+        }
+
+
         setLoading(true);
 
         try {
@@ -776,6 +1007,13 @@ const AddEmployee = () => {
                                     />
                                     <button
                                         type="button"
+                                        onClick={() => openSalaryModal(index)}
+                                        className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition-colors text-gray-700 dark:text-gray-200"
+                                    >
+                                        Edit Details
+                                    </button>
+                                    <button
+                                        type="button"
                                         onClick={() => removeSalaryStructure(index)}
                                         className="text-red-600 hover:text-red-800 flex items-center justify-center gap-1"
                                     >
@@ -997,6 +1235,143 @@ const AddEmployee = () => {
                     </div>
                 </form>
             </div>
+
+            {/* Salary Breakdown Modal */}
+            {salaryModal.isOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white dark:bg-[#1a1f24] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-gray-200 dark:border-gray-800 flex flex-col scale-in">
+                        <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
+                            <h2 className="text-xl font-bold text-gray-800 dark:text-white">Edit Salary Details</h2>
+                            <button onClick={() => closeSalaryModal()} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-500">
+                                <FaTimes />
+                            </button>
+                        </div>
+
+                        <div className="p-8 overflow-y-auto flex-1 custom-scrollbar">
+                            <div className="mb-8 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-800">
+                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                    Effective Date <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="date"
+                                    value={salaryModal.tempData?.effectiveDate ? new Date(salaryModal.tempData.effectiveDate).toISOString().split('T')[0] : ""}
+                                    onChange={(e) => handleSalaryModalInputChange("effectiveDate", e.target.value)}
+                                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white transition-all outline-none"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                {/* Earnings Column */}
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100 dark:border-gray-800">
+                                        <div className="w-1.5 h-6 bg-blue-500 rounded-full"></div>
+                                        <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200">Earnings</h3>
+                                    </div>
+                                    <div className="space-y-4">
+                                        {[
+                                            { label: "Basic", field: "basic" },
+                                            { label: "Conveyance", field: "conveyance" },
+                                            { label: "HRA", field: "hra" },
+                                            { label: "Special Allowance", field: "specialAllowance" }
+                                        ].map(item => (
+                                            <div key={item.field} className="flex flex-col gap-1.5">
+                                                <label className="text-sm font-semibold text-gray-600 dark:text-gray-400 ml-1">{item.label}</label>
+                                                <div className="relative group">
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium group-focus-within:text-blue-500 transition-colors">₹</span>
+                                                    <input
+                                                        type="number"
+                                                        value={salaryModal.tempData?.[item.field] || 0}
+                                                        onChange={(e) => handleSalaryModalInputChange(item.field, e.target.value)}
+                                                        className="w-full pl-8 pr-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all dark:text-white font-medium"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Deductions Column */}
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100 dark:border-gray-800">
+                                        <div className="w-1.5 h-6 bg-red-500 rounded-full"></div>
+                                        <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200">Deductions</h3>
+                                    </div>
+                                    <div className="space-y-4">
+                                        {[
+                                            { label: "P.F. (Employee's Contribution)", field: "pf" },
+                                            { label: "ESI (Employee's Contribution)", field: "esi" },
+                                            { label: "P Tax", field: "pTax" },
+                                            { label: "TDS", field: "tds" },
+                                            { label: "Loss Of Pay", field: "lossOfPay" },
+                                            { label: "Adjustment", field: "adjustment" }
+                                        ].map(item => (
+                                            <div key={item.field} className="flex flex-col gap-1.5">
+                                                <label className="text-sm font-semibold text-gray-600 dark:text-gray-400 ml-1">{item.label}</label>
+                                                <div className="relative group">
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium group-focus-within:text-red-500 transition-colors">₹</span>
+                                                    <input
+                                                        type="number"
+                                                        value={salaryModal.tempData?.[item.field] || 0}
+                                                        onChange={(e) => handleSalaryModalInputChange(item.field, e.target.value)}
+                                                        className="w-full pl-8 pr-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all dark:text-white font-medium"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Totals Section */}
+                            <div className="mt-10 pt-8 border-t border-gray-100 dark:border-gray-800 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="p-4 bg-blue-50/50 dark:bg-blue-500/5 rounded-2xl border border-blue-100/50 dark:border-blue-500/10 flex justify-between items-center">
+                                    <span className="font-bold text-blue-700 dark:text-blue-400">Total Earnings</span>
+                                    <span className="font-bold text-xl text-blue-800 dark:text-blue-300">₹ {salaryModal.tempData?.totalEarnings || 0}</span>
+                                </div>
+                                <div className="p-4 bg-red-50/50 dark:bg-red-500/5 rounded-2xl border border-red-100/50 dark:border-red-500/10 flex justify-between items-center">
+                                    <span className="font-bold text-red-700 dark:text-red-400">Total Deductions</span>
+                                    <span className="font-bold text-xl text-red-800 dark:text-red-300">₹ {salaryModal.tempData?.totalDeductions || 0}</span>
+                                </div>
+                            </div>
+
+                            {/* Net Salary Section */}
+                            <div className="mt-6 p-5 bg-emerald-500 rounded-2xl shadow-lg shadow-emerald-500/20 flex justify-between items-center transform transition-transform hover:scale-[1.01]">
+                                <div className="flex flex-col">
+                                    <span className="text-emerald-50 text-sm font-semibold uppercase tracking-wider opacity-90">Net Salary</span>
+                                    <div className="text-3xl font-black text-white mt-1">₹ {salaryModal.tempData?.netSalary || 0}</div>
+                                </div>
+                                <div className="flex flex-col items-end gap-2">
+                                    <label className="text-emerald-50 text-xs font-bold uppercase tracking-widest opacity-80">Quick Update</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-200">₹</span>
+                                        <input
+                                            type="number"
+                                            placeholder="Enter Gross Salary"
+                                            onChange={(e) => handleSalaryModalInputChange("grossSalary", e.target.value)}
+                                            className="w-40 pl-7 pr-3 py-2 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:bg-white/20 outline-none transition-all font-bold"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-6 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-4 bg-gray-50/50 dark:bg-gray-800/50">
+                            <button
+                                onClick={() => closeSalaryModal()}
+                                className="px-6 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => closeSalaryModal(true)}
+                                className="px-8 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/30 transition-all hover:-translate-y-0.5"
+                            >
+                                Save Salary Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </Layout>
     );
 };

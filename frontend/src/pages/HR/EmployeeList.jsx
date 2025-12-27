@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
-import { FaPlus, FaEdit, FaEye, FaSearch, FaFileExcel, FaFilePdf, FaTrash, FaChevronLeft, FaChevronRight, FaFileUpload, FaFilter } from "react-icons/fa";
+import { FaPlus, FaEdit, FaEye, FaSearch, FaFileExcel, FaFilePdf, FaTrash, FaChevronLeft, FaChevronRight, FaFileUpload, FaFilter, FaFileAlt } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import usePermission from "../../hooks/usePermission";
 
 const EmployeeList = () => {
     const navigate = useNavigate();
@@ -24,6 +25,11 @@ const EmployeeList = () => {
     });
     const [jumpPage, setJumpPage] = useState("");
     const [showImportModal, setShowImportModal] = useState(false);
+
+    // Permission checks
+    const canCreate = usePermission('hrManpower', 'employees', 'create');
+    const canEdit = usePermission('hrManpower', 'employees', 'edit');
+    const canDelete = usePermission('hrManpower', 'employees', 'delete');
 
     // Master data for filters
     const [departments, setDepartments] = useState([]);
@@ -333,12 +339,14 @@ const EmployeeList = () => {
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2 sm:gap-3">
-                        <button
-                            onClick={() => setShowImportModal(true)}
-                            className="bg-[#1a1f24] hover:bg-[#252a30] text-gray-300 px-4 py-2.5 rounded-xl font-bold transition-all border border-gray-800 flex items-center gap-2 shadow-sm"
-                        >
-                            <FaFileUpload className="text-blue-400" /> Import
-                        </button>
+                        {canCreate && (
+                            <button
+                                onClick={() => setShowImportModal(true)}
+                                className="bg-[#1a1f24] hover:bg-[#252a30] text-gray-300 px-4 py-2.5 rounded-xl font-bold transition-all border border-gray-800 flex items-center gap-2 shadow-sm"
+                            >
+                                <FaFileUpload className="text-blue-400" /> Import
+                            </button>
+                        )}
                         <button
                             onClick={handleExportExcel}
                             className="bg-green-600/10 hover:bg-green-600/20 text-green-600 px-4 py-2.5 rounded-xl font-bold transition-all border border-green-600/20 flex items-center gap-2"
@@ -351,12 +359,14 @@ const EmployeeList = () => {
                         >
                             <FaFilePdf /> PDF
                         </button>
-                        <button
-                            onClick={() => navigate("/hr/employee/add")}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20"
-                        >
-                            <FaPlus /> Add Employee
-                        </button>
+                        {canCreate && (
+                            <button
+                                onClick={() => navigate("/hr/employee/add")}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20"
+                            >
+                                <FaPlus /> Add Employee
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -519,26 +529,37 @@ const EmployeeList = () => {
                                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                                                 <div className="flex gap-2">
                                                     <button
+                                                        onClick={() => navigate(`/hr/employee/letters/${employee._id}`)}
+                                                        className="p-2 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 bg-indigo-500/10 rounded-lg transition-all"
+                                                        title="Letters"
+                                                    >
+                                                        <FaFileAlt size={16} />
+                                                    </button>
+                                                    <button
                                                         onClick={() => navigate(`/hr/employee/view/${employee._id}`)}
                                                         className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-500/10 rounded-lg transition-all"
                                                         title="View"
                                                     >
                                                         <FaEye size={16} />
                                                     </button>
-                                                    <button
-                                                        onClick={() => navigate(`/hr/employee/edit/${employee._id}`)}
-                                                        className="p-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 bg-green-500/10 rounded-lg transition-all"
-                                                        title="Edit"
-                                                    >
-                                                        <FaEdit size={16} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDelete(employee._id)}
-                                                        className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 bg-red-500/10 rounded-lg transition-all"
-                                                        title="Delete"
-                                                    >
-                                                        <FaTrash size={16} />
-                                                    </button>
+                                                    {canEdit && (
+                                                        <button
+                                                            onClick={() => navigate(`/hr/employee/edit/${employee._id}`)}
+                                                            className="p-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 bg-green-500/10 rounded-lg transition-all"
+                                                            title="Edit"
+                                                        >
+                                                            <FaEdit size={16} />
+                                                        </button>
+                                                    )}
+                                                    {canDelete && (
+                                                        <button
+                                                            onClick={() => handleDelete(employee._id)}
+                                                            className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 bg-red-500/10 rounded-lg transition-all"
+                                                            title="Delete"
+                                                        >
+                                                            <FaTrash size={16} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>

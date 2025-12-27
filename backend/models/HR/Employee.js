@@ -2,7 +2,21 @@ import mongoose from "mongoose";
 
 const salaryStructureSchema = new mongoose.Schema({
     effectiveDate: { type: Date, required: true },
-    amount: { type: Number, required: true }
+    amount: { type: Number, required: true }, // This will store the Net Salary as per user request
+    basic: { type: Number, default: 0 },
+    conveyance: { type: Number, default: 0 },
+    hra: { type: Number, default: 0 },
+    cca: { type: Number, default: 0 },
+    adjustment: { type: Number, default: 0 },
+    specialAllowance: { type: Number, default: 0 },
+    totalEarnings: { type: Number, default: 0 },
+    pf: { type: Number, default: 0 },
+    esi: { type: Number, default: 0 },
+    pTax: { type: Number, default: 0 },
+    tds: { type: Number, default: 0 },
+    lossOfPay: { type: Number, default: 0 },
+    totalDeductions: { type: Number, default: 0 },
+    netSalary: { type: Number, default: 0 }
 }, { _id: false });
 
 const employeeSchema = new mongoose.Schema({
@@ -11,6 +25,11 @@ const employeeSchema = new mongoose.Schema({
         type: String,
         unique: true,
         required: true
+    },
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        unique: true
     },
 
     // Personal Details
@@ -191,6 +210,14 @@ const employeeSchema = new mongoose.Schema({
     profileImage: {
         type: String // Cloudflare R2 URL
     },
+
+    // Letters History
+    letters: [{
+        letterType: { type: String, required: true },
+        fileName: { type: String, required: true },
+        fileUrl: { type: String, required: true },
+        generatedAt: { type: Date, default: Date.now }
+    }],
 
     // Status
     status: {

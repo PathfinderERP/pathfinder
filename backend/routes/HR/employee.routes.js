@@ -7,7 +7,9 @@ import {
     deleteEmployee,
     addSalaryStructure,
     getEmployeesForDropdown,
-    upload
+    upload,
+    getMyProfile,
+    updateMyProfile
 } from "../../controllers/HR/employeeController.js";
 import authMiddleware from "../../middleware/authMiddleware.js";
 
@@ -32,6 +34,10 @@ router.use(authMiddleware);
 
 // Get employees for dropdown (managers)
 router.get("/dropdown", getEmployeesForDropdown);
+
+// My Profile Routes (Must be before /:id)
+router.get("/me", getMyProfile);
+router.put("/me", uploadFields, updateMyProfile);
 
 // CRUD routes
 router.post("/", uploadFields, createEmployee);

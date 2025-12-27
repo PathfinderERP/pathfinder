@@ -18,12 +18,13 @@ if (!process.env.R2_ACCESS_KEY_ID) {
 }
 
 const s3Client = new S3Client({
-    region: "auto",
+    region: "us-east-1",
     endpoint: process.env.S3API,
     credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID || "",
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || "",
+        accessKeyId: (process.env.R2_ACCESS_KEY_ID || "").trim(),
+        secretAccessKey: (process.env.R2_SECRET_ACCESS_KEY || "").trim(),
     },
+    forcePathStyle: true, // Specific for some R2 integrations to avoid DNS issues
 });
 
 export default s3Client;

@@ -1,6 +1,7 @@
 
 import React, { useState } from "react";
 import {
+    FaCalendarAlt,
     FaChartBar, FaBullseye, FaBook, FaMoneyBillWave, FaUserTie, FaCogs, FaMobileAlt,
     FaBullhorn, FaThLarge, FaDatabase, FaChevronDown, FaChevronUp, FaTimes, FaUsers,
     FaShoppingCart, FaCalendarCheck, FaBuilding, FaIdCard, FaMapMarkerAlt, FaToggleOn,
@@ -48,7 +49,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Live Class Review", path: "/academics/live-class-review", permissionSection: "liveClassReview" },
                 { name: "CC Teacher Review", path: "/academics/cc-teacher-review", permissionSection: "ccTeacherReview" },
                 { name: "HoD List", path: "/academics/hod-list", permissionSection: "hodList" },
-                { name: "Centre Management", path: "/academics/centre-management", permissionSection: "centreManagement" },
+                // { name: "Centre Management", path: "/academics/centre-management", permissionSection: "centreManagement" },
                 { name: "RM List", path: "/academics/rm-list", permissionSection: "rmList" },
                 { name: "Class Coordinator", path: "/academics/class-coordinator", permissionSection: "classCoordinator" },
                 {
@@ -94,30 +95,41 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             ]
         },
         {
+            name: "Employee Center",
+            icon: <FaUserTie />,
+            permissionModule: "employeeCenter", // Virtual permission
+            subItems: [
+                { name: "Employee Details", path: "/employee/details", icon: <FaIdCard /> },
+                { name: "Holiday List", path: "/hr/attendance/holiday-list", icon: <FaCalendarAlt /> },
+                { name: "Leave Request", path: "/hr/attendance/leave-request", icon: <FaCalendarCheck /> },
+                // Add more items from screenshot if they exist
+                { name: "My Documents", path: "/hr/upload", icon: <FaFileUpload /> }, // Mapped Document Center
+                // { name: "Training Center", path: "/hr/training", icon: <FaChalkboardTeacher /> }, // Exists in list
+            ]
+        },
+        // HR & Manpower (RESTRICTED TO SUPER ADMIN ONLY)
+        {
             name: "HR & Manpower",
             icon: <FaUserTie />,
             permissionModule: "hrManpower",
+            restrictedToSuperAdmin: true, // Custom flag to handle hiding
             subItems: [
-                { name: "Overview", path: "/hr", icon: <FaThLarge /> },
+                { name: "Overview", path: "/hr", icon: <FaThLarge />, permissionSection: "overview" },
                 { name: "Employee Management", path: "/hr/employee/list", icon: <FaUsers />, permissionSection: "employees" },
                 {
                     name: "Attendance Management",
                     icon: <FaCalendarCheck />,
-                    permissionSection: "attendance",
                     subItems: [
                         { name: "Holiday Management", path: "/hr/attendance/holiday-management", permissionSection: "holidayManagement" },
                         { name: "Holiday List", path: "/hr/attendance/holiday-list", permissionSection: "holidayList" },
                         { name: "Leaves Type", path: "/hr/attendance/leave-type", permissionSection: "leaveType" },
                         { name: "Leave Management", path: "/hr/attendance/leave-management", permissionSection: "leaveManagement" },
+                        { name: "Leave Request", path: "/hr/attendance/leave-request", permissionSection: "leaveRequest" },
                         { name: "Regularize Table", path: "/hr/attendance/regularize-table", permissionSection: "regularizeTable" },
                         { name: "Daily Attendance", path: "/hr/attendance/daily" },
                         { name: "Monthly Report", path: "/hr/attendance/monthly" },
                     ]
                 },
-                { name: "Department", path: "/hr/department", icon: <FaBuilding />, permissionSection: "department" },
-                { name: "Designation", path: "/hr/designation", icon: <FaIdCard />, permissionSection: "designation" },
-                { name: "Center Management", path: "/hr/center", icon: <FaMapMarkerAlt />, permissionSection: "center" },
-                { name: "Center On/Off Details", path: "/hr/center-details", icon: <FaToggleOn />, permissionSection: "centerDetails" },
                 { name: "Training List", path: "/hr/training", icon: <FaChalkboardTeacher />, permissionSection: "training" },
                 { name: "POSH Table", path: "/hr/posh-table", icon: <FaTable />, permissionSection: "posh" },
                 { name: "Upload File", path: "/hr/upload", icon: <FaFileUpload />, permissionSection: "upload" },
@@ -128,9 +140,9 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             ]
         },
         { name: "Operations", icon: <FaCogs />, path: "#", permissionModule: "operations" },
-        { name: "Digital Portal", icon: <FaMobileAlt />, path: "#", permissionModule: "digitalPortal" },
-        { name: "Marketing & CRM", icon: <FaBullhorn />, path: "#", permissionModule: "marketingCRM" },
-        { name: "Franchise Mgmt", icon: <FaThLarge />, path: "#", permissionModule: "franchiseMgmt" },
+        // { name: "Digital Portal", icon: <FaMobileAlt />, path: "#", permissionModule: "digitalPortal" },
+        // { name: "Marketing & CRM", icon: <FaBullhorn />, path: "#", permissionModule: "marketingCRM" },
+        // { name: "Franchise Mgmt", icon: <FaThLarge />, path: "#", permissionModule: "franchiseMgmt" },
         {
             name: "Master Data",
             icon: <FaDatabase />,
@@ -168,6 +180,8 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         // SuperAdmin sees everything
         if (isSuperAdmin) return true;
 
+        if (item.permissionModule === 'employeeCenter') return true;
+
         // Check granular permissions first
         if (item.permissionModule) {
             // Special case for items that map to a specific section (like Course Management)
@@ -201,16 +215,55 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         // Fallback to legacy permissions
         return userPermissions.includes(item.name);
     }).map(item => {
+        // SPECIAL HANDLING FOR HR MODULE (Non-SuperAdmin)
+        if (item.permissionModule === 'hrManpower' && !isSuperAdmin) {
+            return null;
+        }
+
+        /* 
+        Legacy Code Removed:
+        if (item.permissionModule === 'hrManpower' && !isSuperAdmin) { ... }
+        */
+        // Continue to standard filtering...
+
+        // STANDARD FILTERING (for other modules or SuperAdmin)
         // Filter sub-items if they exist
         if (item.subItems && !isSuperAdmin) {
             const filteredSubItems = item.subItems.filter(sub => {
-                const section = granularPermissions[item.permissionModule]?.[sub.permissionSection];
-                return !!section;
-            });
-            return { ...item, subItems: filteredSubItems };
+                // If sub has permissionSection, check granular permission
+                if (sub.permissionSection) {
+                    const section = granularPermissions[item.permissionModule]?.[sub.permissionSection];
+                    return !!section;
+                }
+                // If no permissionSection, allow it (might be a category with nested items)
+                return true;
+            }).map(sub => {
+                // Handle nested subitems (like Attendance Management -> Holiday List, etc.)
+                if (sub.subItems && !isSuperAdmin) {
+                    const filteredNestedSubItems = sub.subItems.filter(nestedSub => {
+                        if (nestedSub.permissionSection) {
+                            const section = granularPermissions[item.permissionModule]?.[nestedSub.permissionSection];
+                            return !!section;
+                        }
+                        return true;
+                    });
+                    // Only return the sub if it has accessible nested items
+                    if (filteredNestedSubItems.length > 0) {
+                        return { ...sub, subItems: filteredNestedSubItems };
+                    }
+                    return null;
+                }
+                return sub;
+            }).filter(Boolean); // Remove null entries
+
+            // Only return item if it has accessible subitems
+            if (filteredSubItems.length > 0) {
+                return { ...item, subItems: filteredSubItems };
+            }
+            return null;
         }
         return item;
-    });
+    }).filter(Boolean); // Remove null entries
 
     return (
         <div

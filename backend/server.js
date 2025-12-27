@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import express from "express";
+// Force restart timestamp: 2025-12-27
 import dotenv from "dotenv";
 import cors from "cors";
 import connectDB from "./db/connect.js";
@@ -30,7 +31,14 @@ import classScheduleRoutes from "./routes/Academics/classSchedule.routes.js";
 import rmRoutes from "./routes/Academics/rm.routes.js";
 import hodRoutes from "./routes/Academics/hod.routes.js";
 import employeeRoutes from "./routes/HR/employee.routes.js";
+import letterRoutes from "./routes/HR/letter.routes.js";
 import designationRoutes from "./routes/designation/designation.routes.js";
+import attendanceRoutes from "./routes/Attendance/attendance.routes.js";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { startPaymentReminderCron } from "./services/cronService.js";
 
 dotenv.config();
@@ -40,6 +48,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
+app.use("/api/uploads", express.static(path.join(__dirname, "uploads")));
 
 connectDB();
 
@@ -82,6 +91,8 @@ app.use("/api/academics/hod", hodRoutes);
 
 // HR Routes
 app.use("/api/hr/employee", employeeRoutes);
+app.use("/api/hr/letters", letterRoutes);
+app.use("/api/hr/attendance", attendanceRoutes);
 
 // Master Data Routes
 app.use("/api/designation", designationRoutes);
