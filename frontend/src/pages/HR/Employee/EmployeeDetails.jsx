@@ -283,8 +283,8 @@ const EmployeeDetails = () => {
 
                             {employee.salaryStructure && employee.salaryStructure.length > 0 ? (
                                 (() => {
-                                    // Get latest salary structure
-                                    const latest = employee.salaryStructure[employee.salaryStructure.length - 1];
+                                    // Get latest salary structure by sorting effectiveDate descending
+                                    const latest = [...employee.salaryStructure].sort((a, b) => new Date(b.effectiveDate) - new Date(a.effectiveDate))[0];
 
                                     // Define Earnings
                                     const earnings = [
@@ -292,28 +292,24 @@ const EmployeeDetails = () => {
                                         { label: "HRA", val: latest.hra },
                                         { label: "Conveyance", val: latest.conveyance },
                                         { label: "Special Allowance", val: latest.specialAllowance },
-                                    ].filter(e => e.val > 0 || e.val === 0); // Include 0 or filter > 0 depending on preference. Keeping all for layout but maybe value > 0 for cleanliness? 
-                                    // Actually user wants "entire breakdown", so seeing what is 0 is also useful. Or we can filter to keep it clean.
-                                    // Let's filter > 0 to match sleek design
+                                    ];
 
                                     const activeEarnings = earnings.filter(e => e.val > 0);
 
-                                    // Define Deductions
+                                    // Define Deductions - exactly matching HR view order and labels
                                     const deductions = [
-                                        { label: "Provident Fund (PF)", val: latest.providentFund },
-                                        { label: "ESI (Employee)", val: latest.esi },
-                                        { label: "TDS / Tax", val: latest.tds || 0 },
-                                        { label: "Professional Tax", val: latest.professionalTax || 0 },
-                                    ].filter(d => d.val > 0);
+                                        { label: "Provident Fund (PF)", val: latest.pf },
+                                        { label: "ESI Contribution", val: latest.esi },
+                                        { label: "Professional Tax", val: latest.pTax || 0 },
+                                        { label: "TDS / Income Tax", val: latest.tds || 0 },
+                                        { label: "Loss of Pay", val: latest.lossOfPay || 0 },
+                                        { label: "Adjustment", val: latest.adjustment || 0 },
+                                    ].filter(d => Math.abs(d.val) > 0); // Include if non-zero (positive or negative)
 
-                                    const totalEarnings = activeEarnings.reduce((sum, item) => sum + item.val, 0);
-                                    const totalDeductions = deductions.reduce((sum, item) => sum + item.val, 0);
-
-                                    // Calculation logic: 'amount' in DB is often CTC. 
-                                    // Allow fallback if components add up to more than amount or if they are partial.
-                                    // Ideally Net = Total Earnings - Total Deductions.
-                                    // If components are missing, fall back to just CTC display.
-                                    const netSalary = totalEarnings - totalDeductions;
+                                    // Use stored totals from DB for consistency
+                                    const totalEarnings = latest.totalEarnings || activeEarnings.reduce((sum, item) => sum + item.val, 0);
+                                    const totalDeductions = latest.totalDeductions || deductions.reduce((sum, item) => sum + item.val, 0);
+                                    const netSalary = latest.netSalary || (totalEarnings - totalDeductions);
                                     const ctc = latest.amount;
 
                                     return (
@@ -338,7 +334,7 @@ const EmployeeDetails = () => {
 
                                             {/* Deductions & Net */}
                                             <div className="space-y-6">
-                                                {deductions.length > 0 && (
+                                                {deductions.length > 0 ? (
                                                     <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700">
                                                         <h3 className="text-red-400 font-bold uppercase tracking-wider text-xs mb-4">Deductions (Monthly)</h3>
                                                         <div className="space-y-3">
@@ -354,12 +350,16 @@ const EmployeeDetails = () => {
                                                             </div>
                                                         </div>
                                                     </div>
+                                                ) : (
+                                                    <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700 border-dashed flex items-center justify-center min-h-[140px]">
+                                                        <span className="text-gray-500 text-xs italic text-center">No deductions applicable</span>
+                                                    </div>
                                                 )}
 
                                                 <div className="bg-emerald-600/20 rounded-2xl p-6 border border-emerald-500/30 flex justify-between items-center group hover:bg-emerald-600/30 transition-colors">
                                                     <div>
                                                         <span className="block text-emerald-400 text-xs font-black uppercase tracking-widest">Net Salary On Hand</span>
-                                                        <span className="text-xs text-gray-400">Approximate</span>
+                                                        <p className="text-[10px] text-gray-500 font-medium">Effective from {new Date(latest.effectiveDate).toLocaleDateString('en-GB')}</p>
                                                     </div>
                                                     <div className="text-3xl font-black text-white">
                                                         ₹{(netSalary > 0 ? netSalary : ctc).toLocaleString()}

@@ -271,83 +271,86 @@ const ViewEmployee = () => {
                         </div>
 
                         {/* Salary Breakdown Table */}
-                        {employee.salaryStructure && employee.salaryStructure.length > 0 && (
-                            <div className="md:col-span-3 mt-6">
-                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-                                    <span className="w-1.5 h-4 bg-cyan-500 rounded-full"></span>
-                                    Latest Salary Structure Breakdown
-                                </p>
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-6 bg-[#131619] rounded-2xl border border-gray-800">
-                                    {/* Earnings */}
-                                    <div className="space-y-4">
-                                        <h4 className="text-sm font-bold text-gray-400 border-b border-gray-800 pb-2 flex justify-between">
-                                            <span>EARNINGS</span>
-                                            <span className="text-cyan-400 tracking-wider">AMOUNT (₹)</span>
-                                        </h4>
-                                        <div className="space-y-2.5">
-                                            {[
-                                                { label: "Basic Salary", value: employee.salaryStructure[0]?.basic },
-                                                { label: "HRA", value: employee.salaryStructure[0]?.hra },
-                                                { label: "Conveyance", value: employee.salaryStructure[0]?.conveyance },
-                                                { label: "Special Allowance", value: employee.salaryStructure[0]?.specialAllowance }
-                                            ].map((item, idx) => (
-                                                <div key={idx} className="flex justify-between text-sm py-0.5">
-                                                    <span className="text-gray-500">{item.label}</span>
-                                                    <span className="text-gray-300 font-medium">{item.value?.toLocaleString() || 0}</span>
+                        {employee.salaryStructure && employee.salaryStructure.length > 0 && (() => {
+                            const latestSalary = [...employee.salaryStructure].sort((a, b) => new Date(b.effectiveDate) - new Date(a.effectiveDate))[0];
+                            return (
+                                <div className="md:col-span-3 mt-6">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                        <span className="w-1.5 h-4 bg-cyan-500 rounded-full"></span>
+                                        Latest Salary Structure Breakdown
+                                    </p>
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-6 bg-[#131619] rounded-2xl border border-gray-800">
+                                        {/* Earnings */}
+                                        <div className="space-y-4">
+                                            <h4 className="text-sm font-bold text-gray-400 border-b border-gray-800 pb-2 flex justify-between">
+                                                <span>EARNINGS</span>
+                                                <span className="text-cyan-400 tracking-wider">AMOUNT (₹)</span>
+                                            </h4>
+                                            <div className="space-y-2.5">
+                                                {[
+                                                    { label: "Basic Salary", value: latestSalary.basic },
+                                                    { label: "HRA", value: latestSalary.hra },
+                                                    { label: "Conveyance", value: latestSalary.conveyance },
+                                                    { label: "Special Allowance", value: latestSalary.specialAllowance }
+                                                ].map((item, idx) => (
+                                                    <div key={idx} className="flex justify-between text-sm py-0.5">
+                                                        <span className="text-gray-500">{item.label}</span>
+                                                        <span className="text-gray-300 font-medium">{item.value?.toLocaleString() || 0}</span>
+                                                    </div>
+                                                ))}
+                                                <div className="flex justify-between text-sm font-bold pt-3 mt-2 border-t border-gray-800/50">
+                                                    <span className="text-gray-200">TOTAL EARNINGS (GROSS)</span>
+                                                    <span className="text-cyan-400">₹ {latestSalary.totalEarnings?.toLocaleString() || 0}</span>
                                                 </div>
-                                            ))}
-                                            <div className="flex justify-between text-sm font-bold pt-3 mt-2 border-t border-gray-800/50">
-                                                <span className="text-gray-200">TOTAL EARNINGS (GROSS)</span>
-                                                <span className="text-cyan-400">₹ {employee.salaryStructure[0]?.totalEarnings?.toLocaleString() || 0}</span>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    {/* Deductions */}
-                                    <div className="space-y-4">
-                                        <h4 className="text-sm font-bold text-gray-400 border-b border-gray-800 pb-2 flex justify-between">
-                                            <span>DEDUCTIONS</span>
-                                            <span className="text-red-400 tracking-wider">AMOUNT (₹)</span>
-                                        </h4>
-                                        <div className="space-y-2.5">
-                                            {[
-                                                { label: "Provident Fund (PF)", value: employee.salaryStructure[0]?.pf },
-                                                { label: "ESI Contribution", value: employee.salaryStructure[0]?.esi },
-                                                { label: "Professional Tax", value: employee.salaryStructure[0]?.pTax },
-                                                { label: "TDS / Income Tax", value: employee.salaryStructure[0]?.tds },
-                                                { label: "Loss of Pay", value: employee.salaryStructure[0]?.lossOfPay },
-                                                { label: "Adjustment", value: employee.salaryStructure[0]?.adjustment }
-                                            ].map((item, idx) => (
-                                                <div key={idx} className="flex justify-between text-sm py-0.5">
-                                                    <span className="text-gray-500">{item.label}</span>
-                                                    <span className="text-gray-300 font-medium">{item.value?.toLocaleString() || 0}</span>
+                                        {/* Deductions */}
+                                        <div className="space-y-4">
+                                            <h4 className="text-sm font-bold text-gray-400 border-b border-gray-800 pb-2 flex justify-between">
+                                                <span>DEDUCTIONS</span>
+                                                <span className="text-red-400 tracking-wider">AMOUNT (₹)</span>
+                                            </h4>
+                                            <div className="space-y-2.5">
+                                                {[
+                                                    { label: "Provident Fund (PF)", value: latestSalary.pf },
+                                                    { label: "ESI Contribution", value: latestSalary.esi },
+                                                    { label: "Professional Tax", value: latestSalary.pTax },
+                                                    { label: "TDS / Income Tax", value: latestSalary.tds },
+                                                    { label: "Loss of Pay", value: latestSalary.lossOfPay },
+                                                    { label: "Adjustment", value: latestSalary.adjustment }
+                                                ].map((item, idx) => (
+                                                    <div key={idx} className="flex justify-between text-sm py-0.5">
+                                                        <span className="text-gray-500">{item.label}</span>
+                                                        <span className="text-gray-300 font-medium">{item.value?.toLocaleString() || 0}</span>
+                                                    </div>
+                                                ))}
+                                                <div className="flex justify-between text-sm font-bold pt-3 mt-2 border-t border-gray-800/50">
+                                                    <span className="text-gray-200">TOTAL DEDUCTIONS</span>
+                                                    <span className="text-red-400">₹ {latestSalary.totalDeductions?.toLocaleString() || 0}</span>
                                                 </div>
-                                            ))}
-                                            <div className="flex justify-between text-sm font-bold pt-3 mt-2 border-t border-gray-800/50">
-                                                <span className="text-gray-200">TOTAL DEDUCTIONS</span>
-                                                <span className="text-red-400">₹ {employee.salaryStructure[0]?.totalDeductions?.toLocaleString() || 0}</span>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    {/* Final Net */}
-                                    <div className="lg:col-span-2 mt-4 p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-xl flex justify-between items-center group hover:bg-cyan-500/10 transition-colors">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-cyan-500 flex items-center justify-center text-[#1a1f24]">
-                                                <FaUniversity size={18} />
+                                        {/* Final Net */}
+                                        <div className="lg:col-span-2 mt-4 p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-xl flex justify-between items-center group hover:bg-cyan-500/10 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-cyan-500 flex items-center justify-center text-[#1a1f24]">
+                                                    <FaUniversity size={18} />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-cyan-500 uppercase tracking-[0.2em]">Net Take-Home Salary</p>
+                                                    <p className="text-xs text-gray-500 font-medium">Effective from {new Date(latestSalary.effectiveDate).toLocaleDateString('en-GB')}</p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="text-[10px] font-bold text-cyan-500 uppercase tracking-[0.2em]">Net Take-Home Salary</p>
-                                                <p className="text-xs text-gray-500 font-medium">Effective from {new Date(employee.salaryStructure[0]?.effectiveDate).toLocaleDateString('en-GB')}</p>
+                                            <div className="text-2xl font-black text-white group-hover:scale-105 transition-transform">
+                                                ₹ {latestSalary.netSalary?.toLocaleString() || 0}
                                             </div>
-                                        </div>
-                                        <div className="text-2xl font-black text-white group-hover:scale-105 transition-transform">
-                                            ₹ {employee.salaryStructure[0]?.netSalary?.toLocaleString() || 0}
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })()}
                     </SectionCard>
 
                     {/* Bank Details */}

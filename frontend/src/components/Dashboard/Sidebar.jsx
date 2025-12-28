@@ -5,7 +5,8 @@ import {
     FaChartBar, FaBullseye, FaBook, FaMoneyBillWave, FaUserTie, FaCogs, FaMobileAlt,
     FaBullhorn, FaThLarge, FaDatabase, FaChevronDown, FaChevronUp, FaTimes, FaUsers,
     FaShoppingCart, FaCalendarCheck, FaBuilding, FaIdCard, FaMapMarkerAlt, FaToggleOn,
-    FaChalkboardTeacher, FaTable, FaFileUpload, FaCommentDots, FaMoneyCheckAlt, FaUserMinus, FaBirthdayCake
+    FaChalkboardTeacher, FaTable, FaFileUpload, FaCommentDots, FaMoneyCheckAlt, FaUserMinus,
+    FaBirthdayCake, FaPizzaSlice, FaGlassCheers, FaCalendarTimes, FaHandshake, FaRegFileAlt, FaWindowClose
 } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -99,12 +100,32 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             icon: <FaUserTie />,
             permissionModule: "employeeCenter", // Virtual permission
             subItems: [
-                { name: "Employee Details", path: "/employee/details", icon: <FaIdCard /> },
-                { name: "Holiday List", path: "/hr/attendance/holiday-list", icon: <FaCalendarAlt /> },
-                { name: "Leave Request", path: "/hr/attendance/leave-request", icon: <FaCalendarCheck /> },
-                // Add more items from screenshot if they exist
-                { name: "My Documents", path: "/hr/upload", icon: <FaFileUpload /> }, // Mapped Document Center
-                // { name: "Training Center", path: "/hr/training", icon: <FaChalkboardTeacher /> }, // Exists in list
+                { name: "Holiday List", path: "/hr/attendance/holiday-list", icon: <FaPizzaSlice /> },
+                { name: "Holiday Calender", path: "/hr/attendance/holiday-management", icon: <FaGlassCheers /> },
+                { name: "Mark Attendance", path: "/employee/attendance", icon: <FaMapMarkerAlt /> },
+                { name: "Leave Management", path: "/hr/attendance/leave-request", icon: <FaCalendarTimes /> },
+                { name: "Regularize Table", path: "/hr/attendance/regularize-table", icon: <FaHandshake /> },
+                { name: "My Profile", path: "/employee/details", icon: <FaIdCard /> },
+                // { name: "Document Center", path: "/hr/upload", icon: <FaRegFileAlt /> },
+                { name: "Training Center", path: "/employee/training", icon: <FaChalkboardTeacher /> },
+                { name: "Feedback & Self Evaluation", path: "/hr/feedback", icon: <FaCommentDots /> },
+                { name: "POSH Panic Button", path: "/hr/posh-table", icon: <FaFileUpload /> },
+                {
+                    name: "Reimbursement Management",
+                    icon: <FaCalendarCheck />,
+                    subItems: [
+                        { name: "Add Reimbursement", path: "/hr/reimbursement/add" },
+                        { name: "Reimbursement List", path: "/hr/reimbursement" },
+                    ]
+                },
+                {
+                    name: "Resign",
+                    icon: <FaWindowClose />,
+                    subItems: [
+                        { name: "Resign Button", path: "/hr/resign/button" },
+                        { name: "Resign Request", path: "/hr/resign" },
+                    ]
+                }
             ]
         },
         // HR & Manpower (RESTRICTED TO SUPER ADMIN ONLY)
@@ -126,6 +147,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                         { name: "Leave Management", path: "/hr/attendance/leave-management", permissionSection: "leaveManagement" },
                         { name: "Leave Request", path: "/hr/attendance/leave-request", permissionSection: "leaveRequest" },
                         { name: "Regularize Table", path: "/hr/attendance/regularize-table", permissionSection: "regularizeTable" },
+                        { name: "Employees Attendance", path: "/hr/attendance/employee-logs", icon: <FaUsers /> },
                         { name: "Daily Attendance", path: "/hr/attendance/daily" },
                         { name: "Monthly Report", path: "/hr/attendance/monthly" },
                     ]
@@ -216,9 +238,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         return userPermissions.includes(item.name);
     }).map(item => {
         // SPECIAL HANDLING FOR HR MODULE (Non-SuperAdmin)
-        if (item.permissionModule === 'hrManpower' && !isSuperAdmin) {
-            return null;
-        }
+        // Removed strict superAdmin check to allow HR role with permissions
 
         /* 
         Legacy Code Removed:
