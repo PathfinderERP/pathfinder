@@ -3,6 +3,9 @@ import express from "express";
 // Force restart timestamp: 2025-12-27
 import dotenv from "dotenv";
 import cors from "cors";
+import multer from "multer"; // Direct import
+import { uploadDocument, getDocuments } from "./controllers/HR/documentController.js"; // Direct import
+import protect from "./middleware/authMiddleware.js"; // Direct import
 import connectDB from "./db/connect.js";
 import adminRoutes from "./routes/superAdmin/superAdminControllers.routes.js";
 import normalAdmin from "./routes/admin/createStudentByAdmin.routes.js";
@@ -37,6 +40,9 @@ import attendanceRoutes from "./routes/Attendance/attendance.routes.js";
 import employeeAttendanceRoutes from "./routes/Attendance/employeeAttendance.routes.js";
 import trainingRoutes from "./routes/HR/trainingRoutes.js";
 import resignationRoutes from "./routes/HR/resignation.routes.js";
+import documentRoutes from "./routes/HR/documentRoutes.js";
+import birthdayRoutes from "./routes/HR/birthday.routes.js";
+
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -56,11 +62,16 @@ app.use("/api/uploads", express.static(path.join(__dirname, "uploads")));
 connectDB();
 
 // Start automated payment reminder cron jobs
+// Start automated payment reminder cron jobs
 startPaymentReminderCron();
+
+// --- EMERGENCY DIRECT ROUTES REMOVED ---
+// Routes are handled via normal routing middleware below
+// -------------------------------
 
 app.get("/", (req, res) => {
     res.send("Backend server is running");
-})
+});
 
 // admin routes
 app.use("/api/superAdmin", adminRoutes);
@@ -93,12 +104,17 @@ app.use("/api/academics/rm", rmRoutes);
 app.use("/api/academics/hod", hodRoutes);
 
 // HR Routes
+// Moved to top and logged to ensure loading
+console.log("Mounting Document Routes...");
+app.use("/api/hr/documents", documentRoutes);
 app.use("/api/hr/employee", employeeRoutes);
 app.use("/api/hr/letters", letterRoutes);
 app.use("/api/hr/attendance", attendanceRoutes);
 app.use("/api/hr/employee-attendance", employeeAttendanceRoutes);
 app.use("/api/hr/training", trainingRoutes);
 app.use("/api/hr/resignation", resignationRoutes);
+app.use("/api/hr/birthdays", birthdayRoutes);
+
 
 // Master Data Routes
 app.use("/api/designation", designationRoutes);

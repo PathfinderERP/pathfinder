@@ -36,7 +36,7 @@ import MasterDataScript from "./pages/MasterDataScript";
 import MasterDataDesignation from "./pages/MasterDataDesignation";
 import CarryForward from "./pages/CarryForward";
 import CourseTransfer from "./pages/CourseTransfer";
-
+import DocumentCenter from "./pages/Employee/DocumentCenter";
 // Academics Pages
 import TeacherList from "./pages/Academics/TeacherList";
 import ViewTeacher from "./pages/Academics/ViewTeacher";
@@ -88,6 +88,11 @@ import EmployeeAttendance from "./pages/Employee/EmployeeAttendance";
 // Resignation Pages
 import ResignationList from "./pages/HR/ResignRequestList";
 import ResignationRequest from "./pages/Employee/ResignationRequest";
+import DocumentUpload from "./pages/HR/DocumentUpload";
+import BirthdayList from "./pages/HR/BirthdayList";
+
+// ... inside Routes ... (I will use a simpler replace block to avoid mess)
+
 
 function App() {
   return (
@@ -138,6 +143,10 @@ function App() {
         <Route path="/hr/resign/button" element={<ResignationRequest />} />
         <Route path="/hr/resign" element={<ResignationList />} />
         <Route path="/hr/resign-request" element={<ResignationList />} />
+        <Route path="/hr/documents/upload" element={<DocumentUpload />} />
+        <Route path="/employee/documents" element={<DocumentCenter />} />
+        <Route path="/hr/birthday" element={<BirthdayList />} />
+
 
         <Route path="/academics" element={<Academics />} />
         <Route path="/academics/teacher-list" element={<TeacherList />} />
