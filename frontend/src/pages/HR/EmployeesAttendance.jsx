@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
 import {
+    FaClock,
     FaSearch, FaFilter, FaSyncAlt, FaChartBar, FaUserTie,
-    FaBuilding, FaSitemap, FaCalendarAlt, FaChevronRight, FaTimes
+    FaBuilding, FaSitemap, FaCalendarAlt, FaChevronRight,
+    FaTimes, FaChevronDown, FaCheck
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
@@ -11,9 +13,83 @@ import {
     Tooltip, CartesianGrid, Cell, LineChart, Line
 } from "recharts";
 
+// Premium Multi-Select Dropdown Component
+const MultiSelectDropdown = ({ icon, label, options, selectedValues, onToggle, valKey, labelKey }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const toggleSelection = (id) => {
+        let newSelection;
+        if (selectedValues.includes(id)) {
+            newSelection = selectedValues.filter(v => v !== id);
+        } else {
+            newSelection = [...selectedValues, id];
+        }
+        onToggle(newSelection);
+    };
+
+    return (
+        <div className="relative group" ref={dropdownRef}>
+            <div
+                onClick={() => setIsOpen(!isOpen)}
+                className={`
+                    w-full bg-[#131619] border rounded-2xl py-4 pl-14 pr-10 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-all flex items-center justify-between
+                    ${isOpen ? 'border-cyan-500/50 shadow-[0_0_20px_rgba(6,182,212,0.1)]' : 'border-gray-800 hover:border-gray-700'}
+                    ${selectedValues.length > 0 ? 'text-cyan-500' : 'text-gray-400'}
+                `}
+            >
+                <div className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-600 group-hover:text-cyan-500 transition-colors">
+                    {icon}
+                </div>
+                <span className="truncate">
+                    {selectedValues.length === 0 ? `ALL ${label}S` : `${selectedValues.length} ${label}${selectedValues.length > 1 ? 'S' : ''} SELECTED`}
+                </span>
+                <FaChevronDown className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-cyan-500' : 'text-gray-700'}`} />
+            </div>
+
+            {isOpen && (
+                <div className="absolute top-full left-0 right-0 mt-3 bg-[#131619] border border-gray-800 rounded-2xl shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="max-h-60 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                        {options.map((opt) => (
+                            <div
+                                key={opt[valKey]}
+                                onClick={() => toggleSelection(opt[valKey])}
+                                className={`
+                                    flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all
+                                    ${selectedValues.includes(opt[valKey]) ? 'bg-cyan-500/10 text-cyan-400' : 'hover:bg-gray-800 text-gray-400'}
+                                `}
+                            >
+                                <span className="text-[10px] font-black uppercase tracking-widest truncate">{opt[labelKey]}</span>
+                                {selectedValues.includes(opt[valKey]) && <FaCheck size={10} className="text-cyan-500" />}
+                            </div>
+                        ))}
+                    </div>
+                    {selectedValues.length > 0 && (
+                        <div
+                            onClick={() => onToggle([])}
+                            className="bg-gray-800/50 p-3 text-center text-[8px] font-black text-gray-500 uppercase tracking-widest hover:text-red-400 cursor-pointer transition-colors border-t border-gray-800"
+                        >
+                            CLEAR ALL
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const EmployeesAttendance = () => {
     // Shared State
-    const [employees, setEmployees] = useState([]);
     const [centres, setCentres] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [designations, setDesignations] = useState([]);
@@ -23,10 +99,10 @@ const EmployeesAttendance = () => {
     // Filters State
     const [filters, setFilters] = useState({
         search: "",
-        centreId: "",
-        department: "",
-        designation: "",
-        role: "",
+        centreId: [],
+        department: [],
+        designation: [],
+        role: [],
         month: new Date().getMonth() + 1,
         year: new Date().getFullYear()
     });
@@ -37,6 +113,9 @@ const EmployeesAttendance = () => {
 
     useEffect(() => {
         fetchMetadata();
+    }, []);
+
+    useEffect(() => {
         fetchAttendanceData();
     }, [filters.month, filters.year, filters.centreId, filters.department, filters.designation, filters.role]);
 
@@ -64,10 +143,10 @@ const EmployeesAttendance = () => {
             const queryParams = new URLSearchParams({
                 month: filters.month,
                 year: filters.year,
-                centreId: filters.centreId,
-                department: filters.department,
-                designation: filters.designation,
-                role: filters.role
+                centreId: filters.centreId.join(','),
+                department: filters.department.join(','),
+                designation: filters.designation.join(','),
+                role: filters.role.join(',')
             }).toString();
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee-attendance/all?${queryParams}`, {
@@ -105,10 +184,10 @@ const EmployeesAttendance = () => {
     const handleRefresh = () => {
         setFilters({
             search: "",
-            centreId: "",
-            department: "",
-            designation: "",
-            role: "",
+            centreId: [],
+            department: [],
+            designation: [],
+            role: [],
             month: new Date().getMonth() + 1,
             year: new Date().getFullYear()
         });
@@ -175,44 +254,50 @@ const EmployeesAttendance = () => {
                         />
                     </div>
 
-                    {[
-                        { icon: <FaBuilding />, label: 'Centre', key: 'centreId', options: centres, valKey: '_id', labelKey: 'centreName' },
-                        { icon: <FaSitemap />, label: 'Department', key: 'department', options: departments, valKey: '_id', labelKey: 'departmentName' },
-                        { icon: <FaUserTie />, label: 'Designation', key: 'designation', options: designations, valKey: '_id', labelKey: 'designationName' },
-                    ].map((filt, i) => (
-                        <div key={i} className="relative group">
-                            <div className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-cyan-500 transition-colors">
-                                {filt.icon}
-                            </div>
-                            <select
-                                className="w-full bg-[#131619] border border-gray-800 rounded-2xl py-4 pl-14 pr-6 text-gray-400 text-[10px] font-black uppercase tracking-widest outline-none focus:border-cyan-500/50 transition-all appearance-none cursor-pointer"
-                                value={filters[filt.key]}
-                                onChange={(e) => setFilters({ ...filters, [filt.key]: e.target.value })}
-                            >
-                                <option value="">ALL {filt.label}S</option>
-                                {filt.options?.map(opt => (
-                                    <option key={opt[filt.valKey]} value={opt[filt.valKey]}>{opt[filt.labelKey]}</option>
-                                ))}
-                            </select>
-                        </div>
-                    ))}
+                    <MultiSelectDropdown
+                        icon={<FaBuilding />}
+                        label="CENTRE"
+                        options={centres}
+                        selectedValues={filters.centreId}
+                        valKey="_id"
+                        labelKey="centreName"
+                        onToggle={(vals) => setFilters({ ...filters, centreId: vals })}
+                    />
 
-                    <div className="relative group">
-                        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-cyan-500 transition-colors">
-                            <FaChartBar />
-                        </div>
-                        <select
-                            className="w-full bg-[#131619] border border-gray-800 rounded-2xl py-4 pl-14 pr-6 text-gray-400 text-[10px] font-black uppercase tracking-widest outline-none focus:border-cyan-500/50 transition-all appearance-none cursor-pointer"
-                            value={filters.role}
-                            onChange={(e) => setFilters({ ...filters, role: e.target.value })}
-                        >
-                            <option value="">ALL ROLES</option>
-                            <option value="hr">HR</option>
-                            <option value="admin">Admin</option>
-                            <option value="teacher">Teacher</option>
-                            <option value="employee">Employee</option>
-                        </select>
-                    </div>
+                    <MultiSelectDropdown
+                        icon={<FaSitemap />}
+                        label="DEPARTMENT"
+                        options={departments}
+                        selectedValues={filters.department}
+                        valKey="_id"
+                        labelKey="departmentName"
+                        onToggle={(vals) => setFilters({ ...filters, department: vals })}
+                    />
+
+                    <MultiSelectDropdown
+                        icon={<FaUserTie />}
+                        label="DESIGNATION"
+                        options={designations}
+                        selectedValues={filters.designation}
+                        valKey="_id"
+                        labelKey="name" // Fixed: Was designationName
+                        onToggle={(vals) => setFilters({ ...filters, designation: vals })}
+                    />
+
+                    <MultiSelectDropdown
+                        icon={<FaChartBar />}
+                        label="ROLE"
+                        options={[
+                            { id: 'hr', name: 'HR' },
+                            { id: 'admin', name: 'Admin' },
+                            { id: 'teacher', name: 'Teacher' },
+                            { id: 'employee', name: 'Employee' }
+                        ]}
+                        selectedValues={filters.role}
+                        valKey="id"
+                        labelKey="name"
+                        onToggle={(vals) => setFilters({ ...filters, role: vals })}
+                    />
                 </div>
 
                 {/* Main Content Area */}
@@ -246,7 +331,7 @@ const EmployeesAttendance = () => {
                                             </div>
                                             <div>
                                                 <h4 className="text-white font-black uppercase tracking-tight group-hover:text-cyan-400 transition-colors">{att.employeeId?.name}</h4>
-                                                <p className="text-gray-600 text-[10px] font-black tracking-widest uppercase">{att.employeeId?.employeeId} • {att.employeeId?.designation?.designationName}</p>
+                                                <p className="text-gray-600 text-[10px] font-black tracking-widest uppercase">{att.employeeId?.employeeId} • {att.employeeId?.designation?.name}</p>
                                             </div>
                                         </div>
 
@@ -304,31 +389,35 @@ const EmployeesAttendance = () => {
                                     <>
                                         <div className="grid grid-cols-2 gap-4 mb-10">
                                             {[
-                                                { label: 'Present Days', val: userAnalysisData.summary.presentDays, color: '#10b981' },
-                                                { label: 'Avg Shift', val: `${userAnalysisData.summary.averageHours}h`, color: '#06b6d4' }
+                                                { label: 'Present', val: userAnalysisData.summary.presentDays, color: '#10b981' },
+                                                { label: 'Absent', val: userAnalysisData.summary.absentDays, color: '#ef4444' }, // Added Absent
+                                                { label: 'Avg Shift', val: `${userAnalysisData.summary.averageHours}h`, color: '#06b6d4' },
+                                                { label: 'Total Hrs', val: `${userAnalysisData.summary.totalHours}h`, color: '#f59e0b' }
                                             ].map((stat, i) => (
-                                                <div key={i} className="bg-black/20 p-6 rounded-3xl border border-gray-800/50">
-                                                    <p className="text-[8px] font-black text-gray-600 uppercase tracking-widest mb-2">{stat.label}</p>
-                                                    <p className="text-2xl font-black tracking-tighter" style={{ color: stat.color }}>{stat.val}</p>
+                                                <div key={i} className="bg-black/40 p-5 rounded-3xl border border-white/5 hover:border-white/10 transition-all">
+                                                    <p className="text-[8px] font-black text-gray-600 uppercase tracking-widest mb-1.5">{stat.label}</p>
+                                                    <p className="text-xl font-black tracking-tighter" style={{ color: stat.color }}>{stat.val}</p>
                                                 </div>
                                             ))}
                                         </div>
 
-                                        <div className="mb-10">
-                                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-6">Daily Performance Trend</p>
-                                            <div className="h-[250px] w-full">
+                                        <div className="mb-10 lg:pr-4">
+                                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-4">Monthly Performance Map</p>
+                                            <div className="h-[220px] w-full">
                                                 <ResponsiveContainer width="100%" height="100%">
-                                                    <BarChart data={userAnalysisData.dailyData}>
-                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1f2937" />
-                                                        <XAxis dataKey="day" hide />
-                                                        <YAxis hide domain={[0, 10]} />
+                                                    <BarChart data={userAnalysisData.dailyData} margin={{ top: 0, right: 0, left: -40, bottom: 0 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1f2937" opacity={0.5} />
+                                                        <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#4b5563', fontSize: 8, fontWeight: 900 }} interval={4} />
+                                                        <YAxis axisLine={false} tickLine={false} domain={[0, 'dataMax + 2']} hide={true} />
                                                         <Tooltip
-                                                            contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '12px' }}
+                                                            cursor={{ fill: 'rgba(6,182,212,0.05)' }}
+                                                            contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '12px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}
                                                             itemStyle={{ color: '#06b6d4', fontSize: '10px', fontWeight: 'bold' }}
+                                                            labelStyle={{ color: '#9ca3af', fontSize: '8px', marginBottom: '4px' }}
                                                         />
-                                                        <Bar dataKey="hours" radius={[10, 10, 0, 0]}>
+                                                        <Bar dataKey="hours" radius={[4, 4, 0, 0]} barSize={8}>
                                                             {userAnalysisData.dailyData.map((entry, index) => (
-                                                                <Cell key={index} fill={entry.hours > 8 ? '#06b6d4' : '#1e293b'} />
+                                                                <Cell key={index} fill={entry.hours === 0 ? '#1f2937' : (entry.hours > 8 ? '#06b6d4' : '#10b981')} />
                                                             ))}
                                                         </Bar>
                                                     </BarChart>
@@ -357,6 +446,8 @@ const EmployeesAttendance = () => {
                 .animate-fade-in { animation: fadeIn 0.4s ease-out; }
                 @keyframes fadeIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
                 .shadow-3xl { shadow-box: 0 40px 100px -20px rgba(0,0,0,0.8); }
+                .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 10px; }
             `}</style>
         </Layout>
     );

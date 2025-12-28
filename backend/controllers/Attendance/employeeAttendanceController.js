@@ -135,8 +135,11 @@ export const getAllAttendance = async (req, res) => {
             query.date = { $gte: yearStart, $lte: yearEnd };
         }
 
-        // Filter by Centre
-        if (centreId) query.centreId = centreId;
+        // Multi-select Filters (Handle both single string and array)
+        if (centreId) {
+            const centres = Array.isArray(centreId) ? centreId : centreId.split(',').filter(Boolean);
+            if (centres.length > 0) query.centreId = { $in: centres };
+        }
 
         // Perform main query
         let attendances = await EmployeeAttendance.find(query)
@@ -149,14 +152,18 @@ export const getAllAttendance = async (req, res) => {
 
         // Post-query filtering for Employee details (department, designation, role)
         if (department || designation || role) {
+            const depts = department ? (Array.isArray(department) ? department : department.split(',').filter(Boolean)) : [];
+            const desigs = designation ? (Array.isArray(designation) ? designation : designation.split(',').filter(Boolean)) : [];
+            const roles = role ? (Array.isArray(role) ? role : role.split(',').filter(Boolean)) : [];
+
             attendances = attendances.filter(att => {
                 const emp = att.employeeId;
                 const usr = att.user;
 
                 let matches = true;
-                if (department && emp.department?.toString() !== department) matches = false;
-                if (designation && emp.designation?.toString() !== designation) matches = false;
-                if (role && usr.role !== role) matches = false;
+                if (depts.length > 0 && !depts.includes(emp.department?._id.toString())) matches = false;
+                if (desigs.length > 0 && !desigs.includes(emp.designation?._id.toString())) matches = false;
+                if (roles.length > 0 && !roles.includes(usr.role)) matches = false;
 
                 return matches;
             });
@@ -183,23 +190,56 @@ export const getAttendanceAnalysis = async (req, res) => {
             date: { $gte: monthStart, $lte: monthEnd }
         });
 
-        // Simple aggregation logic
-        const totalDays = attendances.length;
+        // Generate full month data for the chart
+        const daysInMonth = Array.from({ length: monthEnd.getDate() }, (_, i) => i + 1);
+        const dailyDataMap = {};
+        attendances.forEach(a => {
+            const d = new Date(a.date).getDate();
+            dailyDataMap[d] = (dailyDataMap[d] || 0) + (a.workingHours || 0);
+        });
+
+        const dailyData = daysInMonth.map(day => ({
+            day: day.toString().padStart(2, '0'),
+            hours: dailyDataMap[day] || 0
+        }));
+
+        // Calculate Stats
         const totalHours = attendances.reduce((acc, curr) => acc + (curr.workingHours || 0), 0);
-        const presentDays = attendances.filter(a => a.status === "Present").length;
+        const presentDays = attendances.filter(a => a.status === "Present" || a.status === "Late" || a.status === "Half Day").length;
+
+        // Calculate expected working days to find absences
+        const employee = await Employee.findOne({ user: targetUserId });
+        let absentDays = 0;
+        if (employee) {
+            const holidays = await Holiday.find({ date: { $gte: monthStart, $lte: monthEnd } });
+            const holidayDates = holidays.map(h => format(new Date(h.date), 'yyyy-MM-dd'));
+
+            for (let d = 1; d <= monthEnd.getDate(); d++) {
+                const checkDate = new Date(year, month - 1, d);
+                if (checkDate > new Date()) break; // Don't count future days as absent
+
+                const dateStr = format(checkDate, 'yyyy-MM-dd');
+                const dayName = format(checkDate, 'eeee').toLowerCase();
+                const isWorkingDay = employee.workingDays ? employee.workingDays[dayName] : !isWeekend(checkDate);
+
+                const hasRecord = attendances.some(a => format(new Date(a.date), 'yyyy-MM-dd') === dateStr);
+                const isHoliday = holidayDates.includes(dateStr);
+
+                if (isWorkingDay && !isHoliday && !hasRecord) {
+                    absentDays++;
+                }
+            }
+        }
 
         res.status(200).json({
             summary: {
-                totalDays,
+                totalDays: attendances.length,
                 presentDays,
-                absentDays: 0, // Logic for absence handled by frontend calendar usually
+                absentDays,
                 totalHours: totalHours.toFixed(2),
-                averageHours: totalDays ? (totalHours / totalDays).toFixed(2) : 0
+                averageHours: presentDays ? (totalHours / presentDays).toFixed(2) : 0
             },
-            dailyData: attendances.map(a => ({
-                day: format(a.date, 'dd'),
-                hours: a.workingHours || 0
-            }))
+            dailyData
         });
 
     } catch (error) {
