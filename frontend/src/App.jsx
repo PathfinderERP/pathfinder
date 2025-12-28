@@ -85,6 +85,10 @@ import EmployeesAttendance from "./pages/HR/EmployeesAttendance";
 import TrainingCenter from "./pages/Employee/TrainingCenter";
 import EmployeeAttendance from "./pages/Employee/EmployeeAttendance";
 
+// Resignation Pages
+import ResignationList from "./pages/HR/ResignRequestList";
+import ResignationRequest from "./pages/Employee/ResignationRequest";
+
 function App() {
   return (
     <BrowserRouter>
@@ -131,6 +135,9 @@ function App() {
         <Route path="/employee/training" element={<TrainingCenter />} />
         <Route path="/employee/attendance" element={<EmployeeAttendance />} />
         <Route path="/employee/details" element={<EmployeeDetails />} />
+        <Route path="/hr/resign/button" element={<ResignationRequest />} />
+        <Route path="/hr/resign" element={<ResignationList />} />
+        <Route path="/hr/resign-request" element={<ResignationList />} />
 
         <Route path="/academics" element={<Academics />} />
         <Route path="/academics/teacher-list" element={<TeacherList />} />

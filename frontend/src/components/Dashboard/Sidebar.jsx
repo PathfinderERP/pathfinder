@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     FaCalendarAlt,
     FaChartBar, FaBullseye, FaBook, FaMoneyBillWave, FaUserTie, FaCogs, FaMobileAlt,
@@ -16,8 +16,17 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Get user from localStorage
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const [user, setUser] = useState(JSON.parse(localStorage.getItem("user") || "{}"));
+
+    useEffect(() => {
+        const handleStorageChange = () => {
+            setUser(JSON.parse(localStorage.getItem("user") || "{}"));
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, []);
+
     const userPermissions = user.permissions || [];
     const granularPermissions = user.granularPermissions || {};
     const isSuperAdmin = user.role === "superAdmin";
@@ -123,7 +132,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                     icon: <FaWindowClose />,
                     subItems: [
                         { name: "Resign Button", path: "/hr/resign/button" },
-                        { name: "Resign Request", path: "/hr/resign" },
+                        { name: "My Request Status", path: "/hr/resign/button" }, // Both point to the same dynamic page
                     ]
                 }
             ]
@@ -157,7 +166,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Upload File", path: "/hr/upload", icon: <FaFileUpload />, permissionSection: "upload" },
                 { name: "All Feedback", path: "/hr/feedback", icon: <FaCommentDots />, permissionSection: "feedback" },
                 { name: "Reimbursement List", path: "/hr/reimbursement", icon: <FaMoneyCheckAlt />, permissionSection: "reimbursement" },
-                { name: "Resign Request", path: "/hr/resign", icon: <FaUserMinus />, permissionSection: "resign" },
+                { name: "Resign Request", path: "/hr/resign-request", icon: <FaUserMinus />, permissionSection: "resign" },
                 { name: "Birthday Lists", path: "/hr/birthday", icon: <FaBirthdayCake />, permissionSection: "birthday" },
             ]
         },
@@ -398,12 +407,16 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             {/* Profile */}
             <div className="p-4 border-t border-gray-800">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-cyan-900 flex items-center justify-center text-cyan-400 font-bold">
-                        {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                    <div className="w-10 h-10 rounded-full bg-cyan-900 border border-cyan-500/30 flex items-center justify-center text-cyan-400 font-bold overflow-hidden shadow-lg shadow-cyan-500/10">
+                        {user.profileImage && !user.profileImage.startsWith('undefined/') ? (
+                            <img src={user.profileImage} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                            <span>{user.name ? user.name.charAt(0).toUpperCase() : "U"}</span>
+                        )}
                     </div>
-                    <div>
-                        <p className="text-white text-sm font-semibold">{user.name || "User"}</p>
-                        <p className="text-xs text-gray-500">{user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "Role"}</p>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-white text-sm font-semibold truncate">{user.name || "User"}</p>
+                        <p className="text-xs text-gray-500 truncate">{user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "Role"}</p>
                     </div>
                 </div>
             </div>

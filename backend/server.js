@@ -36,6 +36,7 @@ import designationRoutes from "./routes/designation/designation.routes.js";
 import attendanceRoutes from "./routes/Attendance/attendance.routes.js";
 import employeeAttendanceRoutes from "./routes/Attendance/employeeAttendance.routes.js";
 import trainingRoutes from "./routes/HR/trainingRoutes.js";
+import resignationRoutes from "./routes/HR/resignation.routes.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -97,6 +98,7 @@ app.use("/api/hr/letters", letterRoutes);
 app.use("/api/hr/attendance", attendanceRoutes);
 app.use("/api/hr/employee-attendance", employeeAttendanceRoutes);
 app.use("/api/hr/training", trainingRoutes);
+app.use("/api/hr/resignation", resignationRoutes);
 
 // Master Data Routes
 app.use("/api/designation", designationRoutes);

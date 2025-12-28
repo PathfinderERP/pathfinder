@@ -2,6 +2,7 @@ import EmployeeAttendance from "../../models/Attendance/EmployeeAttendance.js";
 import Employee from "../../models/HR/Employee.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Holiday from "../../models/Attendance/Holiday.js";
+import { getSignedFileUrl } from "../HR/employeeController.js";
 import { startOfDay, endOfDay, format, eachDayOfInterval, startOfYear, endOfYear, isToday, isSameDay } from "date-fns";
 
 // Helper function to calculate distance between two coordinates in meters
@@ -169,7 +170,16 @@ export const getAllAttendance = async (req, res) => {
             });
         }
 
-        res.status(200).json(attendances);
+        // Sign profile images
+        const signedAttendances = await Promise.all(attendances.map(async (att) => {
+            const attObj = att.toObject();
+            if (attObj.employeeId && attObj.employeeId.profileImage) {
+                attObj.employeeId.profileImage = await getSignedFileUrl(attObj.employeeId.profileImage);
+            }
+            return attObj;
+        }));
+
+        res.status(200).json(signedAttendances);
     } catch (error) {
         console.error("Get All Attendance Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });

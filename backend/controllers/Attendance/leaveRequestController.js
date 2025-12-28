@@ -1,6 +1,7 @@
 import LeaveRequest from '../../models/Attendance/LeaveRequest.js';
 import Employee from '../../models/HR/Employee.js';
 import User from '../../models/User.js';
+import { getSignedFileUrl } from '../HR/employeeController.js';
 
 // Helper to find employee by user ID or email and link them
 const findEmployeeByUser = async (userId) => {
@@ -64,12 +65,21 @@ export const getLeaveRequests = async (req, res) => {
         }
 
         const requests = await LeaveRequest.find(filter)
-            .populate('employee', 'name employeeId email')
+            .populate('employee', 'name employeeId email profileImage')
             .populate('leaveType', 'name days')
             .populate('reviewedBy', 'name email')
             .sort({ createdAt: -1 });
 
-        res.json(requests);
+        // Sign profile images
+        const signedRequests = await Promise.all(requests.map(async (request) => {
+            const reqObj = request.toObject();
+            if (reqObj.employee && reqObj.employee.profileImage) {
+                reqObj.employee.profileImage = await getSignedFileUrl(reqObj.employee.profileImage);
+            }
+            return reqObj;
+        }));
+
+        res.json(signedRequests);
     } catch (error) {
         console.error('Error fetching leave requests:', error);
         res.status(500).json({ message: 'Error fetching leave requests', error: error.message });
@@ -103,7 +113,7 @@ export const createLeaveRequest = async (req, res) => {
 
         const populatedRequest = await LeaveRequest.findById(leaveRequest._id)
             .populate('leaveType', 'name days')
-            .populate('employee', 'name employeeId email');
+            .populate('employee', 'name employeeId email profileImage');
 
         res.status(201).json(populatedRequest);
     } catch (error) {
@@ -129,7 +139,7 @@ export const updateLeaveRequestStatus = async (req, res) => {
             },
             { new: true }
         )
-            .populate('employee', 'name employeeId email')
+            .populate('employee', 'name employeeId email profileImage')
             .populate('leaveType', 'name days')
             .populate('reviewedBy', 'name email');
 

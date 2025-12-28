@@ -119,7 +119,7 @@ const ViewEmployee = () => {
                             <div className="relative group">
                                 <div className="absolute -inset-1 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
                                 <div className="relative w-40 h-40 rounded-full border-4 border-[#1a1f24] overflow-hidden bg-[#131619] shadow-2xl flex items-center justify-center">
-                                    {employee.profileImage ? (
+                                    {employee.profileImage && !employee.profileImage.startsWith('undefined/') ? (
                                         <img
                                             src={employee.profileImage}
                                             alt={employee.name}
@@ -127,12 +127,12 @@ const ViewEmployee = () => {
                                             onError={(e) => {
                                                 console.error("Profile image failed to load:", employee.profileImage);
                                                 e.target.style.display = 'none';
-                                                e.target.nextSibling.style.display = 'flex';
+                                                e.target.parentNode.querySelector('.fallback-initials').style.display = 'flex';
                                             }}
                                         />
                                     ) : null}
                                     <div
-                                        className={`${employee.profileImage ? 'hidden' : 'flex'} w-full h-full items-center justify-center text-4xl font-bold text-cyan-500/30 bg-[#131619]`}
+                                        className={`fallback-initials ${employee.profileImage && !employee.profileImage.startsWith('undefined/') ? 'hidden' : 'flex'} w-full h-full items-center justify-center text-4xl font-bold text-cyan-500/30 bg-[#131619]`}
                                     >
                                         {employee.name.charAt(0).toUpperCase()}
                                     </div>

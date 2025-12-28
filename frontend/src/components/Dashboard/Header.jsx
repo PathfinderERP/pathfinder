@@ -74,9 +74,17 @@ import { toast } from "react-toastify";
 
 const Header = ({ toggleSidebar }) => {
     const navigate = useNavigate();
+    const [userInfo, setUserInfo] = React.useState(JSON.parse(localStorage.getItem("user") || "{}"));
 
-    // Get logged-in user info
-    const userInfo = JSON.parse(localStorage.getItem("user") || "{}");
+    React.useEffect(() => {
+        const handleStorageChange = () => {
+            setUserInfo(JSON.parse(localStorage.getItem("user") || "{}"));
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, []);
+
     const userName = userInfo.name || "User";
     const userRole = userInfo.role || "";
 
@@ -94,7 +102,7 @@ const Header = ({ toggleSidebar }) => {
                             // Perform logout
                             localStorage.removeItem("token");
                             localStorage.removeItem("user");
-                            
+
                             // Show success toast with checkmark
                             toast.success(
                                 <div className="flex items-center gap-2">
@@ -120,7 +128,7 @@ const Header = ({ toggleSidebar }) => {
                                     }
                                 }
                             );
-                            
+
                             // Redirect to login after a short delay
                             setTimeout(() => {
                                 navigate("/");
@@ -195,8 +203,12 @@ const Header = ({ toggleSidebar }) => {
                         className="hidden sm:flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-800/50 p-2 rounded-lg transition-colors"
                         title="View Profile"
                     >
-                        <div className="w-8 h-8 rounded-full bg-cyan-900 flex items-center justify-center text-cyan-400 font-bold">
-                            {userName.charAt(0).toUpperCase()}
+                        <div className="w-8 h-8 rounded-full bg-cyan-900 border border-cyan-500/30 flex items-center justify-center overflow-hidden shadow-lg shadow-cyan-500/10">
+                            {userInfo.profileImage && !userInfo.profileImage.startsWith('undefined/') ? (
+                                <img src={userInfo.profileImage} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                                <span className="text-cyan-400 font-bold">{userName.charAt(0).toUpperCase()}</span>
+                            )}
                         </div>
                         <div className="flex flex-col">
                             <span className="text-white font-semibold">{userName}</span>
@@ -208,8 +220,12 @@ const Header = ({ toggleSidebar }) => {
                         className="hidden sm:flex items-center gap-2 text-sm p-2"
                         title="Profile access restricted to Super Admins"
                     >
-                        <div className="w-8 h-8 rounded-full bg-cyan-900 flex items-center justify-center text-cyan-400 font-bold">
-                            {userName.charAt(0).toUpperCase()}
+                        <div className="w-8 h-8 rounded-full bg-cyan-900 border border-cyan-500/30 flex items-center justify-center overflow-hidden shadow-lg shadow-cyan-500/10">
+                            {userInfo.profileImage && !userInfo.profileImage.startsWith('undefined/') ? (
+                                <img src={userInfo.profileImage} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                                <span className="text-cyan-400 font-bold">{userName.charAt(0).toUpperCase()}</span>
+                            )}
                         </div>
                         <div className="flex flex-col">
                             <span className="text-white font-semibold">{userName}</span>

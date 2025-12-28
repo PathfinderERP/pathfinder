@@ -338,7 +338,20 @@ const TeacherList = () => {
                                         key={teacher._id}
                                         className="border-b border-gray-800 hover:bg-[#2a323c] transition-all duration-200 hover:shadow-lg group"
                                     >
-                                        <td className="p-4 font-bold text-white group-hover:text-cyan-400 transition-colors">{teacher.name}</td>
+                                        <td className="p-4 flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-gray-900 border border-gray-700 overflow-hidden flex-shrink-0">
+                                                {teacher.profileImage && !teacher.profileImage.startsWith('undefined/') ? (
+                                                    <img src={teacher.profileImage} alt="" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-cyan-500 bg-cyan-500/10">
+                                                        {teacher.name?.charAt(0)}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <span className="font-bold text-white group-hover:text-cyan-400 transition-colors uppercase">
+                                                {teacher.name}
+                                            </span>
+                                        </td>
                                         <td className="p-4 text-gray-300">
                                             <span className="bg-gray-800/50 font-mono text-xs px-2 py-1 rounded border border-gray-700">
                                                 {teacher.employeeId || "N/A"}

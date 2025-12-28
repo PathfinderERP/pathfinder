@@ -505,8 +505,21 @@ const EmployeeList = () => {
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white uppercase">
-                                                {employee.name}
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 overflow-hidden flex-shrink-0">
+                                                        {employee.profileImage && !employee.profileImage.startsWith('undefined/') ? (
+                                                            <img src={employee.profileImage} alt="" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-blue-500">
+                                                                {employee.name?.charAt(0)}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-sm font-semibold text-gray-900 dark:text-white uppercase">
+                                                        {employee.name}
+                                                    </span>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 lowercase">
                                                 {employee.email}

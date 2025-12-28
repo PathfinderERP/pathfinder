@@ -1,5 +1,7 @@
 import User from "../../models/User.js";
+import Employee from "../../models/HR/Employee.js";
 import bcrypt from "bcrypt";
+import { getSignedFileUrl } from "../HR/employeeController.js";
 
 // Create Teacher
 export const createTeacher = async (req, res) => {
@@ -145,7 +147,17 @@ export const getAllTeachers = async (req, res) => {
             .select("-password")
             .sort({ createdAt: -1 });
 
-        res.status(200).json(teachers);
+        // Fetch profile images for each teacher from Employee model
+        const teachersWithImages = await Promise.all(teachers.map(async (teacher) => {
+            const teachObj = teacher.toObject();
+            const employee = await Employee.findOne({ user: teacher._id });
+            if (employee && employee.profileImage) {
+                teachObj.profileImage = await getSignedFileUrl(employee.profileImage);
+            }
+            return teachObj;
+        }));
+
+        res.status(200).json(teachersWithImages);
     } catch (error) {
         console.error("Get Teachers Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });
@@ -163,7 +175,13 @@ export const getTeacherById = async (req, res) => {
             return res.status(404).json({ message: "Teacher not found" });
         }
 
-        res.status(200).json(teacher);
+        const teachObj = teacher.toObject();
+        const employee = await Employee.findOne({ user: teacher._id });
+        if (employee && employee.profileImage) {
+            teachObj.profileImage = await getSignedFileUrl(employee.profileImage);
+        }
+
+        res.status(200).json(teachObj);
     } catch (error) {
         console.error("Get Teacher By ID Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });

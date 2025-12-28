@@ -543,11 +543,19 @@ export const addSalaryStructure = async (req, res) => {
 export const getEmployeesForDropdown = async (req, res) => {
     try {
         const employees = await Employee.find({ status: "Active" })
-            .select("employeeId name designation")
+            .select("employeeId name designation profileImage")
             .populate("designation", "name")
             .sort({ name: 1 });
 
-        res.status(200).json(employees);
+        const signedEmployees = await Promise.all(employees.map(async emp => {
+            const empObj = emp.toObject();
+            if (empObj.profileImage) {
+                empObj.profileImage = await getSignedFileUrl(empObj.profileImage);
+            }
+            return empObj;
+        }));
+
+        res.status(200).json(signedEmployees);
     } catch (error) {
         console.error("Error fetching employees for dropdown:", error);
         res.status(500).json({
@@ -636,10 +644,11 @@ export const updateMyProfile = async (req, res) => {
         }
 
         await employee.save();
+        const signedEmployee = await signEmployeeFiles(employee);
 
         res.status(200).json({
             message: "Profile updated successfully",
-            employee
+            employee: signedEmployee
         });
     } catch (error) {
         console.error("Error updating profile:", error);

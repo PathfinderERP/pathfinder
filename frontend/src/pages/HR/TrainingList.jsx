@@ -315,12 +315,21 @@ const TrainingList = () => {
                                 {formData.visibility === "Specific" && (
                                     <div className="grid grid-cols-2 gap-3 p-4 bg-[#1a1f24] rounded-2xl border border-gray-800 max-h-40 overflow-y-auto custom-scrollbar">
                                         {employees.map(emp => (
-                                            <label key={emp._id} className="flex items-center gap-3 p-2 bg-black/20 rounded-lg cursor-pointer hover:bg-black/30 transition-all border border-gray-800/50">
+                                            <label key={emp._id} className="flex items-center gap-3 p-2 bg-black/20 rounded-lg cursor-pointer hover:bg-black/30 transition-all border border-gray-800/50 group">
                                                 <input type="checkbox" checked={formData.assignedTo.includes(emp._id)} onChange={e => {
                                                     const newAssigned = e.target.checked ? [...formData.assignedTo, emp._id] : formData.assignedTo.filter(id => id !== emp._id);
                                                     setFormData({ ...formData, assignedTo: newAssigned });
                                                 }} className="w-4 h-4 rounded border-gray-800 bg-gray-900 text-cyan-500" />
-                                                <span className="text-[10px] text-gray-400 font-black uppercase tracking-tight truncate">{emp.name}</span>
+                                                <div className="w-6 h-6 rounded-full bg-gray-800 flex-shrink-0 overflow-hidden border border-gray-700">
+                                                    {emp.profileImage && !emp.profileImage.startsWith('undefined/') ? (
+                                                        <img src={emp.profileImage} alt="" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-[8px] font-bold text-cyan-500">
+                                                            {emp.name?.charAt(0)}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <span className="text-[10px] text-gray-400 font-black uppercase tracking-tight truncate group-hover:text-cyan-400 transition-colors">{emp.name}</span>
                                             </label>
                                         ))}
                                     </div>

@@ -1,5 +1,7 @@
 import User from "../../models/User.js";
+import Employee from "../../models/HR/Employee.js";
 import bcrypt from "bcrypt";
+import { getSignedFileUrl } from "../../controllers/HR/employeeController.js";
 
 export const getMyProfile = async (req, res) => {
     try {
@@ -14,9 +16,16 @@ export const getMyProfile = async (req, res) => {
             return res.status(404).json({ message: "User not found" });
         }
 
+        // Fetch profile image from Employee record
+        const userObj = user.toObject();
+        const employee = await Employee.findOne({ user: user._id });
+        if (employee && employee.profileImage) {
+            userObj.profileImage = await getSignedFileUrl(employee.profileImage);
+        }
+
         res.status(200).json({
             message: "Profile fetched successfully",
-            user,
+            user: userObj,
         });
     } catch (error) {
         console.error("Error fetching profile:", error);
@@ -67,9 +76,15 @@ export const updateMyProfile = async (req, res) => {
             .populate("assignedScript")
             .select("-password");
 
+        const userObj = updatedUser.toObject();
+        const employee = await Employee.findOne({ user: userId });
+        if (employee && employee.profileImage) {
+            userObj.profileImage = await getSignedFileUrl(employee.profileImage);
+        }
+
         res.status(200).json({
             message: "Profile updated successfully",
-            user: updatedUser,
+            user: userObj,
         });
     } catch (error) {
         console.error("Error updating profile:", error);

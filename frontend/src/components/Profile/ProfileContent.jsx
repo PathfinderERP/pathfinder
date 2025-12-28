@@ -99,13 +99,18 @@ const ProfileContent = () => {
                 toast.success("Profile updated successfully!");
 
                 // Update localStorage with new user data
+                const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
                 const updatedUser = {
-                    ...JSON.parse(localStorage.getItem("user")),
+                    ...currentUser,
                     name: data.user.name,
                     email: data.user.email,
                     mobNum: data.user.mobNum,
+                    profileImage: data.user.profileImage || currentUser.profileImage // Preserve or update image
                 };
                 localStorage.setItem("user", JSON.stringify(updatedUser));
+
+                // Dispatch event to notify other components (Header/Sidebar)
+                window.dispatchEvent(new Event('storage'));
 
                 // If password was changed, logout and redirect to login
                 if (formData.newPassword) {

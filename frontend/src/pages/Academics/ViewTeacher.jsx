@@ -88,10 +88,27 @@ const ViewTeacher = () => {
 
                     <div className="relative pt-6 sm:pt-12 pb-6 sm:pb-8 px-6 sm:px-8">
                         <div className="flex flex-col md:flex-row gap-6 sm:gap-8 items-center md:items-end">
-                            {/* Profile Mockup */}
-                            <div className="relative shrink-0">
-                                <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-[#1a1f24] overflow-hidden bg-gray-800 shadow-2xl flex items-center justify-center text-4xl sm:text-5xl font-bold text-cyan-500">
-                                    {(teacher.name || "T").charAt(0).toUpperCase()}
+                            {/* Profile Mockup or Image */}
+                            <div className="relative shrink-0 group">
+                                <div className="absolute -inset-1 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+                                <div className="relative w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-[#1a1f24] overflow-hidden bg-[#131619] shadow-2xl flex items-center justify-center">
+                                    {teacher.profileImage && !teacher.profileImage.startsWith('undefined/') ? (
+                                        <img
+                                            src={teacher.profileImage}
+                                            alt={teacher.name}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                console.error("Profile image failed to load:", teacher.profileImage);
+                                                e.target.style.display = 'none';
+                                                e.target.parentNode.querySelector('.fallback-initials').style.display = 'flex';
+                                            }}
+                                        />
+                                    ) : null}
+                                    <div
+                                        className={`fallback-initials ${teacher.profileImage && !teacher.profileImage.startsWith('undefined/') ? 'hidden' : 'flex'} w-full h-full items-center justify-center text-4xl sm:text-5xl font-bold text-cyan-500/30 bg-[#131619]`}
+                                    >
+                                        {(teacher.name || "T").charAt(0).toUpperCase()}
+                                    </div>
                                 </div>
                                 <div className="absolute bottom-2 right-4 w-5 h-5 sm:w-6 sm:h-6 rounded-full border-4 border-[#1a1f24] bg-green-500 shadow-lg"></div>
                             </div>

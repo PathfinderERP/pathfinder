@@ -35,6 +35,16 @@ const EmployeeDetails = () => {
                 console.log("Profile Data:", data);
                 setEmployee(data);
                 initializeForm(data);
+
+                // Sync with localStorage so Header and Sidebar update
+                const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+                const updatedUser = {
+                    ...currentUser,
+                    name: data.name,
+                    profileImage: data.profileImage
+                };
+                localStorage.setItem("user", JSON.stringify(updatedUser));
+                window.dispatchEvent(new Event('storage'));
             } else {
                 toast.error("Failed to load profile");
             }

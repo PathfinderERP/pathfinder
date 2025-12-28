@@ -326,8 +326,12 @@ const EmployeesAttendance = () => {
                                         `}
                                     >
                                         <div className="flex items-center gap-6">
-                                            <div className="w-14 h-14 bg-gray-900 rounded-2xl border border-gray-800 flex items-center justify-center text-gray-700 font-black group-hover:text-cyan-500 transition-colors">
-                                                {att.employeeId?.name?.charAt(0)}
+                                            <div className="w-14 h-14 bg-gray-900 rounded-full border border-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0 group-hover:border-cyan-500/50 transition-colors">
+                                                {att.employeeId?.profileImage && !att.employeeId.profileImage.startsWith('undefined/') ? (
+                                                    <img src={att.employeeId.profileImage} alt="" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <span className="text-gray-700 font-black text-xl group-hover:text-cyan-500">{att.employeeId?.name?.charAt(0)}</span>
+                                                )}
                                             </div>
                                             <div>
                                                 <h4 className="text-white font-black uppercase tracking-tight group-hover:text-cyan-400 transition-colors">{att.employeeId?.name}</h4>
@@ -379,6 +383,19 @@ const EmployeesAttendance = () => {
                                 >
                                     <FaTimes />
                                 </button>
+
+                                {/* Analysis Profile Image */}
+                                <div className="flex justify-center mb-6">
+                                    <div className="w-24 h-24 rounded-full border-4 border-cyan-500/20 bg-gray-900 overflow-hidden shadow-2xl shadow-cyan-500/20 group-hover/ana:border-cyan-500/50 transition-all duration-500">
+                                        {selectedUser.employeeId?.profileImage && !selectedUser.employeeId.profileImage.startsWith('undefined/') ? (
+                                            <img src={selectedUser.employeeId.profileImage} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-cyan-500 text-4xl font-black">
+                                                {selectedUser.employeeId?.name?.charAt(0)}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
 
                                 <div className="text-center mb-10">
                                     <h3 className="text-white font-black text-2xl tracking-tighter uppercase italic mb-2">{selectedUser.employeeId?.name}</h3>

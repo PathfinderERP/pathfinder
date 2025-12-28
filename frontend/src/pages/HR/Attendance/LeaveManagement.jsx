@@ -143,9 +143,18 @@ const LeaveManagement = () => {
                                         <tr key={request._id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group">
                                             <td className="px-6 py-4 text-xs font-medium text-gray-500">{index + 1}</td>
                                             <td className="px-6 py-4">
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-bold text-gray-800 dark:text-white uppercase tracking-tight">{request.employee?.name || "N/A"}</span>
-                                                    <span className="text-[10px] text-gray-500 font-bold">{request.employee?.employeeId || "N/A"}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                                                        {request.employee?.profileImage && !request.employee.profileImage.startsWith('undefined/') ? (
+                                                            <img src={request.employee.profileImage} alt="" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <span className="text-[10px] font-bold text-blue-500">{request.employee?.name?.charAt(0)}</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-gray-800 dark:text-white uppercase tracking-tight">{request.employee?.name || "N/A"}</span>
+                                                        <span className="text-[10px] text-gray-500 font-bold">{request.employee?.employeeId || "N/A"}</span>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
