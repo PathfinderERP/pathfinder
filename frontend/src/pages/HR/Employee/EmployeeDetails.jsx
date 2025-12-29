@@ -101,6 +101,7 @@ const EmployeeDetails = () => {
     const handleDocumentChange = (e) => {
         const { name, files } = e.target;
         if (files && files[0]) {
+            console.log(`File selected for ${name}:`, files[0].name);
             setDocumentFiles(prev => ({ ...prev, [name]: files[0] }));
         }
     };
@@ -114,7 +115,10 @@ const EmployeeDetails = () => {
 
             // Append text fields
             Object.keys(formData).forEach(key => {
-                data.append(key, formData[key]);
+                const value = formData[key];
+                if (value !== null && value !== undefined && value !== "") {
+                    data.append(key, value);
+                }
             });
 
             // Append profile image if new one selected

@@ -616,7 +616,7 @@ export const updateMyProfile = async (req, res) => {
             // Exclude file fields from direct text update if they are in allowedUpdates list
             // (We handle them separately via req.files)
             if (allowedUpdates.includes(key) && !["profileImage", "aadharProof", "panProof", "bankStatement"].includes(key)) {
-                if (updates[key] !== undefined && updates[key] !== "undefined" && updates[key] !== "null") {
+                if (updates[key] !== undefined && updates[key] !== "undefined" && updates[key] !== null && updates[key] !== "null") {
                     employee[key] = updates[key];
                 }
             }
