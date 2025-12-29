@@ -30,8 +30,8 @@ export const getDesignationById = async (req, res) => {
 // Create designation
 export const createDesignation = async (req, res) => {
     try {
-        const { name, description, department } = req.body;
-        const designation = new Designation({ name, description, department });
+        const { name, description, department, travelAmount } = req.body;
+        const designation = new Designation({ name, description, department, travelAmount });
         await designation.save();
         res.status(201).json({ message: "Designation created successfully", designation });
     } catch (error) {
@@ -43,10 +43,10 @@ export const createDesignation = async (req, res) => {
 // Update designation
 export const updateDesignation = async (req, res) => {
     try {
-        const { name, description, department, isActive } = req.body;
+        const { name, description, department, isActive, travelAmount } = req.body;
         const designation = await Designation.findByIdAndUpdate(
             req.params.id,
-            { name, description, department, isActive },
+            { name, description, department, isActive, travelAmount },
             { new: true, runValidators: true }
         );
         if (!designation) {

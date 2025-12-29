@@ -91,6 +91,8 @@ import ResignationRequest from "./pages/Employee/ResignationRequest";
 import DocumentUpload from "./pages/HR/DocumentUpload";
 import BirthdayList from "./pages/HR/BirthdayList";
 import FeedbackHub from "./pages/HR/FeedbackHub";
+import ReimbursementList from "./pages/HR/ReimbursementList";
+import AddReimbursement from "./pages/HR/AddReimbursement";
 
 // ... inside Routes ... (I will use a simpler replace block to avoid mess)
 
@@ -148,6 +150,8 @@ function App() {
         <Route path="/employee/documents" element={<DocumentCenter />} />
         <Route path="/hr/birthday" element={<BirthdayList />} />
         <Route path="/hr/feedback" element={<FeedbackHub />} />
+        <Route path="/hr/reimbursement" element={<ReimbursementList />} />
+        <Route path="/hr/reimbursement/add" element={<AddReimbursement />} />
 
 
         <Route path="/academics" element={<Academics />} />

@@ -12,7 +12,8 @@ const MasterDataDesignation = () => {
     const [formData, setFormData] = useState({
         name: "",
         description: "",
-        department: ""
+        department: "",
+        travelAmount: 0 // Added default
     });
 
     useEffect(() => {
@@ -88,7 +89,7 @@ const MasterDataDesignation = () => {
             if (response.ok) {
                 toast.success(`Designation ${editingId ? "updated" : "created"} successfully`);
                 setShowModal(false);
-                setFormData({ name: "", description: "", department: "" });
+                setFormData({ name: "", description: "", department: "", travelAmount: 0 }); // Reset with default
                 setEditingId(null);
                 fetchDesignations();
             } else {
@@ -107,7 +108,8 @@ const MasterDataDesignation = () => {
         setFormData({
             name: designation.name,
             description: designation.description || "",
-            department: designation.department?._id || ""
+            department: designation.department?._id || "",
+            travelAmount: designation.travelAmount || 0
         });
         setEditingId(designation._id);
         setShowModal(true);
@@ -137,7 +139,7 @@ const MasterDataDesignation = () => {
 
     const handleAddNew = () => {
         console.log("Opening modal, departments:", departments);
-        setFormData({ name: "", description: "", department: "" });
+        setFormData({ name: "", description: "", department: "", travelAmount: 0 });
         setEditingId(null);
         setShowModal(true);
         // Refetch departments to ensure we have the latest data
@@ -183,6 +185,9 @@ const MasterDataDesignation = () => {
                                             Department
                                         </th>
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Travel Amount
+                                        </th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             Description
                                         </th>
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -204,6 +209,11 @@ const MasterDataDesignation = () => {
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className="px-3 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
                                                     {designation.department?.departmentName || "N/A"}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="text-sm font-medium text-gray-900 dark:text-emerald-400">
+                                                    ₹{designation.travelAmount?.toLocaleString() || "0"}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
@@ -279,8 +289,8 @@ const MasterDataDesignation = () => {
                                                 key={dept._id}
                                                 value={dept._id}
                                                 style={{
-                                                    backgroundColor: '#006affff',
-                                                    color: '#ff0000ff'
+                                                    backgroundColor: '#1a1f24',
+                                                    color: 'white'
                                                 }}
                                             >
                                                 {dept.departmentName}
@@ -292,6 +302,20 @@ const MasterDataDesignation = () => {
                                             No departments found. Please create one in Master Data → Department
                                         </p>
                                     )}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Travel Amount Limit (₹)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        name="travelAmount"
+                                        value={formData.travelAmount}
+                                        onChange={handleInputChange}
+                                        placeholder="Enter amount"
+                                        min="0"
+                                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -312,7 +336,7 @@ const MasterDataDesignation = () => {
                                         onClick={() => {
                                             setShowModal(false);
                                             setEditingId(null);
-                                            setFormData({ name: "", description: "", department: "" });
+                                            setFormData({ name: "", description: "", department: "", travelAmount: 0 });
                                         }}
                                         className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600"
                                     >

@@ -4,7 +4,7 @@ import { FaChevronLeft, FaChevronRight, FaSpinner } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 const HolidayList = () => {
-    const [currentDate, setCurrentDate] = useState(new Date(2025, 11, 1)); // Default to Dec 2025
+    const [currentDate, setCurrentDate] = useState(new Date()); // Default to today
     const [holidays, setHolidays] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -79,10 +79,10 @@ const HolidayList = () => {
     return (
         <Layout activePage="HR & Manpower">
             <div className="p-6 space-y-6 animate-fade-in pb-10">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#131619] border border-gray-800 p-8 rounded-[2.5rem] shadow-2xl">
                     <div>
-                        <h2 className="text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-widest mb-1">Attendance Management</h2>
-                        <h1 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tight">Holiday List</h1>
+                        <h2 className="text-cyan-500 font-black text-[10px] uppercase tracking-[0.3em] mb-2">Schedule View</h2>
+                        <h1 className="text-3xl font-black text-white uppercase tracking-tight italic">Holiday <span className="text-gray-500">List</span></h1>
                     </div>
                 </div>
 
@@ -137,12 +137,14 @@ const HolidayList = () => {
                                     </div>
 
                                     {holiday && (
-                                        <div className={`mt-2 p-2 rounded-xl text-[10px] font-bold shadow-sm border animate-fade-in ${holiday.type === 'Public' ? 'bg-red-50 border-red-100 text-red-600 dark:bg-red-500/10 dark:border-red-500/20' :
-                                            holiday.type === 'Office' ? 'bg-blue-50 border-blue-100 text-blue-600 dark:bg-blue-500/10 dark:border-blue-500/20' :
-                                                'bg-purple-50 border-purple-100 text-purple-600 dark:bg-purple-500/10 dark:border-purple-500/20'
+                                        <div className={`mt-2 p-3 rounded-2xl text-[10px] font-bold shadow-xl border animate-fade-in relative overflow-hidden ${holiday.type === 'Public' ? 'bg-red-500/10 border-red-500/20 text-red-500' :
+                                            holiday.type === 'Office' ? 'bg-blue-500/10 border-blue-500/20 text-blue-500' :
+                                                'bg-purple-500/10 border-purple-500/20 text-purple-500'
                                             }`}>
-                                            <p className="uppercase leading-tight line-clamp-2">{holiday.name}</p>
-                                            <span className="opacity-60 text-[8px] mt-1 block tracking-wider">{holiday.type}</span>
+                                            <div className="relative z-10">
+                                                <p className="uppercase leading-tight line-clamp-2 mb-1">{holiday.name}</p>
+                                                <span className="opacity-60 text-[8px] block tracking-wider font-black">{holiday.type}</span>
+                                            </div>
                                         </div>
                                     )}
                                 </div>

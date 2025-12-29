@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Layout from "../../components/Layout";
 import {
     FaClock,
@@ -194,10 +194,22 @@ const EmployeesAttendance = () => {
         toast.info("Filters reset");
     };
 
-    const filteredRecords = attendanceList.filter(record =>
-        record.employeeId?.name?.toLowerCase().includes(filters.search.toLowerCase()) ||
-        record.employeeId?.employeeId?.toLowerCase().includes(filters.search.toLowerCase())
-    );
+    const groupedRecords = useMemo(() => {
+        const groups = {};
+        attendanceList.forEach(record => {
+            const empId = record.employeeId?._id;
+            if (!empId) return;
+            // Since backend is sorted by date -1, the first record we find is the latest
+            if (!groups[empId]) {
+                groups[empId] = record;
+            }
+        });
+
+        return Object.values(groups).filter(record =>
+            record.employeeId?.name?.toLowerCase().includes(filters.search.toLowerCase()) ||
+            record.employeeId?.employeeId?.toLowerCase().includes(filters.search.toLowerCase())
+        );
+    }, [attendanceList, filters.search]);
 
     return (
         <Layout activePage="HR & Manpower">
@@ -305,25 +317,24 @@ const EmployeesAttendance = () => {
                     {/* Attendance List */}
                     <div className="flex-1 space-y-4">
                         <div className="flex items-center justify-between mb-6 px-4">
-                            <h3 className="text-sm font-black text-gray-500 uppercase tracking-[0.3em]">Recent Logs ({filteredRecords.length})</h3>
+                            <h3 className="text-sm font-black text-gray-500 uppercase tracking-[0.3em]">Workforce Directory ({groupedRecords.length})</h3>
                         </div>
 
                         {loading ? (
                             <div className="flex justify-center p-20"><div className="animate-spin rounded-full h-10 w-10 border-t-2 border-cyan-500"></div></div>
-                        ) : filteredRecords.length === 0 ? (
+                        ) : groupedRecords.length === 0 ? (
                             <div className="bg-[#131619] border-2 border-dashed border-gray-800 rounded-[2rem] p-20 text-center">
-                                <p className="text-gray-600 font-black uppercase tracking-widest">No matching logs found</p>
+                                <p className="text-gray-600 font-black uppercase tracking-widest">No matching employees found</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 gap-4">
-                                {filteredRecords.map((att, i) => (
+                                {groupedRecords.map((att, i) => (
                                     <div
                                         key={att._id}
                                         onClick={() => fetchUserAnalysis(att)}
-                                        className={`
-                                            p-6 bg-[#131619] border border-gray-800 rounded-[2rem] flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6 hover:border-cyan-500/30 transition-all group cursor-pointer
-                                            ${selectedUser?._id === att._id ? 'ring-2 ring-cyan-500 border-transparent shadow-2xl shadow-cyan-500/10' : ''}
-                                        `}
+                                        className={`group p-6 rounded-[2rem] border transition-all cursor-pointer ${selectedUser?.employeeId?._id === att.employeeId?._id
+                                            ? "bg-cyan-500/10 border-cyan-500/40 shadow-xl shadow-cyan-500/10"
+                                            : "bg-[#131619] border-gray-800 hover:border-gray-700 hover:bg-[#1a1f24]"}`}
                                     >
                                         <div className="flex items-center gap-6">
                                             <div className="w-14 h-14 bg-gray-900 rounded-full border border-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0 group-hover:border-cyan-500/50 transition-colors">
@@ -341,11 +352,11 @@ const EmployeesAttendance = () => {
 
                                         <div className="flex flex-wrap items-center gap-8">
                                             <div className="flex flex-col">
-                                                <span className="text-[9px] font-black text-gray-700 uppercase tracking-widest mb-1">Date</span>
+                                                <span className="text-[9px] font-black text-gray-700 uppercase tracking-widest mb-1">Last Active</span>
                                                 <span className="text-xs text-gray-300 font-bold">{format(new Date(att.date), 'dd MMM yyyy')}</span>
                                             </div>
                                             <div className="flex flex-col">
-                                                <span className="text-[9px] font-black text-gray-700 uppercase tracking-widest mb-1">Check In</span>
+                                                <span className="text-[9px] font-black text-gray-700 uppercase tracking-widest mb-1">Latest Check-in</span>
                                                 <span className="text-xs text-emerald-400 font-black">{att.checkIn?.time ? format(new Date(att.checkIn.time), 'HH:mm') : '--:--'}</span>
                                             </div>
                                             <div className="flex flex-col">
@@ -398,8 +409,14 @@ const EmployeesAttendance = () => {
                                 </div>
 
                                 <div className="text-center mb-10">
-                                    <h3 className="text-white font-black text-2xl tracking-tighter uppercase italic mb-2">{selectedUser.employeeId?.name}</h3>
-                                    <p className="text-cyan-500 text-[10px] font-black tracking-[0.3em] uppercase">{selectedUser.employeeId?.primaryCentre?.centreName}</p>
+                                    <h3 className="text-white font-black text-2xl tracking-tighter uppercase italic mb-1">{selectedUser.employeeId?.name}</h3>
+                                    <p className="text-cyan-500 text-[10px] font-black tracking-[0.3em] uppercase mb-4">{selectedUser.employeeId?.primaryCentre?.centreName}</p>
+
+                                    <div className="flex flex-wrap justify-center gap-2">
+                                        <span className="px-3 py-1 bg-gray-800 text-gray-400 rounded-full text-[8px] font-black uppercase tracking-widest">{selectedUser.employeeId?.employeeId}</span>
+                                        <span className="px-3 py-1 bg-gray-800 text-gray-400 rounded-full text-[8px] font-black uppercase tracking-widest">{selectedUser.employeeId?.department?.departmentName}</span>
+                                        <span className="px-3 py-1 bg-gray-800 text-gray-400 rounded-full text-[8px] font-black uppercase tracking-widest">{selectedUser.employeeId?.designation?.name}</span>
+                                    </div>
                                 </div>
 
                                 {userAnalysisData && (
@@ -421,7 +438,7 @@ const EmployeesAttendance = () => {
                                         <div className="mb-10 lg:pr-4">
                                             <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-4">Monthly Performance Map</p>
                                             <div className="h-[220px] w-full">
-                                                <ResponsiveContainer width="100%" height="100%">
+                                                <ResponsiveContainer width="100%" height={220}>
                                                     <BarChart data={userAnalysisData.dailyData} margin={{ top: 0, right: 0, left: -40, bottom: 0 }}>
                                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1f2937" opacity={0.5} />
                                                         <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#4b5563', fontSize: 8, fontWeight: 900 }} interval={4} />

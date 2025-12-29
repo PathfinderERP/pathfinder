@@ -570,10 +570,10 @@ export const getMyProfile = async (req, res) => {
     try {
         // Find employee linked to the current user
         const employee = await Employee.findOne({ user: req.user.id })
-            .populate("department", "name")
+            .populate("department", "departmentName")
             .populate("designation", "name")
             .populate("manager", "name employeeId")
-            .populate("primaryCentre", "name");
+            .populate("primaryCentre", "centreName");
 
         if (!employee) {
             return res.status(404).json({ message: "Employee profile not found" });

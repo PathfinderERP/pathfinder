@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
-import { FaPlus, FaEdit, FaEye, FaSearch, FaFileExcel, FaFilePdf, FaTrash, FaChevronLeft, FaChevronRight, FaFileUpload, FaFilter, FaFileAlt } from "react-icons/fa";
+import { FaPlus, FaEdit, FaEye, FaSearch, FaFileExcel, FaFilePdf, FaTrash, FaChevronLeft, FaChevronRight, FaFileUpload, FaFilter, FaFileAlt, FaIdCard, FaBuilding, FaMapMarkerAlt, FaEnvelope } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -224,10 +224,10 @@ const EmployeeList = () => {
                 onClick={() => typeof page === "number" && handlePageChange(page)}
                 disabled={page === "..."}
                 className={`min-w-[40px] h-10 flex items-center justify-center rounded-lg font-medium transition-all ${page === currentPage
-                    ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
+                    ? "bg-cyan-500 text-black font-bold shadow-lg shadow-cyan-500/20"
                     : page === "..."
                         ? "text-gray-500 cursor-default"
-                        : "text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-[#252a30] hover:text-blue-600 dark:hover:text-white"
+                        : "text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-[#252a30] hover:text-cyan-500 dark:hover:text-cyan-400"
                     }`}
             >
                 {page}
@@ -236,24 +236,24 @@ const EmployeeList = () => {
     };
 
     const ImportOverviewModal = () => (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white dark:bg-[#1a1f24] w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden transform transition-all">
-                <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+            <div className="bg-[#131619] w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-800 overflow-hidden transform transition-all">
+                <div className="px-6 py-4 bg-gray-900 border-b border-gray-800 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-600/10 rounded-lg text-blue-600">
+                        <div className="p-2 bg-cyan-500/10 rounded-lg text-cyan-500">
                             <FaFileUpload size={20} />
                         </div>
-                        <h3 className="text-xl font-bold text-gray-800 dark:text-white">Import Employee Data</h3>
+                        <h3 className="text-xl font-bold text-white">Import Employee Data</h3>
                     </div>
-                    <button onClick={() => setShowImportModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors">
+                    <button onClick={() => setShowImportModal(false)} className="text-gray-400 hover:text-white transition-colors">
                         <FaPlus className="rotate-45" size={24} />
                     </button>
                 </div>
 
                 <div className="p-6 space-y-6">
                     <div className="space-y-4 h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-                        <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 p-4 rounded-xl">
-                            <p className="text-sm text-blue-800 dark:text-blue-300 leading-relaxed">
+                        <div className="bg-cyan-900/10 border border-cyan-500/20 p-4 rounded-xl">
+                            <p className="text-sm text-cyan-200 leading-relaxed">
                                 To ensure successful import, your Excel file must follow the specific column headers and data formats listed below.
                                 <span className="block mt-1 font-bold">Note: All column names are Case-Insensitive.</span>
                             </p>
@@ -261,7 +261,7 @@ const EmployeeList = () => {
 
                         <div className="space-y-4 text-sm">
                             <div className="grid grid-cols-1 gap-3">
-                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Required Column Mapping</h4>
+                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Required Column Mapping</h4>
                                 <div className="space-y-2">
                                     {[
                                         { col: "Name", req: true, format: "Text (Full Name)", example: "John Doe" },
@@ -276,43 +276,34 @@ const EmployeeList = () => {
                                         { col: "Employment Type", req: true, format: "Full-time | Part-time | Contract | Intern", example: "Full-time" },
                                         { col: "Salary", req: false, format: "Numeric (Monthly)", example: "25000" }
                                     ].map((item, idx) => (
-                                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-800/60 group hover:border-blue-500/30 transition-all">
+                                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-800/40 rounded-xl border border-gray-800/60 group hover:border-cyan-500/30 transition-all">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-1.5 h-1.5 rounded-full ${item.req ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]' : 'bg-gray-400'}`}></div>
-                                                <span className="font-bold text-gray-800 dark:text-gray-200">{item.col}</span>
+                                                <span className="font-bold text-gray-200">{item.col}</span>
                                             </div>
                                             <div className="flex items-center gap-4">
-                                                <span className="text-[11px] text-gray-500 dark:text-gray-400 italic font-medium">{item.format}</span>
-                                                <span className="text-[11px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-md font-bold">{item.example}</span>
+                                                <span className="text-[10px] text-gray-400 italic font-medium uppercase tracking-wider">{item.format}</span>
+                                                <span className="text-[10px] bg-cyan-500/10 text-cyan-400 px-2 py-0.5 rounded-md font-bold">{item.example}</span>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
-
-                            <div className="p-4 bg-orange-500/5 border border-orange-500/20 rounded-xl mt-4">
-                                <h4 className="flex items-center gap-2 text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-widest mb-2">
-                                    <FaFilter size={10} /> Pro Tip
-                                </h4>
-                                <p className="text-[11px] text-orange-800/80 dark:text-orange-300/80 leading-relaxed italic">
-                                    Make sure all "Master Data" entries (Departments, Designations, Centres) exist in the system <strong>before</strong> importing. If the names don't match exactly, those records will be skipped to prevent data corruption.
-                                </p>
-                            </div>
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-800">
-                        <button className="text-blue-600 hover:text-blue-700 text-sm font-bold flex items-center gap-2">
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-800">
+                        <button className="text-cyan-500 hover:text-cyan-400 text-sm font-bold flex items-center gap-2">
                             <FaFileExcel /> Download Sample Template
                         </button>
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setShowImportModal(false)}
-                                className="px-6 py-2 rounded-xl text-gray-600 dark:text-gray-400 font-bold hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
+                                className="px-6 py-2 rounded-xl text-gray-400 font-bold hover:bg-gray-800 transition-all"
                             >
                                 Cancel
                             </button>
-                            <label className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold cursor-pointer transition-all shadow-lg shadow-blue-500/20">
+                            <label className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 text-black font-bold rounded-xl cursor-pointer transition-all shadow-lg shadow-cyan-600/20">
                                 Select File
                                 <input type="file" className="hidden" accept=".xlsx, .xls" onChange={(e) => {
                                     toast.info("Importing processing feature coming soon...");
@@ -331,38 +322,38 @@ const EmployeeList = () => {
             {showImportModal && <ImportOverviewModal />}
             <div className="space-y-6 animate-fade-in pb-10">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-800 dark:text-white tracking-tight">Employee List</h1>
-                        <p className="text-gray-600 dark:text-gray-400 text-sm">
-                            Showing <span className="text-gray-900 dark:text-white font-bold">{(pagination.currentPage - 1) * 10 + 1} to {Math.min(pagination.currentPage * 10, pagination.totalEmployees)}</span> of <span className="text-gray-900 dark:text-white font-bold">{pagination.totalEmployees}</span> employees
+                        <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">All <span className="text-cyan-500">Employees</span></h1>
+                        <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">
+                            Showing <span className="text-white">{(pagination.currentPage - 1) * 10 + 1}-{Math.min(pagination.currentPage * 10, pagination.totalEmployees)}</span> of <span className="text-white">{pagination.totalEmployees}</span>
                         </p>
                     </div>
-                    <div className="flex flex-wrap gap-2 sm:gap-3">
+                    <div className="flex flex-wrap gap-3">
                         {canCreate && (
                             <button
                                 onClick={() => setShowImportModal(true)}
-                                className="bg-[#1a1f24] hover:bg-[#252a30] text-gray-300 px-4 py-2.5 rounded-xl font-bold transition-all border border-gray-800 flex items-center gap-2 shadow-sm"
+                                className="bg-[#1a1f24] hover:bg-[#252a30] text-gray-400 hover:text-white px-5 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all border border-gray-800 flex items-center gap-2 shadow-sm"
                             >
-                                <FaFileUpload className="text-blue-400" /> Import
+                                <FaFileUpload className="text-blue-500" /> Import
                             </button>
                         )}
                         <button
                             onClick={handleExportExcel}
-                            className="bg-green-600/10 hover:bg-green-600/20 text-green-600 px-4 py-2.5 rounded-xl font-bold transition-all border border-green-600/20 flex items-center gap-2"
+                            className="bg-[#1a1f24] hover:bg-[#252a30] text-gray-400 hover:text-white px-5 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all border border-gray-800 flex items-center gap-2 shadow-sm"
                         >
-                            <FaFileExcel /> Excel
+                            <FaFileExcel className="text-green-500" /> Excel
                         </button>
                         <button
                             onClick={handleExportPDF}
-                            className="bg-red-600/10 hover:bg-red-600/20 text-red-600 px-4 py-2.5 rounded-xl font-bold transition-all border border-red-600/20 flex items-center gap-2"
+                            className="bg-[#1a1f24] hover:bg-[#252a30] text-gray-400 hover:text-white px-5 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all border border-gray-800 flex items-center gap-2 shadow-sm"
                         >
-                            <FaFilePdf /> PDF
+                            <FaFilePdf className="text-red-500" /> PDF
                         </button>
                         {canCreate && (
                             <button
                                 onClick={() => navigate("/hr/employee/add")}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20"
+                                className="bg-cyan-500 hover:bg-cyan-600 text-black px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-cyan-500/20"
                             >
                                 <FaPlus /> Add Employee
                             </button>
@@ -371,70 +362,48 @@ const EmployeeList = () => {
                 </div>
 
                 {/* Filters */}
-                <div className="bg-white dark:bg-[#1a1f24] p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
-                        <div className="lg:col-span-1 space-y-1.5">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Search</label>
+                <div className="bg-[#131619] p-6 rounded-[2rem] shadow-xl border border-gray-800">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6 items-end">
+                        <div className="lg:col-span-1 space-y-2">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Search</label>
                             <div className="relative group">
-                                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                                <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-600 group-focus-within:text-cyan-500 transition-colors" />
                                 <input
                                     type="text"
-                                    placeholder="Name, ID, Email..."
+                                    placeholder="NAME / ID..."
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition-all text-sm"
+                                    className="w-full pl-10 pr-4 py-3 bg-[#1a1f24] border border-gray-800 rounded-xl focus:border-cyan-500/50 outline-none text-white transition-all text-xs font-bold uppercase tracking-wider placeholder:text-gray-700"
                                 />
                             </div>
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Department</label>
-                            <select
-                                value={filters.department}
-                                onChange={(e) => handleFilterChange("department", e.target.value)}
-                                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition-all text-sm appearance-none cursor-pointer"
-                            >
-                                <option value="">All Departments</option>
-                                {departments.map(dept => (
-                                    <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
-                                ))}
-                            </select>
-                        </div>
+                        {[
+                            { label: "Department", value: filters.department, key: "department", options: departments, optKey: "departmentName" },
+                            { label: "Designation", value: filters.designation, key: "designation", options: designations, optKey: "name" },
+                            { label: "Centre", value: filters.centre, key: "centre", options: centres, optKey: "centreName" }
+                        ].map((filter, idx) => (
+                            <div key={idx} className="space-y-2">
+                                <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">{filter.label}</label>
+                                <select
+                                    value={filter.value}
+                                    onChange={(e) => handleFilterChange(filter.key, e.target.value)}
+                                    className="w-full px-4 py-3 bg-[#1a1f24] border border-gray-800 rounded-xl focus:border-cyan-500/50 outline-none text-white transition-all text-xs font-bold uppercase tracking-wider appearance-none cursor-pointer text-gray-400"
+                                >
+                                    <option value="">All {filter.label}s</option>
+                                    {filter.options.map(opt => (
+                                        <option key={opt._id} value={opt._id}>{opt[filter.optKey]}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        ))}
 
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Designation</label>
-                            <select
-                                value={filters.designation}
-                                onChange={(e) => handleFilterChange("designation", e.target.value)}
-                                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition-all text-sm appearance-none cursor-pointer"
-                            >
-                                <option value="">All Designations</option>
-                                {designations.map(desig => (
-                                    <option key={desig._id} value={desig._id}>{desig.name}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Centre</label>
-                            <select
-                                value={filters.centre}
-                                onChange={(e) => handleFilterChange("centre", e.target.value)}
-                                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition-all text-sm appearance-none cursor-pointer"
-                            >
-                                <option value="">All Centres</option>
-                                {centres.map(centre => (
-                                    <option key={centre._id} value={centre._id}>{centre.centreName}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Status</label>
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Status</label>
                             <select
                                 value={filters.status}
                                 onChange={(e) => handleFilterChange("status", e.target.value)}
-                                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition-all text-sm appearance-none cursor-pointer"
+                                className="w-full px-4 py-3 bg-[#1a1f24] border border-gray-800 rounded-xl focus:border-cyan-500/50 outline-none text-white transition-all text-xs font-bold uppercase tracking-wider appearance-none cursor-pointer text-gray-400"
                             >
                                 <option value="">All Status</option>
                                 <option value="Active">Active</option>
@@ -446,131 +415,117 @@ const EmployeeList = () => {
 
                         <button
                             onClick={handleClearFilters}
-                            className="h-10 flex items-center justify-center gap-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 px-4 py-2 rounded-xl text-sm font-bold transition-all border border-transparent hover:border-gray-300 dark:hover:border-gray-600 group"
+                            className="h-[46px] flex items-center justify-center gap-2 bg-gray-800 hover:bg-red-500/20 hover:text-red-500 text-gray-400 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-transparent hover:border-red-500/20 group"
                         >
-                            <FaFilter className="group-hover:text-blue-500 transition-colors" /> Clear
+                            <FaFilter className="group-hover:text-red-500 transition-colors" /> Clear
                         </button>
                     </div>
                 </div>
 
-                {/* Table */}
-                <div className="bg-white dark:bg-[#1a1f24] rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
+                {/* Desktop Table View */}
+                <div className="hidden md:block bg-[#131619] rounded-[2rem] shadow-xl border border-gray-800 overflow-hidden">
                     {loading ? (
                         <div className="flex items-center justify-center h-64">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-cyan-500"></div>
                         </div>
                     ) : employees.length === 0 ? (
-                        <div className="flex items-center justify-center h-64 text-gray-500">
-                            No employees found
+                        <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+                            <FaSearch size={40} className="mb-4 opacity-20" />
+                            <p className="font-black uppercase tracking-widest text-sm">No employees found</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full">
-                                <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                                <thead className="bg-[#1a1f24]/50 border-b border-gray-800">
                                     <tr>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                            Employee ID
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                            Name
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                            Email
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                            Department
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                            Designation
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                            Centre
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                            Actions
-                                        </th>
+                                        {["Employee", "Email", "Department", "Designation", "Centre", "Status", "Actions"].map((head, i) => (
+                                            <th key={i} className="px-6 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                                                {head}
+                                            </th>
+                                        ))}
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                <tbody className="divide-y divide-gray-800">
                                     {employees.map((employee) => (
-                                        <tr
-                                            key={employee._id}
-                                            className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                                        >
+                                        <tr key={employee._id} className="hover:bg-cyan-500/[0.02] transition-colors group">
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center">
-                                                    <div className={`w-2 h-2 rounded-full mr-2 ${employee.status === "Active" ? "bg-green-500" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"}`}></div>
-                                                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                                        {employee.employeeId}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 overflow-hidden flex-shrink-0">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 rounded-full bg-gray-800 border-2 border-gray-700 overflow-hidden flex-shrink-0 group-hover:border-cyan-500/50 transition-colors">
                                                         {employee.profileImage && !employee.profileImage.startsWith('undefined/') ? (
                                                             <img src={employee.profileImage} alt="" className="w-full h-full object-cover" />
                                                         ) : (
-                                                            <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-blue-500">
+                                                            <div className="w-full h-full flex items-center justify-center text-[10px] font-black text-cyan-500">
                                                                 {employee.name?.charAt(0)}
                                                             </div>
                                                         )}
                                                     </div>
-                                                    <span className="text-sm font-semibold text-gray-900 dark:text-white uppercase">
-                                                        {employee.name}
-                                                    </span>
+                                                    <div>
+                                                        <div className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors uppercase tracking-tight">
+                                                            {employee.name}
+                                                        </div>
+                                                        <div className="text-[9px] font-black text-gray-600 uppercase tracking-widest mt-0.5">
+                                                            {employee.employeeId}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 lowercase">
+                                            <td className="px-6 py-4 whitespace-nowrap text-xs font-medium text-gray-400 lowercase font-mono">
                                                 {employee.email}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="px-3 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 rounded-full text-[11px] font-bold">
+                                                <span className="flex items-center gap-1.5 text-[10px] uppercase font-black tracking-wider text-gray-300">
+                                                    <FaBuilding className="text-gray-600" />
                                                     {employee.department?.departmentName || "N/A"}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="px-3 py-1 bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 rounded-full text-[11px] font-bold">
+                                                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest bg-gray-800/50 px-2 py-1 rounded">
                                                     {employee.designation?.name || "N/A"}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="px-3 py-1 bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20 rounded-full text-[11px] font-bold">
+                                                <span className="flex items-center gap-1 text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                                                    <FaMapMarkerAlt className="text-gray-600" />
                                                     {employee.primaryCentre?.centreName || "N/A"}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${employee.status === "Active" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-red-500/10 text-red-500 border-red-500/20"}`}>
+                                                    {employee.status}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                                                 <div className="flex gap-2">
                                                     <button
                                                         onClick={() => navigate(`/hr/employee/letters/${employee._id}`)}
-                                                        className="p-2 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 bg-indigo-500/10 rounded-lg transition-all"
+                                                        className="p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-cyan-500/20 rounded-lg transition-all"
                                                         title="Letters"
                                                     >
-                                                        <FaFileAlt size={16} />
+                                                        <FaFileAlt size={14} />
                                                     </button>
                                                     <button
                                                         onClick={() => navigate(`/hr/employee/view/${employee._id}`)}
-                                                        className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-500/10 rounded-lg transition-all"
+                                                        className="p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-blue-500/20 rounded-lg transition-all"
                                                         title="View"
                                                     >
-                                                        <FaEye size={16} />
+                                                        <FaEye size={14} />
                                                     </button>
                                                     {canEdit && (
                                                         <button
                                                             onClick={() => navigate(`/hr/employee/edit/${employee._id}`)}
-                                                            className="p-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 bg-green-500/10 rounded-lg transition-all"
+                                                            className="p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-emerald-500/20 rounded-lg transition-all"
                                                             title="Edit"
                                                         >
-                                                            <FaEdit size={16} />
+                                                            <FaEdit size={14} />
                                                         </button>
                                                     )}
                                                     {canDelete && (
                                                         <button
                                                             onClick={() => handleDelete(employee._id)}
-                                                            className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 bg-red-500/10 rounded-lg transition-all"
+                                                            className="p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-red-500/20 rounded-lg transition-all"
                                                             title="Delete"
                                                         >
-                                                            <FaTrash size={16} />
+                                                            <FaTrash size={14} />
                                                         </button>
                                                     )}
                                                 </div>
@@ -583,43 +538,108 @@ const EmployeeList = () => {
                     )}
                 </div>
 
+                {/* Mobile Card View (md:hidden) */}
+                <div className="md:hidden grid grid-cols-1 gap-4">
+                    {loading ? (
+                        <div className="flex items-center justify-center h-32">
+                            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-cyan-500"></div>
+                        </div>
+                    ) : employees.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center p-8 bg-[#131619] rounded-2xl border border-gray-800 border-dashed">
+                            <p className="text-gray-500 font-bold uppercase text-xs">No employees found</p>
+                        </div>
+                    ) : (
+                        employees.map((employee) => (
+                            <div key={employee._id} className="bg-[#131619] rounded-2xl p-5 border border-gray-800 shadow-lg relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-3">
+                                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${employee.status === "Active" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-red-500/10 text-red-500 border-red-500/20"}`}>
+                                        {employee.status}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-4 mb-5">
+                                    <div className="w-14 h-14 rounded-2xl bg-gray-800 border-2 border-gray-700 overflow-hidden flex-shrink-0 shadow-lg">
+                                        {employee.profileImage && !employee.profileImage.startsWith('undefined/') ? (
+                                            <img src={employee.profileImage} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-lg font-black text-cyan-500 bg-gray-900">
+                                                {employee.name?.charAt(0)}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-black text-white uppercase tracking-tight leading-none mb-1">{employee.name}</h3>
+                                        <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest">{employee.employeeId}</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 mb-5">
+                                    <div className="bg-black/30 p-3 rounded-xl border border-gray-800/50">
+                                        <div className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1">Department</div>
+                                        <div className="text-xs text-gray-300 font-bold truncate">{employee.department?.departmentName || "N/A"}</div>
+                                    </div>
+                                    <div className="bg-black/30 p-3 rounded-xl border border-gray-800/50">
+                                        <div className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1">Role</div>
+                                        <div className="text-xs text-gray-300 font-bold truncate">{employee.designation?.name || "N/A"}</div>
+                                    </div>
+                                    <div className="bg-black/30 p-3 rounded-xl border border-gray-800/50 col-span-2">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <FaEnvelope size={10} className="text-gray-600" />
+                                            <span className="text-[9px] text-gray-500 font-black uppercase tracking-widest">Contact</span>
+                                        </div>
+                                        <div className="text-xs text-gray-300 font-medium truncate font-mono">{employee.email}</div>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between gap-3 pt-4 border-t border-gray-800">
+                                    <button onClick={() => navigate(`/hr/employee/view/${employee._id}`)} className="flex-1 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-xs font-bold transition-all">
+                                        View
+                                    </button>
+                                    {canEdit && (
+                                        <button onClick={() => navigate(`/hr/employee/edit/${employee._id}`)} className="flex-1 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-500 rounded-lg text-xs font-bold transition-all border border-cyan-500/20">
+                                            Edit
+                                        </button>
+                                    )}
+                                    <button onClick={() => navigate(`/hr/employee/letters/${employee._id}`)} className="w-10 h-10 flex items-center justify-center bg-gray-800 rounded-lg text-gray-400 hover:text-white">
+                                        <FaFileAlt />
+                                    </button>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+
                 {/* Pagination */}
                 {pagination.totalPages > 1 && (
-                    <div className="flex flex-col md:flex-row items-center justify-between bg-white dark:bg-[#1a1f24] px-6 py-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 gap-4 transition-all">
+                    <div className="flex flex-col md:flex-row items-center justify-between bg-[#131619] px-6 py-4 rounded-xl shadow-sm border border-gray-800 gap-4 transition-all">
                         <div className="flex items-center gap-4">
-                            {/* Jump to Page */}
                             <form onSubmit={handleJumpPage} className="flex items-center gap-2">
-                                <span className="text-xs text-gray-500 font-medium">Go to:</span>
+                                <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Go to:</span>
                                 <input
                                     type="text"
                                     value={jumpPage}
                                     onChange={(e) => setJumpPage(e.target.value)}
                                     placeholder="Pg"
-                                    className="w-12 h-10 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-center text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                    className="w-12 h-10 bg-[#1a1f24] border border-gray-800 rounded-lg text-center text-xs text-white focus:border-cyan-500 outline-none transition-all font-bold"
                                 />
                             </form>
                         </div>
-
                         <div className="flex items-center gap-1">
-                            {/* Previous Button */}
                             <button
                                 onClick={() => handlePageChange(pagination.currentPage - 1)}
                                 disabled={pagination.currentPage === 1}
-                                className="w-10 h-10 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-[#252a30] hover:text-blue-600 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                                className="w-10 h-10 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-all"
                             >
-                                <FaChevronLeft size={14} />
+                                <FaChevronLeft size={12} />
                             </button>
-
-                            {/* Page Numbers */}
-                            {renderPageNumbers()}
-
-                            {/* Next Button */}
+                            <div className="flex gap-1 overflow-x-auto max-w-[200px] md:max-w-none no-scrollbar">
+                                {renderPageNumbers()}
+                            </div>
                             <button
                                 onClick={() => handlePageChange(pagination.currentPage + 1)}
                                 disabled={pagination.currentPage === pagination.totalPages}
-                                className="w-10 h-10 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-[#252a30] hover:text-blue-600 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                                className="w-10 h-10 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-all"
                             >
-                                <FaChevronRight size={14} />
+                                <FaChevronRight size={12} />
                             </button>
                         </div>
                     </div>

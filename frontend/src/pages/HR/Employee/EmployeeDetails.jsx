@@ -206,7 +206,7 @@ const EmployeeDetails = () => {
                                 </div>
                                 <div>
                                     <span className="block text-xs uppercase text-gray-500 font-bold mb-1">Department</span>
-                                    <span className="text-lg font-bold text-gray-200">{employee.department?.name || "-"}</span>
+                                    <span className="text-lg font-bold text-gray-200">{employee.department?.departmentName || "-"}</span>
                                 </div>
                                 <div>
                                     <span className="block text-xs uppercase text-gray-500 font-bold mb-1">Manager</span>

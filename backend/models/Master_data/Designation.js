@@ -11,6 +11,10 @@ const designationSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    travelAmount: {
+        type: Number,
+        default: 0
+    },
     department: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Department"

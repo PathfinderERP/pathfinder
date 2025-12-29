@@ -119,7 +119,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                     icon: <FaCalendarCheck />,
                     subItems: [
                         { name: "Add Reimbursement", path: "/hr/reimbursement/add" },
-                        { name: "Reimbursement List", path: "/hr/reimbursement" },
+                        // { name: "Reimbursement List", path: "/hr/reimbursement" },
                     ]
                 },
                 {
@@ -138,7 +138,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             permissionModule: "hrManpower",
             restrictedToSuperAdmin: true,
             subItems: [
-                { name: "Overview", path: "/hr", icon: <FaThLarge />, permissionSection: "overview" },
+                // { name: "Overview", path: "/hr", icon: <FaThLarge />, permissionSection: "overview" },
                 { name: "Employee Management", path: "/hr/employee/list", icon: <FaUsers />, permissionSection: "employees" },
                 {
                     name: "Attendance Management",
@@ -151,8 +151,8 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                         { name: "Leave Request", path: "/hr/attendance/leave-request", permissionSection: "leaveRequest" },
                         { name: "Regularize Table", path: "/hr/attendance/regularize-table", permissionSection: "regularizeTable" },
                         { name: "Employees Attendance", path: "/hr/attendance/employee-logs", icon: <FaUsers /> },
-                        { name: "Daily Attendance", path: "/hr/attendance/daily" },
-                        { name: "Monthly Report", path: "/hr/attendance/monthly" },
+                        //     { name: "Daily Attendance", path: "/hr/attendance/daily" },
+                        //     { name: "Monthly Report", path: "/hr/attendance/monthly" },
                     ]
                 },
                 { name: "Training List", path: "/hr/training", icon: <FaChalkboardTeacher />, permissionSection: "training" },
