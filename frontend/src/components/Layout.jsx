@@ -51,11 +51,26 @@ import "react-toastify/dist/ReactToastify.css";
 
 const Layout = ({ children, activePage }) => {
     const [sidebarOpen, setSidebarOpen] = useState(() => {
+        // Check session storage first
+        const savedState = sessionStorage.getItem("sidebarOpen");
+        if (savedState !== null) return savedState === "true";
+
+        // Default based on screen size
         return typeof window !== 'undefined' && window.innerWidth >= 1024;
     });
 
     const toggleSidebar = () => {
-        setSidebarOpen((prev) => !prev);
+        setSidebarOpen((prev) => {
+            const newState = !prev;
+            sessionStorage.setItem("sidebarOpen", newState);
+            return newState;
+        });
+    };
+
+    // Also update storage if it changes via something else (like mobile overlay)
+    const closeSidebarMobile = () => {
+        setSidebarOpen(false);
+        sessionStorage.setItem("sidebarOpen", "false");
     };
 
     return (
@@ -89,7 +104,7 @@ const Layout = ({ children, activePage }) => {
             {/* Mobile Overlay - click outside to close */}
             {sidebarOpen && (
                 <div
-                    onClick={() => setSidebarOpen(false)}
+                    onClick={closeSidebarMobile}
                     className="fixed inset-0 bg-black/50 z-40 lg:hidden"
                 ></div>
             )}

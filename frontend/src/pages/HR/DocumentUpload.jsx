@@ -28,10 +28,11 @@ const DocumentUpload = () => {
             if (!token) return navigate("/");
 
             const config = { headers: { Authorization: `Bearer ${token}` } };
+            const apiUrl = import.meta.env.VITE_API_URL.replace("localhost", "127.0.0.1");
 
             // Using 127.0.0.1 to avoid localhost IPv6 issues
-            const deptRes = await axios.get(`${import.meta.env.VITE_API_URL}/department`, config);
-            const desigRes = await axios.get(`${import.meta.env.VITE_API_URL}/designation`, config);
+            const deptRes = await axios.get(`${apiUrl}/department`, config);
+            const desigRes = await axios.get(`${apiUrl}/designation`, config);
 
             setDepartments(deptRes.data.departments || deptRes.data || []);
             setDesignations(desigRes.data || []);
@@ -64,8 +65,10 @@ const DocumentUpload = () => {
             const token = localStorage.getItem("token");
             console.log("Submitting to API...");
 
+            const apiUrl = import.meta.env.VITE_API_URL.replace("localhost", "127.0.0.1");
+
             // Using 127.0.0.1 to avoid localhost IPv6 issues
-            await axios.post(`${import.meta.env.VITE_API_URL}/hr/documents/upload`, formData, {
+            await axios.post(`${apiUrl}/hr/documents/upload`, formData, {
                 headers: {
                     "Content-Type": "multipart/form-data",
                     Authorization: `Bearer ${token}`

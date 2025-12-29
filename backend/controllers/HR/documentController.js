@@ -1,5 +1,7 @@
 import Document from "../../models/HR/Document.js";
 import User from "../../models/User.js";
+import Employee from "../../models/HR/Employee.js";
+import { getSignedFileUrl } from "./employeeController.js";
 import s3Client from "../../config/r2Config.js";
 import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -18,7 +20,7 @@ export const uploadDocument = async (req, res) => {
             return res.status(400).json({ message: "No files uploaded." });
         }
 
-        const uploader = await User.findById(req.user._id);
+        const uploader = await User.findById(req.user.id);
         if (!uploader) {
             return res.status(404).json({ message: "User not found." });
         }
@@ -59,7 +61,7 @@ export const uploadDocument = async (req, res) => {
             files: uploadedFiles,
             uploadedBy: uploader._id,
             uploadedByName: uploader.name,
-            uploadedByDepartment: uploader.department || "N/A", // user model has department?
+            uploadedByDepartment: uploader.teacherDepartment || "N/A", // User model has teacherDepartment
             targetAudience,
             targetDepartment,
             targetDesignation
@@ -77,7 +79,7 @@ export const uploadDocument = async (req, res) => {
 
 export const getDocuments = async (req, res) => {
     try {
-        const user = await User.findById(req.user._id);
+        const user = await User.findById(req.user.id);
         if (!user) return res.status(404).json({ message: "User not found" });
 
         const userDept = user.department; // Ensure User model has this
@@ -107,9 +109,9 @@ export const getDocuments = async (req, res) => {
             const filesWithUrls = await Promise.all(doc.files.map(async (f) => {
                 const command = new GetObjectCommand({
                     Bucket: bucketName,
-                    Key: f.url // This is the key
+                    Key: f.url
                 });
-                const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 * 24 }); // 24 hours
+                const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 * 24 });
                 return {
                     ...f.toObject(),
                     url: signedUrl,
@@ -117,9 +119,32 @@ export const getDocuments = async (req, res) => {
                 };
             }));
 
+            // Fetch uploader's profile image and department from Employee model
+            let uploaderImage = null;
+            let uploaderDept = doc.uploadedByDepartment;
+
+            try {
+                const emp = await Employee.findOne({ user: doc.uploadedBy })
+                    .populate("department", "departmentName")
+                    .select("profileImage department");
+
+                if (emp) {
+                    if (emp.profileImage) {
+                        uploaderImage = await getSignedFileUrl(emp.profileImage);
+                    }
+                    if (emp.department && emp.department.departmentName) {
+                        uploaderDept = emp.department.departmentName;
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching uploader details:", err);
+            }
+
             return {
                 ...doc.toObject(),
-                files: filesWithUrls
+                files: filesWithUrls,
+                uploaderImage: uploaderImage,
+                uploadedByDepartment: uploaderDept
             };
         }));
 
@@ -138,7 +163,7 @@ export const deleteDocument = async (req, res) => {
         if (!doc) return res.status(404).json({ message: "Document not found" });
 
         // Authorization: Only uploader or Admin
-        if (doc.uploadedBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+        if (doc.uploadedBy.toString() !== req.user.id.toString() && req.user.role !== 'admin') {
             return res.status(403).json({ message: "Unauthorized" });
         }
 

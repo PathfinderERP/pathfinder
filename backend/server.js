@@ -1,10 +1,8 @@
 import mongoose from "mongoose";
 import express from "express";
-// Force restart timestamp: 2025-12-27
+// Force restart timestamp: 2025-12-29
 import dotenv from "dotenv";
 import cors from "cors";
-import multer from "multer"; // Direct import
-import { uploadDocument, getDocuments } from "./controllers/HR/documentController.js"; // Direct import
 import protect from "./middleware/authMiddleware.js"; // Direct import
 import connectDB from "./db/connect.js";
 import adminRoutes from "./routes/superAdmin/superAdminControllers.routes.js";
@@ -42,6 +40,7 @@ import trainingRoutes from "./routes/HR/trainingRoutes.js";
 import resignationRoutes from "./routes/HR/resignation.routes.js";
 import documentRoutes from "./routes/HR/documentRoutes.js";
 import birthdayRoutes from "./routes/HR/birthday.routes.js";
+import feedbackRoutes from "./routes/HR/feedbackRoutes.js";
 
 import path from "path";
 import { fileURLToPath } from "url";
@@ -114,6 +113,7 @@ app.use("/api/hr/employee-attendance", employeeAttendanceRoutes);
 app.use("/api/hr/training", trainingRoutes);
 app.use("/api/hr/resignation", resignationRoutes);
 app.use("/api/hr/birthdays", birthdayRoutes);
+app.use("/api/hr/feedback", feedbackRoutes);
 
 
 // Master Data Routes

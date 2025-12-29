@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
     FaCalendarAlt,
     FaChartBar, FaBullseye, FaBook, FaMoneyBillWave, FaUserTie, FaCogs, FaMobileAlt,
@@ -31,11 +31,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     const granularPermissions = user.granularPermissions || {};
     const isSuperAdmin = user.role === "superAdmin";
 
-    const [openMenus, setOpenMenus] = useState({
-        "Master Data": activePage === "Master Data",
-    });
-
-    const menuItems = [
+    const menuItems = useMemo(() => [
         { name: "Lead Management", icon: <FaBullseye />, path: "/lead-management", permissionModule: "leadManagement" },
         { name: "CEO Control Tower", icon: <FaChartBar />, path: "/dashboard", permissionModule: "ceoControlTower" },
         {
@@ -89,7 +85,6 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             ]
         },
         { name: "Finance & Fees", icon: <FaMoneyBillWave />, path: "/finance", permissionModule: "financeFees" },
-        // Removed duplicate Finance & Fees line if present in original, but sticking to replacing block.
         {
             name: "Sales",
             icon: <FaShoppingCart />,
@@ -107,7 +102,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         {
             name: "Employee Center",
             icon: <FaUserTie />,
-            permissionModule: "employeeCenter", // Virtual permission
+            permissionModule: "employeeCenter",
             subItems: [
                 { name: "Holiday List", path: "/hr/attendance/holiday-list", icon: <FaPizzaSlice /> },
                 { name: "Holiday Calender", path: "/hr/attendance/holiday-management", icon: <FaGlassCheers /> },
@@ -132,17 +127,16 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                     icon: <FaWindowClose />,
                     subItems: [
                         { name: "Resign Button", path: "/hr/resign/button" },
-                        { name: "My Request Status", path: "/hr/resign/button" }, // Both point to the same dynamic page
+                        { name: "My Request Status", path: "/hr/resign/button" },
                     ]
                 }
             ]
         },
-        // HR & Manpower (RESTRICTED TO SUPER ADMIN ONLY)
         {
             name: "HR & Manpower",
             icon: <FaUserTie />,
             permissionModule: "hrManpower",
-            restrictedToSuperAdmin: true, // Custom flag to handle hiding
+            restrictedToSuperAdmin: true,
             subItems: [
                 { name: "Overview", path: "/hr", icon: <FaThLarge />, permissionSection: "overview" },
                 { name: "Employee Management", path: "/hr/employee/list", icon: <FaUsers />, permissionSection: "employees" },
@@ -171,9 +165,6 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             ]
         },
         { name: "Operations", icon: <FaCogs />, path: "#", permissionModule: "operations" },
-        // { name: "Digital Portal", icon: <FaMobileAlt />, path: "#", permissionModule: "digitalPortal" },
-        // { name: "Marketing & CRM", icon: <FaBullhorn />, path: "#", permissionModule: "marketingCRM" },
-        // { name: "Franchise Mgmt", icon: <FaThLarge />, path: "#", permissionModule: "franchiseMgmt" },
         {
             name: "Master Data",
             icon: <FaDatabase />,
@@ -201,73 +192,75 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             ]
         },
         { name: "User Management", icon: <FaUsers />, path: "/user-management", permissionModule: "userManagement" },
-    ];
+    ], []);
+
+    const [openMenus, setOpenMenus] = useState({});
+
+    useEffect(() => {
+        const autoExpand = () => {
+            const currentPath = location.pathname;
+            const newOpenMenus = { ...openMenus };
+            let changed = false;
+
+            const traverse = (items) => {
+                items.forEach(item => {
+                    if (item.subItems) {
+                        const isInside = item.subItems.some(sub =>
+                            sub.path === currentPath ||
+                            (sub.subItems && sub.subItems.some(nested => nested.path === currentPath))
+                        );
+                        if (isInside && !newOpenMenus[item.name]) {
+                            newOpenMenus[item.name] = true;
+                            changed = true;
+                        }
+                        traverse(item.subItems);
+                    }
+                });
+            };
+
+            traverse(menuItems);
+            if (changed) setOpenMenus(newOpenMenus);
+        };
+
+        autoExpand();
+    }, [location.pathname, menuItems]);
 
     const toggleMenu = (name) =>
         setOpenMenus((prev) => ({ ...prev, [name]: !prev[name] }));
 
     // Filter menu items based on permissions
     const filteredMenuItems = menuItems.filter(item => {
-        // SuperAdmin sees everything
         if (isSuperAdmin) return true;
-
         if (item.permissionModule === 'employeeCenter') return true;
 
-        // Check granular permissions first
         if (item.permissionModule) {
-            // Special case for items that map to a specific section (like Course Management)
             if (item.permissionSection) {
-                // Check if user has access to this section (existence implies at least view access)
                 const section = granularPermissions[item.permissionModule]?.[item.permissionSection];
-                if (section) {
-                    return true;
-                }
+                if (section) return true;
             }
-            // Standard module check
             else if (hasModuleAccess(user, item.permissionModule)) {
-                // For Master Data, check if any sub-items are accessible
                 if (item.subItems) {
                     const accessibleSubItems = item.subItems.filter(sub => {
                         const section = granularPermissions[item.permissionModule]?.[sub.permissionSection];
                         return !!section;
                     });
-                    // Only show parent if at least one child is accessible
-                    if (accessibleSubItems.length > 0) {
-                        // We'll filter subItems later in the render or modify the item copy here
-                        // For now, just return true if module is accessible, but better to be precise
-                        return true;
-                    }
+                    if (accessibleSubItems.length > 0) return true;
+                    if (item.permissionModule === 'employeeCenter') return true;
                     return false;
                 }
                 return true;
             }
         }
-
-        // Fallback to legacy permissions
         return userPermissions.includes(item.name);
     }).map(item => {
-        // SPECIAL HANDLING FOR HR MODULE (Non-SuperAdmin)
-        // Removed strict superAdmin check to allow HR role with permissions
-
-        /* 
-        Legacy Code Removed:
-        if (item.permissionModule === 'hrManpower' && !isSuperAdmin) { ... }
-        */
-        // Continue to standard filtering...
-
-        // STANDARD FILTERING (for other modules or SuperAdmin)
-        // Filter sub-items if they exist
         if (item.subItems && !isSuperAdmin) {
             const filteredSubItems = item.subItems.filter(sub => {
-                // If sub has permissionSection, check granular permission
                 if (sub.permissionSection) {
                     const section = granularPermissions[item.permissionModule]?.[sub.permissionSection];
                     return !!section;
                 }
-                // If no permissionSection, allow it (might be a category with nested items)
                 return true;
             }).map(sub => {
-                // Handle nested subitems (like Attendance Management -> Holiday List, etc.)
                 if (sub.subItems && !isSuperAdmin) {
                     const filteredNestedSubItems = sub.subItems.filter(nestedSub => {
                         if (nestedSub.permissionSection) {
@@ -276,23 +269,21 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                         }
                         return true;
                     });
-                    // Only return the sub if it has accessible nested items
                     if (filteredNestedSubItems.length > 0) {
                         return { ...sub, subItems: filteredNestedSubItems };
                     }
                     return null;
                 }
                 return sub;
-            }).filter(Boolean); // Remove null entries
+            }).filter(Boolean);
 
-            // Only return item if it has accessible subitems
             if (filteredSubItems.length > 0) {
                 return { ...item, subItems: filteredSubItems };
             }
             return null;
         }
         return item;
-    }).filter(Boolean); // Remove null entries
+    }).filter(Boolean);
 
     return (
         <div
@@ -335,11 +326,6 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                 <span className="text-lg">{item.icon}</span>
                                 <span className="text-sm">{item.name}</span>
                             </div>
-                            {item.badge && (
-                                <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                                    {item.badge}
-                                </span>
-                            )}
                             {item.subItems && (
                                 <span className="text-xs">
                                     {openMenus[item.name] ? <FaChevronUp /> : <FaChevronDown />}
@@ -352,7 +338,6 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                 {item.subItems.map((sub, idx) => (
                                     <div key={idx}>
                                         {sub.subItems ? (
-                                            /* Nested Sub Menu (e.g. Class Management) */
                                             <div>
                                                 <div
                                                     onClick={() => toggleMenu(sub.name)}
@@ -384,7 +369,6 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                                 )}
                                             </div>
                                         ) : (
-                                            /* Standard Sub Item */
                                             <div
                                                 onClick={() => navigate(sub.path)}
                                                 className={`p-2 rounded-lg cursor-pointer text-sm transition-colors flex items-center gap-2 ${location.pathname === sub.path

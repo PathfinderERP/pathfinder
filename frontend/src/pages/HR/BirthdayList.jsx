@@ -1,7 +1,9 @@
+
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { FaBirthdayCake, FaGift, FaCalendarAlt, FaBuilding, FaUserTie, FaMapMarkerAlt, FaSearch, FaFilter } from "react-icons/fa";
 import { format, isSameDay, isSameWeek, isSameMonth, addYears, getYear, setYear, isPast, getMonth, isToday, getDate } from "date-fns";
+import Layout from "../../components/Layout";
 
 const BirthdayList = () => {
     const [employees, setEmployees] = useState([]);
@@ -203,98 +205,100 @@ const BirthdayList = () => {
     ];
 
     return (
-        <div className="p-6 bg-gray-950 min-h-screen text-gray-100 font-sans selection:bg-pink-500/30">
-            <style>{`
-                .animate-spin-slow { animation: spin 4s linear infinite; }
-            `}</style>
+        <Layout activePage="HR & Manpower">
+            <div className="p-6 bg-gray-950 min-h-screen text-gray-100 font-sans selection:bg-pink-500/30">
+                <style>{`
+                    .animate-spin-slow { animation: spin 4s linear infinite; }
+                `}</style>
 
-            {/* Header */}
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6">
-                <div>
-                    <h1 className="text-5xl font-black text-white tracking-tight flex items-center gap-3">
-                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500">
-                            Birthdays
-                        </span>
-                        <span className="text-4xl">🎂</span>
-                    </h1>
+                {/* Header */}
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6">
+                    <div>
+                        <h1 className="text-5xl font-black text-white tracking-tight flex items-center gap-3">
+                            <span className="bg-clip-text text-transparent bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500">
+                                Birthdays
+                            </span>
+                            <span className="text-4xl">🎂</span>
+                        </h1>
+                    </div>
+
+                    <div className="flex gap-2">
+                        {[
+                            { label: "Today", val: "Today", count: birthdayData.today.length, col: "bg-pink-600 hover:bg-pink-500" },
+                            { label: "This Week", val: "This Week", count: birthdayData.thisWeek.length, col: "bg-purple-600 hover:bg-purple-500" },
+                            { label: "This Month", val: "This Month", count: birthdayData.thisMonth.length, col: "bg-indigo-600 hover:bg-indigo-500" },
+                            { label: "All", val: "All", count: birthdayData.upcoming.length, col: "bg-gray-700 hover:bg-gray-600" },
+                        ].map((stat, i) => (
+                            <button
+                                key={i}
+                                onClick={() => setFilterCategory(stat.val)}
+                                className={`px-6 py-3 rounded-2xl ${filterCategory === stat.val ? stat.col : 'bg-gray-800 hover:bg-gray-700'} text-white transition-all font-bold shadow-lg border border-white/5 flex flex-col items-center min-w-[100px]`}
+                            >
+                                <span className="text-2xl leading-none">{stat.count}</span>
+                                <span className="text-[10px] uppercase opacity-70 mt-1">{stat.label}</span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                <div className="flex gap-2">
-                    {[
-                        { label: "Today", val: "Today", count: birthdayData.today.length, col: "bg-pink-600 hover:bg-pink-500" },
-                        { label: "This Week", val: "This Week", count: birthdayData.thisWeek.length, col: "bg-purple-600 hover:bg-purple-500" },
-                        { label: "This Month", val: "This Month", count: birthdayData.thisMonth.length, col: "bg-indigo-600 hover:bg-indigo-500" },
-                        { label: "All", val: "All", count: birthdayData.upcoming.length, col: "bg-gray-700 hover:bg-gray-600" },
-                    ].map((stat, i) => (
-                        <button
-                            key={i}
-                            onClick={() => setFilterCategory(stat.val)}
-                            className={`px-6 py-3 rounded-2xl ${filterCategory === stat.val ? stat.col : 'bg-gray-800 hover:bg-gray-700'} text-white transition-all font-bold shadow-lg border border-white/5 flex flex-col items-center min-w-[100px]`}
-                        >
-                            <span className="text-2xl leading-none">{stat.count}</span>
-                            <span className="text-[10px] uppercase opacity-70 mt-1">{stat.label}</span>
-                        </button>
-                    ))}
-                </div>
-            </div>
+                {/* Filters */}
+                <div className="bg-gray-900/50 backdrop-blur-xl p-4 rounded-2xl border border-gray-800 mb-8 flex flex-wrap gap-4 items-center shadow-lg">
+                    <div className="relative flex-grow max-w-md">
+                        <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="Search By Name or ID..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full bg-gray-950 border border-gray-800 text-gray-100 pl-11 pr-4 py-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none placeholder-gray-600 font-medium"
+                        />
+                    </div>
 
-            {/* Filters */}
-            <div className="bg-gray-900/50 backdrop-blur-xl p-4 rounded-2xl border border-gray-800 mb-8 flex flex-wrap gap-4 items-center shadow-lg">
-                <div className="relative flex-grow max-w-md">
-                    <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    <input
-                        type="text"
-                        placeholder="Search By Name or ID..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-gray-950 border border-gray-800 text-gray-100 pl-11 pr-4 py-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none placeholder-gray-600 font-medium"
-                    />
-                </div>
-
-                <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar flex-grow">
-                    {[
-                        { val: filterDept, set: setFilterDept, opts: departments, key: "departmentName", label: "Department" },
-                        { val: filterCentre, set: setFilterCentre, opts: centres, key: "centreName", label: "Centre" },
-                        { val: filterDesig, set: setFilterDesig, opts: designations, key: "name", label: "Designation" },
-                    ].map((f, i) => (
+                    <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar flex-grow">
+                        {[
+                            { val: filterDept, set: setFilterDept, opts: departments, key: "departmentName", label: "Department" },
+                            { val: filterCentre, set: setFilterCentre, opts: centres, key: "centreName", label: "Centre" },
+                            { val: filterDesig, set: setFilterDesig, opts: designations, key: "name", label: "Designation" },
+                        ].map((f, i) => (
+                            <select
+                                key={i}
+                                value={f.val}
+                                onChange={(e) => f.set(e.target.value)}
+                                className="bg-gray-950 border border-gray-800 text-gray-300 py-3 px-4 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none min-w-[140px] appearance-none cursor-pointer"
+                            >
+                                <option value="">All {f.label}s</option>
+                                {f.opts.map(o => <option key={o._id} value={o._id}>{o[f.key]}</option>)}
+                            </select>
+                        ))}
                         <select
-                            key={i}
-                            value={f.val}
-                            onChange={(e) => f.set(e.target.value)}
+                            value={filterMonth}
+                            onChange={(e) => setFilterMonth(e.target.value)}
                             className="bg-gray-950 border border-gray-800 text-gray-300 py-3 px-4 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none min-w-[140px] appearance-none cursor-pointer"
                         >
-                            <option value="">All {f.label}s</option>
-                            {f.opts.map(o => <option key={o._id} value={o._id}>{o[f.key]}</option>)}
+                            <option value="">By Month</option>
+                            {months.map((m, i) => <option key={i} value={i}>{m}</option>)}
                         </select>
-                    ))}
-                    <select
-                        value={filterMonth}
-                        onChange={(e) => setFilterMonth(e.target.value)}
-                        className="bg-gray-950 border border-gray-800 text-gray-300 py-3 px-4 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none min-w-[140px] appearance-none cursor-pointer"
-                    >
-                        <option value="">By Month</option>
-                        {months.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                    </select>
+                    </div>
                 </div>
-            </div>
 
-            {loading ? (
-                <div className="flex justify-center py-32"><div className="animate-spin rounded-full h-12 w-12 border-4 border-pink-500 border-t-transparent"></div></div>
-            ) : (
-                <div className="min-h-[400px]">
-                    {activeList.length === 0 ? (
-                        <div className="text-center py-32 opacity-50">
-                            <FaBirthdayCake className="text-6xl mx-auto mb-4" />
-                            <p className="text-xl font-medium">No celebrations found.</p>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
-                            {activeList.map(emp => renderCard(emp))}
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
+                {loading ? (
+                    <div className="flex justify-center py-32"><div className="animate-spin rounded-full h-12 w-12 border-4 border-pink-500 border-t-transparent"></div></div>
+                ) : (
+                    <div className="min-h-[400px]">
+                        {activeList.length === 0 ? (
+                            <div className="text-center py-32 opacity-50">
+                                <FaBirthdayCake className="text-6xl mx-auto mb-4" />
+                                <p className="text-xl font-medium">No celebrations found.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
+                                {activeList.map(emp => renderCard(emp))}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </Layout>
     );
 };
 

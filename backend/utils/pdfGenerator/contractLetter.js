@@ -29,7 +29,7 @@ export const generateContractLetter = async (employee, data) => {
             }
 
             const textY = 90;
-            doc.fillColor('#800000').fontSize(16).font('Helvetica-Bold')
+            doc.fillColor('#b80e0eff').fontSize(16).font('Helvetica-Bold')
                 .text('PATHFINDER EDUCATIONAL CENTRE', 0, textY, { align: 'center', width: pageWidth });
 
             doc.fontSize(9).font('Helvetica').fillColor('#333')
