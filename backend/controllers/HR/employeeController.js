@@ -6,8 +6,8 @@ import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sd
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import s3Client from "../../config/r2Config.js";
 import multer from "multer";
-import dotenv from "dotenv";
-dotenv.config();
+// import dotenv from "dotenv"; // dotenv loaded in server.js
+// dotenv.config();
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
 export const upload = multer({

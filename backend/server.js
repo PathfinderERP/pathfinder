@@ -1,7 +1,7 @@
+import "dotenv/config"; // Load env vars before anything else
 import mongoose from "mongoose";
 import express from "express";
 // Force restart timestamp: 2025-12-29
-import dotenv from "dotenv";
 import cors from "cors";
 import protect from "./middleware/authMiddleware.js"; // Direct import
 import connectDB from "./db/connect.js";
@@ -50,7 +50,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { startPaymentReminderCron } from "./services/cronService.js";
 
-dotenv.config();
 
 const app = express();
 

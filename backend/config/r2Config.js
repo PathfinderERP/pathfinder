@@ -13,8 +13,18 @@ console.log("R2 Config: Loading credentials...");
 console.log("R2 Endpoint:", process.env.S3API);
 console.log("R2 Bucket:", process.env.R2_BUCKET_NAME);
 console.log("R2 Public URL:", process.env.R2_PUBLIC_URL);
-if (!process.env.R2_ACCESS_KEY_ID) {
-    console.warn("WARNING: R2_ACCESS_KEY_ID is missing from environment variables!");
+
+// Validate critical credentials
+if (!process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
+    const errorMsg = "CRITICAL: R2_ACCESS_KEY_ID or R2_SECRET_ACCESS_KEY is missing/empty in environment!";
+    console.error(errorMsg);
+    // We strictly need these. Throwing error will stop the app/module load, which is better than broken uploads.
+    // However, to avoid crashing existing running dev servers if they use partial configs, we might just log loudly.
+    // But for this User's specific error, "non-empty Access Key", we must ensure it is present.
+    // Let's fallback to strict check.
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error(errorMsg);
+    }
 }
 
 const s3Client = new S3Client({
