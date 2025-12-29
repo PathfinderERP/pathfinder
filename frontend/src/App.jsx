@@ -78,6 +78,7 @@ import HolidayList from "./pages/HR/Attendance/HolidayList";
 import LeaveType from "./pages/HR/Attendance/LeaveType";
 import LeaveManagement from "./pages/HR/Attendance/LeaveManagement";
 import RegularizeTable from "./pages/HR/Attendance/RegularizeTable";
+import MyRegularization from "./pages/HR/Attendance/MyRegularization";
 import LeaveRequest from "./pages/HR/Attendance/LeaveRequest";
 import EmployeeDetails from "./pages/HR/Employee/EmployeeDetails";
 import TrainingList from "./pages/HR/TrainingList";
@@ -138,6 +139,7 @@ function App() {
         <Route path="/hr/attendance/leave-management" element={<LeaveManagement />} />
         <Route path="/hr/attendance/leave-request" element={<LeaveRequest />} />
         <Route path="/hr/attendance/regularize-table" element={<RegularizeTable />} />
+        <Route path="/employee/regularization" element={<MyRegularization />} />
         <Route path="/hr/attendance/employee-logs" element={<EmployeesAttendance />} />
         <Route path="/hr/training" element={<TrainingList />} />
         <Route path="/employee/training" element={<TrainingCenter />} />

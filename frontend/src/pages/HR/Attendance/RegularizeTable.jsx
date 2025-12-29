@@ -9,7 +9,7 @@ const RegularizeTable = () => {
     const [filters, setFilters] = useState({ status: "" });
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState(null);
-    const [reviewData, setReviewData] = useState({ status: "Approved", remark: "" });
+    const [reviewData, setReviewData] = useState({ status: "Approved", remark: "", fromTime: "", toTime: "" });
 
     useEffect(() => {
         fetchRequests();
@@ -45,7 +45,9 @@ const RegularizeTable = () => {
                 },
                 body: JSON.stringify({
                     status: reviewData.status,
-                    reviewRemark: reviewData.remark
+                    reviewRemark: reviewData.remark,
+                    fromTime: reviewData.fromTime,
+                    toTime: reviewData.toTime
                 })
             });
 
@@ -92,6 +94,8 @@ const RegularizeTable = () => {
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Sl No.</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Employee Name</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Date</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Type</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Timings</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Status</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Approve</th>
@@ -100,7 +104,7 @@ const RegularizeTable = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                 {loading ? (
-                                    <tr><td colSpan="7" className="px-6 py-10 text-center text-blue-600"><FaSpinner className="animate-spin mx-auto" size={30} /></td></tr>
+                                    <tr><td colSpan="8" className="px-6 py-10 text-center text-blue-600"><FaSpinner className="animate-spin mx-auto" size={30} /></td></tr>
                                 ) : requests.length > 0 ? (
                                     requests.map((request, index) => (
                                         <tr key={request._id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20">
@@ -109,13 +113,30 @@ const RegularizeTable = () => {
                                             <td className="px-6 py-4 text-center text-sm font-medium text-gray-600 dark:text-gray-400">
                                                 {new Date(request.date).toLocaleDateString('en-GB')}
                                             </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${request.type === 'On Duty' ? 'bg-purple-100 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400' :
+                                                    request.type === 'Missed Punch' ? 'bg-orange-100 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400' :
+                                                        'bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400'
+                                                    }`}>
+                                                    {request.type || 'On Duty'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center text-sm text-gray-600 dark:text-gray-400">
+                                                {request.fromTime && request.toTime ? (
+                                                    <span className="font-mono text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                                                        {request.fromTime} - {request.toTime}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400">-</span>
+                                                )}
+                                            </td>
                                             <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 truncate max-w-[200px]" title={request.reason}>
                                                 {request.reason}
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${request.status === 'Approved' ? 'bg-green-100 text-green-700' :
-                                                        request.status === 'Rejected' ? 'bg-red-100 text-red-700' :
-                                                            'bg-yellow-100 text-yellow-700'
+                                                    request.status === 'Rejected' ? 'bg-red-100 text-red-700' :
+                                                        'bg-yellow-100 text-yellow-700'
                                                     }`}>
                                                     {request.status}
                                                 </span>
@@ -124,8 +145,8 @@ const RegularizeTable = () => {
                                                 <div className="flex justify-center gap-2">
                                                     {request.status === 'Pending' ? (
                                                         <>
-                                                            <button onClick={() => { setSelectedRequest(request); setReviewData({ status: 'Approved', remark: '' }); setShowStatusModal(true); }} className="p-1.5 bg-green-500 text-white rounded-lg shadow-sm hover:scale-105 transition-transform"><FaCheck size={12} /></button>
-                                                            <button onClick={() => { setSelectedRequest(request); setReviewData({ status: 'Rejected', remark: '' }); setShowStatusModal(true); }} className="p-1.5 bg-red-500 text-white rounded-lg shadow-sm hover:scale-105 transition-transform"><FaTimes size={12} /></button>
+                                                            <button onClick={() => { setSelectedRequest(request); setReviewData({ status: 'Approved', remark: '', fromTime: request.fromTime || "", toTime: request.toTime || "" }); setShowStatusModal(true); }} className="p-1.5 bg-green-500 text-white rounded-lg shadow-sm hover:scale-105 transition-transform"><FaCheck size={12} /></button>
+                                                            <button onClick={() => { setSelectedRequest(request); setReviewData({ status: 'Rejected', remark: '', fromTime: request.fromTime || "", toTime: request.toTime || "" }); setShowStatusModal(true); }} className="p-1.5 bg-red-500 text-white rounded-lg shadow-sm hover:scale-105 transition-transform"><FaTimes size={12} /></button>
                                                         </>
                                                     ) : (
                                                         <span className="text-[10px] font-bold text-gray-400">RESOLVED</span>
@@ -133,7 +154,7 @@ const RegularizeTable = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <button onClick={() => { setSelectedRequest(request); setReviewData({ status: request.status, remark: request.reviewRemark || "" }); setShowStatusModal(true); }} className="p-2 text-blue-600 bg-blue-50 dark:bg-blue-500/10 rounded-lg"><FaUserEdit size={14} /></button>
+                                                <button onClick={() => { setSelectedRequest(request); setReviewData({ status: request.status, remark: request.reviewRemark || "", fromTime: request.fromTime || "", toTime: request.toTime || "" }); setShowStatusModal(true); }} className="p-2 text-blue-600 bg-blue-50 dark:bg-blue-500/10 rounded-lg"><FaUserEdit size={14} /></button>
                                             </td>
                                         </tr>
                                     ))
@@ -158,6 +179,16 @@ const RegularizeTable = () => {
                             <div className="flex gap-3">
                                 <button type="button" onClick={() => setReviewData({ ...reviewData, status: 'Approved' })} className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 ${reviewData.status === 'Approved' ? 'bg-green-500 border-green-500 text-white' : 'border-gray-100 text-gray-400'}`}>Approve</button>
                                 <button type="button" onClick={() => setReviewData({ ...reviewData, status: 'Rejected' })} className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 ${reviewData.status === 'Rejected' ? 'bg-red-500 border-red-500 text-white' : 'border-gray-100 text-gray-400'}`}>Reject</button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">From Time</label>
+                                    <input type="time" value={reviewData.fromTime} onChange={(e) => setReviewData({ ...reviewData, fromTime: e.target.value })} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800 border dark:border-gray-700 rounded-xl outline-none dark:text-white text-sm" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">To Time</label>
+                                    <input type="time" value={reviewData.toTime} onChange={(e) => setReviewData({ ...reviewData, toTime: e.target.value })} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800 border dark:border-gray-700 rounded-xl outline-none dark:text-white text-sm" />
+                                </div>
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Admin Remark</label>

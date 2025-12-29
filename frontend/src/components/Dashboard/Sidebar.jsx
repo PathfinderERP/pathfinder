@@ -108,7 +108,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Holiday Calender", path: "/hr/attendance/holiday-management", icon: <FaGlassCheers /> },
                 { name: "Mark Attendance", path: "/employee/attendance", icon: <FaMapMarkerAlt /> },
                 { name: "Leave Management", path: "/hr/attendance/leave-request", icon: <FaCalendarTimes /> },
-                { name: "Regularize Table", path: "/hr/attendance/regularize-table", icon: <FaHandshake /> },
+                { name: "Regularize Table", path: "/employee/regularization", icon: <FaHandshake /> },
                 { name: "My Profile", path: "/employee/details", icon: <FaIdCard /> },
                 { name: "Document Center", path: "/employee/documents", icon: <FaRegFileAlt /> },
                 { name: "Training Center", path: "/employee/training", icon: <FaChalkboardTeacher /> },

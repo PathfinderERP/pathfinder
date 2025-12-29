@@ -91,10 +91,13 @@ const deleteFromR2 = async (fileUrl) => {
 export const getSignedFileUrl = async (fileUrl) => {
     if (!fileUrl) return null;
 
-    // If it's already a full URL but not to our R2 (e.g. external), return as is
-    // However, in this project, we store the full URL or the key? 
-    // Currently, we store `${publicUrl}/${fileName}`. 
-    // If publicUrl was undefined, it's "undefined/employees/..."
+    // Safety check: if credentials key is missing, we cannot sign.
+    // Return original URL to avoid crashing or generating invalid signatures.
+    // This allows public URLs to still work if they are public.
+    if (!process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
+        console.warn("getSignedFileUrl: Missing R2 credentials, returning original URL");
+        return fileUrl;
+    }
 
     try {
         const publicUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
@@ -597,6 +600,14 @@ export const updateMyProfile = async (req, res) => {
         const employee = await Employee.findOne({ user: userId });
         if (!employee) {
             return res.status(404).json({ message: "Employee profile not found" });
+        }
+
+        // Check for R2 credentials before attempting any file operations
+        if (!process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
+            console.error("Critical: Missing R2 Credentials during profile update");
+            return res.status(500).json({
+                message: "System Configuration Error: Storage credentials are missing on the server. Please contact Admin to check Environment Variables."
+            });
         }
 
         // List of allowed fields to update

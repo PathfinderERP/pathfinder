@@ -15,10 +15,21 @@ const regularizationSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    fromTime: {
+        type: String, // Format: "HH:mm"
+    },
+    toTime: {
+        type: String, // Format: "HH:mm"
+    },
     status: {
         type: String,
         enum: ['Pending', 'Approved', 'Rejected'],
         default: 'Pending'
+    },
+    type: {
+        type: String,
+        enum: ['On Duty', 'Missed Punch', 'Work From Home', 'Other'],
+        default: 'On Duty'
     },
     appliedAt: {
         type: Date,
