@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../../components/Layout";
-import { FaCalendarAlt, FaHistory, FaCheck, FaTimes, FaSpinner, FaPlus, FaClock, FaBriefcase, FaHome, FaExclamationCircle } from "react-icons/fa";
+import { FaCalendarAlt, FaHistory, FaCheck, FaTimes, FaSpinner, FaPlus, FaClock, FaBriefcase, FaHome, FaExclamationCircle, FaLaptopHouse, FaStopwatch, FaUserClock } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 const MyRegularization = () => {
@@ -128,28 +128,6 @@ const MyRegularization = () => {
                                         className="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-gray-800 dark:text-white outline-none focus:border-blue-500 transition-colors"
                                     />
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Regularization Type</label>
-                                    <div className="relative">
-                                        <select
-                                            value={formData.type}
-                                            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                                            className="w-full p-4 pl-12 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-gray-800 dark:text-white outline-none focus:border-blue-500 transition-colors appearance-none"
-                                        >
-                                            <option value="On Duty">On Duty (Field Work)</option>
-                                            <option value="Missed Punch">Missed Punch (Forgot)</option>
-                                            <option value="Work From Home">Work From Home</option>
-                                            <option value="Late Login / Early Logout">Late Login / Early Logout</option>
-                                            <option value="Other">Other Reason</option>
-                                        </select>
-                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                                            {formData.type === 'On Duty' && <FaBriefcase />}
-                                            {formData.type === 'Missed Punch' && <FaClock />}
-                                            {formData.type === 'Work From Home' && <FaHome />}
-                                            {(formData.type === 'Other' || formData.type === 'Late Login / Early Logout') && <FaExclamationCircle />}
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -159,7 +137,7 @@ const MyRegularization = () => {
                                         type="time"
                                         value={formData.fromTime}
                                         onChange={(e) => setFormData({ ...formData, fromTime: e.target.value })}
-                                        class="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-gray-800 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                                        className="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-gray-800 dark:text-white outline-none focus:border-blue-500 transition-colors"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -168,8 +146,91 @@ const MyRegularization = () => {
                                         type="time"
                                         value={formData.toTime}
                                         onChange={(e) => setFormData({ ...formData, toTime: e.target.value })}
-                                        class="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-gray-800 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                                        className="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-gray-800 dark:text-white outline-none focus:border-blue-500 transition-colors"
                                     />
+                                </div>
+                            </div>
+
+
+
+                            <div className="space-y-4">
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Regularization Type</label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {[
+                                        {
+                                            id: 'On Duty',
+                                            title: 'On Duty',
+                                            description: 'Client visit or Field Work',
+                                            icon: FaBriefcase,
+                                            color: 'text-purple-500',
+                                            bg: 'bg-purple-500/10',
+                                            activeBorder: 'border-purple-500 bg-purple-50 dark:bg-purple-900/10'
+                                        },
+                                        {
+                                            id: 'Missed Punch',
+                                            title: 'Missed Punch',
+                                            description: 'Forgot to Check-in/out',
+                                            icon: FaUserClock,
+                                            color: 'text-orange-500',
+                                            bg: 'bg-orange-500/10',
+                                            activeBorder: 'border-orange-500 bg-orange-50 dark:bg-orange-900/10'
+                                        },
+                                        {
+                                            id: 'Work From Home',
+                                            title: 'Work From Home',
+                                            description: 'Remote work approval',
+                                            icon: FaLaptopHouse,
+                                            color: 'text-blue-500',
+                                            bg: 'bg-blue-500/10',
+                                            activeBorder: 'border-blue-500 bg-blue-50 dark:bg-blue-900/10'
+                                        },
+                                        {
+                                            id: 'Late Login / Early Logout',
+                                            title: 'Late / Early',
+                                            description: 'Timing adjustment',
+                                            icon: FaStopwatch,
+                                            color: 'text-rose-500',
+                                            bg: 'bg-rose-500/10',
+                                            activeBorder: 'border-rose-500 bg-rose-50 dark:bg-rose-900/10'
+                                        },
+                                        {
+                                            id: 'Other',
+                                            title: 'Other Reason',
+                                            description: 'System issue or other',
+                                            icon: FaExclamationCircle,
+                                            color: 'text-gray-500',
+                                            bg: 'bg-gray-500/10',
+                                            activeBorder: 'border-gray-500 bg-gray-50 dark:bg-gray-800'
+                                        }
+                                    ].map((type) => (
+                                        <div
+                                            key={type.id}
+                                            onClick={() => setFormData({ ...formData, type: type.id })}
+                                            className={`relative cursor-pointer p-4 rounded-2xl border-2 transition-all duration-200 group ${formData.type === type.id
+                                                ? `${type.activeBorder} shadow-lg`
+                                                : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-[#131619] hover:border-gray-200 dark:hover:border-gray-700'
+                                                }`}
+                                        >
+                                            <div className="flex items-start gap-4">
+                                                <div className={`p-3 rounded-xl ${type.bg} ${type.color}`}>
+                                                    <type.icon size={20} />
+                                                </div>
+                                                <div>
+                                                    <h3 className={`text-sm font-black uppercase tracking-tight ${formData.type === type.id ? 'text-gray-800 dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
+                                                        {type.title}
+                                                    </h3>
+                                                    <p className="text-[10px] font-bold text-gray-400 mt-0.5 uppercase tracking-wider">
+                                                        {type.description}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {formData.type === type.id && (
+                                                <div className={`absolute top-4 right-4 text-xs ${type.color}`}>
+                                                    <FaCheck />
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
 
@@ -196,7 +257,8 @@ const MyRegularization = () => {
                             </div>
                         </form>
                     </div>
-                )}
+                )
+                }
 
                 {/* Request List */}
                 <div className="space-y-4">
@@ -251,8 +313,8 @@ const MyRegularization = () => {
                         </div>
                     )}
                 </div>
-            </div>
-        </Layout>
+            </div >
+        </Layout >
     );
 };
 

@@ -6,7 +6,7 @@ import {
     FaBullhorn, FaThLarge, FaDatabase, FaChevronDown, FaChevronUp, FaTimes, FaUsers,
     FaShoppingCart, FaCalendarCheck, FaBuilding, FaIdCard, FaMapMarkerAlt, FaToggleOn,
     FaChalkboardTeacher, FaTable, FaFileUpload, FaCommentDots, FaMoneyCheckAlt, FaUserMinus,
-    FaBirthdayCake, FaPizzaSlice, FaGlassCheers, FaCalendarTimes, FaHandshake, FaRegFileAlt, FaWindowClose
+    FaBirthdayCake, FaPizzaSlice, FaGlassCheers, FaCalendarTimes, FaHandshake, FaRegFileAlt, FaWindowClose, FaExclamationCircle
 } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -84,7 +84,17 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Exam Leader Board", path: "/academics/exam-leader-board", permissionSection: "examLeaderBoard" },
             ]
         },
-        { name: "Finance & Fees", icon: <FaMoneyBillWave />, path: "/finance", permissionModule: "financeFees" },
+        {
+            name: "Finance & Fees",
+            icon: <FaMoneyBillWave />,
+            permissionModule: "financeFees",
+            subItems: [
+                { name: "Installment Payment", path: "/finance/installment-payment", permissionSection: "installmentPayment" },
+                { name: "Fee Due List", path: "/finance/fee-due-list", permissionSection: "feeDueList" },
+                { name: "Cheque Management", path: "/finance/cheque-management", permissionSection: "chequeManagement" },
+                { name: "Cancel Cheque Payment", path: "/finance/cancel-cheque", permissionSection: "cancelCheque" },
+            ]
+        },
         {
             name: "Sales",
             icon: <FaShoppingCart />,
@@ -113,7 +123,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Document Center", path: "/employee/documents", icon: <FaRegFileAlt /> },
                 { name: "Training Center", path: "/employee/training", icon: <FaChalkboardTeacher /> },
                 { name: "Feedback & Self Evaluation", path: "/hr/feedback", icon: <FaCommentDots /> },
-                { name: "POSH Panic Button", path: "/hr/posh-table", icon: <FaFileUpload /> },
+                { name: "POSH Complaint", path: "/employee/posh", icon: <FaExclamationCircle /> },
                 {
                     name: "Reimbursement Management",
                     icon: <FaCalendarCheck />,

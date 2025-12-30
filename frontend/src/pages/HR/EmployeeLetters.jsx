@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
 import {
     FaFileContract, FaHandshake, FaBriefcase, FaUserTag,
-    FaArrowLeft, FaFileAlt, FaCertificate, FaAward
+    FaArrowLeft, FaFileAlt, FaCertificate, FaAward, FaIdCard
 } from "react-icons/fa";
 
 const EmployeeLetters = () => {
@@ -39,32 +39,50 @@ const EmployeeLetters = () => {
             bg: "bg-purple-500/10",
             border: "group-hover:border-purple-500/50"
         },
+        // {
+        //     title: "Increment Letter",
+        //     description: "Salary revision document",
+        //     url: "increment-letter",
+        //     icon: FaCertificate,
+        //     color: "text-amber-500",
+        //     bg: "bg-amber-500/10",
+        //     border: "group-hover:border-amber-500/50"
+        // },
+        // {
+        //     title: "Appraisal Letter",
+        //     description: "Performance review",
+        //     url: "appraisal-letter",
+        //     icon: FaAward,
+        //     color: "text-rose-500",
+        //     bg: "bg-rose-500/10",
+        //     border: "group-hover:border-rose-500/50"
+        // },
         {
-            title: "Increment Letter",
-            description: "Salary revision document",
-            url: "increment-letter",
-            icon: FaCertificate,
-            color: "text-amber-500",
-            bg: "bg-amber-500/10",
-            border: "group-hover:border-amber-500/50"
-        },
-        {
-            title: "Appraisal Letter",
-            description: "Performance review",
-            url: "appraisal-letter",
-            icon: FaAward,
-            color: "text-rose-500",
-            bg: "bg-rose-500/10",
-            border: "group-hover:border-rose-500/50"
+            title: "Experience Letter",
+            description: "Proof of work history",
+            url: "experience-letter",
+            icon: FaFileAlt,
+            color: "text-indigo-500",
+            bg: "bg-indigo-500/10",
+            border: "group-hover:border-indigo-500/50"
         },
         {
             title: "Relieving Letter",
             description: "Exit documentation",
             url: "relieving-letter",
             icon: FaUserTag,
-            color: "text-gray-400",
-            bg: "bg-gray-500/10",
-            border: "group-hover:border-gray-500/50"
+            color: "text-red-500",
+            bg: "bg-red-500/10",
+            border: "group-hover:border-red-500/50"
+        },
+        {
+            title: "Virtual ID Card",
+            description: "Digital Identity Card",
+            url: "virtual-id",
+            icon: FaIdCard,
+            color: "text-teal-500",
+            bg: "bg-teal-500/10",
+            border: "group-hover:border-teal-500/50"
         },
     ];
 

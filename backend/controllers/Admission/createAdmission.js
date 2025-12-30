@@ -64,7 +64,11 @@ export const createAdmission = async (req, res) => {
             numberOfInstallments,
             studentImage,
             remarks,
-            feeWaiver = 0 // Discount amount
+            feeWaiver = 0, // Discount amount
+            paymentMethod = "CASH", // For down payment
+            transactionId = "",
+            accountHolderName = "",
+            chequeDate = ""
         } = req.body;
 
         // Validate required fields
@@ -153,8 +157,13 @@ export const createAdmission = async (req, res) => {
             studentImage: studentImage || null,
             remarks: remarks ? `${remarks} (Prev Balance: ₹${previousBalance})` : (previousBalance > 0 ? `Previous Balance Included: ₹${previousBalance}` : ""),
             createdBy: req.user.id,
-            totalPaidAmount: downPayment,
-            paymentStatus: downPayment >= totalFees ? "COMPLETED" : "PARTIAL"
+            totalPaidAmount: (paymentMethod === "CHEQUE") ? 0 : downPayment,
+            paymentStatus: (paymentMethod === "CHEQUE") ? "PARTIAL" : (downPayment >= totalFees ? "COMPLETED" : "PARTIAL"),
+            downPaymentStatus: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
+            downPaymentMethod: paymentMethod,
+            downPaymentTransactionId: transactionId,
+            downPaymentAccountHolderName: accountHolderName,
+            downPaymentChequeDate: chequeDate
         });
 
         await admission.save();
@@ -187,7 +196,12 @@ export const createAdmission = async (req, res) => {
                 centreObj = await CentreSchema.findOne({ centreName: { $regex: new RegExp(`^${centre}$`, 'i') } });
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
-            const newBillId = await generateBillId(centreCode);
+
+            // Only generate bill ID if NOT a cheque
+            let newBillId = null;
+            if (paymentMethod !== "CHEQUE") {
+                newBillId = await generateBillId(centreCode);
+            }
 
             const payment = new Payment({
                 admission: admission._id,
@@ -196,8 +210,11 @@ export const createAdmission = async (req, res) => {
                 paidAmount: downPayment,
                 dueDate: new Date(),
                 paidDate: new Date(),
-                status: "PAID",
-                paymentMethod: "CASH", // Default to CASH for initial, can be updated
+                status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
+                paymentMethod: paymentMethod,
+                transactionId: transactionId,
+                accountHolderName: accountHolderName,
+                chequeDate: chequeDate,
                 remarks: "Down Payment at Admission",
                 recordedBy: req.user.id,
                 // Bill Details

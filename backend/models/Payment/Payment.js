@@ -7,65 +7,65 @@ const paymentSchema = new mongoose.Schema({
         ref: "Admission",
         required: true
     },
-    
+
     // Payment Details
-    installmentNumber: { 
-        type: Number, 
-        required: true 
+    installmentNumber: {
+        type: Number,
+        required: true
     },
-    
-    amount: { 
-        type: Number, 
-        required: true 
+
+    amount: {
+        type: Number,
+        required: true
     },
-    
-    paidAmount: { 
-        type: Number, 
-        required: true 
+
+    paidAmount: {
+        type: Number,
+        required: true
     },
-    
-    dueDate: { 
-        type: Date, 
-        required: true 
+
+    dueDate: {
+        type: Date,
+        required: true
     },
-    
-    paidDate: { 
-        type: Date 
+
+    paidDate: {
+        type: Date
     },
-    
-    status: { 
-        type: String, 
-        enum: ["PENDING", "PAID", "OVERDUE", "PARTIAL"], 
-        default: "PENDING" 
+
+    status: {
+        type: String,
+        enum: ["PENDING", "PAID", "OVERDUE", "PARTIAL", "PENDING_CLEARANCE", "REJECTED"],
+        default: "PENDING"
     },
-    
+
     // Payment Method Details
     paymentMethod: {
         type: String,
         enum: ["CASH", "UPI", "CARD", "BANK_TRANSFER", "CHEQUE"],
         default: null
     },
-    
-    transactionId: { 
-        type: String 
+
+    transactionId: {
+        type: String
     },
 
-    accountHolderName: { 
-        type: String 
+    accountHolderName: {
+        type: String
     },
 
-    chequeDate: { 
-        type: Date 
+    chequeDate: {
+        type: Date
     },
-    
-    remarks: { 
-        type: String 
+
+    remarks: {
+        type: String
     },
-    
+
     // Who recorded this payment
     recordedBy: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "NormalAdmin"
+        ref: "User"
     },
 
     // Bill Details

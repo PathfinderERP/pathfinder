@@ -6,7 +6,7 @@ const paymentBreakdownSchema = new mongoose.Schema({
     amount: { type: Number, required: true },
     status: {
         type: String,
-        enum: ["PENDING", "PAID", "OVERDUE"],
+        enum: ["PENDING", "PAID", "OVERDUE", "PENDING_CLEARANCE"],
         default: "PENDING"
     },
     paidDate: { type: Date },
@@ -105,6 +105,19 @@ const admissionSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    downPaymentStatus: {
+        type: String,
+        enum: ["PENDING", "PAID", "PENDING_CLEARANCE", "REJECTED"],
+        default: "PAID"
+    },
+    downPaymentMethod: {
+        type: String,
+        enum: ["CASH", "UPI", "CARD", "BANK_TRANSFER", "CHEQUE"],
+        default: "CASH"
+    },
+    downPaymentTransactionId: { type: String },
+    downPaymentAccountHolderName: { type: String },
+    downPaymentChequeDate: { type: Date },
     remainingAmount: {
         type: Number,
         required: true
@@ -153,7 +166,7 @@ const admissionSchema = new mongoose.Schema({
     },
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "NormalAdmin"
+        ref: "User"
     }
 }, { timestamps: true });
 

@@ -42,6 +42,8 @@ import documentRoutes from "./routes/HR/documentRoutes.js";
 import birthdayRoutes from "./routes/HR/birthday.routes.js";
 import feedbackRoutes from "./routes/HR/feedbackRoutes.js";
 import reimbursementRoutes from "./routes/HR/reimbursement.routes.js";
+import poshRoutes from "./routes/HR/poshRoutes.js";
+import installmentRoutes from "./routes/Finance/installmentRoutes.js";
 
 import path from "path";
 import { fileURLToPath } from "url";
@@ -115,6 +117,8 @@ app.use("/api/hr/resignation", resignationRoutes);
 app.use("/api/hr/birthdays", birthdayRoutes);
 app.use("/api/hr/feedback", feedbackRoutes);
 app.use("/api/hr/reimbursement", reimbursementRoutes);
+app.use("/api/hr/posh", poshRoutes);
+app.use("/api/finance/installment", installmentRoutes);
 
 
 // Master Data Routes

@@ -48,7 +48,7 @@ export const updatePaymentInstallment = async (req, res) => {
             }
         }
 
-        installment.status = "PAID";
+        installment.status = (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID";
 
         // Logic: Arrears OR Excess
         const difference = originalAmount - paidAmountFloat; // Positive = Arrears, Negative = Excess
@@ -113,7 +113,7 @@ export const updatePaymentInstallment = async (req, res) => {
 
         // Update total paid amount
         admission.totalPaidAmount = admission.paymentBreakdown.reduce(
-            (sum, p) => sum + (p.paidAmount || 0),
+            (sum, p) => sum + (p.status === "PAID" ? (p.paidAmount || 0) : 0),
             0
         ) + admission.downPayment;
 

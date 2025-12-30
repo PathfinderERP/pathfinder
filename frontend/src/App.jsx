@@ -71,6 +71,7 @@ import AppointmentLetter from "./pages/HR/Letters/AppointmentLetter";
 import ContractLetter from "./pages/HR/Letters/ContractLetter";
 import ExperienceLetter from "./pages/HR/Letters/ExperienceLetter";
 import VirtualId from "./pages/HR/Letters/VirtualId";
+import ReleaseLetter from "./pages/HR/Letters/ReleaseLetter";
 
 // Attendance Management
 import HolidayCalendar from "./pages/HR/Attendance/HolidayCalendar";
@@ -94,6 +95,12 @@ import BirthdayList from "./pages/HR/BirthdayList";
 import FeedbackHub from "./pages/HR/FeedbackHub";
 import ReimbursementList from "./pages/HR/ReimbursementList";
 import AddReimbursement from "./pages/HR/AddReimbursement";
+import PoshComplaint from "./pages/Employee/PoshComplaint";
+import PoshDashboard from "./pages/HR/PoshDashboard";
+import InstallmentPayment from "./pages/Finance/InstallmentPayment";
+import FeeDueList from "./pages/Finance/FeeDueList";
+import ChequeManagement from "./pages/Finance/ChequeManagement";
+import CancelChequePayment from "./pages/Finance/CancelChequePayment";
 
 // ... inside Routes ... (I will use a simpler replace block to avoid mess)
 
@@ -112,6 +119,10 @@ function App() {
         <Route path="/student-admission/:studentId" element={<StudentAdmission />} />
         <Route path="/admission/:studentId" element={<StudentAdmissionPage />} />
         <Route path="/finance" element={<Finance />} />
+        <Route path="/finance/installment-payment" element={<InstallmentPayment />} />
+        <Route path="/finance/fee-due-list" element={<FeeDueList />} />
+        <Route path="/finance/cheque-management" element={<ChequeManagement />} />
+        <Route path="/finance/cancel-cheque" element={<CancelChequePayment />} />
         <Route path="/sales" element={<Sales />} />
         <Route path="/sales/centre-target" element={<CentreTarget />} />
         <Route path="/sales/centre-rank" element={<CentreRank />} />
@@ -131,6 +142,7 @@ function App() {
         <Route path="/hr/employee/letters/:id/contract-letter" element={<ContractLetter />} />
         <Route path="/hr/employee/letters/:id/experience-letter" element={<ExperienceLetter />} />
         <Route path="/hr/employee/letters/:id/virtual-id" element={<VirtualId />} />
+        <Route path="/hr/employee/letters/:id/relieving-letter" element={<ReleaseLetter />} />
 
         {/* Attendance Management Routes */}
         <Route path="/hr/attendance/holiday-management" element={<HolidayCalendar />} />
@@ -145,6 +157,7 @@ function App() {
         <Route path="/employee/training" element={<TrainingCenter />} />
         <Route path="/employee/attendance" element={<EmployeeAttendance />} />
         <Route path="/employee/details" element={<EmployeeDetails />} />
+        <Route path="/employee/posh" element={<PoshComplaint />} />
         <Route path="/hr/resign/button" element={<ResignationRequest />} />
         <Route path="/hr/resign" element={<ResignationList />} />
         <Route path="/hr/resign-request" element={<ResignationList />} />
@@ -154,6 +167,7 @@ function App() {
         <Route path="/hr/feedback" element={<FeedbackHub />} />
         <Route path="/hr/reimbursement" element={<ReimbursementList />} />
         <Route path="/hr/reimbursement/add" element={<AddReimbursement />} />
+        <Route path="/hr/posh-table" element={<PoshDashboard />} />
 
 
         <Route path="/academics" element={<Academics />} />

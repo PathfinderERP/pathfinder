@@ -27,7 +27,11 @@ const StudentAdmissionPage = () => {
         numberOfInstallments: 1,
         studentImage: "",
         remarks: "",
-        feeWaiver: 0
+        feeWaiver: 0,
+        paymentMethod: "CASH",
+        transactionId: "",
+        accountHolderName: "",
+        chequeDate: ""
     });
 
     const [feeBreakdown, setFeeBreakdown] = useState({
@@ -198,8 +202,8 @@ const StudentAdmissionPage = () => {
                 toast.success("Admission created successfully!");
                 setCreatedAdmission(data.admission);
 
-                // If down payment was made, automatically open bill generator
-                if (data.admission.downPayment > 0) {
+                // If down payment was made and NOT a cheque, automatically open bill generator
+                if (data.admission.downPayment > 0 && formData.paymentMethod !== "CHEQUE") {
                     toast.success("Admission created! Generating bill...", { autoClose: 3000 });
                     setBillModal({
                         show: true,
@@ -209,9 +213,12 @@ const StudentAdmissionPage = () => {
                             amount: data.admission.downPayment,
                             paidAmount: data.admission.downPayment,
                             paidDate: new Date(),
-                            paymentMethod: "CASH" // Default or from form data
+                            paymentMethod: formData.paymentMethod
                         }
                     });
+                } else if (formData.paymentMethod === "CHEQUE") {
+                    toast.info("Admission created. Cheque pending clearance.", { autoClose: 5000 });
+                    setTimeout(() => navigate("/admissions"), 3000);
                 } else {
                     setTimeout(() => navigate("/admissions"), 2000);
                 }
@@ -413,6 +420,72 @@ const StudentAdmissionPage = () => {
                             </div>
 
                             <div>
+                                <label className="block text-gray-400 mb-2 text-sm">Payment Method *</label>
+                                <select
+                                    name="paymentMethod"
+                                    value={formData.paymentMethod}
+                                    onChange={handleInputChange}
+                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                    required
+                                >
+                                    <option value="CASH">CASH</option>
+                                    <option value="UPI">UPI</option>
+                                    <option value="CARD">CARD</option>
+                                    <option value="BANK_TRANSFER">BANK TRANSFER</option>
+                                    <option value="CHEQUE">CHEQUE</option>
+                                </select>
+                            </div>
+
+                            {formData.paymentMethod === "CHEQUE" ? (
+                                <>
+                                    <div>
+                                        <label className="block text-gray-400 mb-2 text-sm">Cheque Number</label>
+                                        <input
+                                            type="text"
+                                            name="transactionId"
+                                            value={formData.transactionId}
+                                            onChange={handleInputChange}
+                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                            placeholder="CHQXXXXXX"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-2 text-sm">Cheque Date</label>
+                                        <input
+                                            type="date"
+                                            name="chequeDate"
+                                            value={formData.chequeDate}
+                                            onChange={handleInputChange}
+                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-gray-400 mb-2 text-sm">Bank Name</label>
+                                        <input
+                                            type="text"
+                                            name="accountHolderName"
+                                            value={formData.accountHolderName}
+                                            onChange={handleInputChange}
+                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                            placeholder="e.g. HDFC, ICICI..."
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                <div>
+                                    <label className="block text-gray-400 mb-2 text-sm">Transaction ID / Ref</label>
+                                    <input
+                                        type="text"
+                                        name="transactionId"
+                                        value={formData.transactionId}
+                                        onChange={handleInputChange}
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                        placeholder="Optional"
+                                    />
+                                </div>
+                            )}
+
+                            <div>
                                 <label className="block text-gray-400 mb-2 text-sm">Number of Installments *</label>
                                 <input
                                     type="number"
@@ -549,7 +622,7 @@ const StudentAdmissionPage = () => {
                         </p>
 
                         <div className="space-y-3">
-                            {createdAdmission.downPayment > 0 && (
+                            {createdAdmission.downPayment > 0 && formData.paymentMethod !== "CHEQUE" && (
                                 <button
                                     onClick={() => setBillModal({
                                         show: true,
@@ -566,7 +639,7 @@ const StudentAdmissionPage = () => {
                                 onClick={() => navigate("/admissions")}
                                 className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg"
                             >
-                                Go to Admissions List
+                                {formData.paymentMethod === "CHEQUE" ? "Close & View Admissions" : "Go to Admissions List"}
                             </button>
                         </div>
                     </div>
