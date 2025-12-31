@@ -10,6 +10,7 @@ const paymentBreakdownSchema = new mongoose.Schema({
         default: "PENDING"
     },
     paidDate: { type: Date },
+    receivedDate: { type: Date }, // Actual date when money was received
     paidAmount: { type: Number, default: 0 },
     paymentMethod: {
         type: String,
@@ -110,6 +111,7 @@ const admissionSchema = new mongoose.Schema({
         enum: ["PENDING", "PAID", "PENDING_CLEARANCE", "REJECTED"],
         default: "PAID"
     },
+    downPaymentReceivedDate: { type: Date }, // Actual date when down payment was received
     downPaymentMethod: {
         type: String,
         enum: ["CASH", "UPI", "CARD", "BANK_TRANSFER", "CHEQUE"],

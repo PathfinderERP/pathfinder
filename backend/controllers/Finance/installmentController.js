@@ -136,6 +136,7 @@ export const getStudentFinancialDetails = async (req, res) => {
                     sgstAmount: admission.sgstAmount || 0,
                     totalFees: admission.totalFees || 0,
                     downPayment: admission.downPayment || 0,
+                    downPaymentStatus: admission.downPaymentStatus || "PAID",
                     remainingAmount: admission.remainingAmount || 0,
                     totalPaidAmount: admission.totalPaidAmount || 0,
                     admittedBy: admission.createdBy?.name || "N/A",
@@ -288,5 +289,68 @@ export const getFeeDueList = async (req, res) => {
     } catch (error) {
         console.error("Get Fee Due List Error:", error);
         res.status(500).json({ message: "Error fetching fee due list", error: error.message });
+    }
+};
+
+// Get all admissions with filters
+export const getAllAdmissions = async (req, res) => {
+    try {
+        const { centre, course, department, startDate, endDate, searchTerm } = req.query;
+
+        const filter = { admissionStatus: "ACTIVE" };
+
+        if (centre) filter.centre = centre;
+        if (course) filter.course = course;
+        if (department) filter.department = department;
+
+        if (startDate || endDate) {
+            filter.admissionDate = {};
+            if (startDate) filter.admissionDate.$gte = new Date(startDate);
+            if (endDate) filter.admissionDate.$lte = new Date(endDate);
+        }
+
+        let admissions = await Admission.find(filter)
+            .populate("student")
+            .populate("course", "courseName")
+            .populate("department", "departmentName")
+            .sort({ createdAt: -1 });
+
+        if (searchTerm) {
+            const searchLower = searchTerm.toLowerCase();
+            admissions = admissions.filter(adm => {
+                const student = adm.student?.studentsDetails?.[0];
+                return (
+                    adm.admissionNumber?.toLowerCase().includes(searchLower) ||
+                    student?.studentName?.toLowerCase().includes(searchLower) ||
+                    student?.studentEmail?.toLowerCase().includes(searchLower) ||
+                    student?.mobileNum?.includes(searchTerm)
+                );
+            });
+        }
+
+        const result = admissions.map(adm => {
+            const student = adm.student?.studentsDetails?.[0];
+            return {
+                admissionId: adm._id,
+                admissionNumber: adm.admissionNumber,
+                studentId: adm.student?._id,
+                studentName: student?.studentName || "N/A",
+                email: student?.studentEmail || "N/A",
+                mobile: student?.mobileNum || "N/A",
+                course: adm.course?.courseName || "N/A",
+                department: adm.department?.departmentName || "N/A",
+                centre: adm.centre || "N/A",
+                admissionDate: adm.admissionDate,
+                totalFees: adm.totalFees,
+                totalPaid: adm.totalPaidAmount,
+                remainingAmount: adm.remainingAmount,
+                paymentStatus: adm.paymentStatus
+            };
+        });
+
+        res.status(200).json(result);
+    } catch (error) {
+        console.error("Get All Admissions Error:", error);
+        res.status(500).json({ message: "Error fetching admissions", error: error.message });
     }
 };

@@ -6,7 +6,7 @@ import { updateCentreTargetAchieved } from "../../services/centreTargetService.j
 export const updatePaymentInstallment = async (req, res) => {
     try {
         const { admissionId, installmentNumber } = req.params;
-        const { paidAmount, paymentMethod, transactionId, remarks, accountHolderName, chequeDate, carryForward } = req.body;
+        const { paidAmount, paymentMethod, transactionId, remarks, accountHolderName, chequeDate, carryForward, receivedDate } = req.body;
 
         const admission = await Admission.findById(admissionId);
         if (!admission) {
@@ -28,6 +28,7 @@ export const updatePaymentInstallment = async (req, res) => {
 
         installment.paidAmount = paidAmountFloat;
         installment.paidDate = new Date();
+        installment.receivedDate = receivedDate ? new Date(receivedDate) : new Date();
         installment.paymentMethod = paymentMethod;
         installment.transactionId = transactionId;
         installment.accountHolderName = accountHolderName; // New
@@ -166,6 +167,7 @@ export const updatePaymentInstallment = async (req, res) => {
                     paidAmount: paidAmount,
                     dueDate: installment.dueDate,
                     paidDate: installment.paidDate,
+                    receivedDate: installment.receivedDate,
                     status: installment.status,
                     paymentMethod: paymentMethod,
                     transactionId: transactionId,
@@ -183,6 +185,7 @@ export const updatePaymentInstallment = async (req, res) => {
                 // Update existing payment record
                 payment.paidAmount = paidAmount;
                 payment.paidDate = installment.paidDate;
+                payment.receivedDate = installment.receivedDate;
                 payment.status = installment.status;
                 payment.paymentMethod = paymentMethod;
                 payment.transactionId = transactionId;

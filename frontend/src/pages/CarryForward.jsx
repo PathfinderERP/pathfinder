@@ -194,6 +194,8 @@ const CarryForward = () => {
         switch (status) {
             case "PAID":
                 return "bg-green-500/10 text-green-400";
+            case "PENDING_CLEARANCE":
+                return "bg-cyan-500/10 text-cyan-400";
             case "OVERDUE":
                 return "bg-red-500/10 text-red-400";
             case "PENDING":
@@ -592,7 +594,7 @@ const CarryForward = () => {
                                                                             </td>
                                                                             <td className="p-2">
                                                                                 <span className={`px-2 py-1 rounded text-xs font-bold ${getInstallmentStatusColor(payment.status)}`}>
-                                                                                    {payment.status}
+                                                                                    {payment.status === "PENDING_CLEARANCE" ? "IN PROCESS" : payment.status}
                                                                                 </span>
                                                                             </td>
                                                                             <td className="p-2 text-gray-400 text-xs">

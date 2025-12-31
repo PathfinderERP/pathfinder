@@ -109,6 +109,7 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             const pageWidth = doc.internal.pageSize.getWidth();
             const pageHeight = doc.internal.pageSize.getHeight();
             const margin = 10;
+            let midPoint = pageWidth / 2;
 
             // Helper to safe string
             const safeStr = (val) => (val !== undefined && val !== null) ? String(val) : '';
@@ -159,7 +160,10 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             doc.setFontSize(12);
             doc.setTextColor(0, 0, 255); // Blue
             doc.setFont('helvetica', 'bold');
-            doc.text('RECEIVED', pageWidth - margin, 15 + 6, { align: 'right' });
+
+            // Check status for "RECEIVED" vs "IN PROCESS"
+            const statusLabel = (billData.payment?.status === "PENDING_CLEARANCE") ? "IN PROCESS" : "RECEIVED";
+            doc.text(statusLabel, pageWidth - margin, 15 + 6, { align: 'right' });
 
             yPos += 15;
 
@@ -216,12 +220,26 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             doc.text('MONEY RECEIPT', pageWidth / 2, yPos + 5.5, { align: 'center' });
             yPos += rowHeight;
 
-            // 3. Branch
-            drawRow(yPos, 'Branch :', safeStr(billData.centre?.name));
+            // 3. Branch | Received Date
+            midPoint = pageWidth / 2;
+            doc.rect(margin, yPos, midPoint - margin, rowHeight);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Branch :', margin + 2, yPos + 5.5);
+            doc.setFont('helvetica', 'bold');
+            doc.text(safeStr(billData.centre?.name), margin + 18, yPos + 5.5);
+
+            // Right: Received Date
+            doc.rect(midPoint, yPos, midPoint - margin, rowHeight);
+            doc.setFont('helvetica', 'normal');
+            doc.text('RECEIVED:', midPoint + 2, yPos + 5.5);
+            doc.setFont('helvetica', 'bold');
+            const receivedDateMatch = billData.payment?.receivedDate || installment?.receivedDate;
+            const receivedDateStr = receivedDateMatch ? new Date(receivedDateMatch).toLocaleDateString('en-IN') : 'N/A';
+            doc.text(receivedDateStr, midPoint + 25, yPos + 5.5);
             yPos += rowHeight;
 
             // 4. Receipt No. | Date
-            const midPoint = pageWidth / 2;
+            midPoint = pageWidth / 2;
             // Left: Receipt No
             doc.rect(margin, yPos, midPoint - margin, rowHeight);
             doc.setFont('helvetica', 'normal');
@@ -522,9 +540,16 @@ const BillGenerator = ({ admission, installment, onClose }) => {
                                 <div className="text-center mb-6 pb-6 border-b border-gray-700">
                                     <h1 className="text-3xl font-bold text-cyan-400 mb-2">PATHFINDER ERP</h1>
                                     <p className="text-gray-400">Fee Payment Receipt</p>
-                                    <div className="flex justify-between mt-4 text-sm">
-                                        <span className="text-white font-semibold">Bill ID: {billData.billId}</span>
-                                        <span className="text-gray-400">Date: {new Date(billData.billDate).toLocaleDateString('en-IN')}</span>
+                                    <div className="flex justify-between mt-4 text-sm items-center">
+                                        <div className="text-left">
+                                            <span className="text-white font-semibold block">Bill ID: {billData.billId}</span>
+                                            <span className="text-gray-400 block">Date: {new Date(billData.billDate).toLocaleDateString('en-IN')}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className={`text-sm font-bold px-3 py-1 rounded-full ${billData.payment?.status === "PENDING_CLEARANCE" ? "bg-blue-500/20 text-blue-400" : "bg-emerald-500/20 text-emerald-400"}`}>
+                                                {billData.payment?.status === "PENDING_CLEARANCE" ? "IN PROCESS" : "RECEIVED"}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -558,6 +583,14 @@ const BillGenerator = ({ admission, installment, onClose }) => {
                                     <div className="grid grid-cols-2 gap-3 text-sm">
                                         <div><span className="text-gray-400">Installment:</span> <span className="text-white font-medium">#{billData.payment.installmentNumber}</span></div>
                                         <div><span className="text-gray-400">Payment Method:</span> <span className="text-white font-medium">{billData.payment.paymentMethod || 'N/A'}</span></div>
+                                        <div>
+                                            <span className="text-gray-400 font-bold text-cyan-400 uppercase">Received Date:</span>
+                                            <span className="text-cyan-400 font-bold ml-1">
+                                                {(billData.payment.receivedDate || installment?.receivedDate)
+                                                    ? new Date(billData.payment.receivedDate || installment?.receivedDate).toLocaleDateString('en-IN')
+                                                    : 'N/A'}
+                                            </span>
+                                        </div>
                                         {billData.payment.paymentMethod?.toUpperCase() !== 'CASH' && (
                                             <div><span className="text-gray-400">Transaction ID:</span> <span className="text-white font-medium">{billData.payment.transactionId || 'N/A'}</span></div>
                                         )}

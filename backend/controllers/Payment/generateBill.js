@@ -10,10 +10,10 @@ const generateBillId = async (centreCode) => {
         const date = new Date();
         const month = date.getMonth(); // 0-11
         const year = date.getFullYear(); // 2025
-        
+
         const currentYear = year;
         const currentMonth = month; // 0-11
-        
+
         let startYear, endYear;
         // Financial Year is April to March
         if (currentMonth >= 3) { // April onwards: 2025-2026
@@ -23,7 +23,7 @@ const generateBillId = async (centreCode) => {
             startYear = currentYear - 1;
             endYear = currentYear;
         }
-        
+
         // Format: YYYY-YY (e.g., 2025-26)
         const yearStr = `${startYear}-${endYear.toString().slice(-2)}`;
         const prefix = `PATH/${centreCode}/${yearStr}/`;
@@ -39,8 +39,8 @@ const generateBillId = async (centreCode) => {
             // Extract the number part
             const lastId = lastPayment.billId;
             const parts = lastId.split('/');
-            const lastSeq = parts[parts.length - 1]; 
-            
+            const lastSeq = parts[parts.length - 1];
+
             if (lastSeq && !isNaN(lastSeq)) {
                 nextNumber = parseInt(lastSeq) + 1;
             }
@@ -139,8 +139,8 @@ export const generateBill = async (req, res) => {
                 return res.status(404).json({ message: "Installment not found" });
             }
 
-            if (installment.status !== "PAID") {
-                console.error(`❌ Installment #${installmentNum} is not PAID. Status: ${installment.status}`);
+            if (installment.status !== "PAID" && installment.status !== "PENDING_CLEARANCE") {
+                console.error(`❌ Installment #${installmentNum} is not PAID or PENDING_CLEARANCE. Status: ${installment.status}`);
                 return res.status(400).json({ message: "Cannot generate bill for unpaid installment" });
             }
         }
@@ -171,7 +171,7 @@ export const generateBill = async (req, res) => {
                 paidAmount: paidAmount,
                 dueDate: installment.dueDate,
                 paidDate: installment.paidDate || new Date(),
-                status: "PAID",
+                status: installment.status || "PAID",
                 paymentMethod: installment.paymentMethod || "CASH",
                 transactionId: installment.transactionId,
                 remarks: installment.remarks,
@@ -237,8 +237,10 @@ export const generateBill = async (req, res) => {
                 paymentMethod: payment.paymentMethod,
                 transactionId: payment.transactionId,
                 paidDate: payment.paidDate,
+                receivedDate: payment.receivedDate,
                 accountHolderName: payment.accountHolderName,
-                chequeDate: payment.chequeDate
+                chequeDate: payment.chequeDate,
+                status: payment.status
             },
             amounts: {
                 courseFee: payment.courseFee,
@@ -319,8 +321,10 @@ export const getBillById = async (req, res) => {
                 paymentMethod: payment.paymentMethod,
                 transactionId: payment.transactionId,
                 paidDate: payment.paidDate,
+                receivedDate: payment.receivedDate,
                 accountHolderName: payment.accountHolderName,
-                chequeDate: payment.chequeDate
+                chequeDate: payment.chequeDate,
+                status: payment.status
             },
             amounts: {
                 courseFee: payment.courseFee,

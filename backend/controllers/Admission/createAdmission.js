@@ -68,7 +68,8 @@ export const createAdmission = async (req, res) => {
             paymentMethod = "CASH", // For down payment
             transactionId = "",
             accountHolderName = "",
-            chequeDate = ""
+            chequeDate = "",
+            receivedDate = ""
         } = req.body;
 
         // Validate required fields
@@ -160,6 +161,7 @@ export const createAdmission = async (req, res) => {
             totalPaidAmount: (paymentMethod === "CHEQUE") ? 0 : downPayment,
             paymentStatus: (paymentMethod === "CHEQUE") ? "PARTIAL" : (downPayment >= totalFees ? "COMPLETED" : "PARTIAL"),
             downPaymentStatus: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
+            downPaymentReceivedDate: receivedDate ? new Date(receivedDate) : new Date(),
             downPaymentMethod: paymentMethod,
             downPaymentTransactionId: transactionId,
             downPaymentAccountHolderName: accountHolderName,
@@ -210,6 +212,7 @@ export const createAdmission = async (req, res) => {
                 paidAmount: downPayment,
                 dueDate: new Date(),
                 paidDate: new Date(),
+                receivedDate: admission.downPaymentReceivedDate,
                 status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
                 paymentMethod: paymentMethod,
                 transactionId: transactionId,

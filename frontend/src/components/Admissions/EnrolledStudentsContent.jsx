@@ -207,6 +207,8 @@ const EnrolledStudentsContent = () => {
         switch (status) {
             case "PAID":
                 return "bg-green-500/10 text-green-400";
+            case "PENDING_CLEARANCE":
+                return "bg-cyan-500/10 text-cyan-400";
             case "OVERDUE":
                 return "bg-red-500/10 text-red-400";
             case "PENDING":
@@ -237,6 +239,7 @@ const EnrolledStudentsContent = () => {
             transactionId: "",
             accountHolderName: "",
             chequeDate: new Date().toISOString().split('T')[0],
+            receivedDate: new Date().toISOString().split('T')[0],
             remarks: "",
             carryForward: false
         });
@@ -279,6 +282,20 @@ const EnrolledStudentsContent = () => {
                     toast.info("Partial payment recorded. Remaining amount carried forward.");
                 }
                 setShowPaymentModal(false);
+
+                // Show bill generator after payment
+                setBillModal({
+                    show: true,
+                    admission: data.admission || selectedAdmission,
+                    installment: {
+                        ...selectedInstallment,
+                        paidAmount: paymentData.paidAmount,
+                        paymentMethod: paymentData.paymentMethod,
+                        receivedDate: paymentData.receivedDate,
+                        status: paymentData.paymentMethod === "CHEQUE" ? "PENDING_CLEARANCE" : "PAID"
+                    }
+                });
+
                 setSelectedInstallment(null);
                 setSelectedAdmission(null);
                 fetchAdmissions();
@@ -685,7 +702,14 @@ const EnrolledStudentsContent = () => {
                                                         </p>
                                                         {admission.downPayment > 0 && (
                                                             <button
-                                                                onClick={() => setBillModal({ show: true, admission: admission, installment: { installmentNumber: 0 } })}
+                                                                onClick={() => setBillModal({
+                                                                    show: true,
+                                                                    admission: admission,
+                                                                    installment: {
+                                                                        installmentNumber: 0,
+                                                                        status: admission.downPaymentStatus || "PAID"
+                                                                    }
+                                                                })}
                                                                 className="mt-2 text-[10px] bg-blue-500 hover:bg-blue-400 text-white px-2 py-1 rounded flex items-center gap-1 w-full justify-center transition-colors shadow-sm"
                                                                 title="Download Down Payment Receipt"
                                                             >
@@ -717,11 +741,11 @@ const EnrolledStudentsContent = () => {
                                                             </thead>
                                                             <tbody>
                                                                 {admission.paymentBreakdown?.map((payment, paymentIndex) => {
-                                                                    const isPaid = payment.status === "PAID";
+                                                                    const isPaid = ["PAID", "COMPLETED"].includes(payment.status);
                                                                     // Check if all previous installments are paid
                                                                     const previousPaid = paymentIndex === 0 || admission.paymentBreakdown
                                                                         .slice(0, paymentIndex)
-                                                                        .every(p => p.status === "PAID");
+                                                                        .every(p => ["PAID", "COMPLETED"].includes(p.status));
 
                                                                     // Calculate original amount (before adjustments)
                                                                     const baseInstallmentAmount = Math.ceil(admission.remainingAmount / admission.numberOfInstallments);
@@ -776,7 +800,7 @@ const EnrolledStudentsContent = () => {
                                                                             </td>
                                                                             <td className="p-2">
                                                                                 <span className={`px-2 py-1 rounded text-xs font-bold ${getInstallmentStatusColor(payment.status)}`}>
-                                                                                    {payment.status}
+                                                                                    {payment.status === "PENDING_CLEARANCE" ? "IN PROCESS" : payment.status}
                                                                                 </span>
                                                                                 {carryForwardMatch && (
                                                                                     <div className="mt-1">
@@ -788,7 +812,7 @@ const EnrolledStudentsContent = () => {
                                                                             </td>
                                                                             {canEdit && (
                                                                                 <td className="p-2">
-                                                                                    {!isPaid ? (
+                                                                                    {(!isPaid && payment.status !== "PENDING_CLEARANCE") ? (
                                                                                         <button
                                                                                             onClick={() => openPaymentModal(admission, payment)}
                                                                                             disabled={!previousPaid}
@@ -805,7 +829,7 @@ const EnrolledStudentsContent = () => {
                                                                                             onClick={() => setBillModal({ show: true, admission: admission, installment: payment })}
                                                                                             className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-cyan-400 text-sm rounded transition-colors flex items-center gap-1"
                                                                                         >
-                                                                                            <FaFileInvoice /> Bill
+                                                                                            <FaFileInvoice /> {payment.status === "PENDING_CLEARANCE" ? " Receipt" : " Bill"}
                                                                                         </button>
                                                                                     )}
                                                                                 </td>
@@ -957,6 +981,20 @@ const EnrolledStudentsContent = () => {
                                     <option value="BANK_TRANSFER">Bank Transfer</option>
                                     <option value="CHEQUE">Cheque</option>
                                 </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                    Received Date <span className="text-red-400">*</span>
+                                </label>
+                                <input
+                                    type="date"
+                                    value={paymentData.receivedDate}
+                                    onChange={(e) => setPaymentData({ ...paymentData, receivedDate: e.target.value })}
+                                    required
+                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                />
+                                <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">The actual date money was received</p>
                             </div>
 
                             {/* Conditional Fields for Online Payments */}

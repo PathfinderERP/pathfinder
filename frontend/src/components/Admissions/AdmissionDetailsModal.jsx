@@ -64,6 +64,20 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                     toast.info("Partial payment recorded. Remaining amount carried forward.");
                 }
                 setShowPaymentModal(false);
+
+                // Show bill generator after payment
+                setBillModal({
+                    show: true,
+                    admission: admission,
+                    installment: {
+                        ...selectedInstallment,
+                        paidAmount: paymentData.paidAmount,
+                        paymentMethod: paymentData.paymentMethod,
+                        receivedDate: paymentData.receivedDate,
+                        status: paymentData.paymentMethod === "CHEQUE" ? "PENDING_CLEARANCE" : "PAID"
+                    }
+                });
+
                 setSelectedInstallment(null);
                 onUpdate();
             } else {
@@ -85,6 +99,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
             transactionId: "",
             accountHolderName: "",
             chequeDate: new Date().toISOString().split('T')[0],
+            receivedDate: new Date().toISOString().split('T')[0],
 
             remarks: "",
             carryForward: false
@@ -96,6 +111,8 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
         switch (status) {
             case "PAID":
                 return "bg-green-500/10 text-green-400";
+            case "PENDING_CLEARANCE":
+                return "bg-cyan-500/10 text-cyan-400";
             case "OVERDUE":
                 return "bg-red-500/10 text-red-400";
             case "PENDING":
@@ -322,8 +339,8 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                     </thead>
                                     <tbody>
                                         {admission.paymentBreakdown?.map((payment, index) => {
-                                            const previousPaid = index === 0 || admission.paymentBreakdown[index - 1].status === "PAID";
-                                            const isPaid = payment.status === "PAID";
+                                            const previousPaid = index === 0 || ["PAID", "COMPLETED"].includes(admission.paymentBreakdown[index - 1].status);
+                                            const isPaid = ["PAID", "COMPLETED"].includes(payment.status);
 
                                             return (
                                                 <tr key={index} className="border-t border-gray-800">
@@ -339,12 +356,12 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                                     <td className="p-3 text-gray-300">{payment.paymentMethod || "-"}</td>
                                                     <td className="p-3">
                                                         <span className={`px-3 py-1 rounded-full text-xs font-bold ${getInstallmentStatusColor(payment.status)}`}>
-                                                            {payment.status}
+                                                            {payment.status === "PENDING_CLEARANCE" ? "IN PROCESS" : payment.status}
                                                         </span>
                                                     </td>
                                                     <td className="p-3">
                                                         {canEdit ? (
-                                                            !isPaid ? (
+                                                            (!isPaid && payment.status !== "PENDING_CLEARANCE") ? (
                                                                 <button
                                                                     onClick={() => openPaymentModal(payment)}
                                                                     disabled={!previousPaid}
@@ -358,16 +375,16 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                                                     onClick={() => setBillModal({ show: true, admission: admission, installment: payment })}
                                                                     className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-cyan-400 text-sm rounded transition-colors flex items-center gap-1"
                                                                 >
-                                                                    <FaFileInvoice /> Bill
+                                                                    <FaFileInvoice /> {payment.status === "PENDING_CLEARANCE" ? " Receipt" : " Bill"}
                                                                 </button>
                                                             )
                                                         ) : (
-                                                            isPaid && (
+                                                            (isPaid || payment.status === "PENDING_CLEARANCE") && (
                                                                 <button
                                                                     onClick={() => setBillModal({ show: true, admission: admission, installment: payment })}
                                                                     className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-cyan-400 text-sm rounded transition-colors flex items-center gap-1"
                                                                 >
-                                                                    <FaFileInvoice /> Bill
+                                                                    <FaFileInvoice /> {payment.status === "PENDING_CLEARANCE" ? " Receipt" : " Bill"}
                                                                 </button>
                                                             )
                                                         )}
@@ -513,6 +530,18 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                         <span className="text-white">Cheque/Bank Transfer</span>
                                     </label>
                                 </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-gray-400 mb-2 text-sm">Received Date <span className="text-red-400">*</span></label>
+                                <input
+                                    type="date"
+                                    value={paymentData.receivedDate}
+                                    onChange={(e) => setPaymentData({ ...paymentData, receivedDate: e.target.value })}
+                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                    required
+                                />
+                                <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">The actual date money was received</p>
                             </div>
 
                             {/* Conditional Fields based on Selection */}

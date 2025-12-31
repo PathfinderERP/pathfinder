@@ -31,7 +31,8 @@ const StudentAdmissionPage = () => {
         paymentMethod: "CASH",
         transactionId: "",
         accountHolderName: "",
-        chequeDate: ""
+        chequeDate: "",
+        receivedDate: new Date().toISOString().split('T')[0]
     });
 
     const [feeBreakdown, setFeeBreakdown] = useState({
@@ -213,6 +214,7 @@ const StudentAdmissionPage = () => {
                             amount: data.admission.downPayment,
                             paidAmount: data.admission.downPayment,
                             paidDate: new Date(),
+                            receivedDate: formData.receivedDate,
                             paymentMethod: formData.paymentMethod
                         }
                     });
@@ -436,6 +438,19 @@ const StudentAdmissionPage = () => {
                                 </select>
                             </div>
 
+                            <div>
+                                <label className="block text-gray-400 mb-2 text-sm">Received Date *</label>
+                                <input
+                                    type="date"
+                                    name="receivedDate"
+                                    value={formData.receivedDate}
+                                    onChange={handleInputChange}
+                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                    required
+                                />
+                                <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">The actual date money was received</p>
+                            </div>
+
                             {formData.paymentMethod === "CHEQUE" ? (
                                 <>
                                     <div>
@@ -622,16 +637,23 @@ const StudentAdmissionPage = () => {
                         </p>
 
                         <div className="space-y-3">
-                            {createdAdmission.downPayment > 0 && formData.paymentMethod !== "CHEQUE" && (
+                            {createdAdmission.downPayment > 0 && (
                                 <button
                                     onClick={() => setBillModal({
                                         show: true,
                                         admission: createdAdmission,
-                                        installment: { installmentNumber: 0, amount: createdAdmission.downPayment, paidDate: new Date() }
+                                        installment: {
+                                            installmentNumber: 0,
+                                            amount: createdAdmission.downPayment,
+                                            paidAmount: createdAdmission.downPayment,
+                                            paidDate: new Date(),
+                                            paymentMethod: formData.paymentMethod,
+                                            status: formData.paymentMethod === "CHEQUE" ? "PENDING_CLEARANCE" : "PAID"
+                                        }
                                     })}
                                     className="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg flex items-center justify-center gap-2"
                                 >
-                                    <FaFileInvoice /> Generate Bill (Down Payment)
+                                    <FaFileInvoice /> {formData.paymentMethod === "CHEQUE" ? "Generate Acknowledgement (Cheque)" : "Generate Bill (Down Payment)"}
                                 </button>
                             )}
 

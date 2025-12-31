@@ -1,5 +1,5 @@
 import express from "express";
-import { searchStudent, getStudentFinancialDetails, getFeeDueList } from "../../controllers/Finance/installmentController.js";
+import { searchStudent, getStudentFinancialDetails, getFeeDueList, getAllAdmissions } from "../../controllers/Finance/installmentController.js";
 import { getPendingCheques, clearCheque, rejectCheque } from "../../controllers/Finance/chequeController.js";
 import authMiddleware from "../../middleware/authMiddleware.js";
 
@@ -10,6 +10,9 @@ router.use(authMiddleware);
 
 // Search for students
 router.get("/search", searchStudent);
+
+// Get all admissions with filters
+router.get("/all-admissions", getAllAdmissions);
 
 // Get detailed due list
 router.get("/get-due-list", getFeeDueList);
