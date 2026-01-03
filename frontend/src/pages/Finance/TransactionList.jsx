@@ -448,7 +448,7 @@ const TransactionList = () => {
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Student Name</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Course Name</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Transaction Type</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">PaymentID</th>
+                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Transaction ID</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Centre</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Payment Mode</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Amount(Inc. GST)</th>
