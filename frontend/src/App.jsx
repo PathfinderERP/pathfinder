@@ -14,6 +14,7 @@ import AdmissionReport from "./pages/Sales/AdmissionReport";
 import CourseReport from "./pages/Sales/CourseReport";
 import DiscountReport from "./pages/Sales/DiscountReport";
 import TransactionReport from "./pages/Sales/TransactionReport";
+import TransactionList from "./pages/Finance/TransactionList";
 import HR from "./pages/HR";
 import Academics from "./pages/Academics";
 import StudentAdmission from "./pages/StudentAdmission";
@@ -123,6 +124,7 @@ function App() {
         <Route path="/finance/fee-due-list" element={<FeeDueList />} />
         <Route path="/finance/cheque-management" element={<ChequeManagement />} />
         <Route path="/finance/cancel-cheque" element={<CancelChequePayment />} />
+        <Route path="/finance/transaction-list" element={<TransactionList />} />
         <Route path="/sales" element={<Sales />} />
         <Route path="/sales/centre-target" element={<CentreTarget />} />
         <Route path="/sales/centre-rank" element={<CentreRank />} />

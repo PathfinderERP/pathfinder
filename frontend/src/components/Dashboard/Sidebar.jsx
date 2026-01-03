@@ -93,6 +93,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Fee Due List", path: "/finance/fee-due-list", permissionSection: "feeDueList" },
                 { name: "Cheque Management", path: "/finance/cheque-management", permissionSection: "chequeManagement" },
                 { name: "Cancel Cheque Payment", path: "/finance/cancel-cheque", permissionSection: "cancelCheque" },
+                { name: "Transaction List", path: "/finance/transaction-list", permissionSection: "transactionReport" },
             ]
         },
         {
