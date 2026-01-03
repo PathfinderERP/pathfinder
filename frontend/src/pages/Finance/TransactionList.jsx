@@ -12,17 +12,25 @@ const TransactionList = () => {
     
     // Total Revenue only for the stats cards if needed, calculated from list or API
     const [totalRevenue, setTotalRevenue] = useState(0); 
+    const [stats, setStats] = useState({
+        currentYear: 0,
+        previousYear: 0,
+        currentMonth: 0,
+        previousMonth: 0,
+        currentYearLabel: new Date().getFullYear(),
+        previousYearLabel: new Date().getFullYear() - 1,
+        currentMonthLabel: "Current Month",
+        previousMonthLabel: "Previous Month"
+    }); 
 
     // Filters
     const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
-    const [departments, setDepartments] = useState([]);
     const [examTags, setExamTags] = useState([]);
     const sessions = ["2023-2024", "2024-2025", "2025-2026", "2025-2027","2026-2027","2027-2028","2028-2029"];
 
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedCourses, setSelectedCourses] = useState([]);
-    const [selectedDepartments, setSelectedDepartments] = useState([]);
     const [selectedExamTag, setSelectedExamTag] = useState("");
     const [selectedSession, setSelectedSession] = useState("");
     const [timePeriod, setTimePeriod] = useState("All Time");
@@ -36,13 +44,11 @@ const TransactionList = () => {
     // Dropdown Refs
     const centreDropdownRef = useRef(null);
     const courseDropdownRef = useRef(null);
-    const departmentDropdownRef = useRef(null);
     const paymentDropdownRef = useRef(null);
     const typeDropdownRef = useRef(null);
     
     const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
     const [isCourseDropdownOpen, setIsCourseDropdownOpen] = useState(false);
-    const [isDepartmentDropdownOpen, setIsDepartmentDropdownOpen] = useState(false);
     const [isPaymentDropdownOpen, setIsPaymentDropdownOpen] = useState(false);
     const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
 
@@ -56,8 +62,8 @@ const TransactionList = () => {
             if (courseDropdownRef.current && !courseDropdownRef.current.contains(event.target)) {
                 setIsCourseDropdownOpen(false);
             }
-            if (departmentDropdownRef.current && !departmentDropdownRef.current.contains(event.target)) {
-                setIsDepartmentDropdownOpen(false);
+            if (courseDropdownRef.current && !courseDropdownRef.current.contains(event.target)) {
+                setIsCourseDropdownOpen(false);
             }
             if (paymentDropdownRef.current && !paymentDropdownRef.current.contains(event.target)) {
                 setIsPaymentDropdownOpen(false);
@@ -75,7 +81,8 @@ const TransactionList = () => {
             return;
         }
         fetchReportData();
-    }, [selectedCentres, selectedCourses, selectedDepartments, selectedExamTag, selectedSession, timePeriod, startDate, endDate, selectedPaymentMode, selectedTransactionType]);
+        fetchReportData();
+    }, [selectedCentres, selectedCourses, selectedExamTag, selectedSession, timePeriod, startDate, endDate, selectedPaymentMode, selectedTransactionType]);
 
     // ---- API Calls ----
     const fetchMasterData = async () => {
@@ -83,17 +90,15 @@ const TransactionList = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [cRes, coRes, eRes, dRes] = await Promise.all([
+            const [cRes, coRes, eRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/course`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers })
             ]);
 
             if (cRes.ok) setCentres(await cRes.json());
             if (coRes.ok) setCourses(await coRes.json());
             if (eRes.ok) setExamTags(await eRes.json());
-            if (dRes.ok) setDepartments(await dRes.json());
         } catch (error) {
             console.error("Error fetching master data", error);
         }
@@ -142,7 +147,6 @@ const TransactionList = () => {
             if (selectedSession) params.append("session", selectedSession);
             if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
             if (selectedCourses.length > 0) params.append("courseIds", selectedCourses.join(","));
-            if (selectedDepartments.length > 0) params.append("departmentIds", selectedDepartments.join(","));
             if (selectedExamTag) params.append("examTagId", selectedExamTag);
             
             // New Filters
@@ -162,6 +166,10 @@ const TransactionList = () => {
                 // But let's calculate revenue from the *filtered list* to be safe and dynamic
                 const currentListRevenue = (result.detailedReport || []).reduce((acc, curr) => acc + (curr.amount || 0), 0);
                 setTotalRevenue(currentListRevenue);
+                
+                if (result.stats) {
+                    setStats(result.stats);
+                }
             } else {
                 setDetailedReport([]);
                 setTotalRevenue(0);
@@ -177,7 +185,8 @@ const TransactionList = () => {
     const handleResetFilters = () => {
         setSelectedCentres([]);
         setSelectedCourses([]);
-        setSelectedDepartments([]);
+        setSelectedCentres([]);
+        setSelectedCourses([]);
         setSelectedExamTag("");
         setSelectedSession("");
         setTimePeriod("All Time");
@@ -234,12 +243,6 @@ const TransactionList = () => {
         );
     };
 
-    const toggleDepartmentSelection = (id) => {
-        setSelectedDepartments(prev =>
-            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-        );
-    };
-
     const togglePaymentModeSelection = (id) => {
         setSelectedPaymentMode(prev =>
             prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
@@ -264,19 +267,54 @@ const TransactionList = () => {
                 
                 {/* Stats Cards Row (Optional - based on user preference for "Transaction List" page) */}
                 {/* The user screenshot shows stats cards at the top */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
                         <div>
-                            <div className="bg-green-100 text-green-600 p-3 rounded-lg">
-                                <FaArrowUp size={24} />
+                            <div className="bg-blue-100 text-blue-600 p-3 rounded-lg">
+                                <FaChartBar size={24} />
                             </div>
                         </div>
                         <div className="text-right">
-                            <h3 className="text-2xl font-black text-gray-800">Rs.{totalRevenue.toLocaleString('en-IN')}</h3>
-                            <p className="text-gray-500 text-sm">Current Selection Revenue</p>
+                             <h3 className="text-xl font-black text-gray-800">Rs.{stats.previousYear ? stats.previousYear.toLocaleString('en-IN') : 0}</h3>
+                            <p className="text-gray-500 text-xs uppercase font-bold tracking-wider">{stats.previousYearLabel} Revenue</p>
                         </div>
                     </div>
-                     {/* Add more cards if needed (e.g. Current Month/Year specific queries) */}
+
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                         <div>
+                            <div className="bg-green-100 text-green-600 p-3 rounded-lg">
+                                <FaChartBar size={24} />
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <h3 className="text-xl font-black text-gray-800">Rs.{stats.currentYear ? stats.currentYear.toLocaleString('en-IN') : 0}</h3>
+                            <p className="text-gray-500 text-xs uppercase font-bold tracking-wider">{stats.currentYearLabel} Revenue</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                        <div>
+                            <div className="bg-purple-100 text-purple-600 p-3 rounded-lg">
+                                <FaChartBar size={24} />
+                            </div>
+                        </div>
+                         <div className="text-right">
+                            <h3 className="text-xl font-black text-gray-800">Rs.{stats.previousMonth ? stats.previousMonth.toLocaleString('en-IN') : 0}</h3>
+                            <p className="text-gray-500 text-xs uppercase font-bold tracking-wider">{stats.previousMonthLabel} Revenue</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                        <div>
+                            <div className="bg-orange-100 text-orange-600 p-3 rounded-lg">
+                                <FaChartBar size={24} />
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <h3 className="text-xl font-black text-gray-800">Rs.{stats.currentMonth ? stats.currentMonth.toLocaleString('en-IN') : 0}</h3>
+                            <p className="text-gray-500 text-xs uppercase font-bold tracking-wider">{stats.currentMonthLabel} Revenue</p>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Filters Row */}
@@ -309,34 +347,7 @@ const TransactionList = () => {
                     </div>
 
                     {/* Payment Mode */}
-                    {/* Department Logic */}
-                    <div className="relative" ref={departmentDropdownRef}>
-                        <div
-                            onClick={() => setIsDepartmentDropdownOpen(!isDepartmentDropdownOpen)}
-                            className="min-w-[200px] h-10 px-3 py-2 bg-white border border-gray-300 rounded-md cursor-pointer flex justify-between items-center text-sm text-gray-700 hover:border-blue-500 transition-colors"
-                        >
-                            <span className="truncate">
-                                {selectedDepartments.length === 0 ? "-Select Department-" : `${selectedDepartments.length} Selected`}
-                            </span>
-                            <FaChevronDown size={10} className={`transform transition-transform ${isDepartmentDropdownOpen ? 'rotate-180' : ''}`} />
-                        </div>
-                        {isDepartmentDropdownOpen && (
-                            <div className="absolute top-full left-0 mt-1 w-60 z-50 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-                                {departments.map(d => (
-                                    <div
-                                        key={d._id}
-                                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
-                                        onClick={() => toggleDepartmentSelection(d._id)}
-                                    >
-                                        <input type="checkbox" checked={selectedDepartments.includes(d._id)} readOnly className="rounded" />
-                                        <span className="text-sm text-gray-700 truncate">{d.departmentName}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Payment Mode (MultiSelect) */}
+                    {/* Payment Mode */}
                     <div className="relative" ref={paymentDropdownRef}>
                         <div
                             onClick={() => setIsPaymentDropdownOpen(!isPaymentDropdownOpen)}
@@ -470,7 +481,9 @@ const TransactionList = () => {
                                             <td className="p-4 text-sm text-gray-600">
                                                 {item.installmentNumber === 1 ? "Initial" : "EMI"}
                                             </td>
-                                            <td className="p-4 text-sm text-gray-500 font-mono text-xs">{item.transactionId || "-"}</td>
+                                            <td className="p-4 text-sm text-gray-500 font-mono text-xs">
+                                                {item.method === "CASH" ? "CASH" : (item.transactionId || "-")}
+                                            </td>
                                             <td className="p-4 text-sm text-gray-600 uppercase">{item.centre}</td>
                                             <td className="p-4 text-sm text-gray-600">{item.method}</td>
                                             <td className="p-4 text-sm font-black text-gray-800">Rs.{item.amount}</td>

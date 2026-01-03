@@ -21,26 +21,13 @@ export const getTransactionReport = async (req, res) => {
         } = req.query;
 
         // Base Match for Payment (paidAmount > 0)
-        let paymentMatch = {
-            paidAmount: { $gt: 0 } // Include all payments with value
+        let baseAttributesMatch = {
+            paidAmount: { $gt: 0 }
         };
-
-        // Filter by Date Range (startDate/endDate OR year)
-        if (startDate && endDate) {
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999); // End of day
-            paymentMatch.paidDate = { $gte: start, $lte: end };
-        } else if (year && !isNaN(parseInt(year))) {
-            const targetYear = parseInt(year);
-            const startOfYear = new Date(targetYear, 0, 1);
-            const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59);
-            paymentMatch.paidDate = { $gte: startOfYear, $lte: endOfYear };
-        }
 
         if (paymentMode) {
             const modes = paymentMode.split(',');
-            paymentMatch.paymentMethod = { $in: modes };
+            baseAttributesMatch.paymentMethod = { $in: modes };
         }
 
         if (transactionType) {
@@ -51,11 +38,26 @@ export const getTransactionReport = async (req, res) => {
             
             if (criteria.length > 0) {
                 if (criteria.length > 1) {
-                    paymentMatch.$or = criteria;
+                    baseAttributesMatch.$or = criteria;
                 } else {
-                    Object.assign(paymentMatch, criteria[0]);
+                    Object.assign(baseAttributesMatch, criteria[0]);
                 }
             }
+        }
+
+        let paymentMatch = { ...baseAttributesMatch };
+
+        // Filter by Date Range (startDate/endDate OR year) for the main report
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            paymentMatch.paidDate = { $gte: start, $lte: end };
+        } else if (year && !isNaN(parseInt(year))) {
+            const targetYear = parseInt(year);
+            const startOfYear = new Date(targetYear, 0, 1);
+            const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59);
+            paymentMatch.paidDate = { $gte: startOfYear, $lte: endOfYear };
         }
 
         // Match for Admission fields (Centre, Course, Session, ExamTag)
@@ -260,7 +262,98 @@ export const getTransactionReport = async (req, res) => {
         ]);
 
 
-        // Process Results
+        // --- Stats Calculation (Current Year, Previous Year, Current Month, Previous Month) ---
+        // Dynamically calculate based on current date
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const previousYear = currentYear - 1;
+        
+        const startCY = new Date(currentYear, 0, 1);
+        const endCY = new Date(currentYear, 11, 31, 23, 59, 59, 999);
+        
+        const startPY = new Date(previousYear, 0, 1);
+        const endPY = new Date(previousYear, 11, 31, 23, 59, 59, 999);
+        
+        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        
+        const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+
+        // Stats Aggregation - Uses baseAttributesMatch (ignores user date filter) but keeps context filters
+        const statsData = await Payment.aggregate([
+            { $match: baseAttributesMatch },
+            {
+                $lookup: {
+                    from: "admissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfo"
+                }
+            },
+            { $unwind: "$admissionInfo" },
+            { $match: admissionMatch },
+            {
+                $lookup: {
+                    from: "courses",
+                    localField: "admissionInfo.course",
+                    foreignField: "_id",
+                    as: "courseInfo"
+                }
+            },
+            { $unwind: "$courseInfo" },
+            { $match: departmentMatch },
+            {
+                $project: {
+                    paidAmount: 1,
+                    paidDate: 1
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    currentYearRevenue: {
+                        $sum: {
+                            $cond: [
+                                { $and: [{ $gte: ["$paidDate", startCY] }, { $lte: ["$paidDate", endCY] }] },
+                                "$paidAmount",
+                                0
+                            ]
+                        }
+                    },
+                    previousYearRevenue: {
+                        $sum: {
+                            $cond: [
+                                { $and: [{ $gte: ["$paidDate", startPY] }, { $lte: ["$paidDate", endPY] }] },
+                                "$paidAmount",
+                                0
+                            ]
+                        }
+                    },
+                    currentMonthRevenue: {
+                        $sum: {
+                            $cond: [
+                                { $and: [{ $gte: ["$paidDate", currentMonthStart] }, { $lte: ["$paidDate", currentMonthEnd] }] },
+                                "$paidAmount",
+                                0
+                            ]
+                        }
+                    },
+                    previousMonthRevenue: {
+                        $sum: {
+                            $cond: [
+                                { $and: [{ $gte: ["$paidDate", prevMonthStart] }, { $lte: ["$paidDate", prevMonthEnd] }] },
+                                "$paidAmount",
+                                0
+                            ]
+                        }
+                    }
+                }
+            }
+        ]);
+
+        const stats = statsData.length > 0 ? statsData[0] : { currentYearRevenue: 0, previousYearRevenue: 0, currentMonthRevenue: 0, previousMonthRevenue: 0 };
+
         const result = reportData[0];
 
         // Format Monthly Data (1-12 to Jan-Dec)
@@ -296,7 +389,17 @@ export const getTransactionReport = async (req, res) => {
             centreRevenue: result.centreRevenue, // New
             courseRevenue: result.courseRevenue, // New
             detailedReport: detailedData,        // New
-            totalRevenue
+            totalRevenue,
+            stats: {
+                currentYear: stats.currentYearRevenue,
+                previousYear: stats.previousYearRevenue,
+                currentMonth: stats.currentMonthRevenue,
+                previousMonth: stats.previousMonthRevenue,
+                currentYearLabel: currentYear,
+                previousYearLabel: previousYear,
+                currentMonthLabel: now.toLocaleString('default', { month: 'long' }),
+                previousMonthLabel: prevMonthStart.toLocaleString('default', { month: 'long' })
+            }
         });
 
     } catch (error) {
