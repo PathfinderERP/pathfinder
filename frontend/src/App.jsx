@@ -34,6 +34,14 @@ import MasterDataBatch from "./pages/MasterDataBatch";
 import MasterDataSource from "./pages/MasterDataSource";
 import MasterDataSession from "./pages/MasterDataSession";
 import MasterDataScript from "./pages/MasterDataScript";
+import MasterDataExpenseCategory from "./pages/MasterDataExpenseCategory";
+import MasterDataExpenseSubCategory from "./pages/MasterDataExpenseSubCategory";
+import MasterDataExpenditureType from "./pages/MasterDataExpenditureType";
+import PettyCashCentre from "./pages/PettyCash/PettyCashCentre";
+import AddPettyCash from "./pages/PettyCash/AddPettyCash";
+import PettyCashRequestApproval from "./pages/PettyCash/PettyCashRequestApproval";
+import AddPettyCashExpenditure from "./pages/PettyCash/AddPettyCashExpenditure";
+import PettyCashApproval from "./pages/PettyCash/PettyCashApproval";
 import MasterDataDesignation from "./pages/MasterDataDesignation";
 import CarryForward from "./pages/CarryForward";
 import CourseTransfer from "./pages/CourseTransfer";
@@ -102,6 +110,10 @@ import InstallmentPayment from "./pages/Finance/InstallmentPayment";
 import FeeDueList from "./pages/Finance/FeeDueList";
 import ChequeManagement from "./pages/Finance/ChequeManagement";
 import CancelChequePayment from "./pages/Finance/CancelChequePayment";
+import CashReport from "./pages/Finance/CashReport";
+import CashTransfer from "./pages/Finance/CashTransfer";
+import CashReceive from "./pages/Finance/CashReceive";
+import CashCentreDetails from "./pages/Finance/CashCentreDetails";
 
 // ... inside Routes ... (I will use a simpler replace block to avoid mess)
 
@@ -124,6 +136,10 @@ function App() {
         <Route path="/finance/fee-due-list" element={<FeeDueList />} />
         <Route path="/finance/cheque-management" element={<ChequeManagement />} />
         <Route path="/finance/cancel-cheque" element={<CancelChequePayment />} />
+        <Route path="/finance/cash/report" element={<CashReport />} />
+        <Route path="/finance/cash/transfer" element={<CashTransfer />} />
+        <Route path="/finance/cash/receive" element={<CashReceive />} />
+        <Route path="/finance/cash/centre/:centreId" element={<CashCentreDetails />} />
         <Route path="/finance/transaction-list" element={<TransactionList />} />
         <Route path="/sales" element={<Sales />} />
         <Route path="/sales/centre-target" element={<CentreTarget />} />
@@ -204,6 +220,17 @@ function App() {
         <Route path="/master-data/source" element={<MasterDataSource />} />
         <Route path="/master-data/session" element={<MasterDataSession />} />
         <Route path="/master-data/script" element={<MasterDataScript />} />
+        <Route path="/master-data/expense-category" element={<MasterDataExpenseCategory />} />
+        <Route path="/master-data/expense-subcategory" element={<MasterDataExpenseSubCategory />} />
+        <Route path="/master-data/expenditure-type" element={<MasterDataExpenditureType />} />
+
+        {/* Petty Cash Routes */}
+        <Route path="/petty-cash/centre" element={<PettyCashCentre />} />
+        <Route path="/petty-cash/add-cash" element={<AddPettyCash />} />
+        <Route path="/petty-cash/request-approval" element={<PettyCashRequestApproval />} />
+        <Route path="/petty-cash/add-expenditure" element={<AddPettyCashExpenditure />} />
+        <Route path="/petty-cash/approval" element={<PettyCashApproval />} />
+
         <Route path="/master-data/designation" element={<MasterDataDesignation />} />
         <Route path="/course-management" element={<MasterDataCourse />} />
         <Route path="/course-management/carry-forward" element={<CarryForward />} />

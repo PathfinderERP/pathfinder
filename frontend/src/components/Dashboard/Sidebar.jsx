@@ -93,6 +93,9 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Fee Due List", path: "/finance/fee-due-list", permissionSection: "feeDueList" },
                 { name: "Cheque Management", path: "/finance/cheque-management", permissionSection: "chequeManagement" },
                 { name: "Cancel Cheque Payment", path: "/finance/cancel-cheque", permissionSection: "cancelCheque" },
+                { name: "Cash Report", path: "/finance/cash/report", permissionSection: "cashReport" },
+                { name: "Cash Transfer", path: "/finance/cash/transfer", permissionSection: "cashTransfer" },
+                { name: "Cash Receive", path: "/finance/cash/receive", permissionSection: "cashReceive" },
                 { name: "Transaction List", path: "/finance/transaction-list", permissionSection: "transactionReport" },
             ]
         },
@@ -190,6 +193,9 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Source", path: "/master-data/source", permissionSection: "source" },
                 { name: "Session", path: "/master-data/session", permissionSection: "session" },
                 { name: "Script", path: "/master-data/script", permissionSection: "script" },
+                { name: "Expense Category", path: "/master-data/expense-category", permissionSection: "category" },
+                { name: "Expense Sub-Category", path: "/master-data/expense-subcategory", permissionSection: "subcategory" },
+                { name: "Expenditure Type", path: "/master-data/expenditure-type", permissionSection: "expenditureType" },
             ],
         },
         {
@@ -200,6 +206,18 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Course List", path: "/course-management", permissionSection: "courses" },
                 { name: "Carry Forward", path: "/course-management/carry-forward", permissionSection: "courses" },
                 { name: "Course Transfer", path: "/course-management/course-transfer", permissionSection: "courses" },
+            ]
+        },
+        {
+            name: "Center Petty Cash Management",
+            icon: <FaMoneyBillWave />,
+            permissionModule: "pettyCashManagement",
+            subItems: [
+                { name: "Petty Cash centre", path: "/petty-cash/centre", permissionSection: "pettyCashCentre" },
+                { name: "Add Petty Cash", path: "/petty-cash/add-cash", permissionSection: "addPettyCash" },
+                { name: "Petty Cash Approval", path: "/petty-cash/request-approval", permissionSection: "pettyCashRequestApproval" },
+                { name: "Add Petty Cash Expenditure", path: "/petty-cash/add-expenditure", permissionSection: "addExpenditure" },
+                { name: "Petty Cash Expenditure Approval", path: "/petty-cash/approval", permissionSection: "expenditureApproval" },
             ]
         },
         { name: "User Management", icon: <FaUsers />, path: "/user-management", permissionModule: "userManagement" },

@@ -8,6 +8,7 @@ export const getAdmissions = async (req, res) => {
             .populate('class')
             .populate('examTag')
             .populate('department')
+            .populate('createdBy', 'name')
             .sort({ createdAt: -1 });
 
         res.status(200).json(admissions);

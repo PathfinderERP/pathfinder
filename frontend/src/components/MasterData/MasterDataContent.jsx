@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaBuilding, FaTags, FaLayerGroup, FaChalkboardTeacher, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaBuilding, FaTags, FaLayerGroup, FaChalkboardTeacher, FaMapMarkerAlt, FaMoneyBillWave, FaListAlt, FaSitemap } from 'react-icons/fa';
 
 const MasterDataContent = () => {
     const navigate = useNavigate();
@@ -33,6 +33,27 @@ const MasterDataContent = () => {
             icon: <FaMapMarkerAlt className="text-3xl text-orange-400" />,
             path: "/master-data/centre",
             color: "border-orange-500"
+        },
+        {
+            title: "Expenditure Type",
+            description: "Manage types of expenditures",
+            icon: <FaMoneyBillWave className="text-3xl text-red-400" />,
+            path: "/master-data/expenditure-type",
+            color: "border-red-500"
+        },
+        {
+            title: "Expense Category",
+            description: "Manage main expense categories",
+            icon: <FaListAlt className="text-3xl text-pink-400" />,
+            path: "/master-data/expense-category",
+            color: "border-pink-500"
+        },
+        {
+            title: "Expense Sub-Category",
+            description: "Manage granular expense items",
+            icon: <FaSitemap className="text-3xl text-indigo-400" />,
+            path: "/master-data/expense-subcategory",
+            color: "border-indigo-500"
         }
     ];
 

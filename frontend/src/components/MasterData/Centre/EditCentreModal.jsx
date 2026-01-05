@@ -19,7 +19,8 @@ const EditCentreModal = ({ centre, onClose, onSuccess }) => {
         enterCorporateOfficeAddress: "",
         enterCorporateOfficePhoneNumber: "",
         latitude: null,
-        longitude: null
+        longitude: null,
+        accountNumber: ""
     });
     const [loading, setLoading] = useState(false);
     const [gettingLocation, setGettingLocation] = useState(false);
@@ -43,7 +44,8 @@ const EditCentreModal = ({ centre, onClose, onSuccess }) => {
                 enterCorporateOfficeAddress: centre.enterCorporateOfficeAddress || "",
                 enterCorporateOfficePhoneNumber: centre.enterCorporateOfficePhoneNumber || "",
                 latitude: centre.latitude || null,
-                longitude: centre.longitude || null
+                longitude: centre.longitude || null,
+                accountNumber: centre.accountNumber || ""
             });
         }
     }, [centre]);
@@ -183,6 +185,10 @@ const EditCentreModal = ({ centre, onClose, onSuccess }) => {
                         <div>
                             <label className="block text-gray-400 text-sm mb-1">Centre Code *</label>
                             <input type="text" name="enterCode" required value={formData.enterCode} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
+                        </div>
+                        <div>
+                            <label className="block text-gray-400 text-sm mb-1">Account Number</label>
+                            <input type="text" name="accountNumber" value={formData.accountNumber} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
                         </div>
                         <div>
                             <label className="block text-gray-400 text-sm mb-1">State *</label>

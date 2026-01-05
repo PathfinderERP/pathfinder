@@ -73,29 +73,59 @@ const StudentAdmissionPage = () => {
         }
     }, [formData.courseId, formData.downPayment, formData.numberOfInstallments, formData.feeWaiver]);
 
-    // Pre-select course and set Centre when student/courses are loaded
+    // Pre-select all matching fields when student and master data are loaded
     useEffect(() => {
-        if (student) {
-            // Set Centre from student details
-            const studentCentre = student.studentsDetails?.[0]?.centre || "";
+        if (student && courses.length > 0) {
+            const details = student.studentsDetails?.[0] || {};
+            const studentCentre = details.centre || "";
+            const registeredCourseName = student.sessionExamCourse?.[0]?.targetExams?.trim();
+            const registeredClassName = student.examSchema?.[0]?.class?.trim();
+            const registeredExamTagName = student.sessionExamCourse?.[0]?.examTag?.trim();
+            const registeredSession = student.sessionExamCourse?.[0]?.session?.trim();
 
-            setFormData(prev => ({
-                ...prev,
-                centre: studentCentre
-            }));
+            setFormData(prev => {
+                const newData = { ...prev, centre: studentCentre };
 
-            if (courses.length > 0 && !formData.courseId) {
-                const registeredCourse = student.sessionExamCourse?.[0]?.targetExams;
-                if (registeredCourse) {
-                    // Try to find course by name
-                    const matchedCourse = courses.find(c => c.courseName === registeredCourse);
-                    if (matchedCourse) {
-                        setFormData(prev => ({ ...prev, courseId: matchedCourse._id }));
-                    }
+                // Autofill Course - Prioritize student.course reference if it exists
+                if (student.course && !prev.courseId) {
+                    // Check if student.course is an ID (default from getStudentById) or object
+                    newData.courseId = typeof student.course === 'object' ? student.course._id : student.course;
+                } else if (registeredCourseName && !prev.courseId) {
+                    const matchedCourse = courses.find(c =>
+                        c.courseName?.trim().toLowerCase() === registeredCourseName.toLowerCase()
+                    );
+                    if (matchedCourse) newData.courseId = matchedCourse._id;
                 }
-            }
+
+                // Autofill Class
+                if (registeredClassName && !prev.classId && classes.length > 0) {
+                    const matchedClass = classes.find(c =>
+                        c.name?.trim().toLowerCase() === registeredClassName.toLowerCase() ||
+                        c.name?.trim().toLowerCase().includes(registeredClassName.toLowerCase())
+                    );
+                    if (matchedClass) newData.classId = matchedClass._id;
+                }
+
+                // Autofill Exam Tag
+                if (registeredExamTagName && !prev.examTagId && examTags.length > 0) {
+                    const matchedTag = examTags.find(t =>
+                        t.name?.trim().toLowerCase() === registeredExamTagName.toLowerCase()
+                    );
+                    if (matchedTag) newData.examTagId = matchedTag._id;
+                }
+
+                // Autofill Session
+                if (registeredSession && !prev.academicSession && sessions.length > 0) {
+                    const matchedSession = sessions.find(s =>
+                        s.sessionName?.trim().toLowerCase() === registeredSession.toLowerCase()
+                    );
+                    if (matchedSession) newData.academicSession = matchedSession.sessionName;
+                }
+
+                return newData;
+            });
         }
-    }, [student, courses]);
+    }, [student, courses, classes, examTags, sessions]);
 
     const fetchData = async () => {
         setLoading(true);

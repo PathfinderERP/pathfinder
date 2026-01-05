@@ -112,6 +112,18 @@ export const PERMISSION_MODULES = {
             paymentReminders: {
                 label: "Payment Reminders",
                 operations: ["create", "edit", "delete"]
+            },
+            cashReport: {
+                label: "Cash Report",
+                operations: ["create", "edit", "delete"]
+            },
+            cashTransfer: {
+                label: "Cash Transfer",
+                operations: ["create", "edit", "delete"]
+            },
+            cashReceive: {
+                label: "Cash Received",
+                operations: ["create", "edit", "delete"]
             }
         }
     },
@@ -251,6 +263,18 @@ export const PERMISSION_MODULES = {
             script: {
                 label: "Script",
                 operations: ["create", "edit", "delete"]
+            },
+            category: {
+                label: "Expense Category",
+                operations: ["create", "edit", "delete"]
+            },
+            subcategory: {
+                label: "Expense Sub-Category",
+                operations: ["create", "edit", "delete"]
+            },
+            expenditureType: {
+                label: "Expenditure Type",
+                operations: ["create", "edit", "delete"]
             }
         }
     },
@@ -302,6 +326,31 @@ export const PERMISSION_MODULES = {
             leadStatus: {
                 label: "Lead Status",
                 operations: ["create", "edit", "delete"]
+            }
+        }
+    },
+    pettyCashManagement: {
+        label: "Petty Cash Management",
+        sections: {
+            pettyCashCentre: {
+                label: "Petty Cash Centre",
+                operations: ["view", "create", "edit"]
+            },
+            addExpenditure: {
+                label: "Add Expenditure",
+                operations: ["view", "create"]
+            },
+            expenditureApproval: {
+                label: "Expenditure Approval",
+                operations: ["view", "approve"]
+            },
+            addPettyCash: {
+                label: "Add Petty Cash (Requests)",
+                operations: ["view", "create"]
+            },
+            pettyCashRequestApproval: {
+                label: "Petty Cash Request Approval",
+                operations: ["view", "approve"]
             }
         }
     }

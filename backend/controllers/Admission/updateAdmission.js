@@ -14,7 +14,8 @@ export const updateAdmission = async (req, res) => {
             .populate('course')
             .populate('class')
             .populate('examTag')
-            .populate('department');
+            .populate('department')
+            .populate('createdBy', 'name');
 
         if (!admission) {
             return res.status(404).json({ message: "Admission not found" });

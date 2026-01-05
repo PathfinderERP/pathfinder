@@ -157,7 +157,7 @@ export const createAdmission = async (req, res) => {
             feeStructureSnapshot: course.feesStructure,
             studentImage: studentImage || null,
             remarks: remarks ? `${remarks} (Prev Balance: ₹${previousBalance})` : (previousBalance > 0 ? `Previous Balance Included: ₹${previousBalance}` : ""),
-            createdBy: req.user.id,
+            createdBy: req.user._id,
             totalPaidAmount: (paymentMethod === "CHEQUE") ? 0 : downPayment,
             paymentStatus: (paymentMethod === "CHEQUE") ? "PARTIAL" : (downPayment >= totalFees ? "COMPLETED" : "PARTIAL"),
             downPaymentStatus: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
@@ -219,7 +219,7 @@ export const createAdmission = async (req, res) => {
                 accountHolderName: accountHolderName,
                 chequeDate: chequeDate,
                 remarks: "Down Payment at Admission",
-                recordedBy: req.user.id,
+                recordedBy: req.user._id,
                 // Bill Details
                 billId: newBillId,
                 cgst: parseFloat(dpCgst.toFixed(2)),
@@ -235,7 +235,8 @@ export const createAdmission = async (req, res) => {
             .populate('course')
             .populate('class')
             .populate('examTag')
-            .populate('department');
+            .populate('department')
+            .populate('createdBy', 'name');
 
         res.status(201).json({
             message: "Admission created successfully",

@@ -49,6 +49,9 @@ const centreSchema = mongoose.Schema({
     longitude: {
         type: Number,
         default: null
+    },
+    accountNumber: {
+        type: String,
     }
 });
 

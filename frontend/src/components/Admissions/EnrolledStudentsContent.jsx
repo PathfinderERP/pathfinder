@@ -322,6 +322,7 @@ const EnrolledStudentsContent = () => {
             { label: 'Paid Amount', key: 'totalPaidAmount' },
             { label: 'Payment Status', key: 'paymentStatus' },
             { label: 'Admission Status', key: 'admissionStatus' },
+            { label: 'Admitted By', key: 'createdBy' },
         ];
 
         const exportData = admissions.map(admission => {
@@ -344,6 +345,7 @@ const EnrolledStudentsContent = () => {
                 totalPaidAmount: admission.totalPaidAmount || 0,
                 paymentStatus: admission.paymentStatus || 'N/A',
                 admissionStatus: admission.admissionStatus || 'N/A',
+                createdBy: admission.createdBy?.name || 'N/A',
             };
         });
 
@@ -362,6 +364,7 @@ const EnrolledStudentsContent = () => {
             { label: 'Paid Amount', key: 'totalPaidAmount' },
             { label: 'Payment Status', key: 'paymentStatus' },
             { label: 'Admission Status', key: 'admissionStatus' },
+            { label: 'Admitted By', key: 'createdBy' },
         ];
 
         const exportData = admissions.map(admission => {
@@ -384,6 +387,7 @@ const EnrolledStudentsContent = () => {
                 totalPaidAmount: admission.totalPaidAmount || 0,
                 paymentStatus: admission.paymentStatus || 'N/A',
                 admissionStatus: admission.admissionStatus || 'N/A',
+                createdBy: admission.createdBy?.name || 'N/A',
             };
         });
 
@@ -512,17 +516,18 @@ const EnrolledStudentsContent = () => {
                                 <th className="p-4 font-medium">Latest Course</th>
                                 <th className="p-4 font-medium">Total Courses</th>
                                 <th className="p-4 font-medium">Latest Status</th>
+                                <th className="p-4 font-medium">Admitted By</th>
                                 <th className="p-4 font-medium">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="6" className="p-8 text-center text-gray-500">Loading students...</td>
+                                    <td colSpan="7" className="p-8 text-center text-gray-500">Loading students...</td>
                                 </tr>
                             ) : filteredStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="p-8 text-center text-gray-500">
+                                    <td colSpan="7" className="p-8 text-center text-gray-500">
                                         {searchQuery ? "No students found matching your search." : "No students found."}
                                     </td>
                                 </tr>
@@ -572,6 +577,18 @@ const EnrolledStudentsContent = () => {
                                                         </span>
                                                         <span className={`px-3 py-1 rounded-full text-xs font-bold ${getPaymentStatusColor(latestAdmission?.paymentStatus)}`}>
                                                             {latestAdmission?.paymentStatus}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-400 font-bold border border-cyan-500/20 text-xs">
+                                                            {latestAdmission?.createdBy?.name
+                                                                ? latestAdmission.createdBy.name.charAt(0).toUpperCase()
+                                                                : (latestAdmission?.createdBy ? "U" : "A")}
+                                                        </div>
+                                                        <span className="text-gray-300 text-sm">
+                                                            {latestAdmission?.createdBy?.name || (latestAdmission?.createdBy ? "Unknown User" : "System")}
                                                         </span>
                                                     </div>
                                                 </td>
@@ -646,7 +663,7 @@ const EnrolledStudentsContent = () => {
                                                     <p className="text-sm text-gray-400">
                                                         Enrollment ID: <span className="text-cyan-400 font-mono font-semibold">{admission.admissionNumber}</span> •
                                                         {admission.department?.departmentName} • {admission.academicSession} •
-                                                        Admission: {new Date(admission.admissionDate).toLocaleDateString()}
+                                                        Admission: {new Date(admission.admissionDate).toLocaleDateString()} • Admitted By: <span className="text-white font-semibold">{admission.createdBy?.name || (admission.createdBy ? "Unknown User" : "System")}</span>
                                                     </p>
                                                 </div>
                                                 <div className="flex items-center gap-2">

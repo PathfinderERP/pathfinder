@@ -44,6 +44,9 @@ import feedbackRoutes from "./routes/HR/feedbackRoutes.js";
 import reimbursementRoutes from "./routes/HR/reimbursement.routes.js";
 import poshRoutes from "./routes/HR/poshRoutes.js";
 import installmentRoutes from "./routes/Finance/installmentRoutes.js";
+import cashRoutes from "./routes/Finance/cash.routes.js";
+import masterDataRoutes from "./routes/masterData/masterData.routes.js";
+import pettyCashRoutes from "./routes/Finance/pettyCash.routes.js";
 
 import path from "path";
 import { fileURLToPath } from "url";
@@ -119,10 +122,13 @@ app.use("/api/hr/feedback", feedbackRoutes);
 app.use("/api/hr/reimbursement", reimbursementRoutes);
 app.use("/api/hr/posh", poshRoutes);
 app.use("/api/finance/installment", installmentRoutes);
+app.use("/api/finance/cash", cashRoutes);
+app.use("/api/finance/petty-cash", pettyCashRoutes);
 
 
 // Master Data Routes
 app.use("/api/designation", designationRoutes);
+app.use("/api/master-data", masterDataRoutes);
 
 
 app.listen(process.env.PORT, () => {

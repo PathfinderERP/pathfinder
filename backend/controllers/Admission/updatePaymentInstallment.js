@@ -174,7 +174,7 @@ export const updatePaymentInstallment = async (req, res) => {
                     accountHolderName: accountHolderName, // New
                     chequeDate: chequeDate, // New
                     remarks: remarks,
-                    recordedBy: req.user?.id,
+                    recordedBy: req.user?._id,
                     cgst: parseFloat(cgst.toFixed(2)),
                     sgst: parseFloat(sgst.toFixed(2)),
                     courseFee: parseFloat(courseFee.toFixed(2)),
