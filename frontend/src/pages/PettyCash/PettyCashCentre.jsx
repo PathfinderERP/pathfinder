@@ -10,6 +10,7 @@ import { FaSync, FaPlus, FaTimes, FaSearch, FaFileExcel, FaChevronLeft, FaChevro
 const PettyCashCentre = () => {
     const [centres, setCentres] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [showDepositModal, setShowDepositModal] = useState(false);
     const [selectedCentre, setSelectedCentre] = useState(null);
     const [depositAmount, setDepositAmount] = useState("");
 
