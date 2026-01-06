@@ -16,13 +16,17 @@ const FeeDueList = () => {
     const [filters, setFilters] = useState({
         centre: "",
         course: "",
+        department: "",
         startDate: "",
         endDate: "",
+        minAmount: "",
+        maxAmount: "",
         searchTerm: ""
     });
 
     const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
+    const [departments, setDepartments] = useState([]);
 
     // Details Popup
     const [selectedStudent, setSelectedStudent] = useState(null);
@@ -39,9 +43,10 @@ const FeeDueList = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [centreRes, courseRes] = await Promise.all([
+            const [centreRes, courseRes, deptRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre/list`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/course`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/course`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers })
             ]);
 
             if (centreRes.ok) {
@@ -51,6 +56,10 @@ const FeeDueList = () => {
             if (courseRes.ok) {
                 const data = await courseRes.json();
                 setCourses(data || []);
+            }
+            if (deptRes.ok) {
+                const data = await deptRes.json();
+                setDepartments(data || []);
             }
         } catch (error) {
             console.error("Error fetching master data:", error);
@@ -64,8 +73,11 @@ const FeeDueList = () => {
             const queryParams = new URLSearchParams();
             if (filters.centre) queryParams.append("centre", filters.centre);
             if (filters.course) queryParams.append("course", filters.course);
+            if (filters.department) queryParams.append("department", filters.department);
             if (filters.startDate) queryParams.append("startDate", filters.startDate);
             if (filters.endDate) queryParams.append("endDate", filters.endDate);
+            if (filters.minAmount) queryParams.append("minAmount", filters.minAmount);
+            if (filters.maxAmount) queryParams.append("maxAmount", filters.maxAmount);
             if (filters.searchTerm) queryParams.append("searchTerm", filters.searchTerm);
 
             const response = await fetch(
@@ -92,8 +104,11 @@ const FeeDueList = () => {
         setFilters({
             centre: "",
             course: "",
+            department: "",
             startDate: "",
             endDate: "",
+            minAmount: "",
+            maxAmount: "",
             searchTerm: ""
         });
         fetchDueList();
@@ -129,11 +144,12 @@ const FeeDueList = () => {
             return;
         }
 
-        const headers = ["Admission No", "Student Name", "Course", "Centre", "Amount Due", "Due Date", "Days Overdue", "Months Overdue", "Status"];
+        const headers = ["Admission No", "Student Name", "Course", "Department", "Centre", "Amount Due", "Due Date", "Days Overdue", "Months Overdue", "Status"];
         const rows = dueList.map(item => [
             item.admissionNumber,
             item.studentName,
             item.course,
+            item.department,
             item.centre,
             item.amount,
             new Date(item.dueDate).toLocaleDateString('en-IN'),
@@ -226,7 +242,7 @@ const FeeDueList = () => {
 
                 {/* Filter Section */}
                 <div className="bg-[#131619] border border-gray-800 rounded-2xl p-6 mb-8">
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                         <div className="md:col-span-2 relative group">
                             <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-orange-500 transition-colors" />
                             <input
@@ -262,6 +278,18 @@ const FeeDueList = () => {
                                 ))}
                             </select>
                         </div>
+                        <div className="relative">
+                            <select
+                                value={filters.department}
+                                onChange={(e) => setFilters({ ...filters, department: e.target.value })}
+                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-gray-200 font-bold text-xs uppercase outline-none focus:border-orange-500/50 transition-all appearance-none"
+                            >
+                                <option value="">Select Department</option>
+                                {departments.map((d, i) => (
+                                    <option key={i} value={d._id}>{d.departmentName}</option>
+                                ))}
+                            </select>
+                        </div>
                         <button
                             onClick={fetchDueList}
                             className="bg-orange-500 text-black font-black uppercase text-xs tracking-widest py-3 rounded-xl hover:bg-orange-400 transition-all"
@@ -285,6 +313,28 @@ const FeeDueList = () => {
                                 type="date"
                                 value={filters.endDate}
                                 onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                                className="flex-1 bg-black/40 border border-gray-800 rounded-xl py-2 px-4 text-gray-200 font-bold text-xs outline-none focus:border-orange-500/50 transition-all"
+                            />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 bg-black/20 p-4 rounded-xl border border-gray-800/30">
+                        <div className="flex items-center gap-4">
+                            <span className="text-gray-500 text-[10px] font-black uppercase tracking-widest w-20">Min Due:</span>
+                            <input
+                                type="number"
+                                placeholder="Min Amount"
+                                value={filters.minAmount}
+                                onChange={(e) => setFilters({ ...filters, minAmount: e.target.value })}
+                                className="flex-1 bg-black/40 border border-gray-800 rounded-xl py-2 px-4 text-gray-200 font-bold text-xs outline-none focus:border-orange-500/50 transition-all"
+                            />
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <span className="text-gray-500 text-[10px] font-black uppercase tracking-widest w-20">Max Due:</span>
+                            <input
+                                type="number"
+                                placeholder="Max Amount"
+                                value={filters.maxAmount}
+                                onChange={(e) => setFilters({ ...filters, maxAmount: e.target.value })}
                                 className="flex-1 bg-black/40 border border-gray-800 rounded-xl py-2 px-4 text-gray-200 font-bold text-xs outline-none focus:border-orange-500/50 transition-all"
                             />
                         </div>
@@ -331,7 +381,8 @@ const FeeDueList = () => {
                                         </td>
                                         <td className="p-6">
                                             <div className="text-gray-300 font-bold text-xs">{item.course}</div>
-                                            <div className="text-[10px] text-gray-500 uppercase">{item.centre}</div>
+                                            <div className="text-[9px] text-gray-500 uppercase tracking-tighter">{item.department}</div>
+                                            <div className="text-[10px] text-gray-500 uppercase font-bold mt-1 tracking-widest">{item.centre}</div>
                                         </td>
                                         <td className="p-6 text-white font-black">₹{item.amount.toLocaleString()}</td>
                                         <td className="p-6 text-gray-300">

@@ -114,6 +114,10 @@ import CashReport from "./pages/Finance/CashReport";
 import CashTransfer from "./pages/Finance/CashTransfer";
 import CashReceive from "./pages/Finance/CashReceive";
 import CashCentreDetails from "./pages/Finance/CashCentreDetails";
+import FinancialAnalysis from "./pages/Finance/FinancialAnalysis";
+import CenterTagging from "./pages/Finance/CenterTagging";
+import Budget from "./pages/Finance/Budget";
+import BudgetDetails from "./pages/Finance/BudgetDetails";
 
 // ... inside Routes ... (I will use a simpler replace block to avoid mess)
 
@@ -141,6 +145,10 @@ function App() {
         <Route path="/finance/cash/receive" element={<CashReceive />} />
         <Route path="/finance/cash/centre/:centreId" element={<CashCentreDetails />} />
         <Route path="/finance/transaction-list" element={<TransactionList />} />
+        <Route path="/finance/analysis" element={<FinancialAnalysis />} />
+        <Route path="/finance/center-tagging" element={<CenterTagging />} />
+        <Route path="/finance/budget" element={<Budget />} />
+        <Route path="/finance/budget/:centreId" element={<BudgetDetails />} />
         <Route path="/sales" element={<Sales />} />
         <Route path="/sales/centre-target" element={<CentreTarget />} />
         <Route path="/sales/centre-rank" element={<CentreRank />} />

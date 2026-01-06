@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
+import { hasPermission } from "../../config/permissions";
 import { FaExchangeAlt, FaPaperPlane, FaBuilding, FaWallet, FaLock, FaKey, FaArrowRight, FaCheckCircle, FaHashtag, FaFileInvoice, FaCloudUploadAlt, FaTimes } from "react-icons/fa";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -25,6 +26,9 @@ const CashTransfer = () => {
     const [generatedPassword, setGeneratedPassword] = useState("");
     const [serialNumber, setSerialNumber] = useState("");
     const [transferStatus, setTransferStatus] = useState("idle"); // idle, success
+
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canTransfer = hasPermission(user, 'financeFees', 'cashTransfer', 'create');
 
     useEffect(() => {
         fetchInitialData();
@@ -331,15 +335,17 @@ const CashTransfer = () => {
 
                             <button
                                 type="submit"
-                                disabled={loading}
-                                className="w-full bg-gradient-to-r from-cyan-600 to-cyan-700 text-white font-bold py-4 rounded-2xl hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-cyan-900/20 flex items-center justify-center gap-3"
+                                disabled={loading || !canTransfer}
+                                className={`w-full font-bold py-4 rounded-2xl hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-cyan-900/20 flex items-center justify-center gap-3 ${canTransfer ? "bg-gradient-to-r from-cyan-600 to-cyan-700 text-white" : "bg-gray-800 text-gray-500 cursor-not-allowed"
+                                    }`}
+                                title={canTransfer ? "" : "Permission denied"}
                             >
                                 {loading ? (
                                     <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
                                 ) : (
                                     <>
                                         <FaPaperPlane />
-                                        Initiate Transfer & Get Password
+                                        {canTransfer ? "Initiate Transfer & Get Password" : "Permission Denied"}
                                     </>
                                 )}
                             </button>

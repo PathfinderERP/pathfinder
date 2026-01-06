@@ -1,11 +1,16 @@
 import express from "express";
 import { generateBill, getBillById, getBillsByAdmission } from "../../controllers/Payment/generateBill.js";
-import { requireAuth, requireGranularPermission } from "../../middleware/permissionMiddleware.js";
+import { requireAuth, requireGranularPermission, requireAnyGranularPermission } from "../../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
 // Generate bill for a specific installment payment
-router.post("/generate-bill/:admissionId/:installmentNumber", requireGranularPermission("finance", "bills", "create"), generateBill);
+router.post("/generate-bill/:admissionId/:installmentNumber", requireAnyGranularPermission([
+    { module: "financeFees", section: "billGeneration", action: "create" },
+    { module: "financeFees", section: "installmentPayment", action: "create" },
+    { module: "financeFees", section: "installmentPayment", action: "edit" },
+    { module: "admissions", section: "enrolledStudents", action: "edit" }
+]), generateBill);
 
 // Get bill by bill ID
 router.get("/bill/:billId", requireAuth, getBillById);

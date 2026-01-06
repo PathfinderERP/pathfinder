@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
+import { hasPermission } from "../../config/permissions";
 import { FaInbox, FaExchangeAlt, FaLock, FaBuilding, FaUser, FaHistory, FaCheckCircle, FaTimes, FaSearch, FaFilter, FaHashtag, FaFileAlt } from "react-icons/fa";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -12,6 +13,9 @@ const CashReceive = () => {
     const [passwordInput, setPasswordInput] = useState("");
     const [processing, setProcessing] = useState(false);
     const [centres, setCentres] = useState([]);
+
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canReceiveCash = hasPermission(user, 'financeFees', 'cashReceive', 'create');
 
     // Filters
     const [filters, setFilters] = useState({
@@ -239,7 +243,7 @@ const CashReceive = () => {
                                                             <FaFileAlt />
                                                         </a>
                                                     )}
-                                                    {req.status === "PENDING" && (
+                                                    {req.status === "PENDING" && canReceiveCash && (
                                                         <button
                                                             onClick={() => handleOpenModal(req)}
                                                             className="px-4 py-2 bg-cyan-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:brightness-110 shadow-lg active:scale-95 transition-all"

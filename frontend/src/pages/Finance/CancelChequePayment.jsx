@@ -1,7 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
-import { FaSearch, FaBan, FaUndo, FaExclamationTriangle } from "react-icons/fa";
+import { hasPermission } from "../../config/permissions";
+import { FaSearch, FaBan, FaUndo, FaExclamationTriangle, FaFilter, FaDownload, FaTimes } from "react-icons/fa";
 import { toast } from "react-toastify";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 const CancelChequePayment = () => {
     const [searchTerm, setSearchTerm] = useState("");
@@ -9,7 +12,51 @@ const CancelChequePayment = () => {
     const [cancelReason, setCancelReason] = useState("");
     const [showModal, setShowModal] = useState(false);
 
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canCancelCheque = hasPermission(user, 'financeFees', 'cancelCheque', 'delete');
+
     // Mock data - replace with API call
+    const [filters, setFilters] = useState({
+        centre: "",
+        course: "",
+        department: ""
+    });
+    const [metadata, setMetadata] = useState({
+        centres: [],
+        courses: [],
+        departments: []
+    });
+
+    useEffect(() => {
+        fetchMetadata();
+    }, []);
+
+    const fetchMetadata = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const headers = { Authorization: `Bearer ${token}` };
+
+            const [centresRes, coursesRes, deptsRes] = await Promise.all([
+                fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/course`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers })
+            ]);
+
+            const centres = await centresRes.json();
+            const courses = await coursesRes.json();
+            const depts = await deptsRes.json();
+
+            setMetadata({
+                centres: Array.isArray(centres) ? centres : [],
+                courses: Array.isArray(courses) ? courses : [],
+                departments: Array.isArray(depts) ? depts : []
+            });
+        } catch (error) {
+            console.error("Error fetching metadata:", error);
+        }
+    };
+
+    // Mock data - replace with API call (Enhanced with filterable fields)
     const [cheques, setCheques] = useState([
         {
             id: 1,
@@ -19,7 +66,10 @@ const CancelChequePayment = () => {
             bankName: "HDFC Bank",
             amount: 25000,
             chequeDate: "2024-12-25",
-            status: "Pending"
+            status: "Pending",
+            centre: "Kolkata Main Campus",
+            course: "JEE Advanced",
+            department: "Engineering"
         },
         {
             id: 2,
@@ -29,15 +79,72 @@ const CancelChequePayment = () => {
             bankName: "ICICI Bank",
             amount: 30000,
             chequeDate: "2024-12-20",
-            status: "Cleared"
+            status: "Cleared",
+            centre: "Salt Lake Centre",
+            course: "NEET Medical",
+            department: "Medical"
         }
     ]);
 
-    const filteredCheques = cheques.filter(c =>
-        c.studentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.admissionNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.chequeNumber?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const handleFilterChange = (e) => {
+        const { name, value } = e.target;
+        setFilters(prev => ({ ...prev, [name]: value }));
+    };
+
+    const clearFilters = () => {
+        setFilters({ centre: "", course: "", department: "" });
+        setSearchTerm("");
+    };
+
+    const exportToExcel = () => {
+        if (filteredCheques.length === 0) {
+            toast.info("No data to export");
+            return;
+        }
+
+        const dataToExport = filteredCheques.map(c => ({
+            "Cheque No": c.chequeNumber,
+            "Student Name": c.studentName,
+            "Admission No": c.admissionNo,
+            "Bank": c.bankName,
+            "Amount": c.amount,
+            "Date": c.chequeDate,
+            "Status": c.status,
+            "Centre": c.centre,
+            "Course": c.course,
+            "Department": c.department
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Cancelled Cheques");
+        const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+        const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" });
+        saveAs(data, `Cheque_Cancellation_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success("Exported successfully!");
+    };
+
+    const filteredCheques = cheques.filter(c => {
+        const matchesSearch = c.studentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            c.admissionNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            c.chequeNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const matchesCentre = !filters.centre || c.centre === filters.centre;
+        const matchesCourse = !filters.course || c.course === filters.course; // Typically match ID if real data, using Name for mock
+        const matchesDept = !filters.department || c.department === filters.department; // Typically match ID if real data, using Name for mock
+
+        // Note: For real metadata usage, filters.course would be an ID. 
+        // Since mock data uses names ("JEE Advanced"), we should adjust logic or mock data.
+        // Assuming metadata returns objects with IDs, we should update mock data to use IDs or filter by comparing Names if we map them.
+        // For simplicity with this hybrid "Real Metadata + Mock Data" approach, we'll try to match vaguely or assumes mock data is updated to match what's selected (Real Metadata uses IDs usually).
+        // Let's assume the user selects from metadata (which has IDs).
+        // To make this work with Mock Data containing strings, we'll perform a loose check or just assume strings for now in this snippet. 
+        // ACTUALLY: The metadata dropdowns will use IDs as values. The mock data needs IDs or the filter needs to look up the name.
+        // Let's stick to using IDs in mock data for correctness if we could, OR just use the text value in dropdowns.
+        // Using text value in dropdowns is safer for hybrid state.
+
+        return matchesSearch && matchesCentre && matchesCourse && matchesDept;
+    });
 
     const handleCancelClick = (cheque) => {
         setSelectedCheque(cheque);
@@ -77,6 +184,70 @@ const CancelChequePayment = () => {
                         <p className="text-gray-400 text-sm">
                             Cancelling a cheque payment is irreversible. Please ensure you have verified all details before proceeding with the cancellation.
                         </p>
+                    </div>
+                </div>
+
+                {/* Filters Section */}
+                <div className="bg-[#131619] border border-gray-800 rounded-3xl p-6 mb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                        <div className="lg:col-span-1">
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
+                            <select
+                                name="centre"
+                                value={filters.centre}
+                                onChange={handleFilterChange}
+                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-white font-bold text-xs outline-none focus:border-red-500/50 transition-all appearance-none"
+                            >
+                                <option value="">ALL CENTRES</option>
+                                {metadata.centres.map(c => (
+                                    <option key={c._id} value={c.centreName}>{c.centreName}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="lg:col-span-1">
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Course</label>
+                            <select
+                                name="course"
+                                value={filters.course}
+                                onChange={handleFilterChange}
+                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-white font-bold text-xs outline-none focus:border-red-500/50 transition-all appearance-none"
+                            >
+                                <option value="">ALL COURSES</option>
+                                {metadata.courses.map(c => (
+                                    <option key={c._id} value={c.courseName}>{c.courseName}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="lg:col-span-1">
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Department</label>
+                            <select
+                                name="department"
+                                value={filters.department}
+                                onChange={handleFilterChange}
+                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-white font-bold text-xs outline-none focus:border-red-500/50 transition-all appearance-none"
+                            >
+                                <option value="">ALL DEPARTMENTS</option>
+                                {metadata.departments.map(d => (
+                                    <option key={d._id} value={d.departmentName}>{d.departmentName}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="lg:col-span-1">
+                            <button
+                                onClick={clearFilters}
+                                className="w-full py-3 bg-gray-800 text-gray-400 font-black uppercase text-xs tracking-widest rounded-xl hover:bg-gray-700 hover:text-white transition-all border border-gray-700 flex items-center justify-center gap-2"
+                            >
+                                <FaTimes /> Clear Filters
+                            </button>
+                        </div>
+                        <div className="lg:col-span-1">
+                            <button
+                                onClick={exportToExcel}
+                                className="w-full py-3 bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 font-black uppercase text-xs tracking-widest rounded-xl hover:bg-emerald-500 hover:text-black transition-all flex items-center justify-center gap-2"
+                            >
+                                <FaDownload /> Export Excel
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -128,19 +299,21 @@ const CancelChequePayment = () => {
                                         <td className="p-6 text-gray-300">{new Date(cheque.chequeDate).toLocaleDateString('en-IN')}</td>
                                         <td className="p-6">
                                             <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${cheque.status === "Pending"
-                                                    ? "text-yellow-500 bg-yellow-500/10 border-yellow-500/20"
-                                                    : "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
+                                                ? "text-yellow-500 bg-yellow-500/10 border-yellow-500/20"
+                                                : "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
                                                 }`}>
                                                 {cheque.status}
                                             </span>
                                         </td>
                                         <td className="p-6 text-right">
-                                            <button
-                                                onClick={() => handleCancelClick(cheque)}
-                                                className="px-4 py-2 bg-red-500/10 text-red-500 font-bold text-xs uppercase rounded-lg hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 ml-auto"
-                                            >
-                                                <FaBan /> Cancel
-                                            </button>
+                                            {canCancelCheque && (
+                                                <button
+                                                    onClick={() => handleCancelClick(cheque)}
+                                                    className="px-4 py-2 bg-red-500/10 text-red-500 font-bold text-xs uppercase rounded-lg hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 ml-auto"
+                                                >
+                                                    <FaBan /> Cancel
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))

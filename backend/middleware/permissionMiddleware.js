@@ -162,3 +162,52 @@ export const requireGranularPermission = (module, section, action) => {
         }
     };
 };
+
+/**
+ * Middleware to check if user has ANY of the specified granular permissions
+ * Usage: requireAnyGranularPermission([
+ *   { module: "admissions", section: "enrolledStudents", action: "edit" },
+ *   { module: "financeFees", section: "installmentPayment", action: "create" }
+ * ])
+ */
+export const requireAnyGranularPermission = (requiredPermissions) => {
+    return async (req, res, next) => {
+        try {
+            const authHeader = req.headers.authorization;
+            if (!authHeader || !authHeader.startsWith("Bearer ")) {
+                return res.status(401).json({ message: "No token provided" });
+            }
+
+            const token = authHeader.split(" ")[1];
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+            const user = await User.findById(decoded.id);
+            if (!user) {
+                return res.status(401).json({ message: "User not found" });
+            }
+
+            // SuperAdmin has access to everything
+            if (user.role === "superAdmin") {
+                req.user = user;
+                return next();
+            }
+
+            // Check if user has ANY of the required granular permissions
+            const hasAccess = requiredPermissions.some(({ module, section, action }) =>
+                user.granularPermissions?.[module]?.[section]?.[action] === true
+            );
+
+            if (!hasAccess) {
+                return res.status(403).json({
+                    message: "Access denied. You do not have the required permissions."
+                });
+            }
+
+            req.user = user;
+            next();
+        } catch (error) {
+            console.error(error);
+            return res.status(401).json({ message: "Invalid or expired token" });
+        }
+    };
+};

@@ -192,7 +192,7 @@ export const getStudentFinancialDetails = async (req, res) => {
 // Get detailed fee due list with filters
 export const getFeeDueList = async (req, res) => {
     try {
-        const { centre, course, startDate, endDate, searchTerm } = req.query;
+        const { centre, course, department, startDate, endDate, searchTerm, minAmount, maxAmount } = req.query;
 
         // Build filter object
         const filter = {
@@ -202,11 +202,13 @@ export const getFeeDueList = async (req, res) => {
 
         if (centre) filter.centre = centre;
         if (course) filter.course = course;
+        if (department) filter.department = department;
 
         // Fetch admissions with populated data
         const admissions = await Admission.find(filter)
             .populate("student")
             .populate("course", "courseName")
+            .populate("department", "departmentName")
             .sort({ createdAt: -1 });
 
         const today = new Date();
@@ -252,6 +254,9 @@ export const getFeeDueList = async (req, res) => {
                         else if (diffDays > 0) overdueCount++;
                         else dueTodayCount++;
 
+                        if (minAmount && payment.amount < parseFloat(minAmount)) continue;
+                        if (maxAmount && payment.amount > parseFloat(maxAmount)) continue;
+
                         dueList.push({
                             admissionId: admission._id,
                             admissionNumber: admission.admissionNumber,
@@ -260,6 +265,7 @@ export const getFeeDueList = async (req, res) => {
                             phoneNumber: studentInfo.mobileNum,
                             email: studentInfo.studentEmail,
                             course: admission.course?.courseName || "N/A",
+                            department: admission.department?.departmentName || "N/A",
                             centre: admission.centre,
                             installmentNumber: payment.installmentNumber,
                             dueDate: payment.dueDate,
@@ -295,7 +301,7 @@ export const getFeeDueList = async (req, res) => {
 // Get all admissions with filters
 export const getAllAdmissions = async (req, res) => {
     try {
-        const { centre, course, department, startDate, endDate, searchTerm } = req.query;
+        const { centre, course, department, startDate, endDate, searchTerm, minRemaining, maxRemaining } = req.query;
 
         const filter = { admissionStatus: "ACTIVE" };
 
@@ -304,10 +310,18 @@ export const getAllAdmissions = async (req, res) => {
         if (department) filter.department = department;
 
         if (startDate || endDate) {
-            filter.admissionDate = {};
-            if (startDate) filter.admissionDate.$gte = new Date(startDate);
-            if (endDate) filter.admissionDate.$lte = new Date(endDate);
+            const dateFilter = {};
+            if (startDate) dateFilter.$gte = new Date(startDate);
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                dateFilter.$lte = end;
+            }
+            filter["paymentBreakdown.dueDate"] = dateFilter;
         }
+
+        if (minRemaining) filter.remainingAmount = { ...filter.remainingAmount, $gte: parseFloat(minRemaining) };
+        if (maxRemaining) filter.remainingAmount = { ...filter.remainingAmount, $lte: parseFloat(maxRemaining) };
 
         let admissions = await Admission.find(filter)
             .populate("student")
@@ -344,7 +358,8 @@ export const getAllAdmissions = async (req, res) => {
                 totalFees: adm.totalFees,
                 totalPaid: adm.totalPaidAmount,
                 remainingAmount: adm.remainingAmount,
-                paymentStatus: adm.paymentStatus
+                paymentStatus: adm.paymentStatus,
+                paymentBreakdown: adm.paymentBreakdown || []
             };
         });
 

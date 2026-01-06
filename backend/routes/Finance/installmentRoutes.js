@@ -1,6 +1,7 @@
 import express from "express";
 import { searchStudent, getStudentFinancialDetails, getFeeDueList, getAllAdmissions } from "../../controllers/Finance/installmentController.js";
 import { getPendingCheques, clearCheque, rejectCheque } from "../../controllers/Finance/chequeController.js";
+import { getFinancialAnalytics } from "../../controllers/Finance/getFinancialAnalytics.js";
 import authMiddleware from "../../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -16,6 +17,9 @@ router.get("/all-admissions", getAllAdmissions);
 
 // Get detailed due list
 router.get("/get-due-list", getFeeDueList);
+
+// Financial Analytics
+router.get("/analytics", getFinancialAnalytics);
 
 // Cheque Management
 router.get("/pending-cheques", getPendingCheques);

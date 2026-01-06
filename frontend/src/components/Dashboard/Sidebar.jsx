@@ -97,6 +97,16 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Cash Transfer", path: "/finance/cash/transfer", permissionSection: "cashTransfer" },
                 { name: "Cash Receive", path: "/finance/cash/receive", permissionSection: "cashReceive" },
                 { name: "Transaction List", path: "/finance/transaction-list", permissionSection: "transactionReport" },
+                { name: "Analysis", path: "/finance/analysis", permissionSection: "financialAnalysis" },
+                { name: "Center Tagging", path: "/finance/center-tagging", permissionSection: "centerTagging" },
+                { name: "Budget", path: "/finance/budget", permissionSection: "budget" },
+                { name: "Cash Centre", path: "/finance/cash-centre", permissionSection: "cashCentre" },
+                { name: "Part Time Teachers", path: "/finance/part-time-teachers", permissionSection: "partTimeTeachers" },
+                { name: "Finance Person", path: "/finance/finance-person", permissionSection: "financePerson" },
+                { name: "Vendor Management", path: "/finance/vendor-management", permissionSection: "vendorManagement" },
+                { name: "Pay Employee", path: "/finance/pay-employee", permissionSection: "payEmployee" },
+                { name: "Payment Analysis", path: "/finance/payment-analysis", permissionSection: "paymentAnalysis" },
+                { name: "Budget Analysis", path: "/finance/budget-analysis", permissionSection: "budgetAnalysis" },
             ]
         },
         {

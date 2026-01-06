@@ -17,13 +17,20 @@ export const getTransactionReport = async (req, res) => {
             session, // e.g., "2025-2026"
             paymentMode,
             transactionType, // "Initial" or "EMI"
-            departmentIds
+            departmentIds,
+            minAmount,
+            maxAmount
         } = req.query;
 
         // Base Match for Payment (paidAmount > 0)
         let baseAttributesMatch = {
             paidAmount: { $gt: 0 }
         };
+
+        if (minAmount || maxAmount) {
+            if (minAmount) baseAttributesMatch.paidAmount.$gte = parseFloat(minAmount);
+            if (maxAmount) baseAttributesMatch.paidAmount.$lte = parseFloat(maxAmount);
+        }
 
         if (paymentMode) {
             const modes = paymentMode.split(',');
@@ -35,7 +42,7 @@ export const getTransactionReport = async (req, res) => {
             let criteria = [];
             if (types.includes("initial")) criteria.push({ installmentNumber: 1 });
             if (types.includes("emi")) criteria.push({ installmentNumber: { $gt: 1 } });
-            
+
             if (criteria.length > 0) {
                 if (criteria.length > 1) {
                     baseAttributesMatch.$or = criteria;
@@ -99,12 +106,12 @@ export const getTransactionReport = async (req, res) => {
 
         let departmentMatch = {};
         if (departmentIds) {
-             const dIds = typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds;
-             const validDIds = dIds.filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id));
-             
-             if (validDIds.length > 0) {
-                 departmentMatch["courseInfo.department"] = { $in: validDIds };
-             }
+            const dIds = typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds;
+            const validDIds = dIds.filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id));
+
+            if (validDIds.length > 0) {
+                departmentMatch["courseInfo.department"] = { $in: validDIds };
+            }
         }
 
         const reportData = await Payment.aggregate([
@@ -239,6 +246,15 @@ export const getTransactionReport = async (req, res) => {
                 }
             },
             { $unwind: "$courseInfo" },
+            {
+                $lookup: {
+                    from: "departments",
+                    localField: "courseInfo.department",
+                    foreignField: "_id",
+                    as: "departmentDetails"
+                }
+            },
+            { $unwind: { path: "$departmentDetails", preserveNullAndEmptyArrays: true } },
             { $match: departmentMatch },
             { $sort: { paidDate: -1 } },
             {
@@ -253,6 +269,8 @@ export const getTransactionReport = async (req, res) => {
                     studentName: { $arrayElemAt: ["$studentInfo.studentsDetails.studentName", 0] },
                     centre: "$admissionInfo.centre",
                     course: "$courseInfo.courseName",
+                    department: "$departmentDetails.departmentName",
+                    session: "$admissionInfo.academicSession",
                     admissionNumber: "$admissionInfo.admissionNumber",
                     receivedDate: "$receivedDate",
                     receiptNo: "$billId",
@@ -267,16 +285,16 @@ export const getTransactionReport = async (req, res) => {
         const now = new Date();
         const currentYear = now.getFullYear();
         const previousYear = currentYear - 1;
-        
+
         const startCY = new Date(currentYear, 0, 1);
         const endCY = new Date(currentYear, 11, 31, 23, 59, 59, 999);
-        
+
         const startPY = new Date(previousYear, 0, 1);
         const endPY = new Date(previousYear, 11, 31, 23, 59, 59, 999);
-        
+
         const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-        
+
         const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 

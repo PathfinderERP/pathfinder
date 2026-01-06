@@ -54,6 +54,7 @@ const LeadManagementContent = () => {
     const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
     const [telecallers, setTelecallers] = useState([]);
+    const [allowedCentres, setAllowedCentres] = useState([]);
 
     useEffect(() => {
         const storedUser = localStorage.getItem("user");
@@ -64,8 +65,48 @@ const LeadManagementContent = () => {
             setCanEdit(hasPermission(parsedUser, 'leadManagement', 'leads', 'edit'));
             setCanDelete(hasPermission(parsedUser, 'leadManagement', 'leads', 'delete'));
         }
+        fetchAllowedCentres();
         fetchFilterData();
     }, []);
+
+    const fetchAllowedCentres = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const apiUrl = import.meta.env.VITE_API_URL;
+
+            // Fetch current user data to get latest centre assignments
+            const userResponse = await fetch(`${apiUrl}/profile/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (!userResponse.ok) {
+                console.error("Failed to fetch user profile");
+                return;
+            }
+
+            const responseData = await userResponse.json();
+            const currentUser = responseData.user;
+
+            console.log("Lead Management - Current user:", currentUser);
+
+            // If superAdmin, fetch all centres
+            if (currentUser.role === 'superAdmin') {
+                const response = await fetch(`${apiUrl}/centre`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const centres = await response.json();
+                console.log("Lead Management - SuperAdmin, all centres:", centres);
+                setAllowedCentres(centres);
+            } else {
+                // For non-superAdmin, use populated centres from profile
+                const userCentres = currentUser.centres || [];
+                console.log("Lead Management - User centres from profile:", userCentres);
+                setAllowedCentres(userCentres);
+            }
+        } catch (error) {
+            console.error("Error fetching allowed centres:", error);
+        }
+    };
 
     useEffect(() => {
         // Debounce search to avoid too many requests
@@ -86,12 +127,7 @@ const LeadManagementContent = () => {
             const sourceData = await sourceResponse.json();
             if (sourceResponse.ok) setSources(sourceData.sources || []);
 
-            // Fetch centres
-            const centreResponse = await fetch(`${import.meta.env.VITE_API_URL}/centre`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const centreData = await centreResponse.json();
-            if (centreResponse.ok) setCentres(Array.isArray(centreData) ? centreData : []);
+            // Note: Centres are now fetched in fetchAllowedCentres() based on user permissions
 
             // Fetch courses
             const courseResponse = await fetch(`${import.meta.env.VITE_API_URL}/course`, {
@@ -361,7 +397,7 @@ const LeadManagementContent = () => {
                             className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white text-sm"
                         >
                             <option value="">All Centres</option>
-                            {centres.map(centre => (
+                            {allowedCentres.map(centre => (
                                 <option key={centre._id} value={centre._id}>{centre.centreName}</option>
                             ))}
                         </select>
@@ -528,131 +564,145 @@ const LeadManagementContent = () => {
             </div>
 
             {/* Modals */}
-            {showAddModal && (
-                <AddLeadModal
-                    onClose={() => setShowAddModal(false)}
-                    onSuccess={() => {
-                        setShowAddModal(false);
-                        fetchLeads();
-                    }}
-                />
-            )}
+            {
+                showAddModal && (
+                    <AddLeadModal
+                        onClose={() => setShowAddModal(false)}
+                        onSuccess={() => {
+                            setShowAddModal(false);
+                            fetchLeads();
+                        }}
+                    />
+                )
+            }
 
-            {showEditModal && selectedLead && (
-                <EditLeadModal
-                    lead={selectedLead}
-                    onClose={() => {
-                        setShowEditModal(false);
-                        setSelectedLead(null);
-                    }}
-                    onSuccess={() => {
-                        setShowEditModal(false);
-                        setSelectedLead(null);
-                        fetchLeads();
-                    }}
-                />
-            )}
+            {
+                showEditModal && selectedLead && (
+                    <EditLeadModal
+                        lead={selectedLead}
+                        onClose={() => {
+                            setShowEditModal(false);
+                            setSelectedLead(null);
+                        }}
+                        onSuccess={() => {
+                            setShowEditModal(false);
+                            setSelectedLead(null);
+                            fetchLeads();
+                        }}
+                    />
+                )
+            }
 
-            {showBulkModal && (
-                <BulkLeadModal
-                    onClose={() => setShowBulkModal(false)}
-                    onSuccess={() => {
-                        setShowBulkModal(false);
-                        fetchLeads();
-                    }}
-                />
-            )}
+            {
+                showBulkModal && (
+                    <BulkLeadModal
+                        onClose={() => setShowBulkModal(false)}
+                        onSuccess={() => {
+                            setShowBulkModal(false);
+                            fetchLeads();
+                        }}
+                    />
+                )
+            }
 
-            {showDetailModal && selectedDetailLead && (
-                <LeadDetailsModal
-                    lead={selectedDetailLead}
-                    canEdit={canEdit}
-                    canDelete={canDelete}
-                    onClose={() => {
-                        setShowDetailModal(false);
-                        setSelectedDetailLead(null);
-                    }}
-                    onEdit={(lead) => {
-                        setShowDetailModal(false);
-                        handleEdit(lead);
-                    }}
-                    onDelete={(id) => {
-                        handleDelete(id);
-                        // Close modal if deleted, though handleDelete usually refreshes list. 
-                        // If delete successful, we might need to close modal.
-                        // Assuming fetchLeads handles the refresh, we should close modal to avoid showing stale data.
-                        setShowDetailModal(false);
-                        setSelectedDetailLead(null);
-                    }}
-                    onFollowUp={(lead) => {
-                        setShowDetailModal(false);
-                        setSelectedLead(lead);
-                        setShowFollowUpModal(true);
-                    }}
-                    onCounseling={(lead) => {
-                        handleCounseling(lead);
-                    }}
-                    onShowHistory={(lead) => {
-                        // Keep details open? Or open history on top?
-                        // User said "show pop up... entire screen".
-                        // I'll show history modal.
-                        // I might want to keep detail modal open underneath if history is an overlay, 
-                        // but usually better to switch context or simple overlay.
-                        // Implemeting as separate modal state.
-                        // Let's close detail modal to focus on history or keep it open?
-                        // If "entire screen", it will cover everything anyway.
-                        // I will NOT close detail modal so when they close history they return to details?
-                        // Actually, simplified ux: close details, show history.
-                        // But user might want to go back.
-                        // I'll keep detail modal state as is (open) and render history on top (z-index higher).
-                        // wait, if I don't close it, it's still there.
-                        // If I render HistoryModal conditionally, I need state.
-                        setSelectedDetailLead(lead);
-                        setShowHistoryModal(true);
-                    }}
-                />
-            )}
+            {
+                showDetailModal && selectedDetailLead && (
+                    <LeadDetailsModal
+                        lead={selectedDetailLead}
+                        canEdit={canEdit}
+                        canDelete={canDelete}
+                        onClose={() => {
+                            setShowDetailModal(false);
+                            setSelectedDetailLead(null);
+                        }}
+                        onEdit={(lead) => {
+                            setShowDetailModal(false);
+                            handleEdit(lead);
+                        }}
+                        onDelete={(id) => {
+                            handleDelete(id);
+                            // Close modal if deleted, though handleDelete usually refreshes list. 
+                            // If delete successful, we might need to close modal.
+                            // Assuming fetchLeads handles the refresh, we should close modal to avoid showing stale data.
+                            setShowDetailModal(false);
+                            setSelectedDetailLead(null);
+                        }}
+                        onFollowUp={(lead) => {
+                            setShowDetailModal(false);
+                            setSelectedLead(lead);
+                            setShowFollowUpModal(true);
+                        }}
+                        onCounseling={(lead) => {
+                            handleCounseling(lead);
+                        }}
+                        onShowHistory={(lead) => {
+                            // Keep details open? Or open history on top?
+                            // User said "show pop up... entire screen".
+                            // I'll show history modal.
+                            // I might want to keep detail modal open underneath if history is an overlay, 
+                            // but usually better to switch context or simple overlay.
+                            // Implemeting as separate modal state.
+                            // Let's close detail modal to focus on history or keep it open?
+                            // If "entire screen", it will cover everything anyway.
+                            // I will NOT close detail modal so when they close history they return to details?
+                            // Actually, simplified ux: close details, show history.
+                            // But user might want to go back.
+                            // I'll keep detail modal state as is (open) and render history on top (z-index higher).
+                            // wait, if I don't close it, it's still there.
+                            // If I render HistoryModal conditionally, I need state.
+                            setSelectedDetailLead(lead);
+                            setShowHistoryModal(true);
+                        }}
+                    />
+                )
+            }
 
-            {showFollowUpModal && selectedLead && (
-                <AddFollowUpModal
-                    lead={selectedLead}
-                    onClose={() => {
-                        setShowFollowUpModal(false);
-                        setSelectedLead(null);
-                    }}
-                    onSuccess={() => {
-                        setShowFollowUpModal(false);
-                        setSelectedLead(null);
-                        fetchLeads();
-                    }}
-                />
-            )}
+            {
+                showFollowUpModal && selectedLead && (
+                    <AddFollowUpModal
+                        lead={selectedLead}
+                        onClose={() => {
+                            setShowFollowUpModal(false);
+                            setSelectedLead(null);
+                        }}
+                        onSuccess={() => {
+                            setShowFollowUpModal(false);
+                            setSelectedLead(null);
+                            fetchLeads();
+                        }}
+                    />
+                )
+            }
 
-            {showHistoryModal && selectedDetailLead && (
-                <FollowUpHistoryModal
-                    lead={selectedDetailLead}
-                    onClose={() => setShowHistoryModal(false)}
-                />
-            )}
+            {
+                showHistoryModal && selectedDetailLead && (
+                    <FollowUpHistoryModal
+                        lead={selectedDetailLead}
+                        onClose={() => setShowHistoryModal(false)}
+                    />
+                )
+            }
 
-            {showFollowUpListModal && (
-                <FollowUpListModal
-                    onClose={() => setShowFollowUpListModal(false)}
-                    onShowHistory={(lead) => {
-                        // User might want to see detailed history from the list
-                        // We can reuse history modal here.
-                        // Assuming we want to show history on top of list or instead of list?
-                        // User said "button which will be all follow up, after licking on it all the follow up details will be opne"
-                        // I implemented that button inside the ListModal rows.
-                        // So I need to handle opening HistoryModal.
-                        // I'll open history modal on top of list modal (z-index should handle it if history is higher).
-                        // FollowUpHistoryModal z-index is 70, ListModal is 60. So it works.
-                        setSelectedDetailLead(lead);
-                        setShowHistoryModal(true);
-                    }}
-                />
-            )}
-        </div>
+            {
+                showFollowUpListModal && (
+                    <FollowUpListModal
+                        onClose={() => setShowFollowUpListModal(false)}
+                        onShowHistory={(lead) => {
+                            // User might want to see detailed history from the list
+                            // We can reuse history modal here.
+                            // Assuming we want to show history on top of list or instead of list?
+                            // User said "button which will be all follow up, after licking on it all the follow up details will be opne"
+                            // I implemented that button inside the ListModal rows.
+                            // So I need to handle opening HistoryModal.
+                            // I'll open history modal on top of list modal (z-index should handle it if history is higher).
+                            // FollowUpHistoryModal z-index is 70, ListModal is 60. So it works.
+                            setSelectedDetailLead(lead);
+                            setShowHistoryModal(true);
+                        }}
+                    />
+                )
+            }
+        </div >
     );
 };
 

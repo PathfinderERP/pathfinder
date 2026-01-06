@@ -5,14 +5,11 @@ import axios from 'axios';
 import { hasPermission } from '../../config/permissions';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import { FaSync, FaPlus, FaTimes, FaSearch, FaFileExcel, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaSync, FaSearch, FaFileExcel, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
 const PettyCashCentre = () => {
     const [centres, setCentres] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [showDepositModal, setShowDepositModal] = useState(false);
-    const [selectedCentre, setSelectedCentre] = useState(null);
-    const [depositAmount, setDepositAmount] = useState("");
 
     // Filters & Pagination
     const [searchTerm, setSearchTerm] = useState("");
@@ -50,24 +47,6 @@ const PettyCashCentre = () => {
         }
     };
 
-    const handleDeposit = async (e) => {
-        e.preventDefault();
-        try {
-            const token = localStorage.getItem("token");
-            await axios.post(`${import.meta.env.VITE_API_URL}/finance/petty-cash/deposit`, {
-                centreId: selectedCentre._id,
-                amount: depositAmount
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            toast.success("Deposit added successfully");
-            setShowDepositModal(false);
-            setDepositAmount("");
-            fetchCentres();
-        } catch (error) {
-            toast.error("Deposit failed");
-        }
-    };
 
     const exportToExcel = () => {
         if (filteredCentres.length === 0) {
@@ -175,14 +154,13 @@ const PettyCashCentre = () => {
                                     <th className="p-4">PETTY CASH DEPOSIT</th>
                                     <th className="p-4">PETTY CASH EXPENDITURE</th>
                                     <th className="p-4">PETTY CASH REMAINING</th>
-                                    {canCreate && <th className="p-4 text-center">ACTIONS</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-800">
                                 {loading ? (
-                                    <tr><td colSpan="8" className="p-10 text-center text-gray-500">Loading centres...</td></tr>
+                                    <tr><td colSpan="7" className="p-10 text-center text-gray-500">Loading centres...</td></tr>
                                 ) : paginatedCentres.length === 0 ? (
-                                    <tr><td colSpan="8" className="p-10 text-center text-gray-500">No centres found matching your search.</td></tr>
+                                    <tr><td colSpan="7" className="p-10 text-center text-gray-500">No centres found matching your search.</td></tr>
                                 ) : (
                                     paginatedCentres.map((item) => (
                                         <tr key={item._id} className="hover:bg-white/5 transition-colors">
@@ -193,17 +171,6 @@ const PettyCashCentre = () => {
                                             <td className="p-4 text-green-400 font-bold">₹ {item.totalDeposit.toLocaleString()}</td>
                                             <td className="p-4 text-red-400 font-bold">₹ {item.totalExpenditure.toLocaleString()}</td>
                                             <td className="p-4 text-cyan-400 font-bold bg-cyan-400/5">₹ {item.remainingBalance.toLocaleString()}</td>
-                                            {canCreate && (
-                                                <td className="p-4 text-center">
-                                                    <button
-                                                        onClick={() => { setSelectedCentre(item.centre); setShowDepositModal(true); }}
-                                                        className="bg-green-600 hover:bg-green-500 px-3 py-1.5 rounded-lg text-xs font-black uppercase transition-all active:scale-95"
-                                                        title="Add Deposit"
-                                                    >
-                                                        Add Cash
-                                                    </button>
-                                                </td>
-                                            )}
                                         </tr>
                                     ))
                                 )}
@@ -259,48 +226,6 @@ const PettyCashCentre = () => {
                     </div>
                 )}
 
-                {showDepositModal && (
-                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                        <div className="bg-[#1a1f24] w-full max-w-md rounded-xl border border-gray-700 shadow-2xl p-6">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-xl font-bold">Add Petty Cash Deposit</h3>
-                                <button onClick={() => setShowDepositModal(false)} className="text-gray-400 hover:text-white"><FaTimes /></button>
-                            </div>
-                            <form onSubmit={handleDeposit}>
-                                <div className="mb-4">
-                                    <label className="block text-sm text-gray-400 mb-2">Centre</label>
-                                    <div className="bg-gray-800 p-3 rounded-lg border border-gray-700">{selectedCentre?.centreName}</div>
-                                </div>
-                                <div className="mb-6">
-                                    <label className="block text-sm text-gray-400 mb-2">Amount (Rs.)</label>
-                                    <input
-                                        type="number"
-                                        value={depositAmount}
-                                        onChange={(e) => setDepositAmount(e.target.value)}
-                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-green-500"
-                                        placeholder="Enter amount"
-                                        required
-                                    />
-                                </div>
-                                <div className="flex gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowDepositModal(false)}
-                                        className="flex-1 bg-gray-700 hover:bg-gray-600 py-3 rounded-lg"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="flex-1 bg-green-600 hover:bg-green-500 py-3 rounded-lg font-bold"
-                                    >
-                                        Deposit
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
             </div>
         </Layout>
     );

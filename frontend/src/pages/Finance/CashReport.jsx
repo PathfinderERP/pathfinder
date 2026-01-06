@@ -38,6 +38,8 @@ const CashReport = () => {
         referenceNumber: "",
         startDate: "",
         endDate: "",
+        minAmount: "",
+        maxAmount: "",
     });
 
     useEffect(() => {
@@ -87,6 +89,8 @@ const CashReport = () => {
             referenceNumber: "",
             startDate: "",
             endDate: "",
+            minAmount: "",
+            maxAmount: "",
         });
         setCurrentPage(1); // Reset pagination on filter reset
     };
@@ -151,7 +155,9 @@ const CashReport = () => {
     }).filter(item => {
         const matchesName = filters.centreName.length === 0 || filters.centreName.includes(item.centreName);
         const matchesAccount = item.activeAccountNumber.toLowerCase().includes(filters.accountNumber.toLowerCase());
-        return matchesName && matchesAccount;
+        const matchesMinAmount = !filters.minAmount || item.cashLeft >= parseFloat(filters.minAmount);
+        const matchesMaxAmount = !filters.maxAmount || item.cashLeft <= parseFloat(filters.maxAmount);
+        return matchesName && matchesAccount && matchesMinAmount && matchesMaxAmount;
     });
 
     // Pagination Logic
@@ -342,8 +348,8 @@ const CashReport = () => {
                         </div>
                     </div>
 
-                    <div className="flex flex-col md:flex-row gap-4 items-center">
-                        <div className="flex-1 grid grid-cols-2 gap-4 w-full">
+                    <div className="flex flex-col lg:flex-row gap-4 items-center">
+                        <div className="flex-[2] grid grid-cols-2 lg:grid-cols-4 gap-4 w-full">
                             <div className="relative">
                                 <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                 <input
@@ -362,12 +368,30 @@ const CashReport = () => {
                                     onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
                                 />
                             </div>
+                            <div className="relative">
+                                <input
+                                    type="number"
+                                    placeholder="Min Cash Left"
+                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-sm"
+                                    value={filters.minAmount}
+                                    onChange={(e) => setFilters({ ...filters, minAmount: e.target.value })}
+                                />
+                            </div>
+                            <div className="relative">
+                                <input
+                                    type="number"
+                                    placeholder="Max Cash Left"
+                                    className="w-full bg-gray-800/50 border border-gray-800 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-sm"
+                                    value={filters.maxAmount}
+                                    onChange={(e) => setFilters({ ...filters, maxAmount: e.target.value })}
+                                />
+                            </div>
                         </div>
                         <button
                             onClick={resetFilters}
-                            className="w-full md:w-auto px-8 py-3 bg-gray-800 border border-gray-700 rounded-xl text-gray-400 hover:text-white transition-all shadow-lg flex items-center justify-center gap-2 font-bold"
+                            className="w-full lg:w-auto px-8 py-3 bg-gray-800 border border-gray-700 rounded-xl text-gray-400 hover:text-white transition-all shadow-lg flex items-center justify-center gap-2 font-bold"
                         >
-                            <FaTimes /> Reset Filters
+                            <FaTimes /> Reset
                         </button>
                     </div>
                 </div>

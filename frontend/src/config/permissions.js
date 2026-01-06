@@ -101,10 +101,26 @@ export const PERMISSION_MODULES = {
                 label: "Fee Management",
                 operations: ["create", "edit", "delete"]
             },
-            billGeneration: {
-                label: "Bill Generation",
+            installmentPayment: {
+                label: "Installment Payment",
+                operations: ["create"]
+            },
+            feeDueList: {
+                label: "Fee Due List",
                 operations: ["create", "edit", "delete"]
             },
+            chequeManagement: {
+                label: "Cheque Management",
+                operations: ["create", "edit", "delete"]
+            },
+            cancelCheque: {
+                label: "Cancel Cheque Payment",
+                operations: ["create", "edit", "delete"]
+            },
+            // billGeneration: {
+            //     label: "Bill Generation",
+            //     operations: ["create", "edit", "delete"]
+            // },
             payments: {
                 label: "Payments",
                 operations: ["create", "edit", "delete"]
@@ -123,6 +139,46 @@ export const PERMISSION_MODULES = {
             },
             cashReceive: {
                 label: "Cash Received",
+                operations: ["create", "edit", "delete"]
+            },
+            financialAnalysis: {
+                label: "Financial Analysis",
+                operations: ["create", "edit", "delete"]
+            },
+            centerTagging: {
+                label: "Center Tagging",
+                operations: ["create", "edit", "delete"]
+            },
+            budget: {
+                label: "Budget",
+                operations: ["create", "edit", "delete"]
+            },
+            cashCentre: {
+                label: "Cash Centre",
+                operations: ["create", "edit", "delete"]
+            },
+            partTimeTeachers: {
+                label: "Part Time Teachers",
+                operations: ["create", "edit", "delete"]
+            },
+            financePerson: {
+                label: "Finance Person",
+                operations: ["create", "edit", "delete"]
+            },
+            vendorManagement: {
+                label: "Vendor Management",
+                operations: ["create", "edit", "delete"]
+            },
+            payEmployee: {
+                label: "Pay Employee",
+                operations: ["create", "edit", "delete"]
+            },
+            paymentAnalysis: {
+                label: "Payment Analysis",
+                operations: ["create", "edit", "delete"]
+            },
+            budgetAnalysis: {
+                label: "Budget Analysis",
                 operations: ["create", "edit", "delete"]
             }
         }

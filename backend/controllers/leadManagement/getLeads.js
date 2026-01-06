@@ -1,4 +1,5 @@
 import LeadManagement from "../../models/LeadManagement.js";
+import CentreSchema from "../../models/Master_data/Centre.js";
 
 export const getLeads = async (req, res) => {
     try {
@@ -12,13 +13,52 @@ export const getLeads = async (req, res) => {
 
         if (leadType) query.leadType = leadType;
         if (source) query.source = source;
-        if (centre) query.centre = centre;
         if (course) query.course = course;
         if (leadResponsibility) query.leadResponsibility = leadResponsibility;
 
-        // Restriction for Telecallers: Can only see their own assigned leads
-        if (req.user && req.user.role === 'telecaller') {
-            query.leadResponsibility = req.user.name;
+        // Centre-based access control
+        if (req.user.role !== 'superAdmin') {
+            // Telecallers: Can only see their own assigned leads
+            if (req.user.role === 'telecaller') {
+                query.leadResponsibility = req.user.name;
+            }
+
+            // For all non-superAdmin users: Filter by assigned centres
+            const userCentreIds = req.user.centres || [];
+
+            if (userCentreIds.length === 0) {
+                // User has no centres assigned, return empty
+                return res.status(200).json({
+                    message: "Leads fetched successfully",
+                    leads: [],
+                    pagination: {
+                        currentPage: page,
+                        totalPages: 0,
+                        totalLeads: 0,
+                        limit
+                    }
+                });
+            }
+
+            // Filter by allowed centres
+            query.centre = { $in: userCentreIds };
+
+            // If a specific centre is requested via query param, validate it
+            if (centre) {
+                if (userCentreIds.includes(centre)) {
+                    query.centre = centre;
+                } else {
+                    // User trying to access unauthorized centre
+                    return res.status(403).json({
+                        message: "Access denied. You don't have permission to view this centre's leads."
+                    });
+                }
+            }
+        } else {
+            // SuperAdmin can filter by centre if specified
+            if (centre) {
+                query.centre = centre;
+            }
         }
 
         if (search) {

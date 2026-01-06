@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
+import { hasPermission } from "../../config/permissions";
 import { FaSearch, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaCalendarAlt, FaMoneyBillWave, FaCheckCircle, FaClock, FaExclamationTriangle, FaFileInvoice, FaFilter, FaDownload, FaChevronRight } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
@@ -12,6 +13,11 @@ const InstallmentPayment = () => {
     const [financialData, setFinancialData] = useState(null);
     const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
 
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    // Check both permissions: Finance (for visibility) and Admissions (required by backend)
+    // This ensures the button shows for updated Finance users, while backend errors are handled in the API call
+    const canCreatePayment = hasPermission(user, 'financeFees', 'installmentPayment', 'create') || hasPermission(user, 'admissions', 'enrolledStudents', 'edit');
+
     // Admissions List & Filters
     const [admissionsList, setAdmissionsList] = useState([]);
     const [filters, setFilters] = useState({
@@ -20,6 +26,8 @@ const InstallmentPayment = () => {
         department: "",
         startDate: "",
         endDate: "",
+        minRemaining: "",
+        maxRemaining: "",
         searchTerm: ""
     });
     const [metadata, setMetadata] = useState({
@@ -98,6 +106,8 @@ const InstallmentPayment = () => {
             department: "",
             startDate: "",
             endDate: "",
+            minRemaining: "",
+            maxRemaining: "",
             searchTerm: ""
         });
         fetchAdmissions();
@@ -134,24 +144,73 @@ const InstallmentPayment = () => {
             return;
         }
 
-        const dataToExport = admissionsList.map(adm => ({
-            "Admission Code": adm.admissionNumber,
-            "Student Name": adm.studentName,
-            "Email": adm.email,
-            "Mobile": adm.mobile,
-            "Course": adm.course,
-            "Department": adm.department,
-            "Centre": adm.centre,
-            "Admission Date": new Date(adm.admissionDate).toLocaleDateString(),
-            "Total Fees (₹)": adm.totalFees,
-            "Total Paid (₹)": adm.totalPaid,
-            "Remaining (₹)": adm.remainingAmount,
-            "Status": adm.paymentStatus
-        }));
+        const dataToExport = [];
+
+        admissionsList.forEach(adm => {
+            if (!adm.paymentBreakdown || adm.paymentBreakdown.length === 0) {
+                // If no installments, still export the student info
+                dataToExport.push({
+                    "Admission Code": adm.admissionNumber,
+                    "Student Name": adm.studentName,
+                    "Email": adm.email,
+                    "Mobile": adm.mobile,
+                    "Course": adm.course,
+                    "Department": adm.department,
+                    "Centre": adm.centre,
+                    "Admission Date": new Date(adm.admissionDate).toLocaleDateString(),
+                    "Total Fees (₹)": adm.totalFees,
+                    "Total Paid (₹)": adm.totalPaid,
+                    "Remaining (₹)": adm.remainingAmount,
+                    "Overall Status": adm.paymentStatus,
+                    "Installment #": "N/A",
+                    "Due Date": "N/A",
+                    "Amount Due": "N/A",
+                    "Amount Paid": "N/A",
+                    "Inst. Status": "N/A"
+                });
+            } else {
+                adm.paymentBreakdown.forEach((inst, idx) => {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const dueDate = new Date(inst.dueDate);
+                    dueDate.setHours(0, 0, 0, 0);
+                    const isOverdue = (inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && dueDate < today);
+                    const dueStatus = inst.status === "PAID" ? "PAID" : (isOverdue ? "OVERDUE" : "UPCOMING");
+
+                    dataToExport.push({
+                        "Admission Code": idx === 0 ? adm.admissionNumber : "", // Only show for first installment row
+                        "Student Name": idx === 0 ? adm.studentName : "",
+                        "Email": idx === 0 ? adm.email : "",
+                        "Mobile": idx === 0 ? adm.mobile : "",
+                        "Course": idx === 0 ? adm.course : "",
+                        "Department": idx === 0 ? adm.department : "",
+                        "Centre": idx === 0 ? adm.centre : "",
+                        "Admission Date": idx === 0 ? new Date(adm.admissionDate).toLocaleDateString() : "",
+                        "Total Fees (₹)": idx === 0 ? adm.totalFees : "",
+                        "Total Paid (₹)": idx === 0 ? adm.totalPaid : "",
+                        "Remaining (₹)": idx === 0 ? adm.remainingAmount : "",
+                        "Overall Status": idx === 0 ? adm.paymentStatus : "",
+                        "Installment #": `Installment ${inst.installmentNumber}`,
+                        "Due Date": new Date(inst.dueDate).toLocaleDateString('en-GB'),
+                        "Amount Due": inst.amount,
+                        "Amount Paid": inst.paidAmount || 0,
+                        "Inst. Status": inst.status,
+                        "Due Status": dueStatus
+                    });
+                });
+            }
+            // Add a separator row for better readability
+            dataToExport.push({
+                "Admission Code": "---", "Student Name": "---", "Email": "---", "Mobile": "---", "Course": "---",
+                "Department": "---", "Centre": "---", "Admission Date": "---", "Total Fees (₹)": "---",
+                "Total Paid (₹)": "---", "Remaining (₹)": "---", "Overall Status": "---",
+                "Installment #": "---", "Due Date": "---", "Amount Due": "---", "Amount Paid": "---", "Inst. Status": "---", "Due Status": "---"
+            });
+        });
 
         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Financial Summary");
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Detailed Financial Report");
 
         // Auto-size columns
         const columnWidths = Object.keys(dataToExport[0]).map(key => ({
@@ -161,8 +220,8 @@ const InstallmentPayment = () => {
 
         const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
         const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" });
-        saveAs(data, `Student_Financial_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
-        toast.success("Report exported successfully!");
+        saveAs(data, `Detailed_Student_Financial_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success("Detailed report exported successfully!");
     };
 
     const getStatusBadge = (status) => {
@@ -183,6 +242,34 @@ const InstallmentPayment = () => {
             default:
                 return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-gray-500 bg-gray-500/10 border-gray-500/20">{status}</span>;
         }
+    };
+
+    const getDueStatusBadge = (adm) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const overdueInstallments = adm.paymentBreakdown?.filter(inst =>
+            inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && new Date(inst.dueDate) < today
+        );
+
+        if (overdueInstallments?.length > 0) {
+            return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-red-500 bg-red-500/10 border-red-500/20 inline-flex items-center gap-1"><FaExclamationTriangle /> {overdueInstallments.length} OVERDUE</span>;
+        }
+
+        const nextDue = adm.paymentBreakdown?.filter(inst =>
+            inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && new Date(inst.dueDate) >= today
+        ).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0];
+
+        if (nextDue) {
+            return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-cyan-500 bg-cyan-500/10 border-cyan-500/20 inline-flex items-center gap-1"><FaClock /> DUE {new Date(nextDue.dueDate).toLocaleDateString('en-GB')}</span>;
+        }
+
+        const isCompleted = adm.paymentStatus === "COMPLETED" || (adm.remainingAmount <= 0);
+        if (isCompleted) {
+            return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-emerald-500 bg-emerald-500/10 border-emerald-500/20 inline-flex items-center gap-1"><FaCheckCircle /> NO DUES</span>;
+        }
+
+        return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-gray-500 bg-gray-500/10 border-gray-500/20">NO UPCOMING</span>;
     };
 
     // Payment Modal State
@@ -256,7 +343,11 @@ const InstallmentPayment = () => {
                 fetchAdmissions();
             } else {
                 const err = await response.json();
-                toast.error(err.message || "Failed to record payment");
+                toast.error(
+                    err.message.includes("Access denied")
+                        ? "Permission Denied. You need 'Installment Payment' (Finance) or 'Enrolled Students' (Admissions) permission."
+                        : err.message || "Failed to record payment"
+                );
             }
         } catch (error) {
             console.error("Payment Error:", error);
@@ -297,7 +388,7 @@ const InstallmentPayment = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 items-end">
                                 {/* Date Range */}
                                 <div className="lg:col-span-1">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Admission From</label>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
                                     <input
                                         type="date"
                                         name="startDate"
@@ -307,7 +398,7 @@ const InstallmentPayment = () => {
                                     />
                                 </div>
                                 <div className="lg:col-span-1">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Admission To</label>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment To</label>
                                     <input
                                         type="date"
                                         name="endDate"
@@ -383,6 +474,43 @@ const InstallmentPayment = () => {
                                 </div>
                             </div>
 
+                            {/* Additional Filters: Amount Range */}
+                            <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-6 items-end border-t border-gray-800/50 pt-6">
+                                <div className="md:col-span-2 flex items-center gap-4 bg-black/20 p-4 rounded-2xl border border-gray-800/50">
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Min Remaining Fee</label>
+                                        <input
+                                            type="number"
+                                            name="minRemaining"
+                                            placeholder="₹ Min (e.g. 5000)"
+                                            value={filters.minRemaining}
+                                            onChange={handleFilterChange}
+                                            className="w-full bg-black/40 border border-gray-800 rounded-xl py-2 px-4 text-white font-bold text-xs outline-none focus:border-cyan-500/50 transition-all"
+                                        />
+                                    </div>
+                                    <div className="text-gray-700 mt-6">-</div>
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Max Remaining Fee</label>
+                                        <input
+                                            type="number"
+                                            name="maxRemaining"
+                                            placeholder="₹ Max (e.g. 50000)"
+                                            value={filters.maxRemaining}
+                                            onChange={handleFilterChange}
+                                            className="w-full bg-black/40 border border-gray-800 rounded-xl py-2 px-4 text-white font-bold text-xs outline-none focus:border-cyan-500/50 transition-all"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="md:col-span-1">
+                                    <button
+                                        onClick={resetFilters}
+                                        className="w-full py-4 bg-gray-800 text-gray-400 font-black uppercase text-[10px] tracking-[0.2em] rounded-2xl hover:bg-gray-700 hover:text-white transition-all border border-gray-700 flex items-center justify-center gap-2"
+                                    >
+                                        <FaEraser /> Reset All Filters
+                                    </button>
+                                </div>
+                            </div>
+
                             {/* Text Search */}
                             <div className="mt-8 relative group">
                                 <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-cyan-500 transition-colors" />
@@ -409,14 +537,15 @@ const InstallmentPayment = () => {
                                             <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Course / Dept</th>
                                             <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Centre</th>
                                             <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Financials</th>
-                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Payment Status</th>
+                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Due Status</th>
                                             <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-800/50">
                                         {loading ? (
                                             <tr>
-                                                <td colSpan="7" className="p-20 text-center">
+                                                <td colSpan="8" className="p-20 text-center">
                                                     <div className="flex justify-center flex-col items-center gap-4">
                                                         <div className="animate-spin h-10 w-10 border-4 border-cyan-500 border-t-transparent rounded-full shadow-[0_0_15px_rgba(6,182,212,0.5)]"></div>
                                                         <span className="text-gray-500 font-black uppercase tracking-widest text-xs animate-pulse">Loading Students...</span>
@@ -477,6 +606,9 @@ const InstallmentPayment = () => {
                                                     </td>
                                                     <td className="p-6">
                                                         {getStatusBadge(adm.paymentStatus)}
+                                                    </td>
+                                                    <td className="p-6">
+                                                        {getDueStatusBadge(adm)}
                                                     </td>
                                                     <td className="p-6 text-right">
                                                         <button className="h-10 w-10 rounded-xl bg-gray-800/50 group-hover:bg-cyan-500 group-hover:text-black text-cyan-500 flex items-center justify-center transition-all border border-gray-700 group-hover:border-cyan-400 shadow-lg shadow-black/20">
@@ -638,50 +770,68 @@ const InstallmentPayment = () => {
                                                             <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Paid</th>
                                                             <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Method</th>
                                                             <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Status</th>
+                                                            <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Due Status</th>
                                                             <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest text-right">Action</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-800/50">
-                                                        {admission.paymentBreakdown && admission.paymentBreakdown.map((installment, idx) => (
-                                                            <tr key={idx} className="hover:bg-cyan-500/[0.03] transition-colors">
-                                                                <td className="p-5 font-black text-cyan-500 text-sm italic">#{installment.installmentNumber}</td>
-                                                                <td className="p-5 text-gray-300 text-xs font-bold uppercase tracking-tighter">{new Date(installment.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                                                                <td className="p-5 text-white font-black">₹{installment.amount.toLocaleString()}</td>
-                                                                <td className="p-5 text-emerald-400 font-black">₹{installment.paidAmount?.toLocaleString() || 0}</td>
-                                                                <td className="p-5 text-gray-500 text-[10px] font-bold uppercase tracking-widest">{installment.paymentMethod || "-"}</td>
-                                                                <td className="p-5">{getStatusBadge(installment.status)}</td>
-                                                                <td className="p-5 text-right flex items-center justify-end gap-2">
-                                                                    {(installment.status === "PENDING" || installment.status === "OVERDUE") && (
-                                                                        <button
-                                                                            onClick={() => handleOpenPayModal(admission.admissionId, installment)}
-                                                                            className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 text-black font-black text-[10px] uppercase rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-cyan-500/20"
-                                                                        >
-                                                                            Pay Now
-                                                                        </button>
-                                                                    )}
-                                                                    {(installment.status === "PAID" || installment.status === "COMPLETED" || installment.status === "PENDING_CLEARANCE" || (installment.paidAmount > 0)) && (
-                                                                        <button
-                                                                            onClick={() => setBillModal({
-                                                                                show: true,
-                                                                                admission: { ...admission, _id: admission.admissionId },
-                                                                                installment: {
-                                                                                    installmentNumber: installment.installmentNumber,
-                                                                                    amount: installment.amount,
-                                                                                    paidAmount: installment.paidAmount,
-                                                                                    paidDate: installment.paidDate || new Date(),
-                                                                                    paymentMethod: installment.paymentMethod,
-                                                                                    status: installment.status
-                                                                                }
-                                                                            })}
-                                                                            className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-lg border border-emerald-500/20 transition-all group/btn"
-                                                                            title="View Bill"
-                                                                        >
-                                                                            <FaFileInvoice className="group-hover/btn:scale-110 transition-transform" />
-                                                                        </button>
-                                                                    )}
-                                                                </td>
-                                                            </tr>
-                                                        ))}
+                                                        {admission.paymentBreakdown && admission.paymentBreakdown.map((installment, idx) => {
+                                                            const today = new Date();
+                                                            today.setHours(0, 0, 0, 0);
+                                                            const dueDate = new Date(installment.dueDate);
+                                                            dueDate.setHours(0, 0, 0, 0);
+                                                            const isOverdue = (installment.status !== "PAID" && installment.status !== "PENDING_CLEARANCE" && dueDate < today);
+
+                                                            return (
+                                                                <tr key={idx} className="hover:bg-cyan-500/[0.03] transition-colors">
+                                                                    <td className="p-5 font-black text-cyan-500 text-sm italic">#{installment.installmentNumber}</td>
+                                                                    <td className="p-5 text-gray-300 text-xs font-bold uppercase tracking-tighter">{new Date(installment.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                                                                    <td className="p-5 text-white font-black">₹{installment.amount.toLocaleString()}</td>
+                                                                    <td className="p-5 text-emerald-400 font-black">₹{installment.paidAmount?.toLocaleString() || 0}</td>
+                                                                    <td className="p-5 text-gray-500 text-[10px] font-bold uppercase tracking-widest">{installment.paymentMethod || "-"}</td>
+                                                                    <td className="p-5">{getStatusBadge(installment.status)}</td>
+                                                                    <td className="p-5">
+                                                                        {installment.status === "PAID" ? (
+                                                                            <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-emerald-500 bg-emerald-500/10 border-emerald-500/20">PAID</span>
+                                                                        ) : isOverdue ? (
+                                                                            <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-red-500 bg-red-500/10 border-red-500/20">OVERDUE</span>
+                                                                        ) : (
+                                                                            <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-cyan-500 bg-cyan-500/10 border-cyan-500/20">UPCOMING</span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-5 text-right flex items-center justify-end gap-2">
+                                                                        {(installment.status === "PENDING" || installment.status === "OVERDUE") && canCreatePayment && (
+                                                                            <button
+                                                                                onClick={() => handleOpenPayModal(admission.admissionId, installment)}
+                                                                                className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 text-black font-black text-[10px] uppercase rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-cyan-500/20"
+                                                                            >
+                                                                                Pay Now
+                                                                            </button>
+                                                                        )}
+                                                                        {(installment.status === "PAID" || installment.status === "COMPLETED" || installment.status === "PENDING_CLEARANCE" || (installment.paidAmount > 0)) && (
+                                                                            <button
+                                                                                onClick={() => setBillModal({
+                                                                                    show: true,
+                                                                                    admission: { ...admission, _id: admission.admissionId },
+                                                                                    installment: {
+                                                                                        installmentNumber: installment.installmentNumber,
+                                                                                        amount: installment.amount,
+                                                                                        paidAmount: installment.paidAmount,
+                                                                                        paidDate: installment.paidDate || new Date(),
+                                                                                        paymentMethod: installment.paymentMethod,
+                                                                                        status: installment.status
+                                                                                    }
+                                                                                })}
+                                                                                className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-lg border border-emerald-500/20 transition-all group/btn"
+                                                                                title="View Bill"
+                                                                            >
+                                                                                <FaFileInvoice className="group-hover/btn:scale-110 transition-transform" />
+                                                                            </button>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
                                                     </tbody>
                                                 </table>
                                             </div>
@@ -751,7 +901,7 @@ const InstallmentPayment = () => {
                 {/* Record Payment Modal */}
                 {showPayModal && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
-                        <div className="bg-[#0d0f11] border border-gray-800 w-full max-w-lg rounded-[3rem] overflow-hidden animate-in zoom-in-95 duration-300 shadow-[0_0_100px_rgba(6,182,212,0.1)]">
+                        <div className="bg-[#0d0f11] border border-gray-800 w-full max-w-lg rounded-[3rem] overflow-hidden animate-in zoom-in-95 duration-300 shadow-[0_0_100px_rgba(6,182,212,0.1)] flex flex-col max-h-[90vh]">
                             <div className="p-10 border-b border-gray-800 bg-gradient-to-r from-cyan-500/10 via-transparent to-transparent flex justify-between items-start">
                                 <div>
                                     <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter">Record <span className="text-cyan-500">Payment</span></h2>
@@ -763,7 +913,7 @@ const InstallmentPayment = () => {
                                 </div>
                             </div>
 
-                            <div className="p-10 grid grid-cols-1 gap-6">
+                            <div className="p-10 grid grid-cols-1 gap-6 overflow-y-auto custom-scrollbar flex-1">
                                 <div>
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 block">Amount to Record (₹)</label>
                                     <input

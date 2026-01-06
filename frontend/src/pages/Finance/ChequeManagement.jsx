@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
+import { hasPermission } from "../../config/permissions";
 import { FaSearch, FaCheckCircle, FaClock, FaTimes, FaSyncAlt, FaExclamationTriangle } from "react-icons/fa";
 import { toast } from "react-toastify";
 
@@ -12,6 +13,9 @@ const ChequeManagement = () => {
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [rejectingId, setRejectingId] = useState(null);
     const [rejectReason, setRejectReason] = useState("");
+
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canManageCheques = hasPermission(user, 'financeFees', 'chequeManagement', 'edit');
 
     useEffect(() => {
         fetchCheques();
@@ -231,7 +235,7 @@ const ChequeManagement = () => {
                                         </td>
                                         <td className="p-6">{getStatusBadge(cheque.status)}</td>
                                         <td className="p-6 text-right">
-                                            {cheque.status === "PENDING_CLEARANCE" && (
+                                            {cheque.status === "PENDING_CLEARANCE" && canManageCheques && (
                                                 <div className="flex justify-end gap-2">
                                                     <button
                                                         onClick={() => handleClearCheque(cheque.paymentId)}

@@ -42,6 +42,7 @@ const EnrolledStudentsContent = () => {
         carryForward: false
     });
     const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
+    const [allowedCentres, setAllowedCentres] = useState([]);
 
     // Permission checks
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -53,8 +54,56 @@ const EnrolledStudentsContent = () => {
     const apiUrl = import.meta.env.VITE_API_URL;
 
     useEffect(() => {
+        fetchAllowedCentres();
         fetchAdmissions();
     }, []);
+
+    const fetchAllowedCentres = async () => {
+        try {
+            const token = localStorage.getItem("token");
+
+            // Fetch current user data to get latest centre assignments
+            const userResponse = await fetch(`${apiUrl}/profile/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (!userResponse.ok) {
+                console.error("Failed to fetch user profile");
+                return;
+            }
+
+            const responseData = await userResponse.json();
+            const currentUser = responseData.user; // API returns { user: {...} }
+
+            console.log("Current user data:", currentUser); // Debug log
+
+            // If superAdmin, fetch all centres
+            if (currentUser.role === 'superAdmin') {
+                const response = await fetch(`${apiUrl}/centre`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const centres = await response.json();
+                setAllowedCentres(centres.map(c => c.centreName));
+            } else {
+                // For non-superAdmin, use populated centres from profile
+                // The profile API populates centres with full objects
+                const userCentres = currentUser.centres || [];
+                console.log("User centres from profile:", userCentres); // Debug log
+
+                if (userCentres.length > 0) {
+                    // Centres are already populated with centreName
+                    const userCentreNames = userCentres.map(c => c.centreName);
+                    console.log("Allowed centre names:", userCentreNames); // Debug log
+                    setAllowedCentres(userCentreNames);
+                } else {
+                    console.log("No centres assigned to user"); // Debug log
+                    setAllowedCentres([]);
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching allowed centres:", error);
+        }
+    };
 
     const fetchAdmissions = async () => {
         try {
@@ -172,8 +221,9 @@ const EnrolledStudentsContent = () => {
         toast.info("Refreshed data and filters");
     };
 
-    // Extract unique centres for filter
-    const uniqueCentres = [...new Set(admissions.map(a => a.centre || a.student?.studentsDetails?.[0]?.centre).filter(Boolean))];
+    // Show all centres user has access to (not just centres with existing admissions)
+    // This allows users to select any of their assigned centres even if no students are enrolled yet
+    const uniqueCentres = allowedCentres;
 
     const getStatusColor = (status) => {
         switch (status) {

@@ -47,6 +47,8 @@ import installmentRoutes from "./routes/Finance/installmentRoutes.js";
 import cashRoutes from "./routes/Finance/cash.routes.js";
 import masterDataRoutes from "./routes/masterData/masterData.routes.js";
 import pettyCashRoutes from "./routes/Finance/pettyCash.routes.js";
+import centerTaggingRoutes from "./routes/Finance/centerTaggingRoutes.js";
+import budgetRoutes from "./routes/Finance/budgetRoutes.js";
 
 import path from "path";
 import { fileURLToPath } from "url";
@@ -124,6 +126,8 @@ app.use("/api/hr/posh", poshRoutes);
 app.use("/api/finance/installment", installmentRoutes);
 app.use("/api/finance/cash", cashRoutes);
 app.use("/api/finance/petty-cash", pettyCashRoutes);
+app.use("/api/finance/center-tagging", centerTaggingRoutes);
+app.use("/api/finance/budget", budgetRoutes);
 
 
 // Master Data Routes

@@ -5,7 +5,7 @@ import { getAdmissionById } from "../../controllers/Admission/getAdmissionById.j
 import { updateAdmission } from "../../controllers/Admission/updateAdmission.js";
 import { deleteAdmission } from "../../controllers/Admission/deleteAdmission.js";
 import { updatePaymentInstallment } from "../../controllers/Admission/updatePaymentInstallment.js";
-import { requireAuth, requireGranularPermission } from "../../middleware/permissionMiddleware.js";
+import { requireAuth, requireGranularPermission, requireAnyGranularPermission } from "../../middleware/permissionMiddleware.js";
 
 import { searchAdmission, transferCourse } from "../../controllers/Admission/courseTransfer.js";
 
@@ -21,6 +21,10 @@ router.post("/create", requireGranularPermission("admissions", "enrolledStudents
 router.post("/transfer", requireGranularPermission("admissions", "enrolledStudents", "edit"), transferCourse); // New Transfer Route
 router.put("/:id", requireGranularPermission("admissions", "enrolledStudents", "edit"), updateAdmission);
 router.delete("/:id", requireGranularPermission("admissions", "enrolledStudents", "delete"), deleteAdmission);
-router.put("/:admissionId/payment/:installmentNumber", requireGranularPermission("admissions", "enrolledStudents", "edit"), updatePaymentInstallment);
+router.put("/:admissionId/payment/:installmentNumber", requireAnyGranularPermission([
+    { module: "admissions", section: "enrolledStudents", action: "edit" },
+    { module: "financeFees", section: "installmentPayment", action: "create" },
+    { module: "financeFees", section: "installmentPayment", action: "edit" }
+]), updatePaymentInstallment);
 
 export default router;
