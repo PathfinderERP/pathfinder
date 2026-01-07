@@ -35,7 +35,7 @@ const getSignedReceiptUrl = async (key) => {
 
 export const initiateCashTransfer = async (req, res) => {
     try {
-        const { fromCentreId, toCentreId, amount, accountNumber, remarks, referenceNumber } = req.body;
+        const { fromCentreId, toCentreId, amount, accountNumber, remarks, referenceNumber, debitedDate } = req.body;
 
         if (!fromCentreId || !toCentreId || !amount || !accountNumber) {
             return res.status(400).json({ message: "Missing required fields" });
@@ -68,7 +68,8 @@ export const initiateCashTransfer = async (req, res) => {
             referenceNumber,
             receiptFile: receiptFileKey,
             transferredBy: req.user._id,
-            remarks
+            remarks,
+            debitedDate: debitedDate ? new Date(debitedDate) : null
         });
 
         await transfer.save();
@@ -87,17 +88,19 @@ export const initiateCashTransfer = async (req, res) => {
 
 export const getCashReceiveRequests = async (req, res) => {
     try {
-        const { centreId, serialNumber, referenceNumber, accountNumber, startDate, endDate, status } = req.query;
+        const { centreId, fromCentreId, serialNumber, referenceNumber, accountNumber, startDate, endDate, status } = req.query;
         let query = {};
 
         if (status) {
             query.status = status;
-        } else {
-            query.status = "PENDING";
         }
 
         if (centreId) {
             query.toCentre = centreId;
+        }
+
+        if (fromCentreId) {
+            query.fromCentre = fromCentreId;
         }
 
         if (serialNumber) {
@@ -171,6 +174,32 @@ export const confirmCashReceived = async (req, res) => {
     } catch (error) {
         console.error("CONFIRM_CASH_RECEIVED_ERROR:", error);
         res.status(500).json({ message: "Error confirming cash receipt", error: error.message });
+    }
+};
+
+export const rejectCashTransfer = async (req, res) => {
+    try {
+        const { transferId, reason } = req.body;
+
+        const transfer = await CashTransfer.findById(transferId);
+        if (!transfer) {
+            return res.status(404).json({ message: "Transfer request not found" });
+        }
+
+        if (transfer.status !== "PENDING") {
+            return res.status(400).json({ message: "This transfer is already processed" });
+        }
+
+        transfer.status = "REJECTED";
+        transfer.remarks = transfer.remarks ? `${transfer.remarks} | Rejected: ${reason || 'No reason provided'}` : `Rejected: ${reason || 'No reason provided'}`;
+        transfer.receivedBy = req.user._id;
+
+        await transfer.save();
+
+        res.status(200).json({ message: "Cash transfer rejected", transfer });
+    } catch (error) {
+        console.error("REJECT_CASH_TRANSFER_ERROR:", error);
+        res.status(500).json({ message: "Error rejecting transfer", error: error.message });
     }
 };
 

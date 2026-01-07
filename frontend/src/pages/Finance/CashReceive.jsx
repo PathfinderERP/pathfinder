@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
 import { hasPermission } from "../../config/permissions";
-import { FaInbox, FaExchangeAlt, FaLock, FaBuilding, FaUser, FaHistory, FaCheckCircle, FaTimes, FaSearch, FaFilter, FaHashtag, FaFileAlt } from "react-icons/fa";
+import { FaInbox, FaExchangeAlt, FaLock, FaBuilding, FaUser, FaHistory, FaCheckCircle, FaTimes, FaSearch, FaFilter, FaHashtag, FaFileAlt, FaFileExcel, FaCalendarAlt } from "react-icons/fa";
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 import axios from "axios";
 import { toast } from "react-toastify";
 
@@ -12,6 +14,8 @@ const CashReceive = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [passwordInput, setPasswordInput] = useState("");
     const [processing, setProcessing] = useState(false);
+    const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+    const [rejectReason, setRejectReason] = useState("");
     const [centres, setCentres] = useState([]);
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -21,8 +25,11 @@ const CashReceive = () => {
     const [filters, setFilters] = useState({
         serialNumber: "",
         referenceNumber: "",
-        status: "PENDING",
-        centreId: "" // Target centre filter
+        status: "",
+        centreId: "", // Target Centre
+        fromCentreId: "", // Origin Centre
+        startDate: "",
+        endDate: ""
     });
 
     useEffect(() => {
@@ -54,6 +61,9 @@ const CashReceive = () => {
             if (filters.referenceNumber) params.append("referenceNumber", filters.referenceNumber);
             if (filters.status) params.append("status", filters.status);
             if (filters.centreId) params.append("centreId", filters.centreId);
+            if (filters.fromCentreId) params.append("fromCentreId", filters.fromCentreId);
+            if (filters.startDate) params.append("startDate", filters.startDate);
+            if (filters.endDate) params.append("endDate", filters.endDate);
 
             const response = await axios.get(`${import.meta.env.VITE_API_URL}/finance/cash/receive-requests?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -99,6 +109,65 @@ const CashReceive = () => {
         }
     };
 
+    const handleRejectTransfer = async () => {
+        try {
+            setProcessing(true);
+            const token = localStorage.getItem("token");
+            await axios.post(`${import.meta.env.VITE_API_URL}/finance/cash/reject-transfer`, {
+                transferId: selectedRequest._id,
+                reason: rejectReason
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            toast.success("Cash transfer rejected and returned to sender");
+            setIsRejectModalOpen(false);
+            fetchRequests();
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Rejection failed");
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const exportToExcel = () => {
+        if (requests.length === 0) return toast.info("No data to export");
+
+        const dataToExport = requests.map(req => ({
+            "Serial #": req.serialNumber,
+            "Origin Node": req.fromCentre?.centreName,
+            "Target Node": req.toCentre?.centreName,
+            "Transferred By": req.transferredBy?.name,
+            "Amount": req.amount,
+            "Reference": req.referenceNumber || "N/A",
+            "Account": req.accountNumber,
+            "Status": req.status,
+            "Debited Date": req.debitedDate ? new Date(req.debitedDate).toLocaleDateString() : "N/A",
+            "Transfer Date": new Date(req.transferDate).toLocaleDateString(),
+            "Remarks": req.remarks || ""
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Incoming Cash");
+
+        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+        const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+        saveAs(data, `Incoming_Cash_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
+
+    const resetFilters = () => {
+        setFilters({
+            serialNumber: "",
+            referenceNumber: "",
+            status: "",
+            centreId: "",
+            fromCentreId: "",
+            startDate: "",
+            endDate: ""
+        });
+    };
+
     return (
         <Layout activePage="Cash Receive">
             <div className="p-4 md:p-6 space-y-8 animate-in fade-in duration-700">
@@ -116,20 +185,33 @@ const CashReceive = () => {
                                 value={filters.status}
                                 onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                             >
+                                <option value="">All Statuses</option>
                                 <option value="PENDING">Pending Only</option>
                                 <option value="RECEIVED">Received Only</option>
-                                <option value="">All Transfers</option>
+                                <option value="REJECTED">Rejected Only</option>
+                                {/* <option value="CANCELLED">Cancelled Only</option> */}
                             </select>
                         </div>
                     </div>
                 </div>
 
                 {/* Filter Bar */}
-                <div className="bg-gray-900/40 backdrop-blur-md border border-gray-800 p-4 rounded-2xl flex flex-col md:flex-row gap-4 items-center shadow-xl">
+                <div className="bg-gray-900/40 backdrop-blur-md border border-gray-800 p-4 rounded-2xl grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 items-center shadow-xl">
                     <div className="relative flex-1 w-full">
                         <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                         <select
-                            className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-2.5 pl-11 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-sm appearance-none"
+                            className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-2.5 pl-11 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-[11px] appearance-none"
+                            value={filters.fromCentreId}
+                            onChange={(e) => setFilters({ ...filters, fromCentreId: e.target.value })}
+                        >
+                            <option value="">All Origin Nodes</option>
+                            {centres.map(c => <option key={c._id} value={c._id}>{c.centreName}</option>)}
+                        </select>
+                    </div>
+                    <div className="relative flex-1 w-full">
+                        <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                        <select
+                            className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-2.5 pl-11 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-[11px] appearance-none"
                             value={filters.centreId}
                             onChange={(e) => setFilters({ ...filters, centreId: e.target.value })}
                         >
@@ -157,13 +239,45 @@ const CashReceive = () => {
                             onChange={(e) => setFilters({ ...filters, referenceNumber: e.target.value })}
                         />
                     </div>
-                    <button
-                        onClick={() => setFilters({ serialNumber: "", referenceNumber: "", status: "PENDING", centreId: "" })}
-                        className="p-2.5 bg-gray-800 border border-gray-700 rounded-xl text-gray-400 hover:text-white transition-all shrink-0"
-                        title="Reset Filters"
-                    >
-                        <FaTimes />
-                    </button>
+                    <div className="relative flex-1 w-full flex gap-4">
+                        <div className="relative flex-1">
+                            <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                            <input
+                                type="date"
+                                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-2.5 pl-11 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-sm [color-scheme:dark]"
+                                value={filters.startDate}
+                                onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                                title="Start Date"
+                            />
+                        </div>
+                        <div className="relative flex-1">
+                            <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                            <input
+                                type="date"
+                                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-2.5 pl-11 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-sm [color-scheme:dark]"
+                                value={filters.endDate}
+                                onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                                title="End Date"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                        <button
+                            onClick={exportToExcel}
+                            className="p-2.5 bg-emerald-600/20 border border-emerald-500/20 text-emerald-500 rounded-xl hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-2 text-sm font-bold"
+                            title="Export to Excel"
+                        >
+                            <FaFileExcel />
+                            <span className="hidden md:inline">Export</span>
+                        </button>
+                        <button
+                            onClick={resetFilters}
+                            className="p-2.5 bg-gray-800 border border-gray-700 rounded-xl text-gray-400 hover:text-white transition-all shrink-0"
+                            title="Reset Filters"
+                        >
+                            <FaTimes />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Table View */}
@@ -177,6 +291,7 @@ const CashReceive = () => {
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-right">Amount</th>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Reference</th>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Status</th>
+                                    <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Debited</th>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Timestamp</th>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-center">Actions</th>
                                 </tr>
@@ -184,7 +299,7 @@ const CashReceive = () => {
                             <tbody className="divide-y divide-gray-800">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="7" className="p-20 text-center">
+                                        <td colSpan="8" className="p-20 text-center">
                                             <div className="flex flex-col items-center gap-4">
                                                 <div className="w-10 h-10 border-4 border-cyan-500/10 border-t-cyan-500 rounded-full animate-spin"></div>
                                                 <p className="text-gray-500 uppercase text-[10px] tracking-widest font-bold">Scanning Ledger...</p>
@@ -220,6 +335,11 @@ const CashReceive = () => {
                                                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
                                                         Transit
                                                     </div>
+                                                ) : req.status === "REJECTED" ? (
+                                                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-500/10 text-red-500 rounded-full text-[9px] font-black uppercase tracking-widest border border-red-500/20">
+                                                        <FaTimes />
+                                                        Rejected
+                                                    </div>
                                                 ) : (
                                                     <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-500/20">
                                                         <FaCheckCircle />
@@ -227,7 +347,10 @@ const CashReceive = () => {
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="p-5 text-xs text-gray-400 font-bold">
+                                            <td className="p-5 text-xs text-gray-400 font-bold whitespace-nowrap">
+                                                {req.debitedDate ? new Date(req.debitedDate).toLocaleDateString() : 'N/A'}
+                                            </td>
+                                            <td className="p-5 text-xs text-gray-400 font-bold whitespace-nowrap">
                                                 {new Date(req.transferDate).toLocaleDateString()}
                                             </td>
                                             <td className="p-5 text-center">
@@ -244,12 +367,24 @@ const CashReceive = () => {
                                                         </a>
                                                     )}
                                                     {req.status === "PENDING" && canReceiveCash && (
-                                                        <button
-                                                            onClick={() => handleOpenModal(req)}
-                                                            className="px-4 py-2 bg-cyan-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:brightness-110 shadow-lg active:scale-95 transition-all"
-                                                        >
-                                                            Confirm
-                                                        </button>
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setSelectedRequest(req);
+                                                                    setIsRejectModalOpen(true);
+                                                                    setRejectReason("");
+                                                                }}
+                                                                className="px-4 py-2 bg-red-600/10 text-red-500 border border-red-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-lg active:scale-95"
+                                                            >
+                                                                Reject
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleOpenModal(req)}
+                                                                className="px-4 py-2 bg-cyan-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:brightness-110 shadow-lg active:scale-95 transition-all"
+                                                            >
+                                                                Confirm
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </td>
@@ -257,7 +392,7 @@ const CashReceive = () => {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan="7" className="p-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-[0.3em] italic">
+                                        <td colSpan="8" className="p-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-[0.3em] italic">
                                             No incoming movements found
                                         </td>
                                     </tr>
@@ -308,8 +443,49 @@ const CashReceive = () => {
                         </div>
                     </div>
                 )}
+
+                {/* Rejection Modal */}
+                {isRejectModalOpen && (
+                    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+                        <div className="bg-gray-900 border border-gray-800 p-8 rounded-[2.5rem] w-full max-w-md shadow-2xl animate-in zoom-in duration-300">
+                            <div className="space-y-6">
+                                <div className="flex justify-between items-center">
+                                    <h2 className="text-2xl font-bold text-white">Reject Transfer</h2>
+                                    <button onClick={() => !processing && setIsRejectModalOpen(false)} className="p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white transition-colors">
+                                        <FaTimes />
+                                    </button>
+                                </div>
+
+                                <div className="bg-red-500/5 border border-red-500/10 p-6 rounded-3xl space-y-2 text-center">
+                                    <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest italic">Rejecting Amount From</p>
+                                    <h4 className="text-red-400 font-black text-lg">{selectedRequest?.fromCentre?.centreName}</h4>
+                                    <div className="text-3xl font-black text-white">₹{selectedRequest?.amount.toLocaleString()}</div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Reason for Rejection</label>
+                                    <textarea
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-2xl p-4 text-white text-sm focus:outline-none focus:border-red-500 transition-all resize-none"
+                                        rows="3"
+                                        placeholder="Explain why this transfer is being rejected..."
+                                        value={rejectReason}
+                                        onChange={(e) => setRejectReason(e.target.value)}
+                                    />
+                                </div>
+
+                                <button
+                                    onClick={handleRejectTransfer}
+                                    disabled={processing}
+                                    className="w-full bg-red-600 text-white font-black py-4 rounded-3xl hover:bg-red-500 transition-all shadow-xl active:scale-95 disabled:opacity-50"
+                                >
+                                    {processing ? "REJECTING..." : "CONFIRM REJECTION"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
-        </Layout>
+        </Layout >
     );
 };
 

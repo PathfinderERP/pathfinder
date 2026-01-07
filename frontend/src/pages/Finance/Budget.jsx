@@ -100,24 +100,28 @@ const Budget = () => {
 
                 {/* Add Budget Table */}
                 <div className="bg-[#1a1f24] rounded-2xl border border-gray-800 shadow-2xl overflow-hidden">
-                    <div className="p-4 border-b border-gray-800 bg-gray-900/30">
-                        <h2 className="text-xs font-black uppercase tracking-[3px] text-gray-400">Add Budget of Centers</h2>
+                    <div className="p-4 border-b border-gray-800 bg-gray-900/30 flex justify-between items-center">
+                        <h2 className="text-xs font-black uppercase tracking-[3px] text-gray-400">Budget vs Actuals Overview</h2>
+                        <span className="text-[10px] font-black uppercase bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full border border-blue-500/20">
+                            Current Month: {centres[0]?.currentMonth || "..."}
+                        </span>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse">
                             <thead>
                                 <tr className="bg-gray-900/50 border-b border-gray-800">
-                                    <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-widest text-gray-500">Name</th>
+                                    <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-widest text-gray-500">Center Name</th>
                                     <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-widest text-gray-500">Code</th>
-                                    <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-widest text-gray-500">Email</th>
-                                    <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-widest text-gray-500">Phone</th>
+                                    <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-widest text-gray-500">Planned Budget</th>
+                                    <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-widest text-gray-500 text-green-500/70">Actual Income</th>
+                                    <th className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-widest text-gray-500 text-red-500/70">Actual Expense</th>
                                     <th className="px-6 py-5 text-right text-[10px] font-black uppercase tracking-widest text-gray-500">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-800/50">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="5" className="px-6 py-24 text-center">
+                                        <td colSpan="6" className="px-6 py-24 text-center">
                                             <div className="flex flex-col items-center gap-3">
                                                 <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                                                 <p className="text-gray-500 text-xs font-bold uppercase tracking-[4px] animate-pulse mt-2">Initializing Budget Data...</p>
@@ -126,7 +130,7 @@ const Budget = () => {
                                     </tr>
                                 ) : filteredCentres.length === 0 ? (
                                     <tr>
-                                        <td colSpan="5" className="px-6 py-20 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">No matching centres found</td>
+                                        <td colSpan="6" className="px-6 py-20 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">No matching centres found</td>
                                     </tr>
                                 ) : (
                                     filteredCentres.map((centre) => (
@@ -143,16 +147,17 @@ const Budget = () => {
                                                 <span className="text-gray-400 font-mono text-xs bg-gray-800/50 px-2 py-1 rounded border border-gray-700">{centre.enterCode}</span>
                                             </td>
                                             <td className="px-6 py-5">
-                                                <div className="flex items-center gap-2 text-gray-400 text-xs hover:text-blue-300 transition-colors">
-                                                    <FaEnvelope className="opacity-50" />
-                                                    {centre.email || "N/A"}
+                                                <div className="text-white font-black tabular-nums">
+                                                    ₹{(centre.budgetAmount || 0).toLocaleString()}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-5 text-gray-400 text-xs tabular-nums">
-                                                <div className="flex items-center gap-2">
-                                                    <FaPhone className="opacity-50 rotate-90" />
-                                                    {centre.phoneNumber || "N/A"}
+                                            <td className="px-6 py-5">
+                                                <div className="text-green-400 font-bold tabular-nums">
+                                                    ₹{(centre.actualIncome || 0).toLocaleString()}
                                                 </div>
+                                            </td>
+                                            <td className="px-6 py-5 text-red-400 font-bold tabular-nums">
+                                                ₹{(centre.actualExpense || 0).toLocaleString()}
                                             </td>
                                             <td className="px-6 py-5 text-right">
                                                 <button

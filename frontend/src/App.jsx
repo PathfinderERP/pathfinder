@@ -43,6 +43,7 @@ import PettyCashRequestApproval from "./pages/PettyCash/PettyCashRequestApproval
 import AddPettyCashExpenditure from "./pages/PettyCash/AddPettyCashExpenditure";
 import PettyCashApproval from "./pages/PettyCash/PettyCashApproval";
 import MasterDataDesignation from "./pages/MasterDataDesignation";
+import MasterDataAccount from "./pages/MasterDataAccount";
 import CarryForward from "./pages/CarryForward";
 import CourseTransfer from "./pages/CourseTransfer";
 import DocumentCenter from "./pages/Employee/DocumentCenter";
@@ -118,6 +119,9 @@ import FinancialAnalysis from "./pages/Finance/FinancialAnalysis";
 import CenterTagging from "./pages/Finance/CenterTagging";
 import Budget from "./pages/Finance/Budget";
 import BudgetDetails from "./pages/Finance/BudgetDetails";
+import PartTimeTeachers from "./pages/Finance/PartTimeTeachers";
+import PayEmployee from "./pages/Finance/PayEmployee";
+import PayEmployeeDetails from "./pages/Finance/PayEmployeeDetails";
 
 // ... inside Routes ... (I will use a simpler replace block to avoid mess)
 
@@ -137,6 +141,8 @@ function App() {
         <Route path="/admission/:studentId" element={<StudentAdmissionPage />} />
         <Route path="/finance" element={<Finance />} />
         <Route path="/finance/installment-payment" element={<InstallmentPayment />} />
+        <Route path="/finance/pay-employee" element={<PayEmployee />} />
+        <Route path="/finance/pay-employee/:id" element={<PayEmployeeDetails />} />
         <Route path="/finance/fee-due-list" element={<FeeDueList />} />
         <Route path="/finance/cheque-management" element={<ChequeManagement />} />
         <Route path="/finance/cancel-cheque" element={<CancelChequePayment />} />
@@ -149,6 +155,7 @@ function App() {
         <Route path="/finance/center-tagging" element={<CenterTagging />} />
         <Route path="/finance/budget" element={<Budget />} />
         <Route path="/finance/budget/:centreId" element={<BudgetDetails />} />
+        <Route path="/finance/part-time-teachers" element={<PartTimeTeachers />} />
         <Route path="/sales" element={<Sales />} />
         <Route path="/sales/centre-target" element={<CentreTarget />} />
         <Route path="/sales/centre-rank" element={<CentreRank />} />
@@ -231,6 +238,7 @@ function App() {
         <Route path="/master-data/expense-category" element={<MasterDataExpenseCategory />} />
         <Route path="/master-data/expense-subcategory" element={<MasterDataExpenseSubCategory />} />
         <Route path="/master-data/expenditure-type" element={<MasterDataExpenditureType />} />
+        <Route path="/master-data/account" element={<MasterDataAccount />} />
 
         {/* Petty Cash Routes */}
         <Route path="/petty-cash/centre" element={<PettyCashCentre />} />

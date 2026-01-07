@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
 import { hasPermission } from "../../config/permissions";
-import { FaExchangeAlt, FaPaperPlane, FaBuilding, FaWallet, FaLock, FaKey, FaArrowRight, FaCheckCircle, FaHashtag, FaFileInvoice, FaCloudUploadAlt, FaTimes } from "react-icons/fa";
+import { FaExchangeAlt, FaPaperPlane, FaBuilding, FaWallet, FaLock, FaKey, FaArrowRight, FaCheckCircle, FaHashtag, FaFileInvoice, FaCloudUploadAlt, FaTimes, FaCalendarAlt } from "react-icons/fa";
 import axios from "axios";
 import { toast } from "react-toastify";
 
@@ -12,6 +12,7 @@ const CashTransfer = () => {
     const [loading, setLoading] = useState(false);
     const [centres, setCentres] = useState([]);
     const [userCentres, setUserCentres] = useState([]);
+    const [masterAccounts, setMasterAccounts] = useState([]);
     const [cashSummary, setCashSummary] = useState({ totalCashLeft: 0 });
     const [formData, setFormData] = useState({
         fromCentreId: "",
@@ -19,7 +20,8 @@ const CashTransfer = () => {
         amount: "",
         accountNumber: "",
         remarks: "",
-        referenceNumber: ""
+        referenceNumber: "",
+        debitedDate: new Date().toISOString().split('T')[0]
     });
     const [receiptFile, setReceiptFile] = useState(null);
     const [receiptPreview, setReceiptPreview] = useState(null);
@@ -39,13 +41,26 @@ const CashTransfer = () => {
             const token = localStorage.getItem("token");
             const userData = JSON.parse(localStorage.getItem("user") || "{}");
 
-            const [centresRes, reportRes] = await Promise.all([
+            const [centresRes, reportRes, accountsRes] = await Promise.all([
                 axios.get(`${import.meta.env.VITE_API_URL}/centre`, { headers: { Authorization: `Bearer ${token}` } }),
-                axios.get(`${import.meta.env.VITE_API_URL}/finance/cash/report`, { headers: { Authorization: `Bearer ${token}` } })
+                axios.get(`${import.meta.env.VITE_API_URL}/finance/cash/report`, { headers: { Authorization: `Bearer ${token}` } }),
+                axios.get(`${import.meta.env.VITE_API_URL}/master-data/account`, { headers: { Authorization: `Bearer ${token}` } })
             ]);
 
-            setCentres(centresRes.data);
+            const allCentres = centresRes.data;
             setCashSummary(reportRes.data.summary);
+            setMasterAccounts(accountsRes.data);
+
+            // Filter for Hazra HO centre for destination
+            const hazraCentres = allCentres.filter(c =>
+                c.centreName.toLowerCase().includes("hazra") &&
+                (c.centreName.toLowerCase().includes("ho") || c.centreName.toLowerCase().includes("head office"))
+            );
+
+            // Fallback to any centre containing Hazra if no HO specific one found
+            const destinationCentres = hazraCentres.length > 0 ? hazraCentres : allCentres.filter(c => c.centreName.toLowerCase().includes("hazra"));
+
+            setCentres(destinationCentres);
 
             // Set next serial number from recent transfers
             if (reportRes.data.recentTransfers && reportRes.data.recentTransfers.length > 0) {
@@ -54,12 +69,12 @@ const CashTransfer = () => {
                 setSerialNumber(0);
             }
 
-            // Filter centres based on user's assigned centres
+            // Filter centres based on user's assigned centres for "From" field
             let allocatedCentres = [];
             if (userData.role === "superAdmin") {
-                allocatedCentres = centresRes.data;
+                allocatedCentres = allCentres;
             } else if (userData.centres && userData.centres.length > 0) {
-                allocatedCentres = centresRes.data.filter(c =>
+                allocatedCentres = allCentres.filter(c =>
                     userData.centres.includes(c._id) ||
                     userData.centres.some(uc => uc._id === c._id || uc === c._id)
                 );
@@ -67,10 +82,21 @@ const CashTransfer = () => {
 
             setUserCentres(allocatedCentres);
 
-            // Auto-select if only one centre
-            if (allocatedCentres.length === 1) {
-                setFormData(prev => ({ ...prev, fromCentreId: allocatedCentres[0]._id }));
-            }
+            // Consolidate initial form data settings
+            setFormData(prev => {
+                const defaultToCentre = destinationCentres.length > 0 ? destinationCentres[0] : null;
+                const centreAccNo = defaultToCentre?.accountNumber || "";
+
+                // Try to find a matching account in master accounts
+                const matchingMasterAcc = accountsRes.data.find(a => a.accno === centreAccNo);
+
+                return {
+                    ...prev,
+                    toCentreId: defaultToCentre?._id || prev.toCentreId,
+                    accountNumber: matchingMasterAcc ? matchingMasterAcc.accno : centreAccNo,
+                    fromCentreId: allocatedCentres.length === 1 ? allocatedCentres[0]._id : prev.fromCentreId
+                };
+            });
         } catch (error) {
             if (error.response?.status === 401) {
                 toast.error("Session expired. Please login again.");
@@ -157,7 +183,17 @@ const CashTransfer = () => {
                             <button
                                 onClick={() => {
                                     setTransferStatus("idle");
-                                    setFormData({ fromCentreId: "", toCentreId: "", amount: "", accountNumber: "", remarks: "", referenceNumber: "" });
+                                    setFormData({
+                                        fromCentreId: "",
+                                        toCentreId: "",
+                                        amount: "",
+                                        accountNumber: "",
+                                        remarks: "",
+                                        referenceNumber: "",
+                                        debitedDate: new Date().toISOString().split('T')[0]
+                                    });
+                                    // Refetch to reset correctly with defaults
+                                    fetchInitialData();
                                     setReceiptFile(null);
                                     setReceiptPreview(null);
                                 }}
@@ -219,6 +255,11 @@ const CashTransfer = () => {
                                             <option value="">Select From Centre</option>
                                             {userCentres.map(c => <option key={c._id} value={c._id}>{c.centreName}</option>)}
                                         </select>
+                                        {/* {formData.fromCentreId && (
+                                            <p className="text-[10px] text-cyan-500 font-black ml-1 mt-1 uppercase tracking-widest whitespace-nowrap">
+                                                A/C: {userCentres.find(c => c._id === formData.fromCentreId)?.accountNumber || 'NOT CONFIGURED'}
+                                            </p>
+                                        )} */}
                                     </div>
                                 </div>
 
@@ -227,13 +268,30 @@ const CashTransfer = () => {
                                     <div className="relative">
                                         <FaArrowRight className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <select
-                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all appearance-none"
+                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all appearance-none disabled:opacity-75"
                                             value={formData.toCentreId}
-                                            onChange={(e) => setFormData({ ...formData, toCentreId: e.target.value })}
+                                            onChange={(e) => {
+                                                const selectedCentre = centres.find(c => c._id === e.target.value);
+                                                const centreAccNo = selectedCentre?.accountNumber || "";
+                                                // Try to auto-match with master accounts
+                                                const matchingMasterAcc = masterAccounts.find(a => a.accno === centreAccNo);
+
+                                                setFormData({
+                                                    ...formData,
+                                                    toCentreId: e.target.value,
+                                                    accountNumber: matchingMasterAcc ? matchingMasterAcc.accno : centreAccNo
+                                                });
+                                            }}
+                                            disabled={centres.length <= 1}
                                         >
-                                            <option value="">Select Destination</option>
+                                            {centres.length === 0 && <option value="">No Hazra HO found</option>}
                                             {centres.map(c => <option key={c._id} value={c._id}>{c.centreName}</option>)}
                                         </select>
+                                        {/* {formData.toCentreId && (
+                                            <p className="text-[10px] text-cyan-500 font-black ml-1 mt-1 uppercase tracking-widest whitespace-nowrap">
+                                                A/C: {centres.find(c => c._id === formData.toCentreId)?.accountNumber || 'NOT CONFIGURED'}
+                                            </p>
+                                        )} */}
                                     </div>
                                 </div>
                             </div>
@@ -256,13 +314,24 @@ const CashTransfer = () => {
                                     <label className="text-sm font-medium text-gray-400 ml-1">Account Number</label>
                                     <div className="relative">
                                         <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
-                                        <input
-                                            type="text"
-                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all"
-                                            placeholder="Recipient account #"
+                                        <select
+                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all appearance-none"
                                             value={formData.accountNumber}
                                             onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
-                                        />
+                                        >
+                                            <option value="">Select Account</option>
+                                            {masterAccounts.map(acc => (
+                                                <option key={acc._id} value={acc.accno}>
+                                                    ({acc.accno})
+                                                </option>
+                                            ))}
+                                            {/* Fallback if the centre's account isn't in master accounts but we have a value */}
+                                            {formData.accountNumber && !masterAccounts.some(a => a.accno === formData.accountNumber) && (
+                                                <option value={formData.accountNumber}>
+                                                    Centre Default: {formData.accountNumber}
+                                                </option>
+                                            )}
+                                        </select>
                                     </div>
                                 </div>
                             </div>
@@ -281,6 +350,22 @@ const CashTransfer = () => {
                                         />
                                     </div>
                                 </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-400 ml-1">Deposit Date</label>
+                                    <div className="relative">
+                                        <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                                        <input
+                                            type="date"
+                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all [color-scheme:dark]"
+                                            value={formData.debitedDate}
+                                            onChange={(e) => setFormData({ ...formData, debitedDate: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-gray-400 ml-1">Bank Receipt (Img/PDF)</label>
                                     <div className="relative">

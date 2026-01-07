@@ -195,6 +195,7 @@ const CashCentreDetails = () => {
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-right">Amount</th>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Reference/AC</th>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Status</th>
+                                    <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Debited</th>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Timestamp</th>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-center">Receipt</th>
                                 </tr>
@@ -202,7 +203,7 @@ const CashCentreDetails = () => {
                             <tbody className="divide-y divide-gray-800">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="8" className="p-20 text-center">
+                                        <td colSpan="9" className="p-20 text-center">
                                             <div className="flex flex-col items-center gap-4">
                                                 <div className="w-12 h-12 border-4 border-cyan-500/10 border-t-cyan-500 rounded-full animate-spin"></div>
                                                 <p className="text-gray-500 font-bold uppercase text-[10px] tracking-widest">Scanning Ledger...</p>
@@ -248,17 +249,25 @@ const CashCentreDetails = () => {
                                                             <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                                                             Transit
                                                         </div>
+                                                    ) : t.status === "REJECTED" ? (
+                                                        <div className="flex items-center gap-2 text-red-500 font-bold text-[10px] uppercase tracking-wider">
+                                                            <FaTimes />
+                                                            Rejected
+                                                        </div>
                                                     ) : (
                                                         <div className="flex items-center gap-2 text-emerald-500 font-bold text-[10px] uppercase tracking-wider">
-                                                            <FaCheckCircle className="text-[10px]" />
+                                                            <FaCheckCircle />
                                                             Cleared
                                                         </div>
                                                     )}
                                                 </td>
+                                                <td className="p-5 text-xs text-gray-400 font-bold whitespace-nowrap">
+                                                    {t.debitedDate ? new Date(t.debitedDate).toLocaleDateString() : 'N/A'}
+                                                </td>
                                                 <td className="p-5">
                                                     <div className="space-y-0.5 whitespace-nowrap">
                                                         <span className="text-white text-xs font-bold block">{new Date(t.transferDate).toLocaleDateString()}</span>
-                                                        <span className="text-gray-500 text-[10px] flex items-center gap-1"><FaRegClock className="text-[8px]" /> {new Date(t.transferDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                        <span className="text-gray-500 text-[10px] flex items-center gap-1 font-mono uppercase italic leading-none"><FaRegClock className="text-[8px]" /> {new Date(t.transferDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                     </div>
                                                 </td>
                                                 <td className="p-5 text-center">
@@ -281,7 +290,7 @@ const CashCentreDetails = () => {
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan="8" className="p-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-[0.3em] italic">
+                                        <td colSpan="9" className="p-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-[0.3em] italic">
                                             No movement detected in this fiscal node
                                         </td>
                                     </tr>

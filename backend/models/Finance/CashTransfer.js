@@ -23,9 +23,12 @@ const cashTransferSchema = new mongoose.Schema({
     receivedDate: {
         type: Date
     },
+    debitedDate: {
+        type: Date
+    },
     status: {
         type: String,
-        enum: ["PENDING", "RECEIVED", "CANCELLED"],
+        enum: ["PENDING", "RECEIVED", "CANCELLED", "REJECTED"],
         default: "PENDING"
     },
     uniquePassword: {

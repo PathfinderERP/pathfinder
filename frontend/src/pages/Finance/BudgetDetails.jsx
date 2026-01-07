@@ -43,9 +43,8 @@ const BudgetDetails = () => {
             });
             const data = await response.json();
             if (response.ok) {
-                setBudgets(data);
-                // Also fetch centre info if not already available
-                // For now, we'll assume the first budget record or a separate fetch
+                setBudgets(data.budgets || []);
+                setCentreInfo(data.centre);
             }
         } catch (error) {
             console.error("Error:", error);
@@ -126,9 +125,11 @@ const BudgetDetails = () => {
                                 <span className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
                                     <FaWallet size={24} />
                                 </span>
-                                Budget
+                                Budget - <span className="text-indigo-400 italic">{centreInfo?.centreName || "Loading..."}</span>
                             </h1>
-                            <p className="text-gray-400 text-sm mt-1">Detailed monthly budget allocation</p>
+                            <p className="text-gray-400 text-sm mt-1 uppercase tracking-widest font-bold">
+                                Detailed monthly records for {centreInfo?.centreName || "this centre"}
+                            </p>
                         </div>
                     </div>
                 </div>

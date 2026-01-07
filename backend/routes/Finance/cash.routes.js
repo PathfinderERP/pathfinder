@@ -5,7 +5,8 @@ import {
     getCashReceiveRequests,
     confirmCashReceived,
     getCashReport,
-    getCentreTransferDetails
+    getCentreTransferDetails,
+    rejectCashTransfer
 } from "../../controllers/Finance/cashController.js";
 import { requireAuth } from "../../middleware/permissionMiddleware.js";
 
@@ -34,5 +35,6 @@ router.get("/centre-details/:centreId", requireAuth, getCentreTransferDetails);
 router.post("/transfer", requireAuth, upload.single('receipt'), initiateCashTransfer);
 router.get("/receive-requests", requireAuth, getCashReceiveRequests);
 router.post("/confirm-receive", requireAuth, confirmCashReceived);
+router.post("/reject-transfer", requireAuth, rejectCashTransfer);
 
 export default router;

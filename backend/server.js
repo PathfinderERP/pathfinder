@@ -49,6 +49,8 @@ import masterDataRoutes from "./routes/masterData/masterData.routes.js";
 import pettyCashRoutes from "./routes/Finance/pettyCash.routes.js";
 import centerTaggingRoutes from "./routes/Finance/centerTaggingRoutes.js";
 import budgetRoutes from "./routes/Finance/budgetRoutes.js";
+import partTimeTeacherRoutes from "./routes/Finance/partTimeTeacher.routes.js";
+import payrollRoutes from "./routes/Finance/payroll.routes.js";
 
 import path from "path";
 import { fileURLToPath } from "url";
@@ -128,6 +130,8 @@ app.use("/api/finance/cash", cashRoutes);
 app.use("/api/finance/petty-cash", pettyCashRoutes);
 app.use("/api/finance/center-tagging", centerTaggingRoutes);
 app.use("/api/finance/budget", budgetRoutes);
+app.use("/api/finance/part-time-teachers", partTimeTeacherRoutes);
+app.use("/api/finance/payroll", payrollRoutes);
 
 
 // Master Data Routes

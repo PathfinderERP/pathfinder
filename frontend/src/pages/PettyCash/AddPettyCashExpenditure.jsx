@@ -46,16 +46,17 @@ const AddPettyCashExpenditure = () => {
                 axios.get(`${import.meta.env.VITE_API_URL}/master-data/category`, { headers: { Authorization: `Bearer ${token}` } }),
                 axios.get(`${import.meta.env.VITE_API_URL}/master-data/expenditure-type`, { headers: { Authorization: `Bearer ${token}` } })
             ]);
-            setExpenditures(expRes.data);
-            setCategories(catsRes.data);
-            setExpenditureTypes(typesRes.data);
+            setExpenditures(Array.isArray(expRes.data.expenditures) ? expRes.data.expenditures : []);
+            setCategories(Array.isArray(catsRes.data) ? catsRes.data : []);
+            setExpenditureTypes(Array.isArray(typesRes.data) ? typesRes.data : []);
 
             // Centre Filtering
+            const rawCentres = Array.isArray(centresRes.data) ? centresRes.data : [];
             if (isSuperAdmin) {
-                setCentres(centresRes.data);
+                setCentres(rawCentres);
             } else {
                 const assignedIds = userCentres.map(c => c._id || c);
-                const filtered = centresRes.data.filter(c => assignedIds.includes(c._id));
+                const filtered = rawCentres.filter(c => assignedIds.includes(c._id));
                 setCentres(filtered);
 
                 // Auto-select if only one centre
@@ -80,7 +81,8 @@ const AddPettyCashExpenditure = () => {
             const response = await axios.get(`${import.meta.env.VITE_API_URL}/master-data/subcategory?categoryId=${catId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setSubCategories(response.data);
+            const data = Array.isArray(response.data) ? response.data : [];
+            setSubCategories(data);
         } catch (error) {
             console.error("Failed to load sub-categories");
         }

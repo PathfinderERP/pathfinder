@@ -41,5 +41,8 @@ const budgetSchema = mongoose.Schema({
     }
 }, { timestamps: true });
 
+// Ensure unique budget per centre per month
+budgetSchema.index({ centre: 1, year: 1, month: 1 }, { unique: true });
+
 const Budget = mongoose.model("Budget", budgetSchema);
 export default Budget;

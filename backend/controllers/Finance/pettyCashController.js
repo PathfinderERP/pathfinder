@@ -112,25 +112,74 @@ export const addExpenditure = async (req, res) => {
 // Get expenditures
 export const getExpenditures = async (req, res) => {
     try {
-        const { status, centreId } = req.query;
+        const { status, centreId, startDate, endDate, categoryId, subCategoryId, expenditureTypeId, search } = req.query;
         let query = {};
-        if (status) query.status = status;
+
+        // Handle Status (Support comma-separated or single)
+        if (status) {
+            if (status.includes(',')) {
+                query.status = { $in: status.split(',') };
+            } else {
+                query.status = status;
+            }
+        }
 
         if (req.user.role !== 'superAdmin') {
             query.centre = { $in: req.user.centres };
         }
 
-        if (centreId) query.centre = centreId;
+        if (centreId) {
+            if (centreId.includes(',')) {
+                query.centre = { $in: centreId.split(',') };
+            } else {
+                query.centre = centreId;
+            }
+        }
 
+        if (categoryId) query.category = categoryId;
+        if (subCategoryId) query.subCategory = subCategoryId;
+        if (expenditureTypeId) query.expenditureType = expenditureTypeId;
+
+        if (startDate || endDate) {
+            query.date = {};
+            if (startDate) query.date.$gte = new Date(startDate);
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                query.date.$lte = end;
+            }
+        }
+
+        if (search) {
+            query.$or = [
+                { description: { $regex: search, $options: "i" } },
+                { vendorName: { $regex: search, $options: "i" } },
+                { paymentMode: { $regex: search, $options: "i" } }
+            ];
+        }
+
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const totalExpenditures = await PettyCashExpenditure.countDocuments(query);
         const expenditures = await PettyCashExpenditure.find(query)
             .populate("centre", "centreName")
             .populate("category", "name")
             .populate("subCategory", "name")
             .populate("expenditureType", "name")
-            .sort({ createdAt: -1 });
+            .sort({ date: -1, createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
 
-        res.status(200).json(expenditures);
+        res.status(200).json({
+            expenditures,
+            totalPages: Math.ceil(totalExpenditures / limit),
+            currentPage: page,
+            totalItems: totalExpenditures
+        });
     } catch (err) {
+        console.error("Get Expenditures Error:", err);
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };

@@ -331,6 +331,10 @@ export const PERMISSION_MODULES = {
             expenditureType: {
                 label: "Expenditure Type",
                 operations: ["create", "edit", "delete"]
+            },
+            account: {
+                label: "Account",
+                operations: ["create", "edit", "delete"]
             }
         }
     },

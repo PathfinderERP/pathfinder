@@ -408,14 +408,15 @@ const CashReport = () => {
                                     <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] text-center">Movement Status</th>
                                     <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Last Serial #</th>
                                     <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Last Reference / UTR</th>
-                                    <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Last Activity</th>
+                                    <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Last Debited</th>
+                                    <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Last Timestamp</th>
                                     <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] text-center">Audit</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-800/50">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="8" className="p-20 text-center">
+                                        <td colSpan="9" className="p-20 text-center">
                                             <div className="flex flex-col items-center gap-4">
                                                 <div className="w-12 h-12 border-4 border-cyan-500/10 border-t-cyan-500 rounded-full animate-spin"></div>
                                                 <p className="text-gray-500 font-bold uppercase text-[10px] tracking-widest italic">Synchronizing Global Ledger...</p>
@@ -424,7 +425,7 @@ const CashReport = () => {
                                     </tr>
                                 ) : paginatedLedger.length === 0 ? (
                                     <tr>
-                                        <td colSpan="8" className="p-20 text-center text-gray-700 font-black uppercase text-xs tracking-[0.3em] italic">
+                                        <td colSpan="9" className="p-20 text-center text-gray-700 font-black uppercase text-xs tracking-[0.3em] italic">
                                             No matched records in global fiscal nodes
                                         </td>
                                     </tr>
@@ -468,6 +469,11 @@ const CashReport = () => {
                                                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
                                                             In Transit
                                                         </span>
+                                                    ) : item.lastActivity.status === "REJECTED" ? (
+                                                        <span className="inline-flex items-center gap-2 px-3 py-1 bg-red-500/10 text-red-500 rounded-full text-[9px] font-black uppercase tracking-widest border border-red-500/20">
+                                                            <FaTimes className="text-[8px]" />
+                                                            Rejected
+                                                        </span>
                                                     ) : (
                                                         <span className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-500/20">
                                                             <FaCheckCircle className="text-[8px]" />
@@ -501,6 +507,15 @@ const CashReport = () => {
                                                     <span className="text-gray-300 font-mono text-xs block truncate">{item.lastActivity?.referenceNumber || 'N/A'}</span>
                                                     <span className="text-[8px] text-gray-500 uppercase tracking-tighter block truncate">Partner: {item.lastActivity?.fromCentre?._id === item.centreId ? item.lastActivity?.toCentre?.centreName : item.lastActivity?.fromCentre?.centreName || 'DIRECT'}</span>
                                                 </div>
+                                            </td>
+
+                                            {/* Debited Date */}
+                                            <td className="p-6">
+                                                {item.lastActivity?.debitedDate ? (
+                                                    <span className="text-white text-[11px] font-bold block">{new Date(item.lastActivity.debitedDate).toLocaleDateString()}</span>
+                                                ) : (
+                                                    <span className="text-gray-700 text-[10px] font-bold">-</span>
+                                                )}
                                             </td>
 
                                             {/* Timestamp */}
