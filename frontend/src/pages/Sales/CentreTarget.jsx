@@ -13,13 +13,14 @@ const CentreTarget = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [selectedTarget, setSelectedTarget] = useState(null); // For Edit
     const [centres, setCentres] = useState([]);
+    const [sessions, setSessions] = useState([]);
 
     // Filters
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
 
-    const [filterFinancialYear, setFilterFinancialYear] = useState("2025-2026");
+    const [filterFinancialYear, setFilterFinancialYear] = useState("");
     const [filterYear, setFilterYear] = useState(new Date().getFullYear());
     const [viewMode, setViewMode] = useState("Monthly");
 
@@ -30,7 +31,7 @@ const CentreTarget = () => {
     const canDelete = hasPermission(user, 'sales', 'centreTarget', 'delete');
 
     useEffect(() => {
-        fetchCentres();
+        fetchMasterData();
         fetchTargets();
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -45,22 +46,47 @@ const CentreTarget = () => {
         fetchTargets();
     }, [selectedCentres, filterFinancialYear, filterYear]);
 
-    const fetchCentres = async () => {
+    const fetchMasterData = async () => {
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/centre`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                setCentres(data);
+            const headers = { Authorization: `Bearer ${token}` };
+
+            const [centreRes, sessionRes] = await Promise.all([
+                fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
+            ]);
+
+            if (centreRes.ok) {
+                const resData = await centreRes.json();
+                let centerList = Array.isArray(resData) ? resData : resData.centres || [];
+
+                // Filter by allocated centers
+                const storedUser = localStorage.getItem("user");
+                if (storedUser) {
+                    const user = JSON.parse(storedUser);
+                    if (user.role !== 'superAdmin' && user.centres) {
+                        const allowedIds = user.centres.map(id => typeof id === 'object' ? id._id : id);
+                        centerList = centerList.filter(c => allowedIds.includes(c._id));
+                    }
+                }
+                setCentres(centerList);
+            }
+
+            if (sessionRes.ok) {
+                const sessionData = await sessionRes.json();
+                const sessionList = Array.isArray(sessionData) ? sessionData : [];
+                setSessions(sessionList);
+                if (sessionList.length > 0 && !filterFinancialYear) {
+                    setFilterFinancialYear(sessionList[0].sessionName);
+                }
             }
         } catch (error) {
-            console.error("Error fetching centres", error);
+            console.error("Error fetching master data", error);
         }
     };
 
     const fetchTargets = async () => {
+        if (!filterFinancialYear) return;
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -222,8 +248,13 @@ const CentreTarget = () => {
                             onChange={(e) => setFilterFinancialYear(e.target.value)}
                             className="bg-[#131619] border border-gray-700 text-gray-300 text-sm rounded-lg block p-2.5 outline-none focus:border-cyan-500 w-28"
                         >
-                            <option value="2024-2025">2024-2025</option>
-                            <option value="2025-2026">2025-2026</option>
+                            {sessions.length === 0 ? (
+                                <option value="">Loading...</option>
+                            ) : (
+                                sessions.map(s => (
+                                    <option key={s._id} value={s.sessionName}>{s.sessionName}</option>
+                                ))
+                            )}
                         </select>
 
                         <button

@@ -102,6 +102,11 @@ const LeadManagementContent = () => {
                 const userCentres = currentUser.centres || [];
                 console.log("Lead Management - User centres from profile:", userCentres);
                 setAllowedCentres(userCentres);
+
+                // Auto-select first centre for non-superAdmin users
+                if (userCentres.length > 0 && !filters.centre) {
+                    setFilters(prev => ({ ...prev, centre: userCentres[0]._id }));
+                }
             }
         } catch (error) {
             console.error("Error fetching allowed centres:", error);
@@ -119,6 +124,7 @@ const LeadManagementContent = () => {
     const fetchFilterData = async () => {
         try {
             const token = localStorage.getItem("token");
+            const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
 
             // Fetch sources
             const sourceResponse = await fetch(`${import.meta.env.VITE_API_URL}/source`, {
@@ -143,7 +149,20 @@ const LeadManagementContent = () => {
             const userData = await userResponse.json();
             if (userResponse.ok) {
                 const telecallerUsers = (userData.users || []).filter(user => user.role === "telecaller");
-                setTelecallers(telecallerUsers);
+
+                // If current user is a telecaller, only show their own name
+                if (currentUser.role === "telecaller") {
+                    const currentTelecaller = telecallerUsers.find(t => t._id === currentUser._id);
+                    setTelecallers(currentTelecaller ? [currentTelecaller] : []);
+
+                    // Auto-select the telecaller's own name
+                    if (currentTelecaller) {
+                        setFilters(prev => ({ ...prev, leadResponsibility: currentTelecaller.name }));
+                    }
+                } else {
+                    // For other roles, show all telecallers
+                    setTelecallers(telecallerUsers);
+                }
             }
         } catch (error) {
             console.error("Error fetching filter data:", error);
@@ -168,6 +187,9 @@ const LeadManagementContent = () => {
                 if (!value) params.delete(key);
             }
 
+            console.log("Lead Management - Fetching leads with params:", Object.fromEntries(params));
+            console.log("Lead Management - Current filters:", filters);
+
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management?${params.toString()}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -175,6 +197,7 @@ const LeadManagementContent = () => {
             });
 
             const data = await response.json();
+            console.log("Lead Management - Response:", data);
 
             if (response.ok) {
                 setLeads(data.leads);
@@ -184,6 +207,7 @@ const LeadManagementContent = () => {
                 }
             } else {
                 toast.error(data.message || "Failed to fetch leads");
+                console.error("Lead Management - Error response:", data);
             }
         } catch (error) {
             console.error("Error fetching leads:", error);
@@ -420,9 +444,10 @@ const LeadManagementContent = () => {
                         <select
                             value={filters.leadResponsibility}
                             onChange={(e) => handleFilterChange('leadResponsibility', e.target.value)}
-                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white text-sm"
+                            disabled={user?.role === 'telecaller'}
+                            className={`w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white text-sm ${user?.role === 'telecaller' ? 'opacity-75 cursor-not-allowed' : ''}`}
                         >
-                            <option value="">All Telecallers</option>
+                            {user?.role !== 'telecaller' && <option value="">All Telecallers</option>}
                             {telecallers.map(telecaller => (
                                 <option key={telecaller._id} value={telecaller.name}>{telecaller.name}</option>
                             ))}

@@ -143,7 +143,19 @@ export const deleteTeacher = async (req, res) => {
 // Get All Teachers
 export const getAllTeachers = async (req, res) => {
     try {
-        const teachers = await User.find({ role: "teacher" })
+        let query = { role: "teacher" };
+
+        if (req.user.role !== 'superAdmin') {
+            const allowedCentreIds = req.user.centres || [];
+            if (allowedCentreIds.length > 0) {
+                query.centres = { $in: allowedCentreIds };
+            } else {
+                // If not superAdmin and no centres assigned, return empty list
+                return res.status(200).json([]);
+            }
+        }
+
+        const teachers = await User.find(query)
             .select("-password")
             .sort({ createdAt: -1 });
 

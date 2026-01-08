@@ -19,14 +19,13 @@ const DiscountReport = () => {
     const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
     const [examTags, setExamTags] = useState([]);
-    // Hardcoded Sessions for now, similar to CourseReport
-    const sessions = ["2023-2024", "2024-2025", "2025-2026", "2025-2027"];
+    const [sessions, setSessions] = useState([]); // Dynamic sessions from master data
 
     // Filters
     const [selectedCentres, setSelectedCentres] = useState([]); // Array of IDs
     const [selectedCourses, setSelectedCourses] = useState([]); // Array of IDs
     const [selectedExamTag, setSelectedExamTag] = useState(""); // Single ID
-    const [selectedSession, setSelectedSession] = useState("2025-2026");
+    const [selectedSession, setSelectedSession] = useState("");
     const [timePeriod, setTimePeriod] = useState("This Year"); // "This Year", "Last Year", "This Month", "Last Month", "Custom"
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
@@ -74,24 +73,45 @@ const DiscountReport = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            // Fetch Centres
-            const centreRes = await fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers });
-            if (centreRes.ok) setCentres(await centreRes.json());
+            const [cRes, coRes, eRes, sRes] = await Promise.all([
+                fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/course`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
+            ]);
 
-            // Fetch Courses
-            const courseRes = await fetch(`${import.meta.env.VITE_API_URL}/course`, { headers });
-            if (courseRes.ok) setCourses(await courseRes.json());
+            if (cRes.ok) {
+                const resData = await cRes.json();
+                let centerList = Array.isArray(resData) ? resData : resData.centres || [];
 
-            // Fetch Exam Tags (Correct endpoint)
-            const examTagRes = await fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers });
-            if (examTagRes.ok) setExamTags(await examTagRes.json());
-
+                // Filter by allocated centers
+                const storedUser = localStorage.getItem("user");
+                if (storedUser) {
+                    const user = JSON.parse(storedUser);
+                    if (user.role !== 'superAdmin' && user.centres) {
+                        const allowedIds = user.centres.map(id => typeof id === 'object' ? id._id : id);
+                        centerList = centerList.filter(c => allowedIds.includes(c._id));
+                    }
+                }
+                setCentres(centerList);
+            }
+            if (coRes.ok) setCourses(await coRes.json());
+            if (eRes.ok) setExamTags(await eRes.json());
+            if (sRes.ok) {
+                const sessionData = await sRes.json();
+                const sessionList = Array.isArray(sessionData) ? sessionData : [];
+                setSessions(sessionList);
+                if (sessionList.length > 0 && !selectedSession) {
+                    setSelectedSession(sessionList[0].sessionName);
+                }
+            }
         } catch (error) {
             console.error("Error fetching master data", error);
         }
     };
 
     const fetchReportData = async () => {
+        if (!selectedSession) return;
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -166,7 +186,7 @@ const DiscountReport = () => {
         setSelectedCentres([]);
         setSelectedCourses([]);
         setSelectedExamTag("");
-        setSelectedSession("2025-2026");
+        setSelectedSession(sessions.length > 0 ? sessions[0].sessionName : "");
         setTimePeriod("This Year");
         setStartDate("");
         setEndDate("");
@@ -398,7 +418,11 @@ const DiscountReport = () => {
                             className="h-10 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none focus:border-blue-500 min-w-[150px]"
                         >
                             <option value="">Select Session</option>
-                            {sessions.map(s => <option key={s} value={s}>{s}</option>)}
+                            {sessions.length === 0 ? (
+                                <option value="">Loading...</option>
+                            ) : (
+                                sessions.map(s => <option key={s._id} value={s.sessionName}>{s.sessionName}</option>)
+                            )}
                         </select>
 
                         {/* Exam Tag Dropdown */}

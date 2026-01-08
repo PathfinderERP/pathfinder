@@ -74,20 +74,29 @@ export const getTransactionReport = async (req, res) => {
             admissionMatch["admissionInfo.academicSession"] = session;
         }
 
-        // Fix: Resolve Centre IDs to Centre Names (since Admission stores Centre Name)
+        // Resolve Centre IDs to Centre Names (since Admission stores Centre Name)
+        let allowedCentreNames = [];
+        if (req.user.role !== 'superAdmin') {
+            const userCentres = await Centre.find({ _id: { $in: req.user.centres || [] } }).select("centreName");
+            allowedCentreNames = userCentres.map(c => c.centreName);
+        }
+
         if (centreIds) {
             const cIds = typeof centreIds === 'string' ? centreIds.split(',') : centreIds;
-            // Valid Hex IDs only
             const validIds = cIds.filter(id => mongoose.Types.ObjectId.isValid(id.trim()));
             if (validIds.length > 0) {
-                const centres = await Centre.find({ _id: { $in: validIds } }).select("centreName");
-                const centreNames = centres.map(c => c.centreName);
-                if (centreNames.length > 0) {
-                    admissionMatch["admissionInfo.centre"] = { $in: centreNames };
-                } else {
-                    admissionMatch["admissionInfo.centre"] = { $in: ["__NO_MATCH__"] };
+                const requestedCentres = await Centre.find({ _id: { $in: validIds } }).select("centreName");
+                const requestedNames = requestedCentres.map(c => c.centreName);
+
+                if (req.user.role !== 'superAdmin') {
+                    const finalNames = requestedNames.filter(name => allowedCentreNames.includes(name));
+                    admissionMatch["admissionInfo.centre"] = { $in: finalNames.length > 0 ? finalNames : ["__NO_MATCH__"] };
+                } else if (requestedNames.length > 0) {
+                    admissionMatch["admissionInfo.centre"] = { $in: requestedNames };
                 }
             }
+        } else if (req.user.role !== 'superAdmin') {
+            admissionMatch["admissionInfo.centre"] = { $in: allowedCentreNames.length > 0 ? allowedCentreNames : ["__NO_MATCH__"] };
         }
 
         if (courseIds) {

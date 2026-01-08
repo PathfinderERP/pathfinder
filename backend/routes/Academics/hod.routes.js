@@ -1,9 +1,9 @@
 import express from "express";
 import { getAllHODs } from "../../controllers/Academics/hodController.js";
-import authMiddleware from "../../middleware/authMiddleware.js";
+import { requireGranularPermission } from "../../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
-router.get("/list", authMiddleware, getAllHODs);
+router.get("/list", requireGranularPermission("academics", "hodList", "view"), getAllHODs);
 
 export default router;

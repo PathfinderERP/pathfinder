@@ -8,22 +8,25 @@ import {
     deleteClassSchedule,
     submitFeedback,
     markTeacherAttendance,
-    startStudy
+    startStudy,
+    updateClassSchedule
 } from "../../controllers/Academics/classScheduleController.js";
 import {
     getStudentsForAttendance,
     saveStudentAttendance
 } from "../../controllers/Academics/studentAttendanceController.js";
-import verifyToken from "../../middleware/authMiddleware.js"; // Assuming auth middleware exists
+import { requireGranularPermission } from "../../middleware/permissionMiddleware.js";
+import verifyToken from "../../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/create", verifyToken, createClassSchedule);
-router.get("/list", verifyToken, getClassSchedules);
+router.post("/create", requireGranularPermission("academics", "classes", "create"), createClassSchedule);
+router.get("/list", requireGranularPermission("academics", "classes", "view"), getClassSchedules);
 router.get("/dropdown-data", verifyToken, getClassDropdownData);
-router.put("/start/:id", verifyToken, startClass);
-router.put("/end/:id", verifyToken, endClass);
-router.delete("/delete/:id", verifyToken, deleteClassSchedule);
+router.put("/start/:id", requireGranularPermission("academics", "classes", "edit"), startClass);
+router.put("/end/:id", requireGranularPermission("academics", "classes", "edit"), endClass);
+router.delete("/delete/:id", requireGranularPermission("academics", "classes", "delete"), deleteClassSchedule);
+router.put("/update/:id", requireGranularPermission("academics", "classes", "edit"), updateClassSchedule);
 router.put("/feedback/:id", verifyToken, submitFeedback);
 router.put("/mark-attendance/:id", verifyToken, markTeacherAttendance);
 router.put("/start-study/:id", verifyToken, startStudy);

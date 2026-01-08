@@ -131,12 +131,28 @@ const TelecallingConsole = () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
+            const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+            const isSuperAdmin = currentUser.role === "superAdmin";
+
+            // Get user's assigned centres
+            const userCentres = currentUser.centres?.map(c => c._id || c) || [];
+
             const response = await fetch(`${import.meta.env.VITE_API_URL}/superAdmin/getAllUsers`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = await response.json();
             if (response.ok) {
-                setTelecallers((data.users || []).filter(u => u.role === "telecaller"));
+                let telecallersList = (data.users || []).filter(u => u.role === "telecaller");
+
+                // Filter telecallers by centres if not superAdmin
+                if (!isSuperAdmin && userCentres.length > 0) {
+                    telecallersList = telecallersList.filter(telecaller => {
+                        const telecallerCentres = telecaller.centres?.map(c => c._id || c) || [];
+                        return telecallerCentres.some(tc => userCentres.includes(tc));
+                    });
+                }
+
+                setTelecallers(telecallersList);
             }
         } catch (error) {
             console.error("Error:", error);
@@ -149,13 +165,29 @@ const TelecallingConsole = () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
+            const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+            const isSuperAdmin = currentUser.role === "superAdmin";
+
+            // Get user's assigned centres
+            const userCentres = currentUser.centres?.map(c => c.centreName || c) || [];
+
             const params = new URLSearchParams({ leadResponsibility: telecallerName, limit: 100 });
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = await response.json();
             if (response.ok) {
-                const sortedLeads = (data.leads || []).sort((a, b) => (b.recordings?.length || 0) - (a.recordings?.length || 0));
+                let leads = data.leads || [];
+
+                // Filter leads by centre if not superAdmin
+                if (!isSuperAdmin && userCentres.length > 0) {
+                    leads = leads.filter(lead => {
+                        const leadCentre = lead.centre;
+                        return userCentres.includes(leadCentre);
+                    });
+                }
+
+                const sortedLeads = leads.sort((a, b) => (b.recordings?.length || 0) - (a.recordings?.length || 0));
                 setAssignedLeads(sortedLeads);
             }
         } catch (error) {

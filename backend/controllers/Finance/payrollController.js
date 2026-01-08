@@ -144,12 +144,17 @@ export const getPayrollEmployees = async (req, res) => {
     }
 };
 
+import EmployeeAttendance from "../../models/Attendance/EmployeeAttendance.js";
+
 // @desc    Get Single Employee Details for Payroll (with Salary Structure)
 // @route   GET /api/finance/payroll/employee/:id
 // @access  Private
+// @param   month (query) - 1-12
+// @param   year (query) - YYYY
 export const getPayrollEmployeeDetails = async (req, res) => {
     try {
         const { id } = req.params;
+        const { month, year } = req.query;
 
         const employee = await Employee.findById(id)
             .populate("department", "departmentName")
@@ -163,15 +168,49 @@ export const getPayrollEmployeeDetails = async (req, res) => {
         }
 
         // Calculate/Structure data for frontend
-        // Currently `salaryStructure` is an array. We take the latest one (index 0 usually if sorted by date desc).
-        // The Employee model logic sorts it on save, so [0] should be current.
-        // Or we re-sort to be safe.
-
         if (employee.salaryStructure) {
             employee.salaryStructure.sort((a, b) => new Date(b.effectiveDate) - new Date(a.effectiveDate));
         }
 
-        res.status(200).json(employee);
+        let attendanceCount = 26; // Default fallback
+        let sundaysCount = 4; // Default fallback
+
+        if (month && year) {
+            const startDate = new Date(year, month - 1, 1);
+            const endDate = new Date(year, month, 0, 23, 59, 59);
+
+            const attendanceDocs = await EmployeeAttendance.find({
+                employeeId: id,
+                date: {
+                    $gte: startDate,
+                    $lte: endDate
+                },
+                status: { $in: ["Present", "Late", "Half Day"] } // Ensure these statuses are tracked
+            });
+
+            // Calculate worked days logic: weighted sum
+            attendanceCount = attendanceDocs.reduce((acc, doc) => {
+                if (doc.status === "Half Day") return acc + 0.5;
+                return acc + 1;
+            }, 0);
+
+            // Dynamic Sunday Calculation
+            sundaysCount = 0;
+            const daysInMonth = new Date(year, month, 0).getDate();
+            const joiningDate = employee.dateOfJoining ? new Date(employee.dateOfJoining) : null;
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const current = new Date(year, month - 1, d);
+                if (current.getDay() === 0) { // 0 is Sunday
+                    // Only count if employee had joined by this Sunday
+                    if (!joiningDate || current >= joiningDate) {
+                        sundaysCount++;
+                    }
+                }
+            }
+        }
+
+        res.status(200).json({ ...employee, attendanceCount, sundaysCount });
 
     } catch (error) {
         console.error("Payroll Detail Error:", error);

@@ -18,16 +18,27 @@ export const getLeads = async (req, res) => {
 
         // Centre-based access control
         if (req.user.role !== 'superAdmin') {
+            // Fetch user's centres from database since JWT doesn't include them
+            const User = (await import('../../models/User.js')).default;
+            const userDoc = await User.findById(req.user.id).select('centres role name');
+
+            if (!userDoc) {
+                return res.status(401).json({ message: "User not found" });
+            }
+
+            console.log(`Lead Management - User ${userDoc.name} (${userDoc.role}) centres:`, userDoc.centres);
+
             // Telecallers: Can only see their own assigned leads
-            if (req.user.role === 'telecaller') {
-                query.leadResponsibility = req.user.name;
+            if (userDoc.role === 'telecaller') {
+                query.leadResponsibility = userDoc.name;
             }
 
             // For all non-superAdmin users: Filter by assigned centres
-            const userCentreIds = req.user.centres || [];
+            const userCentreIds = userDoc.centres || [];
 
             if (userCentreIds.length === 0) {
                 // User has no centres assigned, return empty
+                console.log(`Lead Management - User ${userDoc.name} has no centres assigned`);
                 return res.status(200).json({
                     message: "Leads fetched successfully",
                     leads: [],
@@ -45,10 +56,11 @@ export const getLeads = async (req, res) => {
 
             // If a specific centre is requested via query param, validate it
             if (centre) {
-                if (userCentreIds.includes(centre)) {
+                if (userCentreIds.map(c => c.toString()).includes(centre)) {
                     query.centre = centre;
                 } else {
                     // User trying to access unauthorized centre
+                    console.log(`Lead Management - User ${userDoc.name} tried to access unauthorized centre: ${centre}`);
                     return res.status(403).json({
                         message: "Access denied. You don't have permission to view this centre's leads."
                     });
@@ -69,6 +81,8 @@ export const getLeads = async (req, res) => {
                 { schoolName: { $regex: search, $options: "i" } },
             ];
         }
+
+        console.log("Lead Management - Final query:", JSON.stringify(query, null, 2));
 
         const totalLeads = await LeadManagement.countDocuments(query);
 

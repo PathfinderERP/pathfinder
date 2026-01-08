@@ -26,6 +26,7 @@ const PayEmployeeDetails = () => {
 
     const [logoBase64, setLogoBase64] = useState(null);
     const [workedDays, setWorkedDays] = useState(26); // Default 26
+    const [sundays, setSundays] = useState(4); // Default 4
     const [calculatedSalary, setCalculatedSalary] = useState(null);
 
     useEffect(() => {
@@ -51,21 +52,22 @@ const PayEmployeeDetails = () => {
 
     useEffect(() => {
         fetchEmployeeDetails();
-    }, [id]);
+    }, [id, selectedMonth, selectedYear]);
 
     useEffect(() => {
         if (employee && employee.salaryStructure?.[0]) {
             calculateProRatedSalary(employee.salaryStructure[0]);
         }
-    }, [employee, workedDays]);
+    }, [employee, workedDays, sundays]);
 
     const calculateProRatedSalary = (baseStructure) => {
-        const totalDaysInMonth = 30; // Fixed as per requirement
-        const holidays = 4;
-        const payableDays = Math.min(Number(workedDays) + holidays, 30); // Cap at 30? Or allow >30? User said "calculate with 30".
-        // Logic: (Actual / 30) * (Worked + 4)
+        const holidays = sundays;
+        // Logic: (Actual / 30) * (Worked + Sundays)
+        // User requested: DIVIDE BY 30, then * (working days + 4 Sundays)
+        const payableDays = Number(workedDays) + holidays;
 
-        const ratio = payableDays / totalDaysInMonth;
+        // Strictly following the user's logic:
+        const ratio = payableDays / 30;
 
         const newEarnings = {
             basic: Math.round(baseStructure.basic * ratio),
@@ -97,12 +99,18 @@ const PayEmployeeDetails = () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/finance/payroll/employee/${id}`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/finance/payroll/employee/${id}?month=${selectedMonth}&year=${selectedYear}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const data = await response.json();
             if (response.ok) {
                 setEmployee(data);
+                if (data.attendanceCount !== undefined) {
+                    setWorkedDays(data.attendanceCount);
+                }
+                if (data.sundaysCount !== undefined) {
+                    setSundays(data.sundaysCount);
+                }
                 // initial calculation triggered by useEffect
             } else {
                 toast.error(data.message || "Failed to fetch employee details");
@@ -204,7 +212,7 @@ const PayEmployeeDetails = () => {
         doc.setFont("helvetica", "bold");
         doc.text("Paid Holidays:", 155, 76); // Same line, offset
         doc.setFont("helvetica", "normal");
-        doc.text("4", 180, 76);
+        doc.text(String(sundays), 180, 76);
 
         // --- Salary Table ---
         const startY = 95; // Adjusted down
@@ -401,13 +409,11 @@ const PayEmployeeDetails = () => {
                                     <input
                                         type="number"
                                         value={workedDays}
-                                        onChange={(e) => setWorkedDays(e.target.value)}
-                                        max="31"
-                                        min="0"
-                                        className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:border-green-500 outline-none font-bold"
+                                        readOnly
+                                        className="w-full bg-gray-900 border border-gray-700 text-gray-400 rounded-lg px-3 py-2 text-sm focus:border-green-500 outline-none font-bold cursor-not-allowed"
                                     />
                                     <p className="text-[10px] text-gray-500 mt-1">
-                                        Calculated: (Salary / 30) * ({Number(workedDays) + 4})
+                                        Calculated: (Salary / 30) * ({Number(workedDays)} + {sundays} Sundays)
                                     </p>
                                 </div>
                             </div>

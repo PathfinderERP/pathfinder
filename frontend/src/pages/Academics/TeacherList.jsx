@@ -5,12 +5,19 @@ import { FaEye, FaPlus, FaSearch, FaEdit, FaTrash, FaFilter, FaSync } from "reac
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import MultiSelectFilter from "../../components/common/MultiSelectFilter";
+import { hasPermission } from "../../config/permissions";
 
 const TeacherList = () => {
     const navigate = useNavigate();
     const [teachers, setTeachers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+
+    // Permissions
+    const [user, setUser] = useState(null);
+    const [canCreate, setCanCreate] = useState(false);
+    const [canEdit, setCanEdit] = useState(false);
+    const [canDelete, setCanDelete] = useState(false);
 
     // Filter States
     const [filterNames, setFilterNames] = useState([]);
@@ -77,7 +84,13 @@ const TeacherList = () => {
             });
             if (response.ok) {
                 const data = await response.json();
-                setCentres(data);
+                const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+                if (storedUser.role !== 'superAdmin' && storedUser.centres) {
+                    const filtered = data.filter(c => storedUser.centres.includes(c._id));
+                    setCentres(filtered);
+                } else {
+                    setCentres(data);
+                }
             }
         } catch (err) {
             // Ignore if fails
@@ -85,6 +98,14 @@ const TeacherList = () => {
     };
 
     useEffect(() => {
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+            const parsedUser = JSON.parse(storedUser);
+            setUser(parsedUser);
+            setCanCreate(hasPermission(parsedUser, 'academics', 'teachers', 'create'));
+            setCanEdit(hasPermission(parsedUser, 'academics', 'teachers', 'edit'));
+            setCanDelete(hasPermission(parsedUser, 'academics', 'teachers', 'delete'));
+        }
         fetchTeachers();
         fetchCentres();
     }, []);
@@ -273,12 +294,14 @@ const TeacherList = () => {
                             <button onClick={resetFilters} className="text-gray-400 hover:text-white text-sm flex items-center gap-1 transition-colors">
                                 <FaSync /> Reset
                             </button>
-                            <button
-                                onClick={openAddModal}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-semibold transition shadow-md"
-                            >
-                                <FaPlus /> Add Teacher
-                            </button>
+                            {canCreate && (
+                                <button
+                                    onClick={openAddModal}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-semibold transition shadow-md"
+                                >
+                                    <FaPlus /> Add Teacher
+                                </button>
+                            )}
                         </div>
                     </div>
 
@@ -377,20 +400,24 @@ const TeacherList = () => {
                                             >
                                                 <FaEye />
                                             </span>
-                                            <span
-                                                className="text-yellow-400 cursor-pointer flex items-center gap-1 hover:text-yellow-300 transition-colors"
-                                                title="Edit"
-                                                onClick={() => handleEdit(teacher)}
-                                            >
-                                                <FaEdit />
-                                            </span>
-                                            <span
-                                                className="text-red-400 cursor-pointer flex items-center gap-1 hover:text-red-300 transition-colors"
-                                                title="Delete"
-                                                onClick={() => handleDelete(teacher._id)}
-                                            >
-                                                <FaTrash />
-                                            </span>
+                                            {canEdit && (
+                                                <span
+                                                    className="text-yellow-400 cursor-pointer flex items-center gap-1 hover:text-yellow-300 transition-colors"
+                                                    title="Edit"
+                                                    onClick={() => handleEdit(teacher)}
+                                                >
+                                                    <FaEdit />
+                                                </span>
+                                            )}
+                                            {canDelete && (
+                                                <span
+                                                    className="text-red-400 cursor-pointer flex items-center gap-1 hover:text-red-300 transition-colors"
+                                                    title="Delete"
+                                                    onClick={() => handleDelete(teacher._id)}
+                                                >
+                                                    <FaTrash />
+                                                </span>
+                                            )}
                                         </td>
                                     </tr>
                                 ))

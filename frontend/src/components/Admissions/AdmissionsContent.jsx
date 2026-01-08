@@ -507,6 +507,7 @@ const AdmissionsContent = () => {
             {showDetailsModal && selectedStudent && (
                 <StudentDetailsModal
                     student={selectedStudent}
+                    canEdit={canEdit}
                     onClose={() => {
                         setShowDetailsModal(false);
                         setSelectedStudent(null);

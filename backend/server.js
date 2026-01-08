@@ -31,6 +31,7 @@ import academicsTopicRoutes from "./routes/Academics/academics_topic.routes.js";
 import classScheduleRoutes from "./routes/Academics/classSchedule.routes.js";
 import rmRoutes from "./routes/Academics/rm.routes.js";
 import hodRoutes from "./routes/Academics/hod.routes.js";
+import coordinatorRoutes from "./routes/Academics/coordinator.routes.js";
 import employeeRoutes from "./routes/HR/employee.routes.js";
 import letterRoutes from "./routes/HR/letter.routes.js";
 import designationRoutes from "./routes/designation/designation.routes.js";
@@ -110,6 +111,7 @@ app.use("/api/academics/chapter", academicsChapterRoutes);
 app.use("/api/academics/topic", academicsTopicRoutes);
 app.use("/api/academics/rm", rmRoutes);
 app.use("/api/academics/hod", hodRoutes);
+app.use("/api/academics/coordinator", coordinatorRoutes);
 
 // HR Routes
 // Moved to top and logged to ensure loading

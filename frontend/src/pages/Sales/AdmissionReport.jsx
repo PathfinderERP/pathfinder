@@ -123,21 +123,31 @@ const AdmissionReport = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            // Fetch Centres
-            const centreRes = await fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers });
-            if (centreRes.ok) setCentres(await centreRes.json());
+            // Fetch Centres, Courses, Classes, and Exam Tags in parallel
+            const [centreRes, courseRes, classRes, examTagRes] = await Promise.all([
+                fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/course`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/class`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers })
+            ]);
 
-            // Fetch Courses
-            const courseRes = await fetch(`${import.meta.env.VITE_API_URL}/course`, { headers });
+            if (centreRes.ok) {
+                const resData = await centreRes.json();
+                let centerList = Array.isArray(resData) ? resData : resData.centres || [];
+
+                // Filter by allocated centers
+                const storedUser = localStorage.getItem("user");
+                if (storedUser) {
+                    const user = JSON.parse(storedUser);
+                    if (user.role !== 'superAdmin' && user.centres) {
+                        const allowedIds = user.centres.map(id => typeof id === 'object' ? id._id : id);
+                        centerList = centerList.filter(c => allowedIds.includes(c._id));
+                    }
+                }
+                setCentres(centerList);
+            }
             if (courseRes.ok) setCourses(await courseRes.json());
-
-            // Fetch Classes
-            const classRes = await fetch(`${import.meta.env.VITE_API_URL}/class`, { headers });
             if (classRes.ok) setClasses(await classRes.json());
-
-            // Fetch Exam Tags
-            // Corrected endpoint from /exam-tag to /examTag matching server.js
-            const examTagRes = await fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers });
             if (examTagRes.ok) setExamTags(await examTagRes.json());
 
         } catch (error) {

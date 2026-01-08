@@ -3,6 +3,7 @@ import Layout from "../../components/Layout";
 import { FaSearch, FaTimes, FaPlay } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { hasPermission } from "../../config/permissions";
 
 const UpcomingClass = () => {
     const [classes, setClasses] = useState([]);
@@ -13,8 +14,18 @@ const UpcomingClass = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalRecords, setTotalRecords] = useState(0);
 
+    // Permission States
+    const [canEdit, setCanEdit] = useState(false);
+
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const isAdmin = user.role === "admin" || user.role === "superAdmin";
+    const isCoordinator = user.role === "Class_Coordinator";
+
+    useEffect(() => {
+        const userObj = JSON.parse(localStorage.getItem("user") || "{}");
+        // 'UpcomingClass' belongs to 'academics.classes' logically for edit/start
+        setCanEdit(hasPermission(userObj, "academics", "upcomingClass", "edit") || hasPermission(userObj, "academics", "classes", "edit"));
+    }, []);
 
     const API_URL = import.meta.env.VITE_API_URL;
 
@@ -116,6 +127,7 @@ const UpcomingClass = () => {
                                     <th className="p-4">Class Name</th>
                                     <th className="p-4">Class Mode</th>
                                     <th className="p-4">Batch</th>
+                                    <th className="p-4">Teacher</th>
                                     <th className="p-4">Center</th>
                                     <th className="p-4">Date</th>
                                     <th className="p-4">Start Time</th>
@@ -126,22 +138,27 @@ const UpcomingClass = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-700">
                                 {loading ? (
-                                    <tr><td colSpan="9" className="p-8 text-center text-gray-500">Loading...</td></tr>
+                                    <tr><td colSpan="10" className="p-8 text-center text-gray-500">Loading...</td></tr>
                                 ) : classes.length === 0 ? (
-                                    <tr><td colSpan="9" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No upcoming classes assigned</td></tr>
+                                    <tr><td colSpan="10" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No upcoming classes assigned</td></tr>
                                 ) : (
                                     classes.map((cls) => (
                                         <tr key={cls._id} className="hover:bg-[#252b32] transition-colors text-sm text-gray-300">
                                             <td className="p-4 font-semibold text-white">{cls.className}</td>
                                             <td className="p-4">{cls.classMode}</td>
-                                            <td className="p-4">{cls.batchId?.batchName || cls.batchId?.name || "-"}</td>
+                                            <td className="p-4">
+                                                {cls.batchIds && cls.batchIds.length > 0
+                                                    ? cls.batchIds.map(b => b.batchName || b.name).join(", ")
+                                                    : (cls.batchId?.batchName || cls.batchId?.name || "-")}
+                                            </td>
+                                            <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
                                             <td className="p-4">{cls.centreId?.centreName || cls.centreId?.name || "-"}</td>
                                             <td className="p-4">{formatDate(cls.date)}</td>
                                             <td className="p-4">{cls.startTime}</td>
                                             <td className="p-4">{cls.endTime}</td>
                                             <td className="p-4">{cls.subjectId?.subjectName || cls.subjectId?.name || "-"}</td>
                                             <td className="p-4 text-center">
-                                                {isAdmin ? (
+                                                {(canEdit || isAdmin || isCoordinator) ? (
                                                     <button
                                                         onClick={() => handleStartClass(cls._id)}
                                                         className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-xs uppercase transition shadow-lg shadow-green-900/20 mx-auto"

@@ -124,6 +124,12 @@ export const getCentreRankings = async (req, res) => {
             };
         });
 
+        // Filter by user's allocated centres if not superAdmin
+        if (req.user.role !== 'superAdmin') {
+            const allowedCentreIds = (req.user.centres || []).map(id => id.toString());
+            rankData = rankData.filter(item => allowedCentreIds.includes(item.centreId.toString()));
+        }
+
         res.status(200).json({ rankings: rankData });
 
     } catch (error) {

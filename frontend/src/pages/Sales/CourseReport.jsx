@@ -4,6 +4,7 @@ import { FaDownload, FaChevronDown, FaFilter, FaCalendarAlt, FaChartBar, FaTable
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+
 import {
     PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
     BarChart, Bar, XAxis, YAxis, CartesianGrid
@@ -26,12 +27,13 @@ const CourseReport = () => {
     const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
     const [examTags, setExamTags] = useState([]);
+    const [sessions, setSessions] = useState([]); // Dynamic sessions from master data
 
     // Filters
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedCourses, setSelectedCourses] = useState([]);
     const [selectedExamTag, setSelectedExamTag] = useState("");
-    const [selectedSession, setSelectedSession] = useState("2025-2026"); // Default? Or fetch?
+    const [selectedSession, setSelectedSession] = useState("");
     const [timePeriod, setTimePeriod] = useState("This Year");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
@@ -44,8 +46,6 @@ const CourseReport = () => {
     const centreDropdownRef = useRef(null);
     const courseDropdownRef = useRef(null);
 
-    // Hardcoded Sessions for now (ideally fetch from config)
-    const sessions = ["2023-2024", "2024-2025", "2025-2026", "2025-2027"];
 
     useEffect(() => {
         fetchMasterData();
@@ -74,21 +74,45 @@ const CourseReport = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const centreRes = await fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers });
-            if (centreRes.ok) setCentres(await centreRes.json());
+            const [centreRes, courseRes, examTagRes, sessionRes] = await Promise.all([
+                fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/course`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
+            ]);
 
-            const courseRes = await fetch(`${import.meta.env.VITE_API_URL}/course`, { headers });
+            if (centreRes.ok) {
+                const resData = await centreRes.json();
+                let centerList = Array.isArray(resData) ? resData : resData.centres || [];
+
+                // Filter by allocated centers
+                const storedUser = localStorage.getItem("user");
+                if (storedUser) {
+                    const user = JSON.parse(storedUser);
+                    if (user.role !== 'superAdmin' && user.centres) {
+                        const allowedIds = user.centres.map(id => typeof id === 'object' ? id._id : id);
+                        centerList = centerList.filter(c => allowedIds.includes(c._id));
+                    }
+                }
+                setCentres(centerList);
+            }
             if (courseRes.ok) setCourses(await courseRes.json());
-
-            const examTagRes = await fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers });
             if (examTagRes.ok) setExamTags(await examTagRes.json());
-
+            if (sessionRes.ok) {
+                const sessionData = await sessionRes.json();
+                const sessionList = Array.isArray(sessionData) ? sessionData : [];
+                setSessions(sessionList);
+                if (sessionList.length > 0 && !selectedSession) {
+                    setSelectedSession(sessionList[0].sessionName);
+                }
+            }
         } catch (error) {
             console.error("Error fetching master data", error);
         }
     };
 
     const fetchReportData = async () => {
+        if (!selectedSession) return;
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -135,7 +159,7 @@ const CourseReport = () => {
         setSelectedCentres([]);
         setSelectedCourses([]);
         setSelectedExamTag("");
-        setSelectedSession("2025-2026");
+        setSelectedSession(sessions.length > 0 ? sessions[0].sessionName : "");
         setTimePeriod("This Year");
         setStartDate("");
         setEndDate("");
@@ -325,9 +349,13 @@ const CourseReport = () => {
                                 className="h-10 px-3 bg-white border border-gray-300 rounded-md text-sm text-gray-700 min-w-[150px] outline-none"
                             >
                                 <option value="">Select Session</option>
-                                {sessions.map(s => (
-                                    <option key={s} value={s}>{s}</option>
-                                ))}
+                                {sessions.length === 0 ? (
+                                    <option value="">Loading...</option>
+                                ) : (
+                                    sessions.map(s => (
+                                        <option key={s._id} value={s.sessionName}>{s.sessionName}</option>
+                                    ))
+                                )}
                             </select>
 
                             <button onClick={handleResetFilters} className="text-red-500 text-sm font-semibold hover:underline">

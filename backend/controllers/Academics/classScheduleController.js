@@ -27,6 +27,14 @@ export const createClassSchedule = async (req, res) => {
             coordinatorId
         } = req.body;
 
+        // Center authorization check
+        if (req.user.role !== 'superAdmin') {
+            const userCentres = req.user.centres || [];
+            if (!userCentres.map(c => c.toString()).includes(centreId?.toString())) {
+                return res.status(403).json({ message: "You are not authorized to create classes for this center" });
+            }
+        }
+
         const newClass = new ClassSchedule({
             className,
             date,
@@ -72,18 +80,56 @@ export const getClassSchedules = async (req, res) => {
         const query = {};
 
         // Role-based filtering
+        const userId = req.user._id;
+
         if (req.user && req.user.role === 'Class_Coordinator') {
-            query.coordinatorId = req.user.id;
+            query.coordinatorId = userId;
+        } else if (req.user && req.user.role === 'teacher') {
+            query.teacherId = userId;
         } else if (req.user && req.user.role !== 'superAdmin' && req.user.role !== 'admin') {
-            // Teachers (or strictly restrict other non-admin roles)
-            query.teacherId = req.user.id;
+            // Other non-admin roles (HOD, RM, etc.) - for now restrict to their own ID if they have a field
+            // but usually they see by centre. Let's keep it restricted to teacherId if they are viewed as such.
+            query.teacherId = userId;
         } else {
             // Admins
             if (teacherId) query.teacherId = teacherId;
             if (coordinatorId) query.coordinatorId = coordinatorId;
         }
 
-        if (centreId) query.centreId = centreId;
+        // Center-based filtering for Non-SuperAdmins
+        if (req.user && req.user.role !== 'superAdmin') {
+            const userCentres = req.user.centres || [];
+
+            // For teachers and coordinators, we already filtered by their ID.
+            // Only apply centre filter to Admins or if they have centres but no ID field matched (though role check handles it)
+            if (req.user.role === 'admin') {
+                if (userCentres.length > 0) {
+                    if (centreId) {
+                        if (!userCentres.map(c => c.toString()).includes(centreId.toString())) {
+                            query.centreId = { $in: userCentres };
+                        } else {
+                            query.centreId = centreId;
+                        }
+                    } else {
+                        query.centreId = { $in: userCentres };
+                    }
+                } else {
+                    // Admins with no centers assigned see nothing
+                    return res.status(200).json({ classes: [], total: 0, currentPage: parseInt(page), totalPages: 0 });
+                }
+            } else {
+                // For other roles (teachers, coordinators), they only see their assigned data.
+                // Optionally allow them to filter by centre if they HAVE centres assigned.
+                if (centreId) {
+                    query.centreId = centreId;
+                } else if (userCentres.length > 0 && (req.user.role !== 'teacher' && req.user.role !== 'Class_Coordinator')) {
+                    // Restrict by centre for roles that are not teacher/coordinator (like RM/HOD if they don't have ID assignments)
+                    query.centreId = { $in: userCentres };
+                }
+            }
+        } else if (centreId) {
+            query.centreId = centreId;
+        }
         if (batchId) query.batchIds = batchId; // Search in array
         if (subjectId) query.subjectId = subjectId;
         if (status) query.status = status;
@@ -96,6 +142,10 @@ export const getClassSchedules = async (req, res) => {
 
         if (search) {
             query.className = { $regex: search, $options: "i" };
+        }
+
+        if (req.query.hasFeedback === 'true') {
+            query.teacherFeedback = { $exists: true, $not: { $size: 0 } };
         }
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -178,10 +228,81 @@ export const endClass = async (req, res) => {
     }
 };
 
+// Update a class schedule
+export const updateClassSchedule = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const {
+            className,
+            date,
+            classMode,
+            startTime,
+            endTime,
+            subjectId,
+            teacherId,
+            session,
+            examId,
+            courseId,
+            centreId,
+            batchIds,
+            coordinatorId
+        } = req.body;
+
+        const currentClass = await ClassSchedule.findById(id);
+        if (!currentClass) {
+            return res.status(404).json({ message: "Class schedule not found" });
+        }
+
+        // Permission Check
+        if (req.user.role !== 'admin' && req.user.role !== 'superAdmin' && req.user.role !== 'Class_Coordinator') {
+            return res.status(403).json({ message: "Access denied" });
+        }
+
+        // Center authorization check
+        if (req.user.role !== 'superAdmin') {
+            const userCentres = req.user.centres || [];
+            if (centreId && !userCentres.map(c => c.toString()).includes(centreId?.toString())) {
+                return res.status(403).json({ message: "You are not authorized to update classes for this center" });
+            }
+        }
+
+        const updatedClass = await ClassSchedule.findByIdAndUpdate(
+            id,
+            {
+                className,
+                date,
+                classMode,
+                startTime,
+                endTime,
+                subjectId,
+                teacherId,
+                session,
+                examId,
+                courseId,
+                centreId,
+                batchIds,
+                coordinatorId
+            },
+            { new: true }
+        );
+
+        res.status(200).json({ message: "Class schedule updated successfully", class: updatedClass });
+    } catch (error) {
+        console.error("Error updating class schedule:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
 // Delete a class schedule
 export const deleteClassSchedule = async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Permission Check
+        if (req.user.role !== 'admin' && req.user.role !== 'superAdmin' && req.user.role !== 'Class_Coordinator') {
+            return res.status(403).json({ message: "Access denied" });
+        }
+
         const deletedClass = await ClassSchedule.findByIdAndDelete(id);
 
         if (!deletedClass) {
@@ -220,35 +341,26 @@ export const submitFeedback = async (req, res) => {
 export const markTeacherAttendance = async (req, res) => {
     try {
         const { id } = req.params;
+        const { latitude, longitude } = req.body;
         const currentClass = await ClassSchedule.findById(id);
 
         if (!currentClass) {
             return res.status(404).json({ message: "Class not found" });
         }
 
-        // Only allow teachers to mark their own attendance
-        if (req.user.role !== 'admin' && req.user.role !== 'superAdmin') {
-            const teacherId = currentClass.teacherId?._id || currentClass.teacherId;
-            if (teacherId && teacherId.toString() !== req.user.id) {
-                return res.status(403).json({ message: "You can only mark attendance for your own classes" });
-            }
+        // Only allow teachers or admins
+        if (req.user.role !== 'admin' && req.user.role !== 'superAdmin' && req.user.role !== 'teacher') {
+            return res.status(403).json({ message: "Access denied" });
         }
 
-        if (!currentClass.isStudentAttendanceSaved) {
-            return res.status(400).json({ message: "Please save student attendance first" });
-        }
-
-        console.log("Reviewing Attendance Request. Body:", req.body);
-        const { latitude, longitude } = req.body || {};
         currentClass.teacherAttendance = true;
-
-        if (latitude) currentClass.attendanceLatitude = latitude;
-        if (longitude) currentClass.attendanceLongitude = longitude;
+        currentClass.attendanceLatitude = latitude;
+        currentClass.attendanceLongitude = longitude;
         await currentClass.save();
 
         res.status(200).json({ message: "Attendance marked successfully", class: currentClass });
     } catch (error) {
-        console.error("Error marking attendance:", error);
+        console.error("Error marking teacher attendance:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
@@ -288,8 +400,15 @@ export const getClassDropdownData = async (req, res) => {
         const teachers = await User.find({ role: "teacher" });
         const coordinators = await User.find({ role: "Class_Coordinator" });
         const courses = await Course.find();
-        const centres = await Centre.find();
-        const batches = await Batch.find();
+        let centres, batches;
+        if (req.user && req.user.role !== 'superAdmin') {
+            const userCentres = req.user.centres || [];
+            centres = await Centre.find({ _id: { $in: userCentres } });
+            batches = await Batch.find({ centreId: { $in: userCentres } });
+        } else {
+            centres = await Centre.find();
+            batches = await Batch.find();
+        }
         const exams = await ExamTag.find();
         const academicClasses = await AcademicsClass.find();
 

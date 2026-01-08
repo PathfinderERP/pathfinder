@@ -4,11 +4,24 @@ import { FaSearch, FaTimes, FaEdit, FaTrash, FaPlus, FaCheck } from "react-icons
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useNavigate } from "react-router-dom";
+import { hasPermission } from "../../config/permissions";
 
 const Classes = () => {
     const navigate = useNavigate();
     const [classes, setClasses] = useState([]);
     const [loading, setLoading] = useState(false);
+
+    // Permission States
+    const [canCreate, setCanCreate] = useState(false);
+    const [canEdit, setCanEdit] = useState(false);
+    const [canDelete, setCanDelete] = useState(false);
+
+    useEffect(() => {
+        const userObj = JSON.parse(localStorage.getItem("user") || "{}");
+        setCanCreate(hasPermission(userObj, "academics", "classes", "create"));
+        setCanEdit(hasPermission(userObj, "academics", "classes", "edit"));
+        setCanDelete(hasPermission(userObj, "academics", "classes", "delete"));
+    }, []);
 
     // Filters State
     const [filters, setFilters] = useState({
@@ -39,8 +52,15 @@ const Classes = () => {
         batches: [],
         subjects: [],
         teachers: [],
-        coordinators: []
+        coordinators: [],
+        sessions: [],
+        exams: [],
+        courses: []
     });
+
+    // Edit Modal State
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingClassData, setEditingClassData] = useState(null);
 
     // Feedback State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -230,6 +250,47 @@ const Classes = () => {
         }
     };
 
+    const handleEdit = (cls) => {
+        setEditingClassData({
+            ...cls,
+            centreId: cls.centreId?._id || cls.centreId,
+            batchIds: cls.batchIds?.map(b => b._id) || (cls.batchId?._id ? [cls.batchId._id] : []),
+            subjectId: cls.subjectId?._id || cls.subjectId,
+            teacherId: cls.teacherId?._id || cls.teacherId,
+            coordinatorId: cls.coordinatorId?._id || cls.coordinatorId,
+            courseId: cls.courseId?._id || cls.courseId,
+            examId: cls.examId?._id || cls.examId,
+            date: cls.date ? new Date(cls.date).toISOString().split('T')[0] : ""
+        });
+        setShowEditModal(true);
+    };
+
+    const handleUpdateClass = async (e) => {
+        e.preventDefault();
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${API_URL}/academics/class-schedule/update/${editingClassData._id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(editingClassData)
+            });
+
+            if (response.ok) {
+                toast.success("Class schedule updated successfully!");
+                setShowEditModal(false);
+                fetchClasses();
+            } else {
+                const data = await response.json();
+                toast.error(data.message || "Failed to update class schedule");
+            }
+        } catch (error) {
+            toast.error("Error updating class schedule");
+        }
+    };
+
     const TimeRemaining = ({ endTimeString, classDate }) => {
         const [timeLeft, setTimeLeft] = useState("");
 
@@ -381,12 +442,14 @@ const Classes = () => {
                         <div>
                             <h2 className="text-xl font-bold text-white uppercase tracking-wider">Class List</h2>
                         </div>
-                        <button
-                            onClick={() => navigate("/academics/class/add")}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 font-bold shadow-lg shadow-blue-900/40 transition-all uppercase text-sm"
-                        >
-                            <FaPlus /> Add Class
-                        </button>
+                        {canCreate && (
+                            <button
+                                onClick={() => navigate("/academics/class/add")}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 font-bold shadow-lg shadow-blue-900/40 transition-all uppercase text-sm"
+                            >
+                                <FaPlus /> Add Class
+                            </button>
+                        )}
                     </div>
 
                     {/* Search & Pagination Control */}
@@ -496,7 +559,7 @@ const Classes = () => {
                                             <td className="p-4">
                                                 <div className="relative group/hover">
                                                     {cls.status === "Upcoming" && (
-                                                        (isAdmin || user.role === "Class_Coordinator") ? (
+                                                        (isAdmin || isCoordinator) ? (
                                                             <button
                                                                 onClick={() => handleStartClass(cls._id)}
                                                                 className="bg-green-600/10 text-green-400 px-3 py-1 rounded text-[10px] font-bold uppercase border border-green-600/30 hover:bg-green-600 hover:text-white transition-all shadow-lg shadow-green-900/10"
@@ -509,7 +572,7 @@ const Classes = () => {
                                                     )}
                                                     {cls.status === "Ongoing" && (
                                                         <div className="flex gap-1 items-center">
-                                                            {isAdmin ? (
+                                                            {(isAdmin || isCoordinator) ? (
                                                                 <button
                                                                     onClick={() => handleEndClass(cls._id)}
                                                                     className="bg-red-600 text-white px-3 py-1 rounded text-[10px] font-bold uppercase border border-red-700 hover:bg-red-700 transition-all shadow-lg animate-pulse"
@@ -530,12 +593,18 @@ const Classes = () => {
                                                 </div>
                                             </td>
                                             <td className="p-4 text-right">
-                                                {isAdmin && (
-                                                    <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button onClick={() => toast.info("Edit feature coming soon")} className="text-yellow-400 hover:text-yellow-200 transition-colors"><FaEdit /></button>
-                                                        <button onClick={() => handleDelete(cls._id)} className="text-red-400 hover:text-red-300 transition-colors"><FaTrash /></button>
-                                                    </div>
-                                                )}
+                                                <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    {(canEdit || isAdmin || isCoordinator) && (
+                                                        <button onClick={() => handleEdit(cls)} title="Edit Class" className="text-yellow-400 hover:text-yellow-200 transition-colors">
+                                                            <FaEdit />
+                                                        </button>
+                                                    )}
+                                                    {(canDelete || isAdmin || isCoordinator) && (
+                                                        <button onClick={() => handleDelete(cls._id)} title="Delete Class" className="text-red-400 hover:text-red-300 transition-colors">
+                                                            <FaTrash />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
@@ -569,6 +638,184 @@ const Classes = () => {
                     </div>
 
                 </div>
+
+                {/* Edit Modal */}
+                {showEditModal && editingClassData && (
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+                        <div className="bg-[#1a1f24] w-full max-w-4xl rounded-2xl border border-gray-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                            <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-[#1e2530]">
+                                <h3 className="text-lg font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                    <div className="w-2 h-6 bg-yellow-500 rounded-full"></div>
+                                    Edit Class Schedule
+                                </h3>
+                                <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-gray-800 rounded-lg">
+                                    <FaTimes />
+                                </button>
+                            </div>
+                            <form onSubmit={handleUpdateClass} className="overflow-y-auto max-h-[80vh]">
+                                <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Class Name */}
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase">Class Name</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={editingClassData.className}
+                                            onChange={(e) => setEditingClassData({ ...editingClassData, className: e.target.value })}
+                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all"
+                                        />
+                                    </div>
+
+                                    {/* Date */}
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase">Date</label>
+                                        <input
+                                            type="date"
+                                            required
+                                            value={editingClassData.date}
+                                            onChange={(e) => setEditingClassData({ ...editingClassData, date: e.target.value })}
+                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all"
+                                        />
+                                    </div>
+
+                                    {/* Start & End Time */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-xs font-bold text-gray-400 uppercase">Start Time</label>
+                                            <input
+                                                type="time"
+                                                required
+                                                value={editingClassData.startTime}
+                                                onChange={(e) => setEditingClassData({ ...editingClassData, startTime: e.target.value })}
+                                                className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-xs font-bold text-gray-400 uppercase">End Time</label>
+                                            <input
+                                                type="time"
+                                                required
+                                                value={editingClassData.endTime}
+                                                onChange={(e) => setEditingClassData({ ...editingClassData, endTime: e.target.value })}
+                                                className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Center */}
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase">Center</label>
+                                        <select
+                                            required
+                                            value={editingClassData.centreId}
+                                            onChange={(e) => setEditingClassData({ ...editingClassData, centreId: e.target.value })}
+                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all"
+                                        >
+                                            <option value="">Select Center</option>
+                                            {dropdownData.centres?.map(c => <option key={c._id} value={c._id}>{c.centreName || c.name}</option>)}
+                                        </select>
+                                    </div>
+
+                                    {/* Instructor */}
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase">Instructor</label>
+                                        <select
+                                            required
+                                            value={editingClassData.teacherId}
+                                            onChange={(e) => setEditingClassData({ ...editingClassData, teacherId: e.target.value })}
+                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all transition-all shadow-lg"
+                                        >
+                                            <option value="">Select Teacher</option>
+                                            {dropdownData.teachers?.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                                        </select>
+                                    </div>
+
+                                    {/* Coordinator */}
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase">Coordinator</label>
+                                        <select
+                                            required
+                                            value={editingClassData.coordinatorId}
+                                            onChange={(e) => setEditingClassData({ ...editingClassData, coordinatorId: e.target.value })}
+                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all transition-all shadow-lg"
+                                        >
+                                            <option value="">Select Coordinator</option>
+                                            {dropdownData.coordinators?.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                                        </select>
+                                    </div>
+
+                                    {/* Class Mode */}
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase">Class Mode</label>
+                                        <select
+                                            required
+                                            value={editingClassData.classMode}
+                                            onChange={(e) => setEditingClassData({ ...editingClassData, classMode: e.target.value })}
+                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all transition-all shadow-lg text-sm"
+                                        >
+                                            <option value="Offline">Offline</option>
+                                            <option value="Online">Online</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Subject */}
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase">Subject</label>
+                                        <select
+                                            required
+                                            value={editingClassData.subjectId}
+                                            onChange={(e) => setEditingClassData({ ...editingClassData, subjectId: e.target.value })}
+                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all transition-all shadow-lg text-sm"
+                                        >
+                                            <option value="">Select Subject</option>
+                                            {dropdownData.subjects?.map(s => <option key={s._id} value={s._id}>{s.subjectName || s.name}</option>)}
+                                        </select>
+                                    </div>
+
+                                    {/* Batches (Multi-select) */}
+                                    <div className="flex flex-col gap-2 md:col-span-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase flex justify-between">
+                                            <span>Batches (Select multiple)</span>
+                                            <span className="text-cyan-500 capitalize">{editingClassData.batchIds?.length || 0} selected</span>
+                                        </label>
+                                        <select
+                                            multiple
+                                            required
+                                            value={editingClassData.batchIds}
+                                            onChange={(e) => {
+                                                const options = Array.from(e.target.selectedOptions);
+                                                const values = options.map(opt => opt.value);
+                                                setEditingClassData({ ...editingClassData, batchIds: values });
+                                            }}
+                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all transition-all shadow-lg h-32 scrollbar-thin scrollbar-thumb-gray-800"
+                                        >
+                                            {dropdownData.batches?.map(b => (
+                                                <option key={b._id} value={b._id} className="p-2 border-b border-gray-800 last:border-0">{b.batchName || b.name}</option>
+                                            ))}
+                                        </select>
+                                        <p className="text-[10px] text-gray-500 italic mt-1">Hold Ctrl (Cmd) to select multiple batches</p>
+                                    </div>
+                                </div>
+
+                                <div className="p-8 border-t border-gray-800 flex gap-4 bg-[#1e2530]">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowEditModal(false)}
+                                        className="flex-1 px-4 py-4 bg-gray-800 text-white rounded-xl hover:bg-gray-700 transition font-bold uppercase text-xs tracking-widest border border-gray-700 hover:border-gray-500 shadow-lg"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="flex-[2] px-8 py-4 bg-yellow-600 text-white rounded-xl hover:bg-yellow-500 transition font-bold uppercase text-xs tracking-widest shadow-lg shadow-yellow-900/40 border border-yellow-700"
+                                    >
+                                        Save Changes & Update Schedule
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
 
                 {/* Feedback Modal */}
                 {showFeedbackModal && (

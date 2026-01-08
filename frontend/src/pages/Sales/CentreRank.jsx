@@ -8,6 +8,7 @@ import { saveAs } from "file-saver";
 const CentreRank = () => {
     const [rankings, setRankings] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [sessions, setSessions] = useState([]);
 
     // Filters
     const monthNames = [
@@ -17,7 +18,7 @@ const CentreRank = () => {
 
     const currentDate = new Date();
     // Filters
-    const [filterFinancialYear, setFilterFinancialYear] = useState("2025-2026"); // You might want to calculate this dynamically too
+    const [filterFinancialYear, setFilterFinancialYear] = useState(""); // This will be set dynamically after sessions are fetched
     const [filterYear, setFilterYear] = useState(currentDate.getFullYear());
     const [filterMonth, setFilterMonth] = useState(monthNames[currentDate.getMonth()]);
     const [viewMode, setViewMode] = useState("Monthly");
@@ -28,10 +29,52 @@ const CentreRank = () => {
     ];
 
     useEffect(() => {
+        fetchMasterData();
+    }, []);
+
+    useEffect(() => {
         fetchRankings();
     }, [filterFinancialYear, filterYear, filterMonth]); // Fetch on filter change
 
+    const fetchMasterData = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/session/list`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const sessionList = Array.isArray(data) ? data : [];
+                setSessions(sessionList);
+
+                // Auto-select the first session if available and none selected or currently selected is not in list
+                if (sessionList.length > 0) {
+                    const sessionNames = sessionList.map(s => s.sessionName);
+                    if (!filterFinancialYear || !sessionNames.includes(filterFinancialYear)) {
+                        setFilterFinancialYear(sessionList[0].sessionName);
+                    }
+                }
+            } else {
+                console.error("Failed to fetch sessions");
+                // Fallback to default sessions if API fails
+                setSessions([
+                    { _id: '1', sessionName: '2024-2025' },
+                    { _id: '2', sessionName: '2025-2026' }
+                ]);
+            }
+        } catch (error) {
+            console.error("Error fetching sessions:", error);
+            // Fallback to default sessions if API fails
+            setSessions([
+                { _id: '1', sessionName: '2024-2025' },
+                { _id: '2', sessionName: '2025-2026' }
+            ]);
+        }
+    };
+
     const fetchRankings = async () => {
+        if (!filterFinancialYear) return;
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -121,8 +164,15 @@ const CentreRank = () => {
                             onChange={(e) => setFilterFinancialYear(e.target.value)}
                             className="bg-white text-gray-800 text-sm rounded-md block px-3 py-2 outline-none font-medium w-32"
                         >
-                            <option value="2024-2025">2024-2025</option>
-                            <option value="2025-2026">2025-2026</option>
+                            {sessions.length === 0 ? (
+                                <option value="">No sessions available</option>
+                            ) : (
+                                sessions.map(session => (
+                                    <option key={session._id} value={session.sessionName}>
+                                        {session.sessionName}
+                                    </option>
+                                ))
+                            )}
                         </select>
 
                         <select
@@ -130,8 +180,9 @@ const CentreRank = () => {
                             onChange={(e) => setFilterYear(e.target.value)}
                             className="bg-white text-gray-800 text-sm rounded-md block px-3 py-2 outline-none font-medium w-24"
                         >
-                            <option value="2024">2024</option>
-                            <option value="2025">2025</option>
+                            {Array.from({ length: 13 }, (_, i) => 2024 + i).map(year => (
+                                <option key={year} value={year}>{year}</option>
+                            ))}
                         </select>
 
                         <select

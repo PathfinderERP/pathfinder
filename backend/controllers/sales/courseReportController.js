@@ -40,21 +40,30 @@ export const getCourseReport = async (req, res) => {
             matchStage.academicSession = session;
         }
 
-        // 3. Centre Filter (Fix: Resolve IDs to Names)
+        // 3. Centre Filter (Resolve IDs to Names)
+        let allowedCentreNames = [];
+        if (req.user.role !== 'superAdmin') {
+            const userCentres = await Centre.find({ _id: { $in: req.user.centres || [] } }).select("centreName");
+            allowedCentreNames = userCentres.map(c => c.centreName);
+        }
+
         if (centreIds) {
             const rawIds = typeof centreIds === 'string' ? centreIds.split(',') : centreIds;
             const validIds = rawIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
 
             if (validIds.length > 0) {
-                const centres = await Centre.find({ _id: { $in: validIds } }).select("centreName");
-                const centreNames = centres.map(c => c.centreName);
+                const requestedCentres = await Centre.find({ _id: { $in: validIds } }).select("centreName");
+                const requestedNames = requestedCentres.map(c => c.centreName);
 
-                if (centreNames.length > 0) {
-                    matchStage.centre = { $in: centreNames };
-                } else {
-                    matchStage.centre = { $in: ["__NO_MATCH__"] };
+                if (req.user.role !== 'superAdmin') {
+                    const finalNames = requestedNames.filter(name => allowedCentreNames.includes(name));
+                    matchStage.centre = { $in: finalNames.length > 0 ? finalNames : ["__NO_MATCH__"] };
+                } else if (requestedNames.length > 0) {
+                    matchStage.centre = { $in: requestedNames };
                 }
             }
+        } else if (req.user.role !== 'superAdmin') {
+            matchStage.centre = { $in: allowedCentreNames.length > 0 ? allowedCentreNames : ["__NO_MATCH__"] };
         }
 
         // 4. Course Filter (New: Implement with ObjectId casting)

@@ -41,8 +41,8 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             subItems: [
                 { name: "All Leads", path: "/admissions", permissionSection: "allLeads" },
                 { name: "Admissions", path: "/enrolled-students", permissionSection: "enrolledStudents" },
-                { name: "Walk-in Registration", path: "/student-registration", permissionSection: "allLeads" },
-                { name: "Telecalling Console", path: "/admissions/telecalling-console", permissionSection: "allLeads" },
+                // { name: "Walk-in Registration", path: "/student-registration", permissionSection: "allLeads" },
+                { name: "Telecalling Console", path: "/admissions/telecalling-console", permissionSection: "telecallingConsole" },
             ]
         },
         {
@@ -63,7 +63,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                     permissionSection: "classes",
                     subItems: [
                         { name: "Class List", path: "/academics/classes", permissionSection: "classes" },
-                        { name: "Class Add", path: "/academics/class/add", permissionSection: "classes" },
+                        { name: "Class Add", path: "/academics/class/add", permissionSection: "classes", permissionAction: "create" },
                         { name: "Upcoming Class", path: "/academics/upcoming-class", permissionSection: "upcomingClass" },
                         { name: "Ongoing Class", path: "/academics/ongoing-class", permissionSection: "ongoingClass" },
                         { name: "Previous Class", path: "/academics/previous-class", permissionSection: "previousClass" },
@@ -74,7 +74,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                     name: "Class Management",
                     permissionSection: "classManagement",
                     subItems: [
-                        { name: "Create Class", path: "/academics/class-list", permissionSection: "classManagement" },
+                        { name: "Create Class", path: "/academics/class-list", permissionSection: "classManagement", permissionAction: "create" },
                         { name: "Create Subject", path: "/academics/create-subject", permissionSection: "classManagement" },
                         { name: "Create Chapter", path: "/academics/create-chapter", permissionSection: "classManagement" },
                         { name: "Create Topic", path: "/academics/create-topic", permissionSection: "classManagement" },
@@ -275,12 +275,18 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
         if (item.permissionModule) {
             if (item.permissionSection) {
+                if (item.permissionAction) {
+                    return hasPermission(user, item.permissionModule, item.permissionSection, item.permissionAction);
+                }
                 const section = granularPermissions[item.permissionModule]?.[item.permissionSection];
-                if (section) return true;
+                return !!section;
             }
             else if (hasModuleAccess(user, item.permissionModule)) {
                 if (item.subItems) {
                     const accessibleSubItems = item.subItems.filter(sub => {
+                        if (sub.permissionAction) {
+                            return hasPermission(user, item.permissionModule, sub.permissionSection, sub.permissionAction);
+                        }
                         const section = granularPermissions[item.permissionModule]?.[sub.permissionSection];
                         return !!section;
                     });
@@ -296,6 +302,9 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         if (item.subItems && !isSuperAdmin) {
             const filteredSubItems = item.subItems.filter(sub => {
                 if (sub.permissionSection) {
+                    if (sub.permissionAction) {
+                        return hasPermission(user, item.permissionModule, sub.permissionSection, sub.permissionAction);
+                    }
                     const section = granularPermissions[item.permissionModule]?.[sub.permissionSection];
                     return !!section;
                 }
@@ -304,6 +313,9 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 if (sub.subItems && !isSuperAdmin) {
                     const filteredNestedSubItems = sub.subItems.filter(nestedSub => {
                         if (nestedSub.permissionSection) {
+                            if (nestedSub.permissionAction) {
+                                return hasPermission(user, item.permissionModule, nestedSub.permissionSection, nestedSub.permissionAction);
+                            }
                             const section = granularPermissions[item.permissionModule]?.[nestedSub.permissionSection];
                             return !!section;
                         }

@@ -12,10 +12,11 @@ const TargetAchievementReport = () => {
     const [centres, setCentres] = useState([]);
     const [selectedCentres, setSelectedCentres] = useState([]); // Array of IDs
     const [displayMode, setDisplayMode] = useState("chart"); // chart, table, card
+    const [sessions, setSessions] = useState([]);
 
     // Filters
     const [viewMode, setViewMode] = useState("Monthly"); // Monthly, Quarterly, Yearly
-    const [filterFinancialYear, setFilterFinancialYear] = useState("2025-2026");
+    const [filterFinancialYear, setFilterFinancialYear] = useState("");
     const [filterYear, setFilterYear] = useState(new Date().getFullYear());
     const [filterMonth, setFilterMonth] = useState("December"); // Default to current month
     const [filterQuarter, setFilterQuarter] = useState("Q3");
@@ -28,7 +29,7 @@ const TargetAchievementReport = () => {
     const quarters = ["Q1", "Q2", "Q3", "Q4"];
 
     useEffect(() => {
-        fetchCentres();
+        fetchMasterData();
         // Set default month
         const currentMonthIndex = new Date().getMonth();
         setFilterMonth(months[currentMonthIndex]);
@@ -38,30 +39,52 @@ const TargetAchievementReport = () => {
         fetchAnalysis();
     }, [viewMode, filterFinancialYear, filterYear, filterMonth, filterQuarter, selectedCentres]);
 
-    const fetchCentres = async () => {
+    const fetchMasterData = async () => {
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/centre`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (response.ok) {
-                const resData = await response.json();
-                // Assuming resData is array or resData.centres
-                const centerList = Array.isArray(resData) ? resData : resData.centres || [];
+            const headers = { Authorization: `Bearer ${token}` };
+
+            // Fetch Centres and Sessions in parallel
+            const [centreRes, sessionRes] = await Promise.all([
+                fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
+            ]);
+
+            if (centreRes.ok) {
+                const resData = await centreRes.json();
+                let centerList = Array.isArray(resData) ? resData : resData.centres || [];
+
+                // Filter by allocated centers if not superAdmin
+                const storedUser = localStorage.getItem("user");
+                if (storedUser) {
+                    const user = JSON.parse(storedUser);
+                    if (user.role !== 'superAdmin' && user.centres) {
+                        const allowedIds = user.centres.map(id => typeof id === 'object' ? id._id : id);
+                        centerList = centerList.filter(c => allowedIds.includes(c._id));
+                    }
+                }
+
                 setCentres(centerList);
-                // Select all by default or none? Let's select all initially logic if needed, or user selects.
-                // For report, maybe top 10? let's start empty or all.
-                // Let's default to ALL for better UX if list isn't huge.
                 if (centerList.length > 0) {
                     setSelectedCentres(centerList.map(c => c._id));
                 }
             }
+
+            if (sessionRes.ok) {
+                const sessionData = await sessionRes.json();
+                const sessionList = Array.isArray(sessionData) ? sessionData : [];
+                setSessions(sessionList);
+                if (sessionList.length > 0 && !filterFinancialYear) {
+                    setFilterFinancialYear(sessionList[0].sessionName);
+                }
+            }
         } catch (error) {
-            console.error("Error fetching centres", error);
+            console.error("Error fetching master data", error);
         }
     };
 
     const fetchAnalysis = async () => {
+        if (!filterFinancialYear) return;
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -236,8 +259,13 @@ const TargetAchievementReport = () => {
                                 onChange={(e) => setFilterFinancialYear(e.target.value)}
                                 className="bg-white text-gray-800 text-sm rounded-md block px-3 py-2 outline-none font-medium w-32"
                             >
-                                <option value="2024-2025">2024-2025</option>
-                                <option value="2025-2026">2025-2026</option>
+                                {sessions.length === 0 ? (
+                                    <option value="">Loading...</option>
+                                ) : (
+                                    sessions.map(s => (
+                                        <option key={s._id} value={s.sessionName}>{s.sessionName}</option>
+                                    ))
+                                )}
                             </select>
 
                             {viewMode === "Monthly" && (
@@ -249,6 +277,18 @@ const TargetAchievementReport = () => {
                                     >
                                         <option value="2024">2024</option>
                                         <option value="2025">2025</option>
+                                        <option value="2026">2026</option>
+                                        <option value="2027">2027</option>
+                                        <option value="2028">2028</option>
+                                        <option value="2029">2029</option>
+                                        <option value="2030">2030</option>
+                                        <option value="2031">2031</option>
+                                        <option value="2032">2032</option>
+                                        <option value="2033">2033</option>
+                                        <option value="2034">2034</option>
+                                        <option value="2035">2035</option>
+                                        <option value="2036">2036</option>
+
                                     </select>
                                     <select
                                         value={filterMonth}

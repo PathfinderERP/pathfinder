@@ -3,12 +3,18 @@ import Layout from "../../components/Layout";
 import { FaEdit, FaTrash, FaPlus, FaTimes, FaSearch } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { hasPermission } from "../../config/permissions";
 
 const RMList = () => {
     const [rms, setRms] = useState([]);
     const [centres, setCentres] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+
+    // Permissions State
+    const [canCreate, setCanCreate] = useState(false);
+    const [canEdit, setCanEdit] = useState(false);
+    const [canDelete, setCanDelete] = useState(false);
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -25,6 +31,11 @@ const RMList = () => {
     const API_URL = import.meta.env.VITE_API_URL;
 
     useEffect(() => {
+        const user = JSON.parse(localStorage.getItem("user") || "{}");
+        setCanCreate(hasPermission(user, 'academics', 'rmList', 'create'));
+        setCanEdit(hasPermission(user, 'academics', 'rmList', 'edit'));
+        setCanDelete(hasPermission(user, 'academics', 'rmList', 'delete'));
+
         fetchRMs();
         fetchCentres();
     }, []);
@@ -52,14 +63,18 @@ const RMList = () => {
     const fetchCentres = async () => {
         try {
             const token = localStorage.getItem("token");
-            // Assuming centre route is /api/centre/list based on common pattern in this project
-            // If not, I'll fallback or need to check server.js
             const response = await fetch(`${API_URL}/centre`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const data = await response.json();
             if (response.ok) {
-                setCentres(data);
+                const user = JSON.parse(localStorage.getItem("user") || "{}");
+                if (user.role !== 'superAdmin' && user.centres) {
+                    const filtered = data.filter(c => user.centres.includes(c._id));
+                    setCentres(filtered);
+                } else {
+                    setCentres(data);
+                }
             }
         } catch (error) {
             console.error("Error fetching centers", error);
@@ -168,12 +183,14 @@ const RMList = () => {
                 <div className="bg-[#1e2530] p-6 rounded-xl border border-gray-700 shadow-2xl">
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-xl font-bold text-gray-300">Relationship Manager List</h2>
-                        <button
-                            onClick={() => openModal()}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-bold transition"
-                        >
-                            <FaPlus /> Add RM
-                        </button>
+                        {canCreate && (
+                            <button
+                                onClick={() => openModal()}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-bold transition"
+                            >
+                                <FaPlus /> Add RM
+                            </button>
+                        )}
                     </div>
 
                     <div className="mb-4">
@@ -216,8 +233,16 @@ const RMList = () => {
                                             </td>
                                             <td className="p-3 text-right">
                                                 <div className="flex justify-end gap-3">
-                                                    <button onClick={() => openModal(rm)} className="text-blue-400 hover:text-blue-300 flex items-center gap-1"><FaEdit /> Edit</button>
-                                                    <button onClick={() => handleDelete(rm._id)} className="text-red-400 hover:text-red-300 flex items-center gap-1"><FaTrash /> Delete</button>
+                                                    {canEdit && (
+                                                        <button onClick={() => openModal(rm)} className="text-blue-400 hover:text-blue-300 flex items-center gap-1">
+                                                            <FaEdit /> Edit
+                                                        </button>
+                                                    )}
+                                                    {canDelete && (
+                                                        <button onClick={() => handleDelete(rm._id)} className="text-red-400 hover:text-red-300 flex items-center gap-1">
+                                                            <FaTrash /> Delete
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>

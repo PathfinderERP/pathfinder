@@ -1,7 +1,7 @@
 import React from 'react';
 import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaBook, FaMapMarkerAlt, FaEdit } from 'react-icons/fa';
 
-const StudentDetailsModal = ({ student, onClose, onEdit }) => {
+const StudentDetailsModal = ({ student, onClose, onEdit, canEdit }) => {
     if (!student) return null;
 
     const details = student.studentsDetails?.[0] || {};
@@ -197,13 +197,15 @@ const StudentDetailsModal = ({ student, onClose, onEdit }) => {
 
                 {/* Footer */}
                 <div className="sticky bottom-0 bg-[#1a1f24] border-t border-gray-800 p-6 flex justify-end gap-4">
-                    <button
-                        onClick={onEdit}
-                        className="px-6 py-2 bg-cyan-500 text-black font-bold rounded-lg hover:bg-cyan-400 transition-colors flex items-center gap-2"
-                    >
-                        <FaEdit />
-                        Edit Student
-                    </button>
+                    {canEdit && (
+                        <button
+                            onClick={onEdit}
+                            className="px-6 py-2 bg-cyan-500 text-black font-bold rounded-lg hover:bg-cyan-400 transition-colors flex items-center gap-2"
+                        >
+                            <FaEdit />
+                            Edit Student
+                        </button>
+                    )}
                     <button
                         onClick={onClose}
                         className="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"

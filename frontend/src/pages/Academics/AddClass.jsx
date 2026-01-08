@@ -2,9 +2,21 @@ import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { useNavigate } from "react-router-dom";
+import { hasPermission } from "../../config/permissions";
 import { FaPlus, FaTrash } from "react-icons/fa";
 
 const AddClass = () => {
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const userObj = JSON.parse(localStorage.getItem("user") || "{}");
+        if (!hasPermission(userObj, "academics", "classes", "create")) {
+            toast.error("You do not have permission to create classes");
+            navigate("/academics/class");
+        }
+    }, [navigate]);
+
     const [formData, setFormData] = useState({
         className: "",
         date: "",

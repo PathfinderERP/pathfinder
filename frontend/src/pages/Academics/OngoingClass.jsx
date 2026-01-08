@@ -4,10 +4,20 @@ import { FaSearch, FaStop, FaClipboardList, FaCheck } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import StudentAttendanceModal from "../../components/Academics/StudentAttendanceModal";
+import { hasPermission } from "../../config/permissions";
 
 const OngoingClass = () => {
     const [classes, setClasses] = useState([]);
     const [loading, setLoading] = useState(false);
+
+    // Permission States
+    const [canEdit, setCanEdit] = useState(false);
+
+    useEffect(() => {
+        const userObj = JSON.parse(localStorage.getItem("user") || "{}");
+        setCanEdit(hasPermission(userObj, "academics", "ongoingClass", "edit") || hasPermission(userObj, "academics", "classes", "edit"));
+    }, []);
+
     const [search, setSearch] = useState("");
     const [limit, setLimit] = useState(10);
     const [page, setPage] = useState(1);
@@ -269,20 +279,22 @@ const OngoingClass = () => {
                                     <th className="p-4">Class Name</th>
                                     <th className="p-4">Class Mode</th>
                                     <th className="p-4">Batches</th>
+                                    <th className="p-4">Teacher</th>
                                     <th className="p-4">Center</th>
                                     <th className="p-4">Allocated Time</th>
                                     <th className="p-4">Actual Start</th>
                                     <th className="p-4">Subject</th>
                                     <th className="p-4 text-center">Teacher Attendance</th>
+                                    <th className="p-4 text-center">Student Attendance</th>
                                     <th className="p-4 text-center">Study Status</th>
                                     <th className="p-4 text-center">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-700">
                                 {loading ? (
-                                    <tr><td colSpan="10" className="p-8 text-center text-gray-500">Loading...</td></tr>
+                                    <tr><td colSpan="12" className="p-8 text-center text-gray-500">Loading...</td></tr>
                                 ) : classes.length === 0 ? (
-                                    <tr><td colSpan="10" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No classes are currently ongoing</td></tr>
+                                    <tr><td colSpan="12" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No classes are currently ongoing</td></tr>
                                 ) : (
                                     classes.map((cls) => (
                                         <tr key={cls._id} className="hover:bg-[#252b32] transition-colors text-sm text-gray-300">
@@ -301,6 +313,7 @@ const OngoingClass = () => {
                                                     )}
                                                 </div>
                                             </td>
+                                            <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
                                             <td className="p-4">{cls.centreId?.centreName || cls.centreId?.name || "-"}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">
                                                 {cls.startTime} - {cls.endTime}
@@ -310,33 +323,46 @@ const OngoingClass = () => {
                                             </td>
                                             <td className="p-4">{cls.subjectId?.subjectName || cls.subjectId?.name || "-"}</td>
                                             <td className="p-4 text-center">
-                                                <div className="flex flex-col gap-2 scale-90">
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedClassId(cls._id);
-                                                            setShowStudentAttendance(true);
-                                                        }}
-                                                        className={`px-3 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-[10px] uppercase transition shadow-lg ${cls.isStudentAttendanceSaved
-                                                            ? 'bg-green-600 text-white shadow-green-900/20'
-                                                            : 'bg-yellow-600 hover:bg-yellow-700 text-white shadow-yellow-900/20'
-                                                            }`}
-                                                    >
-                                                        <FaClipboardList />
-                                                        {cls.isStudentAttendanceSaved ? 'Students ✓' : 'Students'}
-                                                    </button>
-
-                                                    {(isTeacher || isAdmin) && (
+                                                {cls.teacherAttendance ? (
+                                                    <span className="bg-green-600/20 text-green-400 px-3 py-1 rounded-full text-[10px] font-bold border border-green-600/50 flex items-center justify-center gap-1 mx-auto w-fit">
+                                                        <FaCheck size={8} /> Present
+                                                    </span>
+                                                ) : (
+                                                    isTeacher ? (
                                                         <button
-                                                            onClick={() => !cls.teacherAttendance && handleAttendance(cls._id, cls.centreId?.latitude, cls.centreId?.longitude, 'teacher')}
-                                                            disabled={!cls.isStudentAttendanceSaved || cls.teacherAttendance}
-                                                            className={`px-3 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-[10px] uppercase transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${cls.teacherAttendance
+                                                            disabled={verifyingId === cls._id}
+                                                            onClick={() => handleAttendance(cls._id, cls.centreId?.latitude, cls.centreId?.longitude, 'teacher')}
+                                                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-[10px] font-bold uppercase transition shadow-lg shadow-blue-900/20 disabled:opacity-50"
+                                                        >
+                                                            Mark Attendance
+                                                        </button>
+                                                    ) : (
+                                                        <span className="bg-red-600/20 text-red-400 px-3 py-1 rounded-full text-[10px] font-bold border border-red-600/50 flex items-center justify-center gap-1 mx-auto w-fit">
+                                                            Absent
+                                                        </span>
+                                                    )
+                                                )}
+                                            </td>
+                                            <td className="p-4 text-center">
+                                                <div className="flex flex-col gap-2 scale-90">
+                                                    {(isAdmin || isCoordinator) ? (
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedClassId(cls._id);
+                                                                setShowStudentAttendance(true);
+                                                            }}
+                                                            className={`px-3 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-[10px] uppercase transition shadow-lg ${cls.isStudentAttendanceSaved
                                                                 ? 'bg-green-600 text-white shadow-green-900/20'
-                                                                : 'bg-cyan-600 hover:bg-cyan-700 text-white shadow-cyan-900/20'
+                                                                : 'bg-yellow-600 hover:bg-yellow-700 text-white shadow-yellow-900/20'
                                                                 }`}
                                                         >
-                                                            <FaCheck />
-                                                            {cls.teacherAttendance ? 'Teacher ✓' : 'Teacher'}
+                                                            <FaClipboardList />
+                                                            {cls.isStudentAttendanceSaved ? 'Students ✓' : 'Students'}
                                                         </button>
+                                                    ) : (
+                                                        <span className={`text-[10px] font-bold uppercase ${cls.isStudentAttendanceSaved ? 'text-green-400' : 'text-gray-500 italic'}`}>
+                                                            {cls.isStudentAttendanceSaved ? 'Marked ✓' : 'Pending'}
+                                                        </span>
                                                     )}
                                                 </div>
                                             </td>
@@ -363,7 +389,7 @@ const OngoingClass = () => {
                                             </td>
                                             <td className="p-4 text-center">
                                                 <div className="relative group/hover inline-block">
-                                                    {(isAdmin || isCoordinator) ? (
+                                                    {(canEdit || isAdmin || isCoordinator) ? (
                                                         <button
                                                             onClick={() => handleEndClass(cls._id)}
                                                             className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-xs uppercase transition shadow-lg shadow-red-900/20"

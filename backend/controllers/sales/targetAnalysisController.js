@@ -29,11 +29,25 @@ export const getTargetAnalysis = async (req, res) => {
         if (financialYear) query.financialYear = financialYear;
 
         // Centre Filter
+        let allowedCentreIds = [];
+        if (req.user.role !== 'superAdmin') {
+            allowedCentreIds = (req.user.centres || []).map(id => id.toString());
+        }
+
         if (centreIds) {
-            const ids = typeof centreIds === 'string' ? centreIds.split(',') : centreIds;
-            if (ids.length > 0) {
-                query.centre = { $in: ids };
+            const requestedIds = typeof centreIds === 'string' ? centreIds.split(',') : centreIds;
+            const validRequestedIds = requestedIds.filter(id => id && id.trim());
+
+            if (req.user.role !== 'superAdmin') {
+                // Intersect requested with allowed
+                const finalIds = validRequestedIds.filter(id => allowedCentreIds.includes(id));
+                query.centre = { $in: finalIds.length > 0 ? finalIds : ["__NONE__"] };
+            } else if (validRequestedIds.length > 0) {
+                query.centre = { $in: validRequestedIds };
             }
+        } else if (req.user.role !== 'superAdmin') {
+            // No specific centres requested, but user is restricted
+            query.centre = { $in: allowedCentreIds.length > 0 ? allowedCentreIds : ["__NONE__"] };
         }
 
         // Time Filter Logic

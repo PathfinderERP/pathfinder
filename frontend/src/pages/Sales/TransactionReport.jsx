@@ -25,7 +25,7 @@ const TransactionReport = () => {
     const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
     const [examTags, setExamTags] = useState([]);
-    const sessions = ["2023-2024", "2024-2025", "2025-2026", "2025-2027"];
+    const [sessions, setSessions] = useState([]); // Dynamic sessions from master data
 
     // Filters
     const [selectedCentres, setSelectedCentres] = useState([]);
@@ -71,15 +71,34 @@ const TransactionReport = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [cRes, coRes, eRes] = await Promise.all([
+            const [cRes, coRes, eRes, sRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/course`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
             ]);
 
-            if (cRes.ok) setCentres(await cRes.json());
+            if (cRes.ok) {
+                const resData = await cRes.json();
+                let centerList = Array.isArray(resData) ? resData : resData.centres || [];
+
+                // Filter by allocated centers
+                const storedUser = localStorage.getItem("user");
+                if (storedUser) {
+                    const user = JSON.parse(storedUser);
+                    if (user.role !== 'superAdmin' && user.centres) {
+                        const allowedIds = user.centres.map(id => typeof id === 'object' ? id._id : id);
+                        centerList = centerList.filter(c => allowedIds.includes(c._id));
+                    }
+                }
+                setCentres(centerList);
+            }
             if (coRes.ok) setCourses(await coRes.json());
             if (eRes.ok) setExamTags(await eRes.json());
+            if (sRes.ok) {
+                const sessionData = await sRes.ok ? await sRes.json() : [];
+                setSessions(Array.isArray(sessionData) ? sessionData : []);
+            }
         } catch (error) {
             console.error("Error fetching master data", error);
         }
@@ -420,7 +439,11 @@ const TransactionReport = () => {
                             className="h-10 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none focus:border-blue-500 min-w-[150px]"
                         >
                             <option value="">Select Session</option>
-                            {sessions.map(s => <option key={s} value={s}>{s}</option>)}
+                            {sessions.length === 0 ? (
+                                <option value="">Loading...</option>
+                            ) : (
+                                sessions.map(s => <option key={s._id} value={s.sessionName}>{s.sessionName}</option>)
+                            )}
                         </select>
 
                         {/* Exam Tag */}

@@ -4,9 +4,20 @@ import { FaSearch, FaCheckCircle, FaTimes } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+import { hasPermission } from "../../config/permissions";
+
 const PreviousClass = () => {
     const [classes, setClasses] = useState([]);
     const [loading, setLoading] = useState(false);
+
+    // Permission States
+    const [canEdit, setCanEdit] = useState(false);
+
+    useEffect(() => {
+        const userObj = JSON.parse(localStorage.getItem("user") || "{}");
+        setCanEdit(hasPermission(userObj, "academics", "previousClass", "edit") || hasPermission(userObj, "academics", "classes", "edit"));
+    }, []);
+
     const [search, setSearch] = useState("");
     const [limit, setLimit] = useState(10);
     const [page, setPage] = useState(1);
@@ -143,6 +154,7 @@ const PreviousClass = () => {
                                 <tr className="bg-[#2a3038] text-gray-300 text-xs uppercase font-bold tracking-wider">
                                     <th className="p-4">Class Name</th>
                                     <th className="p-4">Batch</th>
+                                    <th className="p-4">Teacher</th>
                                     <th className="p-4">Date</th>
                                     <th className="p-4">Allocated Time</th>
                                     <th className="p-4">Actual Time</th>
@@ -154,14 +166,19 @@ const PreviousClass = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-700">
                                 {loading ? (
-                                    <tr><td colSpan="9" className="p-8 text-center text-gray-500">Loading...</td></tr>
+                                    <tr><td colSpan="10" className="p-8 text-center text-gray-500">Loading...</td></tr>
                                 ) : classes.length === 0 ? (
-                                    <tr><td colSpan="9" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No previous classes found</td></tr>
+                                    <tr><td colSpan="10" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No previous classes found</td></tr>
                                 ) : (
                                     classes.map((cls) => (
                                         <tr key={cls._id} className="hover:bg-[#252b32] transition-colors text-sm text-gray-300">
                                             <td className="p-4 font-semibold text-white">{cls.className}</td>
-                                            <td className="p-4">{cls.batchId?.batchName || cls.batchId?.name || "-"}</td>
+                                            <td className="p-4">
+                                                {cls.batchIds && cls.batchIds.length > 0
+                                                    ? cls.batchIds.map(b => b.batchName || b.name).join(", ")
+                                                    : (cls.batchId?.batchName || cls.batchId?.name || "-")}
+                                            </td>
+                                            <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
                                             <td className="p-4">{formatDate(cls.date)}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">
                                                 {cls.startTime} - {cls.endTime}
@@ -181,7 +198,7 @@ const PreviousClass = () => {
                                                 </span>
                                             </td>
                                             <td className="p-4 text-center">
-                                                {(isAdmin || isCoordinator) && (
+                                                {(isAdmin || isCoordinator || canEdit) && !isTeacher ? (
                                                     <button
                                                         onClick={() => {
                                                             setSelectedClassForFeedback(cls);
@@ -195,8 +212,9 @@ const PreviousClass = () => {
                                                     >
                                                         {cls.teacherFeedback && cls.teacherFeedback.length > 0 ? "Feedback" : "Add Feedback"}
                                                     </button>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold text-gray-500 uppercase italic opacity-50">Locked</span>
                                                 )}
-                                                {isTeacher && <span className="text-[10px] font-bold text-gray-500 uppercase italic">Locked</span>}
                                             </td>
                                         </tr>
                                     ))

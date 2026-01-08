@@ -60,12 +60,16 @@ export const PERMISSION_MODULES = {
                 operations: ["create", "edit", "delete"]
             },
             enrolledStudents: {
-                label: "Enrolled Students",
+                label: "Admissions",
                 operations: ["create", "edit", "delete"]
             },
-            salesDashboard: {
-                label: "Sales Dashboard",
-                operations: ["create", "edit", "delete"]
+            // salesDashboard: {
+            //     label: "Sales Dashboard",
+            //     operations: ["create", "edit", "delete"]
+            // },
+            telecallingConsole: {
+                label: "Telecalling Console",
+                operations: ["view", "create", "edit", "delete"]
             }
         }
     },
@@ -379,14 +383,14 @@ export const PERMISSION_MODULES = {
                 label: "Leads",
                 operations: ["create", "edit", "delete"]
             },
-            allocations: {
-                label: "Allocations",
-                operations: ["create", "edit", "delete"]
-            },
-            leadStatus: {
-                label: "Lead Status",
-                operations: ["create", "edit", "delete"]
-            }
+            // allocations: {
+            //     label: "Allocations",
+            //     operations: ["create", "edit", "delete"]
+            // },
+            // leadStatus: {
+            //     label: "Lead Status",
+            //     operations: ["create", "edit", "delete"]
+            // }
         }
     },
     pettyCashManagement: {

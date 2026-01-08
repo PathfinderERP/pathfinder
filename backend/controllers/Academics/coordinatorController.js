@@ -1,9 +1,8 @@
 import User from "../../models/User.js";
-import Centre from "../../models/Master_data/Centre.js";
 import bcrypt from "bcrypt";
 
-// Create RM
-export const createRM = async (req, res) => {
+// Create Class Coordinator
+export const createCoordinator = async (req, res) => {
     try {
         const {
             name,
@@ -19,7 +18,7 @@ export const createRM = async (req, res) => {
             return res.status(400).json({ message: "Name, Email, and Employee ID are required." });
         }
 
-        const rmMobile = mobNum || "0000000000"; // Default mobile due to UI restrictions
+        const coordinatorMobile = mobNum || "0000000000";
 
         const existingUser = await User.findOne({ $or: [{ email }, { employeeId }] });
         if (existingUser) {
@@ -33,29 +32,29 @@ export const createRM = async (req, res) => {
             centres.push(centreId);
         }
 
-        const newRM = new User({
+        const newCoordinator = new User({
             name,
             email,
-            mobNum: rmMobile,
+            mobNum: coordinatorMobile,
             employeeId,
             password: hashedPassword,
-            role: "RM",
+            role: "Class_Coordinator",
             centres
         });
 
-        await newRM.save();
-        res.status(201).json({ message: "RM created successfully", rm: newRM });
+        await newCoordinator.save();
+        res.status(201).json({ message: "Class Coordinator created successfully", coordinator: newCoordinator });
 
     } catch (error) {
-        console.error("Create RM Error:", error);
+        console.error("Create Coordinator Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
 
-// Get All RMs
-export const getAllRMs = async (req, res) => {
+// Get All Class Coordinators
+export const getAllCoordinators = async (req, res) => {
     try {
-        let query = { role: "RM" };
+        let query = { role: "Class_Coordinator" };
 
         if (req.user.role !== 'superAdmin') {
             const allowedCentreIds = req.user.centres || [];
@@ -66,20 +65,20 @@ export const getAllRMs = async (req, res) => {
             }
         }
 
-        const rms = await User.find(query)
+        const coordinators = await User.find(query)
             .populate("centres", "centreName unqiue_code")
             .select("-password")
             .sort({ createdAt: -1 });
 
-        res.status(200).json(rms);
+        res.status(200).json(coordinators);
     } catch (error) {
-        console.error("Get RMs Error:", error);
+        console.error("Get Coordinators Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
 
-// Update RM
-export const updateRM = async (req, res) => {
+// Update Class Coordinator
+export const updateCoordinator = async (req, res) => {
     try {
         const { id } = req.params;
         const { name, email, mobNum, employeeId, centreId } = req.body;
@@ -90,31 +89,31 @@ export const updateRM = async (req, res) => {
             updates.centres = centreId ? [centreId] : [];
         }
 
-        const updatedRM = await User.findByIdAndUpdate(id, updates, { new: true });
+        const updatedCoordinator = await User.findByIdAndUpdate(id, updates, { new: true });
 
-        if (!updatedRM) {
-            return res.status(404).json({ message: "RM not found" });
+        if (!updatedCoordinator) {
+            return res.status(404).json({ message: "Class Coordinator not found" });
         }
-        res.status(200).json({ message: "RM updated successfully", rm: updatedRM });
+        res.status(200).json({ message: "Class Coordinator updated successfully", coordinator: updatedCoordinator });
 
     } catch (error) {
-        console.error("Update RM Error:", error);
+        console.error("Update Coordinator Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
 
-// Delete RM
-export const deleteRM = async (req, res) => {
+// Delete Class Coordinator
+export const deleteCoordinator = async (req, res) => {
     try {
         const { id } = req.params;
-        const deletedRM = await User.findByIdAndDelete(id);
+        const deletedCoordinator = await User.findByIdAndDelete(id);
 
-        if (!deletedRM) {
-            return res.status(404).json({ message: "RM not found" });
+        if (!deletedCoordinator) {
+            return res.status(404).json({ message: "Class Coordinator not found" });
         }
-        res.status(200).json({ message: "RM deleted successfully" });
+        res.status(200).json({ message: "Class Coordinator deleted successfully" });
     } catch (error) {
-        console.error("Delete RM Error:", error);
+        console.error("Delete Coordinator Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };

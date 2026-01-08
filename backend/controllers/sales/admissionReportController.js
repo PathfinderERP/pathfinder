@@ -39,22 +39,38 @@ export const getAdmissionReport = async (req, res) => {
         admissionQuery.admissionDate = { $gte: start, $lte: end };
         leadQuery.createdAt = { $gte: start, $lte: end };
 
-        // Centre Filter
+        // Resolve Centre IDs for filtering
+        let allowedCentreIds = [];
+        let allowedCentreNames = [];
+        if (req.user.role !== 'superAdmin') {
+            const userCentres = await Centre.find({ _id: { $in: req.user.centres || [] } }).select("centreName");
+            allowedCentreIds = userCentres.map(c => c._id.toString());
+            allowedCentreNames = userCentres.map(c => c.centreName);
+        }
+
         if (centreIds) {
             const rawIds = typeof centreIds === 'string' ? centreIds.split(',') : centreIds;
             const validIds = rawIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
-            const objectIds = validIds.map(id => new mongoose.Types.ObjectId(id));
 
-            if (objectIds.length > 0) {
+            if (req.user.role !== 'superAdmin') {
+                const finalIds = validIds.filter(id => allowedCentreIds.includes(id));
+                const finalObjectIds = finalIds.map(id => new mongoose.Types.ObjectId(id));
+                leadQuery.centre = { $in: finalObjectIds.length > 0 ? finalObjectIds : [new mongoose.Types.ObjectId()] };
+
+                // Since finalIds are already strings, and we have allowedCentreNames, we need to find names of finalIds
+                const finalCentres = await Centre.find({ _id: { $in: finalObjectIds } }).select("centreName");
+                const finalNames = finalCentres.map(c => c.centreName);
+                admissionQuery.centre = { $in: finalNames.length > 0 ? finalNames : ["__NO_MATCH__"] };
+            } else if (validIds.length > 0) {
+                const objectIds = validIds.map(id => new mongoose.Types.ObjectId(id));
                 leadQuery.centre = { $in: objectIds };
                 const centres = await Centre.find({ _id: { $in: objectIds } }).select("centreName");
                 const centreNames = centres.map(c => c.centreName);
-                if (centreNames.length > 0) {
-                    admissionQuery.centre = { $in: centreNames };
-                } else {
-                    admissionQuery.centre = { $in: ["__NO_MATCH__"] };
-                }
+                admissionQuery.centre = { $in: centreNames.length > 0 ? centreNames : ["__NO_MATCH__"] };
             }
+        } else if (req.user.role !== 'superAdmin') {
+            leadQuery.centre = { $in: allowedCentreIds.map(id => new mongoose.Types.ObjectId(id)) };
+            admissionQuery.centre = { $in: allowedCentreNames.length > 0 ? allowedCentreNames : ["__NO_MATCH__"] };
         }
 
         // Course Filter

@@ -35,12 +35,23 @@ export const getCentreTargets = async (req, res) => {
         const { centre, financialYear, month, year } = req.query;
         let query = {};
 
+        let allowedCentreIds = [];
+        if (req.user.role !== 'superAdmin') {
+            allowedCentreIds = (req.user.centres || []).map(id => id.toString());
+        }
+
         if (centre) {
-            if (centre.includes(',')) {
-                query.centre = { $in: centre.split(',') };
-            } else {
-                query.centre = centre;
+            const requestedIds = typeof centre === 'string' ? centre.split(',') : [centre];
+            const validRequestedIds = requestedIds.filter(id => id && id.trim());
+
+            if (req.user.role !== 'superAdmin') {
+                const finalIds = validRequestedIds.filter(id => allowedCentreIds.includes(id));
+                query.centre = { $in: finalIds.length > 0 ? finalIds : ["__NONE__"] };
+            } else if (validRequestedIds.length > 0) {
+                query.centre = { $in: validRequestedIds };
             }
+        } else if (req.user.role !== 'superAdmin') {
+            query.centre = { $in: allowedCentreIds.length > 0 ? allowedCentreIds : ["__NONE__"] };
         }
         if (financialYear) query.financialYear = financialYear;
         // Check filtering logic:
