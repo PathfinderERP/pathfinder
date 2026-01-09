@@ -503,7 +503,7 @@ const CourseReport = () => {
                             {displayMode === "chart" && (
                                 <div className="animate-fade-in">
                                     <div className="flex flex-col lg:flex-row items-center w-full gap-8">
-                                        <div className="w-full lg:w-1/2 h-[400px]">
+                                        <div className="w-full lg:w-1/2 h-[400px] min-w-[300px]">
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <PieChart>
                                                     <Pie
@@ -648,7 +648,7 @@ const CourseReport = () => {
                     {displayMode === "chart" && (
                         <div className="animate-fade-in">
                             <div className="flex flex-col lg:flex-row items-center w-full gap-8">
-                                <div className="w-full lg:w-1/2 h-[400px]">
+                                <div className="w-full lg:w-1/2 h-[400px] min-w-[300px]">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie
@@ -761,7 +761,7 @@ const CourseReport = () => {
                             {/* Center-wise Revenue Chart */}
                             <div className="bg-gray-50 dark:bg-[#131619] p-6 rounded-2xl border border-gray-200 dark:border-gray-800">
                                 <h4 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">Center-wise Revenue</h4>
-                                <div className="h-[400px]">
+                                <div className="h-[400px] w-full min-w-[300px]">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart
                                             layout="vertical"
@@ -790,7 +790,7 @@ const CourseReport = () => {
                             {/* Center-wise Enrollment Chart */}
                             <div className="bg-gray-50 dark:bg-[#131619] p-6 rounded-2xl border border-gray-200 dark:border-gray-800">
                                 <h4 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">Center-wise Enrollment</h4>
-                                <div className="h-[400px]">
+                                <div className="h-[400px] w-full min-w-[300px]">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart
                                             layout="vertical"

@@ -136,7 +136,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "My Profile", path: "/employee/details", icon: <FaIdCard /> },
                 { name: "Document Center", path: "/employee/documents", icon: <FaRegFileAlt /> },
                 { name: "Training Center", path: "/employee/training", icon: <FaChalkboardTeacher /> },
-                { name: "Feedback & Self Evaluation", path: "/hr/feedback", icon: <FaCommentDots /> },
+                { name: "Feedback & Self Evaluation", path: "/employee/feedback", icon: <FaCommentDots /> },
                 { name: "POSH Complaint", path: "/employee/posh", icon: <FaExclamationCircle /> },
                 {
                     name: "Reimbursement Management",

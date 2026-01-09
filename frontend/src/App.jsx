@@ -110,7 +110,8 @@ import ResignationList from "./pages/HR/ResignRequestList";
 import ResignationRequest from "./pages/Employee/ResignationRequest";
 import DocumentUpload from "./pages/HR/DocumentUpload";
 import BirthdayList from "./pages/HR/BirthdayList";
-import FeedbackHub from "./pages/HR/FeedbackHub";
+import AllFeedback from "./pages/HR/AllFeedback";
+import FeedbackEvaluation from "./pages/Employee/FeedbackEvaluation";
 import ReimbursementList from "./pages/HR/ReimbursementList";
 import AddReimbursement from "./pages/HR/AddReimbursement";
 import PoshComplaint from "./pages/Employee/PoshComplaint";
@@ -205,7 +206,8 @@ function App() {
         <Route path="/hr/documents/upload" element={<DocumentUpload />} />
         <Route path="/employee/documents" element={<DocumentCenter />} />
         <Route path="/hr/birthday" element={<BirthdayList />} />
-        <Route path="/hr/feedback" element={<FeedbackHub />} />
+        <Route path="/hr/feedback" element={<AllFeedback />} />
+        <Route path="/employee/feedback" element={<FeedbackEvaluation />} />
         <Route path="/hr/reimbursement" element={<ReimbursementList />} />
         <Route path="/hr/reimbursement/add" element={<AddReimbursement />} />
         <Route path="/hr/posh-table" element={<PoshDashboard />} />

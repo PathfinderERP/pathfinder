@@ -512,7 +512,7 @@ const DiscountReport = () => {
                                                 <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#00e396] rounded-full"></div><span className="text-[10px] font-bold text-gray-500 uppercase">Discounted</span></div>
                                             </div>
                                         </div>
-                                        <div className="h-[400px]">
+                                        <div className="h-[400px] w-full">
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <BarChart data={reportData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
                                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" opacity={0.5} />
@@ -534,7 +534,7 @@ const DiscountReport = () => {
                                                 <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#feb019] rounded-full"></div><span className="text-[10px] font-bold text-gray-500 uppercase">Discount Amount</span></div>
                                             </div>
                                         </div>
-                                        <div className="h-[400px]">
+                                        <div className="h-[400px] w-full">
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <BarChart data={reportData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
                                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" opacity={0.5} />

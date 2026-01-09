@@ -48,7 +48,7 @@ const ResignRequestList = () => {
     const handleStatusUpdate = async (id, status) => {
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/resignation/${id}/status`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/resignation/update/${id}`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
@@ -103,13 +103,17 @@ const ResignRequestList = () => {
     const handleUpdate = async () => {
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/resignation/${editModal.request._id}`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/resignation/update/${editModal.request._id}`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify(formData)
+                body: JSON.stringify({
+                    lastDateOfWork: formData.lastWorkDate,
+                    fnfAmount: formData.fnfAmount,
+                    remarks: formData.remarks
+                })
             });
 
             if (response.ok) {
