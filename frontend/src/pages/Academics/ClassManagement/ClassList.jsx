@@ -3,6 +3,7 @@ import Layout from "../../../components/Layout";
 import { FaEdit, FaTrash, FaPlus, FaSearch, FaLayerGroup } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { hasPermission } from "../../../config/permissions";
 
 const ClassList = () => {
     const [classes, setClasses] = useState([]);
@@ -13,6 +14,12 @@ const ClassList = () => {
     const [editId, setEditId] = useState(null);
 
     const API_URL = import.meta.env.VITE_API_URL;
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+    // Permissions
+    const canCreate = hasPermission(user, "academics", "classManagement", "create");
+    const canEdit = hasPermission(user, "academics", "classManagement", "edit");
+    const canDelete = hasPermission(user, "academics", "classManagement", "delete");
 
     useEffect(() => {
         fetchClasses();
@@ -39,12 +46,14 @@ const ClassList = () => {
     };
 
     const handleEdit = (cls) => {
+        if (!canEdit) return toast.error("Permission denied");
         setFormData({ className: cls.className });
         setEditId(cls._id);
         setShowModal(true);
     };
 
     const handleDelete = async (id) => {
+        if (!canDelete) return toast.error("Permission denied");
         if (!window.confirm("Are you sure you want to delete this class?")) return;
         try {
             const token = localStorage.getItem("token");
@@ -97,6 +106,7 @@ const ClassList = () => {
     };
 
     const openAddModal = () => {
+        if (!canCreate) return toast.error("Permission denied");
         setFormData({ className: "" });
         setEditId(null);
         setShowModal(true);
@@ -129,12 +139,14 @@ const ClassList = () => {
                             className="w-full bg-[#131619] text-white pl-10 pr-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500 transition-colors"
                         />
                     </div>
-                    <button
-                        onClick={openAddModal}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-semibold transition shadow-md"
-                    >
-                        <FaPlus /> Add Class
-                    </button>
+                    {canCreate && (
+                        <button
+                            onClick={openAddModal}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-semibold transition shadow-md"
+                        >
+                            <FaPlus /> Add Class
+                        </button>
+                    )}
                 </div>
 
                 {/* Table */}
@@ -158,18 +170,22 @@ const ClassList = () => {
                                         <td className="p-4 text-gray-300">{index + 1}</td>
                                         <td className="p-4 font-bold text-white">{cls.className}</td>
                                         <td className="p-4 flex gap-4 justify-end">
-                                            <button
-                                                onClick={() => handleEdit(cls)}
-                                                className="text-yellow-400 hover:text-yellow-300 flex items-center gap-1 transition-colors"
-                                            >
-                                                <FaEdit /> Edit
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(cls._id)}
-                                                className="text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
-                                            >
-                                                <FaTrash /> Delete
-                                            </button>
+                                            {canEdit && (
+                                                <button
+                                                    onClick={() => handleEdit(cls)}
+                                                    className="text-yellow-400 hover:text-yellow-300 flex items-center gap-1 transition-colors"
+                                                >
+                                                    <FaEdit /> Edit
+                                                </button>
+                                            )}
+                                            {canDelete && (
+                                                <button
+                                                    onClick={() => handleDelete(cls._id)}
+                                                    className="text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
+                                                >
+                                                    <FaTrash /> Delete
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))

@@ -18,7 +18,8 @@ const LeaveRequest = () => {
     });
 
     // Check if user has create permission
-    const canCreate = usePermission('hrManpower', 'leaveRequest', 'create');
+    // Updated to use employeeCenter module as per new granular permissions
+    const canCreate = usePermission('employeeCenter', 'leaveManagement', 'create');
 
     useEffect(() => {
         fetchLeaveTypes();
