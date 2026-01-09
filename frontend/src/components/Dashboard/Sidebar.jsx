@@ -128,19 +128,20 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             icon: <FaUserTie />,
             permissionModule: "employeeCenter",
             subItems: [
-                { name: "Holiday List", path: "/hr/attendance/holiday-list", icon: <FaPizzaSlice /> },
-                { name: "Holiday Calender", path: "/hr/attendance/holiday-management", icon: <FaGlassCheers /> },
-                { name: "Mark Attendance", path: "/employee/attendance", icon: <FaMapMarkerAlt /> },
-                { name: "Leave Management", path: "/hr/attendance/leave-request", icon: <FaCalendarTimes /> },
-                { name: "Regularize Table", path: "/employee/regularization", icon: <FaHandshake /> },
-                { name: "My Profile", path: "/employee/details", icon: <FaIdCard /> },
-                { name: "Document Center", path: "/employee/documents", icon: <FaRegFileAlt /> },
-                { name: "Training Center", path: "/employee/training", icon: <FaChalkboardTeacher /> },
-                { name: "Feedback & Self Evaluation", path: "/employee/feedback", icon: <FaCommentDots /> },
-                { name: "POSH Complaint", path: "/employee/posh", icon: <FaExclamationCircle /> },
+                { name: "Holiday List", path: "/hr/attendance/holiday-list", icon: <FaPizzaSlice />, permissionSection: "holidayList" },
+                { name: "Holiday Calender", path: "/hr/attendance/holiday-management", icon: <FaGlassCheers />, permissionSection: "holidayCalendar" },
+                { name: "Mark Attendance", path: "/employee/attendance", icon: <FaMapMarkerAlt />, permissionSection: "markAttendance" },
+                { name: "Leave Management", path: "/hr/attendance/leave-request", icon: <FaCalendarTimes />, permissionSection: "leaveManagement" },
+                { name: "Regularize Table", path: "/employee/regularization", icon: <FaHandshake />, permissionSection: "regularization" },
+                { name: "My Profile", path: "/employee/details", icon: <FaIdCard />, permissionSection: "profile" },
+                { name: "Document Center", path: "/employee/documents", icon: <FaRegFileAlt />, permissionSection: "documents" },
+                { name: "Training Center", path: "/employee/training", icon: <FaChalkboardTeacher />, permissionSection: "training" },
+                { name: "Feedback & Self Evaluation", path: "/employee/feedback", icon: <FaCommentDots />, permissionSection: "feedback" },
+                { name: "POSH Complaint", path: "/employee/posh", icon: <FaExclamationCircle />, permissionSection: "posh" },
                 {
                     name: "Reimbursement Management",
                     icon: <FaCalendarCheck />,
+                    permissionSection: "reimbursement",
                     subItems: [
                         { name: "Add Reimbursement", path: "/hr/reimbursement/add" },
                         // { name: "Reimbursement List", path: "/hr/reimbursement" },
@@ -149,6 +150,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 {
                     name: "Resign",
                     icon: <FaWindowClose />,
+                    permissionSection: "resign",
                     subItems: [
                         { name: "Resign Button", path: "/hr/resign/button" },
                         { name: "My Request Status", path: "/hr/resign/button" },
@@ -273,7 +275,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     // Filter menu items based on permissions
     const filteredMenuItems = menuItems.filter(item => {
         if (isSuperAdmin) return true;
-        if (item.permissionModule === 'employeeCenter') return true;
+        // if (item.permissionModule === 'employeeCenter') return true; // Removed legacy override
 
         if (item.permissionModule) {
             if (item.permissionSection) {
@@ -293,7 +295,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                         return !!section;
                     });
                     if (accessibleSubItems.length > 0) return true;
-                    if (item.permissionModule === 'employeeCenter') return true;
+                    // if (item.permissionModule === 'employeeCenter') return true; // Removed legacy override
                     return false;
                 }
                 return true;

@@ -213,6 +213,59 @@ export const PERMISSION_MODULES = {
             payroll: { label: "Payroll", operations: ["create", "edit", "delete"] }
         }
     },
+    employeeCenter: {
+        label: "Employee Center",
+        sections: {
+            holidayList: {
+                label: "Holiday List",
+                operations: ["create", "edit", "delete"]
+            },
+            holidayCalendar: {
+                label: "Holiday Calendar",
+                operations: ["create", "edit", "delete"]
+            },
+            markAttendance: {
+                label: "Mark Attendance",
+                operations: ["create", "edit", "delete"]
+            },
+            leaveManagement: {
+                label: "Leave Management",
+                operations: ["create", "edit", "delete"]
+            },
+            regularization: {
+                label: "Regularize Table",
+                operations: ["create", "edit", "delete"]
+            },
+            profile: {
+                label: "My Profile",
+                operations: ["create", "edit", "delete"]
+            },
+            documents: {
+                label: "Document Center",
+                operations: ["create", "edit", "delete"]
+            },
+            training: {
+                label: "Training Center",
+                operations: ["create", "edit", "delete"]
+            },
+            feedback: {
+                label: "Feedback & Self Evaluation",
+                operations: ["create", "edit", "delete"]
+            },
+            posh: {
+                label: "POSH Complaint",
+                operations: ["create", "edit", "delete"]
+            },
+            reimbursement: {
+                label: "Reimbursement Management",
+                operations: ["create", "edit", "delete"]
+            },
+            resign: {
+                label: "Resign",
+                operations: ["create", "edit", "delete"]
+            }
+        }
+    },
     operations: {
         label: "Operations",
         sections: {
