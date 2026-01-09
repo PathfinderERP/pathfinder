@@ -44,6 +44,14 @@ import AddPettyCashExpenditure from "./pages/PettyCash/AddPettyCashExpenditure";
 import PettyCashApproval from "./pages/PettyCash/PettyCashApproval";
 import MasterDataDesignation from "./pages/MasterDataDesignation";
 import MasterDataAccount from "./pages/MasterDataAccount";
+import MasterDataBoard from "./pages/MasterDataBoard";
+import MasterDataSubject from "./pages/MasterDataSubject";
+
+// ... [existing imports]
+
+// Master Data Routes
+// ... [existing routes]
+// ... (removed misplaced routes)
 import CarryForward from "./pages/CarryForward";
 import CourseTransfer from "./pages/CourseTransfer";
 import DocumentCenter from "./pages/Employee/DocumentCenter";
@@ -239,6 +247,8 @@ function App() {
         <Route path="/master-data/expense-subcategory" element={<MasterDataExpenseSubCategory />} />
         <Route path="/master-data/expenditure-type" element={<MasterDataExpenditureType />} />
         <Route path="/master-data/account" element={<MasterDataAccount />} />
+        <Route path="/master-data/board" element={<MasterDataBoard />} />
+        <Route path="/master-data/subject" element={<MasterDataSubject />} />
 
         {/* Petty Cash Routes */}
         <Route path="/petty-cash/centre" element={<PettyCashCentre />} />

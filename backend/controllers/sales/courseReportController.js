@@ -1,5 +1,6 @@
 
 import Admission from "../../models/Admission/Admission.js";
+import LeadManagement from "../../models/LeadManagement.js";
 import Course from "../../models/Master_data/Courses.js";
 import Centre from "../../models/Master_data/Centre.js";
 import mongoose from "mongoose";
@@ -83,7 +84,7 @@ export const getCourseReport = async (req, res) => {
         }
 
         // Parallel Aggregation
-        const [courseStats, centreStats, detailedStats] = await Promise.all([
+        const [courseStats, centreStats, detailedStats, leadStats] = await Promise.all([
             // 1. Course Aggregation
             Admission.aggregate([
                 { $match: matchStage },
@@ -153,6 +154,23 @@ export const getCourseReport = async (req, res) => {
                     }
                 },
                 { $sort: { courseName: 1, count: -1 } }
+            ]),
+
+            // 4. Lead Aggregation (Counselling) per Course
+            LeadManagement.aggregate([
+                {
+                    $match: {
+                        leadType: { $in: ['HOT LEAD', 'COLD LEAD'] },
+                        ...(matchStage.course ? { course: matchStage.course } : {}),
+                        ...(matchStage.centre ? { centre: matchStage.centre } : {})
+                    }
+                },
+                {
+                    $group: {
+                        _id: "$course",
+                        counsellingCount: { $sum: 1 }
+                    }
+                }
             ])
         ]);
 
@@ -160,13 +178,18 @@ export const getCourseReport = async (req, res) => {
         const totalEnrollments = courseStats.reduce((acc, curr) => acc + curr.count, 0);
         const totalRevenue = courseStats.reduce((acc, curr) => acc + curr.revenue, 0);
 
-        const courseData = courseStats.map(item => ({
-            name: item.courseName,
-            value: item.count,
-            revenue: item.revenue,
-            percent: totalEnrollments > 0 ? ((item.count / totalEnrollments) * 100).toFixed(2) : 0,
-            revenuePercent: totalRevenue > 0 ? ((item.revenue / totalRevenue) * 100).toFixed(2) : 0
-        }));
+        const courseData = courseStats.map(item => {
+            const leads = leadStats.find(l => l._id?.toString() === item._id?.toString());
+            return {
+                name: item.courseName,
+                value: item.count,
+                admitted: item.count,
+                counselling: leads ? leads.counsellingCount : 0,
+                revenue: item.revenue,
+                percent: totalEnrollments > 0 ? ((item.count / totalEnrollments) * 100).toFixed(2) : 0,
+                revenuePercent: totalRevenue > 0 ? ((item.revenue / totalRevenue) * 100).toFixed(2) : 0
+            };
+        });
 
         // Process Centre Data (Need to map IDs to Names)
         const allCentres = await Centre.find({}, 'centreName _id');

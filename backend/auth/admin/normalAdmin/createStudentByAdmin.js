@@ -13,6 +13,7 @@ export const createStudentByAdmin = async (req, res) => {
       sessionExamCourse,
       course,
       batches,
+      department
     } = req.body;
 
     console.log("Validating required fields...");
@@ -50,6 +51,7 @@ export const createStudentByAdmin = async (req, res) => {
       sessionExamCourse,
       course,
       batches,
+      department
     });
 
     console.log("Saving student to database...");

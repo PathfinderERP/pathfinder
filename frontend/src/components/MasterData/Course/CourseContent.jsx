@@ -28,6 +28,7 @@ const CourseContent = () => {
         mode: "",
         courseType: "",
         class: "",
+        department: "",
         examTag: ""
     });
 
@@ -92,6 +93,9 @@ const CourseContent = () => {
         if (filters.class) {
             filtered = filtered.filter(c => c.class?._id === filters.class);
         }
+        if (filters.department) {
+            filtered = filtered.filter(c => c.department?._id === filters.department);
+        }
         if (filters.examTag) {
             filtered = filtered.filter(c => c.examTag?._id === filters.examTag);
         }
@@ -112,6 +116,7 @@ const CourseContent = () => {
             mode: "",
             courseType: "",
             class: "",
+            department: "",
             examTag: ""
         });
     };
@@ -263,7 +268,7 @@ const CourseContent = () => {
                     <FaFilter className="text-cyan-400 text-sm sm:text-base" />
                     <h3 className="text-base sm:text-lg font-semibold text-white">Filters</h3>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
                     <div>
                         <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Mode</label>
                         <select
@@ -297,6 +302,19 @@ const CourseContent = () => {
                         >
                             <option value="">All Classes</option>
                             {classes.map(cls => <option key={cls._id} value={cls._id}>{cls.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Department</label>
+                        <select
+                            value={filters.department}
+                            onChange={(e) => handleFilterChange('department', e.target.value)}
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-xs sm:text-sm focus:outline-none focus:border-cyan-500"
+                        >
+                            <option value="">All Departments</option>
+                            {departments.map(dept => (
+                                <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
+                            ))}
                         </select>
                     </div>
                     <div>

@@ -167,14 +167,53 @@ export const getAdmissionReport = async (req, res) => {
         ]);
 
 
+        // 2. Admission Status (Admitted vs In Counselling) per month
+        const monthlyAdmitted = await Admission.aggregate([
+            { $match: admissionQuery },
+            {
+                $group: {
+                    _id: { $month: "$admissionDate" },
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        const monthlyCounselling = await LeadManagement.aggregate([
+            {
+                $match: {
+                    ...leadQuery,
+                    leadType: { $in: ['HOT LEAD', 'COLD LEAD'] }
+                }
+            },
+            {
+                $group: {
+                    _id: { $month: "$createdAt" },
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
         // Format for Chart (fill missing months with 0)
         const trendData = [];
         const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        let totalAdmitted = 0;
+        let totalCounselling = 0;
+
         for (let i = 1; i <= 12; i++) {
-            const found = monthlyTrend.find(m => m._id === i);
+            const adm = monthlyAdmitted.find(m => m._id === i);
+            const coun = monthlyCounselling.find(m => m._id === i);
+
+            const admittedCount = adm ? adm.count : 0;
+            const counsellingCount = coun ? coun.count : 0;
+
+            totalAdmitted += admittedCount;
+            totalCounselling += counsellingCount;
+
             trendData.push({
                 month: monthNames[i - 1],
-                count: found ? found.count : 0
+                count: admittedCount, // Maintain compatibility
+                admitted: admittedCount,
+                counselling: counsellingCount
             });
         }
 
@@ -184,20 +223,12 @@ export const getAdmissionReport = async (req, res) => {
             monthName: monthNames[item.month - 1]
         }));
 
-        // 2. Admission Status (Admitted vs In Counselling)
-        const admittedCount = await Admission.countDocuments(admissionQuery);
-
-        const inCounsellingCount = await LeadManagement.countDocuments({
-            ...leadQuery,
-            leadType: { $in: ['HOT LEAD', 'COLD LEAD'] } // Exclude NEGATIVE/Closed
-        });
-
         res.status(200).json({
             trend: trendData,
-            detailedTrend: detailedTrend, // New field for Excel
+            detailedTrend: detailedTrend,
             status: {
-                admitted: admittedCount,
-                inCounselling: inCounsellingCount
+                admitted: totalAdmitted,
+                inCounselling: totalCounselling
             }
         });
 

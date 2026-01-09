@@ -39,7 +39,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             icon: <FaBullseye />,
             permissionModule: "admissions",
             subItems: [
-                { name: "All Leads", path: "/admissions", permissionSection: "allLeads" },
+                { name: "Counsellead Students", path: "/admissions", permissionSection: "allLeads" },
                 { name: "Admissions", path: "/enrolled-students", permissionSection: "enrolledStudents" },
                 // { name: "Walk-in Registration", path: "/student-registration", permissionSection: "allLeads" },
                 { name: "Telecalling Console", path: "/admissions/telecalling-console", permissionSection: "telecallingConsole" },
@@ -174,7 +174,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                         { name: "Leave Management", path: "/hr/attendance/leave-management", permissionSection: "leaveManagement" },
                         { name: "Leave Request", path: "/hr/attendance/leave-request", permissionSection: "leaveRequest" },
                         { name: "Regularize Table", path: "/hr/attendance/regularize-table", permissionSection: "regularizeTable" },
-                        { name: "Employees Attendance", path: "/hr/attendance/employee-logs", icon: <FaUsers /> },
+                        { name: "Employees Attendance", path: "/hr/attendance/employee-logs", icon: <FaUsers />, permissionSection: "attendance" },
                         //     { name: "Daily Attendance", path: "/hr/attendance/daily" },
                         //     { name: "Monthly Report", path: "/hr/attendance/monthly" },
                     ]
@@ -198,6 +198,8 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Exam Tag", path: "/master-data/exam-tag", permissionSection: "examTag" },
                 { name: "Department", path: "/master-data/department", permissionSection: "department" },
                 { name: "Designation", path: "/master-data/designation", permissionSection: "designation" },
+                { name: "Board", path: "/master-data/board", permissionSection: "board" },
+                { name: "Subject", path: "/master-data/subject", permissionSection: "subject" },
                 { name: "Centre", path: "/master-data/centre", permissionSection: "centre" },
                 { name: "Batch", path: "/master-data/batch", permissionSection: "batch" },
                 { name: "Source", path: "/master-data/source", permissionSection: "source" },
@@ -295,6 +297,12 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                     return false;
                 }
                 return true;
+            }
+
+            // Strict Mode: If granular permissions are active (object exists), 
+            // do NOT fall back to legacy permissions for modules that are granularly controlled.
+            if (Object.keys(granularPermissions).length > 0) {
+                return false;
             }
         }
         return userPermissions.includes(item.name);

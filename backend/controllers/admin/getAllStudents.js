@@ -5,6 +5,7 @@ export const getAllStudents = async (req, res) => {
     const students = await Student.find()
       .populate('course')
       .populate('batches')
+      .populate('department')
       .sort({ createdAt: -1 });
     res.status(200).json(students);
   } catch (error) {

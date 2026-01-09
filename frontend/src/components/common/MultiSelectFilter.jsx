@@ -3,21 +3,30 @@ import { FaChevronDown, FaCheck, FaTimes } from 'react-icons/fa';
 
 const MultiSelectFilter = ({ options, selectedValues, onChange, placeholder, label }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
     const dropdownRef = useRef(null);
+
+    // Filter options based on search term
+    const filteredOptions = options.filter(option =>
+        option.label.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     // Close dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
                 setIsOpen(false);
+                setSearchTerm('');
             }
         };
 
-        document.addEventListener('mousedown', handleClickOutside);
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, []);
+    }, [isOpen]);
 
     const toggleOption = (value) => {
         let newValues;
@@ -62,23 +71,36 @@ const MultiSelectFilter = ({ options, selectedValues, onChange, placeholder, lab
             </div>
 
             {isOpen && (
-                <div className="absolute top-full left-0 mt-2 w-full min-w-[240px] bg-[#1a1f24] border border-gray-700 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
-                    {options.map((option) => {
-                        const isSelected = selectedValues.includes(option.value);
-                        return (
-                            <div
-                                key={option.value}
-                                onClick={() => toggleOption(option.value)}
-                                className={`px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-gray-800 transition-colors ${isSelected ? 'bg-cyan-500/10 text-cyan-400' : 'text-gray-300'}`}
-                            >
-                                <span>{option.label}</span>
-                                {isSelected && <FaCheck size={12} className="text-cyan-400" />}
-                            </div>
-                        );
-                    })}
-                    {options.length === 0 && (
-                        <div className="px-4 py-3 text-gray-500 text-center text-sm">No options available</div>
-                    )}
+                <div className="absolute top-full left-0 mt-2 w-full min-w-[240px] bg-[#1a1f24] border border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden flex flex-col max-h-[400px]">
+                    <div className="p-2 border-b border-gray-700 bg-[#131619]">
+                        <input
+                            type="text"
+                            placeholder="Search..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full bg-[#1a1f24] text-white px-3 py-1.5 rounded border border-gray-700 text-sm focus:outline-none focus:border-cyan-500"
+                        />
+                    </div>
+                    <div className="overflow-y-auto flex-1">
+                        {filteredOptions.length > 0 ? (
+                            filteredOptions.map((option) => {
+                                const isSelected = selectedValues.includes(option.value);
+                                return (
+                                    <div
+                                        key={option.value}
+                                        onClick={() => toggleOption(option.value)}
+                                        className={`px-4 py-2.5 flex items-center justify-between cursor-pointer hover:bg-gray-800 transition-colors ${isSelected ? 'bg-cyan-500/10 text-cyan-400' : 'text-gray-300'}`}
+                                    >
+                                        <span className="text-sm">{option.label}</span>
+                                        {isSelected && <FaCheck size={12} className="text-cyan-400" />}
+                                    </div>
+                                );
+                            })
+                        ) : (
+                            <div className="px-4 py-4 text-gray-500 text-center text-sm">No options found</div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>

@@ -29,7 +29,8 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
         annualIncome: student.guardians?.[0]?.annualIncome || '',
         qualification: student.guardians?.[0]?.qualification || '',
         course: student.course?._id || student.course || '',
-        batches: student.batches ? student.batches.map(b => b._id || b) : []
+        batches: student.batches ? student.batches.map(b => b._id || b) : [],
+        department: student.department?._id || student.department || ''
     });
 
     const [availableBatches, setAvailableBatches] = useState([]);
@@ -40,6 +41,7 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
     const [courses, setCourses] = useState([]);
     const [classes, setClasses] = useState([]);
     const [sessions, setSessions] = useState([]);
+    const [departments, setDepartments] = useState([]);
     const [filteredCourses, setFilteredCourses] = useState([]);
     const [courseFilters, setCourseFilters] = useState({
         mode: "",
@@ -55,6 +57,7 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
         fetchClasses();
         fetchSessions();
         fetchAvailableBatches();
+        fetchDepartments();
     }, []);
 
     const fetchAvailableBatches = async () => {
@@ -66,6 +69,17 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
             const data = await response.json();
             if (response.ok) setAvailableBatches(data);
         } catch (error) { console.error("Error fetching batches:", error); }
+    };
+
+    const fetchDepartments = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/department`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await response.json();
+            if (response.ok) setDepartments(data);
+        } catch (error) { console.error("Error fetching departments:", error); }
     };
 
     const handleBatchToggle = (batchId) => {
@@ -228,6 +242,7 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                 }],
                 course: formData.course,
                 batches: formData.batches,
+                department: formData.department,
                 section: student.section || [],
             };
 
@@ -470,6 +485,21 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                                     onChange={handleChange}
                                     className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-gray-400 text-sm mb-2">Department *</label>
+                                <select
+                                    name="department"
+                                    value={formData.department}
+                                    onChange={handleChange}
+                                    required
+                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                >
+                                    <option value="">Select Department</option>
+                                    {departments.map((dept) => (
+                                        <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                     </div>

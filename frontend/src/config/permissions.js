@@ -300,6 +300,14 @@ export const PERMISSION_MODULES = {
                 label: "Designation",
                 operations: ["create", "edit", "delete"]
             },
+            board: {
+                label: "Board",
+                operations: ["create", "edit", "delete"]
+            },
+            subject: {
+                label: "Subject",
+                operations: ["create", "edit", "delete"]
+            },
             centre: {
                 label: "Centre",
                 operations: ["create", "edit", "delete"]
@@ -430,17 +438,6 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
 
     // Otherwise treat it as granularPermissions object
     const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
-
-    // DEFAULT PERMISSIONS: Allow 'holidayList' and 'leaveRequest' for all users
-    if (module === 'hrManpower' && (section === 'holidayList' || section === 'leaveRequest')) {
-        // If specific permission exists, respect it (don't override restricted access if explicitly set to false)
-        // But the request says "they can see... create leave request"
-        // So we default to TRUE if permission is not explicitly defined or if we want to force it.
-        // Let's check if it's explicitly denied (which requires it to be present and false).
-        // Since granular permissions is usually an object { create: bool ... }, existence means enabled.
-        // To be safe and fulfill "update it like this... they can create", we return true.
-        return true;
-    }
 
     if (!granularPermissions) return false;
     if (!granularPermissions[module]) return false;

@@ -62,6 +62,7 @@ const StudentSchema = new mongoose.Schema({
   sessionExamCourse: { type: [SessionExamCourseSchema] },
   batches: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }],
   course: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+  department: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
   isEnrolled: { type: Boolean, default: false },
   carryForwardBalance: { type: Number, default: 0 },
   markedForCarryForward: { type: Boolean, default: false }

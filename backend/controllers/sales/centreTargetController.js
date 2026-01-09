@@ -2,6 +2,11 @@ import CentreTarget from "../../models/Sales/CentreTarget.js";
 import Centre from "../../models/Master_data/Centre.js";
 import { calculateCentreTargetAchieved } from "../../services/centreTargetService.js";
 
+const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+];
+
 // Create Target
 export const createCentreTarget = async (req, res) => {
     try {
@@ -32,7 +37,7 @@ export const createCentreTarget = async (req, res) => {
 // Get Targets with filtering and calculation
 export const getCentreTargets = async (req, res) => {
     try {
-        const { centre, financialYear, month, year } = req.query;
+        const { centre, financialYear, month, year, startDate, endDate } = req.query;
         let query = {};
 
         let allowedCentreIds = [];
@@ -53,10 +58,31 @@ export const getCentreTargets = async (req, res) => {
         } else if (req.user.role !== 'superAdmin') {
             query.centre = { $in: allowedCentreIds.length > 0 ? allowedCentreIds : ["__NONE__"] };
         }
-        if (financialYear) query.financialYear = financialYear;
-        // Check filtering logic:
-        if (month) query.month = month;
-        if (year && !isNaN(parseInt(year))) query.year = parseInt(year);
+
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const monthsInRange = [];
+            let current = new Date(start.getFullYear(), start.getMonth(), 1);
+
+            while (current <= end) {
+                monthsInRange.push({
+                    year: current.getFullYear(),
+                    month: monthNames[current.getMonth()]
+                });
+                current.setMonth(current.getMonth() + 1);
+            }
+
+            if (monthsInRange.length > 0) {
+                query.$or = monthsInRange;
+            } else {
+                query.year = -1; // No results
+            }
+        } else {
+            if (financialYear) query.financialYear = financialYear;
+            if (month) query.month = month;
+            if (year && !isNaN(parseInt(year))) query.year = parseInt(year);
+        }
 
         const targets = await CentreTarget.find(query)
             .populate({ path: 'centre', select: 'centreName', model: 'CentreSchema' }) // Explicitly specifying model to be safe

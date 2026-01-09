@@ -48,6 +48,8 @@ import installmentRoutes from "./routes/Finance/installmentRoutes.js";
 import cashRoutes from "./routes/Finance/cash.routes.js";
 import masterDataRoutes from "./routes/masterData/masterData.routes.js";
 import pettyCashRoutes from "./routes/Finance/pettyCash.routes.js";
+import boardRoutes from "./routes/board/board.routes.js";
+import subjectRoutes from "./routes/subject/subject.routes.js";
 import centerTaggingRoutes from "./routes/Finance/centerTaggingRoutes.js";
 import budgetRoutes from "./routes/Finance/budgetRoutes.js";
 import partTimeTeacherRoutes from "./routes/Finance/partTimeTeacher.routes.js";
@@ -139,6 +141,8 @@ app.use("/api/finance/payroll", payrollRoutes);
 // Master Data Routes
 app.use("/api/designation", designationRoutes);
 app.use("/api/master-data", masterDataRoutes);
+app.use("/api/board", boardRoutes);
+app.use("/api/subject", subjectRoutes);
 
 
 app.listen(process.env.PORT, () => {

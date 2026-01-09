@@ -14,6 +14,7 @@ const StudentRegistrationForm = () => {
     const [courses, setCourses] = useState([]);
     const [classes, setClasses] = useState([]);
     const [sessions, setSessions] = useState([]);
+    const [departments, setDepartments] = useState([]);
     const [filteredCourses, setFilteredCourses] = useState([]);
     const [selectedBatches, setSelectedBatches] = useState([]);
 
@@ -76,7 +77,8 @@ const StudentRegistrationForm = () => {
 
         // New Fields
         course: "",
-        batches: []
+        batches: [],
+        department: ""
     });
 
     useEffect(() => {
@@ -199,6 +201,17 @@ const StudentRegistrationForm = () => {
         } catch (error) { console.error("Error fetching sessions:", error); }
     };
 
+    const fetchDepartments = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/department`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await response.json();
+            if (response.ok) setDepartments(data);
+        } catch (error) { console.error("Error fetching departments:", error); }
+    };
+
     useEffect(() => {
         fetchCentres();
         fetchExamTags();
@@ -206,6 +219,7 @@ const StudentRegistrationForm = () => {
         fetchCourses();
         fetchClasses();
         fetchSessions();
+        fetchDepartments();
     }, []);
 
     useEffect(() => {
@@ -327,7 +341,8 @@ const StudentRegistrationForm = () => {
                     }
                 ],
                 course: formData.course,
-                batches: formData.batches
+                batches: formData.batches,
+                department: formData.department
             };
 
             console.log("📤 Sending student registration payload:", JSON.stringify(payload, null, 2));
@@ -440,7 +455,12 @@ const StudentRegistrationForm = () => {
                         <div>
                             <h4 className="text-lg font-semibold text-cyan-400 mb-3">Exam Details</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                                <input type="text" name="examName" required value={formData.examName} onChange={handleChange} placeholder="Exam Name *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <select name="examName" required value={formData.examName} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
+                                    <option value="">Select Exam Name *</option>
+                                    {examTags.map((tag) => (
+                                        <option key={tag._id} value={tag.name}>{tag.name}</option>
+                                    ))}
+                                </select>
                                 <select name="class" required value={formData.class} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
                                     <option value="">Select Class *</option>
                                     <option value="8">Class 8</option>
@@ -497,6 +517,12 @@ const StudentRegistrationForm = () => {
                                         <option key={c._id} value={c._id}>
                                             {c.courseName} ({c.mode} - {c.courseType})
                                         </option>
+                                    ))}
+                                </select>
+                                <select name="department" value={formData.department} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
+                                    <option value="">Select Department *</option>
+                                    {departments.map((dept) => (
+                                        <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
                                     ))}
                                 </select>
                                 <input type="text" name="sectionType" value={formData.sectionType} onChange={handleChange} placeholder="Section Type" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />

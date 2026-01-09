@@ -19,6 +19,9 @@ const AdmissionsContent = () => {
     const [filterCentre, setFilterCentre] = useState([]);
     const [filterBoard, setFilterBoard] = useState([]);
     const [filterExamTag, setFilterExamTag] = useState([]);
+    const [filterDepartment, setFilterDepartment] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [allowedCentres, setAllowedCentres] = useState([]); // Store allowed centres for the user
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
@@ -33,12 +36,14 @@ const AdmissionsContent = () => {
     const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'allLeads', 'delete');
 
     useEffect(() => {
+        fetchAllowedCentres();
         fetchStudents();
+        fetchDepartments();
     }, []);
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, filterCentre, filterBoard, filterExamTag]);
+    }, [searchQuery, filterCentre, filterBoard, filterExamTag, filterDepartment]);
 
     const fetchStudents = async () => {
         try {
@@ -62,24 +67,83 @@ const AdmissionsContent = () => {
         }
     };
 
+    const fetchAllowedCentres = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/profile/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const currentUser = data.user;
+
+                if (currentUser.role === 'superAdmin') {
+                    // If superAdmin, fetch all centres to populate allowed list
+                    // Or we can just leave it empty and handle "Access All" logic
+                    // But for consistency with filters, let's fetch all
+                    const centreRes = await fetch(`${import.meta.env.VITE_API_URL}/centre`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    if (centreRes.ok) {
+                        const allCentres = await centreRes.json();
+                        setAllowedCentres(allCentres.map(c => c.centreName));
+                    }
+                } else {
+                    const userCentres = currentUser.centres || [];
+                    const userCentreNames = userCentres.map(c => c.centreName || c.name); // Handle potential population differences
+                    setAllowedCentres(userCentreNames);
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching allowed centres:", error);
+        }
+    };
+
+    const fetchDepartments = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/department`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) setDepartments(data);
+        } catch (error) {
+            console.error("Error fetching departments:", error);
+        }
+    };
+
     const handleRefresh = () => {
         setSearchQuery("");
         setCurrentPage(1);
         setFilterCentre([]);
         setFilterBoard([]);
         setFilterExamTag([]);
+        setFilterDepartment([]);
         setLoading(true);
         fetchStudents();
+        fetchDepartments();
         toast.info("Refreshed data and filters");
     };
 
-    // Extract unique values for filters
-    const uniqueCentres = [...new Set(students.map(s => s.studentsDetails?.[0]?.centre).filter(Boolean))];
+    // Extract unique values for filters based on visible students
+    // First, filter students by allowed centres to ensure safety
+    const visibleStudents = students.filter(s => {
+        if (allowedCentres.length === 0) return true; // Loading or issue, might want to block or allow pending check. For now assuming superadmin if empty or fetch pending.
+        // Actually best to rely on 'isSuperAdmin' flag or non-empty allowedCentres.
+        // If allowedCentres is populated, strict check.
+        if (isSuperAdmin) return true;
+
+        const studentCentre = s.studentsDetails?.[0]?.centre;
+        return allowedCentres.includes(studentCentre);
+    });
+
+    const uniqueCentres = [...new Set(visibleStudents.map(s => s.studentsDetails?.[0]?.centre).filter(Boolean))];
     const uniqueBoards = [...new Set(students.map(s => s.studentsDetails?.[0]?.board).filter(Boolean))];
     const uniqueExamTags = [...new Set(students.map(s => s.sessionExamCourse?.[0]?.examTag).filter(Boolean))];
 
     // Filter students based on search query and filters
-    const filteredStudents = students.filter(student => {
+    const filteredStudents = visibleStudents.filter(student => {
         const details = student.studentsDetails?.[0] || {};
         const exam = student.examSchema?.[0] || {};
         const studentStatusList = student.studentStatus || [];
@@ -109,7 +173,10 @@ const AdmissionsContent = () => {
         const matchesBoard = filterBoard.length === 0 || filterBoard.includes(board);
         const matchesExamTag = filterExamTag.length === 0 || filterExamTag.includes(examTag);
 
-        return matchesSearch && matchesCentre && matchesBoard && matchesExamTag;
+        const departmentName = student.department?.departmentName || "";
+        const matchesDepartment = filterDepartment.length === 0 || filterDepartment.includes(departmentName);
+
+        return matchesSearch && matchesCentre && matchesBoard && matchesExamTag && matchesDepartment;
     });
 
 
@@ -160,68 +227,230 @@ const AdmissionsContent = () => {
 
     const handleExportCSV = () => {
         const headers = [
+            // Student Details
             { label: 'Student Name', key: 'studentsDetails.0.studentName' },
+            { label: 'DOB', key: 'studentsDetails.0.dateOfBirth' },
+            { label: 'Gender', key: 'studentsDetails.0.gender' },
             { label: 'Centre', key: 'studentsDetails.0.centre' },
-            { label: 'Email', key: 'studentsDetails.0.studentEmail' },
-            { label: 'Class', key: 'examSchema.0.class' },
-            { label: 'School', key: 'studentsDetails.0.schoolName' },
             { label: 'Board', key: 'studentsDetails.0.board' },
-            { label: 'Exam Tag', key: 'sessionExamCourse.0.examTag' },
+            { label: 'State', key: 'studentsDetails.0.state' },
+            { label: 'Email', key: 'studentsDetails.0.studentEmail' },
             { label: 'Mobile', key: 'studentsDetails.0.mobileNum' },
+            { label: 'WhatsApp', key: 'studentsDetails.0.whatsappNumber' },
+            { label: 'School', key: 'studentsDetails.0.schoolName' },
+            { label: 'Pincode', key: 'studentsDetails.0.pincode' },
+            { label: 'Source', key: 'studentsDetails.0.source' },
+            { label: 'Address', key: 'studentsDetails.0.address' },
+
+            // Guardian Details
+            { label: 'Guardian Name', key: 'guardians.0.guardianName' },
+            { label: 'Qualification', key: 'guardians.0.qualification' },
+            { label: 'Guardian Email', key: 'guardians.0.guardianEmail' },
+            { label: 'Guardian Mobile', key: 'guardians.0.guardianMobile' },
+            { label: 'Occupation', key: 'guardians.0.occupation' },
+            { label: 'Annual Income', key: 'guardians.0.annualIncome' },
+            { label: 'Organization', key: 'guardians.0.organizationName' },
+            { label: 'Designation', key: 'guardians.0.designation' },
+            { label: 'Office Address', key: 'guardians.0.officeAddress' },
+
+            // Exam Details
+            { label: 'Exam Name', key: 'examSchema.0.examName' },
+            { label: 'Class', key: 'examSchema.0.class' },
+            { label: 'Exam Status', key: 'examSchema.0.examStatus' },
+            { label: 'Mark Aggregate', key: 'examSchema.0.markAgregate' },
+            { label: 'Science/Math %', key: 'examSchema.0.scienceMathParcent' },
+
+            // Other Academic Info
+            { label: 'Section Type', key: 'section.0.type' },
+            { label: 'Session', key: 'sessionExamCourse.0.session' },
+            { label: 'Exam Tag', key: 'sessionExamCourse.0.examTag' },
+            { label: 'Target Exams', key: 'sessionExamCourse.0.targetExams' },
+
+            // References & Status
+            { label: 'Course', key: 'courseName' },
+            { label: 'Department', key: 'departmentName' },
+            { label: 'Batches', key: 'batchNames' },
+            { label: 'Enrolled', key: 'isEnrolled' },
+            { label: 'Carry Forward Balance', key: 'carryForwardBalance' },
+            { label: 'Marked For Carry Forward', key: 'markedForCarryForward' },
+            { label: 'Registration Date', key: 'createdAt' }
         ];
 
-        const exportData = filteredStudents.map(student => ({
-            studentsDetails: [{
-                studentName: student.studentsDetails?.[0]?.studentName || 'N/A',
-                centre: student.studentsDetails?.[0]?.centre || 'N/A',
-                studentEmail: student.studentsDetails?.[0]?.studentEmail || 'N/A',
-                schoolName: student.studentsDetails?.[0]?.schoolName || 'N/A',
-                board: student.studentsDetails?.[0]?.board || 'N/A',
-                mobileNum: student.studentsDetails?.[0]?.mobileNum || 'N/A',
-            }],
-            examSchema: [{
-                class: student.examSchema?.[0]?.class || 'N/A',
-            }],
-            sessionExamCourse: [{
-                examTag: student.sessionExamCourse?.[0]?.examTag || 'N/A',
-            }],
-        }));
+        const exportData = filteredStudents.map(student => {
+            const details = student.studentsDetails?.[0] || {};
+            const guardian = student.guardians?.[0] || {};
+            const exam = student.examSchema?.[0] || {};
+            const section = student.section?.[0] || {};
+            const sessionExam = student.sessionExamCourse?.[0] || {};
 
-        downloadCSV(exportData, headers, 'admissions_students');
-        toast.success('CSV exported successfully!');
+            return {
+                studentsDetails: [{
+                    studentName: details.studentName || '',
+                    dateOfBirth: details.dateOfBirth || '',
+                    gender: details.gender || '',
+                    centre: details.centre || '',
+                    board: details.board || '',
+                    state: details.state || '',
+                    studentEmail: details.studentEmail || '',
+                    mobileNum: details.mobileNum || '',
+                    whatsappNumber: details.whatsappNumber || '',
+                    schoolName: details.schoolName || '',
+                    pincode: details.pincode || '',
+                    source: details.source || '',
+                    address: details.address || ''
+                }],
+                guardians: [{
+                    guardianName: guardian.guardianName || '',
+                    qualification: guardian.qualification || '',
+                    guardianEmail: guardian.guardianEmail || '',
+                    guardianMobile: guardian.guardianMobile || '',
+                    occupation: guardian.occupation || '',
+                    annualIncome: guardian.annualIncome || '',
+                    organizationName: guardian.organizationName || '',
+                    designation: guardian.designation || '',
+                    officeAddress: guardian.officeAddress || ''
+                }],
+                examSchema: [{
+                    examName: exam.examName || '',
+                    class: exam.class || '',
+                    examStatus: exam.examStatus || '',
+                    markAgregate: exam.markAgregate || '',
+                    scienceMathParcent: exam.scienceMathParcent || ''
+                }],
+                section: [{
+                    type: section.type || ''
+                }],
+                sessionExamCourse: [{
+                    session: sessionExam.session || '',
+                    examTag: sessionExam.examTag || '',
+                    targetExams: sessionExam.targetExams || ''
+                }],
+                courseName: student.course?.courseName || '',
+                departmentName: student.department?.departmentName || '',
+                batchNames: student.batches?.map(b => b.batchName).join(', ') || '',
+                isEnrolled: student.isEnrolled ? 'Yes' : 'No',
+                carryForwardBalance: student.carryForwardBalance || 0,
+                markedForCarryForward: student.markedForCarryForward ? 'Yes' : 'No',
+                createdAt: student.createdAt ? new Date(student.createdAt).toLocaleDateString() : ''
+            };
+        });
+
+        downloadCSV(exportData, headers, 'all_student_details');
+        toast.success('Full student details exported to CSV!');
     };
 
     const handleExportExcel = () => {
         const headers = [
+            // Student Details
             { label: 'Student Name', key: 'studentsDetails.0.studentName' },
+            { label: 'DOB', key: 'studentsDetails.0.dateOfBirth' },
+            { label: 'Gender', key: 'studentsDetails.0.gender' },
             { label: 'Centre', key: 'studentsDetails.0.centre' },
-            { label: 'Email', key: 'studentsDetails.0.studentEmail' },
-            { label: 'Class', key: 'examSchema.0.class' },
-            { label: 'School', key: 'studentsDetails.0.schoolName' },
             { label: 'Board', key: 'studentsDetails.0.board' },
-            { label: 'Exam Tag', key: 'sessionExamCourse.0.examTag' },
+            { label: 'State', key: 'studentsDetails.0.state' },
+            { label: 'Email', key: 'studentsDetails.0.studentEmail' },
             { label: 'Mobile', key: 'studentsDetails.0.mobileNum' },
+            { label: 'WhatsApp', key: 'studentsDetails.0.whatsappNumber' },
+            { label: 'School', key: 'studentsDetails.0.schoolName' },
+            { label: 'Pincode', key: 'studentsDetails.0.pincode' },
+            { label: 'Source', key: 'studentsDetails.0.source' },
+            { label: 'Address', key: 'studentsDetails.0.address' },
+
+            // Guardian Details
+            { label: 'Guardian Name', key: 'guardians.0.guardianName' },
+            { label: 'Qualification', key: 'guardians.0.qualification' },
+            { label: 'Guardian Email', key: 'guardians.0.guardianEmail' },
+            { label: 'Guardian Mobile', key: 'guardians.0.guardianMobile' },
+            { label: 'Occupation', key: 'guardians.0.occupation' },
+            { label: 'Annual Income', key: 'guardians.0.annualIncome' },
+            { label: 'Organization', key: 'guardians.0.organizationName' },
+            { label: 'Designation', key: 'guardians.0.designation' },
+            { label: 'Office Address', key: 'guardians.0.officeAddress' },
+
+            // Exam Details
+            { label: 'Exam Name', key: 'examSchema.0.examName' },
+            { label: 'Class', key: 'examSchema.0.class' },
+            { label: 'Exam Status', key: 'examSchema.0.examStatus' },
+            { label: 'Mark Aggregate', key: 'examSchema.0.markAgregate' },
+            { label: 'Science/Math %', key: 'examSchema.0.scienceMathParcent' },
+
+            // Other Academic Info
+            { label: 'Section Type', key: 'section.0.type' },
+            { label: 'Session', key: 'sessionExamCourse.0.session' },
+            { label: 'Exam Tag', key: 'sessionExamCourse.0.examTag' },
+            { label: 'Target Exams', key: 'sessionExamCourse.0.targetExams' },
+
+            // References & Status
+            { label: 'Course', key: 'courseName' },
+            { label: 'Department', key: 'departmentName' },
+            { label: 'Batches', key: 'batchNames' },
+            { label: 'Enrolled', key: 'isEnrolled' },
+            { label: 'Carry Forward Balance', key: 'carryForwardBalance' },
+            { label: 'Marked For Carry Forward', key: 'markedForCarryForward' },
+            { label: 'Registration Date', key: 'createdAt' }
         ];
 
-        const exportData = filteredStudents.map(student => ({
-            studentsDetails: [{
-                studentName: student.studentsDetails?.[0]?.studentName || 'N/A',
-                centre: student.studentsDetails?.[0]?.centre || 'N/A',
-                studentEmail: student.studentsDetails?.[0]?.studentEmail || 'N/A',
-                schoolName: student.studentsDetails?.[0]?.schoolName || 'N/A',
-                board: student.studentsDetails?.[0]?.board || 'N/A',
-                mobileNum: student.studentsDetails?.[0]?.mobileNum || 'N/A',
-            }],
-            examSchema: [{
-                class: student.examSchema?.[0]?.class || 'N/A',
-            }],
-            sessionExamCourse: [{
-                examTag: student.sessionExamCourse?.[0]?.examTag || 'N/A',
-            }],
-        }));
+        const exportData = filteredStudents.map(student => {
+            const details = student.studentsDetails?.[0] || {};
+            const guardian = student.guardians?.[0] || {};
+            const exam = student.examSchema?.[0] || {};
+            const section = student.section?.[0] || {};
+            const sessionExam = student.sessionExamCourse?.[0] || {};
 
-        downloadExcel(exportData, headers, 'admissions_students');
-        toast.success('Excel exported successfully!');
+            return {
+                studentsDetails: [{
+                    studentName: details.studentName || '',
+                    dateOfBirth: details.dateOfBirth || '',
+                    gender: details.gender || '',
+                    centre: details.centre || '',
+                    board: details.board || '',
+                    state: details.state || '',
+                    studentEmail: details.studentEmail || '',
+                    mobileNum: details.mobileNum || '',
+                    whatsappNumber: details.whatsappNumber || '',
+                    schoolName: details.schoolName || '',
+                    pincode: details.pincode || '',
+                    source: details.source || '',
+                    address: details.address || ''
+                }],
+                guardians: [{
+                    guardianName: guardian.guardianName || '',
+                    qualification: guardian.qualification || '',
+                    guardianEmail: guardian.guardianEmail || '',
+                    guardianMobile: guardian.guardianMobile || '',
+                    occupation: guardian.occupation || '',
+                    annualIncome: guardian.annualIncome || '',
+                    organizationName: guardian.organizationName || '',
+                    designation: guardian.designation || '',
+                    officeAddress: guardian.officeAddress || ''
+                }],
+                examSchema: [{
+                    examName: exam.examName || '',
+                    class: exam.class || '',
+                    examStatus: exam.examStatus || '',
+                    markAgregate: exam.markAgregate || '',
+                    scienceMathParcent: exam.scienceMathParcent || ''
+                }],
+                section: [{
+                    type: section.type || ''
+                }],
+                sessionExamCourse: [{
+                    session: sessionExam.session || '',
+                    examTag: sessionExam.examTag || '',
+                    targetExams: sessionExam.targetExams || ''
+                }],
+                courseName: student.course?.courseName || '',
+                departmentName: student.department?.departmentName || '',
+                batchNames: student.batches?.map(b => b.batchName).join(', ') || '',
+                isEnrolled: student.isEnrolled ? 'Yes' : 'No',
+                carryForwardBalance: student.carryForwardBalance || 0,
+                markedForCarryForward: student.markedForCarryForward ? 'Yes' : 'No',
+                createdAt: student.createdAt ? new Date(student.createdAt).toLocaleDateString() : ''
+            };
+        });
+
+        downloadExcel(exportData, headers, 'all_student_details');
+        toast.success('Full student details exported to Excel!');
     };
 
     return (
@@ -250,7 +479,7 @@ const AdmissionsContent = () => {
 
             {/* Tabs */}
             <div className="flex border-b border-gray-800 mb-6">
-                {["All Leads", "Admissions"].map((tab, index) => (
+                {["Counselled Students", "Admissions"].map((tab, index) => (
                     <button
                         key={index}
                         onClick={() => {
@@ -332,6 +561,14 @@ const AdmissionsContent = () => {
                         onChange={setFilterExamTag}
                     />
 
+                    <MultiSelectFilter
+                        label="Department"
+                        placeholder="All Departments"
+                        options={departments.map(d => ({ value: d.departmentName, label: d.departmentName }))}
+                        selectedValues={filterDepartment}
+                        onChange={setFilterDepartment}
+                    />
+
                     <button
                         onClick={handleRefresh}
                         className="flex items-center gap-2 px-4 py-2 bg-[#131619] text-gray-300 rounded-lg border border-gray-700 hover:bg-gray-800 hover:text-cyan-400 transition-all"
@@ -375,6 +612,7 @@ const AdmissionsContent = () => {
                                 <th className="p-4 font-medium">Course</th>
                                 <th className="p-4 font-medium">Batch</th>
                                 <th className="p-4 font-medium">Centre</th>
+                                <th className="p-4 font-medium">Department</th>
                                 <th className="p-4 font-medium">Email</th>
                                 <th className="p-4 font-medium">Class</th>
                                 <th className="p-4 font-medium">Mobile</th>
@@ -432,6 +670,11 @@ const AdmissionsContent = () => {
                                                 {/* 5️⃣ CENTRE */}
                                                 <td className="p-4 text-gray-300">
                                                     {details.centre || "N/A"}
+                                                </td>
+
+                                                {/* DEPARTMENT */}
+                                                <td className="p-4 text-gray-400 text-sm">
+                                                    {student.department?.departmentName || "N/A"}
                                                 </td>
 
                                                 {/* 6️⃣ EMAIL */}

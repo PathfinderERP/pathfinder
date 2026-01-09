@@ -23,6 +23,8 @@ const CentreTarget = () => {
     const [filterFinancialYear, setFilterFinancialYear] = useState("");
     const [filterYear, setFilterYear] = useState(new Date().getFullYear());
     const [viewMode, setViewMode] = useState("Monthly");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
 
     // Permission Checks
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -44,7 +46,7 @@ const CentreTarget = () => {
 
     useEffect(() => {
         fetchTargets();
-    }, [selectedCentres, filterFinancialYear, filterYear]);
+    }, [selectedCentres, filterFinancialYear, filterYear, startDate, endDate, viewMode]);
 
     const fetchMasterData = async () => {
         try {
@@ -86,13 +88,20 @@ const CentreTarget = () => {
     };
 
     const fetchTargets = async () => {
-        if (!filterFinancialYear) return;
+        if (!filterFinancialYear && viewMode !== "Custom") return;
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams();
-            if (filterFinancialYear) params.append("financialYear", filterFinancialYear);
-            if (filterYear) params.append("year", filterYear);
+
+            if (viewMode === "Custom" && startDate && endDate) {
+                params.append("startDate", startDate);
+                params.append("endDate", endDate);
+            } else {
+                if (filterFinancialYear) params.append("financialYear", filterFinancialYear);
+                if (filterYear) params.append("year", filterYear);
+            }
+
             if (selectedCentres.length > 0) {
                 params.append("centre", selectedCentres.join(","));
             }
@@ -183,7 +192,7 @@ const CentreTarget = () => {
                             <FaFilter className="text-cyan-400" /> Filters
                         </h3>
                         <div className="bg-gray-800 rounded-lg p-1 flex">
-                            {["Monthly", "Quarterly", "Yearly"].map(mode => (
+                            {["Monthly", "Quarterly", "Yearly", "Custom"].map(mode => (
                                 <button
                                     key={mode}
                                     onClick={() => setViewMode(mode)}
@@ -196,6 +205,28 @@ const CentreTarget = () => {
                                 </button>
                             ))}
                         </div>
+                        {viewMode === "Custom" && (
+                            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                                <div className="flex items-center gap-2 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1">
+                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">From</span>
+                                    <input
+                                        type="date"
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                        className="bg-transparent text-gray-200 text-xs focus:outline-none w-28"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1">
+                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">To</span>
+                                    <input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(e) => setEndDate(e.target.value)}
+                                        className="bg-transparent text-gray-200 text-xs focus:outline-none w-28"
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
@@ -243,19 +274,21 @@ const CentreTarget = () => {
                             )}
                         </div>
 
-                        <select
-                            value={filterFinancialYear}
-                            onChange={(e) => setFilterFinancialYear(e.target.value)}
-                            className="bg-[#131619] border border-gray-700 text-gray-300 text-sm rounded-lg block p-2.5 outline-none focus:border-cyan-500 w-28"
-                        >
-                            {sessions.length === 0 ? (
-                                <option value="">Loading...</option>
-                            ) : (
-                                sessions.map(s => (
-                                    <option key={s._id} value={s.sessionName}>{s.sessionName}</option>
-                                ))
-                            )}
-                        </select>
+                        {viewMode !== "Custom" && (
+                            <select
+                                value={filterFinancialYear}
+                                onChange={(e) => setFilterFinancialYear(e.target.value)}
+                                className="bg-[#131619] border border-gray-700 text-gray-300 text-sm rounded-lg block p-2.5 outline-none focus:border-cyan-500 w-28"
+                            >
+                                {sessions.length === 0 ? (
+                                    <option value="">Loading...</option>
+                                ) : (
+                                    sessions.map(s => (
+                                        <option key={s._id} value={s.sessionName}>{s.sessionName}</option>
+                                    ))
+                                )}
+                            </select>
+                        )}
 
                         <button
                             className="p-2.5 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors flex items-center gap-2"

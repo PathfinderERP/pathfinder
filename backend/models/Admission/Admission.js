@@ -48,7 +48,8 @@ const admissionSchema = new mongoose.Schema({
     },
     department: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Department"
+        ref: "Department",
+        required: true,
     },
     centre: {
         type: String,

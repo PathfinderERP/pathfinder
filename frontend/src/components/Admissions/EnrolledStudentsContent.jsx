@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaSearch, FaEye, FaDownload, FaFilter, FaUserGraduate, FaSync, FaTimes, FaBook, FaCalendar, FaMoneyBillWave, FaFileInvoice, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
+import { FaSearch, FaEye, FaDownload, FaFilter, FaUserGraduate, FaSync, FaTimes, FaBook, FaCalendar, FaMoneyBillWave, FaFileInvoice, FaCheckCircle, FaExclamationCircle, FaUser, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaSchool, FaHistory, FaUsers, FaIdCard, FaBirthdayCake, FaVenusMars, FaPassport } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -22,6 +22,8 @@ const EnrolledStudentsContent = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [filterStatus, setFilterStatus] = useState([]);
     const [filterCentre, setFilterCentre] = useState([]);
+    const [filterDepartment, setFilterDepartment] = useState([]);
+    const [filterCourse, setFilterCourse] = useState([]);
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [studentAdmissions, setStudentAdmissions] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -161,7 +163,7 @@ const EnrolledStudentsContent = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, filterStatus, filterCentre]);
+    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse]);
 
     // Filter students
     useEffect(() => {
@@ -208,22 +210,48 @@ const EnrolledStudentsContent = () => {
             });
         }
 
+        if (filterDepartment.length > 0) {
+            result = result.filter(item =>
+                item.admissions.some(admission => {
+                    const deptName = admission.department?.departmentName || "";
+                    return filterDepartment.includes(deptName);
+                })
+            );
+        }
+
+        if (filterCourse.length > 0) {
+            result = result.filter(item =>
+                item.admissions.some(admission => {
+                    const courseName = admission.course?.courseName || "";
+                    return filterCourse.includes(courseName);
+                })
+            );
+        }
+
         setFilteredStudents(result);
-    }, [searchQuery, filterStatus, filterCentre, students]);
+    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, students]);
 
     const handleRefresh = () => {
         setSearchQuery("");
         setFilterStatus([]);
         setFilterCentre([]);
+        setFilterDepartment([]);
+        setFilterCourse([]);
         setCurrentPage(1);
         setLoading(true);
         fetchAdmissions();
         toast.info("Refreshed data and filters");
     };
 
-    // Show all centres user has access to (not just centres with existing admissions)
-    // This allows users to select any of their assigned centres even if no students are enrolled yet
     const uniqueCentres = allowedCentres;
+
+    const uniqueDepartments = [...new Set(admissions
+        .map(a => a.department?.departmentName)
+        .filter(Boolean))].sort();
+
+    const uniqueCourses = [...new Set(admissions
+        .map(a => a.course?.courseName)
+        .filter(Boolean))].sort();
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -361,88 +389,166 @@ const EnrolledStudentsContent = () => {
     };
 
 
-    const handleExportCSV = () => {
-        const headers = [
+    const prepareExportData = () => {
+        // Use visible students' admissions to respect filters
+        const exportAdmissions = filteredStudents.length > 0
+            ? filteredStudents.flatMap(s => s.admissions)
+            : [];
+
+        if (exportAdmissions.length === 0) {
+            return { headers: [], exportData: [] };
+        }
+
+        // Helper to formatting date as DD/MM/YYYY
+        const formatDate = (dateString) => {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return dateString; // Fallback if invalid
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
+        };
+
+        // Calculate max installments dynamically
+        const maxInstallments = exportAdmissions.reduce((max, adm) =>
+            Math.max(max, adm.paymentBreakdown?.length || 0), 0);
+
+        const baseHeaders = [
+            // Student Details
             { label: 'Student Name', key: 'student.studentsDetails.0.studentName' },
-            { label: 'Enrollment ID', key: 'admissionNumber' },
-            { label: 'Course', key: 'course.courseName' },
+            { label: 'DOB', key: 'student.studentsDetails.0.dateOfBirth' },
+            { label: 'Gender', key: 'student.studentsDetails.0.gender' },
             { label: 'Centre', key: 'centre' },
+            { label: 'Board', key: 'student.studentsDetails.0.board' },
+            { label: 'State', key: 'student.studentsDetails.0.state' },
+            { label: 'Email', key: 'student.studentsDetails.0.studentEmail' },
+            { label: 'Mobile', key: 'student.studentsDetails.0.mobileNum' },
+            { label: 'WhatsApp', key: 'student.studentsDetails.0.whatsappNumber' },
+            { label: 'School', key: 'student.studentsDetails.0.schoolName' },
+            { label: 'Address', key: 'student.studentsDetails.0.address' },
+
+            // Guardian Details
+            { label: 'Guardian Name', key: 'student.guardians.0.guardianName' },
+            { label: 'Guardian Mobile', key: 'student.guardians.0.guardianMobile' },
+            { label: 'Guardian Email', key: 'student.guardians.0.guardianEmail' },
+
+            // Academic Info
+            { label: 'Class', key: 'class.className' },
             { label: 'Session', key: 'academicSession' },
-            { label: 'Total Fees', key: 'totalFees' },
-            { label: 'Paid Amount', key: 'totalPaidAmount' },
-            { label: 'Payment Status', key: 'paymentStatus' },
+            { label: 'Exam Tag', key: 'examTag.name' },
+
+            // Admission Details
+            { label: 'Enrollment ID', key: 'admissionNumber' },
+            { label: 'Admission Date', key: 'admissionDate' },
             { label: 'Admission Status', key: 'admissionStatus' },
             { label: 'Admitted By', key: 'createdBy' },
+
+            // Course & Dept
+            { label: 'Course', key: 'course.courseName' },
+            { label: 'Department', key: 'department.departmentName' },
+
+            // Financials
+            { label: 'Total Fees', key: 'totalFees' },
+            { label: 'Paid Amount', key: 'totalPaidAmount' },
+            { label: 'Pending Amount', key: 'remainingAmount' },
+            { label: 'Payment Status', key: 'paymentStatus' },
+            { label: 'Down Payment', key: 'downPayment' },
+            { label: 'Down Payment Status', key: 'downPaymentStatus' },
+            { label: 'No. of Installments', key: 'numberOfInstallments' }
         ];
 
-        const exportData = admissions.map(admission => {
-            const student = admission.student?.studentsDetails?.[0] || {};
-            const centre = admission.centre || student.centre || admission.department?.departmentName || "N/A";
+        // Dynamic Installment Headers
+        const installmentHeaders = [];
+        for (let i = 1; i <= maxInstallments; i++) {
+            installmentHeaders.push(
+                { label: `Inst ${i} Due Date`, key: `installments.${i - 1}.dueDate` },
+                { label: `Inst ${i} Amount`, key: `installments.${i - 1}.amount` },
+                { label: `Inst ${i} Paid`, key: `installments.${i - 1}.paidAmount` },
+                { label: `Inst ${i} Status`, key: `installments.${i - 1}.status` },
+                { label: `Inst ${i} Paid Date`, key: `installments.${i - 1}.paidDate` }
+            );
+        }
+
+        const headers = [...baseHeaders, ...installmentHeaders];
+
+        const exportData = exportAdmissions.map(admission => {
+            const student = admission.student || {};
+            const details = student.studentsDetails?.[0] || {};
+            const guardian = student.guardians?.[0] || {};
+            const centre = admission.centre || details.centre || "N/A";
+
+            // Map Installments
+            const installments = admission.paymentBreakdown?.map(inst => ({
+                dueDate: formatDate(inst.dueDate),
+                amount: inst.amount || 0,
+                paidAmount: inst.paidAmount || 0,
+                status: inst.status || '',
+                paidDate: formatDate(inst.paidDate)
+            })) || [];
 
             return {
                 student: {
                     studentsDetails: [{
-                        studentName: student.studentName || 'N/A',
+                        studentName: details.studentName || '',
+                        dateOfBirth: formatDate(details.dateOfBirth),
+                        gender: details.gender || '',
+                        board: details.board || '',
+                        state: details.state || '',
+                        studentEmail: details.studentEmail || '',
+                        mobileNum: details.mobileNum || '',
+                        whatsappNumber: details.whatsappNumber || '',
+                        schoolName: details.schoolName || '',
+                        address: details.address || ''
+                    }],
+                    guardians: [{
+                        guardianName: guardian.guardianName || '',
+                        guardianMobile: guardian.guardianMobile || '',
+                        guardianEmail: guardian.guardianEmail || ''
                     }]
                 },
-                admissionNumber: admission.admissionNumber || 'N/A',
-                course: {
-                    courseName: admission.course?.courseName || 'N/A',
-                },
                 centre: centre,
-                academicSession: admission.academicSession || 'N/A',
+                class: { className: admission.class?.className || '' },
+                academicSession: admission.academicSession || '',
+                examTag: { name: admission.examTag?.name || '' },
+                admissionNumber: admission.admissionNumber || '',
+                admissionDate: formatDate(admission.admissionDate),
+                admissionStatus: admission.admissionStatus || '',
+                createdBy: admission.createdBy?.name || '',
+                course: { courseName: admission.course?.courseName || '' },
+                department: { departmentName: admission.department?.departmentName || '' },
                 totalFees: admission.totalFees || 0,
                 totalPaidAmount: admission.totalPaidAmount || 0,
-                paymentStatus: admission.paymentStatus || 'N/A',
-                admissionStatus: admission.admissionStatus || 'N/A',
-                createdBy: admission.createdBy?.name || 'N/A',
+                remainingAmount: admission.remainingAmount || 0,
+                paymentStatus: admission.paymentStatus || '',
+                downPayment: admission.downPayment || 0,
+                downPaymentStatus: admission.downPaymentStatus || '',
+                numberOfInstallments: admission.numberOfInstallments || 0,
+                installments: installments
             };
         });
 
-        downloadCSV(exportData, headers, 'enrolled_students');
-        toast.success('CSV exported successfully!');
+        return { headers, exportData };
+    };
+
+    const handleExportCSV = () => {
+        const { headers, exportData } = prepareExportData();
+        if (exportData.length === 0) {
+            toast.warning("No data to export");
+            return;
+        }
+        downloadCSV(exportData, headers, 'enrolled_students_full');
+        toast.success('Full enrolled student details exported to CSV!');
     };
 
     const handleExportExcel = () => {
-        const headers = [
-            { label: 'Student Name', key: 'student.studentsDetails.0.studentName' },
-            { label: 'Enrollment ID', key: 'admissionNumber' },
-            { label: 'Course', key: 'course.courseName' },
-            { label: 'Centre', key: 'centre' },
-            { label: 'Session', key: 'academicSession' },
-            { label: 'Total Fees', key: 'totalFees' },
-            { label: 'Paid Amount', key: 'totalPaidAmount' },
-            { label: 'Payment Status', key: 'paymentStatus' },
-            { label: 'Admission Status', key: 'admissionStatus' },
-            { label: 'Admitted By', key: 'createdBy' },
-        ];
-
-        const exportData = admissions.map(admission => {
-            const student = admission.student?.studentsDetails?.[0] || {};
-            const centre = admission.centre || student.centre || admission.department?.departmentName || "N/A";
-
-            return {
-                student: {
-                    studentsDetails: [{
-                        studentName: student.studentName || 'N/A',
-                    }]
-                },
-                admissionNumber: admission.admissionNumber || 'N/A',
-                course: {
-                    courseName: admission.course?.courseName || 'N/A',
-                },
-                centre: centre,
-                academicSession: admission.academicSession || 'N/A',
-                totalFees: admission.totalFees || 0,
-                totalPaidAmount: admission.totalPaidAmount || 0,
-                paymentStatus: admission.paymentStatus || 'N/A',
-                admissionStatus: admission.admissionStatus || 'N/A',
-                createdBy: admission.createdBy?.name || 'N/A',
-            };
-        });
-
-        downloadExcel(exportData, headers, 'enrolled_students');
-        toast.success('Excel exported successfully!');
+        const { headers, exportData } = prepareExportData();
+        if (exportData.length === 0) {
+            toast.warning("No data to export");
+            return;
+        }
+        downloadExcel(exportData, headers, 'enrolled_students_full');
+        toast.success('Full enrolled student details exported to Excel!');
     };
 
     return (
@@ -537,6 +643,22 @@ const EnrolledStudentsContent = () => {
                         onChange={setFilterCentre}
                     />
 
+                    <MultiSelectFilter
+                        label="Dept"
+                        placeholder="All Departments"
+                        options={uniqueDepartments.map(d => ({ value: d, label: d }))}
+                        selectedValues={filterDepartment}
+                        onChange={setFilterDepartment}
+                    />
+
+                    <MultiSelectFilter
+                        label="Course"
+                        placeholder="All Courses"
+                        options={uniqueCourses.map(c => ({ value: c, label: c }))}
+                        selectedValues={filterCourse}
+                        onChange={setFilterCourse}
+                    />
+
                     <button
                         onClick={handleRefresh}
                         className="flex items-center gap-2 px-4 py-2 bg-[#131619] text-gray-300 rounded-lg border border-gray-700 hover:bg-gray-800 hover:text-cyan-400 transition-all"
@@ -561,9 +683,10 @@ const EnrolledStudentsContent = () => {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-[#252b32] text-gray-400 text-sm uppercase">
-                                <th className="p-4 font-medium">Student</th>
-                                <th className="p-4 font-medium">Mobile</th>
-                                <th className="p-4 font-medium">Latest Course</th>
+                                <th className="p-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Department</th>
+                                <th className="p-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Student</th>
+                                <th className="p-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Mobile</th>
+                                <th className="p-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Latest Course</th>
                                 <th className="p-4 font-medium">Total Courses</th>
                                 <th className="p-4 font-medium">Latest Status</th>
                                 <th className="p-4 font-medium">Admitted By</th>
@@ -572,12 +695,12 @@ const EnrolledStudentsContent = () => {
                         </thead>
                         <tbody className="divide-y divide-gray-800">
                             {loading ? (
-                                <tr>
-                                    <td colSpan="7" className="p-8 text-center text-gray-500">Loading students...</td>
+                                <tr className="animate-pulse">
+                                    <td colSpan="8" className="p-8 text-center text-gray-500">Loading students...</td>
                                 </tr>
                             ) : filteredStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="p-8 text-center text-gray-500">
+                                    <td colSpan="8" className="p-8 text-center text-gray-500">
                                         {searchQuery ? "No students found matching your search." : "No students found."}
                                     </td>
                                 </tr>
@@ -595,6 +718,11 @@ const EnrolledStudentsContent = () => {
                                                 className="admissions-row-wave transition-colors group cursor-pointer hover:bg-gray-800/50"
                                                 onClick={() => openStudentModal(studentItem)}
                                             >
+                                                <td className="p-4">
+                                                    <span className="text-sm text-gray-300 font-medium bg-gray-800 px-2 py-1 rounded border border-gray-700">
+                                                        {latestAdmission?.department?.departmentName || "N/A"}
+                                                    </span>
+                                                </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white font-bold overflow-hidden">
@@ -676,12 +804,17 @@ const EnrolledStudentsContent = () => {
                     <div className="bg-[#1e2329] rounded-xl w-full max-w-6xl border border-gray-700 shadow-2xl max-h-[90vh] overflow-y-auto">
                         <div className="sticky top-0 bg-[#1e2329] p-6 border-b border-gray-700 flex justify-between items-center z-10">
                             <div>
-                                <h3 className="text-2xl font-bold text-white mb-1">
+                                <h3 className="text-2xl font-bold text-white mb-1 flex items-center gap-2">
+                                    <FaUserGraduate className="text-cyan-400" />
                                     {selectedStudent.studentsDetails?.[0]?.studentName}
                                 </h3>
-                                <div className="flex gap-4 text-sm text-gray-400">
-                                    <span>Mobile: {selectedStudent.studentsDetails?.[0]?.mobileNum}</span>
-                                    <span>Email: {selectedStudent.studentsDetails?.[0]?.studentEmail}</span>
+                                <div className="flex flex-wrap gap-4 text-sm text-gray-400">
+                                    <span className="flex items-center gap-1.5"><FaPhoneAlt size={12} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.mobileNum}</span>
+                                    <span className="flex items-center gap-1.5"><FaEnvelope size={12} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.studentEmail}</span>
+                                    <span className="flex items-center gap-1.5"><FaMapMarkerAlt size={12} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.centre}</span>
+                                    {studentAdmissions[0]?.department?.departmentName && (
+                                        <span className="flex items-center gap-1.5"><FaHistory size={12} className="text-orange-500" /> {studentAdmissions[0].department.departmentName}</span>
+                                    )}
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
@@ -694,15 +827,153 @@ const EnrolledStudentsContent = () => {
                             </div>
                         </div>
 
-                        <div className="p-6 space-y-6">
+                        <div className="p-6 space-y-8">
+                            {/* Student Info Sections */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* Personal Information */}
+                                <div className="bg-gray-800/30 rounded-xl border border-gray-700/50 overflow-hidden">
+                                    <div className="bg-gray-800/50 px-4 py-3 border-b border-gray-700 flex items-center gap-2">
+                                        <FaUser className="text-cyan-400" />
+                                        <h4 className="font-bold text-white uppercase tracking-wider text-sm">Personal Information</h4>
+                                    </div>
+                                    <div className="p-4 grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
+                                        <div>
+                                            <p className="text-gray-500 text-xs font-semibold uppercase mb-1 flex items-center gap-1"><FaBirthdayCake size={10} /> Date of Birth</p>
+                                            <p className="text-gray-200 font-medium">{selectedStudent.studentsDetails?.[0]?.dateOfBirth || "N/A"}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-gray-500 text-xs font-semibold uppercase mb-1 flex items-center gap-1"><FaVenusMars size={10} /> Gender</p>
+                                            <p className="text-gray-200 font-medium">{selectedStudent.studentsDetails?.[0]?.gender || "N/A"}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-gray-500 text-xs font-semibold uppercase mb-1 flex items-center gap-1"><FaPassport size={10} /> WhatsApp</p>
+                                            <p className="text-gray-200 font-medium">{selectedStudent.studentsDetails?.[0]?.whatsappNumber || "N/A"}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-gray-500 text-xs font-semibold uppercase mb-1 flex items-center gap-1"><FaIdCard size={10} /> Source</p>
+                                            <p className="text-gray-200 font-medium">{selectedStudent.studentsDetails?.[0]?.source || "Walk-in"}</p>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <p className="text-gray-500 text-xs font-semibold uppercase mb-1 flex items-center gap-1"><FaMapMarkerAlt size={10} /> Residential Address</p>
+                                            <p className="text-gray-200 font-medium">
+                                                {selectedStudent.studentsDetails?.[0]?.address}, {selectedStudent.studentsDetails?.[0]?.state} - {selectedStudent.studentsDetails?.[0]?.pincode}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Academic Information */}
+                                <div className="bg-gray-800/30 rounded-xl border border-gray-700/50 overflow-hidden">
+                                    <div className="bg-gray-800/50 px-4 py-3 border-b border-gray-700 flex items-center gap-2">
+                                        <FaSchool className="text-cyan-400" />
+                                        <h4 className="font-bold text-white uppercase tracking-wider text-sm">Academic Information</h4>
+                                    </div>
+                                    <div className="p-4 grid grid-cols-1 gap-y-4 text-sm">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <p className="text-gray-500 text-xs font-semibold uppercase mb-1">Current School</p>
+                                                <p className="text-gray-200 font-medium">{selectedStudent.studentsDetails?.[0]?.schoolName || "N/A"}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500 text-xs font-semibold uppercase mb-1">Board</p>
+                                                <p className="text-gray-200 font-medium">{selectedStudent.studentsDetails?.[0]?.board || "N/A"}</p>
+                                            </div>
+                                        </div>
+
+                                        {selectedStudent.examSchema && selectedStudent.examSchema.length > 0 && (
+                                            <div className="mt-2 text-xs">
+                                                <p className="text-cyan-400 font-bold uppercase mb-2 text-[10px] tracking-widest border-b border-gray-700 pb-1">Previous Academic Records</p>
+                                                <div className="space-y-3">
+                                                    {selectedStudent.examSchema.map((exam, idx) => (
+                                                        <div key={idx} className="flex justify-between items-center bg-gray-900/40 p-2 rounded border border-gray-700/50">
+                                                            <div>
+                                                                <p className="text-white font-bold">{exam.examName}</p>
+                                                                <p className="text-gray-500">Class: {exam.class}</p>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="text-cyan-400 font-bold">{exam.markAgregate}%</p>
+                                                                <p className="text-gray-500">S/M: {exam.scienceMathParcent}%</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Guardian Information */}
+                                <div className="bg-gray-800/30 rounded-xl border border-gray-700/50 overflow-hidden lg:col-span-2">
+                                    <div className="bg-gray-800/50 px-4 py-3 border-b border-gray-700 flex items-center gap-2">
+                                        <FaUsers className="text-cyan-400" />
+                                        <h4 className="font-bold text-white uppercase tracking-wider text-sm">Guardian Information</h4>
+                                    </div>
+                                    <div className="p-4">
+                                        {selectedStudent.guardians && selectedStudent.guardians.length > 0 ? (
+                                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                                                {selectedStudent.guardians.map((guardian, idx) => (
+                                                    <React.Fragment key={idx}>
+                                                        <div>
+                                                            <p className="text-gray-500 text-xs font-semibold uppercase mb-1">Guardian Name</p>
+                                                            <p className="text-white font-bold">{guardian.guardianName || "N/A"}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-gray-500 text-xs font-semibold uppercase mb-1">Contact No.</p>
+                                                            <p className="text-gray-200 font-medium">{guardian.guardianMobile || "N/A"}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-gray-500 text-xs font-semibold uppercase mb-1">Occupation</p>
+                                                            <p className="text-gray-200 font-medium">{guardian.occupation || "N/A"}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-gray-500 text-xs font-semibold uppercase mb-1">Annual Income</p>
+                                                            <p className="text-white font-bold">₹{guardian.annualIncome || "0"}</p>
+                                                        </div>
+                                                        <div className="lg:col-span-2">
+                                                            <p className="text-gray-500 text-xs font-semibold uppercase mb-1">Email</p>
+                                                            <p className="text-gray-200 font-medium">{guardian.guardianEmail || "N/A"}</p>
+                                                        </div>
+                                                        <div className="lg:col-span-2">
+                                                            <p className="text-gray-500 text-xs font-semibold uppercase mb-1">Qualification</p>
+                                                            <p className="text-gray-200 font-medium">{guardian.qualification || "N/A"}</p>
+                                                        </div>
+                                                        {guardian.organizationName && (
+                                                            <div className="lg:col-span-4 bg-black/20 p-3 rounded mt-2 border border-gray-700/30">
+                                                                <h6 className="text-[10px] text-cyan-400 font-bold uppercase mb-2 flex items-center gap-2"><FaHistory size={10} /> Professional Details</h6>
+                                                                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+                                                                    <div>
+                                                                        <p className="text-gray-500 mb-0.5">Organization</p>
+                                                                        <p className="text-gray-300">{guardian.organizationName}</p>
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-gray-500 mb-0.5">Designation</p>
+                                                                        <p className="text-gray-300">{guardian.designation}</p>
+                                                                    </div>
+                                                                    <div className="lg:col-span-1">
+                                                                        <p className="text-gray-500 mb-0.5">Office Address</p>
+                                                                        <p className="text-gray-300">{guardian.officeAddress || "N/A"}</p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </React.Fragment>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-gray-500 italic text-center py-4">No guardian information found.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* All Courses/Admissions */}
                             <div>
-                                <h4 className="text-xl font-semibold text-cyan-400 mb-4 flex items-center gap-2">
-                                    <FaBook /> All Enrolled Courses ({studentAdmissions.length})
+                                <h4 className="text-xl font-bold text-white mb-6 flex items-center gap-2 border-b border-gray-700 pb-2">
+                                    <FaBook className="text-cyan-400" /> All Enrolled Courses ({studentAdmissions.length})
                                 </h4>
 
                                 <div className="space-y-6">
-                                    {[...studentAdmissions].sort((a, b) => new Date(a.admissionDate) - new Date(b.admissionDate)).map((admission, index) => (
+                                    {[...studentAdmissions].sort((a, b) => new Date(b.admissionDate) - new Date(a.admissionDate)).map((admission, index) => (
                                         <div key={admission._id} className="bg-gray-800/50 rounded-lg border border-gray-700 overflow-hidden">
                                             {/* Course Header */}
                                             <div className="bg-gray-800 p-4 flex justify-between items-center">
@@ -712,7 +983,8 @@ const EnrolledStudentsContent = () => {
                                                     </h5>
                                                     <p className="text-sm text-gray-400">
                                                         Enrollment ID: <span className="text-cyan-400 font-mono font-semibold">{admission.admissionNumber}</span> •
-                                                        {admission.department?.departmentName} • {admission.academicSession} •
+                                                        <span className="text-orange-400 font-semibold mx-1">{admission.department?.departmentName}</span> •
+                                                        Academic: {admission.academicSession} •
                                                         Admission: {new Date(admission.admissionDate).toLocaleDateString()} • Admitted By: <span className="text-white font-semibold">{admission.createdBy?.name || (admission.createdBy ? "Unknown User" : "System")}</span>
                                                     </p>
                                                 </div>
@@ -723,6 +995,9 @@ const EnrolledStudentsContent = () => {
                                                         }`}>
                                                         {admission.paymentStatus}
                                                     </span>
+                                                    <span className={`px-3 py-1 rounded text-sm font-bold border ${getStatusColor(admission.admissionStatus)}`}>
+                                                        {admission.admissionStatus}
+                                                    </span>
                                                     {canEdit && (
                                                         <button
                                                             onClick={() => {
@@ -732,10 +1007,10 @@ const EnrolledStudentsContent = () => {
                                                                 // Open edit modal for this admission
                                                                 window.location.href = `/enrolled-students?edit=${admission._id}`;
                                                             }}
-                                                            className="p-2 bg-yellow-500/10 text-yellow-400 rounded hover:bg-yellow-500/20 transition-opacity"
-                                                            title="Edit Student Details"
+                                                            className="p-2 bg-yellow-500/10 text-yellow-400 rounded hover:bg-yellow-500/20 transition-opacity ml-2"
+                                                            title="Edit Admission/Student Profile"
                                                         >
-                                                            <FaUserGraduate />
+                                                            <FaUserGraduate size={14} />
                                                         </button>
                                                     )}
                                                 </div>
@@ -743,7 +1018,7 @@ const EnrolledStudentsContent = () => {
 
                                             <div className="p-4 space-y-4">
                                                 {/* Fee Summary */}
-                                                <div className="grid grid-cols-4 gap-4">
+                                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                                                     <div className="bg-cyan-500/10 p-3 rounded">
                                                         <p className="text-xs text-gray-400">Total Fees</p>
                                                         <p className="text-lg font-bold text-cyan-400">

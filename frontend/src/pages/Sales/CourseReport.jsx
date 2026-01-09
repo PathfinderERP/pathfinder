@@ -27,11 +27,13 @@ const CourseReport = () => {
     const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
     const [examTags, setExamTags] = useState([]);
+    const [departments, setDepartments] = useState([]);
     const [sessions, setSessions] = useState([]); // Dynamic sessions from master data
 
     // Filters
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedCourses, setSelectedCourses] = useState([]);
+    const [selectedDepartments, setSelectedDepartments] = useState([]);
     const [selectedExamTag, setSelectedExamTag] = useState("");
     const [selectedSession, setSelectedSession] = useState("");
     const [timePeriod, setTimePeriod] = useState("This Year");
@@ -42,9 +44,11 @@ const CourseReport = () => {
     // Dropdowns
     const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
     const [isCourseDropdownOpen, setIsCourseDropdownOpen] = useState(false);
+    const [isDepartmentDropdownOpen, setIsDepartmentDropdownOpen] = useState(false);
 
     const centreDropdownRef = useRef(null);
     const courseDropdownRef = useRef(null);
+    const departmentDropdownRef = useRef(null);
 
 
     useEffect(() => {
@@ -56,6 +60,9 @@ const CourseReport = () => {
             if (courseDropdownRef.current && !courseDropdownRef.current.contains(event.target)) {
                 setIsCourseDropdownOpen(false);
             }
+            if (departmentDropdownRef.current && !departmentDropdownRef.current.contains(event.target)) {
+                setIsDepartmentDropdownOpen(false);
+            }
         };
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -66,7 +73,7 @@ const CourseReport = () => {
             return;
         }
         fetchReportData();
-    }, [selectedCentres, selectedCourses, selectedExamTag, selectedSession, timePeriod, startDate, endDate]);
+    }, [selectedCentres, selectedCourses, selectedDepartments, selectedExamTag, selectedSession, timePeriod, startDate, endDate]);
 
 
     const fetchMasterData = async () => {
@@ -74,11 +81,12 @@ const CourseReport = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [centreRes, courseRes, examTagRes, sessionRes] = await Promise.all([
+            const [centreRes, courseRes, examTagRes, sessionRes, deptRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/course`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers })
             ]);
 
             if (centreRes.ok) {
@@ -106,6 +114,7 @@ const CourseReport = () => {
                     setSelectedSession(sessionList[0].sessionName);
                 }
             }
+            if (deptRes.ok) setDepartments(await deptRes.json());
         } catch (error) {
             console.error("Error fetching master data", error);
         }
@@ -130,6 +139,7 @@ const CourseReport = () => {
             if (selectedSession) params.append("session", selectedSession);
             if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
             if (selectedCourses.length > 0) params.append("courseIds", selectedCourses.join(","));
+            if (selectedDepartments.length > 0) params.append("departmentIds", selectedDepartments.join(","));
             if (selectedExamTag) params.append("examTagId", selectedExamTag);
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/sales/course-report?${params.toString()}`, {
@@ -241,6 +251,51 @@ const CourseReport = () => {
 
     // Colors for Pie Chart
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#FF6384', '#36A2EB', '#4BC0C0'];
+    const STATUS_COLORS = ['#10B981', '#F59E0B']; // Green (Admitted), Yellow (In Counselling)
+
+    // Mini Pie Chart Component for Rows/Cards
+    const MiniStatusPie = ({ admitted, counselling, size = 60 }) => {
+        const data = [
+            { name: 'Admitted', value: admitted },
+            { name: 'In Counselling', value: counselling }
+        ];
+        const total = admitted + counselling;
+
+        if (total === 0) {
+            return (
+                <div style={{ width: size, height: size }} className="rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center border border-dashed border-gray-300 dark:border-gray-700">
+                    <span className="text-[8px] text-gray-400 font-bold">EMPTY</span>
+                </div>
+            );
+        }
+
+        return (
+            <div style={{ width: size, height: size }}>
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie
+                            data={data}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={size / 4}
+                            outerRadius={size / 2}
+                            paddingAngle={2}
+                            dataKey="value"
+                            stroke="none"
+                        >
+                            {data.map((entry, index) => (
+                                <Cell key={`mini-cell-${index}`} fill={STATUS_COLORS[index % STATUS_COLORS.length]} />
+                            ))}
+                        </Pie>
+                        <Tooltip
+                            contentStyle={{ fontSize: '10px', padding: '4px', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                            itemStyle={{ padding: '0px' }}
+                        />
+                    </PieChart>
+                </ResponsiveContainer>
+            </div>
+        );
+    };
 
     return (
         <Layout activePage="Sales">
@@ -324,6 +379,29 @@ const CourseReport = () => {
                                             }}>
                                                 <input type="checkbox" checked={selectedCourses.includes(c._id)} readOnly className="rounded text-blue-600" />
                                                 <span className="text-sm text-gray-700 truncate">{c.courseName}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Department */}
+                            <div className="relative" ref={departmentDropdownRef}>
+                                <button
+                                    onClick={() => setIsDepartmentDropdownOpen(!isDepartmentDropdownOpen)}
+                                    className="min-w-[170px] h-10 px-3 bg-white border border-gray-300 rounded-md flex justify-between items-center text-sm text-gray-500"
+                                >
+                                    <span className="truncate">{selectedDepartments.length ? `${selectedDepartments.length} Selected` : "------Set Dept------"}</span>
+                                    <FaChevronDown size={10} />
+                                </button>
+                                {isDepartmentDropdownOpen && (
+                                    <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto z-50">
+                                        {departments.map(d => (
+                                            <div key={d._id} className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" onClick={() => {
+                                                setSelectedDepartments(prev => prev.includes(d._id) ? prev.filter(x => x !== d._id) : [...prev, d._id]);
+                                            }}>
+                                                <input type="checkbox" checked={selectedDepartments.includes(d._id)} readOnly className="rounded text-blue-600" />
+                                                <span className="text-sm text-gray-700 truncate">{d.departmentName}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -477,7 +555,9 @@ const CourseReport = () => {
                                         <thead>
                                             <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
                                                 <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Course Name</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Enrollments</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Admitted</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Counselling</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Conversion Status</th>
                                                 <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Revenue</th>
                                                 <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Market Share</th>
                                                 <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Revenue %</th>
@@ -487,7 +567,13 @@ const CourseReport = () => {
                                             {reportData.map((item, idx) => (
                                                 <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
                                                     <td className="p-5 text-sm font-bold text-gray-800 dark:text-white uppercase tracking-tight group-hover:text-purple-600 transition-colors">{item.name}</td>
-                                                    <td className="p-5 text-center font-black text-lg text-gray-900 dark:text-white">{item.value}</td>
+                                                    <td className="p-5 text-center font-black text-lg text-green-600 dark:text-green-400">{item.admitted || 0}</td>
+                                                    <td className="p-5 text-center font-black text-lg text-amber-500 dark:text-amber-400">{item.counselling || 0}</td>
+                                                    <td className="p-5">
+                                                        <div className="flex justify-center">
+                                                            <MiniStatusPie admitted={item.admitted || 0} counselling={item.counselling || 0} size={50} />
+                                                        </div>
+                                                    </td>
                                                     <td className="p-5 text-right font-bold text-gray-600 dark:text-gray-400">₹{item.revenue.toLocaleString('en-IN')}</td>
                                                     <td className="p-5 text-center">
                                                         <div className="flex flex-col items-center gap-1">
@@ -513,17 +599,27 @@ const CourseReport = () => {
                                             <div className="relative z-10">
                                                 <div className="flex justify-between items-center mb-6">
                                                     <h4 className="font-black text-gray-800 dark:text-white uppercase text-xs tracking-tight line-clamp-1 flex-1">{item.name}</h4>
-                                                    <span className="bg-purple-500/10 text-purple-500 text-[10px] font-black px-2 py-0.5 rounded ml-2">{item.percent}%</span>
+                                                    <MiniStatusPie admitted={item.admitted || 0} counselling={item.counselling || 0} size={40} />
                                                 </div>
                                                 <div className="space-y-6">
-                                                    <div className="flex justify-between items-end">
+                                                    <div className="grid grid-cols-2 gap-4">
                                                         <div>
-                                                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Students</div>
-                                                            <div className="text-3xl font-black text-gray-900 dark:text-white tracking-tighter">{item.value}</div>
+                                                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Admitted</div>
+                                                            <div className="text-2xl font-black text-green-600 dark:text-green-400 tracking-tighter">{item.admitted || 0}</div>
                                                         </div>
                                                         <div className="text-right">
-                                                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Revenue</div>
-                                                            <div className="text-sm font-bold text-green-600">₹{(item.revenue / 1000).toFixed(1)}K</div>
+                                                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Counselling</div>
+                                                            <div className="text-2xl font-black text-amber-500 dark:text-amber-400 tracking-tighter">{item.counselling || 0}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex justify-between items-center">
+                                                        <div>
+                                                            <div className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Revenue</div>
+                                                            <div className="text-xs font-bold text-gray-700 dark:text-gray-300">₹{(item.revenue / 1000).toFixed(1)}K</div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <div className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Share</div>
+                                                            <div className="text-xs font-black text-purple-600">{item.percent}%</div>
                                                         </div>
                                                     </div>
                                                     <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
@@ -542,131 +638,243 @@ const CourseReport = () => {
                     )}
                 </div>
 
-                {/* Second Chart: Total Revenue Per Course */}
-                <div className="bg-white p-6 rounded-xl shadow-md flex flex-col items-center min-h-[500px] mt-8">
-                    <h3 className="text-lg font-bold text-gray-800 mb-6">Total Revenue Per Course</h3>
+                {/* Second Section: Total Revenue Per Course */}
+                <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 min-h-[500px] mt-8">
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-8 flex items-center gap-3">
+                        <div className="w-2 h-8 bg-green-600 rounded-full"></div>
+                        Total Revenue Per Course
+                    </h3>
 
-                    <div className="flex flex-col lg:flex-row items-center w-full gap-8">
-                        {/* Chart */}
-                        <div className="w-full lg:w-1/2 h-[400px]">
-                            {reportData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie
-                                            data={reportData}
-                                            cx="50%"
-                                            cy="50%"
-                                            outerRadius={150}
-                                            fill="#8884d8"
-                                            dataKey="revenue"
-                                            label={({ payload }) => `${payload.revenuePercent || 0}%`}
-                                        >
-                                            {reportData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                            ))}
-                                        </Pie>
-                                        <Tooltip formatter={(value) => [`₹${value.toLocaleString()}`, "Revenue"]} />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <div className="h-full flex items-center justify-center text-gray-400">No Data Available</div>
-                            )}
-                        </div>
-
-                        {/* Top Values List */}
-                        <div className="w-full lg:w-1/2">
-                            <h4 className="text-center font-bold text-gray-700 mb-4">Top Value</h4>
-                            <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                                {[...reportData].sort((a, b) => b.revenue - a.revenue).map((item, index) => (
-                                    <div key={index} className="flex items-center justify-between text-sm text-gray-600 border-b border-gray-100 pb-2">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                                            <span className="font-medium">{item.name}</span>
-                                        </div>
-                                        <span className="font-bold">{item.revenuePercent || 0}%</span>
+                    {displayMode === "chart" && (
+                        <div className="animate-fade-in">
+                            <div className="flex flex-col lg:flex-row items-center w-full gap-8">
+                                <div className="w-full lg:w-1/2 h-[400px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={reportData}
+                                                cx="50%"
+                                                cy="50%"
+                                                outerRadius={150}
+                                                fill="#8884d8"
+                                                dataKey="revenue"
+                                                label={({ payload }) => `${payload.revenuePercent || 0}%`}
+                                            >
+                                                {reportData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip formatter={(value) => [`₹${value.toLocaleString()}`, "Revenue"]} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="w-full lg:w-1/2">
+                                    <h4 className="text-center font-bold text-gray-700 dark:text-gray-300 mb-6 uppercase tracking-widest text-xs">Revenue Distribution</h4>
+                                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-gray-200">
+                                        {[...reportData].sort((a, b) => b.revenue - a.revenue).map((item, index) => (
+                                            <div key={index} className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800 pb-3 group">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                                                    <span className="font-bold group-hover:text-gray-900 dark:group-hover:text-white transition-colors uppercase text-[11px]">{item.name}</span>
+                                                </div>
+                                                <span className="font-black text-gray-900 dark:text-white">{item.revenuePercent || 0}%</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="mt-12 flex flex-wrap justify-center gap-6">
+                                {reportData.map((item, index) => (
+                                    <div key={index} className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                                        <span>{item.name}</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
-                    </div>
+                    )}
 
-                    {/* Legend at Bottom */}
-                    <div className="mt-8 flex flex-wrap justify-center gap-4">
-                        {reportData.map((item, index) => (
-                            <div key={index} className="flex items-center gap-2 text-xs text-gray-500">
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                                <span>{item.name} {selectedSession}</span>
-                            </div>
-                        ))}
-                    </div>
+                    {displayMode === "table" && (
+                        <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
+                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Course Name</th>
+                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Total Revenue</th>
+                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Avg. Fee / Student</th>
+                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Revenue Share</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                    {[...reportData].sort((a, b) => b.revenue - a.revenue).map((item, idx) => (
+                                        <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+                                            <td className="p-5 text-sm font-bold text-gray-800 dark:text-white uppercase tracking-tight">{item.name}</td>
+                                            <td className="p-5 text-right font-black text-lg text-green-600 dark:text-green-400">₹{item.revenue.toLocaleString('en-IN')}</td>
+                                            <td className="p-5 text-center font-bold text-gray-600 dark:text-gray-400">₹{item.value > 0 ? (item.revenue / item.value).toLocaleString('en-IN', { maximumFractionDigits: 0 }) : 0}</td>
+                                            <td className="p-5 text-right font-black text-sm text-gray-900 dark:text-white">{item.revenuePercent || 0}%</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {displayMode === "card" && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
+                            {[...reportData].sort((a, b) => b.revenue - a.revenue).map((item, idx) => (
+                                <div key={idx} className="bg-white dark:bg-[#131619] rounded-2xl border border-gray-200 dark:border-gray-800 p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h4 className="font-black text-gray-800 dark:text-white uppercase text-xs tracking-tight line-clamp-1 flex-1">{item.name}</h4>
+                                        <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center text-green-500">₹</div>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Revenue</div>
+                                            <div className="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">₹{(item.revenue / 100000).toFixed(2)}L</div>
+                                        </div>
+                                        <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+                                            <div className="flex justify-between text-[10px] font-black uppercase mb-2">
+                                                <span className="text-gray-400">Revenue Contribution</span>
+                                                <span className="text-green-500">{item.revenuePercent || 0}%</span>
+                                            </div>
+                                            <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                <div className="h-full bg-green-500 ml-auto" style={{ width: `${item.revenuePercent || 0}%` }}></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
 
-                {/* Additional Sections: Center-wise Analysis */}
-                <div className="mt-8 grid grid-cols-1 gap-8 pb-10">
+                {/* Third Section: Center-wise Analysis */}
+                <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 min-h-[500px] mt-8 mb-10">
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-8 flex items-center gap-3">
+                        <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
+                        Center-wise Analysis
+                    </h3>
 
-                    {/* Center-wise Revenue */}
-                    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold text-gray-800">Center-wise Revenue</h3>
-                        </div>
-                        <div className="h-[400px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart
-                                    layout="vertical"
-                                    data={[...centreData].sort((a, b) => b.revenue - a.revenue)} // Sort desc
-                                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                                    <XAxis type="number" hide />
-                                    <YAxis
-                                        dataKey="name"
-                                        type="category"
-                                        width={150}
-                                        tick={{ fontSize: 12, fill: '#374151' }}
-                                        interval={0}
-                                    />
-                                    <Tooltip
-                                        formatter={(value) => [`₹${value.toLocaleString()}`, "Revenue"]}
-                                        contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                    />
-                                    <Bar dataKey="revenue" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
+                    {displayMode === "chart" && (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in">
+                            {/* Center-wise Revenue Chart */}
+                            <div className="bg-gray-50 dark:bg-[#131619] p-6 rounded-2xl border border-gray-200 dark:border-gray-800">
+                                <h4 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">Center-wise Revenue</h4>
+                                <div className="h-[400px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart
+                                            layout="vertical"
+                                            data={[...centreData].sort((a, b) => b.revenue - a.revenue)}
+                                            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" />
+                                            <XAxis type="number" hide />
+                                            <YAxis
+                                                dataKey="name"
+                                                type="category"
+                                                width={150}
+                                                tick={{ fontSize: 11, fill: '#6B7280', fontWeight: 600 }}
+                                                interval={0}
+                                            />
+                                            <Tooltip
+                                                formatter={(value) => [`₹${value.toLocaleString()}`, "Revenue"]}
+                                                contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                            />
+                                            <Bar dataKey="revenue" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
 
-                    {/* Center-wise Enrollment */}
-                    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold text-gray-800">Center-wise Enrollment</h3>
+                            {/* Center-wise Enrollment Chart */}
+                            <div className="bg-gray-50 dark:bg-[#131619] p-6 rounded-2xl border border-gray-200 dark:border-gray-800">
+                                <h4 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">Center-wise Enrollment</h4>
+                                <div className="h-[400px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart
+                                            layout="vertical"
+                                            data={[...centreData].sort((a, b) => b.enrollment - a.enrollment)}
+                                            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" />
+                                            <XAxis type="number" hide />
+                                            <YAxis
+                                                dataKey="name"
+                                                type="category"
+                                                width={150}
+                                                tick={{ fontSize: 11, fill: '#6B7280', fontWeight: 600 }}
+                                                interval={0}
+                                            />
+                                            <Tooltip
+                                                cursor={{ fill: 'transparent' }}
+                                                contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                            />
+                                            <Bar dataKey="enrollment" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={20} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
                         </div>
-                        <div className="h-[400px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart
-                                    layout="vertical"
-                                    data={[...centreData].sort((a, b) => b.enrollment - a.enrollment)}
-                                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                                    <XAxis type="number" hide />
-                                    <YAxis
-                                        dataKey="name"
-                                        type="category"
-                                        width={150}
-                                        tick={{ fontSize: 12, fill: '#374151' }}
-                                        interval={0}
-                                    />
-                                    <Tooltip
-                                        cursor={{ fill: 'transparent' }}
-                                        contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                    />
-                                    <Bar dataKey="enrollment" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
+                    )}
 
+                    {displayMode === "table" && (
+                        <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
+                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Center Name</th>
+                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Total Enrollment</th>
+                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Total Revenue</th>
+                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Avg Revenue/Student</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                    {[...centreData].sort((a, b) => b.revenue - a.revenue).map((item, idx) => (
+                                        <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+                                            <td className="p-5 text-sm font-bold text-gray-800 dark:text-white uppercase tracking-tight">{item.name}</td>
+                                            <td className="p-5 text-center font-black text-lg text-blue-600 dark:text-blue-400">{item.enrollment || 0}</td>
+                                            <td className="p-5 text-right font-black text-lg text-green-600 dark:text-green-400">₹{item.revenue.toLocaleString('en-IN')}</td>
+                                            <td className="p-5 text-right font-bold text-gray-600 dark:text-gray-400">₹{item.enrollment > 0 ? (item.revenue / item.enrollment).toLocaleString('en-IN', { maximumFractionDigits: 0 }) : 0}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {displayMode === "card" && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
+                            {[...centreData].sort((a, b) => b.revenue - a.revenue).map((item, idx) => (
+                                <div key={idx} className="bg-white dark:bg-[#131619] rounded-2xl border border-gray-200 dark:border-gray-800 p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h4 className="font-black text-gray-800 dark:text-white uppercase text-xs tracking-tight line-clamp-1 flex-1">{item.name}</h4>
+                                        <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
+                                            <FaTh size={12} />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between">
+                                            <div>
+                                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Enrollment</div>
+                                                <div className="text-xl font-black text-blue-600 dark:text-blue-400">{item.enrollment || 0}</div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Revenue</div>
+                                                <div className="text-xl font-black text-green-600 dark:text-green-400">₹{(item.revenue / 1000).toFixed(0)}K</div>
+                                            </div>
+                                        </div>
+                                        <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase">Avg Yield</span>
+                                                <span className="text-sm font-black text-gray-900 dark:text-white">₹{item.enrollment > 0 ? (item.revenue / (item.enrollment * 1000)).toFixed(1) : 0}K</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         </Layout >

@@ -88,11 +88,13 @@ const AdmissionReport = () => {
     const [courses, setCourses] = useState([]);
     const [classes, setClasses] = useState([]);
     const [examTags, setExamTags] = useState([]);
+    const [departments, setDepartments] = useState([]);
 
     // Filters
     const [selectedCentres, setSelectedCentres] = useState([]); // Array of IDs
     const [selectedCourses, setSelectedCourses] = useState([]); // Array of IDs
     const [selectedClasses, setSelectedClasses] = useState([]); // Array of IDs
+    const [selectedDepartments, setSelectedDepartments] = useState([]); // Array of IDs
     const [selectedExamTag, setSelectedExamTag] = useState(""); // Single ID
     const [timePeriod, setTimePeriod] = useState("This Year"); // "This Year", "Last Year", "Custom"
     const [startDate, setStartDate] = useState("");
@@ -115,7 +117,7 @@ const AdmissionReport = () => {
             return;
         }
         fetchReportData();
-    }, [selectedCentres, selectedCourses, selectedClasses, selectedExamTag, timePeriod, startDate, endDate]);
+    }, [selectedCentres, selectedCourses, selectedClasses, selectedDepartments, selectedExamTag, timePeriod, startDate, endDate]);
 
     // ---- API Calls ----
     const fetchMasterData = async () => {
@@ -123,12 +125,13 @@ const AdmissionReport = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            // Fetch Centres, Courses, Classes, and Exam Tags in parallel
-            const [centreRes, courseRes, classRes, examTagRes] = await Promise.all([
+            // Fetch Centres, Courses, Classes, Exam Tags, and Departments in parallel
+            const [centreRes, courseRes, classRes, examTagRes, deptRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/course`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/class`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers })
             ]);
 
             if (centreRes.ok) {
@@ -149,6 +152,7 @@ const AdmissionReport = () => {
             if (courseRes.ok) setCourses(await courseRes.json());
             if (classRes.ok) setClasses(await classRes.json());
             if (examTagRes.ok) setExamTags(await examTagRes.json());
+            if (deptRes.ok) setDepartments(await deptRes.json());
 
         } catch (error) {
             console.error("Error fetching master data", error);
@@ -173,8 +177,9 @@ const AdmissionReport = () => {
 
             if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
             if (selectedCourses.length > 0) params.append("courseIds", selectedCourses.join(","));
-            if (selectedClasses.length > 0) params.append("classIds", selectedClasses.join(","));
-            if (selectedExamTag) params.append("examTagId", selectedExamTag);
+            if (selectedClasses.length > 0) params.append("classes", selectedClasses.join(","));
+            if (selectedDepartments.length > 0) params.append("departments", selectedDepartments.join(","));
+            if (selectedExamTag) params.append("examTag", selectedExamTag);
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/sales/admission-report?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -196,11 +201,11 @@ const AdmissionReport = () => {
     // ---- Handlers ----
     const toggleCentreSelection = (id) => {
         setSelectedCentres(prev =>
-            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
         );
     };
 
-    const toggleCourseSelection = (id) => {
+    const toggleCourse = (id) => {
         setSelectedCourses(prev =>
             prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
         );
@@ -212,10 +217,16 @@ const AdmissionReport = () => {
         );
     };
 
+    const toggleDepartment = (id) =>
+        setSelectedDepartments(prev =>
+            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+        );
+
     const handleResetFilters = () => {
         setSelectedCentres([]);
         setSelectedCourses([]);
         setSelectedClasses([]);
+        setSelectedDepartments([]);
         setSelectedExamTag("");
         setTimePeriod("This Year");
         setStartDate("");
@@ -257,6 +268,14 @@ const AdmissionReport = () => {
                 .join("\r\n");
         };
 
+        const getDepartmentNames = () => {
+            if (selectedDepartments.length === 0) return "All Departments";
+            return departments
+                .filter(d => selectedDepartments.includes(d._id))
+                .map(d => d.departmentName)
+                .join("\r\n");
+        };
+
         const getExamTagName = () => {
             if (!selectedExamTag) return "All Exam Tags";
             const tag = examTags.find(t => t._id === selectedExamTag);
@@ -266,6 +285,7 @@ const AdmissionReport = () => {
         const centersStr = getCentreNames();
         const coursesStr = getCourseNames();
         const classesStr = getClassNames();
+        const departmentsStr = getDepartmentNames();
         const examTagStr = getExamTagName();
 
         // Map trend data into requested Excel format
@@ -280,6 +300,7 @@ const AdmissionReport = () => {
                 "Centers": item.centre || "Unknown Centre",
                 "Courses": item.courseName || "Unknown Course",
                 "Classes": item.className || "Unknown Class",
+                "Departments": item.departmentName || "Unknown Department",
                 "ExamTag": examTagStr
             }));
         } else {
@@ -291,6 +312,7 @@ const AdmissionReport = () => {
                 "Centers": centersStr,
                 "Courses": coursesStr,
                 "Classes": classesStr,
+                "Departments": departmentsStr,
                 "ExamTag": examTagStr
             }));
         }
@@ -306,6 +328,7 @@ const AdmissionReport = () => {
             { wch: 50 }, // Centers
             { wch: 50 }, // Courses
             { wch: 30 }, // Classes
+            { wch: 30 }, // Departments
             { wch: 20 }, // ExamTag
         ];
         ws['!cols'] = wscols;
@@ -313,7 +336,7 @@ const AdmissionReport = () => {
         // Attempt to set wrapText (Note: This may require Pro version or standard file-saver might strip, but best effort)
         const range = XLSX.utils.decode_range(ws['!ref']);
         for (let R = range.s.r; R <= range.e.r; ++R) {
-            for (let C = range.s.c; C <= range.e.c; ++C) {
+            for (let C = range.s.c; C <= range.s.c + wscols.length - 1; ++C) { // Iterate through relevant columns
                 const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
                 if (!ws[cell_address]) continue;
                 if (!ws[cell_address].s) ws[cell_address].s = {};
@@ -345,6 +368,50 @@ const AdmissionReport = () => {
             <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
                 {`${(percent * 100).toFixed(1)}%`}
             </text>
+        );
+    };
+
+    // Mini Pie Chart Component for Rows/Cards
+    const MiniStatusPie = ({ admitted, counselling, size = 60 }) => {
+        const data = [
+            { name: 'Admitted', value: admitted },
+            { name: 'In Counselling', value: counselling }
+        ];
+        const total = admitted + counselling;
+
+        if (total === 0) {
+            return (
+                <div style={{ width: size, height: size }} className="rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center border border-dashed border-gray-300 dark:border-gray-700">
+                    <span className="text-[8px] text-gray-400 font-bold">EMPTY</span>
+                </div>
+            );
+        }
+
+        return (
+            <div style={{ width: size, height: size }}>
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie
+                            data={data}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={size / 4}
+                            outerRadius={size / 2}
+                            paddingAngle={2}
+                            dataKey="value"
+                            stroke="none"
+                        >
+                            {data.map((entry, index) => (
+                                <Cell key={`mini-cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                        </Pie>
+                        <Tooltip
+                            contentStyle={{ fontSize: '10px', padding: '4px', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                            itemStyle={{ padding: '0px' }}
+                        />
+                    </PieChart>
+                </ResponsiveContainer>
+            </div>
         );
     };
 
@@ -402,10 +469,10 @@ const AdmissionReport = () => {
 
                         {/* Course Multi-Select */}
                         <SearchableDropdown
-                            placeholder="Select Course(s)"
+                            placeholder="All Courses"
                             options={courses}
                             selectedValues={selectedCourses}
-                            onToggle={toggleCourseSelection}
+                            onToggle={toggleCourse}
                             labelKey="courseName"
                         />
 
@@ -416,6 +483,15 @@ const AdmissionReport = () => {
                             selectedValues={selectedClasses}
                             onToggle={toggleClassSelection}
                             labelKey="name"
+                        />
+
+                        {/* Department Multi-Select */}
+                        <SearchableDropdown
+                            placeholder="All Departments"
+                            options={departments}
+                            selectedValues={selectedDepartments}
+                            onToggle={toggleDepartment}
+                            labelKey="departmentName"
                         />
 
                         {/* Exam Tag Dropdown */}
@@ -513,9 +589,10 @@ const AdmissionReport = () => {
                                         <thead>
                                             <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
                                                 <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Month</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Admissions</th>
-                                                {/* <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Trend Bar</th> */}
-                                                {/* <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Action</th> */}
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Admitted</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Counselling</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Status Breakdown</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center flex-1">Trend Bar</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -525,8 +602,14 @@ const AdmissionReport = () => {
                                                 return (
                                                     <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
                                                         <td className="p-5 font-bold text-gray-800 dark:text-white uppercase text-sm">{item.month}</td>
-                                                        <td className="p-5 text-center font-black text-blue-600 dark:text-blue-400 text-lg">{item.count}</td>
-                                                        {/* <td className="p-5">
+                                                        <td className="p-5 text-center font-black text-green-600 dark:text-green-400 text-lg">{item.admitted || 0}</td>
+                                                        <td className="p-5 text-center font-black text-amber-500 dark:text-amber-400 text-lg">{item.counselling || 0}</td>
+                                                        <td className="p-5">
+                                                            <div className="flex justify-center">
+                                                                <MiniStatusPie admitted={item.admitted || 0} counselling={item.counselling || 0} size={50} />
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-5">
                                                             <div className="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                                                                 <div
                                                                     className="h-full bg-gradient-to-r from-blue-600 to-indigo-500 rounded-full transition-all duration-1000"
@@ -534,9 +617,6 @@ const AdmissionReport = () => {
                                                                 ></div>
                                                             </div>
                                                         </td>
-                                                        <td className="p-5 text-right">
-                                                            <button className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-600 transition-colors">Details</button>
-                                                        </td> */}
                                                     </tr>
                                                 );
                                             })}
@@ -554,14 +634,18 @@ const AdmissionReport = () => {
                                             <div key={idx} className="bg-white dark:bg-[#131619] rounded-2xl border border-gray-200 dark:border-gray-800 p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group">
                                                 <div className="flex justify-between items-center mb-6">
                                                     <h4 className="font-black text-gray-400 uppercase text-[10px] tracking-widest">{item.month}</h4>
-                                                    <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
-                                                        <FaChartLine size={12} />
-                                                    </div>
+                                                    <MiniStatusPie admitted={item.admitted || 0} counselling={item.counselling || 0} size={40} />
                                                 </div>
                                                 <div className="space-y-4">
-                                                    <div>
-                                                        <div className="text-3xl font-black text-gray-900 dark:text-white">{item.count}</div>
-                                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter mt-1">Total Admissions</div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <div className="text-2xl font-black text-green-600 dark:text-green-400">{item.admitted || 0}</div>
+                                                            <div className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter mt-1">Admitted</div>
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-2xl font-black text-amber-500 dark:text-amber-400">{item.counselling || 0}</div>
+                                                            <div className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter mt-1">In Counselling</div>
+                                                        </div>
                                                     </div>
                                                     <div className="pt-2">
                                                         <div className="flex justify-between text-[10px] font-black uppercase mb-2">
@@ -585,12 +669,15 @@ const AdmissionReport = () => {
                     )}
                 </div>
 
-                {/* Admission Status */}
-                <div className="bg-white dark:bg-white p-6 rounded-xl shadow-md border border-gray-200">
-                    <h3 className="text-lg font-bold text-gray-800 mb-6">Admission Status</h3>
+                {/* Admission Status Section */}
+                <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800">
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-8 flex items-center gap-3">
+                        <div className="w-2 h-8 bg-amber-500 rounded-full"></div>
+                        Overall Admission Status
+                    </h3>
 
-                    <div className="flex items-center justify-between">
-                        <div className="w-1/2 flex justify-center">
+                    {displayMode === "chart" && (
+                        <div className="flex flex-col md:flex-row items-center justify-around gap-8 animate-fade-in">
                             <div className="w-[300px] h-[300px]">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
@@ -614,19 +701,102 @@ const AdmissionReport = () => {
                                     </PieChart>
                                 </ResponsiveContainer>
                             </div>
-                        </div>
 
-                        <div className="w-1/2 flex flex-col gap-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-3 h-3 rounded-full bg-[#10B981]"></div>
-                                <span className="font-medium text-gray-700">Admitted</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="w-3 h-3 rounded-full bg-[#F59E0B]"></div>
-                                <span className="font-medium text-gray-700">In Counselling</span>
+                            <div className="flex flex-col gap-6">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-4 group">
+                                        <div className="w-4 h-4 rounded-full bg-[#10B981] shadow-lg shadow-emerald-500/20"></div>
+                                        <div className="flex flex-col">
+                                            <span className="font-black text-gray-900 dark:text-white text-2xl">{reportData.status.admitted}</span>
+                                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Admitted Students</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4 group">
+                                        <div className="w-4 h-4 rounded-full bg-[#F59E0B] shadow-lg shadow-amber-500/20"></div>
+                                        <div className="flex flex-col">
+                                            <span className="font-black text-gray-900 dark:text-white text-2xl">{reportData.status.inCounselling}</span>
+                                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">In Counselling</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+                                    <span className="text-sm font-bold text-gray-400 uppercase tracking-tighter">Total Potential Pool: </span>
+                                    <span className="text-sm font-black text-blue-600 ml-1">{totalStatus}</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
+
+                    {displayMode === "table" && (
+                        <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
+                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Status Category</th>
+                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Total Count</th>
+                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Percentage Share</th>
+                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Trend Visualization</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                    {statusData.map((item, idx) => {
+                                        const pct = totalStatus > 0 ? ((item.value / totalStatus) * 100).toFixed(1) : 0;
+                                        return (
+                                            <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+                                                <td className="p-5 text-sm font-bold text-gray-800 dark:text-white uppercase tracking-tight">{item.name}</td>
+                                                <td className="p-5 text-center font-black text-xl text-gray-900 dark:text-white">{item.value}</td>
+                                                <td className="p-5 text-center font-bold text-gray-600 dark:text-gray-400">{pct}%</td>
+                                                <td className="p-5">
+                                                    <div className="flex justify-end gap-2 items-center">
+                                                        <div className="w-32 h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                            <div className={`h-full ${idx === 0 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${pct}%` }}></div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {displayMode === "card" && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in">
+                            {statusData.map((item, idx) => {
+                                const pct = totalStatus > 0 ? ((item.value / totalStatus) * 100).toFixed(1) : 0;
+                                const isAdmitted = idx === 0;
+                                return (
+                                    <div key={idx} className="bg-white dark:bg-[#131619] rounded-2xl border border-gray-200 dark:border-gray-800 p-8 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden">
+                                        <div className={`absolute top-0 right-0 w-32 h-32 ${isAdmitted ? 'bg-emerald-500/5' : 'bg-amber-500/5'} -mr-16 -mt-16 rounded-full transform rotate-45 group-hover:scale-150 transition-transform duration-700`}></div>
+                                        <div className="relative z-10">
+                                            <div className="flex justify-between items-center mb-8">
+                                                <h4 className="font-black text-gray-400 uppercase text-xs tracking-widest">{item.name} Status</h4>
+                                                <div className={`w-10 h-10 rounded-xl ${isAdmitted ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'} flex items-center justify-center`}>
+                                                    <FaChartPie size={16} />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-6">
+                                                <div>
+                                                    <div className="text-5xl font-black text-gray-900 dark:text-white tracking-tighter">{item.value}</div>
+                                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2">{isAdmitted ? 'Successful Conversions' : 'Active Opportunities'}</div>
+                                                </div>
+                                                <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+                                                    <div className="flex justify-between text-[10px] font-black uppercase mb-3">
+                                                        <span className="text-gray-400">Database Share</span>
+                                                        <span className={isAdmitted ? 'text-emerald-500' : 'text-amber-500'}>{pct}%</span>
+                                                    </div>
+                                                    <div className="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                        <div className={`h-full ${isAdmitted ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${pct}%` }}></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
                 {/* Comparison Section */}

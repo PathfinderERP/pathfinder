@@ -14,6 +14,7 @@ const StudentAdmissionPage = () => {
     const [classes, setClasses] = useState([]);
     const [examTags, setExamTags] = useState([]);
     const [sessions, setSessions] = useState([]);
+    const [departments, setDepartments] = useState([]);
     const [selectedCourse, setSelectedCourse] = useState(null);
 
     const [formData, setFormData] = useState({
@@ -122,6 +123,11 @@ const StudentAdmissionPage = () => {
                     if (matchedSession) newData.academicSession = matchedSession.sessionName;
                 }
 
+                // Autofill Department from student record if it exists
+                if (student.department && !prev.departmentId) {
+                    newData.departmentId = typeof student.department === 'object' ? student.department._id : student.department;
+                }
+
                 return newData;
             });
         }
@@ -133,12 +139,13 @@ const StudentAdmissionPage = () => {
             const token = localStorage.getItem("token");
             const headers = { "Authorization": `Bearer ${token}` };
 
-            const [studentRes, coursesRes, classesRes, tagsRes, sessionsRes] = await Promise.all([
+            const [studentRes, coursesRes, classesRes, tagsRes, sessionsRes, deptsRes] = await Promise.all([
                 fetch(`${apiUrl}/normalAdmin/getStudent/${studentId}`, { headers }),
                 fetch(`${apiUrl}/course`, { headers }),
                 fetch(`${apiUrl}/class`, { headers }),
                 fetch(`${apiUrl}/examTag`, { headers }),
-                fetch(`${apiUrl}/session/list`, { headers })
+                fetch(`${apiUrl}/session/list`, { headers }),
+                fetch(`${apiUrl}/department`, { headers })
             ]);
 
             if (studentRes.ok) setStudent(await studentRes.json());
@@ -146,6 +153,7 @@ const StudentAdmissionPage = () => {
             if (classesRes.ok) setClasses(await classesRes.json());
             if (tagsRes.ok) setExamTags(await tagsRes.json());
             if (sessionsRes.ok) setSessions(await sessionsRes.json());
+            if (deptsRes.ok) setDepartments(await deptsRes.json());
 
         } catch (err) {
             toast.error("Failed to fetch data");
@@ -355,6 +363,22 @@ const StudentAdmissionPage = () => {
                                     <option value="">Select Exam Tag</option>
                                     {examTags.map(tag => (
                                         <option key={tag._id} value={tag._id}>{tag.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-gray-400 mb-2 text-sm">Department *</label>
+                                <select
+                                    name="departmentId"
+                                    value={formData.departmentId}
+                                    onChange={handleInputChange}
+                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                    required
+                                >
+                                    <option value="">Select Department</option>
+                                    {departments.map(dept => (
+                                        <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
                                     ))}
                                 </select>
                             </div>

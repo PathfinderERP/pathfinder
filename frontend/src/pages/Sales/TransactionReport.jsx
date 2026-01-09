@@ -25,11 +25,13 @@ const TransactionReport = () => {
     const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
     const [examTags, setExamTags] = useState([]);
+    const [departments, setDepartments] = useState([]);
     const [sessions, setSessions] = useState([]); // Dynamic sessions from master data
 
     // Filters
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedCourses, setSelectedCourses] = useState([]);
+    const [selectedDepartments, setSelectedDepartments] = useState([]);
     const [selectedExamTag, setSelectedExamTag] = useState("");
     const [displayMode, setDisplayMode] = useState("chart"); // chart, table, card
     const [selectedSession, setSelectedSession] = useState("");
@@ -38,10 +40,13 @@ const TransactionReport = () => {
     const [endDate, setEndDate] = useState("");
 
     // Dropdown Refs
-    const centreDropdownRef = useRef(null);
-    const courseDropdownRef = useRef(null);
     const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
     const [isCourseDropdownOpen, setIsCourseDropdownOpen] = useState(false);
+    const [isDepartmentDropdownOpen, setIsDepartmentDropdownOpen] = useState(false);
+
+    const centreDropdownRef = useRef(null);
+    const courseDropdownRef = useRef(null);
+    const departmentDropdownRef = useRef(null);
 
     // ---- Effects ----
     useEffect(() => {
@@ -53,6 +58,9 @@ const TransactionReport = () => {
             if (courseDropdownRef.current && !courseDropdownRef.current.contains(event.target)) {
                 setIsCourseDropdownOpen(false);
             }
+            if (departmentDropdownRef.current && !departmentDropdownRef.current.contains(event.target)) {
+                setIsDepartmentDropdownOpen(false);
+            }
         };
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -63,7 +71,7 @@ const TransactionReport = () => {
             return;
         }
         fetchReportData();
-    }, [selectedCentres, selectedCourses, selectedExamTag, selectedSession, timePeriod, startDate, endDate]);
+    }, [selectedCentres, selectedCourses, selectedDepartments, selectedExamTag, selectedSession, timePeriod, startDate, endDate]);
 
     // ---- API Calls ----
     const fetchMasterData = async () => {
@@ -71,11 +79,12 @@ const TransactionReport = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [cRes, coRes, eRes, sRes] = await Promise.all([
+            const [cRes, coRes, eRes, sRes, dRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/course`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers })
             ]);
 
             if (cRes.ok) {
@@ -99,6 +108,7 @@ const TransactionReport = () => {
                 const sessionData = await sRes.ok ? await sRes.json() : [];
                 setSessions(Array.isArray(sessionData) ? sessionData : []);
             }
+            if (dRes.ok) setDepartments(await dRes.json());
         } catch (error) {
             console.error("Error fetching master data", error);
         }
@@ -152,6 +162,7 @@ const TransactionReport = () => {
             if (selectedSession) params.append("session", selectedSession);
             if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
             if (selectedCourses.length > 0) params.append("courseIds", selectedCourses.join(","));
+            if (selectedDepartments.length > 0) params.append("departmentIds", selectedDepartments.join(","));
             if (selectedExamTag) params.append("examTagId", selectedExamTag);
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/sales/transaction-report?${params.toString()}`, {
@@ -432,6 +443,35 @@ const TransactionReport = () => {
                             )}
                         </div>
 
+                        {/* Department Multi-Select */}
+                        <div className="relative" ref={departmentDropdownRef}>
+                            <div
+                                onClick={() => setIsDepartmentDropdownOpen(!isDepartmentDropdownOpen)}
+                                className="min-w-[180px] h-10 px-3 py-2 bg-white border border-gray-300 rounded-md cursor-pointer flex justify-between items-center text-sm text-gray-700 hover:border-blue-500 transition-colors"
+                            >
+                                <span className="truncate">
+                                    {selectedDepartments.length === 0 ? "-----Set Dept-----" : `${selectedDepartments.length} Selected`}
+                                </span>
+                                <FaChevronDown size={10} className={`transform transition-transform ${isDepartmentDropdownOpen ? 'rotate-180' : ''}`} />
+                            </div>
+                            {isDepartmentDropdownOpen && (
+                                <div className="absolute top-full left-0 mt-1 w-64 z-50 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                                    {departments.map(d => (
+                                        <div
+                                            key={d._id}
+                                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
+                                            onClick={() => {
+                                                setSelectedDepartments(prev => prev.includes(d._id) ? prev.filter(x => x !== d._id) : [...prev, d._id]);
+                                            }}
+                                        >
+                                            <input type="checkbox" checked={selectedDepartments.includes(d._id)} readOnly className="rounded" />
+                                            <span className="text-sm text-gray-700 truncate">{d.departmentName}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
                         {/* Session */}
                         <select
                             value={selectedSession}
@@ -624,94 +664,293 @@ const TransactionReport = () => {
 
                 {/* 2. Payment Methods */}
                 {/* 2. Centre & Course Revenue (New) */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Centre Revenue */}
-                    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                        <h3 className="text-xl font-bold text-gray-800 mb-6">Revenue by Centre</h3>
-                        <div className="h-[400px]">
-                            {centreRevenueData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={centreRevenueData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                                        <XAxis type="number" hide />
-                                        <YAxis dataKey="_id" type="category" width={100} tick={{ fontSize: 12 }} />
-                                        <Tooltip content={<CustomBarTooltip />} cursor={{ fill: 'transparent' }} />
-                                        <Bar dataKey="revenue" fill="#00e396" barSize={20} radius={[0, 4, 4, 0]} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <div className="h-full flex items-center justify-center text-gray-400">No Data</div>
-                            )}
-                        </div>
+                <div className="space-y-8">
+                    {/* Centre Revenue Section */}
+                    <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800">
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-8 flex items-center gap-3">
+                            <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
+                            Revenue by Centre
+                        </h3>
+
+                        {displayMode === "chart" && (
+                            <div className="h-[400px] animate-fade-in">
+                                {centreRevenueData.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart
+                                            data={[...centreRevenueData].sort((a, b) => b.revenue - a.revenue).slice(0, 15)}
+                                            margin={{ top: 5, right: 30, left: 40, bottom: 20 }}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" opacity={0.5} />
+                                            <XAxis type="category" dataKey="_id" tick={{ fontSize: 11, fill: '#6B7280', fontWeight: 600 }} />
+                                            <YAxis type="number" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} />
+                                            <Tooltip
+                                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                                formatter={(val) => [`₹${val.toLocaleString()}`, "Revenue"]}
+                                            />
+                                            <Bar dataKey="revenue" fill="#3b82f6" barSize={40} radius={[6, 6, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="h-full flex items-center justify-center text-gray-400">No Data</div>
+                                )}
+                            </div>
+                        )}
+
+                        {displayMode === "table" && (
+                            <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
+                                            <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Centre Name</th>
+                                            <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Total Revenue Generated</th>
+                                            <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Revenue Contribution</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                        {[...centreRevenueData].sort((a, b) => b.revenue - a.revenue).map((item, idx) => {
+                                            const total = centreRevenueData.reduce((acc, c) => acc + c.revenue, 0);
+                                            const pct = total > 0 ? ((item.revenue / total) * 100).toFixed(1) : 0;
+                                            return (
+                                                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                                                    <td className="p-5 text-sm font-bold text-gray-800 dark:text-white uppercase tracking-tight">{item._id}</td>
+                                                    <td className="p-5 text-right font-black text-blue-600 text-lg">₹{item.revenue.toLocaleString()}</td>
+                                                    <td className="p-5">
+                                                        <div className="flex flex-col items-center gap-2">
+                                                            <span className="text-xs font-black text-gray-400">{pct}%</span>
+                                                            <div className="w-32 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                                <div className="h-full bg-blue-500" style={{ width: `${pct}%` }}></div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {displayMode === "card" && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 animate-fade-in">
+                                {[...centreRevenueData].sort((a, b) => b.revenue - a.revenue).map((item, idx) => {
+                                    const total = centreRevenueData.reduce((acc, c) => acc + c.revenue, 0);
+                                    const pct = total > 0 ? ((item.revenue / total) * 100).toFixed(1) : 0;
+                                    return (
+                                        <div key={idx} className="bg-gray-50 dark:bg-[#131619] p-6 rounded-2xl border border-gray-200 dark:border-gray-800 hover:shadow-xl transition-all group">
+                                            <div className="text-[10px] font-black text-gray-400 uppercase mb-4 tracking-widest truncate">{item._id}</div>
+                                            <div className="text-2xl font-black text-gray-900 dark:text-white tracking-tighter mb-4">₹{(item.revenue / 1000).toFixed(1)}K</div>
+                                            <div className="flex justify-between items-center text-[10px] font-bold text-blue-500">
+                                                <span>SHARE</span>
+                                                <span>{pct}%</span>
+                                            </div>
+                                            <div className="w-full h-1 bg-gray-200 dark:bg-gray-800 mt-2 rounded-full overflow-hidden">
+                                                <div className="h-full bg-blue-500" style={{ width: `${pct}%` }}></div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
 
-                    {/* Course Revenue */}
-                    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                        <h3 className="text-xl font-bold text-gray-800 mb-6">Revenue by Course</h3>
-                        <div className="h-[400px]">
-                            {courseRevenueData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={courseRevenueData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                                        <XAxis type="number" hide />
-                                        <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12 }} />
-                                        <Tooltip content={<CustomBarTooltip />} cursor={{ fill: 'transparent' }} />
-                                        <Bar dataKey="revenue" fill="#feb019" barSize={20} radius={[0, 4, 4, 0]} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <div className="h-full flex items-center justify-center text-gray-400">No Data</div>
-                            )}
-                        </div>
+                    {/* Course Revenue Section */}
+                    <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800">
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-8 flex items-center gap-3">
+                            <div className="w-2 h-8 bg-amber-500 rounded-full"></div>
+                            Revenue by Course
+                        </h3>
+
+                        {displayMode === "chart" && (
+                            <div className="h-[400px] animate-fade-in">
+                                {courseRevenueData.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart
+                                            data={[...courseRevenueData].sort((a, b) => b.revenue - a.revenue).slice(0, 15)}
+                                            margin={{ top: 5, right: 30, left: 40, bottom: 20 }}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" opacity={0.5} />
+                                            <XAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#6B7280', fontWeight: 600 }} />
+                                            <YAxis type="number" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} />
+                                            <Tooltip
+                                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                                formatter={(val) => [`₹${val.toLocaleString()}`, "Revenue"]}
+                                            />
+                                            <Bar dataKey="revenue" fill="#fbbf24" barSize={40} radius={[6, 6, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="h-full flex items-center justify-center text-gray-400">No Data</div>
+                                )}
+                            </div>
+                        )}
+
+                        {displayMode === "table" && (
+                            <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
+                                            <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Course Name</th>
+                                            <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Total Collection</th>
+                                            <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Revenue Share</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                        {[...courseRevenueData].sort((a, b) => b.revenue - a.revenue).map((item, idx) => {
+                                            const total = courseRevenueData.reduce((acc, c) => acc + c.revenue, 0);
+                                            const pct = total > 0 ? ((item.revenue / total) * 100).toFixed(1) : 0;
+                                            return (
+                                                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                                                    <td className="p-5 text-sm font-bold text-gray-800 dark:text-white uppercase tracking-tight">{item.name}</td>
+                                                    <td className="p-5 text-right font-black text-amber-500 text-lg">₹{item.revenue.toLocaleString()}</td>
+                                                    <td className="p-5">
+                                                        <div className="flex flex-col items-center gap-2">
+                                                            <span className="text-xs font-black text-gray-400">{pct}%</span>
+                                                            <div className="w-32 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                                <div className="h-full bg-amber-500" style={{ width: `${pct}%` }}></div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {displayMode === "card" && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 animate-fade-in">
+                                {[...courseRevenueData].sort((a, b) => b.revenue - a.revenue).map((item, idx) => {
+                                    const total = courseRevenueData.reduce((acc, c) => acc + c.revenue, 0);
+                                    const pct = total > 0 ? ((item.revenue / total) * 100).toFixed(1) : 0;
+                                    return (
+                                        <div key={idx} className="bg-gray-50 dark:bg-[#131619] p-6 rounded-2xl border border-gray-200 dark:border-gray-800 hover:shadow-xl transition-all group">
+                                            <div className="text-[10px] font-black text-gray-400 uppercase mb-4 tracking-widest line-clamp-1">{item.name}</div>
+                                            <div className="text-2xl font-black text-gray-900 dark:text-white tracking-tighter mb-4">₹{(item.revenue / 1000).toFixed(1)}K</div>
+                                            <div className="flex justify-between items-center text-[10px] font-bold text-amber-500">
+                                                <span>SHARE</span>
+                                                <span>{pct}%</span>
+                                            </div>
+                                            <div className="w-full h-1 bg-gray-200 dark:bg-gray-800 mt-2 rounded-full overflow-hidden">
+                                                <div className="h-full bg-amber-500" style={{ width: `${pct}%` }}></div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* 3. Payment Methods */}
-                <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                    <h3 className="text-xl font-bold text-gray-800 mb-6">Payment Methods</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                        {/* Pie Chart */}
-                        <div className="h-[400px]">
-                            {paymentMethodData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie
-                                            data={paymentMethodData}
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius={80}
-                                            outerRadius={140}
-                                            paddingAngle={2}
-                                            dataKey="value"
-                                        >
-                                            {paymentMethodData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                            ))}
-                                        </Pie>
-                                        <Tooltip formatter={(val) => `₹${val.toLocaleString()}`} />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <div className="h-full flex items-center justify-center text-gray-400">No Payment Data</div>
-                            )}
-                        </div>
+                {/* 3. Payment Methods Section */}
+                <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800">
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-8 flex items-center gap-3">
+                        <div className="w-2 h-8 bg-purple-600 rounded-full"></div>
+                        Payment Methods Distribution
+                    </h3>
 
-                        {/* Custom Legend/List */}
-                        <div className="space-y-4">
-                            {paymentMethodData.map((item, index) => (
-                                <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-4 h-4 rounded-sm" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                                        <span className="font-medium text-gray-700">{item.name} {item.percent}%</span>
+                    {displayMode === "chart" && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center animate-fade-in">
+                            {/* Pie Chart */}
+                            <div className="h-[400px]">
+                                {paymentMethodData.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={paymentMethodData}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={80}
+                                                outerRadius={140}
+                                                paddingAngle={2}
+                                                dataKey="value"
+                                            >
+                                                {paymentMethodData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip formatter={(val) => `₹${val.toLocaleString()}`} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="h-full flex items-center justify-center text-gray-400">No Payment Data</div>
+                                )}
+                            </div>
+
+                            {/* Custom Legend/List */}
+                            <div className="space-y-4 pr-6">
+                                {paymentMethodData.map((item, index) => (
+                                    <div key={index} className="flex justify-between items-center p-4 bg-gray-50 dark:bg-[#131619] rounded-xl hover:bg-gray-100 dark:hover:bg-white/5 transition-colors border border-gray-100 dark:border-gray-800 group">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                                            <span className="font-bold text-gray-700 dark:text-gray-300 uppercase text-[10px] tracking-widest">{item.name}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="font-black text-gray-900 dark:text-white">₹{item.value.toLocaleString()}</div>
+                                            <div className="text-[10px] font-bold text-blue-500">{item.percent}% Pool</div>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <div className="font-bold text-gray-800">₹{item.value.toLocaleString()}</div>
-                                        {item.percent < 10 && <div className="text-xs text-gray-500">({item.percent}%)</div>}
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {displayMode === "table" && (
+                        <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
+                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Method</th>
+                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Transactions</th>
+                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Total Collection</th>
+                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Market Share</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                    {paymentMethodData.map((item, idx) => (
+                                        <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+                                            <td className="p-5 text-sm font-bold text-gray-800 dark:text-white uppercase tracking-tight">{item.name}</td>
+                                            <td className="p-5 text-right font-bold text-gray-500">{item.count}</td>
+                                            <td className="p-5 text-right font-black text-purple-600">₹{item.value.toLocaleString('en-IN')}</td>
+                                            <td className="p-5">
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <span className="text-[10px] font-black text-blue-500">{item.percent}%</span>
+                                                    <div className="w-24 h-1 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-blue-500" style={{ width: `${item.percent}%` }}></div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {displayMode === "card" && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
+                            {paymentMethodData.map((item, idx) => (
+                                <div key={idx} className="bg-white dark:bg-[#131619] rounded-2xl border border-gray-200 dark:border-gray-800 p-6 hover:shadow-2xl transition-all duration-300 group">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500">
+                                            <FaCreditCard size={18} />
+                                        </div>
+                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{item.name}</span>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Collection</div>
+                                            <div className="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">₹{(item.value / 1000).toFixed(1)}K</div>
+                                        </div>
+                                        <div className="flex justify-between items-center text-[10px] font-black">
+                                            <span className="text-gray-400 uppercase">{item.count} Txns</span>
+                                            <span className="text-purple-600">{item.percent}%</span>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
                         </div>
-                    </div>
+                    )}
                 </div>
 
                 <div className="text-center text-gray-400 text-sm mt-8">

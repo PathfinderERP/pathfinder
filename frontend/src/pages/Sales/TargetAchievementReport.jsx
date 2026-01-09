@@ -15,11 +15,13 @@ const TargetAchievementReport = () => {
     const [sessions, setSessions] = useState([]);
 
     // Filters
-    const [viewMode, setViewMode] = useState("Monthly"); // Monthly, Quarterly, Yearly
+    const [viewMode, setViewMode] = useState("Monthly"); // Monthly, Quarterly, Yearly, Custom
     const [filterFinancialYear, setFilterFinancialYear] = useState("");
     const [filterYear, setFilterYear] = useState(new Date().getFullYear());
     const [filterMonth, setFilterMonth] = useState("December"); // Default to current month
     const [filterQuarter, setFilterQuarter] = useState("Q3");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
 
     const months = [
         "January", "February", "March", "April", "May", "June",
@@ -37,7 +39,7 @@ const TargetAchievementReport = () => {
 
     useEffect(() => {
         fetchAnalysis();
-    }, [viewMode, filterFinancialYear, filterYear, filterMonth, filterQuarter, selectedCentres]);
+    }, [viewMode, filterFinancialYear, filterYear, filterMonth, filterQuarter, selectedCentres, startDate, endDate]);
 
     const fetchMasterData = async () => {
         try {
@@ -94,7 +96,9 @@ const TargetAchievementReport = () => {
                 year: filterYear,
                 month: filterMonth,
                 quarter: filterQuarter,
-                centreIds: selectedCentres.join(',')
+                centreIds: selectedCentres.join(','),
+                startDate,
+                endDate
             });
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/sales/target-analysis?${params.toString()}`, {
@@ -126,7 +130,8 @@ const TargetAchievementReport = () => {
         // 1. Prepare Header Info
         const reportType = `Report Type: ${viewMode} Target Report`;
         const finYear = `Financial Year: ${filterFinancialYear}`;
-        const currentMonth = `Month: ${filterMonth}`;
+        const currentMonth = viewMode === "Monthly" ? `Month: ${filterMonth}` : "";
+        const dateRange = viewMode === "Custom" ? `Date Range: ${startDate} to ${endDate}` : "";
         const selectedCentreCount = `Selected Centres: ${selectedCentres.length}`;
         const generatedOn = `Generated on: ${new Date().toLocaleDateString()}`;
         const yearVal = `Year: ${filterYear}`;
@@ -150,10 +155,7 @@ const TargetAchievementReport = () => {
 
         // 3. Construct Sheet Data (Array of Arrays)
         const sheetData = [
-            // Row 1: Meta Headers can be side-by-side or combined. 
-            // Based on user request image, they seem to be in consecutive columns or merged.
-            // Let's put them in separate cells for simplicity as per "excel like this" request.
-            [reportType, finYear, yearVal, currentMonth, selectedCentreCount, generatedOn],
+            [reportType, finYear, yearVal, currentMonth, dateRange, selectedCentreCount, generatedOn],
             [], // Empty Row 2
             // Row 3: Table Headers
             ["Center Name", "Financial Year", "Year", "Target", "Achieved", "Achievement %", "Month"],
@@ -242,7 +244,7 @@ const TargetAchievementReport = () => {
                         <div className="flex flex-wrap items-center gap-3">
                             {/* View Mode Tabs */}
                             <div className="bg-gray-800 rounded-lg p-1 flex">
-                                {["Monthly", "Quarterly", "Yearly"].map(mode => (
+                                {["Monthly", "Quarterly", "Yearly", "Custom"].map(mode => (
                                     <button
                                         key={mode}
                                         onClick={() => setViewMode(mode)}
@@ -308,6 +310,24 @@ const TargetAchievementReport = () => {
                                 >
                                     {quarters.map(q => <option key={q} value={q}>{q}</option>)}
                                 </select>
+                            )}
+
+                            {viewMode === "Custom" && (
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="date"
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                        className="h-9 px-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none shadow-sm"
+                                    />
+                                    <span className="text-gray-500 font-bold text-xs">to</span>
+                                    <input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(e) => setEndDate(e.target.value)}
+                                        className="h-9 px-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none shadow-sm"
+                                    />
+                                </div>
                             )}
 
                             {/* Centre Selector Dropdown (Simple Simulation) */}

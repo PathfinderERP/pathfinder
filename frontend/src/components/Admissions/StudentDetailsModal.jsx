@@ -140,6 +140,10 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit }) => {
                                 <p className="text-white font-medium">{student.course?.courseName || "N/A"}</p>
                             </div>
                             <div>
+                                <p className="text-gray-400 text-sm">Department</p>
+                                <p className="text-white font-medium">{student.department?.departmentName || "N/A"}</p>
+                            </div>
+                            <div>
                                 <p className="text-gray-400 text-sm">Session</p>
                                 <p className="text-white font-medium">{sessionExam.session || "N/A"}</p>
                             </div>
