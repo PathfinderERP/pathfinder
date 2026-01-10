@@ -404,7 +404,14 @@ export const getClassDropdownData = async (req, res) => {
         if (req.user && req.user.role !== 'superAdmin') {
             const userCentres = req.user.centres || [];
             centres = await Centre.find({ _id: { $in: userCentres } });
+            // Fetch batches for these centres
             batches = await Batch.find({ centreId: { $in: userCentres } });
+            
+            // Fallback: If no batches found for assigned centres, return all batches
+            // (This handles the case where batches are not yet linked to centres in the DB)
+            if (!batches || batches.length === 0) {
+                batches = await Batch.find();
+            }
         } else {
             centres = await Centre.find();
             batches = await Batch.find();
