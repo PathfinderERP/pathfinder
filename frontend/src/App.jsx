@@ -46,6 +46,7 @@ import MasterDataDesignation from "./pages/MasterDataDesignation";
 import MasterDataAccount from "./pages/MasterDataAccount";
 import MasterDataBoard from "./pages/MasterDataBoard";
 import MasterDataSubject from "./pages/MasterDataSubject";
+import ZoneManagement from "./pages/ZoneManagement";
 
 // ... [existing imports]
 
@@ -251,6 +252,7 @@ function App() {
         <Route path="/master-data/account" element={<MasterDataAccount />} />
         <Route path="/master-data/board" element={<MasterDataBoard />} />
         <Route path="/master-data/subject" element={<MasterDataSubject />} />
+        <Route path="/master-data/zone" element={<ZoneManagement />} />
 
         {/* Petty Cash Routes */}
         <Route path="/petty-cash/centre" element={<PettyCashCentre />} />

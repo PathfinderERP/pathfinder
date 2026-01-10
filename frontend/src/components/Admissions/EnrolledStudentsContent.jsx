@@ -55,6 +55,13 @@ const EnrolledStudentsContent = () => {
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
+    // Helper to format date as DD/MM/YYYY (en-GB standard)
+    const formatDate = (dateString) => {
+        if (!dateString) return "N/A";
+        const date = new Date(dateString);
+        return isNaN(date.getTime()) ? "N/A" : date.toLocaleDateString('en-GB');
+    };
+
     useEffect(() => {
         fetchAllowedCentres();
         fetchAdmissions();
@@ -839,7 +846,7 @@ const EnrolledStudentsContent = () => {
                                     <div className="p-4 grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
                                         <div>
                                             <p className="text-gray-500 text-xs font-semibold uppercase mb-1 flex items-center gap-1"><FaBirthdayCake size={10} /> Date of Birth</p>
-                                            <p className="text-gray-200 font-medium">{selectedStudent.studentsDetails?.[0]?.dateOfBirth || "N/A"}</p>
+                                            <p className="text-gray-200 font-medium">{formatDate(selectedStudent.studentsDetails?.[0]?.dateOfBirth)}</p>
                                         </div>
                                         <div>
                                             <p className="text-gray-500 text-xs font-semibold uppercase mb-1 flex items-center gap-1"><FaVenusMars size={10} /> Gender</p>
@@ -985,7 +992,7 @@ const EnrolledStudentsContent = () => {
                                                         Enrollment ID: <span className="text-cyan-400 font-mono font-semibold">{admission.admissionNumber}</span> •
                                                         <span className="text-orange-400 font-semibold mx-1">{admission.department?.departmentName}</span> •
                                                         Academic: {admission.academicSession} •
-                                                        Admission: {new Date(admission.admissionDate).toLocaleDateString()} • Admitted By: <span className="text-white font-semibold">{admission.createdBy?.name || (admission.createdBy ? "Unknown User" : "System")}</span>
+                                                        Admission: {formatDate(admission.admissionDate)} • Admitted By: <span className="text-white font-semibold">{admission.createdBy?.name || (admission.createdBy ? "Unknown User" : "System")}</span>
                                                     </p>
                                                 </div>
                                                 <div className="flex items-center gap-2">
@@ -1117,7 +1124,7 @@ const EnrolledStudentsContent = () => {
                                                                         <tr key={payment.installmentNumber} className="border-t border-gray-700 hover:bg-gray-800/30">
                                                                             <td className="p-2 text-white font-semibold">#{payment.installmentNumber}</td>
                                                                             <td className="p-2 text-gray-300">
-                                                                                {new Date(payment.dueDate).toLocaleDateString()}
+                                                                                {formatDate(payment.dueDate)}
                                                                             </td>
                                                                             <td className="p-2 text-gray-400">
                                                                                 ₹{baseInstallmentAmount.toLocaleString()}

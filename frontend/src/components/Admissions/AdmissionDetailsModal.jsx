@@ -27,6 +27,13 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
     const guardian = admission.student?.guardians?.[0] || {};
     const exam = admission.student?.examSchema?.[0] || {};
 
+    // Helper to format date as DD/MM/YYYY (en-GB standard)
+    const formatDate = (dateString) => {
+        if (!dateString) return "N/A";
+        const date = new Date(dateString);
+        return isNaN(date.getTime()) ? "N/A" : date.toLocaleDateString('en-GB');
+    };
+
     const handlePaymentSubmit = async (e) => {
         e.preventDefault();
 
@@ -177,7 +184,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                 </div>
                                 <div>
                                     <label className="text-gray-400 text-sm">Date of Birth</label>
-                                    <p className="text-white font-medium">{student.dateOfBirth ? new Date(student.dateOfBirth).toLocaleDateString() : "N/A"}</p>
+                                    <p className="text-white font-medium">{formatDate(student.dateOfBirth)}</p>
                                 </div>
                                 <div>
                                     <label className="text-gray-400 text-sm">Gender</label>
@@ -254,7 +261,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                 </div>
                                 <div>
                                     <label className="text-gray-400 text-sm">Admission Date</label>
-                                    <p className="text-white font-medium">{new Date(admission.admissionDate).toLocaleDateString()}</p>
+                                    <p className="text-white font-medium">{formatDate(admission.admissionDate)}</p>
                                 </div>
                                 {exam.scienceMathParcent && (
                                     <div>
@@ -345,7 +352,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                             return (
                                                 <tr key={index} className="border-t border-gray-800">
                                                     <td className="p-3 text-white">#{payment.installmentNumber}</td>
-                                                    <td className="p-3 text-gray-300">{new Date(payment.dueDate).toLocaleDateString()}</td>
+                                                    <td className="p-3 text-gray-300">{formatDate(payment.dueDate)}</td>
                                                     <td className="p-3 text-white font-medium">
                                                         ₹{payment.amount?.toLocaleString()}
                                                         {payment.remarks && payment.remarks.includes("Includes") && (

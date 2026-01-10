@@ -8,23 +8,26 @@ import {
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate, useLocation } from "react-router-dom";
-import {
-    PieChart, Pie, Cell, ResponsiveContainer,
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend
-} from 'recharts';
 
 // Custom Audio Player Component
 const AudioPlayer = ({ src, fileName }) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const [duration, setDuration] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
+    const [error, setError] = useState(false);
     const audioRef = useRef(null);
 
-    const togglePlay = () => {
+    const togglePlay = async () => {
         if (isPlaying) {
             audioRef.current.pause();
         } else {
-            audioRef.current.play();
+            try {
+                await audioRef.current.play();
+            } catch (err) {
+                console.error('Audio playback error:', err);
+                toast.error('Failed to play audio. The file may be unavailable.');
+                setError(true);
+            }
         }
         setIsPlaying(!isPlaying);
     };
@@ -50,28 +53,52 @@ const AudioPlayer = ({ src, fileName }) => {
     };
 
     const handleDownload = () => {
-        const link = document.createElement('a');
-        link.href = src;
-        link.download = fileName || 'recording.mp3';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        try {
+            // Direct download using anchor tag to avoid CORS issues
+            const link = document.createElement('a');
+            link.href = src;
+            link.download = fileName || 'recording.mp3';
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            console.error('Download error:', error);
+            toast.error('Failed to download audio. The file may be unavailable.');
+        }
+    };
+
+    const handleAudioError = (e) => {
+        console.error('Audio loading error:', e);
+        setError(true);
+        toast.error('Failed to load audio. The file may be unavailable or expired.');
     };
 
     return (
         <div className="bg-[#131619] border border-gray-700 rounded-xl p-4 flex flex-col gap-3 shadow-inner">
+            {error && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-2 text-xs text-red-400">
+                    ⚠️ Audio file unavailable. The link may have expired.
+                </div>
+            )}
             <audio
                 ref={audioRef}
                 src={src}
                 onTimeUpdate={onTimeUpdate}
                 onLoadedMetadata={onLoadedMetadata}
                 onEnded={() => setIsPlaying(false)}
+                onError={handleAudioError}
             />
 
             <div className="flex items-center gap-4">
                 <button
                     onClick={togglePlay}
-                    className="w-10 h-10 rounded-full bg-cyan-500 text-black flex items-center justify-center hover:bg-cyan-400 transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] flex-shrink-0"
+                    disabled={error}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${error
+                        ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                        : 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)]'
+                        }`}
                 >
                     {isPlaying ? <FaPause size={14} /> : <FaPlay size={14} className="ml-0.5" />}
                 </button>
@@ -393,61 +420,81 @@ const TelecallingConsole = () => {
                                                                                         </div>
                                                                                     </div>
 
-                                                                                    {/* Middle: Accuracy Pie Chart */}
-                                                                                    <div className="xl:col-span-4 flex flex-col items-center">
-                                                                                        <h6 className="text-xs font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                                                    {/* Middle: Accuracy Visual */}
+                                                                                    <div className="xl:col-span-4 flex flex-col items-center justify-center">
+                                                                                        <h6 className="text-xs font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2">
                                                                                             <FaChartPie className="text-cyan-500" /> Script Accuracy
                                                                                         </h6>
-                                                                                        <div className="h-48 w-full">
-                                                                                            <ResponsiveContainer width="100%" height="100%">
-                                                                                                <PieChart>
-                                                                                                    <Pie
-                                                                                                        data={[
-                                                                                                            { name: 'Matched', value: rec.accuracyScore },
-                                                                                                            { name: 'Deviation', value: 100 - rec.accuracyScore }
-                                                                                                        ]}
-                                                                                                        cx="50%" cy="50%" innerRadius={50} outerRadius={70}
-                                                                                                        paddingAngle={5} dataKey="value" stroke="none"
-                                                                                                    >
-                                                                                                        <Cell fill="#06b6d4" />
-                                                                                                        <Cell fill="#1f2937" />
-                                                                                                    </Pie>
-                                                                                                    <Tooltip />
-                                                                                                </PieChart>
-                                                                                            </ResponsiveContainer>
-                                                                                        </div>
-                                                                                        <div className="text-center mt-[-6rem]">
-                                                                                            <span className="text-3xl font-black text-white">{rec.accuracyScore}%</span>
-                                                                                            <p className="text-[10px] text-gray-500 font-bold">MATCH SCORE</p>
+                                                                                        <div className="relative w-40 h-40">
+                                                                                            <svg className="w-full h-full transform -rotate-90">
+                                                                                                <circle
+                                                                                                    cx="80"
+                                                                                                    cy="80"
+                                                                                                    r="70"
+                                                                                                    stroke="#1f2937"
+                                                                                                    strokeWidth="20"
+                                                                                                    fill="none"
+                                                                                                />
+                                                                                                <circle
+                                                                                                    cx="80"
+                                                                                                    cy="80"
+                                                                                                    r="70"
+                                                                                                    stroke="#06b6d4"
+                                                                                                    strokeWidth="20"
+                                                                                                    fill="none"
+                                                                                                    strokeDasharray={`${(rec.accuracyScore / 100) * 440} 440`}
+                                                                                                    className="transition-all duration-1000"
+                                                                                                />
+                                                                                            </svg>
+                                                                                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                                                                                <span className="text-3xl font-black text-white">{rec.accuracyScore}%</span>
+                                                                                                <p className="text-[10px] text-gray-500 font-bold">MATCH SCORE</p>
+                                                                                            </div>
                                                                                         </div>
                                                                                     </div>
 
-                                                                                    {/* Right: Performance Bar Chart */}
+                                                                                    {/* Right: Performance Bars */}
                                                                                     <div className="xl:col-span-4">
                                                                                         <h6 className="text-xs font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2">
                                                                                             <FaChartBar className="text-cyan-500" /> Performance Analysis
                                                                                         </h6>
-                                                                                        <div className="h-48 w-full">
-                                                                                            <ResponsiveContainer width="100%" height="100%">
-                                                                                                <BarChart data={[
-                                                                                                    { name: 'Clarity', value: rec.analysisData?.clarity || 0 },
-                                                                                                    { name: 'Pace', value: rec.analysisData?.pace || 0 },
-                                                                                                    { name: 'Confidence', value: rec.analysisData?.confidence || 0 }
-                                                                                                ]}>
-                                                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-                                                                                                    <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: '#4b5563' }} />
-                                                                                                    <YAxis hide domain={[0, 100]} />
-                                                                                                    <Tooltip
-                                                                                                        cursor={{ fill: 'transparent' }}
-                                                                                                        contentStyle={{ backgroundColor: '#131619', borderColor: '#1f2937', color: '#fff' }}
-                                                                                                    />
-                                                                                                    <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={30}>
-                                                                                                        {[0, 1, 2].map((entry, index) => (
-                                                                                                            <Cell key={`cell-${index}`} fill={index === 0 ? '#06b6d4' : index === 1 ? '#8b5cf6' : '#10b981'} />
-                                                                                                        ))}
-                                                                                                    </Bar>
-                                                                                                </BarChart>
-                                                                                            </ResponsiveContainer>
+                                                                                        <div className="space-y-4">
+                                                                                            <div>
+                                                                                                <div className="flex justify-between mb-2">
+                                                                                                    <span className="text-xs text-gray-400 font-bold">Clarity</span>
+                                                                                                    <span className="text-xs text-cyan-400 font-black">{rec.analysisData?.clarity || 0}%</span>
+                                                                                                </div>
+                                                                                                <div className="w-full h-3 bg-gray-800 rounded-full overflow-hidden">
+                                                                                                    <div
+                                                                                                        className="h-full bg-cyan-500 rounded-full transition-all duration-1000"
+                                                                                                        style={{ width: `${rec.analysisData?.clarity || 0}%` }}
+                                                                                                    ></div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <div>
+                                                                                                <div className="flex justify-between mb-2">
+                                                                                                    <span className="text-xs text-gray-400 font-bold">Pace</span>
+                                                                                                    <span className="text-xs text-purple-400 font-black">{rec.analysisData?.pace || 0}%</span>
+                                                                                                </div>
+                                                                                                <div className="w-full h-3 bg-gray-800 rounded-full overflow-hidden">
+                                                                                                    <div
+                                                                                                        className="h-full bg-purple-500 rounded-full transition-all duration-1000"
+                                                                                                        style={{ width: `${rec.analysisData?.pace || 0}%` }}
+                                                                                                    ></div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <div>
+                                                                                                <div className="flex justify-between mb-2">
+                                                                                                    <span className="text-xs text-gray-400 font-bold">Confidence</span>
+                                                                                                    <span className="text-xs text-green-400 font-black">{rec.analysisData?.confidence || 0}%</span>
+                                                                                                </div>
+                                                                                                <div className="w-full h-3 bg-gray-800 rounded-full overflow-hidden">
+                                                                                                    <div
+                                                                                                        className="h-full bg-green-500 rounded-full transition-all duration-1000"
+                                                                                                        style={{ width: `${rec.analysisData?.confidence || 0}%` }}
+                                                                                                    ></div>
+                                                                                                </div>
+                                                                                            </div>
                                                                                         </div>
                                                                                     </div>
                                                                                 </div>
@@ -469,7 +516,7 @@ const TelecallingConsole = () => {
                 )}
             </div>
 
-            <style jsx>{`
+            <style>{`
                 input[type='range']::-webkit-slider-thumb {
                     -webkit-appearance: none;
                     width: 12px;

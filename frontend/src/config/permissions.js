@@ -400,6 +400,10 @@ export const PERMISSION_MODULES = {
             account: {
                 label: "Account",
                 operations: ["create", "edit", "delete"]
+            },
+            zone: {
+                label: "Zone Management",
+                operations: ["create", "edit", "delete"]
             }
         }
     },

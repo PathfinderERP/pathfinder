@@ -128,9 +128,10 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             icon: <FaUserTie />,
             permissionModule: "employeeCenter",
             subItems: [
-                { name: "Holiday List", path: "/hr/attendance/holiday-list", icon: <FaPizzaSlice />, permissionSection: "holidayList" },
-                { name: "Holiday Calender", path: "/hr/attendance/holiday-management", icon: <FaGlassCheers />, permissionSection: "holidayCalendar" },
                 { name: "Mark Attendance", path: "/employee/attendance", icon: <FaMapMarkerAlt />, permissionSection: "markAttendance" },
+
+                { name: "Holiday List", path: "/hr/attendance/holiday-list", icon: <FaPizzaSlice />, permissionSection: "holidayList" },
+                // { name: "Holiday Calender", path: "/hr/attendance/holiday-management", icon: <FaGlassCheers />, permissionSection: "holidayCalendar" },
                 { name: "Leave Management", path: "/hr/attendance/leave-request", icon: <FaCalendarTimes />, permissionSection: "leaveManagement" },
                 { name: "Regularize Table", path: "/employee/regularization", icon: <FaHandshake />, permissionSection: "regularization" },
                 { name: "My Profile", path: "/employee/details", icon: <FaIdCard />, permissionSection: "profile" },
@@ -211,6 +212,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Expense Sub-Category", path: "/master-data/expense-subcategory", permissionSection: "subcategory" },
                 { name: "Expenditure Type", path: "/master-data/expenditure-type", permissionSection: "expenditureType" },
                 { name: "Account", path: "/master-data/account", permissionSection: "account" },
+                { name: "Zone Management", path: "/master-data/zone", permissionSection: "zone" },
             ],
         },
         {

@@ -1,5 +1,45 @@
 import LeadManagement from "../../models/LeadManagement.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import s3Client from "../../config/r2Config.js";
+
+// Helper function to refresh presigned URLs for recordings
+const refreshAudioUrls = async (leads) => {
+    const bucketName = process.env.R2_BUCKET_NAME || "telecalleraudio";
+
+    for (const lead of leads) {
+        if (lead.recordings && lead.recordings.length > 0) {
+            for (const recording of lead.recordings) {
+                if (recording.audioUrl) {
+                    try {
+                        // Extract the key from the existing URL or use a stored key
+                        // Assuming the key is stored or can be extracted
+                        const urlParts = recording.audioUrl.split('/');
+                        const keyIndex = urlParts.findIndex(part => part === 'recordings');
+                        if (keyIndex !== -1 && urlParts[keyIndex + 1]) {
+                            const key = `recordings/${urlParts[keyIndex + 1].split('?')[0]}`;
+
+                            // Generate fresh presigned URL (valid for 7 days)
+                            const freshUrl = await getSignedUrl(
+                                s3Client,
+                                new GetObjectCommand({ Bucket: bucketName, Key: key }),
+                                { expiresIn: 604800 } // 7 days
+                            );
+
+                            recording.audioUrl = freshUrl;
+                        }
+                    } catch (error) {
+                        console.error(`Failed to refresh URL for recording:`, error);
+                        // Keep the old URL if refresh fails
+                    }
+                }
+            }
+        }
+    }
+
+    return leads;
+};
 
 export const getLeads = async (req, res) => {
     try {
@@ -94,9 +134,12 @@ export const getLeads = async (req, res) => {
             .skip(skip)
             .limit(limit);
 
+        // Refresh expired audio URLs
+        const leadsWithFreshUrls = await refreshAudioUrls(leads);
+
         res.status(200).json({
             message: "Leads fetched successfully",
-            leads,
+            leads: leadsWithFreshUrls,
             pagination: {
                 currentPage: page,
                 totalPages: Math.ceil(totalLeads / limit),
