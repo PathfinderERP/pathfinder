@@ -20,7 +20,11 @@ const AddCentreModal = ({ onClose, onSuccess }) => {
         enterCorporateOfficePhoneNumber: "",
         latitude: null,
         longitude: null,
-        accountNumber: ""
+        accountNumber: "",
+        corporateOfficeAddr: "",
+        corporateOfficePhoneNo: "",
+        gstNo: "",
+        locationAddress: ""
     });
     const [loading, setLoading] = useState(false);
     const [gettingLocation, setGettingLocation] = useState(false);
@@ -156,22 +160,21 @@ const AddCentreModal = ({ onClose, onSuccess }) => {
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-gray-400 text-sm mb-1">Centre Name *</label>
-                            <input type="text" name="centreName" required value={formData.centreName} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
+                            <label className="block text-gray-400 text-sm mb-1">Centre Name</label>
+                            <input type="text" name="centreName" value={formData.centreName} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
                         </div>
                         <div>
-                            <label className="block text-gray-400 text-sm mb-1">Centre Code *</label>
-                            <input type="text" name="enterCode" required value={formData.enterCode} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
+                            <label className="block text-gray-400 text-sm mb-1">Centre Code</label>
+                            <input type="text" name="enterCode" value={formData.enterCode} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
                         </div>
                         <div>
                             <label className="block text-gray-400 text-sm mb-1">Account Number</label>
                             <input type="text" name="accountNumber" value={formData.accountNumber} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
                         </div>
                         <div>
-                            <label className="block text-gray-400 text-sm mb-1">State *</label>
+                            <label className="block text-gray-400 text-sm mb-1">State</label>
                             <select
                                 name="state"
-                                required
                                 value={formData.state}
                                 onChange={handleChange}
                                 className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white"
@@ -187,20 +190,36 @@ const AddCentreModal = ({ onClose, onSuccess }) => {
                             <input type="text" name="location" value={formData.location} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
                         </div>
                         <div>
-                            <label className="block text-gray-400 text-sm mb-1">Email *</label>
-                            <input type="email" name="email" required value={formData.email} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
+                            <label className="block text-gray-400 text-sm mb-1">Email</label>
+                            <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
                         </div>
                         <div>
-                            <label className="block text-gray-400 text-sm mb-1">Phone Number *</label>
-                            <input type="text" name="phoneNumber" required value={formData.phoneNumber} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
+                            <label className="block text-gray-400 text-sm mb-1">Phone Number</label>
+                            <input type="text" name="phoneNumber" value={formData.phoneNumber} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
                         </div>
                         <div>
-                            <label className="block text-gray-400 text-sm mb-1">Sales Password *</label>
-                            <input type="text" name="salesPassword" required value={formData.salesPassword} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
+                            <label className="block text-gray-400 text-sm mb-1">Sales Password</label>
+                            <input type="text" name="salesPassword" value={formData.salesPassword} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
                         </div>
                         <div>
                             <label className="block text-gray-400 text-sm mb-1">GST No</label>
                             <input type="text" name="enterGstNo" value={formData.enterGstNo} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
+                        </div>
+                        <div>
+                            <label className="block text-gray-400 text-sm mb-1">Corporate Office Addr (CSV)</label>
+                            <input type="text" name="corporateOfficeAddr" value={formData.corporateOfficeAddr} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
+                        </div>
+                        <div>
+                            <label className="block text-gray-400 text-sm mb-1">Corporate Office Phone (CSV)</label>
+                            <input type="text" name="corporateOfficePhoneNo" value={formData.corporateOfficePhoneNo} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
+                        </div>
+                        <div>
+                            <label className="block text-gray-400 text-sm mb-1">GST No (CSV)</label>
+                            <input type="text" name="gstNo" value={formData.gstNo} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
+                        </div>
+                        <div>
+                            <label className="block text-gray-400 text-sm mb-1">Location Address (CSV)</label>
+                            <input type="text" name="locationAddress" value={formData.locationAddress} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
                         </div>
                         <div className="md:col-span-2">
                             <label className="block text-gray-400 text-sm mb-1">Address</label>

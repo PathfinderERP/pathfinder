@@ -28,20 +28,48 @@ export const markAttendance = async (req, res) => {
         const userId = req.user.id;
         const today = startOfDay(new Date());
 
-        // 1. Get Employee Details
-        const employee = await Employee.findOne({ user: userId }).populate("primaryCentre");
+        // 1. Get Employee Details with all centres populated
+        const employee = await Employee.findOne({ user: userId })
+            .populate("primaryCentre")
+            .populate("centres");
+
         if (!employee) return res.status(404).json({ message: "Employee profile not found" });
 
-        const centre = employee.primaryCentre;
-        if (!centre || !centre.latitude || !centre.longitude) {
-            return res.status(400).json({ message: "Assigned centre location is not configured. Please contact admin." });
+        // Collect all potential centres (primary + additional)
+        const allCentres = [];
+        if (employee.primaryCentre) allCentres.push(employee.primaryCentre);
+        if (employee.centres && Array.isArray(employee.centres)) {
+            employee.centres.forEach(c => {
+                if (c && !allCentres.find(existing => existing._id.toString() === c._id.toString())) {
+                    allCentres.push(c);
+                }
+            });
         }
 
-        // 2. Geolocation Check (10-meter radius)
-        const distance = calculateDistance(latitude, longitude, centre.latitude, centre.longitude);
-        if (distance > 10) {
+        if (allCentres.length === 0) {
+            return res.status(400).json({ message: "No centres assigned to your profile. Please contact admin." });
+        }
+
+        // 2. Geolocation Check against all assigned centres
+        let matchingCentre = null;
+        let minDistance = Infinity;
+        const radius = 20; // Increased to 20 meters for better GPS reliability
+
+        for (const centre of allCentres) {
+            if (centre.latitude && centre.longitude) {
+                const dist = calculateDistance(latitude, longitude, centre.latitude, centre.longitude);
+                if (dist < minDistance) minDistance = dist;
+                if (dist <= radius) {
+                    matchingCentre = centre;
+                    break;
+                }
+            }
+        }
+
+        if (!matchingCentre) {
             return res.status(403).json({
-                message: `You are outside the required range. Distance: ${Math.round(distance)}m. You must be within 10m of the centre.`
+                message: `You are outside the required range. Your nearest assigned centre is ${Math.round(minDistance)}m away. You must be within ${radius}m of an authorized centre.`,
+                distance: Math.round(minDistance)
             });
         }
 
@@ -54,12 +82,13 @@ export const markAttendance = async (req, res) => {
             attendance = new EmployeeAttendance({
                 user: userId,
                 employeeId: employee._id,
-                centreId: centre._id,
+                centreId: matchingCentre._id,
                 date: today,
                 checkIn: {
                     time: new Date(),
                     latitude,
-                    longitude
+                    longitude,
+                    address: matchingCentre.centreName // Store the centre name as address/meta
                 },
                 status: "Present"
             });
@@ -70,7 +99,8 @@ export const markAttendance = async (req, res) => {
             attendance.checkOut = {
                 time: new Date(),
                 latitude,
-                longitude
+                longitude,
+                address: matchingCentre.centreName
             };
 
             // Calculate working hours
@@ -79,7 +109,11 @@ export const markAttendance = async (req, res) => {
         }
 
         await attendance.save();
-        res.status(200).json({ message: `Successfully ${type === 'checkIn' ? 'checked in' : 'checked out'}.`, attendance });
+        res.status(200).json({
+            message: `Successfully ${type === 'checkIn' ? 'checked in' : 'checked out'} at ${matchingCentre.centreName}.`,
+            attendance,
+            centreName: matchingCentre.centreName
+        });
 
     } catch (error) {
         console.error("Mark Attendance Error:", error);
@@ -99,15 +133,25 @@ export const getMyAttendance = async (req, res) => {
         const attendances = await EmployeeAttendance.find({
             user: userId,
             date: { $gte: start, $lte: end }
-        }).sort({ date: 1 });
+        }).populate("centreId", "centreName").sort({ date: 1 });
 
         const holidays = await Holiday.find({
             date: { $gte: start, $lte: end }
         });
 
-        const employee = await Employee.findOne({ user: userId });
+        const employee = await Employee.findOne({ user: userId })
+            .populate("primaryCentre", "centreName latitude longitude")
+            .populate("centres", "centreName latitude longitude");
 
-        res.status(200).json({ attendances, holidays, workingDays: employee.workingDays });
+        res.status(200).json({
+            attendances,
+            holidays,
+            workingDays: employee.workingDays,
+            assignedCentres: {
+                primary: employee.primaryCentre,
+                others: employee.centres || []
+            }
+        });
     } catch (error) {
         console.error("Get My Attendance Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });

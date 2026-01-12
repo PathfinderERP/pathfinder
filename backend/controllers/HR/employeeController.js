@@ -576,7 +576,8 @@ export const getMyProfile = async (req, res) => {
             .populate("department", "departmentName")
             .populate("designation", "name")
             .populate("manager", "name employeeId")
-            .populate("primaryCentre", "centreName");
+            .populate("primaryCentre", "centreName")
+            .populate("centres", "centreName");
 
         if (!employee) {
             return res.status(404).json({ message: "Employee profile not found" });

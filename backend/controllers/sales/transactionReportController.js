@@ -161,7 +161,8 @@ export const getTransactionReport = async (req, res) => {
                         {
                             $group: {
                                 _id: { $month: "$paidDate" },
-                                revenue: { $sum: "$paidAmount" }, // Use actual paid amount
+                                revenue: { $sum: "$paidAmount" }, // With GST
+                                revenueWithoutGst: { $sum: { $divide: ["$paidAmount", 1.18] } }, // Without GST
                                 count: { $sum: 1 }
                             }
                         },
@@ -173,7 +174,8 @@ export const getTransactionReport = async (req, res) => {
                         {
                             $group: {
                                 _id: "$paymentMethod",
-                                value: { $sum: "$paidAmount" },
+                                value: { $sum: "$paidAmount" }, // With GST
+                                revenueWithoutGst: { $sum: { $divide: ["$paidAmount", 1.18] } },
                                 count: { $sum: 1 }
                             }
                         }
@@ -185,6 +187,7 @@ export const getTransactionReport = async (req, res) => {
                             $group: {
                                 _id: "$admissionInfo.centre",
                                 revenue: { $sum: "$paidAmount" },
+                                revenueWithoutGst: { $sum: { $divide: ["$paidAmount", 1.18] } },
                                 count: { $sum: 1 }
                             }
                         },
@@ -197,6 +200,7 @@ export const getTransactionReport = async (req, res) => {
                             $group: {
                                 _id: "$admissionInfo.course",
                                 revenue: { $sum: "$paidAmount" },
+                                revenueWithoutGst: { $sum: { $divide: ["$paidAmount", 1.18] } },
                                 count: { $sum: 1 }
                             }
                         },
@@ -283,7 +287,9 @@ export const getTransactionReport = async (req, res) => {
                     admissionNumber: "$admissionInfo.admissionNumber",
                     receivedDate: "$receivedDate",
                     receiptNo: "$billId",
-                    installmentNumber: "$installmentNumber"
+                    installmentNumber: "$installmentNumber",
+                    revenueWithoutGst: { $divide: ["$paidAmount", 1.18] },
+                    gstAmount: { $subtract: ["$paidAmount", { $divide: ["$paidAmount", 1.18] }] }
                 }
             }
         ]);
@@ -339,47 +345,40 @@ export const getTransactionReport = async (req, res) => {
             {
                 $group: {
                     _id: null,
-                    currentYearRevenue: {
-                        $sum: {
-                            $cond: [
-                                { $and: [{ $gte: ["$paidDate", startCY] }, { $lte: ["$paidDate", endCY] }] },
-                                "$paidAmount",
-                                0
-                            ]
-                        }
+                    currentYearWithGst: {
+                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", startCY] }, { $lte: ["$paidDate", endCY] }] }, "$paidAmount", 0] }
                     },
-                    previousYearRevenue: {
-                        $sum: {
-                            $cond: [
-                                { $and: [{ $gte: ["$paidDate", startPY] }, { $lte: ["$paidDate", endPY] }] },
-                                "$paidAmount",
-                                0
-                            ]
-                        }
+                    currentYearWithoutGst: {
+                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", startCY] }, { $lte: ["$paidDate", endCY] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
                     },
-                    currentMonthRevenue: {
-                        $sum: {
-                            $cond: [
-                                { $and: [{ $gte: ["$paidDate", currentMonthStart] }, { $lte: ["$paidDate", currentMonthEnd] }] },
-                                "$paidAmount",
-                                0
-                            ]
-                        }
+                    previousYearWithGst: {
+                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", startPY] }, { $lte: ["$paidDate", endPY] }] }, "$paidAmount", 0] }
                     },
-                    previousMonthRevenue: {
-                        $sum: {
-                            $cond: [
-                                { $and: [{ $gte: ["$paidDate", prevMonthStart] }, { $lte: ["$paidDate", prevMonthEnd] }] },
-                                "$paidAmount",
-                                0
-                            ]
-                        }
+                    previousYearWithoutGst: {
+                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", startPY] }, { $lte: ["$paidDate", endPY] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
+                    },
+                    currentMonthWithGst: {
+                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", currentMonthStart] }, { $lte: ["$paidDate", currentMonthEnd] }] }, "$paidAmount", 0] }
+                    },
+                    currentMonthWithoutGst: {
+                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", currentMonthStart] }, { $lte: ["$paidDate", currentMonthEnd] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
+                    },
+                    previousMonthWithGst: {
+                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", prevMonthStart] }, { $lte: ["$paidDate", prevMonthEnd] }] }, "$paidAmount", 0] }
+                    },
+                    previousMonthWithoutGst: {
+                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", prevMonthStart] }, { $lte: ["$paidDate", prevMonthEnd] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
                     }
                 }
             }
         ]);
 
-        const stats = statsData.length > 0 ? statsData[0] : { currentYearRevenue: 0, previousYearRevenue: 0, currentMonthRevenue: 0, previousMonthRevenue: 0 };
+        const stats = statsData.length > 0 ? statsData[0] : {
+            currentYearWithGst: 0, currentYearWithoutGst: 0,
+            previousYearWithGst: 0, previousYearWithoutGst: 0,
+            currentMonthWithGst: 0, currentMonthWithoutGst: 0,
+            previousMonthWithGst: 0, previousMonthWithoutGst: 0
+        };
 
         const result = reportData[0];
 
@@ -418,10 +417,14 @@ export const getTransactionReport = async (req, res) => {
             detailedReport: detailedData,        // New
             totalRevenue,
             stats: {
-                currentYear: stats.currentYearRevenue,
-                previousYear: stats.previousYearRevenue,
-                currentMonth: stats.currentMonthRevenue,
-                previousMonth: stats.previousMonthRevenue,
+                currentYear: stats.currentYearWithGst,
+                currentYearRevenue: stats.currentYearWithoutGst,
+                previousYear: stats.previousYearWithGst,
+                previousYearRevenue: stats.previousYearWithoutGst,
+                currentMonth: stats.currentMonthWithGst,
+                currentMonthRevenue: stats.currentMonthWithoutGst,
+                previousMonth: stats.previousMonthWithGst,
+                previousMonthRevenue: stats.previousMonthWithoutGst,
                 currentYearLabel: currentYear,
                 previousYearLabel: previousYear,
                 currentMonthLabel: now.toLocaleString('default', { month: 'long' }),

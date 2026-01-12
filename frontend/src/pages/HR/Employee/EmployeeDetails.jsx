@@ -72,7 +72,8 @@ const EmployeeDetails = () => {
             bankName: data.bankName || "",
             branchName: data.branchName || "",
             accountNumber: data.accountNumber || "",
-            ifscCode: data.ifscCode || ""
+            ifscCode: data.ifscCode || "",
+            bloodGroup: data.bloodGroup || ""
         });
         setPreviewImage(data.profileImage);
         setProfileImageFile(null);
@@ -216,6 +217,24 @@ const EmployeeDetails = () => {
                                     <span className="block text-xs uppercase text-gray-500 font-bold mb-1">Manager</span>
                                     <span className="text-lg font-bold text-gray-200">{employee.manager?.name || "N/A"}</span>
                                 </div>
+                                <div>
+                                    <span className="block text-xs uppercase text-gray-500 font-bold mb-1">Assigned Centres</span>
+                                    <div className="flex flex-wrap gap-2 mt-1">
+                                        {employee.primaryCentre && (
+                                            <span className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-lg text-xs font-black uppercase tracking-tight">
+                                                {employee.primaryCentre.centreName} (Primary)
+                                            </span>
+                                        )}
+                                        {employee.centres && employee.centres.map((centre, i) => (
+                                            <span key={i} className="px-3 py-1 bg-gray-800/50 border border-gray-700 text-gray-300 rounded-lg text-xs font-bold uppercase tracking-tight">
+                                                {centre.centreName}
+                                            </span>
+                                        ))}
+                                        {!employee.primaryCentre && (!employee.centres || employee.centres.length === 0) && (
+                                            <span className="text-lg font-bold text-gray-200">N/A</span>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -269,6 +288,7 @@ const EmployeeDetails = () => {
                                 <InputField label="WhatsApp Number" name="whatsappNumber" value={formData.whatsappNumber} onChange={handleChange} disabled={!isEditing} />
                                 <InputField label="Alternative Contact" name="alternativeNumber" value={formData.alternativeNumber} onChange={handleChange} disabled={!isEditing} />
                                 <InputField label="Email Address" value={employee.email} disabled={true} />
+                                <InputField label="Blood Group" name="bloodGroup" value={formData.bloodGroup} onChange={handleChange} disabled={!isEditing} />
                             </div>
                             <div className="mt-6">
                                 <InputField label="Present Address" name="address" value={formData.address} onChange={handleChange} disabled={!isEditing} type="textarea" />
@@ -400,6 +420,8 @@ const EmployeeDetails = () => {
                             <div className="space-y-5">
                                 <ReadOnlyField label="Aadhar Number" value={employee.aadharNumber} />
                                 <ReadOnlyField label="PAN Number" value={employee.panNumber} />
+                                <ReadOnlyField label="Primary Work Center" value={employee.primaryCentre?.centreName} />
+                                <ReadOnlyField label="Official Department" value={employee.department?.departmentName} />
                                 <ReadOnlyField label="Reports To" value={employee.manager?.name || "CEO"} />
                             </div>
                         </section>

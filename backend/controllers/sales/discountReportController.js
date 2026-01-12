@@ -10,8 +10,9 @@ export const getDiscountReport = async (req, res) => {
             endDate,
             centreIds,
             courseIds,
-            examTagId, // Usually string from query, but stored as ObjectId in DB
-            session // e.g., "2025-2027"
+            examTagId,
+            session,
+            reportType // monthly or daily
         } = req.query;
 
         console.log("Discount Report Query:", req.query);
@@ -80,18 +81,58 @@ export const getDiscountReport = async (req, res) => {
             matchStage.examTag = new mongoose.Types.ObjectId(examTagId);
         }
 
-        // Aggregation: Group by Centre
-        const centreStats = await Admission.aggregate([
-            { $match: matchStage },
-            {
-                $group: {
-                    _id: "$centre",
-                    originalFees: { $sum: "$baseFees" },
-                    committedFees: { $sum: "$totalFees" },
-                    discountGiven: { $sum: "$discountAmount" },
-                    count: { $sum: 1 }
+        // Parallel Aggregations
+        const [centreStats, trendStats, detailedStats] = await Promise.all([
+            // 1. Aggregation: Group by Centre
+            Admission.aggregate([
+                { $match: matchStage },
+                {
+                    $group: {
+                        _id: "$centre",
+                        originalFees: { $sum: "$baseFees" },
+                        committedFees: { $sum: "$totalFees" },
+                        discountGiven: { $sum: "$discountAmount" },
+                        count: { $sum: 1 }
+                    }
                 }
-            }
+            ]),
+
+            // 2. Aggregation: Group by Date/Month (Trend)
+            (async () => {
+                const type = reportType || 'monthly';
+                if (type === 'daily') {
+                    return Admission.aggregate([
+                        { $match: matchStage },
+                        {
+                            $group: {
+                                _id: { $dateToString: { format: "%Y-%m-%d", date: "$admissionDate" } },
+                                discountGiven: { $sum: "$discountAmount" },
+                                count: { $sum: 1 }
+                            }
+                        },
+                        { $sort: { "_id": 1 } }
+                    ]);
+                } else {
+                    return Admission.aggregate([
+                        { $match: matchStage },
+                        {
+                            $group: {
+                                _id: { $month: "$admissionDate" },
+                                discountGiven: { $sum: "$discountAmount" },
+                                count: { $sum: 1 }
+                            }
+                        },
+                        { $sort: { "_id": 1 } }
+                    ]);
+                }
+            })(),
+
+            // 3. Detailed Report for Excel (Student-wise)
+            Admission.find(matchStage)
+                .populate({ path: 'student', select: 'studentsDetails' })
+                .populate('course', 'courseName')
+                .sort({ admissionDate: -1 })
+                .lean()
         ]);
 
         // Map Centre IDs to Names
@@ -108,7 +149,7 @@ export const getDiscountReport = async (req, res) => {
             const efficiency = original > 0 ? ((discount / original) * 100).toFixed(2) : 0;
 
             return {
-                name: name,
+                name,
                 originalFees: original,
                 committedFees: item.committedFees || 0,
                 discountGiven: discount,
@@ -117,21 +158,25 @@ export const getDiscountReport = async (req, res) => {
             };
         });
 
-        // Sorting (Optional, by name or value?)
-        // Let's sort by name for now, or use frontend sorting
-        // reportData.sort((a, b) => a.name.localeCompare(b.name));
+        // Process Trend Data
+        const type = reportType || 'monthly';
+        let trendData = [];
+        if (type === 'daily') {
+            trendData = trendStats.map(t => ({
+                date: t._id,
+                discountGiven: t.discountGiven || 0,
+                count: t.count
+            }));
+        } else {
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            trendData = trendStats.map(t => ({
+                month: monthNames[t._id - 1],
+                discountGiven: t.discountGiven || 0,
+                count: t.count
+            }));
+        }
 
         const totalDiscount = reportData.reduce((acc, curr) => acc + curr.discountGiven, 0);
-
-        // Detailed Report for Excel (Student-wise)
-        const detailedStats = await Admission.find(matchStage)
-            .populate({
-                path: 'student',
-                select: 'studentsDetails'
-            })
-            .populate('course', 'courseName')
-            .sort({ admissionDate: -1 })
-            .lean();
 
         const detailedReport = detailedStats.map(adm => {
             const details = adm.student?.studentsDetails?.[0] || {};
@@ -150,6 +195,7 @@ export const getDiscountReport = async (req, res) => {
 
         res.status(200).json({
             data: reportData,
+            trend: trendData,
             detailedReport,
             totalDiscount
         });

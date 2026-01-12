@@ -106,7 +106,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 // { name: "Vendor Management", path: "/finance/vendor-management", permissionSection: "vendorManagement" },
                 { name: "Pay Employee", path: "/finance/pay-employee", permissionSection: "payEmployee" },
                 { name: "Payment Analysis", path: "/finance/payment-analysis", permissionSection: "paymentAnalysis" },
-                { name: "Budget Analysis", path: "/finance/budget-analysis", permissionSection: "budgetAnalysis" },
+                // { name: "Budget Analysis", path: "/finance/budget-analysis", permissionSection: "budgetAnalysis" },
             ]
         },
         {

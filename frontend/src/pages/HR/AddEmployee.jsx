@@ -54,7 +54,9 @@ const AddEmployee = () => {
         bankName: "",
         branchName: "",
         accountNumber: "",
-        ifscCode: ""
+        ifscCode: "",
+        ifceCode: "",
+        specialAllowance: 0
     });
 
     const [files, setFiles] = useState({});
@@ -124,8 +126,23 @@ const AddEmployee = () => {
                     manager: data.manager?._id || "",
                     salaryStructure: data.salaryStructure?.map(s => ({
                         ...s,
-                        effectiveDate: new Date(s.effectiveDate).toISOString().split('T')[0]
-                    })) || []
+                        effectiveDate: s.effectiveDate ? new Date(s.effectiveDate).toISOString().split('T')[0] : ""
+                    })) || [],
+                    branch: data.branch || "",
+                    ifceCode: data.ifceCode || "",
+                    spouse: data.spouse || "",
+                    whatsAppNumber: data.whatsAppNumber || "",
+                    alternatePhoneNumber: data.alternatePhoneNumber || "",
+                    specialAllowance: data.specialAllowance || 0,
+                    workingDays: {
+                        sunday: data.workingDays?.sunday || data.workingDaysList?.some(d => d.toLowerCase() === "sunday") || false,
+                        monday: data.workingDays?.monday || data.workingDaysList?.some(d => d.toLowerCase() === "monday") || false,
+                        tuesday: data.workingDays?.tuesday || data.workingDaysList?.some(d => d.toLowerCase() === "tuesday") || false,
+                        wednesday: data.workingDays?.wednesday || data.workingDaysList?.some(d => d.toLowerCase() === "wednesday") || false,
+                        thursday: data.workingDays?.thursday || data.workingDaysList?.some(d => d.toLowerCase() === "thursday") || false,
+                        friday: data.workingDays?.friday || data.workingDaysList?.some(d => d.toLowerCase() === "friday") || false,
+                        saturday: data.workingDays?.saturday || data.workingDaysList?.some(d => d.toLowerCase() === "saturday") || false,
+                    }
                 };
                 setFormData(formattedData);
             } else {
@@ -234,7 +251,7 @@ const AddEmployee = () => {
 
                 // Recalculate totals and dependent deductions if components change
                 const s = newSalaryStructure[index];
-                
+
                 const basic = parseFloat(s.basic) || 0;
                 const totalEarnings = basic +
                     (parseFloat(s.conveyance) || 0) +
@@ -269,7 +286,7 @@ const AddEmployee = () => {
                     (parseFloat(s.tds) || 0) +
                     (parseFloat(s.lossOfPay) || 0) +
                     (parseFloat(s.adjustment) || 0);
-                
+
                 newSalaryStructure[index].pf = pf;
                 newSalaryStructure[index].esi = esi;
                 newSalaryStructure[index].pTax = pTax;
@@ -368,18 +385,18 @@ const AddEmployee = () => {
     const handleSalaryModalInputChange = (field, value) => {
         const val = field === "effectiveDate" ? value : (parseFloat(value) || 0);
 
-                setSalaryModal(prev => {
+        setSalaryModal(prev => {
             const updated = { ...prev.tempData, [field]: val };
 
             if (field === "amount" || field === "grossSalary") {
                 const breakdown = calculateSalaryBreakdown(val);
                 return {
                     ...prev,
-                    tempData: { 
-                        ...updated, 
-                        ...breakdown, 
+                    tempData: {
+                        ...updated,
+                        ...breakdown,
                         effectiveDate: updated.effectiveDate, // Preserve Date
-                        amount: breakdown.totalEarnings 
+                        amount: breakdown.totalEarnings
                     }
                 };
             }
@@ -628,6 +645,58 @@ const AddEmployee = () => {
                                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
                                 />
                             </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Alternate Phone (CSV)
+                                </label>
+                                <input
+                                    type="tel"
+                                    name="alternatePhoneNumber"
+                                    value={formData.alternatePhoneNumber}
+                                    onChange={handleInputChange}
+                                    placeholder="Enter alternate phone"
+                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Blood Group
+                                </label>
+                                <input
+                                    type="text"
+                                    name="bloodGroup"
+                                    value={formData.bloodGroup}
+                                    onChange={handleInputChange}
+                                    placeholder="Enter blood group"
+                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Spouse (CSV)
+                                </label>
+                                <input
+                                    type="text"
+                                    name="spouse"
+                                    value={formData.spouse}
+                                    onChange={handleInputChange}
+                                    placeholder="Enter spouse name"
+                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Aadhaar Number (CSV)
+                                </label>
+                                <input
+                                    type="text"
+                                    name="aadhaarNumber"
+                                    value={formData.aadhaarNumber}
+                                    onChange={handleInputChange}
+                                    placeholder="Enter aadhaar number"
+                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                                />
+                            </div>
                         </div>
 
                         {/* Children Section */}
@@ -687,7 +756,6 @@ const AddEmployee = () => {
                                     name="dateOfJoining"
                                     value={formData.dateOfJoining}
                                     onChange={handleInputChange}
-                                    required
                                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
                                 />
                             </div>
@@ -699,7 +767,6 @@ const AddEmployee = () => {
                                     name="primaryCentre"
                                     value={formData.primaryCentre}
                                     onChange={handleInputChange}
-                                    required
                                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
                                 >
                                     <option value="">Choose</option>
@@ -716,7 +783,6 @@ const AddEmployee = () => {
                                     name="department"
                                     value={formData.department}
                                     onChange={handleInputChange}
-                                    required
                                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
                                 >
                                     <option value="">Choose</option>
@@ -733,7 +799,6 @@ const AddEmployee = () => {
                                     name="designation"
                                     value={formData.designation}
                                     onChange={handleInputChange}
-                                    required
                                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
                                 >
                                     <option value="">Choose</option>
@@ -849,6 +914,10 @@ const AddEmployee = () => {
                                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
                                 />
                             </div>
+
+
+
+
                         </div>
 
                         {/* Centres Multi-Select */}
@@ -910,13 +979,12 @@ const AddEmployee = () => {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Type Of Employment *
+                                    Type Of Employment
                                 </label>
                                 <select
                                     name="typeOfEmployment"
                                     value={formData.typeOfEmployment}
                                     onChange={handleInputChange}
-                                    required
                                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
                                 >
                                     <option value="">Choose</option>
@@ -925,6 +993,32 @@ const AddEmployee = () => {
                                     <option value="Contract">Contract</option>
                                     <option value="Intern">Intern</option>
                                 </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Salary
+                                </label>
+                                <input
+                                    type="number"
+                                    name="salary"
+                                    value={formData.salary}
+                                    onChange={handleInputChange}
+                                    placeholder="0"
+                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Special Allowance
+                                </label>
+                                <input
+                                    type="number"
+                                    name="specialAllowance"
+                                    value={formData.specialAllowance}
+                                    onChange={handleInputChange}
+                                    placeholder="0"
+                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1079,6 +1173,32 @@ const AddEmployee = () => {
                                     value={formData.ifscCode}
                                     onChange={handleInputChange}
                                     placeholder="Enter Ifsc Code"
+                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Branch (CSV)
+                                </label>
+                                <input
+                                    type="text"
+                                    name="branch"
+                                    value={formData.branch}
+                                    onChange={handleInputChange}
+                                    placeholder="Enter branch"
+                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Ifce Code (CSV)
+                                </label>
+                                <input
+                                    type="text"
+                                    name="ifceCode"
+                                    value={formData.ifceCode}
+                                    onChange={handleInputChange}
+                                    placeholder="Enter ifce code"
                                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
                                 />
                             </div>

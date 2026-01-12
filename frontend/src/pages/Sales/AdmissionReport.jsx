@@ -100,6 +100,7 @@ const AdmissionReport = () => {
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [displayMode, setDisplayMode] = useState("chart"); // chart, table, card
+    const [reportType, setReportType] = useState("monthly"); // monthly, daily
 
     // Dropdown Visibility - Managed by SearchableDropdown component now
 
@@ -117,7 +118,7 @@ const AdmissionReport = () => {
             return;
         }
         fetchReportData();
-    }, [selectedCentres, selectedCourses, selectedClasses, selectedDepartments, selectedExamTag, timePeriod, startDate, endDate]);
+    }, [selectedCentres, selectedCourses, selectedClasses, selectedDepartments, selectedExamTag, timePeriod, startDate, endDate, reportType]);
 
     // ---- API Calls ----
     const fetchMasterData = async () => {
@@ -174,6 +175,8 @@ const AdmissionReport = () => {
                 const year = timePeriod === "This Year" ? currentYear : currentYear - 1;
                 params.append("year", year);
             }
+
+            params.append("reportType", reportType);
 
             if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
             if (selectedCourses.length > 0) params.append("courseIds", selectedCourses.join(","));
@@ -451,6 +454,21 @@ const AdmissionReport = () => {
                             <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Cards</span>
                         </button>
                     </div>
+
+                    <div className="flex items-center gap-2 bg-gray-100 dark:bg-[#1a1f24] p-1.5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-inner">
+                        <button
+                            onClick={() => setReportType("monthly")}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-300 ${reportType === "monthly" ? "bg-purple-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                        >
+                            Monthly
+                        </button>
+                        <button
+                            onClick={() => setReportType("daily")}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-300 ${reportType === "daily" ? "bg-purple-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                        >
+                            Day Wise
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filters Section */}
@@ -552,7 +570,7 @@ const AdmissionReport = () => {
                 <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 min-h-[500px]">
                     <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-8 flex items-center gap-3">
                         <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
-                        Monthly Admissions Trend ({timePeriod})
+                        {reportType === 'monthly' ? 'Monthly' : 'Daily'} Admissions Trend ({timePeriod})
                     </h3>
 
                     {loading ? (
@@ -574,10 +592,10 @@ const AdmissionReport = () => {
                                     <ResponsiveContainer width="100%" height="100%">
                                         <LineChart data={reportData.trend} margin={{ top: 20, right: 30, left: 0, bottom: 10 }}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="#E5E7EB" />
-                                            <XAxis dataKey="month" stroke="#6B7280" fontSize={12} tickLine={false} />
+                                            <XAxis dataKey={reportType === 'monthly' ? "month" : "date"} stroke="#6B7280" fontSize={12} tickLine={false} />
                                             <YAxis stroke="#6B7280" fontSize={12} tickLine={false} />
                                             <Tooltip contentStyle={{ backgroundColor: '#fff', borderColor: '#E5E7EB', color: '#1F2937', borderRadius: '12px' }} />
-                                            <Line type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, stroke: '#8b5cf6', fill: '#fff', strokeWidth: 2 }} activeDot={{ r: 6, fill: '#8b5cf6' }} />
+                                            <Line type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={3} dot={reportType === 'monthly'} activeDot={{ r: 6, fill: '#8b5cf6' }} />
                                         </LineChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -588,7 +606,7 @@ const AdmissionReport = () => {
                                     <table className="w-full text-left border-collapse">
                                         <thead>
                                             <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Month</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">{reportType === 'monthly' ? 'Month' : 'Date'}</th>
                                                 <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Admitted</th>
                                                 <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Counselling</th>
                                                 <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Status Breakdown</th>
@@ -601,7 +619,7 @@ const AdmissionReport = () => {
                                                 const pct = (item.count / maxCount) * 100;
                                                 return (
                                                     <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
-                                                        <td className="p-5 font-bold text-gray-800 dark:text-white uppercase text-sm">{item.month}</td>
+                                                        <td className="p-5 font-bold text-gray-800 dark:text-white uppercase text-sm">{reportType === 'monthly' ? item.month : item.date}</td>
                                                         <td className="p-5 text-center font-black text-green-600 dark:text-green-400 text-lg">{item.admitted || 0}</td>
                                                         <td className="p-5 text-center font-black text-amber-500 dark:text-amber-400 text-lg">{item.counselling || 0}</td>
                                                         <td className="p-5">
@@ -633,7 +651,7 @@ const AdmissionReport = () => {
                                         return (
                                             <div key={idx} className="bg-white dark:bg-[#131619] rounded-2xl border border-gray-200 dark:border-gray-800 p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group">
                                                 <div className="flex justify-between items-center mb-6">
-                                                    <h4 className="font-black text-gray-400 uppercase text-[10px] tracking-widest">{item.month}</h4>
+                                                    <h4 className="font-black text-gray-400 uppercase text-[10px] tracking-widest">{reportType === 'monthly' ? item.month : item.date}</h4>
                                                     <MiniStatusPie admitted={item.admitted || 0} counselling={item.counselling || 0} size={40} />
                                                 </div>
                                                 <div className="space-y-4">

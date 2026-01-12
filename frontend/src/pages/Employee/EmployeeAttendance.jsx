@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
 import {
+    FaBuilding,
     FaMapMarkerAlt, FaCalendarCheck, FaClock, FaCheckCircle,
     FaTimesCircle, FaSun, FaUmbrellaBeach, FaBolt
 } from "react-icons/fa";
@@ -15,6 +16,7 @@ const EmployeeAttendance = () => {
     const [attendanceData, setAttendanceData] = useState([]);
     const [holidays, setHolidays] = useState([]);
     const [workingDays, setWorkingDays] = useState({});
+    const [assignedCentres, setAssignedCentres] = useState(null);
     const [loading, setLoading] = useState(true);
     const [marking, setMarking] = useState(false);
     const [year] = useState(new Date().getFullYear());
@@ -33,9 +35,10 @@ const EmployeeAttendance = () => {
             });
             if (response.ok) {
                 const data = await response.json();
-                setAttendanceData(data.attendances);
-                setHolidays(data.holidays);
-                setWorkingDays(data.workingDays);
+                setAttendanceData(data.attendances || []);
+                setHolidays(data.holidays || []);
+                setWorkingDays(data.workingDays || {});
+                setAssignedCentres(data.assignedCentres);
             }
         } catch (error) {
             console.error("Fetch error:", error);
@@ -47,6 +50,11 @@ const EmployeeAttendance = () => {
 
     const getCurrentLocation = () => {
         if ("geolocation" in navigator) {
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 0
+            };
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     setLocation({
@@ -56,8 +64,9 @@ const EmployeeAttendance = () => {
                 },
                 (error) => {
                     console.error("Location error:", error);
-                    toast.warn("Please enable location access to mark attendance.");
-                }
+                    toast.warn("Please enable high-accuracy location access to mark attendance.");
+                },
+                options
             );
         }
     };
@@ -110,8 +119,8 @@ const EmployeeAttendance = () => {
 
         // Is it a working day? (day names are lowercase in model)
         const dayName = format(date, "eeee").toLowerCase();
-        const isWorkingDay = workingDays[dayName];
-        if (!isWorkingDay) return { type: "Off", name: "Weekly Off" };
+        const isWorkingDay = workingDays && workingDays[dayName];
+        if (!isWorkingDay && dayName) return { type: "Off", name: "Weekly Off" };
 
         // Attendance Record
         const record = attendanceData.find(a => isSameDay(new Date(a.date), date));
@@ -121,7 +130,8 @@ const EmployeeAttendance = () => {
                 type: "Present",
                 checkIn: record.checkIn?.time ? format(new Date(record.checkIn.time), "HH:mm") : null,
                 checkOut: record.checkOut?.time ? format(new Date(record.checkOut.time), "HH:mm") : null,
-                status: record.status
+                status: record.status,
+                centreName: record.centreId?.centreName || "Office"
             };
         }
 
@@ -140,13 +150,36 @@ const EmployeeAttendance = () => {
             <div className="p-4 md:p-8 max-w-[1800px] mx-auto">
                 {/* Header Section */}
                 <div className="flex flex-col xl:flex-row gap-8 mb-12 items-start xl:items-center justify-between">
-                    <div>
-                        <h1 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tighter uppercase italic">
-                            Attendance <span className="text-cyan-500">Registry</span>
-                        </h1>
-                        <p className="text-gray-500 font-bold text-xs md:text-sm uppercase tracking-[0.3em] flex items-center gap-2">
-                            <FaCalendarCheck className="text-cyan-500" /> Track your daily presence and check-in logs
-                        </p>
+                    <div className="space-y-4">
+                        <div>
+                            <h1 className="text-4xl md:text-5xl font-black text-white mb-2 tracking-tighter uppercase italic">
+                                Attendance <span className="text-cyan-500">Registry</span>
+                            </h1>
+                            <p className="text-gray-500 font-bold text-xs md:text-sm uppercase tracking-[0.3em] flex items-center gap-2">
+                                <FaCalendarCheck className="text-cyan-500" /> Track your daily presence and check-in logs
+                            </p>
+                        </div>
+
+                        {/* Authorized Locations List */}
+                        {assignedCentres && (
+                            <div className="bg-[#131619] border border-gray-800 rounded-2xl p-4 flex flex-wrap gap-3 max-w-2xl">
+                                <div className="w-full text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                                    <FaBuilding className="text-cyan-500" /> Authorized Locations:
+                                </div>
+                                {assignedCentres.primary && (
+                                    <div className="bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-tight flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_cyan]"></div>
+                                        {assignedCentres.primary.centreName} (Primary)
+                                    </div>
+                                )}
+                                {assignedCentres.others && assignedCentres.others.map((centre, idx) => (
+                                    <div key={idx} className="bg-gray-800/50 border border-gray-700 text-gray-300 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-tight flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-gray-500"></div>
+                                        {centre.centreName}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex flex-wrap gap-4 w-full xl:w-auto">
@@ -261,7 +294,7 @@ const EmployeeAttendance = () => {
                                                             {format(day, 'eee, MMM d')}
                                                         </div>
                                                         <div className="text-[7px] text-gray-500 font-bold uppercase">
-                                                            {status.type === "Present" ? `Clocked In: ${status.checkIn}` : status.name || 'Available'}
+                                                            {status.type === "Present" ? `Clocked In: ${status.checkIn} @ ${status.centreName}` : status.name || 'Available'}
                                                         </div>
                                                     </div>
                                                 </div>

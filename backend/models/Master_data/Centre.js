@@ -2,27 +2,27 @@ import mongoose from "mongoose";
 
 const centreSchema = mongoose.Schema({
     centreName: {
-        type: String, required: true
+        type: String, required: false
     },
     enterCode: {
         type: String,
-        required: true,
+        required: false,
     },
     state: {
         type: String,
-        required: true,
+        required: false,
     },
     email: {
         type: String,
-        required: true,
+        required: false,
     },
     phoneNumber: {
         type: String,
-        required: true,
+        required: false,
     },
     salesPassword: {
         type: String,
-        required: true,
+        required: false,
     },
     location: {
         type: String,
@@ -52,7 +52,12 @@ const centreSchema = mongoose.Schema({
     },
     accountNumber: {
         type: String,
-    }
+    },
+    // New fields from CSV to ensure exact match if needed
+    corporateOfficeAddr: { type: String },
+    corporateOfficePhoneNo: { type: String },
+    gstNo: { type: String },
+    locationAddress: { type: String }
 });
 
 const CentreSchema = mongoose.model("CentreSchema", centreSchema);

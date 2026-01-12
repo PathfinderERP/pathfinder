@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaDownload, FaChevronDown, FaFilter, FaCalendarAlt, FaChartBar, FaTable, FaTh, FaUserGraduate } from "react-icons/fa";
+import { FaDownload, FaChevronDown, FaChevronLeft, FaChevronRight, FaFilter, FaCalendarAlt, FaChartBar, FaTable, FaTh, FaUserGraduate } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -16,7 +16,11 @@ const CourseReport = () => {
     const [reportData, setReportData] = useState([]);
     const [centreData, setCentreData] = useState([]);
     const [detailedReport, setDetailedReport] = useState([]);
+    const [trendData, setTrendData] = useState([]);
     const [totalEnrollments, setTotalEnrollments] = useState(0);
+    const [reportType, setReportType] = useState("monthly"); // monthly, daily
+    const [trendIndex, setTrendIndex] = useState(0);
+    const trendLimit = 15;
 
     // Debug Log
     useEffect(() => {
@@ -73,7 +77,7 @@ const CourseReport = () => {
             return;
         }
         fetchReportData();
-    }, [selectedCentres, selectedCourses, selectedDepartments, selectedExamTag, selectedSession, timePeriod, startDate, endDate]);
+    }, [selectedCentres, selectedCourses, selectedDepartments, selectedExamTag, selectedSession, timePeriod, startDate, endDate, reportType]);
 
 
     const fetchMasterData = async () => {
@@ -141,6 +145,7 @@ const CourseReport = () => {
             if (selectedCourses.length > 0) params.append("courseIds", selectedCourses.join(","));
             if (selectedDepartments.length > 0) params.append("departmentIds", selectedDepartments.join(","));
             if (selectedExamTag) params.append("examTagId", selectedExamTag);
+            params.append("reportType", reportType);
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/sales/course-report?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -151,6 +156,7 @@ const CourseReport = () => {
                 setReportData(result.data || []);
                 setCentreData(result.centreData || []);
                 setDetailedReport(result.detailedReport || []);
+                setTrendData(result.trend || []);
                 setTotalEnrollments(result.total || 0);
             } else {
                 setReportData([]);
@@ -158,6 +164,7 @@ const CourseReport = () => {
                 setDetailedReport([]);
                 setTotalEnrollments(0);
             }
+            setTrendIndex(0);
         } catch (error) {
             console.error(error);
         } finally {
@@ -330,6 +337,21 @@ const CourseReport = () => {
                             <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Cards</span>
                         </button>
                     </div>
+
+                    <div className="flex items-center gap-2 bg-gray-100 dark:bg-[#1a1f24] p-1.5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-inner">
+                        <button
+                            onClick={() => setReportType("monthly")}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-300 ${reportType === "monthly" ? "bg-purple-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                        >
+                            Monthly
+                        </button>
+                        <button
+                            onClick={() => setReportType("daily")}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-300 ${reportType === "daily" ? "bg-purple-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                        >
+                            Day Wise
+                        </button>
+                    </div>
                 </div>
 
                 {/* Subheader */}
@@ -483,8 +505,57 @@ const CourseReport = () => {
                 <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 min-h-[500px]">
                     <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-8 flex items-center gap-3">
                         <div className="w-2 h-8 bg-purple-600 rounded-full"></div>
-                        Course-Wise Student Enrollments
+                        Course-Wise Student Enrollments ({reportType === 'monthly' ? 'Monthly' : 'Daily'} Trend)
                     </h3>
+
+                    {displayMode === "chart" && trendData.length > 0 && (
+                        <div className="mb-12 animate-fade-in bg-gray-50 dark:bg-[#131619] p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Timeline Range</span>
+                                    <span className="text-sm font-black text-gray-700 dark:text-gray-300">
+                                        {reportType === 'daily'
+                                            ? `${trendData[trendIndex]?.date} — ${trendData[Math.min(trendIndex + trendLimit - 1, trendData.length - 1)]?.date}`
+                                            : `Fiscal Year Breakdown`
+                                        }
+                                    </span>
+                                </div>
+                                {reportType === 'daily' && trendData.length > trendLimit && (
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setTrendIndex(Math.max(0, trendIndex - trendLimit))}
+                                            disabled={trendIndex === 0}
+                                            className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 disabled:opacity-30 hover:bg-gray-50 transition-all shadow-sm"
+                                        >
+                                            <FaChevronLeft size={12} />
+                                        </button>
+                                        <button
+                                            onClick={() => setTrendIndex(Math.min(trendData.length - trendLimit, trendIndex + trendLimit))}
+                                            disabled={trendIndex + trendLimit >= trendData.length}
+                                            className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 disabled:opacity-30 hover:bg-gray-50 transition-all shadow-sm"
+                                        >
+                                            <FaChevronRight size={12} />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="h-[300px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        data={reportType === 'daily' ? trendData.slice(trendIndex, trendIndex + trendLimit) : trendData}
+                                        margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                                        <XAxis dataKey={reportType === 'monthly' ? "month" : "date"} stroke="#6B7280" fontSize={10} tickLine={false} />
+                                        <YAxis stroke="#6B7280" fontSize={10} tickLine={false} />
+                                        <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                                        <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} barSize={reportType === 'monthly' ? 40 : 25} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    )}
 
                     {loading ? (
                         <div className="flex h-96 items-center justify-center">

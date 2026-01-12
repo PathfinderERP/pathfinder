@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaFilter, FaDownload, FaChevronDown, FaEraser, FaChartBar, FaTable, FaTh, FaPercentage } from "react-icons/fa";
+import { FaFilter, FaDownload, FaChevronDown, FaChevronLeft, FaChevronRight, FaEraser, FaChartBar, FaTable, FaTh, FaPercentage } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -13,7 +13,11 @@ const DiscountReport = () => {
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState([]);
     const [detailedReport, setDetailedReport] = useState([]);
+    const [trendData, setTrendData] = useState([]);
     const [totalDiscount, setTotalDiscount] = useState(0);
+    const [reportType, setReportType] = useState("monthly"); // monthly, daily
+    const [trendIndex, setTrendIndex] = useState(0);
+    const trendLimit = 15;
 
     // Master Data
     const [centres, setCentres] = useState([]);
@@ -60,7 +64,7 @@ const DiscountReport = () => {
             return;
         }
         fetchReportData();
-    }, [selectedCentres, selectedCourses, selectedExamTag, selectedSession, timePeriod, startDate, endDate]);
+    }, [selectedCentres, selectedCourses, selectedExamTag, selectedSession, timePeriod, startDate, endDate, reportType]);
 
     // Debug Log
     useEffect(() => {
@@ -143,6 +147,8 @@ const DiscountReport = () => {
                 params.append("year", yearParam);
             }
 
+            params.append("reportType", reportType);
+
             if (selectedSession) params.append("session", selectedSession);
             if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
             if (selectedCourses.length > 0) params.append("courseIds", selectedCourses.join(","));
@@ -155,12 +161,15 @@ const DiscountReport = () => {
             if (response.ok) {
                 const result = await response.json();
                 setReportData(result.data || []);
+                setTrendData(result.trend || []);
                 setDetailedReport(result.detailedReport || []);
                 setTotalDiscount(result.totalDiscount || 0);
             } else {
                 setReportData([]);
+                setTrendData([]);
                 setTotalDiscount(0);
             }
+            setTrendIndex(0);
         } catch (error) {
             console.error("Error fetching report", error);
             setReportData([]);
@@ -331,6 +340,21 @@ const DiscountReport = () => {
                             <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Cards</span>
                         </button>
                     </div>
+
+                    <div className="flex items-center gap-2 bg-gray-100 dark:bg-[#1a1f24] p-1.5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-inner">
+                        <button
+                            onClick={() => setReportType("monthly")}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-300 ${reportType === "monthly" ? "bg-orange-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                        >
+                            Monthly
+                        </button>
+                        <button
+                            onClick={() => setReportType("daily")}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-300 ${reportType === "daily" ? "bg-orange-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                        >
+                            Day Wise
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filters Section */}
@@ -484,8 +508,57 @@ const DiscountReport = () => {
                 <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 min-h-[500px]">
                     <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-8 flex items-center gap-3">
                         <div className="w-2 h-8 bg-orange-500 rounded-full"></div>
-                        Fee Discount Analysis ({timePeriod})
+                        Fee Discount Analysis ({reportType === 'monthly' ? 'Monthly' : 'Daily'} Trend)
                     </h3>
+
+                    {displayMode === "chart" && trendData.length > 0 && (
+                        <div className="mb-12 animate-fade-in bg-gray-50 dark:bg-[#131619] p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Discount Timeline</span>
+                                    <span className="text-sm font-black text-gray-700 dark:text-gray-300">
+                                        {reportType === 'daily'
+                                            ? `${trendData[trendIndex]?.date} — ${trendData[Math.min(trendIndex + trendLimit - 1, trendData.length - 1)]?.date}`
+                                            : `Fiscal Year Breakdown`
+                                        }
+                                    </span>
+                                </div>
+                                {reportType === 'daily' && trendData.length > trendLimit && (
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setTrendIndex(Math.max(0, trendIndex - trendLimit))}
+                                            disabled={trendIndex === 0}
+                                            className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 disabled:opacity-30 hover:bg-gray-50 transition-all shadow-sm"
+                                        >
+                                            <FaChevronLeft size={12} />
+                                        </button>
+                                        <button
+                                            onClick={() => setTrendIndex(Math.min(trendData.length - trendLimit, trendIndex + trendLimit))}
+                                            disabled={trendIndex + trendLimit >= trendData.length}
+                                            className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 disabled:opacity-30 hover:bg-gray-50 transition-all shadow-sm"
+                                        >
+                                            <FaChevronRight size={12} />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="h-[300px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        data={reportType === 'daily' ? trendData.slice(trendIndex, trendIndex + trendLimit) : trendData}
+                                        margin={{ top: 20, right: 30, left: 20, bottom: 0 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                                        <XAxis dataKey={reportType === 'monthly' ? "month" : "date"} stroke="#6B7280" fontSize={10} tickLine={false} />
+                                        <YAxis stroke="#6B7280" fontSize={10} tickLine={false} tickFormatter={(val) => `₹${(val / 1000).toFixed(0)}k`} />
+                                        <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} formatter={(val) => `₹${val.toLocaleString()}`} />
+                                        <Bar dataKey="discountGiven" fill="#f97316" radius={[4, 4, 0, 0]} barSize={reportType === 'monthly' ? 40 : 25} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    )}
 
                     {loading ? (
                         <div className="flex h-96 items-center justify-center">
@@ -550,40 +623,89 @@ const DiscountReport = () => {
                             )}
 
                             {displayMode === "table" && (
-                                <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                                    <table className="w-full text-left border-collapse">
-                                        <thead>
-                                            <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Centre Name</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Original Fees</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Discounted</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right text-orange-500">Discount Given</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Efficiency %</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                                            {reportData.map((item, idx) => (
-                                                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
-                                                    <td className="p-5 font-bold text-gray-800 dark:text-white uppercase text-sm group-hover:text-orange-500 transition-colors">{item.name}</td>
-                                                    <td className="p-5 text-right font-medium text-gray-500 dark:text-gray-400 text-xs">₹{item.originalFees.toLocaleString('en-IN')}</td>
-                                                    <td className="p-5 text-right font-bold text-gray-900 dark:text-white">₹{item.committedFees.toLocaleString('en-IN')}</td>
-                                                    <td className="p-5 text-right font-black text-orange-600">₹{item.discountGiven.toLocaleString('en-IN')}</td>
-                                                    <td className="p-5 text-center">
-                                                        <div className="flex flex-col items-center gap-1">
-                                                            <span className="text-xs font-black text-blue-600">{item.efficiency}%</span>
-                                                            <div className="w-24 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                                                                <div
-                                                                    className={`h-full rounded-full transition-all duration-1000 ${item.efficiency > 20 ? 'bg-red-500' : item.efficiency > 10 ? 'bg-orange-500' : 'bg-green-500'}`}
-                                                                    style={{ width: `${Math.min(item.efficiency, 100)}%` }}
-                                                                ></div>
+                                <>
+                                    <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
+                                                    <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Centre Name</th>
+                                                    <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Original Fees</th>
+                                                    <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Discounted</th>
+                                                    <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right text-orange-500">Discount Given</th>
+                                                    <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Efficiency %</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                                {reportData.map((item, idx) => (
+                                                    <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+                                                        <td className="p-5 font-bold text-gray-800 dark:text-white uppercase text-sm group-hover:text-orange-500 transition-colors">{item.name}</td>
+                                                        <td className="p-5 text-right font-medium text-gray-500 dark:text-gray-400 text-xs">₹{item.originalFees.toLocaleString('en-IN')}</td>
+                                                        <td className="p-5 text-right font-bold text-gray-900 dark:text-white">₹{item.committedFees.toLocaleString('en-IN')}</td>
+                                                        <td className="p-5 text-right font-black text-orange-600">₹{item.discountGiven.toLocaleString('en-IN')}</td>
+                                                        <td className="p-5 text-center">
+                                                            <div className="flex flex-col items-center gap-1">
+                                                                <span className="text-xs font-black text-blue-600">{item.efficiency}%</span>
+                                                                <div className="w-24 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className={`h-full rounded-full transition-all duration-1000 ${item.efficiency > 20 ? 'bg-red-500' : item.efficiency > 10 ? 'bg-orange-500' : 'bg-green-500'}`}
+                                                                        style={{ width: `${Math.min(item.efficiency, 100)}%` }}
+                                                                    ></div>
+                                                                </div>
                                                             </div>
-                                                        </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                            <tfoot className="bg-gray-50 dark:bg-[#131619] font-black italic border-t-2 border-gray-200 dark:border-gray-800">
+                                                <tr>
+                                                    <td className="p-5 uppercase text-xs">Grand Total</td>
+                                                    <td className="p-5 text-right text-xs">₹{reportData.reduce((a, b) => a + b.originalFees, 0).toLocaleString('en-IN')}</td>
+                                                    <td className="p-5 text-right text-sm">₹{reportData.reduce((a, b) => a + b.committedFees, 0).toLocaleString('en-IN')}</td>
+                                                    <td className="p-5 text-right text-sm text-orange-600">₹{totalDiscount.toLocaleString('en-IN')}</td>
+                                                    <td className="p-5 text-center text-xs">
+                                                        {(reportData.reduce((a, b) => a + b.discountGiven, 0) / (reportData.reduce((a, b) => a + b.originalFees, 0) || 1) * 100).toFixed(2)}% AVG
                                                     </td>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+
+                                    {detailedReport.length > 0 && (
+                                        <div className="mt-12 animate-fade-in">
+                                            <h4 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                                                <div className="w-1.5 h-4 bg-blue-500 rounded-full"></div>
+                                                Detailed Student Breakdown
+                                            </h4>
+                                            <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                                                <table className="w-full text-left border-collapse">
+                                                    <thead>
+                                                        <tr className="bg-gray-100 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
+                                                            <th className="p-4 text-[10px] font-bold text-gray-500 uppercase">Student Name</th>
+                                                            <th className="p-4 text-[10px] font-bold text-gray-500 uppercase text-center">Adm No.</th>
+                                                            <th className="p-4 text-[10px] font-bold text-gray-500 uppercase">Course</th>
+                                                            <th className="p-4 text-[10px] font-bold text-gray-500 uppercase text-right">Orig. Fees</th>
+                                                            <th className="p-4 text-[10px] font-bold text-gray-500 uppercase text-right text-orange-500">Discount</th>
+                                                            <th className="p-4 text-[10px] font-bold text-gray-500 uppercase text-right">Payable</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                                        {detailedReport.slice(0, 50).map((stu, sIdx) => (
+                                                            <tr key={sIdx} className="hover:bg-blue-50/30 dark:hover:bg-white/5 transition-colors">
+                                                                <td className="p-4 text-xs font-bold text-gray-800 dark:text-gray-200">{stu.studentName}</td>
+                                                                <td className="p-4 text-xs text-center text-gray-500 italic">{stu.admissionNumber}</td>
+                                                                <td className="p-4 text-[10px] text-gray-500 uppercase font-medium">{stu.course}</td>
+                                                                <td className="p-4 text-right text-xs">₹{stu.originalFees.toLocaleString()}</td>
+                                                                <td className="p-4 text-right text-xs font-black text-orange-600">₹{stu.discountGiven.toLocaleString()}</td>
+                                                                <td className="p-4 text-right text-xs font-bold">₹{stu.committedFees.toLocaleString()}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <p className="mt-4 text-[10px] text-gray-400 italic">*Showing first 50 records. Download Excel for full detailed report.</p>
+                                        </div>
+                                    )}
+                                </>
                             )}
 
                             {displayMode === "card" && (

@@ -1,5 +1,6 @@
 import cron from "node-cron";
 import { sendOverdueReminders, checkOverduePayments } from "./paymentReminderService.js";
+import { performAutoCheckout } from "./attendanceAutoCheckout.js";
 
 // Run every day at 9:00 AM to check overdue payments and send reminders
 export const startPaymentReminderCron = () => {
@@ -25,7 +26,19 @@ export const startPaymentReminderCron = () => {
         }
     });
 
-    console.log('✅ Payment reminder cron jobs started');
+    // Auto-checkout at 9:00 PM every day
+    cron.schedule('0 21 * * *', async () => {
+        console.log('🕒 Running daily auto-checkout for attendance...');
+        try {
+            const count = await performAutoCheckout();
+            console.log(`✅ Auto-checkout completed for ${count} records`);
+        } catch (error) {
+            console.error('❌ Error in auto-checkout cron job:', error);
+        }
+    });
+
+    console.log('✅ Cron jobs started');
     console.log('   - Daily reminders: 9:00 AM');
+    console.log('   - Attendance Auto-Checkout: 9:00 PM');
     console.log('   - Status updates: Every hour');
 };

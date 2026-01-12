@@ -240,7 +240,7 @@ const TransactionList = () => {
         const wb = XLSX.utils.book_new();
         const dateStr = new Date().toLocaleString();
 
-        const headers = ["Date", "Received Date", "Enroll No.", "Receipt No", "Student Name", "Session", "Department", "Course Name", "Transaction Type", "PaymentID", "Centre", "Payment Mode", "Amount", "Status"];
+        const headers = ["Date", "Received Date", "Enroll No.", "Receipt No", "Student Name", "Session", "Department", "Course Name", "Transaction Type", "PaymentID", "Centre", "Payment Mode", "Revenue (Base)", "GST Amount", "Total (Inc. GST)", "Status"];
         const data = detailedReport.map(item => [
             new Date(item.paymentDate).toLocaleDateString("en-IN"),
             item.receivedDate ? new Date(item.receivedDate).toLocaleDateString("en-IN") : "-",
@@ -254,12 +254,14 @@ const TransactionList = () => {
             item.transactionId || "-",
             item.centre,
             item.method,
+            item.revenueWithoutGst ? item.revenueWithoutGst.toFixed(2) : "-",
+            item.gstAmount ? item.gstAmount.toFixed(2) : "-",
             item.amount,
             item.status
         ]);
 
         const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
-        ws['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 25 }, { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
+        ws['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 25 }, { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 }];
         XLSX.utils.book_append_sheet(wb, ws, "Transaction List");
 
         const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
@@ -350,9 +352,16 @@ const TransactionList = () => {
                                 <FaChartBar size={24} />
                             </div>
                         </div>
-                        <div className="text-right">
-                            <h3 className="text-xl font-black text-gray-800">Rs.{stats.previousYear ? stats.previousYear.toLocaleString('en-IN') : 0}</h3>
-                            <p className="text-gray-500 text-xs uppercase font-bold tracking-wider">{stats.previousYearLabel} Revenue</p>
+                        <div className="text-right flex-1">
+                            <div className="flex flex-col border-b border-gray-100 pb-2 mb-2">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Total (With GST)</span>
+                                <h3 className="text-lg font-black text-gray-900 leading-none">Rs.{stats.previousYear ? stats.previousYear.toLocaleString('en-IN') : 0}</h3>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-orange-400 uppercase tracking-tighter">Revenue (Base)</span>
+                                <h3 className="text-lg font-black text-orange-600 leading-none">Rs.{stats.previousYearRevenue ? Math.round(stats.previousYearRevenue).toLocaleString('en-IN') : 0}</h3>
+                            </div>
+                            <p className="text-[9px] text-gray-400 uppercase font-black tracking-[0.2em] mt-3 bg-gray-50 px-2 py-0.5 rounded-full inline-block">{stats.previousYearLabel} FISCAL</p>
                         </div>
                     </div>
 
@@ -362,9 +371,16 @@ const TransactionList = () => {
                                 <FaChartBar size={24} />
                             </div>
                         </div>
-                        <div className="text-right">
-                            <h3 className="text-xl font-black text-gray-800">Rs.{stats.currentYear ? stats.currentYear.toLocaleString('en-IN') : 0}</h3>
-                            <p className="text-gray-500 text-xs uppercase font-bold tracking-wider">{stats.currentYearLabel} Revenue</p>
+                        <div className="text-right flex-1">
+                            <div className="flex flex-col border-b border-gray-100 pb-2 mb-2">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Total (With GST)</span>
+                                <h3 className="text-lg font-black text-gray-900 leading-none">Rs.{stats.currentYear ? stats.currentYear.toLocaleString('en-IN') : 0}</h3>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-green-400 uppercase tracking-tighter">Revenue (Base)</span>
+                                <h3 className="text-lg font-black text-green-600 leading-none">Rs.{stats.currentYearRevenue ? Math.round(stats.currentYearRevenue).toLocaleString('en-IN') : 0}</h3>
+                            </div>
+                            <p className="text-[9px] text-gray-400 uppercase font-black tracking-[0.2em] mt-3 bg-gray-50 px-2 py-0.5 rounded-full inline-block">{stats.currentYearLabel} FISCAL</p>
                         </div>
                     </div>
 
@@ -374,9 +390,16 @@ const TransactionList = () => {
                                 <FaChartBar size={24} />
                             </div>
                         </div>
-                        <div className="text-right">
-                            <h3 className="text-xl font-black text-gray-800">Rs.{stats.previousMonth ? stats.previousMonth.toLocaleString('en-IN') : 0}</h3>
-                            <p className="text-gray-500 text-xs uppercase font-bold tracking-wider">{stats.previousMonthLabel} Revenue</p>
+                        <div className="text-right flex-1">
+                            <div className="flex flex-col border-b border-gray-100 pb-2 mb-2">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Total (With GST)</span>
+                                <h3 className="text-lg font-black text-gray-900 leading-none">Rs.{stats.previousMonth ? stats.previousMonth.toLocaleString('en-IN') : 0}</h3>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-purple-400 uppercase tracking-tighter">Revenue (Base)</span>
+                                <h3 className="text-lg font-black text-purple-600 leading-none">Rs.{stats.previousMonthRevenue ? Math.round(stats.previousMonthRevenue).toLocaleString('en-IN') : 0}</h3>
+                            </div>
+                            <p className="text-[9px] text-gray-400 uppercase font-black tracking-[0.2em] mt-3 bg-gray-50 px-2 py-0.5 rounded-full inline-block">{stats.previousMonthLabel}</p>
                         </div>
                     </div>
 
@@ -386,9 +409,16 @@ const TransactionList = () => {
                                 <FaChartBar size={24} />
                             </div>
                         </div>
-                        <div className="text-right">
-                            <h3 className="text-xl font-black text-gray-800">Rs.{stats.currentMonth ? stats.currentMonth.toLocaleString('en-IN') : 0}</h3>
-                            <p className="text-gray-500 text-xs uppercase font-bold tracking-wider">{stats.currentMonthLabel} Revenue</p>
+                        <div className="text-right flex-1">
+                            <div className="flex flex-col border-b border-gray-100 pb-2 mb-2">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Total (With GST)</span>
+                                <h3 className="text-lg font-black text-gray-900 leading-none">Rs.{stats.currentMonth ? stats.currentMonth.toLocaleString('en-IN') : 0}</h3>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-blue-400 uppercase tracking-tighter">Revenue (Base)</span>
+                                <h3 className="text-lg font-black text-blue-600 leading-none">Rs.{stats.currentMonthRevenue ? Math.round(stats.currentMonthRevenue).toLocaleString('en-IN') : 0}</h3>
+                            </div>
+                            <p className="text-[9px] text-gray-400 uppercase font-black tracking-[0.2em] mt-3 bg-gray-50 px-2 py-0.5 rounded-full inline-block">{stats.currentMonthLabel}</p>
                         </div>
                     </div>
                 </div>
@@ -594,7 +624,9 @@ const TransactionList = () => {
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Transaction ID</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Centre</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Payment Mode</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Amount(Inc. GST)</th>
+                                    <th className="p-4 text-xs font-black text-orange-500 uppercase tracking-wider">Revenue (Base)</th>
+                                    <th className="p-4 text-xs font-black text-purple-500 uppercase tracking-wider">GST (18%)</th>
+                                    <th className="p-4 text-xs font-black text-gray-800 uppercase tracking-wider">Total (Inc. GST)</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Status</th>
                                 </tr>
                             </thead>
@@ -631,7 +663,9 @@ const TransactionList = () => {
                                             </td>
                                             <td className="p-4 text-sm text-gray-600 uppercase">{item.centre}</td>
                                             <td className="p-4 text-sm text-gray-600">{item.method}</td>
-                                            <td className="p-4 text-sm font-black text-gray-800">Rs.{item.amount}</td>
+                                            <td className="p-4 text-sm font-bold text-orange-600">₹{item.revenueWithoutGst ? item.revenueWithoutGst.toLocaleString() : "-"}</td>
+                                            <td className="p-4 text-sm font-bold text-purple-600 text-xs">₹{item.gstAmount ? item.gstAmount.toLocaleString() : "-"}</td>
+                                            <td className="p-4 text-sm font-black text-gray-900 border-l border-gray-100">₹{item.amount.toLocaleString()}</td>
                                             <td className="p-4">
                                                 <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${item.status === 'PAID' ? 'bg-green-100 text-green-600' :
                                                     item.status === 'PENDING' ? 'bg-yellow-100 text-yellow-600' :

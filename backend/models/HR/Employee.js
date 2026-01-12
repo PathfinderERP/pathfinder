@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
 
 const salaryStructureSchema = new mongoose.Schema({
-    effectiveDate: { type: Date, required: true },
-    amount: { type: Number, required: true }, // This will store the Net Salary as per user request
+    effectiveDate: { type: Date, required: false },
+    amount: { type: Number, required: false }, // This will store the Net Salary as per user request
     basic: { type: Number, default: 0 },
     conveyance: { type: Number, default: 0 },
     hra: { type: Number, default: 0 },
@@ -42,14 +42,25 @@ const employeeSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    spouse: {
+        type: String,
+        trim: true
+    },
     dateOfBirth: {
         type: Date,
-        required: true
+        required: false
+    },
+    dob: {
+        type: String,
+        trim: true
     },
     gender: {
         type: String,
-        enum: ["Male", "Female", "Other"],
-        required: true
+        required: false
+    },
+    bloodGroup: {
+        type: String,
+        trim: true
     },
     children: [{
         name: { type: String },
@@ -57,49 +68,74 @@ const employeeSchema = new mongoose.Schema({
     }],
     email: {
         type: String,
-        required: true,
+        required: false,
         unique: true,
         lowercase: true,
         trim: true
     },
     phoneNumber: {
         type: String,
-        required: true
+        required: false
     },
     whatsappNumber: {
         type: String
     },
+    whatsAppNumber: {
+        type: String
+    },
     alternativeNumber: {
+        type: String
+    },
+    alternatePhoneNumber: {
         type: String
     },
 
     // Official Details
     dateOfJoining: {
         type: Date,
-        required: true
+        required: false
     },
     primaryCentre: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "CentreSchema",
-        required: true
+        required: false
+    },
+    primaryCenter: {
+        type: String,
+        trim: true
     },
     centres: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "CentreSchema"
     }],
+    centerArray: [{
+        type: String
+    }],
     department: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Department",
-        required: true
+        required: false
+    },
+    depertment: {
+        type: String,
+        trim: true
     },
     designation: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Designation",
-        required: true
+        required: false
+    },
+    grade: {
+        type: String,
+        trim: true
     },
     manager: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Employee"
+    },
+    Manager: {
+        type: String,
+        trim: true
     },
     state: {
         type: String,
@@ -121,6 +157,10 @@ const employeeSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    aadhaarNumber: {
+        type: String,
+        trim: true
+    },
     panNumber: {
         type: String,
         trim: true,
@@ -138,8 +178,7 @@ const employeeSchema = new mongoose.Schema({
     // Work Details
     typeOfEmployment: {
         type: String,
-        enum: ["Full-time", "Part-time", "Contract", "Intern"],
-        required: true
+        required: false
     },
     workingHours: {
         type: Number,
@@ -154,12 +193,23 @@ const employeeSchema = new mongoose.Schema({
         friday: { type: Boolean, default: false },
         saturday: { type: Boolean, default: false }
     },
+    workingDaysList: [{
+        type: String
+    }],
     probationPeriod: {
         type: Boolean,
         default: false
     },
     salaryStructure: [salaryStructureSchema],
     currentSalary: {
+        type: Number,
+        default: 0
+    },
+    salary: {
+        type: Number,
+        default: 0
+    },
+    specialAllowance: {
         type: Number,
         default: 0
     },
@@ -173,11 +223,20 @@ const employeeSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    branch: {
+        type: String,
+        trim: true
+    },
     accountNumber: {
         type: String,
         trim: true
     },
     ifscCode: {
+        type: String,
+        trim: true,
+        uppercase: true
+    },
+    ifceCode: {
         type: String,
         trim: true,
         uppercase: true

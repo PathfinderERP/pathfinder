@@ -84,8 +84,8 @@ export const getCourseReport = async (req, res) => {
         }
 
         // Parallel Aggregation
-        const [courseStats, centreStats, detailedStats, leadStats] = await Promise.all([
-            // 1. Course Aggregation
+        const [courseStats, centreStats, detailedStats, leadStats, trendStats] = await Promise.all([
+            // 1. Course Aggregation (Pie Chart)
             Admission.aggregate([
                 { $match: matchStage },
                 {
@@ -171,7 +171,37 @@ export const getCourseReport = async (req, res) => {
                         counsellingCount: { $sum: 1 }
                     }
                 }
-            ])
+            ]),
+
+            // 5. Trend Aggregation (New)
+            (async () => {
+                const reportType = req.query.reportType || 'monthly';
+                if (reportType === 'daily') {
+                    return Admission.aggregate([
+                        { $match: matchStage },
+                        {
+                            $group: {
+                                _id: { $dateToString: { format: "%Y-%m-%d", date: "$admissionDate" } },
+                                count: { $sum: 1 },
+                                revenue: { $sum: "$totalFees" }
+                            }
+                        },
+                        { $sort: { "_id": 1 } }
+                    ]);
+                } else {
+                    return Admission.aggregate([
+                        { $match: matchStage },
+                        {
+                            $group: {
+                                _id: { $month: "$admissionDate" },
+                                count: { $sum: 1 },
+                                revenue: { $sum: "$totalFees" }
+                            }
+                        },
+                        { $sort: { "_id": 1 } }
+                    ]);
+                }
+            })()
         ]);
 
         // Process Course Data
@@ -191,21 +221,38 @@ export const getCourseReport = async (req, res) => {
             };
         });
 
-        // Process Centre Data (Need to map IDs to Names)
+        // Process Centre Data
         const allCentres = await Centre.find({}, 'centreName _id');
         const centreMap = {};
         allCentres.forEach(c => {
             centreMap[c._id.toString()] = c.centreName;
         });
 
-        const centreData = centreStats.map(item => ({
-            name: centreMap[item._id] || item._id, // Fallback to ID if name not found
+        const centreDataStats = centreStats.map(item => ({
+            name: centreMap[item._id] || item._id,
             enrollment: item.count,
             revenue: item.revenue
         })).sort((a, b) => b.revenue - a.revenue);
 
-        // Process Detailed Report for Excel
-        const detailedReport = detailedStats.map(item => ({
+        // Process Trend Data
+        const reportType = req.query.reportType || 'monthly';
+        let trendData = [];
+        if (reportType === 'daily') {
+            trendData = trendStats.map(t => ({
+                date: t._id,
+                count: t.count,
+                revenue: t.revenue
+            }));
+        } else {
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            trendData = trendStats.map(t => ({
+                month: monthNames[t._id - 1],
+                count: t.count,
+                revenue: t.revenue
+            }));
+        }
+
+        const detailedReportData = detailedStats.map(item => ({
             courseName: item.courseName,
             centreName: centreMap[item.centre] || item.centre,
             count: item.count,
@@ -213,14 +260,13 @@ export const getCourseReport = async (req, res) => {
             revenue: item.revenue
         }));
 
-        console.log("Calculated Course Data:", JSON.stringify(courseData, null, 2));
-
         res.status(200).json({
             data: courseData,
-            centreData: centreData,
-            detailedReport: detailedReport,
+            centreData: centreDataStats,
+            detailedReport: detailedReportData,
+            trend: trendData,
             total: totalEnrollments,
-            totalRevenue // Optional if needed on frontend
+            totalRevenue
         });
 
     } catch (error) {

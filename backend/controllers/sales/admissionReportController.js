@@ -109,7 +109,63 @@ export const getAdmissionReport = async (req, res) => {
             }
         }
 
-        // 1. Monthly Trend (Admissions Only) - Summary for Chart
+        const reportType = req.query.reportType || 'monthly';
+
+        if (reportType === 'daily') {
+            // --- DAILY REPORTING ENGINE ---
+            const dailyAdmitted = await Admission.aggregate([
+                { $match: admissionQuery },
+                {
+                    $group: {
+                        _id: { $dateToString: { format: "%Y-%m-%d", date: "$admissionDate" } },
+                        count: { $sum: 1 }
+                    }
+                },
+                { $sort: { "_id": 1 } }
+            ]);
+
+            const dailyCounselling = await LeadManagement.aggregate([
+                {
+                    $match: {
+                        ...leadQuery,
+                        leadType: { $in: ['HOT LEAD', 'COLD LEAD'] }
+                    }
+                },
+                {
+                    $group: {
+                        _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                        count: { $sum: 1 }
+                    }
+                },
+                { $sort: { "_id": 1 } }
+            ]);
+
+            // Merge daily data
+            const allDates = [...new Set([...dailyAdmitted.map(d => d._id), ...dailyCounselling.map(d => d._id)])].sort();
+            const trendData = allDates.map(date => {
+                const adm = dailyAdmitted.find(d => d._id === date);
+                const coun = dailyCounselling.find(d => d._id === date);
+                return {
+                    date,
+                    count: adm ? adm.count : 0,
+                    admitted: adm ? adm.count : 0,
+                    counselling: coun ? coun.count : 0
+                };
+            });
+
+            const totalAdmitted = dailyAdmitted.reduce((sum, d) => sum + d.count, 0);
+            const totalCounselling = dailyCounselling.reduce((sum, d) => sum + d.count, 0);
+
+            return res.status(200).json({
+                trend: trendData,
+                status: {
+                    admitted: totalAdmitted,
+                    inCounselling: totalCounselling
+                }
+            });
+        }
+
+        // --- MONTHLY REPORTING ENGINE (Default) ---
         const monthlyTrend = await Admission.aggregate([
             { $match: admissionQuery },
             {
@@ -146,7 +202,7 @@ export const getAdmissionReport = async (req, res) => {
             { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
             {
                 $lookup: {
-                    from: "classes", // Collection name usually plural lowercase of Class model
+                    from: "classes",
                     localField: "_id.class",
                     foreignField: "_id",
                     as: "classInfo"
@@ -211,13 +267,12 @@ export const getAdmissionReport = async (req, res) => {
 
             trendData.push({
                 month: monthNames[i - 1],
-                count: admittedCount, // Maintain compatibility
+                count: admittedCount,
                 admitted: admittedCount,
                 counselling: counsellingCount
             });
         }
 
-        // Map Detailed Trend to friendly Month Names
         const detailedTrend = detailedTrendRaw.map(item => ({
             ...item,
             monthName: monthNames[item.month - 1]
