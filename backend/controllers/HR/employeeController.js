@@ -2,6 +2,8 @@ import Employee from "../../models/HR/Employee.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Department from "../../models/Master_data/Department.js";
 import Designation from "../../models/Master_data/Designation.js";
+import User from "../../models/User.js";
+import bcrypt from "bcryptjs";
 import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import s3Client from "../../config/r2Config.js";
@@ -174,41 +176,17 @@ export const createEmployee = async (req, res) => {
     try {
         const employeeData = { ...req.body };
 
-        // Parse children if it's a string
-        if (typeof employeeData.children === "string") {
-            try {
-                employeeData.children = JSON.parse(employeeData.children);
-            } catch (e) {
-                employeeData.children = [];
+        // Parse JSON fields
+        const jsonFields = ["children", "centres", "workingDays", "salaryStructure"];
+        jsonFields.forEach(field => {
+            if (typeof employeeData[field] === "string") {
+                try {
+                    employeeData[field] = JSON.parse(employeeData[field]);
+                } catch (e) {
+                    employeeData[field] = field === "workingDays" ? {} : [];
+                }
             }
-        }
-
-        // Parse centres array if it's a string
-        if (typeof employeeData.centres === "string") {
-            try {
-                employeeData.centres = JSON.parse(employeeData.centres);
-            } catch (e) {
-                employeeData.centres = [];
-            }
-        }
-
-        // Parse workingDays if it's a string
-        if (typeof employeeData.workingDays === "string") {
-            try {
-                employeeData.workingDays = JSON.parse(employeeData.workingDays);
-            } catch (e) {
-                employeeData.workingDays = {};
-            }
-        }
-
-        // Parse salaryStructure if it's a string
-        if (typeof employeeData.salaryStructure === "string") {
-            try {
-                employeeData.salaryStructure = JSON.parse(employeeData.salaryStructure);
-            } catch (e) {
-                employeeData.salaryStructure = [];
-            }
-        }
+        });
 
         // Handle file uploads
         if (req.files) {
@@ -237,6 +215,51 @@ export const createEmployee = async (req, res) => {
             }
         });
 
+        // ---------------------------------------------------------
+        // 1. Manually Generate Unique Employee ID (Fixing collision issue)
+        // ---------------------------------------------------------
+        const lastEmpById = await Employee.findOne({ employeeId: { $regex: /^EMP/ } }).sort({ employeeId: -1 });
+        let newCount = 1;
+        if (lastEmpById && lastEmpById.employeeId) {
+            const num = parseInt(lastEmpById.employeeId.replace("EMP", ""), 10);
+            if (!isNaN(num)) newCount = num + 1;
+        }
+        employeeData.employeeId = `EMP${String(newCount).padStart(7, "0")}`;
+
+        // ---------------------------------------------------------
+        // 2. Create User Account (Auto-generate if not exists)
+        // ---------------------------------------------------------
+        // Check if user with this email already exists
+        let user = await User.findOne({ email: employeeData.email });
+
+        if (!user) {
+            // Create new user
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(employeeData.employeeId, salt); // Password = Employee ID
+
+            user = new User({
+                name: employeeData.name,
+                email: employeeData.email,
+                employeeId: employeeData.employeeId,
+                mobNum: employeeData.phoneNumber || "0000000000",
+                password: hashedPassword,
+                role: 'admin', // Default generic role
+                centres: employeeData.primaryCentre ? [employeeData.primaryCentre] : [],
+                permissions: [],
+                granularPermissions: {}
+            });
+            await user.save();
+        } else {
+            // If user exists, we verify if we can link (optional, for now just link)
+            console.log(`Linking existing user ${user._id} to new employee`);
+        }
+
+        // Link User to Employee
+        employeeData.user = user._id;
+
+        // ---------------------------------------------------------
+        // 3. Save Employee
+        // ---------------------------------------------------------
         const employee = new Employee(employeeData);
         await employee.save();
 
@@ -252,14 +275,16 @@ export const createEmployee = async (req, res) => {
         const signedEmployee = await signEmployeeFiles(employee);
 
         res.status(201).json({
-            message: "Employee created successfully",
+            message: "Employee created successfully and linked to User account",
             employee: signedEmployee
         });
     } catch (error) {
         console.error("Error creating employee:", error);
         if (error.code === 11000) {
+            // Check keys to give better error message
+            const field = Object.keys(error.keyPattern)[0];
             return res.status(400).json({
-                message: "An employee with this email or ID already exists.",
+                message: `An entry with this ${field} already exists.`,
                 error: "Duplicate key error"
             });
         }
