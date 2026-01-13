@@ -26,7 +26,7 @@ const ShiftTimer = ({ checkIn, targetHours }) => {
             setElapsed(Math.max(0, now - start));
         };
         update();
-        const interval = setInterval(update, 1000 * 60); // Update every minute
+        const interval = setInterval(update, 1000); // Updated to 1000ms
         return () => clearInterval(interval);
     }, [checkIn]);
 
@@ -36,14 +36,16 @@ const ShiftTimer = ({ checkIn, targetHours }) => {
     const formatTime = (ms) => {
         const h = Math.floor(ms / (1000 * 60 * 60));
         const m = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-        return `${h}h ${m}m`;
+        const s = Math.floor((ms % (1000 * 60)) / 1000);
+        return `${h}h ${m}m ${s}s`;
     };
 
     const remainingTimeStr = () => {
         if (remaining <= 0) return "Overtime";
         const h = Math.floor(remaining);
         const m = Math.floor((remaining - h) * 60);
-        return `${h}h ${m}m`;
+        const s = Math.floor(((remaining - h) * 60 - m) * 60);
+        return `${h}h ${m}m ${s}s`;
     };
 
     const progressPercent = Math.min(100, (elapsedHours / targetHours) * 100);
@@ -52,17 +54,17 @@ const ShiftTimer = ({ checkIn, targetHours }) => {
         <div className="w-full max-w-md">
             <div className="flex justify-between items-end mb-2">
                 <div>
-                    <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1">Elapsed</p>
-                    <p className="text-white font-black text-2xl tracking-tighter">{formatTime(elapsed)}</p>
+                    <p className="text-gray-400 text-[9px] font-black uppercase tracking-widest mb-1">Elapsed</p>
+                    <p className="text-white font-black text-2xl tracking-tighter tabular-nums drop-shadow-md">{formatTime(elapsed)}</p>
                 </div>
                 <div className="text-right">
-                    <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1">{remaining <= 0 ? 'Overtime' : 'Remaining'}</p>
-                    <p className={`font-black text-2xl tracking-tighter ${remaining <= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>{remainingTimeStr()}</p>
+                    <p className="text-gray-400 text-[9px] font-black uppercase tracking-widest mb-1">{remaining <= 0 ? 'Overtime' : 'Remaining'}</p>
+                    <p className={`font-black text-2xl tracking-tighter tabular-nums drop-shadow-md ${remaining <= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>{remainingTimeStr()}</p>
                 </div>
             </div>
-            <div className="h-3 bg-gray-800 rounded-[2px] overflow-hidden border border-gray-700">
+            <div className="h-3 bg-gray-800 rounded-[2px] overflow-hidden border border-gray-700 shadow-inner">
                 <div
-                    className={`h-full transition-all duration-1000 ${remaining <= 0 ? 'bg-emerald-500' : 'bg-gradient-to-r from-cyan-500 to-blue-500'}`}
+                    className={`h-full transition-all duration-1000 ease-linear ${remaining <= 0 ? 'bg-emerald-500' : 'bg-gradient-to-r from-cyan-500 to-blue-500'}`}
                     style={{ width: `${progressPercent}%` }}
                 ></div>
             </div>
@@ -73,12 +75,14 @@ const ShiftTimer = ({ checkIn, targetHours }) => {
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
         return (
-            <div className="bg-[#1a1f24] border border-gray-700 p-2 rounded-[2px] shadow-lg">
-                <p className="text-gray-300 text-xs font-bold mb-1">{label}</p>
+            <div className="bg-[#1a1f24] border border-gray-700 p-3 rounded-[2px] shadow-2xl">
+                <p className="text-white text-xs font-black mb-1 uppercase tracking-wider">{label}</p>
                 {payload.map((entry, index) => (
-                    <p key={index} className="text-[10px] font-bold" style={{ color: entry.color }}>
-                        {entry.name}: {entry.value}
-                    </p>
+                    <div key={index} className="flex items-center gap-2 text-[10px] font-bold">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></div>
+                        <span className="text-gray-300 uppercase">{entry.name}:</span>
+                        <span className="text-white font-mono">{entry.value}</span>
+                    </div>
                 ))}
             </div>
         );
@@ -93,6 +97,7 @@ const EmployeeAttendance = () => {
     const [workingHours, setWorkingHours] = useState(0);
     const [assignedCentres, setAssignedCentres] = useState(null);
     const [dateOfJoining, setDateOfJoining] = useState(null);
+    const [employeeDetails, setEmployeeDetails] = useState(null);
     const [loading, setLoading] = useState(true);
     const [marking, setMarking] = useState(false);
     const [year] = useState(new Date().getFullYear());
@@ -117,6 +122,7 @@ const EmployeeAttendance = () => {
                 setWorkingHours(data.workingHours || 0);
                 setAssignedCentres(data.assignedCentres);
                 setDateOfJoining(data.dateOfJoining);
+                setEmployeeDetails(data.employeeDetails);
             }
         } catch (error) {
             console.error("Fetch error:", error);
@@ -394,9 +400,21 @@ const EmployeeAttendance = () => {
                             </ResponsiveContainer>
                             {/* Inner Text */}
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none pb-8">
-                                <div className="text-center">
-                                    <span className="block text-2xl font-black text-white">{stats.presents}</span>
-                                    <span className="text-[8px] text-gray-500 font-black uppercase">Present</span>
+                                <div className="text-center flex flex-col items-center">
+                                    {employeeDetails ? (
+                                        <>
+
+                                            <span className="block text-[10px] font-black text-white uppercase tracking-tight max-w-[80px] truncate leading-tight">
+                                                {employeeDetails.name ? employeeDetails.name.split(' ')[0] : 'Employee'}
+                                            </span>
+                                            <span className="text-[7px] text-gray-500 font-bold uppercase tracking-widest">{stats.presents} Days</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="block text-2xl font-black text-white">{stats.presents}</span>
+                                            <span className="text-[8px] text-gray-500 font-black uppercase">Present</span>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>

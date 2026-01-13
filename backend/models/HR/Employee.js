@@ -42,17 +42,9 @@ const employeeSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
-    spouse: {
-        type: String,
-        trim: true
-    },
     dateOfBirth: {
         type: Date,
         required: false
-    },
-    dob: {
-        type: String,
-        trim: true
     },
     gender: {
         type: String,
@@ -80,13 +72,7 @@ const employeeSchema = new mongoose.Schema({
     whatsappNumber: {
         type: String
     },
-    whatsAppNumber: {
-        type: String
-    },
     alternativeNumber: {
-        type: String
-    },
-    alternatePhoneNumber: {
         type: String
     },
 
@@ -100,10 +86,6 @@ const employeeSchema = new mongoose.Schema({
         ref: "CentreSchema",
         required: false
     },
-    primaryCenter: {
-        type: String,
-        trim: true
-    },
     centres: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "CentreSchema"
@@ -115,10 +97,6 @@ const employeeSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Department",
         required: false
-    },
-    depertment: {
-        type: String,
-        trim: true
     },
     designation: {
         type: mongoose.Schema.Types.ObjectId,
@@ -132,10 +110,6 @@ const employeeSchema = new mongoose.Schema({
     manager: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Employee"
-    },
-    Manager: {
-        type: String,
-        trim: true
     },
     state: {
         type: String,
@@ -154,10 +128,6 @@ const employeeSchema = new mongoose.Schema({
         trim: true
     },
     aadharNumber: {
-        type: String,
-        trim: true
-    },
-    aadhaarNumber: {
         type: String,
         trim: true
     },
@@ -205,10 +175,6 @@ const employeeSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
-    salary: {
-        type: Number,
-        default: 0
-    },
     specialAllowance: {
         type: Number,
         default: 0
@@ -223,20 +189,11 @@ const employeeSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
-    branch: {
-        type: String,
-        trim: true
-    },
     accountNumber: {
         type: String,
         trim: true
     },
     ifscCode: {
-        type: String,
-        trim: true,
-        uppercase: true
-    },
-    ifceCode: {
         type: String,
         trim: true,
         uppercase: true

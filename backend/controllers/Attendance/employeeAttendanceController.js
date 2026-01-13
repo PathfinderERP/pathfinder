@@ -195,6 +195,12 @@ export const getMyAttendance = async (req, res) => {
 
         res.status(200).json({
             dateOfJoining: employee.dateOfJoining,
+            employeeDetails: {
+                name: employee.name,
+                designation: employee.designation?.name || 'Employee',
+                profileImage: employee.profileImage,
+                employeeId: employee.employeeId
+            },
             attendances,
             holidays,
             workingDays: normalizedWorkingDays,

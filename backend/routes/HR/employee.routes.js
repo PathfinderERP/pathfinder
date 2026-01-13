@@ -11,6 +11,7 @@ import {
     getMyProfile,
     updateMyProfile
 } from "../../controllers/HR/employeeController.js";
+import { getEmployeeAnalytics } from "../../controllers/HR/employeeAnalyticsController.js";
 import authMiddleware from "../../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -31,6 +32,9 @@ const uploadFields = upload.fields([
 
 // All routes require authentication
 router.use(authMiddleware);
+
+// Analytics endpoint
+router.get("/analytics", getEmployeeAnalytics);
 
 // Get employees for dropdown (managers)
 router.get("/dropdown", getEmployeesForDropdown);

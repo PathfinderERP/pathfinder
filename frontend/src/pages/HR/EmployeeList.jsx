@@ -1,11 +1,34 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
-import { FaPlus, FaEdit, FaEye, FaSearch, FaFileExcel, FaFilePdf, FaTrash, FaChevronLeft, FaChevronRight, FaFileUpload, FaFilter, FaFileAlt, FaIdCard, FaBuilding, FaMapMarkerAlt, FaEnvelope } from "react-icons/fa";
+import { FaPlus, FaEdit, FaEye, FaSearch, FaFileExcel, FaFilePdf, FaTrash, FaChevronLeft, FaChevronRight, FaFileUpload, FaFilter, FaFileAlt, FaIdCard, FaBuilding, FaMapMarkerAlt, FaEnvelope, FaUsers, FaChartPie } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import usePermission from "../../hooks/usePermission";
+import {
+    CartesianGrid,
+    AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+    XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
+} from 'recharts';
+
+const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-[#1a1f24] border border-gray-700/50 p-4 rounded-[2px] shadow-2xl backdrop-blur-sm">
+                <p className="text-white text-sm font-black mb-2 uppercase tracking-widest border-b border-gray-800 pb-2">{label}</p>
+                {payload.map((entry, index) => (
+                    <div key={index} className="flex items-center gap-3 text-xs font-bold py-1">
+                        <div className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(entry.color,0.5)]" style={{ backgroundColor: entry.color }}></div>
+                        <span className="text-gray-400 uppercase tracking-tight">{entry.name}:</span>
+                        <span className="text-white font-mono ml-auto">{entry.value}</span>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+    return null;
+};
 
 const EmployeeList = () => {
     const navigate = useNavigate();
@@ -25,6 +48,8 @@ const EmployeeList = () => {
     });
     const [jumpPage, setJumpPage] = useState("");
     const [showImportModal, setShowImportModal] = useState(false);
+    const [analytics, setAnalytics] = useState(null);
+    const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
     // Permission checks
     const canCreate = usePermission('hrManpower', 'employees', 'create');
@@ -38,11 +63,29 @@ const EmployeeList = () => {
 
     useEffect(() => {
         fetchMasterData();
+        fetchAnalytics();
     }, []);
 
     useEffect(() => {
         fetchEmployees();
     }, [search, filters, pagination.currentPage]);
+
+    const fetchAnalytics = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee/analytics`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setAnalytics(data);
+            }
+        } catch (error) {
+            console.error("Error fetching analytics:", error);
+        } finally {
+            setAnalyticsLoading(false);
+        }
+    };
 
     const fetchMasterData = async () => {
         try {
@@ -120,28 +163,72 @@ const EmployeeList = () => {
         toast.info("Filters cleared");
     };
 
-    const handleExportExcel = () => {
-        if (employees.length === 0) {
-            toast.warn("No data to export");
-            return;
+    const handleExportExcel = async () => {
+        try {
+            toast.info("Preparing export... Please wait");
+            const token = localStorage.getItem("token");
+
+            // Fetch ALL employees without pagination
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL}/hr/employee?limit=10000`,
+                {
+                    headers: { Authorization: `Bearer ${token}` }
+                }
+            );
+
+            if (!response.ok) {
+                toast.error("Failed to fetch employee data");
+                return;
+            }
+
+            const data = await response.json();
+            const allEmployees = data.employees || [];
+
+            if (allEmployees.length === 0) {
+                toast.warn("No data to export");
+                return;
+            }
+
+            const exportData = allEmployees.map(emp => ({
+                "Employee ID": emp.employeeId || "",
+                "Name": emp.name || "",
+                "Email": emp.email || "",
+                "Phone Number": emp.phoneNumber || "",
+                "WhatsApp Number": emp.whatsappNumber || "",
+                "Date of Birth": emp.dateOfBirth ? new Date(emp.dateOfBirth).toLocaleDateString() : "",
+                "Gender": emp.gender || "",
+                "Date of Joining": emp.dateOfJoining ? new Date(emp.dateOfJoining).toLocaleDateString() : "",
+                "Department": emp.department?.departmentName || "",
+                "Designation": emp.designation?.name || "",
+                "Primary Centre": emp.primaryCentre?.centreName || "",
+                "Employment Type": emp.typeOfEmployment || "",
+                "Working Hours": emp.workingHours || "",
+                "Current Salary": emp.currentSalary || "",
+                "Status": emp.status || "",
+                "Address": emp.address || "",
+                "City": emp.city || "",
+                "State": emp.state || "",
+                "Pin Code": emp.pinCode || "",
+                "Aadhar Number": emp.aadharNumber || "",
+                "PAN Number": emp.panNumber || "",
+                "Bank Name": emp.bankName || "",
+                "Account Number": emp.accountNumber || "",
+                "IFSC Code": emp.ifscCode || "",
+                "Spouse Name": emp.spouseName || "",
+                "Blood Group": emp.bloodGroup || ""
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "All Employees");
+            const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+            const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
+            saveAs(blob, `All_Employees_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            toast.success(`Exported ${allEmployees.length} employees successfully!`);
+        } catch (error) {
+            console.error("Export error:", error);
+            toast.error("Error exporting data");
         }
-
-        const exportData = employees.map(emp => ({
-            "Employee ID": emp.employeeId,
-            "Name": emp.name,
-            "Email": emp.email,
-            "Department": emp.department?.departmentName || "",
-            "Designation": emp.designation?.name || "",
-            "Centre": emp.primaryCentre?.centreName || "",
-            "Status": emp.status
-        }));
-
-        const ws = XLSX.utils.json_to_sheet(exportData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Employees");
-        const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-        const data = new Blob([excelBuffer], { type: "application/octet-stream" });
-        saveAs(data, `Employees_${new Date().toISOString().slice(0, 10)}.xlsx`);
     };
 
     const handleExportPDF = () => {
@@ -223,7 +310,7 @@ const EmployeeList = () => {
                 key={index}
                 onClick={() => typeof page === "number" && handlePageChange(page)}
                 disabled={page === "..."}
-                className={`min-w-[40px] h-10 flex items-center justify-center rounded-lg font-medium transition-all ${page === currentPage
+                className={`min-w-[40px] h-10 flex items-center justify-center rounded-[2px] font-medium transition-all ${page === currentPage
                     ? "bg-cyan-500 text-black font-bold shadow-lg shadow-cyan-500/20"
                     : page === "..."
                         ? "text-gray-500 cursor-default"
@@ -237,10 +324,10 @@ const EmployeeList = () => {
 
     const ImportOverviewModal = () => (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-            <div className="bg-[#131619] w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-800 overflow-hidden transform transition-all">
+            <div className="bg-[#131619] w-full max-w-2xl rounded-[2px] shadow-2xl border border-gray-800 overflow-hidden transform transition-all">
                 <div className="px-6 py-4 bg-gray-900 border-b border-gray-800 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-cyan-500/10 rounded-lg text-cyan-500">
+                        <div className="p-2 bg-cyan-500/10 rounded-[2px] text-cyan-500">
                             <FaFileUpload size={20} />
                         </div>
                         <h3 className="text-xl font-bold text-white">Import Employee Data</h3>
@@ -252,7 +339,7 @@ const EmployeeList = () => {
 
                 <div className="p-6 space-y-6">
                     <div className="space-y-4 h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-                        <div className="bg-cyan-900/10 border border-cyan-500/20 p-4 rounded-xl">
+                        <div className="bg-cyan-900/10 border border-cyan-500/20 p-4 rounded-[2px]">
                             <p className="text-sm text-cyan-200 leading-relaxed">
                                 To ensure successful import, your Excel file must follow the specific column headers and data formats listed below.
                                 <span className="block mt-1 font-bold">Note: All column names are Case-Insensitive.</span>
@@ -276,7 +363,7 @@ const EmployeeList = () => {
                                         { col: "Employment Type", req: true, format: "Full-time | Part-time | Contract | Intern", example: "Full-time" },
                                         { col: "Salary", req: false, format: "Numeric (Monthly)", example: "25000" }
                                     ].map((item, idx) => (
-                                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-800/40 rounded-xl border border-gray-800/60 group hover:border-cyan-500/30 transition-all">
+                                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-800/40 rounded-[2px] border border-gray-800/60 group hover:border-cyan-500/30 transition-all">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-1.5 h-1.5 rounded-full ${item.req ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]' : 'bg-gray-400'}`}></div>
                                                 <span className="font-bold text-gray-200">{item.col}</span>
@@ -299,11 +386,11 @@ const EmployeeList = () => {
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setShowImportModal(false)}
-                                className="px-6 py-2 rounded-xl text-gray-400 font-bold hover:bg-gray-800 transition-all"
+                                className="px-6 py-2 rounded-[2px] text-gray-400 font-bold hover:bg-gray-800 transition-all"
                             >
                                 Cancel
                             </button>
-                            <label className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 text-black font-bold rounded-xl cursor-pointer transition-all shadow-lg shadow-cyan-600/20">
+                            <label className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 text-black font-bold rounded-[2px] cursor-pointer transition-all shadow-lg shadow-cyan-600/20">
                                 Select File
                                 <input type="file" className="hidden" accept=".xlsx, .xls" onChange={(e) => {
                                     toast.info("Importing processing feature coming soon...");
@@ -333,27 +420,27 @@ const EmployeeList = () => {
                         {canCreate && (
                             <button
                                 onClick={() => setShowImportModal(true)}
-                                className="bg-[#1a1f24] hover:bg-[#252a30] text-gray-400 hover:text-white px-5 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all border border-gray-800 flex items-center gap-2 shadow-sm"
+                                className="bg-[#1a1f24] hover:bg-[#252a30] text-gray-400 hover:text-white px-5 py-3 rounded-[2px] font-black uppercase text-[10px] tracking-widest transition-all border border-gray-800 flex items-center gap-2 shadow-sm"
                             >
                                 <FaFileUpload className="text-blue-500" /> Import
                             </button>
                         )}
                         <button
                             onClick={handleExportExcel}
-                            className="bg-[#1a1f24] hover:bg-[#252a30] text-gray-400 hover:text-white px-5 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all border border-gray-800 flex items-center gap-2 shadow-sm"
+                            className="bg-[#1a1f24] hover:bg-[#252a30] text-gray-400 hover:text-white px-5 py-3 rounded-[2px] font-black uppercase text-[10px] tracking-widest transition-all border border-gray-800 flex items-center gap-2 shadow-sm"
                         >
                             <FaFileExcel className="text-green-500" /> Excel
                         </button>
                         <button
                             onClick={handleExportPDF}
-                            className="bg-[#1a1f24] hover:bg-[#252a30] text-gray-400 hover:text-white px-5 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all border border-gray-800 flex items-center gap-2 shadow-sm"
+                            className="bg-[#1a1f24] hover:bg-[#252a30] text-gray-400 hover:text-white px-5 py-3 rounded-[2px] font-black uppercase text-[10px] tracking-widest transition-all border border-gray-800 flex items-center gap-2 shadow-sm"
                         >
                             <FaFilePdf className="text-red-500" /> PDF
                         </button>
                         {canCreate && (
                             <button
                                 onClick={() => navigate("/hr/employee/add")}
-                                className="bg-cyan-500 hover:bg-cyan-600 text-black px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-cyan-500/20"
+                                className="bg-cyan-500 hover:bg-cyan-600 text-black px-6 py-3 rounded-[2px] font-black uppercase text-[10px] tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-cyan-500/20"
                             >
                                 <FaPlus /> Add Employee
                             </button>
@@ -361,8 +448,327 @@ const EmployeeList = () => {
                     </div>
                 </div>
 
+                {/* Analytics Dashboard */}
+                {!analyticsLoading && analytics && (
+                    <div className="space-y-6">
+                        {/* Key Stats Cards */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2px] hover:border-cyan-500/30 transition-all group relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-cyan-500/10"></div>
+                                <div className="flex items-center justify-between mb-4 relative z-10">
+                                    <div className="p-2 bg-cyan-500/10 rounded-[2px]">
+                                        <FaUsers className="text-cyan-500 text-xl" />
+                                    </div>
+                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Live Force</span>
+                                </div>
+                                <p className="text-4xl font-black text-white tracking-tighter relative z-10 bg-gradient-to-br from-white to-gray-400 bg-clip-text text-transparent">
+                                    {analytics.totalEmployees}
+                                </p>
+                                <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Total Workforce</p>
+                            </div>
+
+                            <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2px] hover:border-emerald-500/30 transition-all group relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-emerald-500/10"></div>
+                                <div className="flex items-center justify-between mb-4 relative z-10">
+                                    <div className="p-2 bg-emerald-500/10 rounded-[2px]">
+                                        <FaChartPie className="text-emerald-500 text-xl" />
+                                    </div>
+                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Operations</span>
+                                </div>
+                                <p className="text-4xl font-black text-emerald-500 tracking-tighter relative z-10 bg-gradient-to-br from-emerald-400 to-emerald-600 bg-clip-text text-transparent">
+                                    {analytics.statusBreakdown.find(s => s._id === "Active")?.count || 0}
+                                </p>
+                                <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Active Personnel</p>
+                            </div>
+
+                            <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2px] hover:border-blue-500/30 transition-all group relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-blue-500/10"></div>
+                                <div className="flex items-center justify-between mb-4 relative z-10">
+                                    <div className="p-2 bg-blue-500/10 rounded-[2px]">
+                                        <FaBuilding className="text-blue-500 text-xl" />
+                                    </div>
+                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Structure</span>
+                                </div>
+                                <p className="text-4xl font-black text-blue-500 tracking-tighter relative z-10 bg-gradient-to-br from-blue-400 to-blue-600 bg-clip-text text-transparent">
+                                    {analytics.totalDepartments || analytics.departmentDistribution.length}
+                                </p>
+                                <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Total Departments</p>
+                            </div>
+
+                            <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2px] hover:border-amber-500/30 transition-all group relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-amber-500/10"></div>
+                                <div className="flex items-center justify-between mb-4 relative z-10">
+                                    <div className="p-2 bg-amber-500/10 rounded-[2px]">
+                                        <FaMapMarkerAlt className="text-amber-500 text-xl" />
+                                    </div>
+                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Network</span>
+                                </div>
+                                <p className="text-4xl font-black text-amber-500 tracking-tighter relative z-10 bg-gradient-to-br from-amber-400 to-amber-600 bg-clip-text text-transparent">
+                                    {analytics.totalCentres || analytics.centreDistribution.length}
+                                </p>
+                                <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Total Locations</p>
+                            </div>
+                        </div>
+
+                        {/* Charts Grid */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                            {/* Department Distribution Pie Chart */}
+                            {/* Department Distribution Bar Chart - Scrollable to show ALL */}
+                            <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                    <FaChartPie className="text-4xl text-cyan-500" />
+                                </div>
+                                <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
+                                    <span className="w-1 h-4 bg-cyan-500 rounded-full"></span>
+                                    Department Distribution
+                                </h3>
+                                <div className="h-72 w-full overflow-x-auto custom-scrollbar">
+                                    <div
+                                        className="h-full"
+                                        style={{ width: `${Math.max(analytics.departmentDistribution.length * 70, 400)}px` }}
+                                    >
+                                        <BarChart
+                                            width={Math.max(analytics.departmentDistribution.length * 70, 400)}
+                                            height={260}
+                                            data={analytics.departmentDistribution.map(d => ({
+                                                name: d._id || "Unassigned",
+                                                count: d.count
+                                            }))}
+                                            barSize={20}
+                                            margin={{ top: 10, right: 10, left: -20, bottom: 60 }}
+                                        >
+                                            <defs>
+                                                <linearGradient id="deptGradient" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="0%" stopColor="#06b6d4" stopOpacity={1} />
+                                                    <stop offset="100%" stopColor="#0891b2" stopOpacity={0.6} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} vertical={false} />
+                                            <XAxis
+                                                dataKey="name"
+                                                stroke="#9ca3af"
+                                                fontSize={9}
+                                                fontWeight="bold"
+                                                tickLine={true}
+                                                axisLine={true}
+                                                angle={-45}
+                                                textAnchor="end"
+                                                interval={0}
+                                                strokeOpacity={0.4}
+                                            />
+                                            <YAxis
+                                                stroke="#9ca3af"
+                                                fontSize={9}
+                                                fontWeight="bold"
+                                                tickLine={false}
+                                                axisLine={false}
+                                                strokeOpacity={0.4}
+                                            />
+                                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                                            <Bar dataKey="count" fill="url(#deptGradient)" radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Designation Distribution Bar Chart - Scrollable to show ALL */}
+                            <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                    <FaChartPie className="text-4xl text-emerald-500" />
+                                </div>
+                                <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
+                                    <span className="w-1 h-4 bg-emerald-500 rounded-full"></span>
+                                    Designation Distribution
+                                </h3>
+                                <div className="h-72 w-full overflow-x-auto custom-scrollbar">
+                                    <div
+                                        className="h-full"
+                                        style={{ width: `${Math.max(analytics.designationDistribution.length * 60, 400)}px` }}
+                                    >
+                                        <BarChart
+                                            width={Math.max(analytics.designationDistribution.length * 60, 400)}
+                                            height={260}
+                                            data={analytics.designationDistribution.map(d => ({
+                                                name: d._id || "Unassigned",
+                                                count: d.count
+                                            }))}
+                                            barSize={20}
+                                            margin={{ top: 10, right: 10, left: -20, bottom: 60 }}
+                                        >
+                                            <defs>
+                                                <linearGradient id="desigGradient" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
+                                                    <stop offset="100%" stopColor="#059669" stopOpacity={0.6} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} vertical={false} />
+                                            <XAxis
+                                                dataKey="name"
+                                                stroke="#9ca3af"
+                                                fontSize={9}
+                                                fontWeight="bold"
+                                                tickLine={true}
+                                                axisLine={true}
+                                                angle={-45}
+                                                textAnchor="end"
+                                                interval={0}
+                                                strokeOpacity={0.4}
+                                            />
+                                            <YAxis
+                                                stroke="#9ca3af"
+                                                fontSize={9}
+                                                fontWeight="bold"
+                                                tickLine={false}
+                                                axisLine={false}
+                                                strokeOpacity={0.4}
+                                            />
+                                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                                            <Bar dataKey="count" fill="url(#desigGradient)" radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Monthly Joining Trend Area Chart */}
+                            <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                    <FaUsers className="text-4xl text-blue-500" />
+                                </div>
+                                <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
+                                    <span className="w-1 h-4 bg-blue-500 rounded-full"></span>
+                                    Monthly Joining Trend
+                                </h3>
+                                <div className="h-72 w-full">
+                                    <ResponsiveContainer width="100%" height="100%" debounce={100}>
+                                        <AreaChart data={analytics.monthlyJoiningTrend.map(m => ({
+                                            name: `${m._id.month}/${m._id.year}`,
+                                            count: m.count
+                                        }))}>
+                                            <defs>
+                                                <linearGradient id="colorJoining" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
+                                                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                                            <XAxis dataKey="name" stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} />
+                                            <YAxis stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} />
+                                            <Tooltip content={<CustomTooltip />} />
+                                            <Area type="monotone" dataKey="count" stroke="#06b6d4" fillOpacity={1} fill="url(#colorJoining)" strokeWidth={2} />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+
+                            {/* Centre Distribution Bar Chart - Left Side */}
+                            <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl lg:col-span-2 overflow-hidden relative group">
+                                <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                                    <FaMapMarkerAlt className="text-6xl text-amber-500" />
+                                </div>
+                                <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-8 flex items-center gap-2">
+                                    <span className="w-1 h-4 bg-amber-500 rounded-full"></span>
+                                    Geographic Distribution
+                                </h3>
+                                <div className="h-80 w-full overflow-x-auto custom-scrollbar">
+                                    <div
+                                        className="h-full"
+                                        style={{ width: `${Math.max(analytics.centreDistribution.length * 80, 600)}px` }}
+                                    >
+                                        <BarChart
+                                            width={Math.max(analytics.centreDistribution.length * 80, 600)}
+                                            height={300}
+                                            data={analytics.centreDistribution.map(c => ({
+                                                name: c._id || "Unassigned",
+                                                count: c.count
+                                            }))}
+                                            barSize={32}
+                                            margin={{ top: 20, right: 30, left: 10, bottom: 80 }}
+                                        >
+                                            <defs>
+                                                <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="0%" stopColor="#f59e0b" stopOpacity={1} />
+                                                    <stop offset="100%" stopColor="#d97706" stopOpacity={0.6} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} vertical={false} />
+                                            <XAxis
+                                                dataKey="name"
+                                                stroke="#9ca3af"
+                                                fontSize={10}
+                                                fontWeight="bold"
+                                                tickLine={true}
+                                                axisLine={true}
+                                                angle={-45}
+                                                textAnchor="end"
+                                                interval={0}
+                                                strokeOpacity={0.4}
+                                            />
+                                            <YAxis
+                                                stroke="#9ca3af"
+                                                fontSize={10}
+                                                fontWeight="bold"
+                                                tickLine={false}
+                                                axisLine={false}
+                                                strokeOpacity={0.4}
+                                            />
+                                            <Tooltip
+                                                content={<CustomTooltip />}
+                                                cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                                            />
+                                            <Bar dataKey="count" fill="url(#barGradient)" radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Employment Type Distribution - New Component in the empty space */}
+                            <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                    <FaFileAlt className="text-4xl text-purple-500" />
+                                </div>
+                                <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
+                                    <span className="w-1 h-4 bg-purple-500 rounded-full"></span>
+                                    Employment Type
+                                </h3>
+                                <div className="h-72 w-full">
+                                    <ResponsiveContainer width="100%" height="100%" debounce={100}>
+                                        <PieChart>
+                                            <Pie
+                                                data={analytics.employmentTypeDistribution.map((d, i) => ({
+                                                    name: d._id || "Regular",
+                                                    value: d.count
+                                                }))}
+                                                cx="50%"
+                                                cy="45%"
+                                                innerRadius={45}
+                                                outerRadius={75}
+                                                paddingAngle={4}
+                                                dataKey="value"
+                                                stroke="none"
+                                            >
+                                                {analytics.employmentTypeDistribution.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={['#a855f7', '#ec4899', '#f43f5e', '#ef4444'][index % 4]} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip content={<CustomTooltip />} />
+                                            <Legend
+                                                verticalAlign="bottom"
+                                                height={80}
+                                                iconType="circle"
+                                                iconSize={8}
+                                                wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }}
+                                                formatter={(value) => <span className="text-[10px] uppercase font-black text-gray-400 hover:text-white transition-colors ml-2">{value}</span>}
+                                            />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Filters */}
-                <div className="bg-[#131619] p-6 rounded-[2rem] shadow-xl border border-gray-800">
+                <div className="bg-[#131619] p-6 rounded-[2px] shadow-xl border border-gray-800">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6 items-end">
                         <div className="lg:col-span-1 space-y-2">
                             <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Search</label>
@@ -373,7 +779,7 @@ const EmployeeList = () => {
                                     placeholder="NAME / ID..."
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-3 bg-[#1a1f24] border border-gray-800 rounded-xl focus:border-cyan-500/50 outline-none text-white transition-all text-xs font-bold uppercase tracking-wider placeholder:text-gray-700"
+                                    className="w-full pl-10 pr-4 py-3 bg-[#1a1f24] border border-gray-800 rounded-[2px] focus:border-cyan-500/50 outline-none text-white transition-all text-xs font-bold uppercase tracking-wider placeholder:text-gray-700"
                                 />
                             </div>
                         </div>
@@ -388,7 +794,7 @@ const EmployeeList = () => {
                                 <select
                                     value={filter.value}
                                     onChange={(e) => handleFilterChange(filter.key, e.target.value)}
-                                    className="w-full px-4 py-3 bg-[#1a1f24] border border-gray-800 rounded-xl focus:border-cyan-500/50 outline-none text-white transition-all text-xs font-bold uppercase tracking-wider appearance-none cursor-pointer text-gray-400"
+                                    className="w-full px-4 py-3 bg-[#1a1f24] border border-gray-800 rounded-[2px] focus:border-cyan-500/50 outline-none text-white transition-all text-xs font-bold uppercase tracking-wider appearance-none cursor-pointer text-gray-400"
                                 >
                                     <option value="">All {filter.label}s</option>
                                     {filter.options.map(opt => (
@@ -403,7 +809,7 @@ const EmployeeList = () => {
                             <select
                                 value={filters.status}
                                 onChange={(e) => handleFilterChange("status", e.target.value)}
-                                className="w-full px-4 py-3 bg-[#1a1f24] border border-gray-800 rounded-xl focus:border-cyan-500/50 outline-none text-white transition-all text-xs font-bold uppercase tracking-wider appearance-none cursor-pointer text-gray-400"
+                                className="w-full px-4 py-3 bg-[#1a1f24] border border-gray-800 rounded-[2px] focus:border-cyan-500/50 outline-none text-white transition-all text-xs font-bold uppercase tracking-wider appearance-none cursor-pointer text-gray-400"
                             >
                                 <option value="">All Status</option>
                                 <option value="Active">Active</option>
@@ -415,7 +821,7 @@ const EmployeeList = () => {
 
                         <button
                             onClick={handleClearFilters}
-                            className="h-[46px] flex items-center justify-center gap-2 bg-gray-800 hover:bg-red-500/20 hover:text-red-500 text-gray-400 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-transparent hover:border-red-500/20 group"
+                            className="h-[46px] flex items-center justify-center gap-2 bg-gray-800 hover:bg-red-500/20 hover:text-red-500 text-gray-400 px-6 rounded-[2px] text-[10px] font-black uppercase tracking-widest transition-all border border-transparent hover:border-red-500/20 group"
                         >
                             <FaFilter className="group-hover:text-red-500 transition-colors" /> Clear
                         </button>
@@ -498,14 +904,14 @@ const EmployeeList = () => {
                                                 <div className="flex gap-2">
                                                     <button
                                                         onClick={() => navigate(`/hr/employee/letters/${employee._id}`)}
-                                                        className="p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-cyan-500/20 rounded-lg transition-all"
+                                                        className="p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-cyan-500/20 rounded-[2px] transition-all"
                                                         title="Letters"
                                                     >
                                                         <FaFileAlt size={14} />
                                                     </button>
                                                     <button
                                                         onClick={() => navigate(`/hr/employee/view/${employee._id}`)}
-                                                        className="p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-blue-500/20 rounded-lg transition-all"
+                                                        className="p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-blue-500/20 rounded-[2px] transition-all"
                                                         title="View"
                                                     >
                                                         <FaEye size={14} />
@@ -513,7 +919,7 @@ const EmployeeList = () => {
                                                     {canEdit && (
                                                         <button
                                                             onClick={() => navigate(`/hr/employee/edit/${employee._id}`)}
-                                                            className="p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-emerald-500/20 rounded-lg transition-all"
+                                                            className="p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-emerald-500/20 rounded-[2px] transition-all"
                                                             title="Edit"
                                                         >
                                                             <FaEdit size={14} />
@@ -522,7 +928,7 @@ const EmployeeList = () => {
                                                     {canDelete && (
                                                         <button
                                                             onClick={() => handleDelete(employee._id)}
-                                                            className="p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-red-500/20 rounded-lg transition-all"
+                                                            className="p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-red-500/20 rounded-[2px] transition-all"
                                                             title="Delete"
                                                         >
                                                             <FaTrash size={14} />
@@ -545,19 +951,19 @@ const EmployeeList = () => {
                             <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-cyan-500"></div>
                         </div>
                     ) : employees.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center p-8 bg-[#131619] rounded-2xl border border-gray-800 border-dashed">
+                        <div className="flex flex-col items-center justify-center p-8 bg-[#131619] rounded-[2px] border border-gray-800 border-dashed">
                             <p className="text-gray-500 font-bold uppercase text-xs">No employees found</p>
                         </div>
                     ) : (
                         employees.map((employee) => (
-                            <div key={employee._id} className="bg-[#131619] rounded-2xl p-5 border border-gray-800 shadow-lg relative overflow-hidden group">
+                            <div key={employee._id} className="bg-[#131619] rounded-[2px] p-5 border border-gray-800 shadow-lg relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 p-3">
                                     <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${employee.status === "Active" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-red-500/10 text-red-500 border-red-500/20"}`}>
                                         {employee.status}
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-4 mb-5">
-                                    <div className="w-14 h-14 rounded-2xl bg-gray-800 border-2 border-gray-700 overflow-hidden flex-shrink-0 shadow-lg">
+                                    <div className="w-14 h-14 rounded-[2px] bg-gray-800 border-2 border-gray-700 overflow-hidden flex-shrink-0 shadow-lg">
                                         {employee.profileImage && !employee.profileImage.startsWith('undefined/') ? (
                                             <img src={employee.profileImage} alt="" className="w-full h-full object-cover" />
                                         ) : (
@@ -573,15 +979,15 @@ const EmployeeList = () => {
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-3 mb-5">
-                                    <div className="bg-black/30 p-3 rounded-xl border border-gray-800/50">
+                                    <div className="bg-black/30 p-3 rounded-[2px] border border-gray-800/50">
                                         <div className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1">Department</div>
                                         <div className="text-xs text-gray-300 font-bold truncate">{employee.department?.departmentName || "N/A"}</div>
                                     </div>
-                                    <div className="bg-black/30 p-3 rounded-xl border border-gray-800/50">
+                                    <div className="bg-black/30 p-3 rounded-[2px] border border-gray-800/50">
                                         <div className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1">Role</div>
                                         <div className="text-xs text-gray-300 font-bold truncate">{employee.designation?.name || "N/A"}</div>
                                     </div>
-                                    <div className="bg-black/30 p-3 rounded-xl border border-gray-800/50 col-span-2">
+                                    <div className="bg-black/30 p-3 rounded-[2px] border border-gray-800/50 col-span-2">
                                         <div className="flex items-center gap-2 mb-1">
                                             <FaEnvelope size={10} className="text-gray-600" />
                                             <span className="text-[9px] text-gray-500 font-black uppercase tracking-widest">Contact</span>
@@ -591,15 +997,15 @@ const EmployeeList = () => {
                                 </div>
 
                                 <div className="flex items-center justify-between gap-3 pt-4 border-t border-gray-800">
-                                    <button onClick={() => navigate(`/hr/employee/view/${employee._id}`)} className="flex-1 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-xs font-bold transition-all">
+                                    <button onClick={() => navigate(`/hr/employee/view/${employee._id}`)} className="flex-1 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-[2px] text-xs font-bold transition-all">
                                         View
                                     </button>
                                     {canEdit && (
-                                        <button onClick={() => navigate(`/hr/employee/edit/${employee._id}`)} className="flex-1 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-500 rounded-lg text-xs font-bold transition-all border border-cyan-500/20">
+                                        <button onClick={() => navigate(`/hr/employee/edit/${employee._id}`)} className="flex-1 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-500 rounded-[2px] text-xs font-bold transition-all border border-cyan-500/20">
                                             Edit
                                         </button>
                                     )}
-                                    <button onClick={() => navigate(`/hr/employee/letters/${employee._id}`)} className="w-10 h-10 flex items-center justify-center bg-gray-800 rounded-lg text-gray-400 hover:text-white">
+                                    <button onClick={() => navigate(`/hr/employee/letters/${employee._id}`)} className="w-10 h-10 flex items-center justify-center bg-gray-800 rounded-[2px] text-gray-400 hover:text-white">
                                         <FaFileAlt />
                                     </button>
                                 </div>
@@ -610,7 +1016,7 @@ const EmployeeList = () => {
 
                 {/* Pagination */}
                 {pagination.totalPages > 1 && (
-                    <div className="flex flex-col md:flex-row items-center justify-between bg-[#131619] px-6 py-4 rounded-xl shadow-sm border border-gray-800 gap-4 transition-all">
+                    <div className="flex flex-col md:flex-row items-center justify-between bg-[#131619] px-6 py-4 rounded-[2px] shadow-sm border border-gray-800 gap-4 transition-all">
                         <div className="flex items-center gap-4">
                             <form onSubmit={handleJumpPage} className="flex items-center gap-2">
                                 <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Go to:</span>
@@ -619,7 +1025,7 @@ const EmployeeList = () => {
                                     value={jumpPage}
                                     onChange={(e) => setJumpPage(e.target.value)}
                                     placeholder="Pg"
-                                    className="w-12 h-10 bg-[#1a1f24] border border-gray-800 rounded-lg text-center text-xs text-white focus:border-cyan-500 outline-none transition-all font-bold"
+                                    className="w-12 h-10 bg-[#1a1f24] border border-gray-800 rounded-[2px] text-center text-xs text-white focus:border-cyan-500 outline-none transition-all font-bold"
                                 />
                             </form>
                         </div>
@@ -627,7 +1033,7 @@ const EmployeeList = () => {
                             <button
                                 onClick={() => handlePageChange(pagination.currentPage - 1)}
                                 disabled={pagination.currentPage === 1}
-                                className="w-10 h-10 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                                className="w-10 h-10 flex items-center justify-center rounded-[2px] text-gray-500 hover:bg-gray-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-all"
                             >
                                 <FaChevronLeft size={12} />
                             </button>
@@ -637,7 +1043,7 @@ const EmployeeList = () => {
                             <button
                                 onClick={() => handlePageChange(pagination.currentPage + 1)}
                                 disabled={pagination.currentPage === pagination.totalPages}
-                                className="w-10 h-10 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                                className="w-10 h-10 flex items-center justify-center rounded-[2px] text-gray-500 hover:bg-gray-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-all"
                             >
                                 <FaChevronRight size={12} />
                             </button>
