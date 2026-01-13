@@ -1,30 +1,43 @@
 import EmployeeAttendance from "../models/Attendance/EmployeeAttendance.js";
-import { startOfDay, endOfDay } from "date-fns";
+import { startOfDay, endOfDay, isSameDay } from "date-fns";
 
 export const performAutoCheckout = async () => {
     try {
         const now = new Date();
         const todayStart = startOfDay(now);
-        const todayEnd = endOfDay(now);
 
         console.log(`🕒 Starting Auto-Checkout process for ${now.toISOString()}`);
 
-        // Find all attendance records for today where checkIn exists but checkOut is missing
+        // Find ALL attendance records where checkOut is missing
+        // This includes today's open sessions AND any stale sessions from the past
         const activeAttendances = await EmployeeAttendance.find({
-            date: { $gte: todayStart, $lte: todayEnd },
             "checkIn.time": { $exists: true },
             "checkOut.time": { $exists: false }
         });
 
-        console.log(`Found ${activeAttendances.length} records to auto-checkout.`);
+        console.log(`Found ${activeAttendances.length} open attendance records.`);
 
         let count = 0;
         for (const attendance of activeAttendances) {
-            // Set checkout time to 9:00 PM (21:00) of the same day
+            const recordDate = new Date(attendance.date);
+            const isToday = isSameDay(recordDate, now);
+
+            // If it's today's record, only auto-checkout if it's past 9 PM (21:00)
+            if (isToday) {
+                if (now.getHours() < 21) {
+                    // Too early to auto-checkout today's records
+                    continue;
+                }
+            } else if (recordDate > now) {
+                // If record date is in the future (unlikely), skip
+                continue;
+            }
+
+            // Set checkout time to 9:00 PM (21:00) of the SAME DAY as the attendance
             const checkoutTime = new Date(attendance.date);
             checkoutTime.setHours(21, 0, 0, 0);
 
-            // If checkIn was actually after 9 PM (unlikely but possible), skip or handle
+            // If checkIn was actually after 9 PM, we can't really set checkout to 9 PM.
             if (attendance.checkIn.time > checkoutTime) {
                 console.warn(`Record for user ${attendance.user} has checkIn after 9 PM. Skipping auto-checkout.`);
                 continue;
