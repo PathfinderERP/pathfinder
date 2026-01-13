@@ -100,26 +100,23 @@ export const markAttendance = async (req, res) => {
             if (type === 'checkIn') return res.status(400).json({ message: "You have already checked in for today." });
             if (attendance.checkOut?.time) return res.status(400).json({ message: "You have already checked out for today." });
 
-            // VALIDATION: Check Minimum Working Hours
+            // NEW RULE-BASED STATUS ASSIGNMENT
             const checkOutTime = new Date();
             const checkInTime = new Date(attendance.checkIn.time);
             const diffMs = checkOutTime - checkInTime;
             const workedHours = diffMs / (1000 * 60 * 60);
+            const targetHours = employee.workingHours || 9; // Default to 9 if not set
 
-            // Fetch required hours from employee profile (default to 1 if not set to avoid getting stuck)
-            // Use a small buffer (e.g., 0.1 hours) if no gathered workingHours to allow testing? 
-            // The prompt asks to "Implement logic for minimum working hours".
-            // Assuming employee.workingHours is the daily requirement.
-            const minHours = employee.workingHours || 0;
+            let finalStatus = "Present";
 
-            // If minHours is significantly > 0, enforce it.
-            // Using a tolerance of 15 minutes (0.25 hours) to be nice? Or strict? "Prevent check-out".
-            // Let's be strict but handle 0 case.
-            if (minHours > 0 && workedHours < minHours) {
-                const remaining = (minHours - workedHours).toFixed(2);
-                return res.status(400).json({
-                    message: `Early Checkout Restricted. You need to complete ${minHours} hours. Remaining: ${remaining} hours.`
-                });
+            if (workedHours < 4) {
+                finalStatus = "Absent";
+            } else if (workedHours < (targetHours / 2)) {
+                finalStatus = "Half Day";
+            } else if (workedHours < (targetHours - 0.5)) {
+                finalStatus = "Early Leave";
+            } else if (workedHours >= targetHours + 0.05) { // Small buffer for overtime
+                finalStatus = "Overtime";
             }
 
             attendance.checkOut = {
@@ -129,17 +126,13 @@ export const markAttendance = async (req, res) => {
                 address: matchingCentre.centreName
             };
 
-            // Calculate working hours
             attendance.workingHours = parseFloat(workedHours.toFixed(2));
-
-            // Determine status based on hours (e.g. Half Day) if needed
-            // For now, keep as Present, or update if very short duration?
-            // If < 4 hours, maybe Half Day? Leaving as Present per current logic unless requested.
+            attendance.status = finalStatus;
         }
 
         await attendance.save();
         res.status(200).json({
-            message: `Successfully ${type === 'checkIn' ? 'checked in' : 'checked out'} at ${matchingCentre.centreName}.`,
+            message: `Successfully ${type === 'checkIn' ? 'checked in' : 'checked out'} at ${matchingCentre.centreName}. Status: ${attendance.status}`,
             attendance,
             centreName: matchingCentre.centreName
         });
@@ -345,9 +338,10 @@ export const getAttendanceAnalysis = async (req, res) => {
         let checkInCount = 0;
         let checkOutCount = 0;
 
-        const statusDistribution = { Present: 0, Late: 0, 'Half Day': 0, Absent: 0 };
+        const statusDistribution = { Present: 0, Late: 0, 'Half Day': 0, Absent: 0, 'Early Leave': 0, Overtime: 0 };
         const todayStr = format(new Date(), 'yyyy-MM-dd');
         let todayRecord = null;
+        const targetHours = 9; // Default target for calculations if unknown
 
         const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
         const dailyData = daysInMonth.map(day => {
@@ -426,29 +420,28 @@ export const getAttendanceAnalysis = async (req, res) => {
         const avgCheckIn = formatMinutesToTime(totalCheckInMinutes, checkInCount);
         const avgCheckOut = formatMinutesToTime(totalCheckOutMinutes, checkOutCount);
 
-        // If today has no record explicitly found yet (maybe not in monthAttendances if filtered oddly), check DB? 
-        // Logic above uses yearAttendances filtered by month, so if today is in current month it should be there.
-
         res.status(200).json({
             summary: {
                 totalDays: monthAttendances.length,
-                presentDays: statusDistribution.Present + statusDistribution.Late + statusDistribution['Half Day'],
+                presentDays: statusDistribution.Present + statusDistribution.Late + statusDistribution['Half Day'] + statusDistribution['Early Leave'] + statusDistribution.Overtime,
                 absentDays: statusDistribution.Absent,
-                totalHours: totalHours.toFixed(2),
-                averageHours: avgHours,
-                minHours: minHours.toFixed(2),
-                maxHours: maxHours.toFixed(2),
+                totalHours: parseFloat(totalHours.toFixed(2)),
+                averageHours: parseFloat(avgHours),
+                minHours: parseFloat(minHours.toFixed(2)),
+                maxHours: parseFloat(maxHours.toFixed(2)),
                 avgCheckIn,
                 avgCheckOut,
-                todayRecord // Include today's live details
+                todayRecord
             },
             dailyData,
-            monthlyStats, // Year-long trend
+            monthlyStats,
             statusDistribution: [
                 { name: 'Present', value: statusDistribution.Present, color: '#10b981' },
+                { name: 'Overtime', value: statusDistribution.Overtime, color: '#8b5cf6' },
+                { name: 'Early Leave', value: statusDistribution['Early Leave'], color: '#ec4899' },
+                { name: 'Half Day', value: statusDistribution['Half Day'], color: '#f59e0b' },
                 { name: 'Absent', value: statusDistribution.Absent, color: '#ef4444' },
-                { name: 'Late', value: statusDistribution.Late, color: '#f59e0b' },
-                { name: 'Half Day', value: statusDistribution['Half Day'], color: '#3b82f6' }
+                { name: 'Late', value: statusDistribution.Late, color: '#6366f1' }
             ].filter(i => i.value > 0)
         });
 
@@ -463,7 +456,7 @@ export const getAttendanceDashboardStats = async (req, res) => {
     try {
         const { month, year, centreId, department, designation } = req.query;
 
-        // 1. Build Employee Filter (to get Total Count)
+        // 1. Build Employee Filter
         const empQuery = { status: "Active" };
         if (centreId) {
             const centres = centreId.split(',').filter(Boolean);
@@ -478,34 +471,50 @@ export const getAttendanceDashboardStats = async (req, res) => {
             if (desigs.length > 0) empQuery.designation = { $in: desigs };
         }
 
-        const totalEmployees = await Employee.countDocuments(empQuery);
+        const employees = await Employee.find(empQuery).select('_id workingHours');
+        const totalEmployees = employees.length;
 
         // 2. Build Attendance Filter (Date Range)
         const monthStart = startOfMonth(new Date(year, month - 1, 1));
         const monthEnd = endOfMonth(new Date(year, month - 1, 1));
         const attQuery = {
-            date: { $gte: monthStart, $lte: monthEnd }
+            date: { $gte: monthStart, $lte: monthEnd },
+            employeeId: { $in: employees.map(e => e._id) }
         };
 
-        if (centreId || department || designation) {
-            const matchingEmpIds = await Employee.find(empQuery).select('_id');
-            attQuery.employeeId = { $in: matchingEmpIds.map(e => e._id) };
-        }
-
-        const attendances = await EmployeeAttendance.find(attQuery).populate('employeeId', 'department designation');
+        const attendances = await EmployeeAttendance.find(attQuery).populate('employeeId', 'department designation workingHours');
 
         // 3. Calculate Stats
-        // A. Max/Min/Avg Hours
         let hoursList = attendances.map(a => a.workingHours || 0).filter(h => h > 0);
-        // Handle case where hours might be strings or weird formats, ensure numbers
         hoursList = hoursList.map(h => parseFloat(h)).filter(h => !isNaN(h));
 
         const maxHours = hoursList.length ? Math.max(...hoursList).toFixed(2) : 0;
         const minHours = hoursList.length ? Math.min(...hoursList).toFixed(2) : 0;
-        const totalHours = hoursList.reduce((a, b) => a + b, 0);
-        const avgHours = hoursList.length ? (totalHours / hoursList.length).toFixed(2) : 0;
+        const totalActualHours = hoursList.reduce((a, b) => a + b, 0);
+        const avgHours = hoursList.length ? (totalActualHours / hoursList.length).toFixed(2) : 0;
 
-        // B. Total Present logic
+        // Efficiency Calculation
+        // Target = Average target hours of present employees * Count of present records
+        // Or better: Sum of target hours of all employees for the days they worked
+        let totalTargetHours = 0;
+        attendances.forEach(a => {
+            totalTargetHours += (a.employeeId?.workingHours || 9); // Default to 9 if not set
+        });
+
+        const efficiency = totalTargetHours > 0
+            ? Math.min(100, Math.round((totalActualHours / totalTargetHours) * 100))
+            : 0;
+
+        // Status Counts for Dashboard
+        const statusSummary = {
+            overtime: attendances.filter(a => a.status === 'Overtime').length,
+            earlyLeave: attendances.filter(a => a.status === 'Early Leave').length,
+            halfDay: attendances.filter(a => a.status === 'Half Day').length,
+            shortLeave: attendances.filter(a => a.workingHours >= 8.5 && a.workingHours < 9).length,
+            absent: 0 // Will calculate based on expected vs actual if needed, but for now simple counts
+        };
+
+        // Present logic
         const isCurrentMonth = new Date().getMonth() === (parseInt(month) - 1) && new Date().getFullYear() === parseInt(year);
         let presentCount = 0;
         if (isCurrentMonth) {
@@ -516,22 +525,36 @@ export const getAttendanceDashboardStats = async (req, res) => {
             presentCount = daysWithData ? Math.round(attendances.length / daysWithData) : 0;
         }
 
-        // C. Daily Trend
+        // Daily Trend including Caution Categories
         const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-        const dailyTrend = daysInMonth.map(day => {
+        const dailyTrend = [];
+        const dailyCautionsTrend = [];
+
+        daysInMonth.forEach(day => {
             const dayStr = format(day, 'yyyy-MM-dd');
-            // Don't show future days if current month
-            if (day > new Date()) return null;
+            if (day > new Date()) return;
 
             const dailyAtts = attendances.filter(a => format(new Date(a.date), 'yyyy-MM-dd') === dayStr);
-            return {
+
+            // Standard Trend
+            dailyTrend.push({
                 date: format(day, 'dd'),
                 fullDate: format(day, 'dd MMM'),
                 present: dailyAtts.length,
                 total: totalEmployees,
                 absent: Math.max(0, totalEmployees - dailyAtts.length)
-            };
-        }).filter(Boolean); // Remove nulls for future dates
+            });
+
+            // Cautions Trend
+            dailyCautionsTrend.push({
+                date: format(day, 'dd'),
+                fullDate: format(day, 'dd MMM'),
+                overtime: dailyAtts.filter(a => a.status === 'Overtime').length,
+                earlyLeave: dailyAtts.filter(a => a.status === 'Early Leave').length,
+                halfDay: dailyAtts.filter(a => a.status === 'Half Day').length,
+                shortLeave: dailyAtts.filter(a => a.workingHours >= 8.5 && a.workingHours < 9).length
+            });
+        });
 
         res.status(200).json({
             totalEmployees,
@@ -540,7 +563,10 @@ export const getAttendanceDashboardStats = async (req, res) => {
             maxHours,
             minHours,
             avgHours,
-            dailyTrend
+            efficiency: `${efficiency}%`,
+            statusSummary,
+            dailyTrend,
+            dailyCautionsTrend
         });
 
     } catch (error) {

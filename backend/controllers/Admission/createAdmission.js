@@ -85,6 +85,10 @@ export const createAdmission = async (req, res) => {
 
         const previousBalance = student.carryForwardBalance || 0;
 
+        if (student.status === 'Deactivated') {
+            return res.status(400).json({ message: "This student is deactivated. New admissions are restricted." });
+        }
+
         // Fetch course details
         const course = await Course.findById(courseId);
         if (!course) {

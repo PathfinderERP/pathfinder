@@ -5,6 +5,7 @@ import { getAdmissionById } from "../../controllers/Admission/getAdmissionById.j
 import { updateAdmission } from "../../controllers/Admission/updateAdmission.js";
 import { deleteAdmission } from "../../controllers/Admission/deleteAdmission.js";
 import { updatePaymentInstallment } from "../../controllers/Admission/updatePaymentInstallment.js";
+import { toggleStudentStatus } from "../../controllers/Admission/toggleStudentStatus.js";
 import { requireAuth, requireGranularPermission, requireAnyGranularPermission } from "../../middleware/permissionMiddleware.js";
 
 import { searchAdmission, transferCourse } from "../../controllers/Admission/courseTransfer.js";
@@ -26,5 +27,7 @@ router.put("/:admissionId/payment/:installmentNumber", requireAnyGranularPermiss
     { module: "financeFees", section: "installmentPayment", action: "create" },
     { module: "financeFees", section: "installmentPayment", action: "edit" }
 ]), updatePaymentInstallment);
+
+router.put("/student/:studentId/status", requireGranularPermission("admissions", "enrolledStudents", "deactivate"), toggleStudentStatus);
 
 export default router;

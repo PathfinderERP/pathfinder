@@ -64,6 +64,8 @@ const StudentSchema = new mongoose.Schema({
   course: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
   department: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
   isEnrolled: { type: Boolean, default: false },
+  status: { type: String, enum: ['Active', 'Deactivated'], default: 'Active' },
+  deactivationDate: { type: Date },
   carryForwardBalance: { type: Number, default: 0 },
   markedForCarryForward: { type: Boolean, default: false }
 }, { timestamps: true });

@@ -21,6 +21,10 @@ export const updateAdmission = async (req, res) => {
             return res.status(404).json({ message: "Admission not found" });
         }
 
+        if (admission.student && admission.student.status === 'Deactivated') {
+            return res.status(400).json({ message: "This student is deactivated. Updates are restricted." });
+        }
+
         res.status(200).json({
             message: "Admission updated successfully",
             admission

@@ -163,6 +163,17 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                     </div>
 
                     <div className="p-6 space-y-6">
+                        {/* Deactivation Warning Banner */}
+                        {admission.student?.status === 'Deactivated' && (
+                            <div className="bg-red-500/10 border border-red-500/50 p-4 rounded-lg flex items-center gap-3 animate-pulse">
+                                <FaExclamationCircle className="text-red-500 text-xl" />
+                                <div>
+                                    <h4 className="text-red-500 font-bold">STUDENT DEACTIVATED</h4>
+                                    <p className="text-red-400/80 text-sm">All financial operations and bill generation are restricted for this student.</p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Student Information */}
                         <div className="bg-[#131619] p-6 rounded-lg border border-gray-800">
                             <div className="flex items-center gap-3 mb-4">
@@ -370,17 +381,18 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                                         {canEdit ? (
                                                             (!isPaid && payment.status !== "PENDING_CLEARANCE") ? (
                                                                 <button
-                                                                    onClick={() => openPaymentModal(payment)}
-                                                                    disabled={!previousPaid}
-                                                                    className={`px-3 py-1 text-white text-sm rounded transition-colors ${previousPaid ? 'bg-cyan-600 hover:bg-cyan-500' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
-                                                                    title={!previousPaid ? "Complete previous installment first" : "Pay Now"}
+                                                                    onClick={() => admission.student?.status !== 'Deactivated' && openPaymentModal(payment)}
+                                                                    disabled={!previousPaid || admission.student?.status === 'Deactivated'}
+                                                                    className={`px-3 py-1 text-white text-sm rounded transition-colors ${(!previousPaid || admission.student?.status === 'Deactivated') ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500'}`}
+                                                                    title={admission.student?.status === 'Deactivated' ? "Student is deactivated" : (!previousPaid ? "Complete previous installment first" : "Pay Now")}
                                                                 >
                                                                     Pay Now
                                                                 </button>
                                                             ) : (
                                                                 <button
-                                                                    onClick={() => setBillModal({ show: true, admission: admission, installment: payment })}
-                                                                    className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-cyan-400 text-sm rounded transition-colors flex items-center gap-1"
+                                                                    onClick={() => admission.student?.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
+                                                                    disabled={admission.student?.status === 'Deactivated'}
+                                                                    className={`px-3 py-1 text-sm rounded transition-colors flex items-center gap-1 ${admission.student?.status === 'Deactivated' ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-700 hover:bg-gray-600 text-cyan-400'}`}
                                                                 >
                                                                     <FaFileInvoice /> {payment.status === "PENDING_CLEARANCE" ? " Receipt" : " Bill"}
                                                                 </button>
@@ -388,8 +400,9 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                                         ) : (
                                                             (isPaid || payment.status === "PENDING_CLEARANCE") && (
                                                                 <button
-                                                                    onClick={() => setBillModal({ show: true, admission: admission, installment: payment })}
-                                                                    className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-cyan-400 text-sm rounded transition-colors flex items-center gap-1"
+                                                                    onClick={() => admission.student?.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
+                                                                    disabled={admission.student?.status === 'Deactivated'}
+                                                                    className={`px-3 py-1 text-sm rounded transition-colors flex items-center gap-1 ${admission.student?.status === 'Deactivated' ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-700 hover:bg-gray-600 text-cyan-400'}`}
                                                                 >
                                                                     <FaFileInvoice /> {payment.status === "PENDING_CLEARANCE" ? " Receipt" : " Bill"}
                                                                 </button>

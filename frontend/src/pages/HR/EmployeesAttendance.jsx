@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import Layout from "../../components/Layout";
 import {
-    FaClock,
+    FaClock, FaStar, FaHistory, FaRunning,
     FaSearch, FaFilter, FaSyncAlt, FaChartBar, FaUserTie,
     FaBuilding, FaSitemap, FaCalendarAlt, FaChevronRight,
     FaTimes, FaChevronDown, FaCheck, FaChartLine, FaChartPie, FaUsers, FaUserClock, FaStopwatch, FaArrowUp, FaArrowDown
@@ -14,6 +14,39 @@ import {
 } from "recharts";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+
+const LegendItem = ({ color, label }) => (
+    <div className="flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{label}</span>
+    </div>
+);
+
+const CautionChart = ({ data, dataKey, color, title }) => (
+    <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2px] h-[250px] relative overflow-hidden group">
+        <div className="flex justify-between items-center mb-6">
+            <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">{title}</h4>
+            <div className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-[1px]`} style={{ backgroundColor: `${color}20`, color: color }}>TREND</div>
+        </div>
+        <div className="h-[150px]">
+            <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={data}>
+                    <defs>
+                        <linearGradient id={`color${dataKey}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                            <stop offset="95%" stopColor={color} stopOpacity={0} />
+                        </linearGradient>
+                    </defs>
+                    <Tooltip
+                        contentStyle={{ backgroundColor: '#131619', border: '1px solid #1f2937', borderRadius: '2px', fontSize: '10px', textTransform: 'uppercase', fontWeight: '900' }}
+                        itemStyle={{ color: '#fff' }}
+                    />
+                    <Area type="monotone" dataKey={dataKey} stroke={color} fillOpacity={1} fill={`url(#color${dataKey})`} strokeWidth={2} />
+                </AreaChart>
+            </ResponsiveContainer>
+        </div>
+    </div>
+);
 
 const LiveTimer = ({ checkIn, checkOut }) => {
     const [duration, setDuration] = useState("0h 0m");
@@ -201,6 +234,7 @@ const EmployeesAttendance = () => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showPresentModal, setShowPresentModal] = useState(false);
+    const [activeCaution, setActiveCaution] = useState(null); // 'Overtime', 'Early Leave', 'Half Day', 'Short Leave'
 
     // Individual User Analysis State
     const [selectedUser, setSelectedUser] = useState(null);
@@ -216,6 +250,8 @@ const EmployeesAttendance = () => {
         month: new Date().getMonth() + 1,
         year: new Date().getFullYear()
     });
+
+
 
     useEffect(() => {
         fetchMetadata();
@@ -305,7 +341,6 @@ const EmployeesAttendance = () => {
         try {
             const token = localStorage.getItem("token");
             // Use the employee's USER ID for the query, assuming the backend needs user ID
-            // Check if user object structure has user id directly or inside employeeId
             // Based on previous file content, it seemed to pass userId query param
             const targetUserId = user.user?._id || user.user || user.employeeId?.user;
 
@@ -326,7 +361,7 @@ const EmployeesAttendance = () => {
         }
     };
 
-    const handleRefresh = () => {
+    const handleReset = () => {
         setFilters({
             search: "",
             centreId: [],
@@ -336,6 +371,7 @@ const EmployeesAttendance = () => {
             month: new Date().getMonth() + 1,
             year: new Date().getFullYear()
         });
+        setActiveCaution(null);
         toast.info("Filters reset");
     };
 
@@ -350,11 +386,23 @@ const EmployeesAttendance = () => {
             }
         });
 
-        return Object.values(groups).filter(record =>
-            record.employeeId?.name?.toLowerCase().includes(filters.search.toLowerCase()) ||
-            record.employeeId?.employeeId?.toLowerCase().includes(filters.search.toLowerCase())
-        );
-    }, [attendanceList, filters.search]);
+        return Object.values(groups).filter(record => {
+            const matchesSearch = record.employeeId?.name?.toLowerCase().includes(filters.search.toLowerCase()) ||
+                record.employeeId?.employeeId?.toLowerCase().includes(filters.search.toLowerCase());
+
+            let matchesCaution = true;
+            if (activeCaution) {
+                const hours = record.workingHours || 0;
+                const s = record.status;
+                if (activeCaution === 'Overtime') matchesCaution = s === 'Overtime' || hours > 9.05;
+                else if (activeCaution === 'Early Leave') matchesCaution = s === 'Early Leave' || (hours < 8.5 && hours >= 4.5);
+                else if (activeCaution === 'Half Day') matchesCaution = s === 'Half Day' || (hours < 4.5 && hours >= 4);
+                else if (activeCaution === 'Short Leave') matchesCaution = (hours >= 8.5 && hours < 9);
+            }
+
+            return matchesSearch && matchesCaution;
+        });
+    }, [attendanceList, filters.search, activeCaution]);
 
     // Present Today Data
     const presentTodayList = useMemo(() => {
@@ -395,19 +443,12 @@ const EmployeesAttendance = () => {
                     newDailyData.push({ day: todayDay, hours: parseFloat(currentDurationHours.toFixed(2)) });
                 }
 
-                // Sort by day just in case
                 newDailyData.sort((a, b) => a.day - b.day);
-
-                return {
-                    ...prev,
-                    dailyData: newDailyData
-                };
+                return { ...prev, dailyData: newDailyData };
             });
         };
 
-        const interval = setInterval(updateChart, 60000); // Update every minute
-        updateChart(); // Initial run
-
+        const interval = setInterval(updateChart, 60000);
         return () => clearInterval(interval);
     }, [selectedUser, userAnalysisData?.summary?.todayRecord?.checkIn, userAnalysisData?.summary?.todayRecord?.checkOut]);
 
@@ -415,6 +456,7 @@ const EmployeesAttendance = () => {
         const dataToExport = attendanceList.map(att => ({
             "Employee ID": att.employeeId?.employeeId,
             "Name": att.employeeId?.name,
+            "Center": att.centreId?.centreName || 'N/A',
             "Department": att.employeeId?.department?.departmentName || '-',
             "Designation": att.employeeId?.designation?.name || '-',
             "Date": format(new Date(att.date), 'dd-MM-yyyy'),
@@ -426,11 +468,11 @@ const EmployeesAttendance = () => {
 
         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance Report");
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance Records");
         const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-        const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" });
-        saveAs(data, `Workforce_Attendance_${format(new Date(), 'yyyyMMdd')}.xlsx`);
-        toast.success("Attendance Report Exported!");
+        const blob = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" });
+        saveAs(blob, `Workforce_Attendance_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+        toast.success("Full Attendance History Exported!");
     };
 
     return (
@@ -453,10 +495,10 @@ const EmployeesAttendance = () => {
                             onClick={handleExport}
                             className="px-6 py-3 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-[2px] border border-emerald-500/20 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]"
                         >
-                            <FaChartBar /> Export Excel
+                            <FaChartBar /> Export Data
                         </button>
                         <button
-                            onClick={handleRefresh}
+                            onClick={handleReset}
                             className="px-6 py-3 bg-gray-800 text-gray-400 hover:text-white rounded-[2px] border border-gray-700 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"
                         >
                             <FaSyncAlt className={loading ? "animate-spin" : ""} /> Reset
@@ -483,8 +525,39 @@ const EmployeesAttendance = () => {
                     </div>
                 </div>
 
-                {/* Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                {/* Legend / Status Definitions */}
+                <div className="flex flex-wrap gap-4 px-6 py-3 bg-[#131619] border border-gray-800 rounded-[2px] shadow-inner">
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-red-500 rounded-[1px]" />
+                        <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Absent (&lt;4h)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-orange-500 rounded-[1px]" />
+                        <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Half Day (&lt;4.5h)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-pink-500 rounded-[1px]" />
+                        <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Early Leave (up to 8.5h)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-lime-500 rounded-[1px]" />
+                        <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Short Leave (8.5 - 9h)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-emerald-500 rounded-[1px]" />
+                        <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Present (9h)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-indigo-500 rounded-[1px]" />
+                        <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Overtime (&gt;9h)</span>
+                    </div>
+                    <div className="ml-auto flex items-center gap-2">
+                        <span className="text-[8px] font-bold text-gray-600 uppercase italic">* Rules applied as per center working hours (Default 9h target)</span>
+                    </div>
+                </div>
+
+                {/* Organizational Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     <div className="relative group">
                         <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 text-xs transition-colors group-focus-within:text-cyan-500" />
                         <input
@@ -500,39 +573,110 @@ const EmployeesAttendance = () => {
                     <MultiSelectDropdown icon={<FaUserTie />} label="ROLE" options={[{ id: 'hr', name: 'HR' }, { id: 'admin', name: 'Admin' }, { id: 'teacher', name: 'Teacher' }]} selectedValues={filters.role} valKey="id" labelKey="name" onToggle={(vals) => setFilters({ ...filters, role: vals })} />
                 </div>
 
-                {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                    <StatCard
-                        title="Total Employees"
-                        value={stats?.totalEmployees || 0}
-                        subValue="Active Workforce"
-                        icon={<FaUsers />}
-                        color="blue"
-                    />
-                    <div onClick={() => setShowPresentModal(true)} className="cursor-pointer transition-transform hover:scale-[1.02]">
+                {/* Dashboard Stats & Behavioral Highlights */}
+                <div className="space-y-6">
+                    {/* High Level Stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                         <StatCard
-                            title="Attendance"
-                            value={presentTodayList.length} // Real-time today count derived from list
-                            subValue="Click to View Present"
-                            icon={<FaCheck />}
-                            color="emerald"
+                            title="Total Employees"
+                            value={stats?.totalEmployees || 0}
+                            subValue="Active Workforce"
+                            icon={<FaUsers />}
+                            color="blue"
+                        />
+                        <div onClick={() => setShowPresentModal(true)} className="cursor-pointer transition-transform hover:scale-[1.02]">
+                            <StatCard
+                                title="Attendance"
+                                value={presentTodayList.length}
+                                subValue="Click to View Present"
+                                icon={<FaCheck />}
+                                color="emerald"
+                            />
+                        </div>
+                        <StatCard
+                            title="Avg Working Hrs"
+                            value={`${stats?.avgHours || 0}h`}
+                            subValue={`Min: ${stats?.minHours || 0}h • Max: ${stats?.maxHours || 0}h`}
+                            icon={<FaClock />}
+                            color="purple"
+                        />
+                        <StatCard
+                            title="Efficiency"
+                            value={stats?.efficiency || "0%"}
+                            subValue="Based on Shift Comp."
+                            icon={<FaChartLine />}
+                            color="amber"
                         />
                     </div>
-                    <StatCard
-                        title="Avg Working Hrs"
-                        value={`${stats?.avgHours || 0}h`}
-                        subValue={`Min: ${stats?.minHours || 0}h • Max: ${stats?.maxHours || 0}h`}
-                        icon={<FaClock />}
-                        color="purple"
-                    />
-                    <StatCard
-                        title="Efficiency"
-                        value="96%"
-                        subValue="Based on Shift Comp."
-                        icon={<FaChartLine />}
-                        color="amber"
-                    />
+
+                    {/* Interactive Behavioral Cautions */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        {[
+                            { id: 'Overtime', label: 'Overtime Track', count: stats?.statusSummary?.overtime || 0, color: 'indigo', icon: <FaStar /> },
+                            { id: 'Early Leave', label: 'Early Leavers', count: stats?.statusSummary?.earlyLeave || 0, color: 'pink', icon: <FaClock /> },
+                            { id: 'Half Day', label: 'Half Presence', count: stats?.statusSummary?.halfDay || 0, color: 'orange', icon: <FaHistory /> },
+                            { id: 'Short Leave', label: 'Short Shifters', count: stats?.statusSummary?.shortLeave || 0, color: 'lime', icon: <FaRunning /> }
+                        ].map(c => (
+                            <div
+                                key={c.id}
+                                onClick={() => setActiveCaution(activeCaution === c.id ? null : c.id)}
+                                className={`bg-[#131619] border ${activeCaution === c.id ? `border-${c.color}-500 shadow-lg shadow-${c.color}-500/10` : 'border-gray-800'} p-6 rounded-[2px] relative overflow-hidden group cursor-pointer transition-all hover:scale-[1.02]`}
+                            >
+                                <div className={`absolute top-0 right-0 w-16 h-16 bg-${c.color}-500/5 rounded-bl-3xl translate-x-4 -translate-y-4`} />
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className={`w-8 h-8 rounded-[2px] bg-${c.color}-500/10 flex items-center justify-center text-${c.color}-500 group-hover:scale-110 transition-transform`}>
+                                        {c.icon}
+                                    </div>
+                                    <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{c.label}</h4>
+                                </div>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl font-black text-white">{c.count}</span>
+                                    <span className="text-[8px] font-bold text-gray-600 uppercase">Alerts</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Unified Behavioral Trend Chart */}
+                    <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-8 h-[400px] relative overflow-hidden group">
+                        <div className="flex justify-between items-center mb-8 relative z-10">
+                            <div>
+                                <h4 className="text-[12px] font-black text-white uppercase tracking-[0.2em] mb-1">Cautions Behavioral Analysis</h4>
+                                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest italic">Performance Trend (Overlay View)</p>
+                            </div>
+                            <div className="flex gap-6">
+                                <LegendItem color="#8b5cf6" label="Overtime" />
+                                <LegendItem color="#ec4899" label="Early Exit" />
+                                <LegendItem color="#f59e0b" label="Half Day" />
+                                <LegendItem color="#84cc16" label="Short Shift" />
+                            </div>
+                        </div>
+                        <div className="h-[280px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={stats?.dailyCautionsTrend}>
+                                    <defs>
+                                        <linearGradient id="multiOvertime" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.1} /><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} /></linearGradient>
+                                        <linearGradient id="multiEarly" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#ec4899" stopOpacity={0.1} /><stop offset="95%" stopColor="#ec4899" stopOpacity={0} /></linearGradient>
+                                        <linearGradient id="multiHalf" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f59e0b" stopOpacity={0.1} /><stop offset="95%" stopColor="#f59e0b" stopOpacity={0} /></linearGradient>
+                                        <linearGradient id="multiShort" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#84cc16" stopOpacity={0.1} /><stop offset="95%" stopColor="#84cc16" stopOpacity={0} /></linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1f2937" />
+                                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 10, fontWeight: 700 }} />
+                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 10, fontWeight: 700 }} />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '4px', fontSize: '10px', color: '#fff' }}
+                                        itemStyle={{ fontWeight: '900', textTransform: 'uppercase' }}
+                                    />
+                                    <Area type="monotone" dataKey="overtime" stroke="#8b5cf6" fillOpacity={1} fill="url(#multiOvertime)" strokeWidth={3} />
+                                    <Area type="monotone" dataKey="earlyLeave" stroke="#ec4899" fillOpacity={1} fill="url(#multiEarly)" strokeWidth={3} />
+                                    <Area type="monotone" dataKey="halfDay" stroke="#f59e0b" fillOpacity={1} fill="url(#multiHalf)" strokeWidth={3} />
+                                    <Area type="monotone" dataKey="shortLeave" stroke="#84cc16" fillOpacity={1} fill="url(#multiShort)" strokeWidth={3} />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
                 </div>
+
 
                 {/* Charts Area */}
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[400px]">
@@ -651,9 +795,32 @@ const EmployeesAttendance = () => {
                                             <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Live Duration</p>
                                             <LiveTimer checkIn={att.checkIn?.time} checkOut={att.checkOut?.time} />
                                         </div>
-                                        <div className={`px-4 py-1.5 rounded-[2px] text-[9px] font-black uppercase tracking-widest min-w-[80px] text-center ${att.status === 'Present' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
-                                            {att.status}
-                                        </div>
+                                        {(() => {
+                                            const hours = att.workingHours || 0;
+                                            const s = att.status;
+                                            let badgeClass = "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
+                                            let label = att.status;
+
+                                            if (s === "Absent" || (hours < 4 && att.checkOut)) {
+                                                badgeClass = "bg-red-500/10 text-red-500 border border-red-500/20";
+                                            } else if (s === "Half Day" || (hours < 4.5 && att.checkOut)) {
+                                                badgeClass = "bg-orange-500/10 text-orange-500 border border-orange-500/20";
+                                            } else if (s === "Early Leave" || (hours < 8.5 && att.checkOut)) {
+                                                badgeClass = "bg-pink-500/10 text-pink-500 border border-pink-500/20";
+                                            } else if (hours < 9 && att.checkOut) {
+                                                badgeClass = "bg-lime-500/10 text-lime-400 border border-lime-500/20";
+                                                label = "Short Leave";
+                                            } else if (s === "Overtime" || (hours > 9.05 && att.checkOut)) {
+                                                badgeClass = "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20";
+                                                label = "Overtime ★";
+                                            }
+
+                                            return (
+                                                <div className={`px-4 py-1.5 rounded-[2px] text-[9px] font-black uppercase tracking-widest min-w-[80px] text-center ${badgeClass}`}>
+                                                    {label}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             ))}
@@ -716,9 +883,39 @@ const EmployeesAttendance = () => {
                                                         <h4 className="text-white font-black text-sm uppercase tracking-widest italic">Today's Activity</h4>
                                                         <p className="text-cyan-500 text-[9px] font-black uppercase tracking-[0.2em]">{format(new Date(), 'dd MMMM yyyy')}</p>
                                                     </div>
-                                                    <div className={`px-3 py-1 rounded-[2px] text-[8px] font-black uppercase tracking-widest ${userAnalysisData.summary.todayRecord ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-gray-800 text-gray-500'}`}>
-                                                        {userAnalysisData.summary.todayRecord?.status || 'NOT CHECKED IN'}
-                                                    </div>
+                                                    {(() => {
+                                                        const record = userAnalysisData.summary.todayRecord;
+                                                        if (!record) return (
+                                                            <div className="px-3 py-1 rounded-[2px] text-[8px] font-black uppercase tracking-widest bg-gray-800 text-gray-500">
+                                                                NOT CHECKED IN
+                                                            </div>
+                                                        );
+
+                                                        const hours = record.workingHours || 0;
+                                                        const s = record.status;
+                                                        let badgeClass = "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
+                                                        let label = record.status;
+
+                                                        if (s === "Absent" || (hours < 4 && record.checkOut)) {
+                                                            badgeClass = "bg-red-500/10 text-red-500 border border-red-500/20";
+                                                        } else if (s === "Half Day" || (hours < 4.5 && record.checkOut)) {
+                                                            badgeClass = "bg-orange-500/10 text-orange-500 border border-orange-500/20";
+                                                        } else if (s === "Early Leave" || (hours < 8.5 && record.checkOut)) {
+                                                            badgeClass = "bg-pink-500/10 text-pink-500 border border-pink-500/20";
+                                                        } else if (hours < 9 && record.checkOut) {
+                                                            badgeClass = "bg-lime-500/10 text-lime-400 border border-lime-500/20";
+                                                            label = "Short Leave";
+                                                        } else if (s === "Overtime" || (hours > 9.05 && record.checkOut)) {
+                                                            badgeClass = "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20";
+                                                            label = "Overtime ★";
+                                                        }
+
+                                                        return (
+                                                            <div className={`px-3 py-1 rounded-[2px] text-[8px] font-black uppercase tracking-widest ${badgeClass}`}>
+                                                                {label}
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </div>
 
                                                 <div className="grid grid-cols-2 gap-4">

@@ -106,6 +106,13 @@ const EmployeeAttendance = () => {
     useEffect(() => {
         fetchAttendance();
         getCurrentLocation();
+
+        // Polling for live updates
+        const interval = setInterval(() => {
+            fetchAttendance();
+        }, 30000); // Poll every 30 seconds
+
+        return () => clearInterval(interval);
     }, [year]);
 
     const fetchAttendance = async () => {
@@ -194,6 +201,35 @@ const EmployeeAttendance = () => {
         end: endOfYear(new Date(year, 0, 1))
     });
 
+    const Legend = () => (
+        <div className="flex flex-wrap gap-4 px-6 py-3 bg-[#131619] border border-gray-800 rounded-[2px] shadow-inner mb-6">
+            <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-red-500 rounded-[2px]" />
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Absent (&lt;4h)</span>
+            </div>
+            <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-orange-500 rounded-[2px]" />
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Half Day (h/2)</span>
+            </div>
+            <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-pink-500 rounded-[2px]" />
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Early Leave (1-2h)</span>
+            </div>
+            <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-lime-500 rounded-[2px]" />
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Short Leave (30m)</span>
+            </div>
+            <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-emerald-500 rounded-[2px]" />
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Present (9h)</span>
+            </div>
+            <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-indigo-500 rounded-[2px]" />
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Overtime (9h+) ★</span>
+            </div>
+        </div>
+    );
+
     const getDayStatus = (date) => {
         const dateStrKey = format(date, "yyyy-MM-dd");
         const record = attendanceData.find(a => format(new Date(a.date), "yyyy-MM-dd") === dateStrKey);
@@ -204,6 +240,7 @@ const EmployeeAttendance = () => {
                 checkIn: record.checkIn?.time ? format(new Date(record.checkIn.time), "HH:mm") : null,
                 checkOut: record.checkOut?.time ? format(new Date(record.checkOut.time), "HH:mm") : null,
                 status: record.status || "Present",
+                workingHours: record.workingHours || 0,
                 centreName: record.centreId?.centreName || "Office"
             };
         }
@@ -236,7 +273,7 @@ const EmployeeAttendance = () => {
 
         // Month-wise data for Area/Bar Chart
         const monthsData = Array.from({ length: 12 }, (_, i) => ({
-            name: format(new Date(year, i, 1), 'MMM'),
+            name: format(new Date(year, 0, 1), 'MMM'),
             present: 0,
             absent: 0,
             workingHours: 0
@@ -269,7 +306,7 @@ const EmployeeAttendance = () => {
                 const record = attendanceData.find(a => format(new Date(a.date), "yyyy-MM-dd") === dateStrKey);
                 if (record && record.checkIn && record.checkOut) {
                     const dur = (new Date(record.checkOut.time) - new Date(record.checkIn.time)) / (1000 * 60 * 60);
-                    monthsData[mIndex].workingHours += dur;
+                    monthsData[mIndex].workingHours = parseFloat((monthsData[mIndex].workingHours + dur).toFixed(2));
                 }
             } else if (status.type === 'Absent') {
                 absents++;
@@ -320,30 +357,61 @@ const EmployeeAttendance = () => {
                         </p>
                     </div>
 
-                    <div className="flex flex-wrap gap-4 w-full xl:w-auto">
-                        {!todayRecord || !todayRecord.checkIn ? (
-                            <button
-                                onClick={() => handleMarkAttendance('checkIn')}
-                                disabled={marking || loading}
-                                className="flex-1 xl:flex-none flex items-center justify-center gap-4 px-10 py-5 bg-cyan-500 hover:bg-cyan-600 text-[#1a1f24] font-black rounded-[2px] transition-all shadow-2xl shadow-cyan-500/20 active:scale-95 disabled:opacity-50"
-                            >
-                                <FaMapMarkerAlt size={20} className="animate-bounce" />
-                                <span className="uppercase tracking-widest text-sm">Clock In Now</span>
-                            </button>
-                        ) : !todayRecord.checkOut ? (
-                            <button
-                                onClick={() => handleMarkAttendance('checkOut')}
-                                disabled={marking || loading}
-                                className="flex-1 xl:flex-none flex items-center justify-center gap-4 px-10 py-5 bg-red-500 hover:bg-red-600 text-white font-black rounded-[2px] transition-all shadow-2xl shadow-red-500/20 active:scale-95 disabled:opacity-50"
-                            >
-                                <FaBolt size={20} className="animate-pulse" />
-                                <span className="uppercase tracking-widest text-sm">Clock Out Now</span>
-                            </button>
-                        ) : (
-                            <div className="px-10 py-5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 font-black rounded-[2px] flex items-center gap-4 uppercase tracking-widest text-sm">
-                                <FaCheckCircle size={20} /> Shift Completed
+                    <div className="flex flex-col md:flex-row items-center gap-6">
+                        {/* Legend moved to header area */}
+                        <div className="hidden md:flex flex-wrap gap-4 px-6 py-3 bg-[#131619] border border-gray-800 rounded-[2px] shadow-inner">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 bg-red-500 rounded-[1px]" />
+                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Absent</span>
                             </div>
-                        )}
+                            <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 bg-orange-500 rounded-[1px]" />
+                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Half Day</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 bg-pink-500 rounded-[1px]" />
+                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Early</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 bg-lime-500 rounded-[1px]" />
+                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Short</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 bg-emerald-500 rounded-[1px]" />
+                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Present</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 bg-indigo-500 rounded-[1px]" />
+                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">OT ★</span>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-4 w-full md:w-auto">
+                            {!todayRecord || !todayRecord.checkIn ? (
+                                <button
+                                    onClick={() => handleMarkAttendance('checkIn')}
+                                    disabled={marking || loading}
+                                    className="flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 bg-cyan-500 hover:bg-cyan-600 text-[#1a1f24] font-black rounded-[2px] transition-all shadow-2xl shadow-cyan-500/20 active:scale-95 disabled:opacity-50"
+                                >
+                                    <FaMapMarkerAlt size={20} className="animate-bounce" />
+                                    <span className="uppercase tracking-widest text-sm">Clock In Now</span>
+                                </button>
+                            ) : !todayRecord.checkOut ? (
+                                <button
+                                    onClick={() => handleMarkAttendance('checkOut')}
+                                    disabled={marking || loading}
+                                    className="flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 bg-red-500 hover:bg-red-600 text-white font-black rounded-[2px] transition-all shadow-2xl shadow-red-500/20 active:scale-95 disabled:opacity-50"
+                                >
+                                    <FaBolt size={20} className="animate-pulse" />
+                                    <span className="uppercase tracking-widest text-sm">Clock Out Now</span>
+                                </button>
+                            ) : (
+                                <div className="flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 bg-gray-800 text-gray-500 font-black rounded-[2px] cursor-not-allowed">
+                                    <FaCheck size={20} />
+                                    <span className="uppercase tracking-widest text-sm">Shift Completed</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -524,10 +592,32 @@ const EmployeeAttendance = () => {
 
                                             let colorClass = "bg-[#1a1f24] text-gray-300 hover:bg-gray-800";
                                             let dotColor = "";
+                                            let isOvertime = false;
 
                                             if (status.type === "Present") {
-                                                colorClass = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]";
-                                                dotColor = "bg-emerald-500";
+                                                const hours = status.workingHours || 0;
+                                                const s = status.status;
+
+                                                if (s === "Absent" || hours < 4) {
+                                                    colorClass = "bg-red-500/20 text-red-500 border border-red-500/30";
+                                                    dotColor = "bg-red-500";
+                                                } else if (s === "Half Day" || hours < 4.5) {
+                                                    colorClass = "bg-orange-500/20 text-orange-400 border border-orange-500/30";
+                                                    dotColor = "bg-orange-500";
+                                                } else if (s === "Early Leave" || hours < 8) {
+                                                    colorClass = "bg-pink-500/20 text-pink-400 border border-pink-500/30";
+                                                    dotColor = "bg-pink-500";
+                                                } else if (hours < 9) {
+                                                    colorClass = "bg-lime-500/20 text-lime-400 border border-lime-500/30";
+                                                    dotColor = "bg-lime-500";
+                                                } else if (s === "Overtime" || hours > 9.05) {
+                                                    colorClass = "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30";
+                                                    dotColor = "bg-indigo-500";
+                                                    isOvertime = true;
+                                                } else {
+                                                    colorClass = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]";
+                                                    dotColor = "bg-emerald-500";
+                                                }
                                             } else if (status.type === "Absent") {
                                                 colorClass = "bg-red-500/20 text-red-500 border border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.1)]";
                                                 dotColor = "bg-red-500";

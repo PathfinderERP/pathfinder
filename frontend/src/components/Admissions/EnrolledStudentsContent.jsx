@@ -24,6 +24,15 @@ const EnrolledStudentsContent = () => {
     const [filterCentre, setFilterCentre] = useState([]);
     const [filterDepartment, setFilterDepartment] = useState([]);
     const [filterCourse, setFilterCourse] = useState([]);
+    const [filterClass, setFilterClass] = useState([]);
+    const [filterSession, setFilterSession] = useState([]);
+
+    // Master Data States
+    const [masterCentres, setMasterCentres] = useState([]);
+    const [masterDepartments, setMasterDepartments] = useState([]);
+    const [masterCourses, setMasterCourses] = useState([]);
+    const [masterClasses, setMasterClasses] = useState([]);
+    const [masterSessions, setMasterSessions] = useState([]);
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [studentAdmissions, setStudentAdmissions] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -45,6 +54,7 @@ const EnrolledStudentsContent = () => {
     });
     const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
     const [allowedCentres, setAllowedCentres] = useState([]);
+    const [viewMode, setViewMode] = useState('Active'); // 'Active' or 'Deactivated'
 
     // Permission checks
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -52,6 +62,7 @@ const EnrolledStudentsContent = () => {
     const canCreate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'create');
     const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'edit');
     const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'delete');
+    const canDeactivate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'deactivate');
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -65,7 +76,29 @@ const EnrolledStudentsContent = () => {
     useEffect(() => {
         fetchAllowedCentres();
         fetchAdmissions();
+        fetchMasterData();
     }, []);
+
+    const fetchMasterData = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const headers = { Authorization: `Bearer ${token}` };
+
+            const [deptRes, courseRes, classRes, sessionRes] = await Promise.all([
+                fetch(`${apiUrl}/department`, { headers }),
+                fetch(`${apiUrl}/course`, { headers }),
+                fetch(`${apiUrl}/class`, { headers }),
+                fetch(`${apiUrl}/session/list`, { headers })
+            ]);
+
+            if (deptRes.ok) setMasterDepartments(await deptRes.json());
+            if (courseRes.ok) setMasterCourses(await courseRes.json());
+            if (classRes.ok) setMasterClasses(await classRes.json());
+            if (sessionRes.ok) setMasterSessions(await sessionRes.json());
+        } catch (error) {
+            console.error("Error fetching master data:", error);
+        }
+    };
 
     const fetchAllowedCentres = async () => {
         try {
@@ -170,7 +203,7 @@ const EnrolledStudentsContent = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse]);
+    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession]);
 
     // Filter students
     useEffect(() => {
@@ -235,8 +268,33 @@ const EnrolledStudentsContent = () => {
             );
         }
 
+        if (filterClass.length > 0) {
+            result = result.filter(item =>
+                item.admissions.some(admission => {
+                    const className = admission.class?.className || admission.class?.name || "";
+                    return filterClass.includes(className);
+                })
+            );
+        }
+
+        if (filterSession.length > 0) {
+            result = result.filter(item =>
+                item.admissions.some(admission => filterSession.includes(admission.academicSession))
+            );
+        }
+
+        // Filter by student status (viewMode)
+        result = result.filter(item => {
+            const status = item.student?.status || 'Active';
+            return status === viewMode;
+        });
+
         setFilteredStudents(result);
-    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, students]);
+    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, students, viewMode]);
+
+    const filteredAdmissions = filteredStudents.flatMap(s => s.admissions);
+    const totalCollected = filteredAdmissions.reduce((sum, a) => sum + (a.totalPaidAmount || 0), 0);
+    const pendingPaymentCount = filteredAdmissions.filter(a => a.paymentStatus === "PENDING" || a.paymentStatus === "PARTIAL").length;
 
     const handleRefresh = () => {
         setSearchQuery("");
@@ -244,6 +302,8 @@ const EnrolledStudentsContent = () => {
         setFilterCentre([]);
         setFilterDepartment([]);
         setFilterCourse([]);
+        setFilterClass([]);
+        setFilterSession([]);
         setCurrentPage(1);
         setLoading(true);
         fetchAdmissions();
@@ -392,6 +452,37 @@ const EnrolledStudentsContent = () => {
             toast.error("Server error during payment processing");
         } finally {
             setProcessingPayment(false);
+        }
+    };
+
+
+    const handleToggleStatus = async (studentId, currentStatus) => {
+        const newStatus = currentStatus === 'Active' ? 'Deactivated' : 'Active';
+        if (!window.confirm(`Are you sure you want to ${newStatus === 'Active' ? 'reactivate' : 'deactivate'} this student?`)) {
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${apiUrl}/admission/student/${studentId}/status`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ status: newStatus }),
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(data.message);
+                fetchAdmissions();
+            } else {
+                toast.error(data.message || "Failed to update status");
+            }
+        } catch (error) {
+            toast.error("Error updating status");
+            console.error("Error:", error);
         }
     };
 
@@ -587,31 +678,53 @@ const EnrolledStudentsContent = () => {
             <div className="grid grid-cols-4 gap-6 mb-8">
                 <div className="bg-[#1a1f24] p-6 rounded-xl border-l-4 border-green-500 shadow-lg">
                     <h3 className="text-gray-400 text-sm font-medium mb-2">Total Students</h3>
-                    <p className="text-4xl font-bold text-white mb-2">{students.length}</p>
-                    <p className="text-gray-500 text-xs">Unique enrolled students</p>
+                    <p className="text-4xl font-bold text-white mb-2">{filteredStudents.length}</p>
+                    <p className="text-gray-500 text-xs">Matching current view</p>
                 </div>
 
                 <div className="bg-[#1a1f24] p-6 rounded-xl border-l-4 border-cyan-500 shadow-lg">
                     <h3 className="text-gray-400 text-sm font-medium mb-2">Total Courses</h3>
-                    <p className="text-4xl font-bold text-white mb-2">{admissions.length}</p>
-                    <p className="text-gray-500 text-xs">All course enrollments</p>
+                    <p className="text-4xl font-bold text-white mb-2">{filteredAdmissions.length}</p>
+                    <p className="text-gray-500 text-xs">Associated with current view</p>
                 </div>
 
                 <div className="bg-[#1a1f24] p-6 rounded-xl border-l-4 border-yellow-500 shadow-lg">
                     <h3 className="text-gray-400 text-sm font-medium mb-2">Pending Payment</h3>
                     <p className="text-4xl font-bold text-white mb-2">
-                        {admissions.filter(a => a.paymentStatus === "PENDING" || a.paymentStatus === "PARTIAL").length}
+                        {pendingPaymentCount}
                     </p>
-                    <p className="text-gray-500 text-xs">Incomplete payments</p>
+                    <p className="text-gray-500 text-xs">Incomplete in current view</p>
                 </div>
 
                 <div className="bg-[#1a1f24] p-6 rounded-xl border-l-4 border-blue-500 shadow-lg">
                     <h3 className="text-gray-400 text-sm font-medium mb-2">Total Collected</h3>
                     <p className="text-4xl font-bold text-white mb-2">
-                        ₹{admissions.reduce((sum, a) => sum + (a.totalPaidAmount || 0), 0).toLocaleString()}
+                        ₹{totalCollected.toLocaleString()}
                     </p>
-                    <p className="text-gray-500 text-xs">Total fees received</p>
+                    <p className="text-gray-500 text-xs">Fees from current view</p>
                 </div>
+            </div>
+
+            {/* View Mode Tabs */}
+            <div className="flex gap-4 mb-6">
+                <button
+                    onClick={() => setViewMode('Active')}
+                    className={`px-6 py-2 rounded-lg font-bold transition-all ${viewMode === 'Active'
+                        ? "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20"
+                        : "bg-[#1a1f24] text-gray-400 border border-gray-700 hover:text-white"
+                        }`}
+                >
+                    Active Students
+                </button>
+                <button
+                    onClick={() => setViewMode('Deactivated')}
+                    className={`px-6 py-2 rounded-lg font-bold transition-all ${viewMode === 'Deactivated'
+                        ? "bg-red-500 text-white shadow-lg shadow-red-500/20"
+                        : "bg-[#1a1f24] text-gray-400 border border-gray-700 hover:text-white"
+                        }`}
+                >
+                    Deactivated Students
+                </button>
             </div>
 
             {/* Search & Filter */}
@@ -653,7 +766,7 @@ const EnrolledStudentsContent = () => {
                     <MultiSelectFilter
                         label="Dept"
                         placeholder="All Departments"
-                        options={uniqueDepartments.map(d => ({ value: d, label: d }))}
+                        options={masterDepartments.map(d => ({ value: d.departmentName, label: d.departmentName }))}
                         selectedValues={filterDepartment}
                         onChange={setFilterDepartment}
                     />
@@ -661,9 +774,25 @@ const EnrolledStudentsContent = () => {
                     <MultiSelectFilter
                         label="Course"
                         placeholder="All Courses"
-                        options={uniqueCourses.map(c => ({ value: c, label: c }))}
+                        options={masterCourses.map(c => ({ value: c.courseName, label: c.courseName }))}
                         selectedValues={filterCourse}
                         onChange={setFilterCourse}
+                    />
+
+                    <MultiSelectFilter
+                        label="Class"
+                        placeholder="All Classes"
+                        options={masterClasses.map(c => ({ value: c.className || c.name, label: c.className || c.name }))}
+                        selectedValues={filterClass}
+                        onChange={setFilterClass}
+                    />
+
+                    <MultiSelectFilter
+                        label="Session"
+                        placeholder="All Sessions"
+                        options={masterSessions.map(s => ({ value: s.sessionName || s.name, label: s.sessionName || s.name }))}
+                        selectedValues={filterSession}
+                        onChange={setFilterSession}
                     />
 
                     <button
@@ -722,7 +851,7 @@ const EnrolledStudentsContent = () => {
                                         return (
                                             <tr
                                                 key={studentItem.student._id}
-                                                className="admissions-row-wave transition-colors group cursor-pointer hover:bg-gray-800/50"
+                                                className={`admissions-row-wave transition-colors group cursor-pointer ${studentItem.student.status === 'Deactivated' ? 'bg-red-500/5 hover:bg-red-500/10' : 'hover:bg-gray-800/50'}`}
                                                 onClick={() => openStudentModal(studentItem)}
                                             >
                                                 <td className="p-4">
@@ -740,7 +869,14 @@ const EnrolledStudentsContent = () => {
                                                             )}
                                                         </div>
                                                         <div>
-                                                            <p className="text-white font-medium">{student.studentName || "N/A"}</p>
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="text-white font-medium">{student.studentName || "N/A"}</p>
+                                                                {studentItem.student.status === 'Deactivated' && (
+                                                                    <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-[10px] font-bold rounded-full border border-red-500/20 uppercase">
+                                                                        Deactivated
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <p className="text-gray-400 text-xs">{student.studentEmail || ""}</p>
                                                         </div>
                                                     </div>
@@ -778,16 +914,34 @@ const EnrolledStudentsContent = () => {
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            openStudentModal(studentItem);
-                                                        }}
-                                                        className="p-2 bg-cyan-500/10 text-cyan-400 rounded hover:bg-cyan-500/20 transition-opacity"
-                                                        title="View Details"
-                                                    >
-                                                        <FaEye />
-                                                    </button>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                openStudentModal(studentItem);
+                                                            }}
+                                                            className="p-2 bg-cyan-500/10 text-cyan-400 rounded hover:bg-cyan-500/20 transition-opacity"
+                                                            title="View Details"
+                                                        >
+                                                            <FaEye />
+                                                        </button>
+
+                                                        {canDeactivate && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleToggleStatus(studentItem.student._id, studentItem.student.status || 'Active');
+                                                                }}
+                                                                className={`p-2 rounded transition-all ${studentItem.student.status === 'Deactivated'
+                                                                    ? "bg-green-500/10 text-green-400 hover:bg-green-500/20"
+                                                                    : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                                                                    }`}
+                                                                title={studentItem.student.status === 'Deactivated' ? "Reactivate Student" : "Deactivate Student"}
+                                                            >
+                                                                {studentItem.student.status === 'Deactivated' ? <FaCheckCircle /> : <FaTimes />}
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );
@@ -835,6 +989,16 @@ const EnrolledStudentsContent = () => {
                         </div>
 
                         <div className="p-6 space-y-8">
+                            {/* Deactivation Warning Banner */}
+                            {selectedStudent.status === 'Deactivated' && (
+                                <div className="bg-red-500/10 border border-red-500/50 p-4 rounded-lg flex items-center gap-3 animate-pulse">
+                                    <FaExclamationCircle className="text-red-500 text-xl" />
+                                    <div>
+                                        <h4 className="text-red-500 font-bold">STUDENT DEACTIVATED</h4>
+                                        <p className="text-red-400/80 text-sm">All financial operations and bill generation are restricted for this student.</p>
+                                    </div>
+                                </div>
+                            )}
                             {/* Student Info Sections */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 {/* Personal Information */}
@@ -1008,16 +1172,23 @@ const EnrolledStudentsContent = () => {
                                                     {canEdit && (
                                                         <button
                                                             onClick={() => {
+                                                                if (selectedStudent.status === 'Deactivated') {
+                                                                    toast.error("This student is deactivated. Updates are restricted.");
+                                                                    return;
+                                                                }
                                                                 setIsModalOpen(false);
                                                                 setSelectedStudent(null);
                                                                 setStudentAdmissions([]);
                                                                 // Open edit modal for this admission
                                                                 window.location.href = `/enrolled-students?edit=${admission._id}`;
                                                             }}
-                                                            className="p-2 bg-yellow-500/10 text-yellow-400 rounded hover:bg-yellow-500/20 transition-opacity ml-2"
-                                                            title="Edit Admission/Student Profile"
+                                                            disabled={selectedStudent.status === 'Deactivated'}
+                                                            className={`p-2 rounded transition-all ${selectedStudent.status === 'Deactivated'
+                                                                ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                                                                : 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20'}`}
+                                                            title={selectedStudent.status === 'Deactivated' ? "Student is deactivated" : "Edit Admission"}
                                                         >
-                                                            <FaUserGraduate size={14} />
+                                                            <FaSync />
                                                         </button>
                                                     )}
                                                 </div>
@@ -1051,7 +1222,7 @@ const EnrolledStudentsContent = () => {
                                                         </p>
                                                         {admission.downPayment > 0 && (
                                                             <button
-                                                                onClick={() => setBillModal({
+                                                                onClick={() => selectedStudent.status !== 'Deactivated' && setBillModal({
                                                                     show: true,
                                                                     admission: admission,
                                                                     installment: {
@@ -1059,8 +1230,9 @@ const EnrolledStudentsContent = () => {
                                                                         status: admission.downPaymentStatus || "PAID"
                                                                     }
                                                                 })}
-                                                                className="mt-2 text-[10px] bg-blue-500 hover:bg-blue-400 text-white px-2 py-1 rounded flex items-center gap-1 w-full justify-center transition-colors shadow-sm"
-                                                                title="Download Down Payment Receipt"
+                                                                disabled={selectedStudent.status === 'Deactivated'}
+                                                                className={`mt-2 text-[10px] px-2 py-1 rounded flex items-center gap-1 w-full justify-center transition-colors shadow-sm ${selectedStudent.status === 'Deactivated' ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-400 text-white'}`}
+                                                                title={selectedStudent.status === 'Deactivated' ? "Student is deactivated" : "Download Down Payment Receipt"}
                                                             >
                                                                 <FaFileInvoice /> Receipt
                                                             </button>
@@ -1163,20 +1335,21 @@ const EnrolledStudentsContent = () => {
                                                                                 <td className="p-2">
                                                                                     {(!isPaid && payment.status !== "PENDING_CLEARANCE") ? (
                                                                                         <button
-                                                                                            onClick={() => openPaymentModal(admission, payment)}
-                                                                                            disabled={!previousPaid}
-                                                                                            className={`px-3 py-1 text-white text-sm rounded transition-colors ${previousPaid
-                                                                                                ? 'bg-cyan-600 hover:bg-cyan-500'
-                                                                                                : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                                                                                            onClick={() => selectedStudent.status !== 'Deactivated' && openPaymentModal(admission, payment)}
+                                                                                            disabled={!previousPaid || selectedStudent.status === 'Deactivated'}
+                                                                                            className={`px-3 py-1 text-white text-sm rounded transition-colors ${(!previousPaid || selectedStudent.status === 'Deactivated')
+                                                                                                ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                                                                                                : 'bg-cyan-600 hover:bg-cyan-500'
                                                                                                 }`}
-                                                                                            title={!previousPaid ? "Complete previous installment first" : "Pay Now"}
+                                                                                            title={selectedStudent.status === 'Deactivated' ? "Student is deactivated" : (!previousPaid ? "Complete previous installment first" : "Pay Now")}
                                                                                         >
                                                                                             Pay Now
                                                                                         </button>
                                                                                     ) : (
                                                                                         <button
-                                                                                            onClick={() => setBillModal({ show: true, admission: admission, installment: payment })}
-                                                                                            className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-cyan-400 text-sm rounded transition-colors flex items-center gap-1"
+                                                                                            onClick={() => selectedStudent.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
+                                                                                            disabled={selectedStudent.status === 'Deactivated'}
+                                                                                            className={`px-3 py-1 text-sm rounded transition-colors flex items-center gap-1 ${selectedStudent.status === 'Deactivated' ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-700 hover:bg-gray-600 text-cyan-400'}`}
                                                                                         >
                                                                                             <FaFileInvoice /> {payment.status === "PENDING_CLEARANCE" ? " Receipt" : " Bill"}
                                                                                         </button>

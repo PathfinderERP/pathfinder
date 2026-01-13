@@ -61,7 +61,7 @@ export const PERMISSION_MODULES = {
             },
             enrolledStudents: {
                 label: "Admissions",
-                operations: ["create", "edit", "delete"]
+                operations: ["create", "edit", "delete", "deactivate"]
             },
             // salesDashboard: {
             //     label: "Sales Dashboard",

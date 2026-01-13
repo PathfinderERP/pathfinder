@@ -18,11 +18,12 @@ export const getStudentsForAttendance = async (req, res) => {
             ? schedule.batchIds
             : (schedule.batchId ? [schedule.batchId] : []);
 
-        // Fetch students enrolled in these batches
+        // Fetch students enrolled in these batches (Only Active students)
         const students = await Student.find({
             batches: { $in: batchIds },
-            isEnrolled: true
-        }).populate("course").select("studentsDetails examSchema batches course isEnrolled");
+            isEnrolled: true,
+            status: "Active"
+        }).populate("course").select("studentsDetails examSchema batches course isEnrolled status");
 
         // Fetch admissions for these students to get admissionNumber
         const studentIds = students.map(s => s._id);

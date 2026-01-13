@@ -8,9 +8,15 @@ export const updatePaymentInstallment = async (req, res) => {
         const { admissionId, installmentNumber } = req.params;
         const { paidAmount, paymentMethod, transactionId, remarks, accountHolderName, chequeDate, carryForward, receivedDate } = req.body;
 
-        const admission = await Admission.findById(admissionId);
+        const admission = await Admission.findById(admissionId).populate('student');
         if (!admission) {
             return res.status(404).json({ message: "Admission not found" });
+        }
+
+        if (admission.student && admission.student.status === 'Deactivated') {
+            return res.status(400).json({
+                message: "This student is deactivated. Payments and other features are disabled."
+            });
         }
 
         // Find the installment

@@ -14,6 +14,7 @@ export const searchStudent = async (req, res) => {
 
         // Search in Student collection
         const students = await Student.find({
+            status: "Active",
             $or: [
                 { "studentsDetails.studentName": { $regex: searchTerm, $options: "i" } },
                 { "studentsDetails.studentEmail": { $regex: searchTerm, $options: "i" } }
@@ -22,7 +23,8 @@ export const searchStudent = async (req, res) => {
 
         // Also search by admission number in Admission collection
         const admissions = await Admission.find({
-            admissionNumber: { $regex: searchTerm, $options: "i" }
+            admissionNumber: { $regex: searchTerm, $options: "i" },
+            admissionStatus: "ACTIVE"
         })
             .populate("student")
             .populate("course", "courseName")
@@ -82,7 +84,12 @@ export const getStudentFinancialDetails = async (req, res) => {
             .sort({ createdAt: -1 });
 
         if (!admissions || admissions.length === 0) {
-            return res.status(404).json({ message: "No admissions found for this student" });
+            return res.status(404).json({ message: "No active admissions found for this student" });
+        }
+
+        // Check if student is deactivated
+        if (admissions[0].student && admissions[0].student.status === 'Deactivated') {
+            return res.status(400).json({ message: "This student is deactivated. Financial details are restricted." });
         }
 
         // Get all payments for these admissions
