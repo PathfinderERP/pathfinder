@@ -29,21 +29,11 @@ export const performAutoCheckout = async () => {
                 }
             }
 
-            // Set checkout time to 11:59 PM (23:59)
-            const checkoutTime = new Date(attendance.date);
-            checkoutTime.setHours(23, 59, 0, 0);
-
-            attendance.checkOut = {
-                time: checkoutTime,
-                latitude: attendance.checkIn.latitude,
-                longitude: attendance.checkIn.longitude,
-                address: "System Auto-Checkout"
-            };
-
-            const diffMs = attendance.checkOut.time - attendance.checkIn.time;
-            attendance.workingHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
+            // We do NOT set a checkout time or working hours as requested
+            // If someone forgot to checkout they will be considered absent (0 hours)
             attendance.status = "Forgot to Checkout";
-            attendance.remarks = (attendance.remarks ? attendance.remarks + " | " : "") + "Forgot to checkout - Auto updated";
+            attendance.workingHours = 0;
+            attendance.remarks = (attendance.remarks ? attendance.remarks + " | " : "") + "Forgot to checkout - Marked Absent by System";
 
             await attendance.save();
             count++;

@@ -143,6 +143,242 @@ const PersonnelModal = ({ isOpen, onClose, employees, title, color = "cyan" }) =
     );
 };
 
+const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designations, onSuccess }) => {
+    const [formData, setFormData] = useState({
+        centreId: "",
+        department: "",
+        designation: "",
+        employeeId: "",
+        date: format(new Date(), 'yyyy-MM-dd'),
+        checkIn: "09:00",
+        checkOut: "18:00",
+        status: "Present",
+        remarks: ""
+    });
+    const [searchTerm, setSearchTerm] = useState("");
+    const [employees, setEmployees] = useState([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const fetchEmployees = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const queryParams = new URLSearchParams();
+                if (formData.centreId) queryParams.append("centre", formData.centreId);
+                if (formData.department) queryParams.append("department", formData.department);
+                if (formData.designation) queryParams.append("designation", formData.designation);
+                if (searchTerm) queryParams.append("search", searchTerm);
+                queryParams.append("limit", "100");
+
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee?${queryParams.toString()}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setEmployees(data.employees || []);
+                }
+            } catch (error) {
+                console.error("Employee fetch error:", error);
+            }
+        };
+        const timeoutId = setTimeout(fetchEmployees, 300);
+        return () => clearTimeout(timeoutId);
+    }, [formData.centreId, formData.department, formData.designation, searchTerm, isOpen]);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!formData.employeeId || !formData.date) return toast.error("Employee and Date are required");
+
+        setLoading(true);
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee-attendance/manual-mark`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(formData)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success(data.message);
+                onSuccess();
+                onClose();
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error("Network error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-fade-in">
+            <div className="bg-[#131619] border border-gray-800 rounded-[2px] w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col">
+                <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-[#131619] z-10 border-t-2 border-t-cyan-500/50">
+                    <div>
+                        <h2 className="text-xl font-black text-white uppercase tracking-widest italic flex items-center gap-3">
+                            <span className="p-2 bg-cyan-500/10 text-cyan-500 rounded-[2px]">
+                                <FaUserClock />
+                            </span>
+                            Attendance Correction Hub
+                        </h2>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-800 rounded-[2px] text-gray-500 hover:text-white transition-colors">
+                        <FaTimes size={20} />
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto max-h-[70vh] custom-scrollbar">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Target Centre</label>
+                            <select
+                                value={formData.centreId}
+                                onChange={(e) => setFormData({ ...formData, centreId: e.target.value, employeeId: "" })}
+                                className="w-full bg-[#0a0a0b] border border-gray-800 rounded-[2px] p-3 text-xs text-white uppercase font-black tracking-widest outline-none focus:border-cyan-500/50 transition-all font-mono"
+                            >
+                                <option value="">ALL CENTRES</option>
+                                {centres.map(c => <option key={c._id} value={c._id}>{c.centreName}</option>)}
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Department</label>
+                            <select
+                                value={formData.department}
+                                onChange={(e) => setFormData({ ...formData, department: e.target.value, employeeId: "" })}
+                                className="w-full bg-[#0a0a0b] border border-gray-800 rounded-[2px] p-3 text-xs text-white uppercase font-black tracking-widest outline-none focus:border-cyan-500/50 transition-all font-mono"
+                            >
+                                <option value="">ALL DEPARTMENTS</option>
+                                {departments.map(d => <option key={d._id} value={d._id}>{d.departmentName}</option>)}
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Designation</label>
+                            <select
+                                value={formData.designation}
+                                onChange={(e) => setFormData({ ...formData, designation: e.target.value, employeeId: "" })}
+                                className="w-full bg-[#0a0a0b] border border-gray-800 rounded-[2px] p-3 text-xs text-white uppercase font-black tracking-widest outline-none focus:border-cyan-500/50 transition-all font-mono"
+                            >
+                                <option value="">ALL ROLES</option>
+                                {designations.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest italic">Global Identity Search (ID / Name)</label>
+                            <div className="relative">
+                                <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
+                                <input
+                                    type="text"
+                                    placeholder="SEARCH BY ID OR NAME..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full bg-[#1a1c1e] border border-gray-800 rounded-[2px] py-4 pl-12 pr-4 text-xs text-cyan-400 uppercase font-black tracking-widest outline-none focus:border-cyan-500/50 transition-all font-mono placeholder:text-gray-700"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Target Personnel <span className="text-red-500">*</span></label>
+                            <select
+                                required
+                                value={formData.employeeId}
+                                onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+                                className="w-full bg-[#1a1c1e] border border-cyan-500/30 rounded-[2px] p-4 text-xs text-white uppercase font-black tracking-widest outline-none focus:border-cyan-500 transition-all shadow-lg font-mono"
+                            >
+                                <option value="">{employees.length > 0 ? `SELECT FROM ${employees.length} RESULTS` : 'NO EMPLOYEES FOUND'}</option>
+                                {employees.map(emp => (
+                                    <option key={emp._id} value={emp._id}>
+                                        {emp.employeeId} — {emp.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Effective Date</label>
+                            <input
+                                type="date"
+                                required
+                                max={format(new Date(), 'yyyy-MM-dd')}
+                                value={formData.date}
+                                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                                className="w-full bg-[#0a0a0b] border border-gray-800 rounded-[2px] p-3 text-xs text-white outline-none focus:border-cyan-500/50 font-mono"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Check In Time</label>
+                            <input
+                                type="time"
+                                value={formData.checkIn}
+                                onChange={(e) => setFormData({ ...formData, checkIn: e.target.value })}
+                                className="w-full bg-[#0a0a0b] border border-gray-800 rounded-[2px] p-3 text-xs text-white font-mono"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Check Out Time</label>
+                            <input
+                                type="time"
+                                value={formData.checkOut}
+                                onChange={(e) => setFormData({ ...formData, checkOut: e.target.value })}
+                                className="w-full bg-[#0a0a0b] border border-gray-800 rounded-[2px] p-3 text-xs text-white font-mono"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Assigned Status</label>
+                            <select
+                                value={formData.status}
+                                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                className="w-full bg-[#0a0a0b] border border-gray-800 rounded-[2px] p-3 text-xs text-white uppercase font-black tracking-widest font-mono"
+                            >
+                                <option value="Present">Present (9h)</option>
+                                <option value="Late">Late Arrival</option>
+                                <option value="Early Leave">Early Exit</option>
+                                <option value="Half Day">Half Day (4h)</option>
+                                <option value="Forgot to Checkout">Forgot Checkout</option>
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Audit Reason</label>
+                            <input
+                                type="text"
+                                placeholder="E.G. TECHNICAL GLITCH / MISSED LOG"
+                                value={formData.remarks}
+                                onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                                className="w-full bg-[#131619] border border-gray-800 rounded-[2px] p-3 text-xs text-white uppercase font-black tracking-widest outline-none focus:border-cyan-500/50"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="pt-6">
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-cyan-500 hover:bg-cyan-600 text-black font-black uppercase tracking-[0.2em] py-5 rounded-[2px] transition-all shadow-2xl shadow-cyan-500/20 active:scale-95 disabled:opacity-50"
+                        >
+                            {loading ? "AUTHORIZING..." : "EXECUTE ATTENDANCE OVERRIDE"}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
 // Premium Multi-Select Dropdown Component (Updated for 2px radius)
 const MultiSelectDropdown = ({ icon, label, options, selectedValues, onToggle, valKey, labelKey }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -240,6 +476,7 @@ const EmployeesAttendance = () => {
     const [loading, setLoading] = useState(true);
     const [showPresentModal, setShowPresentModal] = useState(false);
     const [showCautionModal, setShowCautionModal] = useState(false);
+    const [showManualMarkModal, setShowManualMarkModal] = useState(false);
     const [activeCaution, setActiveCaution] = useState(null); // 'Overtime', 'Early Leave', 'Half Day', 'Short Leave'
 
     // Individual User Analysis State
@@ -400,10 +637,12 @@ const EmployeesAttendance = () => {
             if (activeCaution) {
                 const hours = record.workingHours || 0;
                 const s = record.status;
-                if (activeCaution === 'Overtime') matchesCaution = s === 'Overtime' || hours > 9.05;
-                else if (activeCaution === 'Early Leave') matchesCaution = s === 'Early Leave' || (hours < 8.5 && hours >= 4.5);
-                else if (activeCaution === 'Half Day') matchesCaution = s === 'Half Day' || (hours < 4.5 && hours >= 4);
-                else if (activeCaution === 'Short Leave') matchesCaution = (hours >= 8.5 && hours < 9);
+                const target = record.employeeId?.workingHours || 9;
+
+                if (activeCaution === 'Overtime') matchesCaution = s === "Overtime" || (hours > target + 0.05);
+                else if (activeCaution === 'Early Leave') matchesCaution = s === "Early Leave" || (hours > 4 && hours < target - 0.5);
+                else if (activeCaution === 'Half Day') matchesCaution = s === "Half Day" || (hours >= 4 && hours < target / 2);
+                else if (activeCaution === 'Short Leave') matchesCaution = (hours >= 8.5 && hours < target);
                 else if (activeCaution === 'Forgot Checkout') matchesCaution = s === 'Forgot to Checkout';
             }
 
@@ -503,6 +742,14 @@ const EmployeesAttendance = () => {
                                 activeCaution === 'Forgot Checkout' ? 'red' : 'lime'
                 )}
             />
+            <ManualAttendanceModal
+                isOpen={showManualMarkModal}
+                onClose={() => setShowManualMarkModal(false)}
+                centres={centres}
+                departments={departments || []}
+                designations={designations || []}
+                onSuccess={() => fetchAttendanceData()}
+            />
             <div className="p-6 md:p-8 max-w-[1800px] mx-auto space-y-8">
                 {/* Header */}
                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
@@ -516,6 +763,12 @@ const EmployeesAttendance = () => {
                     </div>
 
                     <div className="flex flex-wrap gap-4">
+                        <button
+                            onClick={() => setShowManualMarkModal(true)}
+                            className="px-6 py-3 bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white rounded-[2px] border border-amber-500/20 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-[0_0_15px_rgba(245,158,11,0.1)] hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+                        >
+                            <FaUserClock /> Manual Attendance Override
+                        </button>
                         <button
                             onClick={handleExport}
                             className="px-6 py-3 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-[2px] border border-emerald-500/20 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]"
@@ -1042,7 +1295,7 @@ const EmployeesAttendance = () => {
                                                 <FaChartBar className="text-purple-500" /> Yearly Performance
                                             </h4>
                                             <div className="h-[180px] w-full bg-gray-900/30 rounded-[2px] border border-gray-800/50 p-2">
-                                                <ResponsiveContainer width="100%" height="100%">
+                                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                                     <BarChart data={userAnalysisData.monthlyStats}>
                                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1f2937" opacity={0.5} />
                                                         <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 8, fontWeight: 700 }} />
@@ -1062,7 +1315,7 @@ const EmployeesAttendance = () => {
                                                 <FaChartLine className="text-cyan-500" /> Daily Activity ({format(new Date(filters.year, filters.month - 1), 'MMMM')})
                                             </h4>
                                             <div className="h-[180px] w-full bg-gray-900/30 rounded-[2px] border border-gray-800/50 p-2">
-                                                <ResponsiveContainer width="100%" height="100%">
+                                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                                     <AreaChart data={userAnalysisData.dailyData}>
                                                         <defs>
                                                             <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
@@ -1090,7 +1343,7 @@ const EmployeesAttendance = () => {
                                                     <FaChartPie className="text-emerald-500" /> Attendance Mix
                                                 </h4>
                                                 <div className="h-[160px] w-full bg-gray-900/30 rounded-[2px] border border-gray-800/50 relative">
-                                                    <ResponsiveContainer width="100%" height="100%">
+                                                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                                         <PieChart>
                                                             <Pie
                                                                 data={userAnalysisData.statusDistribution}

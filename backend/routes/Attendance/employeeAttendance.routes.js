@@ -5,7 +5,8 @@ import {
     getMyAttendance,
     getAllAttendance,
     getAttendanceAnalysis,
-    getAttendanceDashboardStats
+    getAttendanceDashboardStats,
+    manualMarkAttendance
 } from "../../controllers/Attendance/employeeAttendanceController.js";
 
 const router = express.Router();
@@ -21,5 +22,6 @@ router.get("/analysis", getAttendanceAnalysis);
 // HR/Admin routes
 router.get("/dashboard-stats", getAttendanceDashboardStats);
 router.get("/all", getAllAttendance);
+router.post("/manual-mark", manualMarkAttendance);
 
 export default router;

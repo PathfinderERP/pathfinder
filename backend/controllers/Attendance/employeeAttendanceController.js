@@ -507,10 +507,22 @@ export const getAttendanceDashboardStats = async (req, res) => {
 
         // Status Counts for Dashboard
         const statusSummary = {
-            overtime: attendances.filter(a => a.status === 'Overtime').length,
-            earlyLeave: attendances.filter(a => a.status === 'Early Leave').length,
-            halfDay: attendances.filter(a => a.status === 'Half Day').length,
-            shortLeave: attendances.filter(a => a.workingHours >= 8.5 && a.workingHours < 9).length,
+            overtime: attendances.filter(a => {
+                const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
+                return a.status === 'Overtime' || (a.workingHours > target + 0.05);
+            }).length,
+            earlyLeave: attendances.filter(a => {
+                const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
+                return a.status === 'Early Leave' || (a.workingHours > 4 && a.workingHours < target - 0.5);
+            }).length,
+            halfDay: attendances.filter(a => {
+                const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
+                return a.status === 'Half Day' || (a.workingHours >= 4 && a.workingHours < target / 2);
+            }).length,
+            shortLeave: attendances.filter(a => {
+                const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
+                return a.workingHours >= (target - 0.5) && a.workingHours < target;
+            }).length,
             forgotCheckout: attendances.filter(a => a.status === 'Forgot to Checkout').length,
             absent: 0
         };
@@ -550,10 +562,22 @@ export const getAttendanceDashboardStats = async (req, res) => {
             dailyCautionsTrend.push({
                 date: format(day, 'dd'),
                 fullDate: format(day, 'dd MMM'),
-                overtime: dailyAtts.filter(a => a.status === 'Overtime').length,
-                earlyLeave: dailyAtts.filter(a => a.status === 'Early Leave').length,
-                halfDay: dailyAtts.filter(a => a.status === 'Half Day').length,
-                shortLeave: dailyAtts.filter(a => a.workingHours >= 8.5 && a.workingHours < 9).length,
+                overtime: dailyAtts.filter(a => {
+                    const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
+                    return a.status === 'Overtime' || (a.workingHours > target + 0.05);
+                }).length,
+                earlyLeave: dailyAtts.filter(a => {
+                    const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
+                    return a.status === 'Early Leave' || (a.workingHours > 4 && a.workingHours < target - 0.5);
+                }).length,
+                halfDay: dailyAtts.filter(a => {
+                    const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
+                    return a.status === 'Half Day' || (a.workingHours >= 4 && a.workingHours < target / 2);
+                }).length,
+                shortLeave: dailyAtts.filter(a => {
+                    const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
+                    return a.workingHours >= (target - 0.5) && a.workingHours < target;
+                }).length,
                 forgotCheckout: dailyAtts.filter(a => a.status === 'Forgot to Checkout').length
             });
         });
@@ -573,6 +597,75 @@ export const getAttendanceDashboardStats = async (req, res) => {
 
     } catch (error) {
         console.error("Dashboard Stats Error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+export const manualMarkAttendance = async (req, res) => {
+    try {
+        const { employeeId, date, checkIn, checkOut, status, remarks } = req.body;
+
+        if (!employeeId || !date) {
+            return res.status(400).json({ message: "Employee and Date are required" });
+        }
+
+        const markDate = startOfDay(new Date(date));
+        const now = startOfDay(new Date());
+
+        if (markDate > now) {
+            return res.status(400).json({ message: "Cannot mark attendance for future dates" });
+        }
+
+        const employee = await Employee.findById(employeeId).populate('primaryCentre');
+        if (!employee) return res.status(404).json({ message: "Employee not found" });
+
+        let attendance = await EmployeeAttendance.findOne({ employeeId, date: markDate });
+
+        if (!employee.user) {
+            return res.status(400).json({ message: "This employee does not have a linked user account. Please setup their portal access first." });
+        }
+        if (!employee.primaryCentre) {
+            return res.status(400).json({ message: "Employee profile is missing a Primary Centre. Please update their profile first." });
+        }
+
+        const updateData = {
+            user: employee.user,
+            employeeId,
+            centreId: employee.primaryCentre._id,
+            date: markDate,
+            status: status || "Present",
+            remarks: (remarks || "Manually marked by HR").toUpperCase()
+        };
+
+        if (checkIn) {
+            const [hours, minutes] = checkIn.split(':');
+            const checkInTime = new Date(markDate);
+            checkInTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+            updateData.checkIn = { time: checkInTime, address: "HR Manual Entry" };
+        }
+
+        if (checkOut) {
+            const [hours, minutes] = checkOut.split(':');
+            const checkOutTime = new Date(markDate);
+            checkOutTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+            updateData.checkOut = { time: checkOutTime, address: "HR Manual Entry" };
+
+            if (updateData.checkIn) {
+                const diffMs = updateData.checkOut.time - updateData.checkIn.time;
+                updateData.workingHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
+            }
+        }
+
+        if (attendance) {
+            attendance = await EmployeeAttendance.findByIdAndUpdate(attendance._id, updateData, { new: true });
+        } else {
+            attendance = new EmployeeAttendance(updateData);
+            await attendance.save();
+        }
+
+        res.status(200).json({ message: "Attendance marked successfully", attendance });
+    } catch (error) {
+        console.error("Manual Mark Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
