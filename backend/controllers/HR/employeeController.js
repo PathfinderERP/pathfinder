@@ -376,6 +376,22 @@ export const getEmployeeById = async (req, res) => {
         }
 
         const signedEmployee = await signEmployeeFiles(employee);
+
+        // Normalize Working Days (Handle Legacy List format) for the View
+        const hasWorkingDaysSet = Object.values(signedEmployee.workingDays || {}).some(v => v === true);
+        if (!hasWorkingDaysSet && signedEmployee.workingDaysList && signedEmployee.workingDaysList.length > 0) {
+            signedEmployee.workingDays = {
+                sunday: false, monday: false, tuesday: false, wednesday: false,
+                thursday: false, friday: false, saturday: false
+            };
+            signedEmployee.workingDaysList.forEach(day => {
+                const d = day.toLowerCase();
+                if (signedEmployee.workingDays.hasOwnProperty(d)) {
+                    signedEmployee.workingDays[d] = true;
+                }
+            });
+        }
+
         res.status(200).json(signedEmployee);
     } catch (error) {
         console.error("Error fetching employee:", error);

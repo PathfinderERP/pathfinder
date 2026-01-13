@@ -12,6 +12,98 @@ import {
     ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
     Tooltip, CartesianGrid, Cell, LineChart, Line, AreaChart, Area, PieChart, Pie
 } from "recharts";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+
+const LiveTimer = ({ checkIn, checkOut }) => {
+    const [duration, setDuration] = useState("0h 0m");
+
+    useEffect(() => {
+        if (!checkIn) return;
+
+        const updateTimer = () => {
+            const start = new Date(checkIn);
+            const end = checkOut ? new Date(checkOut) : new Date(); // Use current time if active
+            const diff = Math.max(0, end - start);
+
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+            // Format to be exactly like "3.5 hrs" or "3h 30m"
+            // User requested "minutes and hour".
+            setDuration(`${hours}h ${minutes}m`);
+        };
+
+        updateTimer();
+        // Update every minute if active
+        if (!checkOut) {
+            const interval = setInterval(updateTimer, 60000);
+            return () => clearInterval(interval);
+        }
+    }, [checkIn, checkOut]);
+
+    return <span className="text-white font-black text-sm">{duration}</span>;
+};
+
+const PresentModal = ({ isOpen, onClose, employees }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+            <div className="bg-[#131619] border border-gray-800 rounded-[2px] w-full max-w-4xl max-h-[80vh] flex flex-col shadow-2xl">
+                <div className="p-6 border-b border-gray-800 flex justify-between items-center sticky top-0 bg-[#131619] z-10">
+                    <div>
+                        <h2 className="text-xl font-black text-white uppercase tracking-widest italic">Today's Attendance</h2>
+                        <p className="text-emerald-500 text-[10px] font-black uppercase tracking-[0.3em]">{employees.length} Active Personnel</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-800 rounded-[2px] text-gray-500 hover:text-white transition-colors">
+                        <FaTimes size={20} />
+                    </button>
+                </div>
+
+                <div className="p-6 overflow-y-auto custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {employees.map((att) => (
+                        <div key={att._id} className="bg-gray-900/50 border border-gray-800 p-4 rounded-[2px] flex items-center gap-4 hover:border-emerald-500/30 transition-all">
+                            <div className="w-12 h-12 rounded-[2px] bg-gray-800 flex items-center justify-center overflow-hidden border border-gray-700">
+                                {att.employeeId?.profileImage ? (
+                                    <img
+                                        src={att.employeeId.profileImage}
+                                        alt=""
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            e.target.nextSibling.style.display = 'block';
+                                        }}
+                                    />
+                                ) : null}
+                                <span className={`text-emerald-500 font-black text-lg ${att.employeeId?.profileImage ? 'hidden' : 'block'}`}>
+                                    {att.employeeId?.name?.charAt(0)}
+                                </span>
+                            </div>
+                            <div>
+                                <h4 className="text-white font-black text-xs uppercase tracking-wide">{att.employeeId?.name}</h4>
+                                <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mb-1">{att.employeeId?.department?.departmentName}</p>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-[2px]">
+                                        IN: {format(new Date(att.checkIn.time), 'HH:mm')}
+                                    </span>
+                                    {!att.checkOut && (
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Online"></span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {employees.length === 0 && (
+                        <div className="col-span-full py-10 text-center text-gray-600 font-black uppercase tracking-widest">
+                            No active attendance records found for today.
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 // Premium Multi-Select Dropdown Component (Updated for 2px radius)
 const MultiSelectDropdown = ({ icon, label, options, selectedValues, onToggle, valKey, labelKey }) => {
@@ -108,6 +200,7 @@ const EmployeesAttendance = () => {
     const [attendanceList, setAttendanceList] = useState([]);
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [showPresentModal, setShowPresentModal] = useState(false);
 
     // Individual User Analysis State
     const [selectedUser, setSelectedUser] = useState(null);
@@ -149,8 +242,8 @@ const EmployeesAttendance = () => {
         }
     };
 
-    const fetchAttendanceData = async () => {
-        setLoading(true);
+    const fetchAttendanceData = async (isBackground = false) => {
+        if (!isBackground) setLoading(true);
         try {
             const token = localStorage.getItem("token");
             const queryParams = new URLSearchParams({
@@ -188,11 +281,19 @@ const EmployeesAttendance = () => {
 
         } catch (error) {
             console.error("Attendance fetch error:", error);
-            toast.error("Failed to load attendance records");
+            if (!isBackground) toast.error("Failed to load attendance records");
         } finally {
-            setLoading(false);
+            if (!isBackground) setLoading(false);
         }
     };
+
+    // Poll for updates every 30 seconds to show live checking-in increases
+    useEffect(() => {
+        const interval = setInterval(() => {
+            fetchAttendanceData(true);
+        }, 30000);
+        return () => clearInterval(interval);
+    }, [filters]);
 
     const fetchUserAnalysis = async (user) => {
         // If clicking on a new user, set SelectedUser immediately
@@ -255,20 +356,86 @@ const EmployeesAttendance = () => {
         );
     }, [attendanceList, filters.search]);
 
-    // Derived department data for charts
+    // Present Today Data
+    const presentTodayList = useMemo(() => {
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        return attendanceList.filter(a => format(new Date(a.date), 'yyyy-MM-dd') === todayStr);
+    }, [attendanceList]);
+
+    // Derived department data for charts (Based on Today's Present)
     const departmentData = useMemo(() => {
-        if (!attendanceList.length) return [];
+        if (!presentTodayList.length) return [];
         const map = {};
-        attendanceList.forEach(a => {
+        presentTodayList.forEach(a => {
             const dept = a.employeeId?.department?.departmentName || 'Unknown';
             if (!map[dept]) map[dept] = 0;
             map[dept]++;
         });
         return Object.keys(map).map(k => ({ name: k, value: map[k] }));
-    }, [attendanceList]);
+    }, [presentTodayList]);
+
+    // Live update for User Analysis Chart (Daily Activity)
+    useEffect(() => {
+        if (!selectedUser || !userAnalysisData?.summary?.todayRecord?.checkIn || userAnalysisData.summary.todayRecord.checkOut) return;
+
+        const updateChart = () => {
+            const checkInTime = new Date(userAnalysisData.summary.todayRecord.checkIn).getTime();
+            const now = Date.now();
+            const currentDurationHours = Math.max(0, (now - checkInTime) / (1000 * 60 * 60)); // hours
+
+            setUserAnalysisData(prev => {
+                if (!prev) return prev;
+                const newDailyData = [...prev.dailyData];
+                const todayDay = new Date().getDate();
+                const todayIndex = newDailyData.findIndex(d => d.day === todayDay);
+
+                if (todayIndex >= 0) {
+                    newDailyData[todayIndex] = { ...newDailyData[todayIndex], hours: parseFloat(currentDurationHours.toFixed(2)) };
+                } else {
+                    newDailyData.push({ day: todayDay, hours: parseFloat(currentDurationHours.toFixed(2)) });
+                }
+
+                // Sort by day just in case
+                newDailyData.sort((a, b) => a.day - b.day);
+
+                return {
+                    ...prev,
+                    dailyData: newDailyData
+                };
+            });
+        };
+
+        const interval = setInterval(updateChart, 60000); // Update every minute
+        updateChart(); // Initial run
+
+        return () => clearInterval(interval);
+    }, [selectedUser, userAnalysisData?.summary?.todayRecord?.checkIn, userAnalysisData?.summary?.todayRecord?.checkOut]);
+
+    const handleExport = () => {
+        const dataToExport = attendanceList.map(att => ({
+            "Employee ID": att.employeeId?.employeeId,
+            "Name": att.employeeId?.name,
+            "Department": att.employeeId?.department?.departmentName || '-',
+            "Designation": att.employeeId?.designation?.name || '-',
+            "Date": format(new Date(att.date), 'dd-MM-yyyy'),
+            "Check In": att.checkIn?.time ? format(new Date(att.checkIn.time), 'HH:mm:ss') : '-',
+            "Check Out": att.checkOut?.time ? format(new Date(att.checkOut.time), 'HH:mm:ss') : '-',
+            "Duration (Hrs)": att.workingHours || 0,
+            "Status": att.status
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance Report");
+        const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+        const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" });
+        saveAs(data, `Workforce_Attendance_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+        toast.success("Attendance Report Exported!");
+    };
 
     return (
         <Layout activePage="HR & Manpower">
+            <PresentModal isOpen={showPresentModal} onClose={() => setShowPresentModal(false)} employees={presentTodayList} />
             <div className="p-6 md:p-8 max-w-[1800px] mx-auto space-y-8">
                 {/* Header */}
                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
@@ -282,6 +449,12 @@ const EmployeesAttendance = () => {
                     </div>
 
                     <div className="flex flex-wrap gap-4">
+                        <button
+                            onClick={handleExport}
+                            className="px-6 py-3 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-[2px] border border-emerald-500/20 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                        >
+                            <FaChartBar /> Export Excel
+                        </button>
                         <button
                             onClick={handleRefresh}
                             className="px-6 py-3 bg-gray-800 text-gray-400 hover:text-white rounded-[2px] border border-gray-700 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"
@@ -336,13 +509,15 @@ const EmployeesAttendance = () => {
                         icon={<FaUsers />}
                         color="blue"
                     />
-                    <StatCard
-                        title="Attendance"
-                        value={stats?.presentCount || 0}
-                        subValue={stats?.presentLabel || "Present Count"}
-                        icon={<FaCheck />}
-                        color="emerald"
-                    />
+                    <div onClick={() => setShowPresentModal(true)} className="cursor-pointer transition-transform hover:scale-[1.02]">
+                        <StatCard
+                            title="Attendance"
+                            value={presentTodayList.length} // Real-time today count derived from list
+                            subValue="Click to View Present"
+                            icon={<FaCheck />}
+                            color="emerald"
+                        />
+                    </div>
                     <StatCard
                         title="Avg Working Hrs"
                         value={`${stats?.avgHours || 0}h`}
@@ -437,11 +612,22 @@ const EmployeesAttendance = () => {
                                 >
                                     <div className="flex items-center gap-6 w-full md:w-auto">
                                         <div className="w-12 h-12 rounded-[2px] bg-gray-900 border border-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0 group-hover:scale-105 transition-transform">
-                                            {att.employeeId?.profileImage && !att.employeeId.profileImage.startsWith('undefined/') ? (
-                                                <img src={att.employeeId.profileImage} alt="" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <span className="text-gray-600 font-black text-lg group-hover:text-cyan-500">{att.employeeId?.name?.charAt(0)}</span>
-                                            )}
+                                            {att.employeeId?.profileImage ? (
+                                                <img
+                                                    src={att.employeeId.profileImage}
+                                                    alt=""
+                                                    className="w-full h-full object-cover"
+                                                    onError={(e) => {
+                                                        e.target.style.display = 'none';
+                                                        e.target.nextSibling.style.display = 'block';
+                                                    }}
+                                                />
+                                            ) : null}
+                                            <span
+                                                className={`text-gray-600 font-black text-lg group-hover:text-cyan-500 ${att.employeeId?.profileImage ? 'hidden' : 'block'}`}
+                                            >
+                                                {att.employeeId?.name?.charAt(0)}
+                                            </span>
                                         </div>
                                         <div className="flex flex-col">
                                             <h4 className="text-white font-black uppercase text-sm group-hover:text-cyan-400 transition-colors">{att.employeeId?.name}</h4>
@@ -462,8 +648,8 @@ const EmployeesAttendance = () => {
                                             <p className="text-red-500 font-black text-sm">{att.checkOut?.time ? format(new Date(att.checkOut.time), 'HH:mm') : '--:--'}</p>
                                         </div>
                                         <div className="text-center">
-                                            <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Duration</p>
-                                            <p className="text-white font-black text-sm">{att.workingHours || 0} Hrs</p>
+                                            <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Live Duration</p>
+                                            <LiveTimer checkIn={att.checkIn?.time} checkOut={att.checkOut?.time} />
                                         </div>
                                         <div className={`px-4 py-1.5 rounded-[2px] text-[9px] font-black uppercase tracking-widest min-w-[80px] text-center ${att.status === 'Present' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
                                             {att.status}
@@ -488,22 +674,7 @@ const EmployeesAttendance = () => {
                             <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-8 sticky top-10 shadow-3xl animate-fade-in relative overflow-hidden group/ana custom-scrollbar h-[calc(100vh-100px)] overflow-y-auto">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-3xl" />
 
-                                <div className="flex justify-between items-start mb-8">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-16 h-16 rounded-[2px] border border-gray-800 bg-gray-900 overflow-hidden shrink-0">
-                                            {selectedUser.employeeId?.profileImage && !selectedUser.employeeId.profileImage.startsWith('undefined/') ? (
-                                                <img src={selectedUser.employeeId.profileImage} alt="" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-cyan-500 text-2xl font-black">
-                                                    {selectedUser.employeeId?.name?.charAt(0)}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <h3 className="text-white font-black text-lg tracking-tighter uppercase italic">{selectedUser.employeeId?.name}</h3>
-                                            <p className="text-gray-500 text-[9px] font-black tracking-widest uppercase">{selectedUser.employeeId?.designation?.name}</p>
-                                        </div>
-                                    </div>
+                                <div className="flex justify-end items-start absolute top-8 right-8 z-10">
                                     <button
                                         onClick={() => setSelectedUser(null)}
                                         className="text-gray-700 hover:text-white transition-colors"
@@ -512,10 +683,73 @@ const EmployeesAttendance = () => {
                                     </button>
                                 </div>
 
+                                {/* Analysis Header */}
+                                <div className="text-center mb-10 pt-4">
+                                    <div className="w-24 h-24 mx-auto mb-6 rounded-full border-4 border-cyan-500/20 bg-gray-900 overflow-hidden shadow-2xl shadow-cyan-500/20 group-hover/ana:border-cyan-500/50 transition-all duration-500">
+                                        {selectedUser.employeeId?.profileImage && !selectedUser.employeeId.profileImage.startsWith('undefined/') ? (
+                                            <img src={selectedUser.employeeId.profileImage} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-cyan-500 text-4xl font-black">
+                                                {selectedUser.employeeId?.name?.charAt(0)}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <h3 className="text-white font-black text-2xl tracking-tighter uppercase italic mb-1">{selectedUser.employeeId?.name}</h3>
+                                    <p className="text-cyan-500 text-[10px] font-black tracking-[0.3em] uppercase mb-4">{selectedUser.employeeId?.primaryCentre?.centreName}</p>
+
+                                    <div className="flex flex-wrap justify-center gap-2">
+                                        <span className="px-3 py-1 bg-gray-800 text-gray-400 rounded-full text-[8px] font-black uppercase tracking-widest">{selectedUser.employeeId?.employeeId}</span>
+                                        <span className="px-3 py-1 bg-gray-800 text-gray-400 rounded-full text-[8px] font-black uppercase tracking-widest">{selectedUser.employeeId?.department?.departmentName}</span>
+                                        <span className="px-3 py-1 bg-gray-800 text-gray-400 rounded-full text-[8px] font-black uppercase tracking-widest">{selectedUser.employeeId?.designation?.name}</span>
+                                    </div>
+                                </div>
+
+
                                 {userAnalysisData ? (
-                                    <div className="space-y-8 animate-fade-in">
-                                        {/* Key Metrics Grid */}
-                                        <div className="grid grid-cols-2 gap-3">
+                                    <>
+                                        {/* Today's Live Status Card - New Addition */}
+                                        <div className="mb-8 relative overflow-hidden rounded-[2px] p-[1px] bg-gradient-to-r from-cyan-500 to-purple-600">
+                                            <div className="bg-[#111827] relative p-6 rounded-[1px]">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <div>
+                                                        <h4 className="text-white font-black text-sm uppercase tracking-widest italic">Today's Activity</h4>
+                                                        <p className="text-cyan-500 text-[9px] font-black uppercase tracking-[0.2em]">{format(new Date(), 'dd MMMM yyyy')}</p>
+                                                    </div>
+                                                    <div className={`px-3 py-1 rounded-[2px] text-[8px] font-black uppercase tracking-widest ${userAnalysisData.summary.todayRecord ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-gray-800 text-gray-500'}`}>
+                                                        {userAnalysisData.summary.todayRecord?.status || 'NOT CHECKED IN'}
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Check In</p>
+                                                        <p className="text-white font-black text-lg">
+                                                            {userAnalysisData.summary.todayRecord?.checkIn ? format(new Date(userAnalysisData.summary.todayRecord.checkIn), 'HH:mm') : '--:--'}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Check Out</p>
+                                                        <p className="text-white font-black text-lg">
+                                                            {userAnalysisData.summary.todayRecord?.checkOut ? format(new Date(userAnalysisData.summary.todayRecord.checkOut), 'HH:mm') : '--:--'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {userAnalysisData.summary.todayRecord?.checkIn && !userAnalysisData.summary.todayRecord?.checkOut && (
+                                                    <div className="mt-4 pt-4 border-t border-gray-800 flex justify-between items-center">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                            <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Currently Working</span>
+                                                        </div>
+                                                        <LiveTimer checkIn={userAnalysisData.summary.todayRecord.checkIn} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Historical Averages Grid */}
+                                        <div className="grid grid-cols-2 gap-3 mb-8">
                                             <div className="bg-gray-900/50 p-4 rounded-[2px] border border-gray-800">
                                                 <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest mb-1">Avg Check-In</p>
                                                 <p className="text-emerald-500 text-xl font-black">{userAnalysisData.summary.avgCheckIn}</p>
@@ -534,8 +768,10 @@ const EmployeesAttendance = () => {
                                             </div>
                                         </div>
 
+                                        {/* Charts Section */}
+
                                         {/* 1. Monthly Trend (Bar) */}
-                                        <div>
+                                        <div className="mb-8">
                                             <h4 className="text-white font-black text-[10px] uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
                                                 <FaChartBar className="text-purple-500" /> Yearly Performance
                                             </h4>
@@ -555,9 +791,9 @@ const EmployeesAttendance = () => {
                                         </div>
 
                                         {/* 2. Daily Trend (Area) */}
-                                        <div>
+                                        <div className="mb-8">
                                             <h4 className="text-white font-black text-[10px] uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                                                <FaChartLine className="text-cyan-500" /> Daily Activity (Current Month)
+                                                <FaChartLine className="text-cyan-500" /> Daily Activity ({format(new Date(filters.year, filters.month - 1), 'MMMM')})
                                             </h4>
                                             <div className="h-[180px] w-full bg-gray-900/30 rounded-[2px] border border-gray-800/50 p-2">
                                                 <ResponsiveContainer width="100%" height="100%">
@@ -572,6 +808,8 @@ const EmployeesAttendance = () => {
                                                         <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 8, fontWeight: 700 }} interval={4} />
                                                         <Tooltip
                                                             contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '4px', fontSize: '10px' }}
+                                                            labelFormatter={(label) => `Day ${label}`}
+                                                            formatter={(value) => [`${value} Hrs`, "Working Duration"]}
                                                         />
                                                         <Area type="monotone" dataKey="hours" stroke="#06b6d4" fillOpacity={1} fill="url(#colorHours)" strokeWidth={2} />
                                                     </AreaChart>
@@ -622,8 +860,7 @@ const EmployeesAttendance = () => {
                                                 ))}
                                             </div>
                                         </div>
-
-                                    </div>
+                                    </>
                                 ) : (
                                     <div className="flex items-center justify-center h-[400px]">
                                         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-cyan-500"></div>
@@ -633,12 +870,16 @@ const EmployeesAttendance = () => {
                         )}
                     </div>
                 </div>
-            </div>
+            </div >
+
+
+
+
             <style>{`
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 2px; }
             `}</style>
-        </Layout>
+        </Layout >
     );
 };
 

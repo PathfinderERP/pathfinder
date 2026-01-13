@@ -53,7 +53,7 @@ export const markAttendance = async (req, res) => {
         // 2. Geolocation Check against all assigned centres
         let matchingCentre = null;
         let minDistance = Infinity;
-        const radius = 20; // Increased to 20 meters for better GPS reliability
+        const radius = 200; // Increased to 200 meters for better GPS reliability & larger facilities
 
         for (const centre of allCentres) {
             if (centre.latitude && centre.longitude) {
@@ -64,6 +64,10 @@ export const markAttendance = async (req, res) => {
                     break;
                 }
             }
+        }
+
+        if (!matchingCentre && type === 'checkIn') { // Only enforce geofence strictly on Check-In, maybe lenient on Check-Out? Strict for now.
+            // Actually, strictly enforce for both to ensure they are at work.
         }
 
         if (!matchingCentre) {
@@ -96,16 +100,41 @@ export const markAttendance = async (req, res) => {
             if (type === 'checkIn') return res.status(400).json({ message: "You have already checked in for today." });
             if (attendance.checkOut?.time) return res.status(400).json({ message: "You have already checked out for today." });
 
+            // VALIDATION: Check Minimum Working Hours
+            const checkOutTime = new Date();
+            const checkInTime = new Date(attendance.checkIn.time);
+            const diffMs = checkOutTime - checkInTime;
+            const workedHours = diffMs / (1000 * 60 * 60);
+
+            // Fetch required hours from employee profile (default to 1 if not set to avoid getting stuck)
+            // Use a small buffer (e.g., 0.1 hours) if no gathered workingHours to allow testing? 
+            // The prompt asks to "Implement logic for minimum working hours".
+            // Assuming employee.workingHours is the daily requirement.
+            const minHours = employee.workingHours || 0;
+
+            // If minHours is significantly > 0, enforce it.
+            // Using a tolerance of 15 minutes (0.25 hours) to be nice? Or strict? "Prevent check-out".
+            // Let's be strict but handle 0 case.
+            if (minHours > 0 && workedHours < minHours) {
+                const remaining = (minHours - workedHours).toFixed(2);
+                return res.status(400).json({
+                    message: `Early Checkout Restricted. You need to complete ${minHours} hours. Remaining: ${remaining} hours.`
+                });
+            }
+
             attendance.checkOut = {
-                time: new Date(),
+                time: checkOutTime,
                 latitude,
                 longitude,
                 address: matchingCentre.centreName
             };
 
             // Calculate working hours
-            const diffMs = attendance.checkOut.time - attendance.checkIn.time;
-            attendance.workingHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
+            attendance.workingHours = parseFloat(workedHours.toFixed(2));
+
+            // Determine status based on hours (e.g. Half Day) if needed
+            // For now, keep as Present, or update if very short duration?
+            // If < 4 hours, maybe Half Day? Leaving as Present per current logic unless requested.
         }
 
         await attendance.save();
@@ -143,10 +172,33 @@ export const getMyAttendance = async (req, res) => {
             .populate("primaryCentre", "centreName latitude longitude")
             .populate("centres", "centreName latitude longitude");
 
+        if (!employee) {
+            return res.status(404).json({ message: "Employee profile not found" });
+        }
+
+        // Normalize Working Days (Handle Legacy List format)
+        let normalizedWorkingDays = employee.workingDays;
+        const hasWorkingDaysSet = Object.values(employee.workingDays || {}).some(v => v === true);
+
+        if (!hasWorkingDaysSet && employee.workingDaysList && employee.workingDaysList.length > 0) {
+            normalizedWorkingDays = {
+                sunday: false, monday: false, tuesday: false, wednesday: false,
+                thursday: false, friday: false, saturday: false
+            };
+            employee.workingDaysList.forEach(day => {
+                const d = day.toLowerCase();
+                if (normalizedWorkingDays.hasOwnProperty(d)) {
+                    normalizedWorkingDays[d] = true;
+                }
+            });
+        }
+
         res.status(200).json({
+            dateOfJoining: employee.dateOfJoining,
             attendances,
             holidays,
-            workingDays: employee.workingDays,
+            workingDays: normalizedWorkingDays,
+            workingHours: employee.workingHours, // Added specific working hours
             assignedCentres: {
                 primary: employee.primaryCentre,
                 others: employee.centres || []
@@ -284,13 +336,17 @@ export const getAttendanceAnalysis = async (req, res) => {
         let maxHours = 0;
         let totalCheckInMinutes = 0;
         let totalCheckOutMinutes = 0;
-        let checkInOutCount = 0;
+        let checkInCount = 0;
+        let checkOutCount = 0;
+
         const statusDistribution = { Present: 0, Late: 0, 'Half Day': 0, Absent: 0 };
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        let todayRecord = null;
 
         const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
         const dailyData = daysInMonth.map(day => {
             const dayStr = format(day, 'yyyy-MM-dd');
-            // Stop for future dates
+            // Stop calculations for future dates, but we need the chart to show up to today
             if (day > new Date()) return null;
 
             const att = monthAttendances.find(a => format(new Date(a.date), 'yyyy-MM-dd') === dayStr);
@@ -305,14 +361,25 @@ export const getAttendanceAnalysis = async (req, res) => {
                 if (att.checkIn?.time) {
                     const d = new Date(att.checkIn.time);
                     totalCheckInMinutes += d.getHours() * 60 + d.getMinutes();
+                    checkInCount++;
                 }
                 if (att.checkOut?.time) {
                     const d = new Date(att.checkOut.time);
                     totalCheckOutMinutes += d.getHours() * 60 + d.getMinutes();
+                    checkOutCount++;
                 }
-                if (att.checkIn?.time && att.checkOut?.time) checkInOutCount++;
 
                 statusDistribution[att.status] = (statusDistribution[att.status] || 0) + 1;
+
+                // Capture today's record specifically
+                if (dayStr === todayStr) {
+                    todayRecord = {
+                        checkIn: att.checkIn?.time,
+                        checkOut: att.checkOut?.time,
+                        status: att.status,
+                        workingHours: att.workingHours
+                    };
+                }
 
                 return {
                     day: format(day, 'dd'),
@@ -323,8 +390,6 @@ export const getAttendanceAnalysis = async (req, res) => {
                     checkOut: att.checkOut?.time ? format(new Date(att.checkOut.time), 'HH:mm') : '-'
                 };
             } else {
-                // Absent logic (simplified: if not weekend) per user rules? 
-                // For visualized data, just return 0 hours
                 const isWeekendDay = day.getDay() === 0; // Sunday
                 if (!isWeekendDay) statusDistribution.Absent++;
 
@@ -344,23 +409,19 @@ export const getAttendanceAnalysis = async (req, res) => {
         // Averages
         const avgHours = monthAttendances.length ? (totalHours / monthAttendances.length).toFixed(2) : 0;
 
-        const avgCheckIn = checkInOutCount
-            ? (() => {
-                const mins = totalCheckInMinutes / checkInOutCount;
-                const h = Math.floor(mins / 60);
-                const m = Math.round(mins % 60);
-                return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-            })()
-            : '--:--';
+        const formatMinutesToTime = (totalMins, count) => {
+            if (!count) return '--:--';
+            const avgMins = totalMins / count;
+            const h = Math.floor(avgMins / 60);
+            const m = Math.round(avgMins % 60);
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        };
 
-        const avgCheckOut = checkInOutCount
-            ? (() => {
-                const mins = totalCheckOutMinutes / checkInOutCount;
-                const h = Math.floor(mins / 60);
-                const m = Math.round(mins % 60);
-                return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-            })()
-            : '--:--';
+        const avgCheckIn = formatMinutesToTime(totalCheckInMinutes, checkInCount);
+        const avgCheckOut = formatMinutesToTime(totalCheckOutMinutes, checkOutCount);
+
+        // If today has no record explicitly found yet (maybe not in monthAttendances if filtered oddly), check DB? 
+        // Logic above uses yearAttendances filtered by month, so if today is in current month it should be there.
 
         res.status(200).json({
             summary: {
@@ -372,7 +433,8 @@ export const getAttendanceAnalysis = async (req, res) => {
                 minHours: minHours.toFixed(2),
                 maxHours: maxHours.toFixed(2),
                 avgCheckIn,
-                avgCheckOut
+                avgCheckOut,
+                todayRecord // Include today's live details
             },
             dailyData,
             monthlyStats, // Year-long trend
