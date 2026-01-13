@@ -62,13 +62,10 @@ const LiveTimer = ({ checkIn, checkOut }) => {
             const hours = Math.floor(diff / (1000 * 60 * 60));
             const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
-            // Format to be exactly like "3.5 hrs" or "3h 30m"
-            // User requested "minutes and hour".
             setDuration(`${hours}h ${minutes}m`);
         };
 
         updateTimer();
-        // Update every minute if active
         if (!checkOut) {
             const interval = setInterval(updateTimer, 60000);
             return () => clearInterval(interval);
@@ -78,26 +75,31 @@ const LiveTimer = ({ checkIn, checkOut }) => {
     return <span className="text-white font-black text-sm">{duration}</span>;
 };
 
-const PresentModal = ({ isOpen, onClose, employees }) => {
+const PersonnelModal = ({ isOpen, onClose, employees, title, color = "cyan" }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-            <div className="bg-[#131619] border border-gray-800 rounded-[2px] w-full max-w-4xl max-h-[80vh] flex flex-col shadow-2xl">
-                <div className="p-6 border-b border-gray-800 flex justify-between items-center sticky top-0 bg-[#131619] z-10">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
+            <div className="bg-[#131619] border border-gray-800 rounded-[2px] w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+                <div className={`p-6 border-b border-gray-800 flex justify-between items-center sticky top-0 bg-[#131619] z-10 border-t-2 border-t-${color}-500/50`}>
                     <div>
-                        <h2 className="text-xl font-black text-white uppercase tracking-widest italic">Today's Attendance</h2>
-                        <p className="text-emerald-500 text-[10px] font-black uppercase tracking-[0.3em]">{employees.length} Active Personnel</p>
+                        <h2 className="text-xl font-black text-white uppercase tracking-widest italic flex items-center gap-3">
+                            <span className={`p-2 bg-${color}-500/10 text-${color}-500 rounded-[2px]`}>
+                                <FaUsers />
+                            </span>
+                            {title}
+                        </h2>
+                        <p className={`text-${color}-500 text-[10px] font-black uppercase tracking-[0.3em] mt-1`}>{employees.length} Personnel under review</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-800 rounded-[2px] text-gray-500 hover:text-white transition-colors">
-                        <FaTimes size={20} />
+                    <button onClick={onClose} className="p-2 hover:bg-gray-800 rounded-[2px] text-gray-500 hover:text-white transition-colors group">
+                        <FaTimes size={20} className="group-hover:rotate-90 transition-transform" />
                     </button>
                 </div>
 
                 <div className="p-6 overflow-y-auto custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {employees.map((att) => (
-                        <div key={att._id} className="bg-gray-900/50 border border-gray-800 p-4 rounded-[2px] flex items-center gap-4 hover:border-emerald-500/30 transition-all">
-                            <div className="w-12 h-12 rounded-[2px] bg-gray-800 flex items-center justify-center overflow-hidden border border-gray-700">
+                        <div key={att._id} className={`bg-gray-900/50 border border-gray-800 p-4 rounded-[2px] flex items-center gap-4 hover:border-${color}-500/30 transition-all group`}>
+                            <div className={`w-14 h-14 rounded-[2px] bg-gray-800 flex items-center justify-center overflow-hidden border border-gray-700 group-hover:scale-105 transition-transform`}>
                                 {att.employeeId?.profileImage ? (
                                     <img
                                         src={att.employeeId.profileImage}
@@ -109,27 +111,30 @@ const PresentModal = ({ isOpen, onClose, employees }) => {
                                         }}
                                     />
                                 ) : null}
-                                <span className={`text-emerald-500 font-black text-lg ${att.employeeId?.profileImage ? 'hidden' : 'block'}`}>
+                                <span className={`text-${color}-500 font-black text-xl ${att.employeeId?.profileImage ? 'hidden' : 'block'}`}>
                                     {att.employeeId?.name?.charAt(0)}
                                 </span>
                             </div>
-                            <div>
-                                <h4 className="text-white font-black text-xs uppercase tracking-wide">{att.employeeId?.name}</h4>
-                                <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mb-1">{att.employeeId?.department?.departmentName}</p>
+                            <div className="flex-1 min-w-0">
+                                <h4 className="text-white font-black text-xs uppercase tracking-wide truncate">{att.employeeId?.name}</h4>
+                                <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mb-1 truncate">{att.employeeId?.department?.departmentName || 'No Dept'}</p>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-[2px]">
-                                        IN: {format(new Date(att.checkIn.time), 'HH:mm')}
+                                    <span className="text-[8px] font-black text-gray-400 bg-gray-800 px-2 py-0.5 rounded-[2px] truncate uppercase">
+                                        {att.employeeId?.designation?.name || 'Employee'}
                                     </span>
-                                    {!att.checkOut && (
-                                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Online"></span>
+                                    {(!att.checkOut && !att.workingHours) && (
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]"></span>
                                     )}
                                 </div>
                             </div>
                         </div>
                     ))}
                     {employees.length === 0 && (
-                        <div className="col-span-full py-10 text-center text-gray-600 font-black uppercase tracking-widest">
-                            No active attendance records found for today.
+                        <div className="col-span-full py-16 text-center space-y-4">
+                            <div className="w-16 h-16 bg-gray-900 border border-gray-800 rounded-[2px] mx-auto flex items-center justify-center text-gray-700">
+                                <FaSearch size={24} />
+                            </div>
+                            <p className="text-gray-600 font-black uppercase tracking-[0.2em] text-xs">No personnel records found for this category</p>
                         </div>
                     )}
                 </div>
@@ -234,6 +239,7 @@ const EmployeesAttendance = () => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showPresentModal, setShowPresentModal] = useState(false);
+    const [showCautionModal, setShowCautionModal] = useState(false);
     const [activeCaution, setActiveCaution] = useState(null); // 'Overtime', 'Early Leave', 'Half Day', 'Short Leave'
 
     // Individual User Analysis State
@@ -477,7 +483,24 @@ const EmployeesAttendance = () => {
 
     return (
         <Layout activePage="HR & Manpower">
-            <PresentModal isOpen={showPresentModal} onClose={() => setShowPresentModal(false)} employees={presentTodayList} />
+            <PersonnelModal
+                isOpen={showPresentModal}
+                onClose={() => setShowPresentModal(false)}
+                employees={presentTodayList}
+                title="Personnel Present Today"
+                color="emerald"
+            />
+            <PersonnelModal
+                isOpen={showCautionModal}
+                onClose={() => setShowCautionModal(false)}
+                employees={groupedRecords}
+                title={`${activeCaution || 'Personnel'} Analysis`}
+                color={(
+                    activeCaution === 'Overtime' ? 'indigo' :
+                        activeCaution === 'Early Leave' ? 'pink' :
+                            activeCaution === 'Half Day' ? 'orange' : 'lime'
+                )}
+            />
             <div className="p-6 md:p-8 max-w-[1800px] mx-auto space-y-8">
                 {/* Header */}
                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
@@ -619,7 +642,10 @@ const EmployeesAttendance = () => {
                         ].map(c => (
                             <div
                                 key={c.id}
-                                onClick={() => setActiveCaution(activeCaution === c.id ? null : c.id)}
+                                onClick={() => {
+                                    setActiveCaution(c.id);
+                                    setShowCautionModal(true);
+                                }}
                                 className={`bg-[#131619] border ${activeCaution === c.id ? `border-${c.color}-500 shadow-lg shadow-${c.color}-500/10` : 'border-gray-800'} p-6 rounded-[2px] relative overflow-hidden group cursor-pointer transition-all hover:scale-[1.02]`}
                             >
                                 <div className={`absolute top-0 right-0 w-16 h-16 bg-${c.color}-500/5 rounded-bl-3xl translate-x-4 -translate-y-4`} />
@@ -661,7 +687,7 @@ const EmployeesAttendance = () => {
                                         <linearGradient id="multiShort" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#84cc16" stopOpacity={0.1} /><stop offset="95%" stopColor="#84cc16" stopOpacity={0} /></linearGradient>
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1f2937" />
-                                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 10, fontWeight: 700 }} />
+                                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 10, fontWeight: 700 }} />
                                     <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 10, fontWeight: 700 }} />
                                     <Tooltip
                                         contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '4px', fontSize: '10px', color: '#fff' }}
