@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import Layout from "../../components/Layout";
 import {
     FaBuilding, FaStopwatch,
-    FaMapMarkerAlt, FaCalendarCheck, FaBolt, FaCheckCircle
+    FaMapMarkerAlt, FaCalendarCheck, FaBolt, FaCheckCircle, FaCheck
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import {
@@ -201,7 +201,7 @@ const EmployeeAttendance = () => {
         end: endOfYear(new Date(year, 0, 1))
     });
 
-    const Legend = () => (
+    const StatusLegend = () => (
         <div className="flex flex-wrap gap-4 px-6 py-3 bg-[#131619] border border-gray-800 rounded-[2px] shadow-inner mb-6">
             <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-red-500 rounded-[2px]" />
@@ -273,7 +273,7 @@ const EmployeeAttendance = () => {
 
         // Month-wise data for Area/Bar Chart
         const monthsData = Array.from({ length: 12 }, (_, i) => ({
-            name: format(new Date(year, 0, 1), 'MMM'),
+            name: format(new Date(year, i, 1), 'MMM'),
             present: 0,
             absent: 0,
             workingHours: 0
@@ -304,9 +304,11 @@ const EmployeeAttendance = () => {
                 // Let's do a quick lookup
                 const dateStrKey = format(day, "yyyy-MM-dd");
                 const record = attendanceData.find(a => format(new Date(a.date), "yyyy-MM-dd") === dateStrKey);
-                if (record && record.checkIn && record.checkOut) {
+                if (record && record.checkIn?.time && record.checkOut?.time) {
                     const dur = (new Date(record.checkOut.time) - new Date(record.checkIn.time)) / (1000 * 60 * 60);
-                    monthsData[mIndex].workingHours = parseFloat((monthsData[mIndex].workingHours + dur).toFixed(2));
+                    if (!isNaN(dur)) {
+                        monthsData[mIndex].workingHours = parseFloat((monthsData[mIndex].workingHours + dur).toFixed(2));
+                    }
                 }
             } else if (status.type === 'Absent') {
                 absents++;
@@ -614,6 +616,9 @@ const EmployeeAttendance = () => {
                                                     colorClass = "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30";
                                                     dotColor = "bg-indigo-500";
                                                     isOvertime = true;
+                                                } else if (s === "Forgot to Checkout") {
+                                                    colorClass = "bg-orange-900/40 text-orange-600 border border-orange-500/30";
+                                                    dotColor = "bg-orange-600";
                                                 } else {
                                                     colorClass = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]";
                                                     dotColor = "bg-emerald-500";

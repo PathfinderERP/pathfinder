@@ -404,6 +404,7 @@ const EmployeesAttendance = () => {
                 else if (activeCaution === 'Early Leave') matchesCaution = s === 'Early Leave' || (hours < 8.5 && hours >= 4.5);
                 else if (activeCaution === 'Half Day') matchesCaution = s === 'Half Day' || (hours < 4.5 && hours >= 4);
                 else if (activeCaution === 'Short Leave') matchesCaution = (hours >= 8.5 && hours < 9);
+                else if (activeCaution === 'Forgot Checkout') matchesCaution = s === 'Forgot to Checkout';
             }
 
             return matchesSearch && matchesCaution;
@@ -498,7 +499,8 @@ const EmployeesAttendance = () => {
                 color={(
                     activeCaution === 'Overtime' ? 'indigo' :
                         activeCaution === 'Early Leave' ? 'pink' :
-                            activeCaution === 'Half Day' ? 'orange' : 'lime'
+                            activeCaution === 'Half Day' ? 'orange' :
+                                activeCaution === 'Forgot Checkout' ? 'red' : 'lime'
                 )}
             />
             <div className="p-6 md:p-8 max-w-[1800px] mx-auto space-y-8">
@@ -638,7 +640,8 @@ const EmployeesAttendance = () => {
                             { id: 'Overtime', label: 'Overtime Track', count: stats?.statusSummary?.overtime || 0, color: 'indigo', icon: <FaStar /> },
                             { id: 'Early Leave', label: 'Early Leavers', count: stats?.statusSummary?.earlyLeave || 0, color: 'pink', icon: <FaClock /> },
                             { id: 'Half Day', label: 'Half Presence', count: stats?.statusSummary?.halfDay || 0, color: 'orange', icon: <FaHistory /> },
-                            { id: 'Short Leave', label: 'Short Shifters', count: stats?.statusSummary?.shortLeave || 0, color: 'lime', icon: <FaRunning /> }
+                            { id: 'Short Leave', label: 'Short Shifters', count: stats?.statusSummary?.shortLeave || 0, color: 'lime', icon: <FaRunning /> },
+                            { id: 'Forgot Checkout', label: 'Forgot Checkout', count: stats?.statusSummary?.forgotCheckout || 0, color: 'red', icon: <FaTimes /> }
                         ].map(c => (
                             <div
                                 key={c.id}
@@ -663,42 +666,82 @@ const EmployeesAttendance = () => {
                         ))}
                     </div>
 
-                    {/* Unified Behavioral Trend Chart */}
-                    <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-8 h-[400px] relative overflow-hidden group">
-                        <div className="flex justify-between items-center mb-8 relative z-10">
-                            <div>
-                                <h4 className="text-[12px] font-black text-white uppercase tracking-[0.2em] mb-1">Cautions Behavioral Analysis</h4>
-                                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest italic">Performance Trend (Overlay View)</p>
+                    {/* Analytical Visualizations Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+                        {/* 1. Behavioral Trend Chart (Left) - 70% */}
+                        <div className="lg:col-span-7 bg-[#131619] border border-gray-800 rounded-[2px] p-8 h-[400px] relative overflow-hidden group">
+                            <div className="flex justify-between items-center mb-8 relative z-10">
+                                <div>
+                                    <h4 className="text-[12px] font-black text-white uppercase tracking-[0.2em] mb-1">Behavioral Cautions</h4>
+                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest italic">Performance Trend (Daily View)</p>
+                                </div>
+                                <div className="flex flex-wrap gap-x-4 gap-y-2 justify-end max-w-[70%]">
+                                    <LegendItem color="#8b5cf6" label="Overtime" />
+                                    <LegendItem color="#ec4899" label="Early Exit" />
+                                    <LegendItem color="#f59e0b" label="Half Day" />
+                                    <LegendItem color="#84cc16" label="Short Shift" />
+                                </div>
                             </div>
-                            <div className="flex gap-6">
-                                <LegendItem color="#8b5cf6" label="Overtime" />
-                                <LegendItem color="#ec4899" label="Early Exit" />
-                                <LegendItem color="#f59e0b" label="Half Day" />
-                                <LegendItem color="#84cc16" label="Short Shift" />
+                            <div className="h-[280px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={stats?.dailyCautionsTrend}>
+                                        <defs>
+                                            <linearGradient id="multiOvertime" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.1} /><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} /></linearGradient>
+                                            <linearGradient id="multiEarly" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#ec4899" stopOpacity={0.1} /><stop offset="95%" stopColor="#ec4899" stopOpacity={0} /></linearGradient>
+                                            <linearGradient id="multiHalf" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f59e0b" stopOpacity={0.1} /><stop offset="95%" stopColor="#f59e0b" stopOpacity={0} /></linearGradient>
+                                            <linearGradient id="multiShort" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#84cc16" stopOpacity={0.1} /><stop offset="95%" stopColor="#84cc16" stopOpacity={0} /></linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1f2937" />
+                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 10, fontWeight: 700 }} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 10, fontWeight: 700 }} />
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '4px', fontSize: '10px', color: '#fff' }}
+                                            itemStyle={{ fontWeight: '900', textTransform: 'uppercase' }}
+                                        />
+                                        <Area type="monotone" dataKey="overtime" stroke="#8b5cf6" fillOpacity={1} fill="url(#multiOvertime)" strokeWidth={3} />
+                                        <Area type="monotone" dataKey="earlyLeave" stroke="#ec4899" fillOpacity={1} fill="url(#multiEarly)" strokeWidth={3} />
+                                        <Area type="monotone" dataKey="halfDay" stroke="#f59e0b" fillOpacity={1} fill="url(#multiHalf)" strokeWidth={3} />
+                                        <Area type="monotone" dataKey="shortLeave" stroke="#84cc16" fillOpacity={1} fill="url(#multiShort)" strokeWidth={3} />
+                                    </AreaChart>
+                                </ResponsiveContainer>
                             </div>
                         </div>
-                        <div className="h-[280px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={stats?.dailyCautionsTrend}>
-                                    <defs>
-                                        <linearGradient id="multiOvertime" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.1} /><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} /></linearGradient>
-                                        <linearGradient id="multiEarly" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#ec4899" stopOpacity={0.1} /><stop offset="95%" stopColor="#ec4899" stopOpacity={0} /></linearGradient>
-                                        <linearGradient id="multiHalf" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f59e0b" stopOpacity={0.1} /><stop offset="95%" stopColor="#f59e0b" stopOpacity={0} /></linearGradient>
-                                        <linearGradient id="multiShort" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#84cc16" stopOpacity={0.1} /><stop offset="95%" stopColor="#84cc16" stopOpacity={0} /></linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1f2937" />
-                                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 10, fontWeight: 700 }} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 10, fontWeight: 700 }} />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '4px', fontSize: '10px', color: '#fff' }}
-                                        itemStyle={{ fontWeight: '900', textTransform: 'uppercase' }}
-                                    />
-                                    <Area type="monotone" dataKey="overtime" stroke="#8b5cf6" fillOpacity={1} fill="url(#multiOvertime)" strokeWidth={3} />
-                                    <Area type="monotone" dataKey="earlyLeave" stroke="#ec4899" fillOpacity={1} fill="url(#multiEarly)" strokeWidth={3} />
-                                    <Area type="monotone" dataKey="halfDay" stroke="#f59e0b" fillOpacity={1} fill="url(#multiHalf)" strokeWidth={3} />
-                                    <Area type="monotone" dataKey="shortLeave" stroke="#84cc16" fillOpacity={1} fill="url(#multiShort)" strokeWidth={3} />
-                                </AreaChart>
-                            </ResponsiveContainer>
+
+                        {/* 2. Forgot Checkout Analysis (Right) - 30% */}
+                        <div
+                            onClick={() => { setActiveCaution('Forgot Checkout'); setShowCautionModal(true); }}
+                            className="lg:col-span-3 bg-[#131619] border border-gray-800 rounded-[2px] p-8 h-[400px] relative overflow-hidden group cursor-pointer hover:border-red-500/40 transition-all"
+                        >
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-red-500/10 transition-colors" />
+                            <div className="flex justify-between items-center mb-8 relative z-10">
+                                <div>
+                                    <h4 className="text-[12px] font-black text-red-500 uppercase tracking-[0.2em] mb-1">Forgot Checkout</h4>
+                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest italic">Compliance Breakdown</p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <LegendItem color="#ef4444" label="Systems Auto-Out" />
+                                </div>
+                            </div>
+                            <div className="h-[280px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={stats?.dailyCautionsTrend}>
+                                        <defs>
+                                            <linearGradient id="multiForgot" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
+                                                <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1f2937" />
+                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 10, fontWeight: 700 }} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 10, fontWeight: 700 }} />
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: '#111827', borderColor: '#ef444430', borderRadius: '4px', fontSize: '10px', color: '#fff' }}
+                                            itemStyle={{ fontWeight: '900', textTransform: 'uppercase', color: '#ef4444' }}
+                                        />
+                                        <Area type="monotone" dataKey="forgotCheckout" stroke="#ef4444" fillOpacity={1} fill="url(#multiForgot)" strokeWidth={3} />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
                     </div>
                 </div>

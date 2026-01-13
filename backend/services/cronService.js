@@ -26,8 +26,8 @@ export const startPaymentReminderCron = () => {
         }
     });
 
-    // Auto-checkout at 9:00 PM every day
-    cron.schedule('0 21 * * *', async () => {
+    // Auto-checkout at 11:59 PM every day
+    cron.schedule('59 23 * * *', async () => {
         console.log('🕒 Running daily auto-checkout for attendance...');
         try {
             const count = await performAutoCheckout();
@@ -39,6 +39,6 @@ export const startPaymentReminderCron = () => {
 
     console.log('✅ Cron jobs started');
     console.log('   - Daily reminders: 9:00 AM');
-    console.log('   - Attendance Auto-Checkout: 9:00 PM');
+    console.log('   - Attendance Auto-Checkout: 11:59 PM');
     console.log('   - Status updates: Every hour');
 };

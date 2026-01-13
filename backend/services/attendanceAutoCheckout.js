@@ -22,39 +22,28 @@ export const performAutoCheckout = async () => {
             const recordDate = new Date(attendance.date);
             const isToday = isSameDay(recordDate, now);
 
-            // If it's today's record, only auto-checkout if it's past 9 PM (21:00)
+            // If it's today's record, only auto-checkout if it's very late (after 23:50)
             if (isToday) {
-                if (now.getHours() < 21) {
-                    // Too early to auto-checkout today's records
+                if (now.getHours() < 23 || now.getMinutes() < 50) {
                     continue;
                 }
-            } else if (recordDate > now) {
-                // If record date is in the future (unlikely), skip
-                continue;
             }
 
-            // Set checkout time to 9:00 PM (21:00) of the SAME DAY as the attendance
+            // Set checkout time to 11:59 PM (23:59)
             const checkoutTime = new Date(attendance.date);
-            checkoutTime.setHours(21, 0, 0, 0);
-
-            // If checkIn was actually after 9 PM, we can't really set checkout to 9 PM.
-            if (attendance.checkIn.time > checkoutTime) {
-                console.warn(`Record for user ${attendance.user} has checkIn after 9 PM. Skipping auto-checkout.`);
-                continue;
-            }
+            checkoutTime.setHours(23, 59, 0, 0);
 
             attendance.checkOut = {
                 time: checkoutTime,
-                latitude: attendance.checkIn.latitude, // Fallback to checkIn location
+                latitude: attendance.checkIn.latitude,
                 longitude: attendance.checkIn.longitude,
-                address: "Auto-Checkout (9 PM)"
+                address: "System Auto-Checkout"
             };
 
-            // Calculate working hours
             const diffMs = attendance.checkOut.time - attendance.checkIn.time;
             attendance.workingHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
-
-            attendance.remarks = (attendance.remarks ? attendance.remarks + " | " : "") + "System Auto-Checkout at 9 PM";
+            attendance.status = "Forgot to Checkout";
+            attendance.remarks = (attendance.remarks ? attendance.remarks + " | " : "") + "Forgot to checkout - Auto updated";
 
             await attendance.save();
             count++;

@@ -511,7 +511,8 @@ export const getAttendanceDashboardStats = async (req, res) => {
             earlyLeave: attendances.filter(a => a.status === 'Early Leave').length,
             halfDay: attendances.filter(a => a.status === 'Half Day').length,
             shortLeave: attendances.filter(a => a.workingHours >= 8.5 && a.workingHours < 9).length,
-            absent: 0 // Will calculate based on expected vs actual if needed, but for now simple counts
+            forgotCheckout: attendances.filter(a => a.status === 'Forgot to Checkout').length,
+            absent: 0
         };
 
         // Present logic
@@ -552,7 +553,8 @@ export const getAttendanceDashboardStats = async (req, res) => {
                 overtime: dailyAtts.filter(a => a.status === 'Overtime').length,
                 earlyLeave: dailyAtts.filter(a => a.status === 'Early Leave').length,
                 halfDay: dailyAtts.filter(a => a.status === 'Half Day').length,
-                shortLeave: dailyAtts.filter(a => a.workingHours >= 8.5 && a.workingHours < 9).length
+                shortLeave: dailyAtts.filter(a => a.workingHours >= 8.5 && a.workingHours < 9).length,
+                forgotCheckout: dailyAtts.filter(a => a.status === 'Forgot to Checkout').length
             });
         });
 
