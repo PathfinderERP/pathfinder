@@ -2,7 +2,7 @@ import EmployeeAttendance from "../../models/Attendance/EmployeeAttendance.js";
 import Employee from "../../models/HR/Employee.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Holiday from "../../models/Attendance/Holiday.js";
-import { getSignedFileUrl } from "../HR/employeeController.js";
+import { getSignedFileUrl } from "../../utils/r2Upload.js";
 import { startOfDay, endOfDay, format, eachDayOfInterval, startOfYear, endOfYear, isToday, isSameDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 
 // Helper function to calculate distance between two coordinates in meters
@@ -216,19 +216,29 @@ export const getAllAttendance = async (req, res) => {
 
         let query = {};
 
-        // Date Filtering
-        if (date) {
+        // Date Filtering based on viewMode (Synced with dashboard-stats logic)
+        const referenceDate = date ? new Date(date) : new Date();
+        const vMode = req.query.viewMode || 'month';
+
+        if (vMode === 'day') {
+            const dayStart = startOfDay(referenceDate);
+            const dayEnd = endOfDay(referenceDate);
+            query.date = { $gte: dayStart, $lte: dayEnd };
+        } else if (vMode === 'week') {
+            const weekStart = startOfWeek(referenceDate, { weekStartsOn: 1 });
+            const weekEnd = endOfWeek(referenceDate, { weekStartsOn: 1 });
+            query.date = { $gte: weekStart, $lte: weekEnd };
+        } else if (vMode === 'month') {
+            const monthVal = month || (referenceDate.getMonth() + 1);
+            const yearVal = year || referenceDate.getFullYear();
+            const monthStart = new Date(yearVal, monthVal - 1, 1);
+            const monthEnd = endOfMonth(monthStart);
+            query.date = { $gte: monthStart, $lte: monthEnd };
+        } else if (date) {
+            // Fallback for direct date query if viewMode is missing
             const dayStart = startOfDay(new Date(date));
             const dayEnd = endOfDay(new Date(date));
             query.date = { $gte: dayStart, $lte: dayEnd };
-        } else if (month && year) {
-            const monthStart = new Date(year, month - 1, 1);
-            const monthEnd = endOfDay(new Date(year, month, 0));
-            query.date = { $gte: monthStart, $lte: monthEnd };
-        } else if (year) {
-            const yearStart = startOfYear(new Date(year, 0, 1));
-            const yearEnd = endOfYear(new Date(year, 0, 1));
-            query.date = { $gte: yearStart, $lte: yearEnd };
         }
 
         // Multi-select Filters (Handle both single string and array)
@@ -301,11 +311,13 @@ export const getAllAttendance = async (req, res) => {
 // Get Dashboard Analysis (Late check-ins, average hours, etc.)
 export const getAttendanceAnalysis = async (req, res) => {
     try {
-        const { userId, month, year } = req.query;
+        const { userId, month, year, date } = req.query;
         const targetUserId = userId || req.user.id;
+        const todayStart = startOfDay(new Date());
 
-        const selectedYear = parseInt(year) || new Date().getFullYear();
-        const selectedMonth = parseInt(month) || (new Date().getMonth() + 1);
+        const referenceDate = date ? new Date(date) : new Date();
+        const selectedYear = parseInt(year) || referenceDate.getFullYear();
+        const selectedMonth = parseInt(month) || (referenceDate.getMonth() + 1);
 
         const yearStart = startOfYear(new Date(selectedYear, 0, 1));
         const yearEnd = endOfYear(new Date(selectedYear, 0, 1));
@@ -356,7 +368,7 @@ export const getAttendanceAnalysis = async (req, res) => {
         let checkOutCount = 0;
 
         const statusDistribution = { Present: 0, Late: 0, 'Half Day': 0, Absent: 0, 'Early Leave': 0, Overtime: 0 };
-        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const snapshotStr = format(referenceDate, 'yyyy-MM-dd');
         let todayRecord = null;
         const targetHours = 9; // Default target for calculations if unknown
 
@@ -399,8 +411,8 @@ export const getAttendanceAnalysis = async (req, res) => {
 
                 statusDistribution[status] = (statusDistribution[status] || 0) + 1;
 
-                // Capture today's record specifically
-                if (dayStr === todayStr) {
+                // Capture relevant record specifically (based on snapshot date)
+                if (dayStr === snapshotStr) {
                     todayRecord = {
                         checkIn: att.checkIn?.time,
                         checkOut: att.checkOut?.time,

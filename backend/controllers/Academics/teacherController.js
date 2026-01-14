@@ -1,7 +1,7 @@
 import User from "../../models/User.js";
 import Employee from "../../models/HR/Employee.js";
 import bcrypt from "bcrypt";
-import { getSignedFileUrl } from "../HR/employeeController.js";
+import { getSignedFileUrl } from "../../utils/r2Upload.js";
 
 // Create Teacher
 export const createTeacher = async (req, res) => {

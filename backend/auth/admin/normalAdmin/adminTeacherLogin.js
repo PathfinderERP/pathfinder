@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import User from "../../../models/User.js";
 import Employee from "../../../models/HR/Employee.js";
 import { generateToken } from "../../../middleware/auth.js";
-import { getSignedFileUrl } from "../../../controllers/HR/employeeController.js";
+import { getSignedFileUrl } from "../../../utils/r2Upload.js";
 
 export default async function adminTeacherLogin(req, res) {
     try {

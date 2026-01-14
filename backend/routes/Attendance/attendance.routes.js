@@ -25,6 +25,8 @@ import {
     deleteRegularization
 } from '../../controllers/Attendance/regularizationController.js';
 
+import { upload } from '../../utils/r2Upload.js';
+
 const router = express.Router();
 
 router.use(authMiddleware);
@@ -48,7 +50,7 @@ router.patch('/leave-requests/:id/status', updateLeaveRequestStatus);
 router.delete('/leave-requests/:id', deleteLeaveRequest);
 
 // Regularization Routes
-router.post('/regularizations', createRegularization);
+router.post('/regularizations', upload.single('photo'), createRegularization);
 router.get('/regularizations', getRegularizations);
 router.patch('/regularizations/:id/status', updateRegularizationStatus);
 router.delete('/regularizations/:id', deleteRegularization);

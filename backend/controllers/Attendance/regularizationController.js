@@ -1,25 +1,32 @@
 import Regularization from '../../models/Attendance/Regularization.js';
 import EmployeeAttendance from '../../models/Attendance/EmployeeAttendance.js';
 import Employee from '../../models/HR/Employee.js';
+import { uploadToR2, getSignedFileUrl } from '../../utils/r2Upload.js';
+import { startOfDay } from 'date-fns';
 
 export const createRegularization = async (req, res) => {
     try {
         let empId = req.body.employeeId;
-
-        // If no employeeId sent, find it from logged in user
-        if (!empId) {
+        
+        // Handle case where employeeId might be null or "null" string
+        if (!empId || empId === "null" || empId === "undefined" || empId === "") {
             const employee = await Employee.findOne({ user: req.user.id });
             if (!employee) return res.status(404).json({ message: "Employee profile not found for this user" });
             empId = employee._id;
         }
 
-        const regularization = new Regularization({
-            ...req.body,
-            employeeId: empId
-        });
+        const regularizationData = { ...req.body, employeeId: empId };
+
+        // Handle Photo Upload
+        if (req.file) {
+            regularizationData.photo = await uploadToR2(req.file, 'regularization/photos');
+        }
+
+        const regularization = new Regularization(regularizationData);
         await regularization.save();
         res.status(201).json(regularization);
     } catch (error) {
+        console.error("Create Regularization Error:", error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -32,10 +39,22 @@ export const getRegularizations = async (req, res) => {
         if (status) query.status = status;
 
         const regularizations = await Regularization.find(query)
-            .populate('employeeId', 'name employeeId')
+            .populate('employeeId', 'name employeeId profileImage')
             .sort({ createdAt: -1 });
 
-        res.status(200).json(regularizations);
+        // Sign photo URLs
+        const signedRegularizations = await Promise.all(regularizations.map(async (reg) => {
+            const regObj = reg.toObject();
+            if (regObj.photo) {
+                regObj.photo = await getSignedFileUrl(regObj.photo);
+            }
+            if (regObj.employeeId && regObj.employeeId.profileImage) {
+                regObj.employeeId.profileImage = await getSignedFileUrl(regObj.employeeId.profileImage);
+            }
+            return regObj;
+        }));
+
+        res.status(200).json(signedRegularizations);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -67,14 +86,17 @@ export const updateRegularizationStatus = async (req, res) => {
         // If Approved, update the actual Attendance Record
         if (status === 'Approved') {
             const regDate = new Date(regularization.date);
-            const startOfDay = new Date(regDate.setHours(0, 0, 0, 0));
-            const endOfDay = new Date(regDate.setHours(23, 59, 59, 999));
+            const startOfRegDay = new Date(regDate);
+            startOfRegDay.setHours(0, 0, 0, 0);
+
+            const endOfRegDay = new Date(regDate);
+            endOfRegDay.setHours(23, 59, 59, 999);
 
             let attendance = await EmployeeAttendance.findOne({
                 employeeId: regularization.employeeId,
                 date: {
-                    $gte: startOfDay,
-                    $lte: endOfDay
+                    $gte: startOfRegDay,
+                    $lte: endOfRegDay
                 }
             });
 
@@ -115,24 +137,30 @@ export const updateRegularizationStatus = async (req, res) => {
 
                 await attendance.save();
             } else {
-                // If attendance doesn't exist, create it?
-                // For now, let's create it if we have times, otherwise it's ambiguous
-                const newAttendance = new EmployeeAttendance({
-                    user: (await Employee.findById(regularization.employeeId)).user, // Need to find user ID
-                    employeeId: regularization.employeeId,
-                    centreId: (await Employee.findById(regularization.employeeId)).primaryCentre, // Need centre
-                    date: startOfDay,
-                    status: 'Present',
-                    workingHours: calculatedWorkingHours,
-                    remarks: `Regularization Created: ${regularization.reason}`,
-                    checkIn: { time: checkInDate, address: 'Regularized' },
-                    checkOut: { time: checkOutDate, address: 'Regularized' }
-                });
-
-                // We need to fetch the employee to get User and Centre. 
-                // Since this is getting complex inside the controller without fetching employee first, 
-                // I'll skip creation for now to avoid breaking if employee lookup fails or fields are missing.
-                console.warn(`Attendance record not found for regularization on ${regularization.date} - Skipping creation`);
+                // Find employee to get User and Primary Centre
+                const employee = await Employee.findById(regularization.employeeId);
+                if (employee) {
+                    const newAttendance = new EmployeeAttendance({
+                        user: employee.user,
+                        employeeId: regularization.employeeId,
+                        centreId: employee.primaryCentre,
+                        date: startOfRegDay,
+                        status: 'Present',
+                        workingHours: calculatedWorkingHours,
+                        remarks: `Regularization (${regularization.type}): ${regularization.reason}`,
+                        checkIn: { 
+                            time: checkInDate, 
+                            address: 'Regularized',
+                            latitude: regularization.latitude,
+                            longitude: regularization.longitude
+                        },
+                        checkOut: { 
+                            time: checkOutDate, 
+                            address: 'Regularized'
+                        }
+                    });
+                    await newAttendance.save();
+                }
             }
         }
 

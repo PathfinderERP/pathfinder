@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../../components/Layout";
-import { FaCalendarAlt, FaHistory, FaCheck, FaTimes, FaSpinner, FaPlus, FaClock, FaBriefcase, FaHome, FaExclamationCircle, FaLaptopHouse, FaStopwatch, FaUserClock } from "react-icons/fa";
+import { FaCalendarAlt, FaHistory, FaCheck, FaTimes, FaSpinner, FaPlus, FaClock, FaBriefcase, FaHome, FaExclamationCircle, FaLaptopHouse, FaStopwatch, FaUserClock, FaCamera, FaMapMarkerAlt, FaVideoSlash } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 const MyRegularization = () => {
@@ -18,6 +18,15 @@ const MyRegularization = () => {
     });
 
     const [showForm, setShowForm] = useState(false);
+    
+    // Camera and Location States
+    const [stream, setStream] = useState(null);
+    const [capturedPhoto, setCapturedPhoto] = useState(null);
+    const [location, setLocation] = useState({ latitude: null, longitude: null });
+    const [locationLoading, setLocationLoading] = useState(false);
+    const videoRef = useRef(null);
+    const canvasRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     useEffect(() => {
         fetchEmployeeProfile();
@@ -62,27 +71,128 @@ const MyRegularization = () => {
         }
     };
 
+    const startCamera = async () => {
+        try {
+            const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            setStream(mediaStream);
+            if (videoRef.current) {
+                videoRef.current.srcObject = mediaStream;
+            }
+            getLocation();
+        } catch (err) {
+            toast.error("Camera access denied or not available");
+            console.error(err);
+        }
+    };
+
+    const stopCamera = () => {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            setStream(null);
+        }
+    };
+
+    const takePhoto = () => {
+        if (videoRef.current && canvasRef.current) {
+            const video = videoRef.current;
+            const canvas = canvasRef.current;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            canvas.toBlob((blob) => {
+                setCapturedPhoto(blob);
+            }, 'image/jpeg', 0.8);
+            
+            stopCamera();
+        }
+    };
+
+    const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                toast.error("Please upload an image file");
+                return;
+            }
+            // Validate file size (e.g., 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error("File size should be less than 5MB");
+                return;
+            }
+            setCapturedPhoto(file);
+            stopCamera(); // Stop camera if it was running
+            getLocation(); // Still try to get location if possible
+        }
+    };
+
+    const getLocation = () => {
+        setLocationLoading(true);
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    setLocation({
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    });
+                    setLocationLoading(false);
+                },
+                (error) => {
+                    toast.error("Location access denied or failed");
+                    setLocationLoading(false);
+                }
+            );
+        } else {
+            toast.error("Geolocation not supported");
+            setLocationLoading(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        if (!capturedPhoto) {
+            toast.error("Please take a geo-tagged photo for verification");
+            return;
+        }
+
         setSubmitting(true);
         try {
             const token = localStorage.getItem("token");
+            const formDataPayload = new FormData();
+            
+            if (employeeId && employeeId !== "null") {
+                formDataPayload.append('employeeId', employeeId);
+            }
+            formDataPayload.append('date', formData.date);
+            formDataPayload.append('type', formData.type);
+            formDataPayload.append('reason', formData.reason);
+            formDataPayload.append('fromTime', formData.fromTime);
+            formDataPayload.append('toTime', formData.toTime);
+            formDataPayload.append('latitude', location.latitude);
+            formDataPayload.append('longitude', location.longitude);
+            formDataPayload.append('photo', capturedPhoto, `attendance_${Date.now()}.jpg`);
+
             const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/attendance/regularizations`, {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ ...formData, employeeId })
+                body: formDataPayload
             });
 
             if (response.ok) {
                 toast.success("Request submitted successfully");
                 setFormData({ date: "", type: "On Duty", reason: "", fromTime: "", toTime: "" });
+                setCapturedPhoto(null);
+                setLocation({ latitude: null, longitude: null });
                 setShowForm(false);
                 fetchRequests();
             } else {
-                toast.error("Failed to submit request");
+                const errData = await response.json();
+                toast.error(errData.message || "Failed to submit request");
             }
         } catch (error) {
             toast.error("Error submitting request");
@@ -246,13 +356,129 @@ const MyRegularization = () => {
                                 />
                             </div>
 
-                            <div className="flex justify-end">
+                            {/* Geo-tagged Photo Section */}
+                            <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                    <FaCamera className="text-blue-500" /> Geo-tagged Photo Verification
+                                </label>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Camera/Preview Area */}
+                                    <div className="relative aspect-video bg-gray-100 dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 overflow-hidden flex items-center justify-center">
+                                        {stream ? (
+                                            <div className="relative w-full h-full">
+                                                <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                                                <button 
+                                                    type="button"
+                                                    onClick={takePhoto}
+                                                    className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white text-blue-600 p-4 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-transform"
+                                                >
+                                                    <FaCamera size={24} />
+                                                </button>
+                                            </div>
+                                        ) : capturedPhoto ? (
+                                            <div className="relative w-full h-full">
+                                                <img src={URL.createObjectURL(capturedPhoto)} className="w-full h-full object-cover" alt="Captured" />
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => { setCapturedPhoto(null); startCamera(); }}
+                                                    className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl"
+                                                >
+                                                    Retake Photo
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button 
+                                                type="button"
+                                                onClick={startCamera}
+                                                className="flex flex-col items-center gap-2 text-gray-400 hover:text-blue-500 transition-colors"
+                                            >
+                                                <FaCamera size={40} />
+                                                <span className="text-[10px] font-black uppercase tracking-widest">Open Camera</span>
+                                            </button>
+                                        )}
+                                        <canvas ref={canvasRef} className="hidden" />
+                                        <input 
+                                            type="file" 
+                                            ref={fileInputRef} 
+                                            onChange={handleFileUpload} 
+                                            accept="image/*" 
+                                            className="hidden" 
+                                        />
+                                    </div>
+
+                                    {/* Location Info Area */}
+                                    <div className="flex flex-col justify-center space-y-4 p-6 bg-blue-50/50 dark:bg-blue-500/5 rounded-2xl border border-blue-100 dark:border-blue-500/10">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-3 bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-500/20">
+                                                <FaMapMarkerAlt size={20} />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-black text-gray-800 dark:text-white uppercase tracking-tight">Location Tagging</h3>
+                                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">GPS Verification Required</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            {locationLoading ? (
+                                                <div className="flex items-center gap-2 text-blue-500 font-bold text-xs uppercase tracking-widest animate-pulse">
+                                                    <FaSpinner className="animate-spin" /> Detecting Location...
+                                                </div>
+                                            ) : location.latitude ? (
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+                                                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mb-1">Latitude</span>
+                                                        <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">{location.latitude.toFixed(6)}</span>
+                                                    </div>
+                                                    <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+                                                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mb-1">Longitude</span>
+                                                        <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">{location.longitude.toFixed(6)}</span>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="p-4 bg-rose-50 dark:bg-rose-500/10 rounded-xl border border-rose-100 dark:border-rose-500/20 text-rose-500 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                                                    <FaVideoSlash /> No Location Data Detected
+                                                </div>
+                                            )}
+                                            
+                                            <button 
+                                                type="button" 
+                                                onClick={getLocation}
+                                                className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline"
+                                            >
+                                                Refresh GPS
+                                            </button>
+                                            
+                                            <div className="pt-2 border-t border-blue-100 dark:border-blue-500/10">
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="w-full bg-white dark:bg-gray-800 text-blue-600 border border-blue-200 dark:border-blue-800 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
+                                                >
+                                                    <FaPlus /> Upload Photo Instead
+                                                </button>
+                                                <p className="text-[8px] text-gray-400 mt-2 text-center font-bold uppercase tracking-tighter italic">If camera is not working, you can host regularize via file upload</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end pt-6 border-t border-gray-100 dark:border-gray-800">
                                 <button
                                     type="submit"
                                     disabled={submitting}
-                                    className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-blue-600/20 hover:-translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="bg-blue-600 hover:bg-blue-500 text-white px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-600/30 hover:-translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed group flex items-center gap-3"
                                 >
-                                    {submitting ? 'Submitting...' : 'Submit Request'}
+                                    {submitting ? (
+                                        <>
+                                            <FaSpinner className="animate-spin" /> Submitting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Submit Correction <FaCheck className="group-hover:translate-x-1 transition-transform" />
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </form>

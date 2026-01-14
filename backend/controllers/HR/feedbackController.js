@@ -1,7 +1,7 @@
 import Feedback from "../../models/HR/Feedback.js";
 import Employee from "../../models/HR/Employee.js";
 import User from "../../models/User.js";
-import { getSignedFileUrl } from "./employeeController.js";
+import { getSignedFileUrl } from "../../utils/r2Upload.js";
 
 // Submit Feedback (Employee)
 export const submitFeedback = async (req, res) => {

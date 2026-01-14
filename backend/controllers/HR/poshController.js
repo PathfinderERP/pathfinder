@@ -4,7 +4,7 @@ import User from "../../models/User.js";
 import s3Client from "../../config/r2Config.js";
 import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { getSignedFileUrl } from "./employeeController.js";
+import { getSignedFileUrl } from "../../utils/r2Upload.js";
 
 // Helper to upload file to R2 and return key
 const uploadFileToR2 = async (file) => {

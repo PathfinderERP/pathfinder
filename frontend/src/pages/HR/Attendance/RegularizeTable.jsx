@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../../components/Layout";
-import { FaCheck, FaTimes, FaSpinner, FaHistory, FaSearch, FaUserEdit, FaPlus } from "react-icons/fa";
+import { FaCheck, FaTimes, FaSpinner, FaHistory, FaSearch, FaUserEdit, FaPlus, FaCamera, FaMapMarkedAlt, FaExternalLinkAlt } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 const RegularizeTable = () => {
@@ -96,6 +96,7 @@ const RegularizeTable = () => {
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Date</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Type</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Timings</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Verification</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Status</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Approve</th>
@@ -129,6 +130,28 @@ const RegularizeTable = () => {
                                                 ) : (
                                                     <span className="text-xs text-gray-400">-</span>
                                                 )}
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <div className="flex flex-col items-center gap-1">
+                                                    {request.photo ? (
+                                                        <img src={request.photo} alt="Proof" className="w-8 h-8 rounded object-cover border border-gray-200 cursor-pointer hover:scale-150 transition-transform" />
+                                                    ) : (
+                                                        <span className="text-[8px] text-gray-400 font-bold">NO PHOTO</span>
+                                                    )}
+                                                    {request.latitude && request.longitude ? (
+                                                        <a 
+                                                            href={`https://www.google.com/maps?q=${request.latitude},${request.longitude}`} 
+                                                            target="_blank" 
+                                                            rel="noopener noreferrer"
+                                                            className="text-blue-500 hover:text-blue-700"
+                                                            title="View on Map"
+                                                        >
+                                                            <FaMapMarkedAlt size={12} />
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-[8px] text-gray-400 font-bold">NO GPS</span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 truncate max-w-[200px]" title={request.reason}>
                                                 {request.reason}
@@ -180,6 +203,38 @@ const RegularizeTable = () => {
                                 <button type="button" onClick={() => setReviewData({ ...reviewData, status: 'Approved' })} className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 ${reviewData.status === 'Approved' ? 'bg-green-500 border-green-500 text-white' : 'border-gray-100 text-gray-400'}`}>Approve</button>
                                 <button type="button" onClick={() => setReviewData({ ...reviewData, status: 'Rejected' })} className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 ${reviewData.status === 'Rejected' ? 'bg-red-500 border-red-500 text-white' : 'border-gray-100 text-gray-400'}`}>Reject</button>
                             </div>
+                            
+                            {/* Verification Display in Modal */}
+                            {selectedRequest && (selectedRequest.photo || (selectedRequest.latitude && selectedRequest.longitude)) && (
+                                <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 space-y-3">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Verification Details</p>
+                                    <div className="flex gap-4">
+                                        {selectedRequest.photo && (
+                                            <div className="w-24 h-24 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 shadow-sm">
+                                                <img src={selectedRequest.photo} className="w-full h-full object-cover" alt="Verification" />
+                                            </div>
+                                        )}
+                                        <div className="flex-1 space-y-2">
+                                            {selectedRequest.latitude && (
+                                                <div className="text-[10px] font-bold text-gray-600 dark:text-gray-400">
+                                                    📍 {selectedRequest.latitude.toFixed(6)}, {selectedRequest.longitude.toFixed(6)}
+                                                </div>
+                                            )}
+                                            {selectedRequest.latitude && (
+                                                <a 
+                                                    href={`https://www.google.com/maps?q=${selectedRequest.latitude},${selectedRequest.longitude}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow-md hover:bg-blue-600 transition-colors"
+                                                >
+                                                    Open In Maps <FaExternalLinkAlt size={8} />
+                                                </a>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">From Time</label>

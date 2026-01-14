@@ -1,7 +1,7 @@
 import LeaveRequest from '../../models/Attendance/LeaveRequest.js';
 import Employee from '../../models/HR/Employee.js';
 import User from '../../models/User.js';
-import { getSignedFileUrl } from '../HR/employeeController.js';
+import { getSignedFileUrl } from "../../utils/r2Upload.js";
 
 // Helper to find employee by user ID or email and link them
 const findEmployeeByUser = async (userId) => {

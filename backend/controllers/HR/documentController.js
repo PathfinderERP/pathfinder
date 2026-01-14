@@ -1,7 +1,7 @@
 import Document from "../../models/HR/Document.js";
 import User from "../../models/User.js";
 import Employee from "../../models/HR/Employee.js";
-import { getSignedFileUrl } from "./employeeController.js";
+import { getSignedFileUrl } from "../../utils/r2Upload.js";
 import s3Client from "../../config/r2Config.js";
 import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";

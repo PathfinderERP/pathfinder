@@ -6,7 +6,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import s3Client from "../../config/r2Config.js";
-import { signEmployeeFiles, getSignedFileUrl } from "./employeeController.js";
+import { signEmployeeFiles } from "./employeeController.js";
+import { getSignedFileUrl } from "../../utils/r2Upload.js";
 import { getUploadDir } from "../../utils/pdfGenerator/index.js";
 
 const __filename = fileURLToPath(import.meta.url);

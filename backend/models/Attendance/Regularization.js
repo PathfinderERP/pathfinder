@@ -41,6 +41,19 @@ const regularizationSchema = new mongoose.Schema({
     },
     reviewRemark: {
         type: String
+    },
+    // New fields for geo-tagged photo
+    photo: {
+        type: String
+    },
+    latitude: {
+        type: Number
+    },
+    longitude: {
+        type: Number
+    },
+    locationAddress: {
+        type: String
     }
 }, { timestamps: true });
 

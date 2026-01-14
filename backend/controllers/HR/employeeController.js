@@ -4,9 +4,8 @@ import Department from "../../models/Master_data/Department.js";
 import Designation from "../../models/Master_data/Designation.js";
 import User from "../../models/User.js";
 import bcrypt from "bcryptjs";
-import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import s3Client from "../../config/r2Config.js";
+import { uploadToR2, deleteFromR2, getSignedFileUrl } from "../../utils/r2Upload.js";
 import multer from "multer";
 // import dotenv from "dotenv"; // dotenv loaded in server.js
 // dotenv.config();
@@ -17,129 +16,7 @@ export const upload = multer({
     limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-// Helper function to upload file to Cloudflare R2
-const uploadToR2 = async (file, folder = "employees") => {
-    if (!file) return null;
-
-    let publicUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
-
-    if (!publicUrl) {
-        console.warn("WARNING: R2_PUBLIC_URL is missing. Using fallback URL construction.");
-        // Fallback to S3API endpoint or a placeholder if available, otherwise relative path
-        // This ensures upload succeeds even if display URL is imperfect
-        if (process.env.S3API) {
-            publicUrl = process.env.S3API.replace(/\/$/, "");
-        } else {
-            // Absolute fallback to generic R2 dev URL structure or even just empty string 
-            // to let frontend handle it (though frontend expects absolute URL mostly)
-            publicUrl = "https://pub-3c9d12dd00618b00795184bc5ff0c333.r2.dev";
-        }
-    }
-
-    const fileName = `${folder}/${Date.now()}_${file.originalname.replace(/\s+/g, "_")}`;
-    const uploadParams = {
-        Bucket: process.env.R2_BUCKET_NAME,
-        Key: fileName,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-    };
-
-    try {
-        console.log(`R2 Upload: Starting upload for ${fileName} to bucket ${process.env.R2_BUCKET_NAME}`);
-        await s3Client.send(new PutObjectCommand(uploadParams));
-        const finalUrl = `${publicUrl}/${fileName}`;
-        console.log(`R2 Upload: Success. URL: ${finalUrl}`);
-        return finalUrl;
-    } catch (error) {
-        console.error("R2 Upload: Error:", error);
-        // Don't crash the whole update if one file fails? 
-        // Better to throw so user knows, BUT valid file upload failure is different from config error.
-        throw new Error("File upload failed: " + error.message);
-    }
-};
-
-// Helper function to delete file from R2
-const deleteFromR2 = async (fileUrl) => {
-    if (!fileUrl) return;
-
-    try {
-        const publicUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
-        let key = "";
-
-        if (publicUrl && fileUrl.startsWith(publicUrl)) {
-            key = fileUrl.replace(`${publicUrl}/`, "");
-        } else if (fileUrl.startsWith("undefined/")) {
-            key = fileUrl.replace("undefined/", "");
-        } else {
-            const index = fileUrl.indexOf("employees/");
-            if (index !== -1) {
-                key = fileUrl.substring(index);
-            } else {
-                return; // Not our file
-            }
-        }
-
-        const deleteParams = {
-            Bucket: process.env.R2_BUCKET_NAME,
-            Key: key,
-        };
-        await s3Client.send(new DeleteObjectCommand(deleteParams));
-    } catch (error) {
-        console.error("Error deleting from R2:", error);
-    }
-};
-
-// Helper function to get signed URL for a file
-export const getSignedFileUrl = async (fileUrl) => {
-    if (!fileUrl) return null;
-
-    // Safety check: if credentials key is missing, we cannot sign.
-    // Return original URL to avoid crashing or generating invalid signatures.
-    // This allows public URLs to still work if they are public.
-    if (!process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
-        console.warn("getSignedFileUrl: Missing R2 credentials, returning original URL");
-        return fileUrl;
-    }
-
-    try {
-        const publicUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
-        let key = "";
-
-        if (publicUrl && fileUrl.startsWith(publicUrl)) {
-            key = fileUrl.replace(`${publicUrl}/`, "");
-        } else if (fileUrl.startsWith("undefined/")) {
-            key = fileUrl.replace("undefined/", "");
-        } else {
-            // Fallback: search for 'employees/' or 'letters/' in the string to find the key
-            const empIndex = fileUrl.indexOf("employees/");
-            const letterIndex = fileUrl.indexOf("letters/");
-
-            if (empIndex !== -1) {
-                key = fileUrl.substring(empIndex);
-            } else if (letterIndex !== -1) {
-                key = fileUrl.substring(letterIndex);
-            } else {
-                return fileUrl; // Probably not our R2 file
-            }
-        }
-
-        // Remove any query parameters from the key if they exist
-        key = key.split('?')[0];
-
-        const command = new GetObjectCommand({
-            Bucket: process.env.R2_BUCKET_NAME,
-            Key: key,
-        });
-
-        // Sign for 1 hour (3600 seconds)
-        const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
-        console.log(`Signed URL generated for key ${key}: ${signedUrl.substring(0, 50)}...`);
-        return signedUrl;
-    } catch (error) {
-        console.error("Error signing URL:", error, "for URL:", fileUrl);
-        return fileUrl;
-    }
-};
+// Multer and R2 helpers are now centralized in r2Upload.js and used below.
 
 // Helper function to sign all file fields in an employee object
 export const signEmployeeFiles = async (employee) => {
@@ -690,7 +567,7 @@ export const updateMyProfile = async (req, res) => {
                         await deleteFromR2(employee[field]);
                     }
                     // Upload new file
-                    const fileUrl = await uploadToR2(req.files[field][0]);
+                    const fileUrl = await uploadToR2(req.files[field][0], "employees/profile");
                     employee[field] = fileUrl;
                 }
             }

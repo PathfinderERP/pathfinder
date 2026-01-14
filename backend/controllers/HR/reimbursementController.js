@@ -1,6 +1,6 @@
 import Reimbursement from "../../models/HR/Reimbursement.js";
 import Employee from "../../models/HR/Employee.js";
-import { getSignedFileUrl } from "./employeeController.js";
+import { getSignedFileUrl } from "../../utils/r2Upload.js";
 
 // Helper to handle local vs R2 URLs
 const getLocalOrSignedUrl = async (path, req) => {
