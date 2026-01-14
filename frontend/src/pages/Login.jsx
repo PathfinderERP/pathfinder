@@ -138,13 +138,13 @@ export default function Login() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider px-1">
+              {/* <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider px-1">
                 <label className="flex items-center gap-2 cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
                   <input type="checkbox" className="rounded-full border-gray-300 dark:border-gray-600 text-cyan-600 focus:ring-cyan-500/30" />
                   Remember Session
                 </label>
                 <span className="text-cyan-600 hover:text-cyan-400 cursor-pointer transition-colors">Recovery</span>
-              </div>
+              </div> */}
 
               <button
                 type="submit"
@@ -161,7 +161,7 @@ export default function Login() {
                   </span>
                 ) : (
                   <span className="flex items-center justify-center gap-2">
-                    Establish Link
+                    Login
                   </span>
                 )}
               </button>

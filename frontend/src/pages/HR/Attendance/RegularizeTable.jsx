@@ -10,6 +10,8 @@ const RegularizeTable = () => {
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [reviewData, setReviewData] = useState({ status: "Approved", remark: "", fromTime: "", toTime: "" });
+    const [previewImage, setPreviewImage] = useState(null);
+    const [showPreviewModal, setShowPreviewModal] = useState(false);
 
     useEffect(() => {
         fetchRequests();
@@ -58,6 +60,26 @@ const RegularizeTable = () => {
             }
         } catch (error) {
             toast.error("Error updating status");
+        }
+    };
+
+    const handleDownloadImage = async (url, filename) => {
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = filename || 'verification-image.jpg';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+            toast.success("Download started");
+        } catch (error) {
+            toast.error("Failed to download image");
+            // Fallback for cross-origin issues
+            window.open(url, '_blank');
         }
     };
 
@@ -134,7 +156,15 @@ const RegularizeTable = () => {
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex flex-col items-center gap-1">
                                                     {request.photo ? (
-                                                        <img src={request.photo} alt="Proof" className="w-8 h-8 rounded object-cover border border-gray-200 cursor-pointer hover:scale-150 transition-transform" />
+                                                        <img 
+                                                            src={request.photo} 
+                                                            alt="Proof" 
+                                                            className="w-10 h-10 rounded object-cover border border-gray-200 cursor-pointer hover:border-blue-500 hover:ring-2 hover:ring-blue-500/20 transition-all"
+                                                            onClick={() => {
+                                                                setPreviewImage(request.photo);
+                                                                setShowPreviewModal(true);
+                                                            }}
+                                                        />
                                                     ) : (
                                                         <span className="text-[8px] text-gray-400 font-bold">NO PHOTO</span>
                                                     )}
@@ -210,8 +240,16 @@ const RegularizeTable = () => {
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Verification Details</p>
                                     <div className="flex gap-4">
                                         {selectedRequest.photo && (
-                                            <div className="w-24 h-24 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 shadow-sm">
+                                            <div className="w-24 h-24 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 shadow-sm relative group cursor-pointer"
+                                                onClick={() => {
+                                                    setPreviewImage(selectedRequest.photo);
+                                                    setShowPreviewModal(true);
+                                                }}
+                                            >
                                                 <img src={selectedRequest.photo} className="w-full h-full object-cover" alt="Verification" />
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                                    <FaExternalLinkAlt className="text-white" size={14} />
+                                                </div>
                                             </div>
                                         )}
                                         <div className="flex-1 space-y-2">
@@ -254,6 +292,48 @@ const RegularizeTable = () => {
                                 <button type="submit" className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-600/20">Submit Review</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+            {/* Image Preview Modal */}
+            {showPreviewModal && (
+                <div 
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in"
+                    onClick={() => setShowPreviewModal(false)}
+                >
+                    <div 
+                        className="relative max-w-4xl w-full flex flex-col items-center gap-6"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button 
+                            onClick={() => setShowPreviewModal(false)}
+                            className="absolute -top-12 right-0 text-white/60 hover:text-white transition-colors"
+                        >
+                            <FaPlus size={32} className="rotate-45" />
+                        </button>
+
+                        <div className="w-full bg-white dark:bg-gray-900 p-2 rounded-2xl shadow-2xl relative group overflow-hidden border border-white/10">
+                            <img 
+                                src={previewImage} 
+                                alt="Verification Evidence" 
+                                className="w-full h-auto max-h-[70vh] object-contain rounded-xl"
+                            />
+                        </div>
+
+                        <div className="flex gap-4">
+                            <button 
+                                onClick={() => handleDownloadImage(previewImage, `regularization_proof_${selectedRequest?.employeeId?.name || 'employee'}.jpg`)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-blue-600/20 active:scale-95 transition-all"
+                            >
+                                <FaPlus className="rotate-0" /> Download Proof Image
+                            </button>
+                            <button 
+                                onClick={() => setShowPreviewModal(false)}
+                                className="bg-white/10 hover:bg-white/20 text-white px-8 py-3 rounded-xl font-bold uppercase tracking-widest border border-white/10 active:scale-95 transition-all"
+                            >
+                                Close Preview
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
