@@ -484,6 +484,9 @@ const EmployeesAttendance = () => {
     const [userAnalysisData, setUserAnalysisData] = useState(null);
 
     // Filters State
+    const [viewMode, setViewMode] = useState('month'); // 'day', 'week', 'month'
+    const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+
     const [filters, setFilters] = useState({
         search: "",
         centreId: [],
@@ -502,7 +505,7 @@ const EmployeesAttendance = () => {
 
     useEffect(() => {
         fetchAttendanceData();
-    }, [filters.month, filters.year, filters.centreId, filters.department, filters.designation, filters.role]);
+    }, [filters.month, filters.year, filters.centreId, filters.department, filters.designation, filters.role, viewMode, selectedDate]);
 
     const fetchMetadata = async () => {
         try {
@@ -526,6 +529,8 @@ const EmployeesAttendance = () => {
         try {
             const token = localStorage.getItem("token");
             const queryParams = new URLSearchParams({
+                viewMode,
+                date: selectedDate,
                 month: filters.month,
                 year: filters.year,
                 centreId: filters.centreId.join(','),
@@ -600,8 +605,33 @@ const EmployeesAttendance = () => {
                 setUserAnalysisData(data);
             }
         } catch (error) {
-            console.error("Analysis Error:", error);
+            console.error("User analysis error:", error);
         }
+    };
+
+    const handleExportExcel = () => {
+        if (!attendanceList.length) return toast.error("No data to export");
+
+        const exportData = attendanceList.map(att => ({
+            'Date': format(new Date(att.date), 'dd MMM yyyy'),
+            'Employee ID': att.employeeId?.employeeId || 'N/A',
+            'Name': att.employeeId?.name || 'N/A',
+            'Department': att.employeeId?.department?.departmentName || 'N/A',
+            'Designation': att.employeeId?.designation?.name || 'N/A',
+            'Check In': att.checkIn?.time ? format(new Date(att.checkIn.time), 'HH:mm') : '--:--',
+            'Check Out': att.checkOut?.time ? format(new Date(att.checkOut.time), 'HH:mm') : '--:--',
+            'Duration': att.workingHours ? `${att.workingHours.toFixed(2)}h` : '--:--',
+            'Status': att.status || 'N/A',
+            'Remarks': att.remarks || ''
+        }));
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        XLSX.utils.book_append_sheet(wb, ws, "Attendance Report");
+        const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        saveAs(data, `Attendance_Report_${viewMode}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+        toast.success("Excel Report Downloaded");
     };
 
     const handleReset = () => {
@@ -656,6 +686,15 @@ const EmployeesAttendance = () => {
         return attendanceList.filter(a => format(new Date(a.date), 'yyyy-MM-dd') === todayStr);
     }, [attendanceList]);
 
+    // Forgot to Checkout List (Month/Current View)
+    const forgotCheckoutList = useMemo(() => {
+        return attendanceList.filter(a => {
+            // Include those with missing checkout (regardless of day, since the stats are monthly)
+            // or those explicitly marked as Forgot Checkout
+            return (a.checkIn?.time && !a.checkOut?.time) || a.status === 'Forgot to Checkout';
+        });
+    }, [attendanceList]);
+
     // Derived department data for charts (Based on Today's Present)
     const departmentData = useMemo(() => {
         if (!presentTodayList.length) return [];
@@ -698,28 +737,6 @@ const EmployeesAttendance = () => {
         return () => clearInterval(interval);
     }, [selectedUser, userAnalysisData?.summary?.todayRecord?.checkIn, userAnalysisData?.summary?.todayRecord?.checkOut]);
 
-    const handleExport = () => {
-        const dataToExport = attendanceList.map(att => ({
-            "Employee ID": att.employeeId?.employeeId,
-            "Name": att.employeeId?.name,
-            "Center": att.centreId?.centreName || 'N/A',
-            "Department": att.employeeId?.department?.departmentName || '-',
-            "Designation": att.employeeId?.designation?.name || '-',
-            "Date": format(new Date(att.date), 'dd-MM-yyyy'),
-            "Check In": att.checkIn?.time ? format(new Date(att.checkIn.time), 'HH:mm:ss') : '-',
-            "Check Out": att.checkOut?.time ? format(new Date(att.checkOut.time), 'HH:mm:ss') : '-',
-            "Duration (Hrs)": att.workingHours || 0,
-            "Status": att.status
-        }));
-
-        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance Records");
-        const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-        const blob = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" });
-        saveAs(blob, `Workforce_Attendance_${format(new Date(), 'yyyyMMdd')}.xlsx`);
-        toast.success("Full Attendance History Exported!");
-    };
 
     return (
         <Layout activePage="HR & Manpower">
@@ -770,10 +787,10 @@ const EmployeesAttendance = () => {
                             <FaUserClock /> Manual Attendance Override
                         </button>
                         <button
-                            onClick={handleExport}
+                            onClick={handleExportExcel}
                             className="px-6 py-3 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-[2px] border border-emerald-500/20 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]"
                         >
-                            <FaChartBar /> Export Data
+                            <FaChartBar /> Export Excel
                         </button>
                         <button
                             onClick={handleReset}
@@ -781,24 +798,47 @@ const EmployeesAttendance = () => {
                         >
                             <FaSyncAlt className={loading ? "animate-spin" : ""} /> Reset
                         </button>
+                        <div className="flex bg-[#131619] border border-gray-800 rounded-[2px] overflow-hidden">
+                            {['day', 'week', 'month'].map(mode => (
+                                <button
+                                    key={mode}
+                                    onClick={() => setViewMode(mode)}
+                                    className={`px-4 py-2 text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === mode ? 'bg-cyan-500 text-black' : 'text-gray-500 hover:text-white hover:bg-gray-800'}`}
+                                >
+                                    {mode}
+                                </button>
+                            ))}
+                        </div>
+
                         <div className="flex bg-[#131619] border border-gray-800 rounded-[2px] px-4 py-2 gap-4 items-center">
-                            <select
-                                className="bg-transparent text-gray-400 font-black uppercase text-[10px] outline-none cursor-pointer hover:text-cyan-500 transition-colors"
-                                value={filters.month}
-                                onChange={(e) => setFilters({ ...filters, month: parseInt(e.target.value) })}
-                            >
-                                {Array.from({ length: 12 }).map((_, i) => (
-                                    <option key={i} value={i + 1}>{format(new Date(2025, i, 1), 'MMMM')}</option>
-                                ))}
-                            </select>
-                            <div className="w-[1px] h-4 bg-gray-800" />
-                            <select
-                                className="bg-transparent text-gray-400 font-black uppercase text-[10px] outline-none cursor-pointer hover:text-cyan-500 transition-colors"
-                                value={filters.year}
-                                onChange={(e) => setFilters({ ...filters, year: parseInt(e.target.value) })}
-                            >
-                                {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
-                            </select>
+                            {viewMode === 'month' ? (
+                                <>
+                                    <select
+                                        className="bg-transparent text-gray-400 font-black uppercase text-[10px] outline-none cursor-pointer hover:text-cyan-500 transition-colors"
+                                        value={filters.month}
+                                        onChange={(e) => setFilters({ ...filters, month: parseInt(e.target.value) })}
+                                    >
+                                        {Array.from({ length: 12 }).map((_, i) => (
+                                            <option key={i} value={i + 1}>{format(new Date(2025, i, 1), 'MMMM')}</option>
+                                        ))}
+                                    </select>
+                                    <div className="w-[1px] h-4 bg-gray-800" />
+                                    <select
+                                        className="bg-transparent text-gray-400 font-black uppercase text-[10px] outline-none cursor-pointer hover:text-cyan-500 transition-colors"
+                                        value={filters.year}
+                                        onChange={(e) => setFilters({ ...filters, year: parseInt(e.target.value) })}
+                                    >
+                                        {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+                                    </select>
+                                </>
+                            ) : (
+                                <input
+                                    type="date"
+                                    value={selectedDate}
+                                    onChange={(e) => setSelectedDate(e.target.value)}
+                                    className="bg-transparent text-gray-400 font-black uppercase text-[10px] outline-none cursor-pointer hover:text-cyan-500 transition-colors font-mono"
+                                />
+                            )}
                         </div>
                     </div>
                 </div>
@@ -890,7 +930,7 @@ const EmployeesAttendance = () => {
                     {/* Interactive Behavioral Cautions */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                         {[
-                            { id: 'Overtime', label: 'Overtime Track', count: stats?.statusSummary?.overtime || 0, color: 'indigo', icon: <FaStar /> },
+                            { id: 'Overtime', label: 'Overtime Track', count: stats?.statusSummary?.overtime || 0, color: 'violet', icon: <FaStar /> },
                             { id: 'Early Leave', label: 'Early Leavers', count: stats?.statusSummary?.earlyLeave || 0, color: 'pink', icon: <FaClock /> },
                             { id: 'Half Day', label: 'Half Presence', count: stats?.statusSummary?.halfDay || 0, color: 'orange', icon: <FaHistory /> },
                             { id: 'Short Leave', label: 'Short Shifters', count: stats?.statusSummary?.shortLeave || 0, color: 'lime', icon: <FaRunning /> },
@@ -951,10 +991,10 @@ const EmployeesAttendance = () => {
                                             contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '4px', fontSize: '10px', color: '#fff' }}
                                             itemStyle={{ fontWeight: '900', textTransform: 'uppercase' }}
                                         />
-                                        <Area type="monotone" dataKey="overtime" stroke="#8b5cf6" fillOpacity={1} fill="url(#multiOvertime)" strokeWidth={3} />
-                                        <Area type="monotone" dataKey="earlyLeave" stroke="#ec4899" fillOpacity={1} fill="url(#multiEarly)" strokeWidth={3} />
-                                        <Area type="monotone" dataKey="halfDay" stroke="#f59e0b" fillOpacity={1} fill="url(#multiHalf)" strokeWidth={3} />
-                                        <Area type="monotone" dataKey="shortLeave" stroke="#84cc16" fillOpacity={1} fill="url(#multiShort)" strokeWidth={3} />
+                                        <Area type="monotone" dataKey="overtime" stroke="#8b5cf6" fillOpacity={1} fill="url(#multiOvertime)" strokeWidth={3} stackId="1" />
+                                        <Area type="monotone" dataKey="earlyLeave" stroke="#ec4899" fillOpacity={1} fill="url(#multiEarly)" strokeWidth={3} stackId="1" />
+                                        <Area type="monotone" dataKey="halfDay" stroke="#f59e0b" fillOpacity={1} fill="url(#multiHalf)" strokeWidth={3} stackId="1" />
+                                        <Area type="monotone" dataKey="shortLeave" stroke="#84cc16" fillOpacity={1} fill="url(#multiShort)" strokeWidth={3} stackId="1" />
                                     </AreaChart>
                                 </ResponsiveContainer>
                             </div>
@@ -963,37 +1003,59 @@ const EmployeesAttendance = () => {
                         {/* 2. Forgot Checkout Analysis (Right) - 30% */}
                         <div
                             onClick={() => { setActiveCaution('Forgot Checkout'); setShowCautionModal(true); }}
-                            className="lg:col-span-3 bg-[#131619] border border-gray-800 rounded-[2px] p-8 h-[400px] relative overflow-hidden group cursor-pointer hover:border-red-500/40 transition-all"
+                            className="lg:col-span-3 bg-[#131619] border border-gray-800 rounded-[2px] p-8 h-[400px] relative overflow-hidden group cursor-pointer hover:border-red-500/40 transition-all flex flex-col"
                         >
                             <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-red-500/10 transition-colors" />
-                            <div className="flex justify-between items-center mb-8 relative z-10">
+                            <div className="flex justify-between items-center mb-6 relative z-10">
                                 <div>
                                     <h4 className="text-[12px] font-black text-red-500 uppercase tracking-[0.2em] mb-1">Forgot Checkout</h4>
                                     <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest italic">Compliance Breakdown</p>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <LegendItem color="#ef4444" label="Systems Auto-Out" />
+                                    <LegendItem color="#ef4444" label="Alerts Today" />
                                 </div>
                             </div>
-                            <div className="h-[280px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={stats?.dailyCautionsTrend}>
-                                        <defs>
-                                            <linearGradient id="multiForgot" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
-                                                <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1f2937" />
-                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 10, fontWeight: 700 }} />
-                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 10, fontWeight: 700 }} />
-                                        <Tooltip
-                                            contentStyle={{ backgroundColor: '#111827', borderColor: '#ef444430', borderRadius: '4px', fontSize: '10px', color: '#fff' }}
-                                            itemStyle={{ fontWeight: '900', textTransform: 'uppercase', color: '#ef4444' }}
-                                        />
-                                        <Area type="monotone" dataKey="forgotCheckout" stroke="#ef4444" fillOpacity={1} fill="url(#multiForgot)" strokeWidth={3} />
-                                    </AreaChart>
-                                </ResponsiveContainer>
+
+                            <div className="flex-1 min-h-0 flex flex-col gap-4 relative z-10">
+                                {/* Personnel List (Small) */}
+                                <div className="max-h-[120px] overflow-y-auto custom-scrollbar space-y-2 mb-4 bg-black/20 p-2 rounded-[2px] border border-gray-800/50">
+                                    {forgotCheckoutList.map(emp => (
+                                        <div key={emp._id} className="flex items-center justify-between group/emp hover:bg-white/5 p-1.5 rounded-[1px] transition-colors border-l border-transparent hover:border-red-500/50">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-5 h-5 bg-gray-800 rounded-full flex items-center justify-center text-[8px] font-black text-gray-400 group-hover/emp:text-red-500 border border-gray-700">
+                                                    {emp.employeeId?.name?.charAt(0)}
+                                                </div>
+                                                <span className="text-[10px] font-black text-white uppercase tracking-tight truncate max-w-[120px]">{emp.employeeId?.name}</span>
+                                            </div>
+                                            <span className="text-[8px] font-black text-gray-500 bg-gray-900 px-1.5 py-0.5 rounded-[1px] uppercase truncate">{emp.employeeId?.employeeId}</span>
+                                        </div>
+                                    ))}
+                                    {forgotCheckoutList.length === 0 && (
+                                        <div className="py-6 text-center text-[8px] font-black text-gray-600 uppercase tracking-[0.1em]">No Active Checkout Alerts</div>
+                                    )}
+                                </div>
+
+                                <div className="flex-1 min-h-0">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={stats?.dailyCautionsTrend}>
+                                            <defs>
+                                                <linearGradient id="multiForgot" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
+                                                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1f2937" />
+                                            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 10, fontWeight: 700 }} />
+                                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 10, fontWeight: 700 }} />
+                                            <Tooltip
+                                                contentStyle={{ backgroundColor: '#111827', borderColor: '#ef444430', borderRadius: '4px', fontSize: '10px', color: '#fff' }}
+                                                itemStyle={{ fontWeight: '900', textTransform: 'uppercase', color: '#ef4444' }}
+                                                formatter={(value) => [`${value} Alerts`, 'Forgot Checkout']}
+                                            />
+                                            <Area type="monotone" dataKey="forgotCheckout" stroke="#ef4444" fillOpacity={1} fill="url(#multiForgot)" strokeWidth={3} activeDot={{ r: 4, stroke: '#ef4444', strokeWidth: 2, fill: '#111827' }} />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1120,11 +1182,19 @@ const EmployeesAttendance = () => {
                                         {(() => {
                                             const hours = att.workingHours || 0;
                                             const s = att.status;
+                                            const recordDate = format(new Date(att.date), 'yyyy-MM-dd');
+                                            const todayStr = format(new Date(), 'yyyy-MM-dd');
+                                            const isPastDate = recordDate < todayStr;
+
                                             let badgeClass = "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
                                             let label = att.status;
 
-                                            if (s === "Absent" || (hours < 4 && att.checkOut)) {
+                                            if (s === "Absent" || (isPastDate && att.checkIn?.time && !att.checkOut?.time)) {
                                                 badgeClass = "bg-red-500/10 text-red-500 border border-red-500/20";
+                                                label = "Absent";
+                                            } else if (hours < 4 && att.checkOut) {
+                                                badgeClass = "bg-red-500/10 text-red-500 border border-red-500/20";
+                                                label = "Absent";
                                             } else if (s === "Half Day" || (hours < 4.5 && att.checkOut)) {
                                                 badgeClass = "bg-orange-500/10 text-orange-500 border border-orange-500/20";
                                             } else if (s === "Early Leave" || (hours < 8.5 && att.checkOut)) {
@@ -1135,6 +1205,9 @@ const EmployeesAttendance = () => {
                                             } else if (s === "Overtime" || (hours > 9.05 && att.checkOut)) {
                                                 badgeClass = "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20";
                                                 label = "Overtime ★";
+                                            } else if (!att.checkOut && !isPastDate) {
+                                                badgeClass = "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
+                                                label = "Present Today";
                                             }
 
                                             return (

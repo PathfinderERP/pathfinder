@@ -3,7 +3,7 @@ import Employee from "../../models/HR/Employee.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Holiday from "../../models/Attendance/Holiday.js";
 import { getSignedFileUrl } from "../HR/employeeController.js";
-import { startOfDay, endOfDay, format, eachDayOfInterval, startOfYear, endOfYear, isToday, isSameDay, startOfMonth, endOfMonth } from "date-fns";
+import { startOfDay, endOfDay, format, eachDayOfInterval, startOfYear, endOfYear, isToday, isSameDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 
 // Helper function to calculate distance between two coordinates in meters
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -246,6 +246,24 @@ export const getAllAttendance = async (req, res) => {
             .populate("user", "role")
             .sort({ date: -1 });
 
+        const todayStart = startOfDay(new Date());
+
+        // Dynamic Status Update: Past days with check-in but no check-out -> Absent
+        attendances = attendances.map(att => {
+            const attObj = att.toObject();
+            const recordDate = startOfDay(new Date(attObj.date));
+
+            if (recordDate < todayStart && attObj.checkIn?.time && !attObj.checkOut?.time) {
+                attObj.status = "Absent";
+                attObj.isForgotCheckout = true; // Flag for frontend chart/UI if needed
+            } else if (recordDate >= todayStart && attObj.checkIn?.time && !attObj.checkOut?.time) {
+                // If it's today and they are checked in but not out, status is still Present (working)
+                // but we can flag it for the "Forgot Checkout" section if the work day is nearly over
+                attObj.isCurrentlyWorking = true;
+            }
+            return attObj;
+        });
+
         // Post-query filtering for Employee details (department, designation, role)
         if (department || designation || role) {
             const depts = department ? (Array.isArray(department) ? department : department.split(',').filter(Boolean)) : [];
@@ -257,9 +275,9 @@ export const getAllAttendance = async (req, res) => {
                 const usr = att.user;
 
                 let matches = true;
-                if (depts.length > 0 && !depts.includes(emp.department?._id.toString())) matches = false;
-                if (desigs.length > 0 && !desigs.includes(emp.designation?._id.toString())) matches = false;
-                if (roles.length > 0 && !roles.includes(usr.role)) matches = false;
+                if (depts.length > 0 && !depts.includes(emp.department?._id?.toString())) matches = false;
+                if (desigs.length > 0 && !desigs.includes(emp.designation?._id?.toString())) matches = false;
+                if (roles.length > 0 && !roles.includes(usr?.role)) matches = false;
 
                 return matches;
             });
@@ -267,11 +285,10 @@ export const getAllAttendance = async (req, res) => {
 
         // Sign profile images
         const signedAttendances = await Promise.all(attendances.map(async (att) => {
-            const attObj = att.toObject();
-            if (attObj.employeeId && attObj.employeeId.profileImage) {
-                attObj.employeeId.profileImage = await getSignedFileUrl(attObj.employeeId.profileImage);
+            if (att.employeeId && att.employeeId.profileImage) {
+                att.employeeId.profileImage = await getSignedFileUrl(att.employeeId.profileImage);
             }
-            return attObj;
+            return att;
         }));
 
         res.status(200).json(signedAttendances);
@@ -350,9 +367,18 @@ export const getAttendanceAnalysis = async (req, res) => {
             if (day > new Date()) return null;
 
             const att = monthAttendances.find(a => format(new Date(a.date), 'yyyy-MM-dd') === dayStr);
+            const isPastDay = startOfDay(day) < todayStart;
 
             if (att) {
-                const wh = att.workingHours || 0;
+                let wh = att.workingHours || 0;
+                let status = att.status;
+
+                // Dynamic Status for Analysis
+                if (isPastDay && att.checkIn?.time && !att.checkOut?.time) {
+                    status = 'Absent';
+                    wh = 0;
+                }
+
                 totalHours += wh;
                 if (wh > maxHours) maxHours = wh;
                 if (wh < minHours && wh > 0) minHours = wh;
@@ -363,21 +389,23 @@ export const getAttendanceAnalysis = async (req, res) => {
                     totalCheckInMinutes += d.getHours() * 60 + d.getMinutes();
                     checkInCount++;
                 }
-                if (att.checkOut?.time) {
+
+                // Only count check-out if it exists and it's not a dynamic absent case
+                if (att.checkOut?.time && status !== 'Absent') {
                     const d = new Date(att.checkOut.time);
                     totalCheckOutMinutes += d.getHours() * 60 + d.getMinutes();
                     checkOutCount++;
                 }
 
-                statusDistribution[att.status] = (statusDistribution[att.status] || 0) + 1;
+                statusDistribution[status] = (statusDistribution[status] || 0) + 1;
 
                 // Capture today's record specifically
                 if (dayStr === todayStr) {
                     todayRecord = {
                         checkIn: att.checkIn?.time,
                         checkOut: att.checkOut?.time,
-                        status: att.status,
-                        workingHours: att.workingHours
+                        status: status,
+                        workingHours: wh
                     };
                 }
 
@@ -385,9 +413,9 @@ export const getAttendanceAnalysis = async (req, res) => {
                     day: format(day, 'dd'),
                     fullDate: format(day, 'dd MMM'),
                     hours: wh,
-                    status: att.status,
+                    status: status,
                     checkIn: att.checkIn?.time ? format(new Date(att.checkIn.time), 'HH:mm') : '-',
-                    checkOut: att.checkOut?.time ? format(new Date(att.checkOut.time), 'HH:mm') : '-'
+                    checkOut: (att.checkOut?.time && status !== 'Absent') ? format(new Date(att.checkOut.time), 'HH:mm') : '-'
                 };
             } else {
                 const isWeekendDay = day.getDay() === 0; // Sunday
@@ -454,7 +482,7 @@ export const getAttendanceAnalysis = async (req, res) => {
 // Get Attendance Dashboard Stats (Totals, Charts, etc.)
 export const getAttendanceDashboardStats = async (req, res) => {
     try {
-        const { month, year, centreId, department, designation } = req.query;
+        const { month, year, centreId, department, designation, viewMode = 'month', date } = req.query;
 
         // 1. Build Employee Filter
         const empQuery = { status: "Active" };
@@ -474,11 +502,24 @@ export const getAttendanceDashboardStats = async (req, res) => {
         const employees = await Employee.find(empQuery).select('_id workingHours');
         const totalEmployees = employees.length;
 
-        // 2. Build Attendance Filter (Date Range)
-        const monthStart = startOfMonth(new Date(year, month - 1, 1));
-        const monthEnd = endOfMonth(new Date(year, month - 1, 1));
+        // 2. Build Attendance Filter (Date Range based on viewMode)
+        let startDate, endDate;
+        const referenceDate = date ? new Date(date) : new Date();
+
+        if (viewMode === 'day') {
+            startDate = startOfDay(referenceDate);
+            endDate = endOfDay(referenceDate);
+        } else if (viewMode === 'week') {
+            startDate = startOfWeek(referenceDate, { weekStartsOn: 1 });
+            endDate = endOfWeek(referenceDate, { weekStartsOn: 1 });
+        } else {
+            // Default to month
+            startDate = startOfMonth(new Date(year, month - 1, 1));
+            endDate = endOfMonth(new Date(year, month - 1, 1));
+        }
+
         const attQuery = {
-            date: { $gte: monthStart, $lte: monthEnd },
+            date: { $gte: startDate, $lte: endDate },
             employeeId: { $in: employees.map(e => e._id) }
         };
 
@@ -493,19 +534,18 @@ export const getAttendanceDashboardStats = async (req, res) => {
         const totalActualHours = hoursList.reduce((a, b) => a + b, 0);
         const avgHours = hoursList.length ? (totalActualHours / hoursList.length).toFixed(2) : 0;
 
-        // Efficiency Calculation
-        // Target = Average target hours of present employees * Count of present records
-        // Or better: Sum of target hours of all employees for the days they worked
         let totalTargetHours = 0;
         attendances.forEach(a => {
-            totalTargetHours += (a.employeeId?.workingHours || 9); // Default to 9 if not set
+            totalTargetHours += (a.employeeId?.workingHours || 9);
         });
 
         const efficiency = totalTargetHours > 0
             ? Math.min(100, Math.round((totalActualHours / totalTargetHours) * 100))
             : 0;
 
-        // Status Counts for Dashboard
+        const todayStart = startOfDay(new Date());
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+
         const statusSummary = {
             overtime: attendances.filter(a => {
                 const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
@@ -523,42 +563,45 @@ export const getAttendanceDashboardStats = async (req, res) => {
                 const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
                 return a.workingHours >= (target - 0.5) && a.workingHours < target;
             }).length,
-            forgotCheckout: attendances.filter(a => a.status === 'Forgot to Checkout').length,
-            absent: 0
+            forgotCheckout: attendances.filter(a => {
+                return a.status === 'Forgot to Checkout' || (a.checkIn?.time && !a.checkOut?.time);
+            }).length,
+            absent: attendances.filter(a => {
+                const recordDate = startOfDay(new Date(a.date));
+                return recordDate < todayStart && a.checkIn?.time && !a.checkOut?.time;
+            }).length
         };
 
-        // Present logic
-        const isCurrentMonth = new Date().getMonth() === (parseInt(month) - 1) && new Date().getFullYear() === parseInt(year);
+        // Present logic - refined for viewMode
         let presentCount = 0;
-        if (isCurrentMonth) {
-            const todayStr = format(new Date(), 'yyyy-MM-dd');
-            presentCount = attendances.filter(a => format(new Date(a.date), 'yyyy-MM-dd') === todayStr).length;
+        if (viewMode === 'day') {
+            presentCount = attendances.length;
         } else {
             const daysWithData = new Set(attendances.map(a => format(new Date(a.date), 'yyyy-MM-dd'))).size;
             presentCount = daysWithData ? Math.round(attendances.length / daysWithData) : 0;
         }
 
         // Daily Trend including Caution Categories
-        const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+        const daysInInterval = eachDayOfInterval({ start: startDate, end: endDate });
         const dailyTrend = [];
         const dailyCautionsTrend = [];
 
-        daysInMonth.forEach(day => {
+        daysInInterval.forEach(day => {
             const dayStr = format(day, 'yyyy-MM-dd');
             if (day > new Date()) return;
 
             const dailyAtts = attendances.filter(a => format(new Date(a.date), 'yyyy-MM-dd') === dayStr);
+            const dayRecordDate = startOfDay(new Date(day));
+            const dayAbsentCount = dailyAtts.filter(a => dayRecordDate < todayStart && a.checkIn?.time && !a.checkOut?.time).length;
 
-            // Standard Trend
             dailyTrend.push({
                 date: format(day, 'dd'),
                 fullDate: format(day, 'dd MMM'),
-                present: dailyAtts.length,
+                present: dailyAtts.length - dayAbsentCount,
                 total: totalEmployees,
-                absent: Math.max(0, totalEmployees - dailyAtts.length)
+                absent: Math.max(0, totalEmployees - (dailyAtts.length - dayAbsentCount))
             });
 
-            // Cautions Trend
             dailyCautionsTrend.push({
                 date: format(day, 'dd'),
                 fullDate: format(day, 'dd MMM'),
@@ -578,9 +621,14 @@ export const getAttendanceDashboardStats = async (req, res) => {
                     const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
                     return a.workingHours >= (target - 0.5) && a.workingHours < target;
                 }).length,
-                forgotCheckout: dailyAtts.filter(a => a.status === 'Forgot to Checkout').length
+                forgotCheckout: dailyAtts.filter(a => {
+                    return a.status === 'Forgot to Checkout' || (a.checkIn?.time && !a.checkOut?.time);
+                }).length
             });
         });
+
+        const today = new Date();
+        const isCurrentMonth = (!month || parseInt(month) === today.getMonth() + 1) && (!year || parseInt(year) === today.getFullYear());
 
         res.status(200).json({
             totalEmployees,

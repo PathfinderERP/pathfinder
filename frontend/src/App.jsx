@@ -140,8 +140,8 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<Login />} />
+        {/* <Route path="/" element={<LandingPage />} /> */}
+        <Route path="/" element={<Login />} />
         <Route path="/lead-management" element={<LeadManagement />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/admissions" element={<Admissions />} />

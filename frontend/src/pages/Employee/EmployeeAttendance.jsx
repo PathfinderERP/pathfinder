@@ -184,6 +184,26 @@ const EmployeeAttendance = () => {
             const data = await response.json();
             if (response.ok) {
                 toast.success(data.message);
+                
+                // --- Voice Greeting Logic ---
+                const userName = employeeDetails?.name?.split(' ')[0] || "Employee";
+                const speak = (text) => {
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.rate = 0.9;
+                    utterance.pitch = 1.1;
+                    window.speechSynthesis.speak(utterance);
+                };
+
+                if (type === 'checkIn') {
+                    const hour = new Date().getHours();
+                    let timeGreeting = "Morning";
+                    if (hour >= 12 && hour < 17) timeGreeting = "Afternoon";
+                    if (hour >= 17) timeGreeting = "Evening";
+                    speak(`Good ${timeGreeting}, ${userName}. Have a productive day at work!`);
+                } else if (type === 'checkOut') {
+                    speak(`Great job today, ${userName}. Your shift is completed. Have a wonderful evening!`);
+                }
+
                 fetchAttendance();
             } else {
                 toast.error(data.message || "Failed to mark attendance");

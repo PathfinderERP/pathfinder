@@ -129,6 +129,12 @@ const Header = ({ toggleSidebar }) => {
                                 }
                             );
 
+                            // Voice Greeting
+                            const utterance = new SpeechSynthesisUtterance("Thank you for using Pathfinder ERP. Have a great time ahead!");
+                            utterance.rate = 0.9;
+                            utterance.pitch = 1.1;
+                            window.speechSynthesis.speak(utterance);
+
                             // Redirect to login after a short delay
                             setTimeout(() => {
                                 navigate("/");
