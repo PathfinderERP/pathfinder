@@ -404,6 +404,10 @@ export const PERMISSION_MODULES = {
             zone: {
                 label: "Zone Management",
                 operations: ["create", "edit", "delete"]
+            },
+            followUpFeedback: {
+                label: "Follow-up Feedback",
+                operations: ["create", "edit", "delete"]
             }
         }
     },
@@ -448,14 +452,10 @@ export const PERMISSION_MODULES = {
                 label: "Leads",
                 operations: ["create", "edit", "delete"]
             },
-            // allocations: {
-            //     label: "Allocations",
-            //     operations: ["create", "edit", "delete"]
-            // },
-            // leadStatus: {
-            //     label: "Lead Status",
-            //     operations: ["create", "edit", "delete"]
-            // }
+            dashboard: {
+                label: "Dashboard",
+                operations: ["view"]
+            }
         }
     },
     pettyCashManagement: {

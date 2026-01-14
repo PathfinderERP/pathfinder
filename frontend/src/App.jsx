@@ -30,6 +30,7 @@ import EnrolledStudents from "./pages/EnrolledStudents";
 import UserManagement from "./pages/UserManagement";
 import Profile from "./pages/Profile";
 import LeadManagement from "./pages/LeadManagement";
+import LeadDashboard from "./pages/LeadManagement/LeadDashboard";
 import MasterDataBatch from "./pages/MasterDataBatch";
 import MasterDataSource from "./pages/MasterDataSource";
 import MasterDataSession from "./pages/MasterDataSession";
@@ -46,6 +47,7 @@ import MasterDataDesignation from "./pages/MasterDataDesignation";
 import MasterDataAccount from "./pages/MasterDataAccount";
 import MasterDataBoard from "./pages/MasterDataBoard";
 import MasterDataSubject from "./pages/MasterDataSubject";
+import MasterDataFollowUpFeedback from "./pages/MasterDataFollowUpFeedback";
 import ZoneManagement from "./pages/ZoneManagement";
 
 // ... [existing imports]
@@ -143,6 +145,7 @@ function App() {
         {/* <Route path="/" element={<LandingPage />} /> */}
         <Route path="/" element={<Login />} />
         <Route path="/lead-management" element={<LeadManagement />} />
+        <Route path="/lead-management/dashboard" element={<LeadDashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/admissions" element={<Admissions />} />
         <Route path="/admissions/telecalling-console" element={<TelecallingConsole />} />
@@ -262,6 +265,7 @@ function App() {
         <Route path="/petty-cash/approval" element={<PettyCashApproval />} />
 
         <Route path="/master-data/designation" element={<MasterDataDesignation />} />
+        <Route path="/master-data/follow-up-feedback" element={<MasterDataFollowUpFeedback />} />
         <Route path="/course-management" element={<MasterDataCourse />} />
         <Route path="/course-management/carry-forward" element={<CarryForward />} />
         <Route path="/course-management/course-transfer" element={<CourseTransfer />} />

@@ -67,6 +67,15 @@ const leadManagementSchema = new mongoose.Schema({
         },
         updatedBy: {
             type: String // Optional: store who added the follow-up
+        },
+        callStartTime: {
+            type: Date
+        },
+        callEndTime: {
+            type: Date
+        },
+        callDuration: {
+            type: String
         }
     }],
     recordings: [{

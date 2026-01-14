@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { FaPlus, FaEdit, FaTrash, FaSearch, FaFilter, FaRedo, FaFileExcel, FaDownload, FaChevronLeft, FaChevronRight, FaHistory } from "react-icons/fa";
+import React, { useState, useEffect, useCallback } from "react";
+import { FaPlus, FaEdit, FaTrash, FaSearch, FaFilter, FaRedo, FaFileExcel, FaDownload, FaChevronLeft, FaChevronRight, FaHistory, FaChartLine, FaUserPlus } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
@@ -51,125 +51,11 @@ const LeadManagementContent = () => {
 
     // Dropdown data for filters
     const [sources, setSources] = useState([]);
-    const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
     const [telecallers, setTelecallers] = useState([]);
     const [allowedCentres, setAllowedCentres] = useState([]);
 
-    useEffect(() => {
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-            const parsedUser = JSON.parse(storedUser);
-            setUser(parsedUser);
-            setCanCreate(hasPermission(parsedUser, 'leadManagement', 'leads', 'create'));
-            setCanEdit(hasPermission(parsedUser, 'leadManagement', 'leads', 'edit'));
-            setCanDelete(hasPermission(parsedUser, 'leadManagement', 'leads', 'delete'));
-        }
-        fetchAllowedCentres();
-        fetchFilterData();
-    }, []);
-
-    const fetchAllowedCentres = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const apiUrl = import.meta.env.VITE_API_URL;
-
-            // Fetch current user data to get latest centre assignments
-            const userResponse = await fetch(`${apiUrl}/profile/me`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            if (!userResponse.ok) {
-                console.error("Failed to fetch user profile");
-                return;
-            }
-
-            const responseData = await userResponse.json();
-            const currentUser = responseData.user;
-
-            console.log("Lead Management - Current user:", currentUser);
-
-            // If superAdmin, fetch all centres
-            if (currentUser.role === 'superAdmin') {
-                const response = await fetch(`${apiUrl}/centre`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                const centres = await response.json();
-                console.log("Lead Management - SuperAdmin, all centres:", centres);
-                setAllowedCentres(centres);
-            } else {
-                // For non-superAdmin, use populated centres from profile
-                const userCentres = currentUser.centres || [];
-                console.log("Lead Management - User centres from profile:", userCentres);
-                setAllowedCentres(userCentres);
-
-                // Auto-select first centre for non-superAdmin users
-                if (userCentres.length > 0 && !filters.centre) {
-                    setFilters(prev => ({ ...prev, centre: userCentres[0]._id }));
-                }
-            }
-        } catch (error) {
-            console.error("Error fetching allowed centres:", error);
-        }
-    };
-
-    useEffect(() => {
-        // Debounce search to avoid too many requests
-        const timeout = setTimeout(() => {
-            fetchLeads();
-        }, 500);
-        return () => clearTimeout(timeout);
-    }, [searchTerm, filters, currentPage]);
-
-    const fetchFilterData = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-
-            // Fetch sources
-            const sourceResponse = await fetch(`${import.meta.env.VITE_API_URL}/source`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const sourceData = await sourceResponse.json();
-            if (sourceResponse.ok) setSources(sourceData.sources || []);
-
-            // Note: Centres are now fetched in fetchAllowedCentres() based on user permissions
-
-            // Fetch courses
-            const courseResponse = await fetch(`${import.meta.env.VITE_API_URL}/course`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const courseData = await courseResponse.json();
-            if (courseResponse.ok) setCourses(Array.isArray(courseData) ? courseData : []);
-
-            // Fetch telecallers
-            const userResponse = await fetch(`${import.meta.env.VITE_API_URL}/superAdmin/getAllUsers`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const userData = await userResponse.json();
-            if (userResponse.ok) {
-                const telecallerUsers = (userData.users || []).filter(user => user.role === "telecaller");
-
-                // If current user is a telecaller, only show their own name
-                if (currentUser.role === "telecaller") {
-                    const currentTelecaller = telecallerUsers.find(t => t._id === currentUser._id);
-                    setTelecallers(currentTelecaller ? [currentTelecaller] : []);
-
-                    // Auto-select the telecaller's own name
-                    if (currentTelecaller) {
-                        setFilters(prev => ({ ...prev, leadResponsibility: currentTelecaller.name }));
-                    }
-                } else {
-                    // For other roles, show all telecallers
-                    setTelecallers(telecallerUsers);
-                }
-            }
-        } catch (error) {
-            console.error("Error fetching filter data:", error);
-        }
-    };
-
-    const fetchLeads = async () => {
+    const fetchLeads = useCallback(async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -215,7 +101,120 @@ const LeadManagementContent = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [currentPage, filters, limit, searchTerm]);
+
+    const fetchAllowedCentres = useCallback(async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const apiUrl = import.meta.env.VITE_API_URL;
+
+            // Fetch current user data to get latest centre assignments
+            const userResponse = await fetch(`${apiUrl}/profile/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (!userResponse.ok) {
+                console.error("Failed to fetch user profile");
+                return;
+            }
+
+            const responseData = await userResponse.json();
+            const currentUser = responseData.user;
+
+            console.log("Lead Management - Current user:", currentUser);
+
+            // If superAdmin, fetch all centres
+            if (currentUser.role === 'superAdmin') {
+                const response = await fetch(`${apiUrl}/centre`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const centres = await response.json();
+                console.log("Lead Management - SuperAdmin, all centres:", centres);
+                setAllowedCentres(centres);
+            } else {
+                // For non-superAdmin, use populated centres from profile
+                const userCentres = currentUser.centres || [];
+                console.log("Lead Management - User centres from profile:", userCentres);
+                setAllowedCentres(userCentres);
+
+                // Auto-select first centre for non-superAdmin users
+                if (userCentres.length > 0 && !filters.centre) {
+                    setFilters(prev => ({ ...prev, centre: userCentres[0]._id }));
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching allowed centres:", error);
+        }
+    }, [filters.centre]);
+
+    const fetchFilterData = useCallback(async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+
+            // Fetch sources
+            const sourceResponse = await fetch(`${import.meta.env.VITE_API_URL}/source`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const sourceData = await sourceResponse.json();
+            if (sourceResponse.ok) setSources(sourceData.sources || []);
+
+            // Note: Centres are now fetched in fetchAllowedCentres() based on user permissions
+
+            // Fetch courses
+            const courseResponse = await fetch(`${import.meta.env.VITE_API_URL}/course`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const courseData = await courseResponse.json();
+            if (courseResponse.ok) setCourses(Array.isArray(courseData) ? courseData : []);
+
+            // Fetch telecallers
+            const userResponse = await fetch(`${import.meta.env.VITE_API_URL}/superAdmin/getAllUsers`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const userData = await userResponse.json();
+            if (userResponse.ok) {
+                const telecallerUsers = (userData.users || []).filter(user => user.role === "telecaller");
+
+                // If current user is a telecaller, only show their own name
+                if (currentUser.role === "telecaller") {
+                    const currentTelecaller = telecallerUsers.find(t => t._id === currentUser._id);
+                    setTelecallers(currentTelecaller ? [currentTelecaller] : []);
+
+                    // Auto-select the telecaller's own name
+                    if (currentTelecaller) {
+                        setFilters(prev => ({ ...prev, leadResponsibility: currentTelecaller.name }));
+                    }
+                } else {
+                    // For other roles, show all telecallers
+                    setTelecallers(telecallerUsers);
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching filter data:", error);
+        }
+    }, []);
+
+    useEffect(() => {
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+            const parsedUser = JSON.parse(storedUser);
+            setUser(parsedUser);
+            setCanCreate(hasPermission(parsedUser, 'leadManagement', 'leads', 'create'));
+            setCanEdit(hasPermission(parsedUser, 'leadManagement', 'leads', 'edit'));
+            setCanDelete(hasPermission(parsedUser, 'leadManagement', 'leads', 'delete'));
+        }
+        fetchAllowedCentres();
+        fetchFilterData();
+    }, [fetchAllowedCentres, fetchFilterData]);
+
+    useEffect(() => {
+        // Debounce search to avoid too many requests
+        const timeout = setTimeout(() => {
+            fetchLeads();
+        }, 500);
+        return () => clearTimeout(timeout);
+    }, [searchTerm, filters, currentPage, fetchLeads]);
 
     const handleFilterChange = (name, value) => {
         setFilters(prev => ({ ...prev, [name]: value }));
@@ -330,13 +329,21 @@ const LeadManagementContent = () => {
                     <h2 className="text-2xl font-bold text-white">Lead Management</h2>
                     <p className="text-gray-400 text-sm">Manage and track all your leads</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <button
                         onClick={handleExport}
                         className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-500 transition-colors"
                     >
                         <FaDownload /> Export Excel
                     </button>
+                    {user && hasPermission(user, 'leadManagement', 'dashboard', 'view') && (
+                        <button
+                            onClick={() => navigate('/lead-management/dashboard')}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95"
+                        >
+                            <FaChartLine /> Dashboard
+                        </button>
+                    )}
                     {/* Only show Import if Create is allowed? Or separate permission? Assuming Create permission allows Bulk Import too for simplify */}
                     {canCreate && (
                         <button

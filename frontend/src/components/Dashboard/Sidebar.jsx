@@ -213,6 +213,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Expenditure Type", path: "/master-data/expenditure-type", permissionSection: "expenditureType" },
                 { name: "Account", path: "/master-data/account", permissionSection: "account" },
                 { name: "Zone Management", path: "/master-data/zone", permissionSection: "zone" },
+                { name: "Follow-up Feedback", path: "/master-data/follow-up-feedback", permissionSection: "followUpFeedback" },
             ],
         },
         {

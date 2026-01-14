@@ -11,6 +11,9 @@ import {
 import {
     createAccount, getAccounts, updateAccount, deleteAccount
 } from "../../controllers/masterData/accountController.js";
+import {
+    createFollowUpFeedback, getFollowUpFeedbacks, updateFollowUpFeedback, deleteFollowUpFeedback
+} from "../../controllers/masterData/followUpFeedbackController.js";
 import { requireAuth, requireGranularPermission } from "../../middleware/permissionMiddleware.js";
 
 const router = express.Router();
@@ -38,5 +41,11 @@ router.get("/account", requireAuth, getAccounts);
 router.post("/account", requireGranularPermission("masterData", "account", "create"), createAccount);
 router.put("/account/:id", requireGranularPermission("masterData", "account", "edit"), updateAccount);
 router.delete("/account/:id", requireGranularPermission("masterData", "account", "delete"), deleteAccount);
+
+// Follow Up Feedback
+router.get("/follow-up-feedback", requireAuth, getFollowUpFeedbacks);
+router.post("/follow-up-feedback", requireGranularPermission("masterData", "followUpFeedback", "create"), createFollowUpFeedback);
+router.put("/follow-up-feedback/:id", requireGranularPermission("masterData", "followUpFeedback", "edit"), updateFollowUpFeedback);
+router.delete("/follow-up-feedback/:id", requireGranularPermission("masterData", "followUpFeedback", "delete"), deleteFollowUpFeedback);
 
 export default router;

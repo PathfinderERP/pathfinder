@@ -70,9 +70,17 @@ const FollowUpHistoryModal = ({ lead, onClose }) => {
                                 <div className="space-y-4">
                                     <div>
                                         <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">Feedback</p>
-                                        <div className="flex items-center gap-2">
-                                            <span className="w-2 h-2 rounded-full bg-cyan-500"></span>
-                                            <p className="text-white text-lg font-medium">{followUp.feedback}</p>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-2 h-2 rounded-full bg-cyan-500"></span>
+                                                <p className="text-white text-lg font-medium">{followUp.feedback}</p>
+                                            </div>
+                                            {followUp.callDuration && (
+                                                <div className="flex items-center gap-1 text-emerald-400 font-mono text-sm bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/20">
+                                                    <FaClock size={12} />
+                                                    <span>{followUp.callDuration}</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 

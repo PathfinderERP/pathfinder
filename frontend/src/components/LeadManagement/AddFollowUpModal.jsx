@@ -1,7 +1,6 @@
-import React, { useState } from "react";
-import { FaTimes, FaCalendarAlt, FaCommentAlt, FaSave } from "react-icons/fa";
+import React, { useState, useEffect } from "react";
+import { FaTimes, FaCalendarAlt, FaCommentAlt, FaSave, FaPhoneAlt, FaStopCircle, FaPlayCircle, FaClock } from "react-icons/fa";
 import { toast } from "react-toastify";
-
 const FEEDBACK_OPTIONS = [
     "Call back later",
     "Interested",
@@ -17,11 +16,77 @@ const FEEDBACK_OPTIONS = [
 
 const AddFollowUpModal = ({ lead, onClose, onSuccess }) => {
     const [loading, setLoading] = useState(false);
+    const [dynamicOptions, setDynamicOptions] = useState([]);
     const [formData, setFormData] = useState({
         feedback: "",
         nextFollowUpDate: "",
-        remarks: ""
+        remarks: "",
+        callStartTime: null,
+        callEndTime: null,
+        callDuration: ""
     });
+
+    // Timer state
+    const [isCalling, setIsCalling] = useState(false);
+    const [elapsedTime, setElapsedTime] = useState(0);
+    const [startTime, setStartTime] = useState(null);
+
+    useEffect(() => {
+        let interval;
+        if (isCalling) {
+            interval = setInterval(() => {
+                setElapsedTime(Math.floor((new Date() - startTime) / 1000));
+            }, 1000);
+        } else {
+            clearInterval(interval);
+        }
+        return () => clearInterval(interval);
+    }, [isCalling, startTime]);
+
+    const formatTime = (seconds) => {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        return [h, m, s].map(v => v < 10 ? "0" + v : v).filter((v, i) => v !== "00" || i > 0).join(":");
+    };
+
+    const handleStartCall = () => {
+        const now = new Date();
+        setStartTime(now);
+        setIsCalling(true);
+        setFormData(prev => ({ ...prev, callStartTime: now, callEndTime: null, callDuration: "" }));
+        toast.info("Call started");
+    };
+
+    const handleStopCall = () => {
+        const now = new Date();
+        setIsCalling(false);
+        const duration = formatTime(elapsedTime);
+        setFormData(prev => ({ ...prev, callEndTime: now, callDuration: duration }));
+        toast.success(`Call ended. Duration: ${duration}`);
+    };
+
+    useEffect(() => {
+        const fetchOptions = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/master-data/follow-up-feedback`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.length > 0) {
+                        setDynamicOptions(data.map(item => item.name));
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to fetch feedback options:", error);
+            }
+        };
+        fetchOptions();
+    }, []);
+
+    const optionsToRender = dynamicOptions.length > 0 ? dynamicOptions : FEEDBACK_OPTIONS;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -67,7 +132,43 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess }) => {
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <div className="p-6 space-y-4">
+                    {/* Call Timing Section */}
+                    <div className="bg-[#131619] border border-gray-800 rounded-xl p-4 flex flex-col items-center gap-3">
+                        <div className="flex items-center gap-2 text-gray-400 text-sm font-medium">
+                            <FaClock className={isCalling ? "text-red-500 animate-pulse" : "text-cyan-400"} />
+                            <span>Call Duration</span>
+                        </div>
+                        <div className={`text-3xl font-mono font-bold ${isCalling ? "text-red-500" : "text-white"}`}>
+                            {formatTime(elapsedTime)}
+                        </div>
+                        
+                        {!isCalling ? (
+                            <button
+                                type="button"
+                                onClick={handleStartCall}
+                                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-2 rounded-lg font-bold transition-all"
+                            >
+                                <FaPlayCircle /> Start Call
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={handleStopCall}
+                                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white py-2 rounded-lg font-bold transition-all shadow-[0_0_15px_rgba(220,38,38,0.3)] animate-pulse"
+                            >
+                                <FaStopCircle /> Stop Call
+                            </button>
+                        )}
+                        
+                        {formData.callDuration && !isCalling && (
+                            <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest mt-1">
+                                Call timing captured: {formData.callDuration}
+                            </p>
+                        )}
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                         <label className="block text-gray-400 text-sm mb-1">Feedback *</label>
                         <select
@@ -77,7 +178,7 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess }) => {
                             className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2.5 text-white focus:border-cyan-500 focus:outline-none transition-colors"
                         >
                             <option value="">Select Feedback</option>
-                            {FEEDBACK_OPTIONS.map((option, index) => (
+                            {optionsToRender.map((option, index) => (
                                 <option key={index} value={option}>{option}</option>
                             ))}
                         </select>
@@ -119,7 +220,8 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess }) => {
                 </form>
             </div>
         </div>
-    );
+    </div>
+);
 };
 
 export default AddFollowUpModal;
