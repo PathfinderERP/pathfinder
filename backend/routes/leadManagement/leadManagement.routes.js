@@ -1,13 +1,13 @@
 import express from "express";
-import { createLead } from "../../controllers/LeadManagement/createLead.js";
-import { getLeads, getLeadById } from "../../controllers/LeadManagement/getLeads.js";
-import { getFollowUpLeads } from "../../controllers/LeadManagement/getFollowUpLeads.js";
-import { updateLead } from "../../controllers/LeadManagement/updateLead.js";
-import { deleteLead } from "../../controllers/LeadManagement/deleteLead.js";
-import { addFollowUp } from "../../controllers/LeadManagement/addFollowUp.js";
-import uploadRecording from "../../controllers/LeadManagement/uploadRecording.js";
-import { getLeadDashboardStats } from "../../controllers/LeadManagement/getLeadDashboard.js";
-import { exportLeadsExcel } from "../../controllers/LeadManagement/exportLeadsExcel.js";
+import { createLead } from "../../controllers/leadManagement/createLead.js";
+import { getLeads, getLeadById } from "../../controllers/leadManagement/getLeads.js";
+import { getFollowUpLeads } from "../../controllers/leadManagement/getFollowUpLeads.js";
+import { updateLead } from "../../controllers/leadManagement/updateLead.js";
+import { deleteLead } from "../../controllers/leadManagement/deleteLead.js";
+import { addFollowUp } from "../../controllers/leadManagement/addFollowUp.js";
+import uploadRecording from "../../controllers/leadManagement/uploadRecording.js";
+import { getLeadDashboardStats } from "../../controllers/leadManagement/getLeadDashboard.js";
+import { exportLeadsExcel } from "../../controllers/leadManagement/exportLeadsExcel.js";
 import { requireAuth } from "../../middleware/permissionMiddleware.js";
 import multer from "multer";
 
