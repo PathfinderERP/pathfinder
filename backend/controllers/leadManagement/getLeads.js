@@ -56,6 +56,9 @@ export const getLeads = async (req, res) => {
         if (course) query.course = course;
         if (leadResponsibility) query.leadResponsibility = leadResponsibility;
 
+        // Exclude counseled leads from the main list
+        query.isCounseled = { $ne: true };
+
         // Centre-based access control
         if (req.user.role !== 'superAdmin') {
             // Fetch user's centres from database since JWT doesn't include them

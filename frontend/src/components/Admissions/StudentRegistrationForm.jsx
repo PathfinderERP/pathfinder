@@ -365,6 +365,29 @@ const StudentRegistrationForm = () => {
             } else {
                 console.log("✅ Student registered successfully!");
                 toast.success("Student registered successfully!");
+
+                // Update Lead Status if registered from a lead
+                if (location.state?.leadData?._id) {
+                    try {
+                        const leadUpdateResponse = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/${location.state.leadData._id}`, {
+                            method: "PUT",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({ isCounseled: true })
+                        });
+
+                        if (leadUpdateResponse.ok) {
+                            console.log("Lead marked as counseled");
+                        } else {
+                            console.warn("Failed to mark lead as counseled");
+                        }
+                    } catch (leadError) {
+                        console.error("Error updating lead status:", leadError);
+                    }
+                }
+
                 // Optional: Reset form or navigate
                 // navigate("/admissions");
             }

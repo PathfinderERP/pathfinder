@@ -55,6 +55,9 @@ export const getLeadDashboardStats = async (req, res) => {
             query.leadResponsibility = { $regex: leadResponsibility, $options: "i" };
         }
 
+        // Exclude counseled leads from dashboard stats
+        query.isCounseled = { $ne: true };
+
         // Access Control (Same as getLeads.js)
         if (req.user.role !== 'superAdmin') {
             const userDoc = await User.findById(req.user.id).select('centres role name');

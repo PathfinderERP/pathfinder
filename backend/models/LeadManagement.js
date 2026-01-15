@@ -43,6 +43,10 @@ const leadManagementSchema = new mongoose.Schema({
     leadResponsibility: {
         type: String,
     },
+    isCounseled: {
+        type: Boolean,
+        default: false
+    },
     // New fields for easier querying
     lastFollowUpDate: {
         type: Date

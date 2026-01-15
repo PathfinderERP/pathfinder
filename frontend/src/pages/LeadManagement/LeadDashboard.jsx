@@ -440,6 +440,11 @@ const LeadDashboard = () => {
                                                     <p className="text-[10px] text-gray-400 font-medium leading-relaxed uppercase">
                                                         {lead.followUps[lead.followUps.length - 1].feedback}
                                                     </p>
+                                                    {lead.followUps[lead.followUps.length - 1].callDuration && (
+                                                        <p className="text-[9px] text-gray-500 mt-1 flex items-center gap-1 font-mono">
+                                                            ⏱ {lead.followUps[lead.followUps.length - 1].callDuration}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

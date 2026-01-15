@@ -86,6 +86,9 @@ export const exportLeadsExcel = async (req, res) => {
             "Telecaller": lead.leadResponsibility || "N/A",
             "Last Feedback": lead.followUps && lead.followUps.length > 0 ? lead.followUps[lead.followUps.length - 1].feedback : "N/A",
             "Remarks": lead.followUps && lead.followUps.length > 0 ? lead.followUps[lead.followUps.length - 1].remarks || "N/A" : "N/A",
+            "Last Call Start Time": lead.followUps && lead.followUps.length > 0 && lead.followUps[lead.followUps.length - 1].callStartTime ? new Date(lead.followUps[lead.followUps.length - 1].callStartTime).toLocaleTimeString('en-GB') : "N/A",
+            "Last Call End Time": lead.followUps && lead.followUps.length > 0 && lead.followUps[lead.followUps.length - 1].callEndTime ? new Date(lead.followUps[lead.followUps.length - 1].callEndTime).toLocaleTimeString('en-GB') : "N/A",
+            "Last Call Duration": lead.followUps && lead.followUps.length > 0 ? lead.followUps[lead.followUps.length - 1].callDuration || "N/A" : "N/A",
             "Last Follow-up": lead.lastFollowUpDate ? new Date(lead.lastFollowUpDate).toLocaleDateString('en-GB') : "N/A",
             "Next Follow-up": lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toLocaleDateString('en-GB') : "N/A",
             "Created At": new Date(lead.createdAt).toLocaleDateString('en-GB')
