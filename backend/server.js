@@ -56,6 +56,8 @@ import partTimeTeacherRoutes from "./routes/Finance/partTimeTeacher.routes.js";
 import payrollRoutes from "./routes/Finance/payroll.routes.js";
 import zoneRoutes from "./routes/masterData/zone.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
+import ceoRoutes from "./routes/ceoControlTower.js";
+
 
 import path from "path";
 import { fileURLToPath } from "url";
@@ -147,6 +149,8 @@ app.use("/api/board", boardRoutes);
 app.use("/api/subject", subjectRoutes);
 app.use("/api/zone", zoneRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/ceo", ceoRoutes);
+
 
 
 app.listen(process.env.PORT, () => {

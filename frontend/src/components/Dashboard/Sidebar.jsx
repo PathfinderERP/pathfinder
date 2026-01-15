@@ -33,7 +33,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
     const menuItems = useMemo(() => [
         { name: "Lead Management", icon: <FaBullseye />, path: "/lead-management", permissionModule: "leadManagement" },
-        { name: "CEO Control Tower", icon: <FaChartBar />, path: "/dashboard", permissionModule: "ceoControlTower" },
+        { name: "CEO Control Tower", icon: <FaChartBar />, path: "/ceo-control-tower", permissionModule: "ceoControlTower" },
         {
             name: "Admissions",
             icon: <FaBullseye />,

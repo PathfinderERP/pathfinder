@@ -134,6 +134,8 @@ import BudgetDetails from "./pages/Finance/BudgetDetails";
 import PartTimeTeachers from "./pages/Finance/PartTimeTeachers";
 import PayEmployee from "./pages/Finance/PayEmployee";
 import PayEmployeeDetails from "./pages/Finance/PayEmployeeDetails";
+import CEOControlTower from "./pages/CEOControlTower";
+
 
 // ... inside Routes ... (I will use a simpler replace block to avoid mess)
 
@@ -147,7 +149,9 @@ function App() {
         <Route path="/lead-management" element={<LeadManagement />} />
         <Route path="/lead-management/dashboard" element={<LeadDashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/ceo-control-tower" element={<CEOControlTower />} />
         <Route path="/admissions" element={<Admissions />} />
+
         <Route path="/admissions/telecalling-console" element={<TelecallingConsole />} />
         <Route path="/student-registration" element={<StudentRegistration />} />
         <Route path="/student-admission/:studentId" element={<StudentAdmission />} />

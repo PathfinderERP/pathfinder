@@ -4,21 +4,40 @@ import mongoose from "mongoose";
 
 export const getLeadDashboardStats = async (req, res) => {
     try {
-        const { search, centre, course, leadResponsibility, fromDate, toDate } = req.query;
-        
+        const { search, centre, course, leadResponsibility, fromDate, toDate, leadType } = req.query;
+
         // Build base query
         const query = {};
+
+        if (leadType) {
+            query.leadType = leadType;
+        }
 
         // Date filter
         if (fromDate || toDate) {
             query.createdAt = {};
             if (fromDate) query.createdAt.$gte = new Date(fromDate);
-            if (toDate) query.createdAt.$lte = new Date(toDate);
+            if (toDate) {
+                const end = new Date(toDate);
+                end.setHours(23, 59, 59, 999);
+                query.createdAt.$lte = end;
+            }
         }
 
         // Search by student name
         if (search) {
-            query.name = { $regex: search, $options: "i" };
+            query.$or = [
+                { name: { $regex: search, $options: "i" } },
+                { email: { $regex: search, $options: "i" } },
+                { phoneNumber: { $regex: search, $options: "i" } }
+            ];
+        }
+
+        // Feedback filter - Check if the latest follow-up's feedback matches
+        if (req.query.feedback) {
+            query.followUps = {
+                $elemMatch: { feedback: { $regex: req.query.feedback, $options: "i" } }
+            };
         }
 
         // Centre filter
@@ -31,9 +50,9 @@ export const getLeadDashboardStats = async (req, res) => {
             query.course = mongoose.Types.ObjectId.isValid(course) ? new mongoose.Types.ObjectId(course) : course;
         }
 
-        // Telecaller filter (leadResponsibility)
+        // Telecaller filter (leadResponsibility) - Using Regex as requested
         if (leadResponsibility) {
-            query.leadResponsibility = leadResponsibility;
+            query.leadResponsibility = { $regex: leadResponsibility, $options: "i" };
         }
 
         // Access Control (Same as getLeads.js)
@@ -98,9 +117,9 @@ export const getLeadDashboardStats = async (req, res) => {
             ...query,
             nextFollowUpDate: { $gte: new Date() }
         })
-        .select('name phoneNumber nextFollowUpDate leadType leadResponsibility')
-        .sort({ nextFollowUpDate: 1 })
-        .limit(20);
+            .select('name phoneNumber nextFollowUpDate leadType leadResponsibility')
+            .sort({ nextFollowUpDate: 1 })
+            .limit(20);
 
         res.status(200).json({
             summary: summary[0] || { totalLeads: 0, hotLeads: 0, coldLeads: 0, negativeLeads: 0 },

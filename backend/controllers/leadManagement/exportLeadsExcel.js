@@ -6,14 +6,18 @@ import mongoose from "mongoose";
 export const exportLeadsExcel = async (req, res) => {
     try {
         const { search, centre, course, leadResponsibility, fromDate, toDate, leadType } = req.query;
-        
+
         // Build base query
         const query = {};
 
         if (fromDate || toDate) {
             query.createdAt = {};
             if (fromDate) query.createdAt.$gte = new Date(fromDate);
-            if (toDate) query.createdAt.$lte = new Date(toDate);
+            if (toDate) {
+                const end = new Date(toDate);
+                end.setHours(23, 59, 59, 999);
+                query.createdAt.$lte = end;
+            }
         }
 
         if (search) {
@@ -24,10 +28,19 @@ export const exportLeadsExcel = async (req, res) => {
             ];
         }
 
-        if (centre) query.centre = centre;
-        if (course) query.course = course;
-        if (leadResponsibility) query.leadResponsibility = leadResponsibility;
+        if (centre) {
+            query.centre = mongoose.Types.ObjectId.isValid(centre) ? new mongoose.Types.ObjectId(centre) : centre;
+        }
+        if (course) {
+            query.course = mongoose.Types.ObjectId.isValid(course) ? new mongoose.Types.ObjectId(course) : course;
+        }
+        if (leadResponsibility) query.leadResponsibility = { $regex: leadResponsibility, $options: "i" };
         if (leadType) query.leadType = leadType;
+        if (req.query.feedback) {
+            query.followUps = {
+                $elemMatch: { feedback: { $regex: req.query.feedback, $options: "i" } }
+            };
+        }
 
         // Access Control
         if (req.user.role !== 'superAdmin') {
@@ -71,6 +84,8 @@ export const exportLeadsExcel = async (req, res) => {
             "Lead Type": lead.leadType || "N/A",
             "Source": lead.source || "N/A",
             "Telecaller": lead.leadResponsibility || "N/A",
+            "Last Feedback": lead.followUps && lead.followUps.length > 0 ? lead.followUps[lead.followUps.length - 1].feedback : "N/A",
+            "Remarks": lead.followUps && lead.followUps.length > 0 ? lead.followUps[lead.followUps.length - 1].remarks || "N/A" : "N/A",
             "Last Follow-up": lead.lastFollowUpDate ? new Date(lead.lastFollowUpDate).toLocaleDateString('en-GB') : "N/A",
             "Next Follow-up": lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toLocaleDateString('en-GB') : "N/A",
             "Created At": new Date(lead.createdAt).toLocaleDateString('en-GB')

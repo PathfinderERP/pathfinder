@@ -14,9 +14,9 @@ const BoardContent = () => {
 
     // Permission checks
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const canCreate = hasPermission(user.granularPermissions, 'masterData', 'board', 'create');
-    const canEdit = hasPermission(user.granularPermissions, 'masterData', 'board', 'edit');
-    const canDelete = hasPermission(user.granularPermissions, 'masterData', 'board', 'delete');
+    const canCreate = hasPermission(user, 'masterData', 'board', 'create');
+    const canEdit = hasPermission(user, 'masterData', 'board', 'edit');
+    const canDelete = hasPermission(user, 'masterData', 'board', 'delete');
 
     const fetchBoards = async () => {
         setLoading(true);

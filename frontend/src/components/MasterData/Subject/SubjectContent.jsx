@@ -14,9 +14,9 @@ const SubjectContent = () => {
 
     // Permission checks
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const canCreate = hasPermission(user.granularPermissions, 'masterData', 'subject', 'create');
-    const canEdit = hasPermission(user.granularPermissions, 'masterData', 'subject', 'edit');
-    const canDelete = hasPermission(user.granularPermissions, 'masterData', 'subject', 'delete');
+    const canCreate = hasPermission(user, 'masterData', 'subject', 'create');
+    const canEdit = hasPermission(user, 'masterData', 'subject', 'edit');
+    const canDelete = hasPermission(user, 'masterData', 'subject', 'delete');
 
     const fetchSubjects = async () => {
         setLoading(true);
