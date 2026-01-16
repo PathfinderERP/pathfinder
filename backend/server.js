@@ -133,6 +133,8 @@ app.use("/api/hr/birthdays", birthdayRoutes);
 app.use("/api/hr/feedback", feedbackRoutes);
 app.use("/api/hr/reimbursement", reimbursementRoutes);
 app.use("/api/hr/posh", poshRoutes);
+
+//finance routes
 app.use("/api/finance/installment", installmentRoutes);
 app.use("/api/finance/cash", cashRoutes);
 app.use("/api/finance/petty-cash", pettyCashRoutes);

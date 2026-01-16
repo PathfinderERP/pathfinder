@@ -5,10 +5,6 @@ const subjectSchema = new mongoose.Schema({
         type: String,
         required: true,
         unique: true
-    },
-    subPrice: {
-        type: Number,
-        required: true
     }
 }, { timestamps: true });
 

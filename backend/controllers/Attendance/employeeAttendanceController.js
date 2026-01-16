@@ -97,7 +97,31 @@ export const markAttendance = async (req, res) => {
                 status: "Present"
             });
         } else {
-            if (type === 'checkIn') return res.status(400).json({ message: "You have already checked in for today." });
+            // Allow Re-CheckIn if status was marked as 'Absent' (e.g. accidental short shift)
+            if (type === 'checkIn') {
+                if (attendance.status === 'Absent') {
+                    // Resetting for re-checkin
+                    attendance.checkIn = {
+                        time: new Date(),
+                        latitude,
+                        longitude,
+                        address: matchingCentre.centreName
+                    };
+                    attendance.checkOut = undefined; // Clear previous checkout
+                    attendance.status = "Present";
+                    attendance.workingHours = 0;
+                    await attendance.save();
+
+                    return res.status(200).json({
+                        message: `Attendance Reset! You have checked in again at ${matchingCentre.centreName}.`,
+                        attendance,
+                        centreName: matchingCentre.centreName
+                    });
+                } else {
+                    return res.status(400).json({ message: "You have already checked in for today." });
+                }
+            }
+
             if (attendance.checkOut?.time) return res.status(400).json({ message: "You have already checked out for today." });
 
             // NEW RULE-BASED STATUS ASSIGNMENT

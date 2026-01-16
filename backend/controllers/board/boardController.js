@@ -2,17 +2,17 @@ import Boards from "../../models/Master_data/Boards.js";
 
 export const createBoard = async (req, res) => {
     try {
-        const { name } = req.body;
-        if (!name) {
-            return res.status(400).json({ success: false, message: "Board name is required" });
+        const { boardCourse, subjects, duration } = req.body;
+        if (!boardCourse) {
+            return res.status(400).json({ success: false, message: "Board/Course name is required" });
         }
 
-        const existingBoard = await Boards.findOne({ name });
+        const existingBoard = await Boards.findOne({ boardCourse });
         if (existingBoard) {
-            return res.status(400).json({ success: false, message: "Board already exists" });
+            return res.status(400).json({ success: false, message: "Board/Course already exists" });
         }
 
-        const newBoard = new Boards({ name });
+        const newBoard = new Boards({ boardCourse, subjects, duration });
         await newBoard.save();
 
         res.status(201).json({ success: true, message: "Board created successfully", data: newBoard });
@@ -24,7 +24,7 @@ export const createBoard = async (req, res) => {
 
 export const getAllBoards = async (req, res) => {
     try {
-        const boards = await Boards.find({});
+        const boards = await Boards.find({}).populate("subjects.subjectId");
         res.status(200).json(boards);
     } catch (error) {
         console.error("Error fetching boards:", error);
@@ -35,13 +35,13 @@ export const getAllBoards = async (req, res) => {
 export const updateBoard = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name } = req.body;
+        const { boardCourse, subjects, duration } = req.body;
 
         const updatedBoard = await Boards.findByIdAndUpdate(
             id,
-            { name },
+            { boardCourse, subjects, duration },
             { new: true }
-        );
+        ).populate("subjects.subjectId");
 
         if (!updatedBoard) {
             return res.status(404).json({ success: false, message: "Board not found" });

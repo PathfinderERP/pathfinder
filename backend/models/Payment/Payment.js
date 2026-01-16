@@ -41,6 +41,9 @@ const paymentSchema = new mongoose.Schema({
         enum: ["PENDING", "PAID", "OVERDUE", "PARTIAL", "PENDING_CLEARANCE", "REJECTED"],
         default: "PENDING"
     },
+    billingMonth: {
+        type: String // e.g. "January 2026"
+    },
 
     // Payment Method Details
     paymentMethod: {

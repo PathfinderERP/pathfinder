@@ -62,7 +62,7 @@ const SubjectContent = () => {
     const closeModal = () => {
         setIsModalOpen(false);
         setCurrentSubject(null);
-        setFormData({ subName: "", subPrice: "" });
+        setFormData({ subName: "" });
     };
 
     const handleSave = async (e) => {
@@ -142,7 +142,6 @@ const SubjectContent = () => {
                             <tr className="bg-gray-800 text-gray-300">
                                 <th className="p-4 border-b border-gray-700">#</th>
                                 <th className="p-4 border-b border-gray-700">Subject Name</th>
-                                <th className="p-4 border-b border-gray-700">Price (₹)</th>
                                 <th className="p-4 border-b border-gray-700 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -160,7 +159,6 @@ const SubjectContent = () => {
                                     <tr key={subject._id} className="master-data-row-wave border-b border-gray-800 transition-colors">
                                         <td className="p-4 text-gray-400">{index + 1}</td>
                                         <td className="p-4 font-medium">{subject.subName}</td>
-                                        <td className="p-4 text-cyan-400 font-mono">₹{subject.subPrice}</td>
                                         <td className="p-4 text-right">
                                             <div className="flex justify-end gap-2">
                                                 {canEdit && (
@@ -216,18 +214,7 @@ const SubjectContent = () => {
                                     required
                                 />
                             </div>
-                            <div className="mb-4">
-                                <label className="block text-gray-400 mb-2 text-sm">Price (₹)</label>
-                                <input
-                                    type="number"
-                                    name="subPrice"
-                                    value={formData.subPrice}
-                                    onChange={handleInputChange}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-                                    placeholder="Enter price"
-                                    required
-                                />
-                            </div>
+
                             <div className="flex justify-end gap-3">
                                 <button
                                     type="button"

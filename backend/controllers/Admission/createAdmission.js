@@ -3,6 +3,8 @@ import Course from "../../models/Master_data/Courses.js";
 import Student from "../../models/Students.js";
 import Payment from "../../models/Payment/Payment.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
+import Board from "../../models/Master_data/Boards.js"; // Corrected filename
+import Subject from "../../models/Master_data/Subject.js"; // Import Subject model
 import { updateCentreTargetAchieved } from "../../services/centreTargetService.js";
 
 // Generate a unique sequential bill ID
@@ -54,7 +56,10 @@ export const createAdmission = async (req, res) => {
     try {
         const {
             studentId,
+            admissionType = "NORMAL", // Default to normal
             courseId,
+            boardId, // For Board Admission
+            selectedSubjectIds, // Array of Subject IDs for Board Admission
             classId,
             examTagId,
             departmentId, // Optional now
@@ -69,12 +74,21 @@ export const createAdmission = async (req, res) => {
             transactionId = "",
             accountHolderName = "",
             chequeDate = "",
-            receivedDate = ""
+            receivedDate = "",
+            billingMonth = "" // For Board Admissions
         } = req.body;
 
-        // Validate required fields
-        if (!studentId || !courseId || !examTagId || !centre || !academicSession || !downPayment || !numberOfInstallments) {
-            return res.status(400).json({ message: "All required fields must be provided (including Centre)" });
+        // Validate required fields (Common)
+        if (!studentId || !centre || !academicSession || !downPayment || !numberOfInstallments) {
+            return res.status(400).json({ message: "All common required fields must be provided (Student, Centre, Session, Down Payment)" });
+        }
+
+        // Validate Type Specific Fields
+        if (admissionType === "NORMAL" && (!courseId || !examTagId)) {
+            return res.status(400).json({ message: "Course and Exam Tag are required for Normal Admission" });
+        }
+        if (admissionType === "BOARD" && (!boardId || !selectedSubjectIds || selectedSubjectIds.length === 0 || !billingMonth)) {
+            return res.status(400).json({ message: "Board, Subjects, and Billing Month are required for Board Admission" });
         }
 
         // Fetch student details for carry forward balance
@@ -89,14 +103,68 @@ export const createAdmission = async (req, res) => {
             return res.status(400).json({ message: "This student is deactivated. New admissions are restricted." });
         }
 
-        // Fetch course details
-        const course = await Course.findById(courseId);
-        if (!course) {
-            return res.status(404).json({ message: "Course not found" });
+        let baseFees = 0;
+        let feeSnapshot = [];
+        let boardCourseNameString = "";
+        let selectedSubjectsData = [];
+        let course = null;
+
+        if (admissionType === "NORMAL") {
+            // Fetch course details
+            course = await Course.findById(courseId);
+            if (!course) {
+                return res.status(404).json({ message: "Course not found" });
+            }
+            baseFees = course.feesStructure.reduce((sum, fee) => sum + fee.value, 0);
+            feeSnapshot = course.feesStructure;
+        } else if (admissionType === "BOARD") {
+            // Fetch Board with populated subjects
+            const board = await Board.findById(boardId).populate("subjects.subjectId");
+            if (!board) return res.status(404).json({ message: "Board not found" });
+
+            // Validate and calculate fees based on Board's configuration
+            const validSelectedSubjects = [];
+            for (const subjectId of selectedSubjectIds) {
+                const boardSubject = board.subjects.find(s => s.subjectId._id.toString() === subjectId);
+                if (boardSubject) {
+                    validSelectedSubjects.push({
+                        _id: boardSubject.subjectId._id,
+                        subName: boardSubject.subjectId.subName,
+                        price: boardSubject.price || 0
+                    });
+                }
+            }
+
+            if (validSelectedSubjects.length !== selectedSubjectIds.length) {
+                return res.status(400).json({ message: "One or more subjects not configured for this board" });
+            }
+
+            baseFees = validSelectedSubjects.reduce((sum, sub) => sum + sub.price, 0);
+            feeSnapshot = validSelectedSubjects.map(sub => ({ feesType: sub.subName, value: sub.price }));
+            selectedSubjectsData = validSelectedSubjects.map(sub => ({ subject: sub._id, name: sub.subName, price: sub.price }));
+
+            // Construct Name: "BoardName Session Subject1+Subject2..."
+            const subNames = validSelectedSubjects.map(s => s.subName).join('+');
+            boardCourseNameString = `${board.boardCourse} ${academicSession} ${subNames}`; // Use boardCourse instead of name
+
+            // Calculate course duration in months from board.duration
+            let durationMonths = 12; // Default to 12 months
+            if (board.duration) {
+                const durationStr = board.duration.toLowerCase();
+                if (durationStr.includes('month')) {
+                    const match = durationStr.match(/\d+/);
+                    if (match) durationMonths = parseInt(match[0]);
+                } else if (durationStr.includes('year')) {
+                    const match = durationStr.match(/\d+/);
+                    if (match) durationMonths = parseInt(match[0]) * 12;
+                }
+            }
+
+            // Store course duration
+            course = { courseDurationMonths: durationMonths };
         }
 
         // Calculate Fees
-        const baseFees = course.feesStructure.reduce((sum, fee) => sum + fee.value, 0);
         const taxableAmount = Math.max(0, baseFees - Number(feeWaiver));
 
         // Calculate CGST (9%) and SGST (9%)
@@ -112,7 +180,18 @@ export const createAdmission = async (req, res) => {
             return res.status(400).json({ message: "Down payment cannot exceed total fees" });
         }
 
-        const installmentAmount = Math.ceil(remainingAmount / numberOfInstallments);
+        // For Board courses, calculate monthly payment amount
+        let monthlyPaymentAmount = 0;
+        if (admissionType === "BOARD") {
+            // Monthly fees already calculated (sum of subject prices)
+            const monthlyFees = baseFees / course.courseDurationMonths;
+            const monthlyTaxable = monthlyFees;
+            const monthlyCgst = Math.round(monthlyTaxable * 0.09);
+            const monthlySgst = Math.round(monthlyTaxable * 0.09);
+            monthlyPaymentAmount = monthlyTaxable + monthlyCgst + monthlySgst;
+        }
+
+        const installmentAmount = admissionType === "BOARD" ? monthlyPaymentAmount : Math.ceil(remainingAmount / numberOfInstallments);
 
         // Generate payment breakdown
         const paymentBreakdown = [];
@@ -125,9 +204,9 @@ export const createAdmission = async (req, res) => {
             paymentBreakdown.push({
                 installmentNumber: i + 1,
                 dueDate: dueDate,
-                amount: i === numberOfInstallments - 1
+                amount: admissionType === "BOARD" ? monthlyPaymentAmount : (i === numberOfInstallments - 1
                     ? remainingAmount - (installmentAmount * (numberOfInstallments - 1))
-                    : installmentAmount,
+                    : installmentAmount),
                 status: "PENDING",
                 remarks: i === 0 && previousBalance > 0 ? `Includes previous balance: ₹${previousBalance}` : ""
             });
@@ -137,13 +216,28 @@ export const createAdmission = async (req, res) => {
         const existingAdmission = await Admission.findOne({ student: studentId }).sort({ createdAt: -1 });
         const admissionNumber = existingAdmission ? existingAdmission.admissionNumber : undefined;
 
+        // Initialize monthly subject history for Board admissions
+        const monthlyHistory = admissionType === "BOARD" ? [{
+            month: billingMonth,
+            subjects: selectedSubjectsData,
+            totalAmount: totalFees,
+            isPaid: (paymentMethod !== "CHEQUE" && downPayment >= totalFees)
+        }] : [];
+
         // Create admission
         const admission = new Admission({
             student: studentId,
+            admissionType,
             admissionNumber, // Reuse if exists, otherwise schema hook generates new
-            course: courseId,
+            course: courseId || undefined,
+            board: boardId || undefined,
+            selectedSubjects: selectedSubjectsData,
+            billingMonth: billingMonth || null,
+            monthlySubjectHistory: monthlyHistory,
+            courseDurationMonths: admissionType === "BOARD" && course ? course.courseDurationMonths : undefined,
+            boardCourseName: boardCourseNameString || null,
             class: classId || null,
-            examTag: examTagId,
+            examTag: examTagId || undefined,
             department: departmentId || null, // Optional
             centre,
             academicSession,
@@ -158,7 +252,7 @@ export const createAdmission = async (req, res) => {
             numberOfInstallments,
             installmentAmount,
             paymentBreakdown,
-            feeStructureSnapshot: course.feesStructure,
+            feeStructureSnapshot: feeSnapshot,
             studentImage: studentImage || null,
             remarks: remarks ? `${remarks} (Prev Balance: ₹${previousBalance})` : (previousBalance > 0 ? `Previous Balance Included: ₹${previousBalance}` : ""),
             createdBy: req.user._id,
@@ -222,6 +316,7 @@ export const createAdmission = async (req, res) => {
                 transactionId: transactionId,
                 accountHolderName: accountHolderName,
                 chequeDate: chequeDate,
+                billingMonth: billingMonth || null,
                 remarks: "Down Payment at Admission",
                 recordedBy: req.user._id,
                 // Bill Details
@@ -240,6 +335,8 @@ export const createAdmission = async (req, res) => {
             .populate('class')
             .populate('examTag')
             .populate('department')
+            .populate('board') // Populate Board
+            .populate('selectedSubjects.subject') // Populate Subjects
             .populate('createdBy', 'name');
 
         res.status(201).json({

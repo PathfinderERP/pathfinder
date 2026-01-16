@@ -63,6 +63,10 @@ export const PERMISSION_MODULES = {
                 label: "Admissions",
                 operations: ["create", "edit", "delete", "deactivate"]
             },
+            sectionAllotment: {
+                label: "Section Allotment",
+                operations: ["view", "edit"]
+            },
             // salesDashboard: {
             //     label: "Sales Dashboard",
             //     operations: ["create", "edit", "delete"]

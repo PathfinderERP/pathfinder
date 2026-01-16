@@ -31,11 +31,18 @@ const admissionSchema = new mongoose.Schema({
         required: true
     },
 
+    // Admission Type
+    admissionType: {
+        type: String,
+        enum: ["NORMAL", "BOARD"],
+        default: "NORMAL"
+    },
+
     // Course Details
     course: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Course",
-        required: true
+        required: function () { return this.admissionType === "NORMAL"; }
     },
     class: {
         type: mongoose.Schema.Types.ObjectId,
@@ -44,16 +51,52 @@ const admissionSchema = new mongoose.Schema({
     examTag: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "ExamTag",
-        required: true
+        required: function () { return this.admissionType === "NORMAL"; }
     },
     department: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Department",
-        required: true,
+        required: function () { return this.admissionType === "NORMAL"; }
     },
     centre: {
         type: String,
         required: true
+    },
+    // Board Admission Specifics
+    board: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Boards",
+        required: function () { return this.admissionType === "BOARD"; }
+    },
+    selectedSubjects: [{
+        subject: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Subject"
+        },
+        name: String,
+        price: Number
+    }],
+    billingMonth: { // For Board courses - tracks current billing month
+        type: String // e.g., "January 2026"
+    },
+    monthlySubjectHistory: [{ // Track subject selections per month
+        month: String, // e.g., "2026-01"
+        subjects: [{
+            subject: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Subject"
+            },
+            name: String,
+            price: Number
+        }],
+        totalAmount: Number,
+        isPaid: { type: Boolean, default: false }
+    }],
+    courseDurationMonths: { // For Board courses - total duration in months
+        type: Number
+    },
+    boardCourseName: { // Constructed name for board course
+        type: String
     },
 
     // Admission Details
@@ -170,6 +213,13 @@ const admissionSchema = new mongoose.Schema({
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"
+    },
+    // Section Allotment
+    sectionAllotment: {
+        examSection: { type: String, default: null },
+        studySection: { type: String, default: null },
+        omrCode: { type: String, default: null },
+        rm: { type: String, default: null } // Relationship Manager
     }
 }, { timestamps: true });
 

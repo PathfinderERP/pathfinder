@@ -9,16 +9,22 @@ import { toggleStudentStatus } from "../../controllers/Admission/toggleStudentSt
 import { requireAuth, requireGranularPermission, requireAnyGranularPermission } from "../../middleware/permissionMiddleware.js";
 
 import { searchAdmission, transferCourse } from "../../controllers/Admission/courseTransfer.js";
+import { updateBoardSubjects } from "../../controllers/Admission/updateBoardSubjects.js";
+import { generateMonthlyBill, getMonthlyBreakdown } from "../../controllers/Admission/generateMonthlyBill.js";
+
+import { getStudentSections, allotSection } from "../../controllers/Admission/sectionAllotmentController.js";
 
 const router = express.Router();
 
 // Read routes - Accessible to authenticated users
 router.get("/", requireAuth, getAdmissions);
+router.get("/section-allotment", requireGranularPermission("admissions", "sectionAllotment", "view"), getStudentSections); // Section Allotment List
 router.get("/search", requireAuth, searchAdmission); // New Search Route
 router.get("/:id", requireAuth, getAdmissionById);
 
 // Write routes - Require granular permissions
 router.post("/create", requireGranularPermission("admissions", "enrolledStudents", "create"), createAdmission);
+router.put("/section-allotment/:admissionId", requireGranularPermission("admissions", "sectionAllotment", "edit"), allotSection); // Update Allotment
 router.post("/transfer", requireGranularPermission("admissions", "enrolledStudents", "edit"), transferCourse); // New Transfer Route
 router.put("/:id", requireGranularPermission("admissions", "enrolledStudents", "edit"), updateAdmission);
 router.delete("/:id", requireGranularPermission("admissions", "enrolledStudents", "delete"), deleteAdmission);
@@ -27,6 +33,10 @@ router.put("/:admissionId/payment/:installmentNumber", requireAnyGranularPermiss
     { module: "financeFees", section: "installmentPayment", action: "create" },
     { module: "financeFees", section: "installmentPayment", action: "edit" }
 ]), updatePaymentInstallment);
+
+router.put("/:admissionId/board-subjects", requireGranularPermission("admissions", "enrolledStudents", "edit"), updateBoardSubjects);
+router.post("/:admissionId/monthly-bill", requireGranularPermission("admissions", "enrolledStudents", "edit"), generateMonthlyBill);
+router.get("/:admissionId/monthly-breakdown", requireAuth, getMonthlyBreakdown);
 
 router.put("/student/:studentId/status", requireGranularPermission("admissions", "enrolledStudents", "deactivate"), toggleStudentStatus);
 

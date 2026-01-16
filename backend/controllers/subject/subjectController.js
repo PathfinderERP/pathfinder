@@ -1,10 +1,11 @@
 import Subject from "../../models/Master_data/Subject.js";
 
+
 export const createSubject = async (req, res) => {
     try {
-        const { subName, subPrice } = req.body;
-        if (!subName || !subPrice) {
-            return res.status(400).json({ success: false, message: "Subject name and price are required" });
+        const { subName } = req.body;
+        if (!subName) {
+            return res.status(400).json({ success: false, message: "Subject name is required" });
         }
 
         const existingSubject = await Subject.findOne({ subName });
@@ -12,7 +13,7 @@ export const createSubject = async (req, res) => {
             return res.status(400).json({ success: false, message: "Subject already exists" });
         }
 
-        const newSubject = new Subject({ subName, subPrice });
+        const newSubject = new Subject({ subName });
         await newSubject.save();
 
         res.status(201).json({ success: true, message: "Subject created successfully", data: newSubject });
@@ -35,11 +36,11 @@ export const getAllSubjects = async (req, res) => {
 export const updateSubject = async (req, res) => {
     try {
         const { id } = req.params;
-        const { subName, subPrice } = req.body;
+        const { subName } = req.body;
 
         const updatedSubject = await Subject.findByIdAndUpdate(
             id,
-            { subName, subPrice },
+            { subName },
             { new: true }
         );
 

@@ -78,6 +78,7 @@ export const generateBill = async (req, res) => {
         const admission = await Admission.findById(admissionId)
             .populate('student')
             .populate('course')
+            .populate('board')
             .populate('department')
             .populate('examTag')
             .populate('class');
@@ -226,7 +227,7 @@ export const generateBill = async (req, res) => {
                 email: admission.student.studentsDetails?.[0]?.studentEmail || 'N/A'
             },
             course: {
-                name: admission.course?.courseName || 'N/A',
+                name: (admission.admissionType === "BOARD" && admission.boardCourseName) ? admission.boardCourseName : (admission.course?.courseName || 'N/A'),
                 department: admission.department?.departmentName || 'N/A',
                 examTag: admission.examTag?.name || 'N/A',
                 class: admission.class?.name || 'N/A',
@@ -310,7 +311,7 @@ export const getBillById = async (req, res) => {
                 email: admission.student.studentsDetails?.[0]?.studentEmail || 'N/A'
             },
             course: {
-                name: admission.course?.courseName || 'N/A',
+                name: (admission.admissionType === "BOARD" && admission.boardCourseName) ? admission.boardCourseName : (admission.course?.courseName || 'N/A'),
                 department: admission.department?.departmentName || 'N/A',
                 examTag: admission.examTag?.name || 'N/A',
                 class: admission.class?.name || 'N/A',

@@ -184,7 +184,7 @@ const EmployeeAttendance = () => {
             const data = await response.json();
             if (response.ok) {
                 toast.success(data.message);
-                
+
                 // --- Voice Greeting Logic ---
                 const userName = employeeDetails?.name?.split(' ')[0] || "Employee";
                 const speak = (text) => {
@@ -409,7 +409,7 @@ const EmployeeAttendance = () => {
                         </div>
 
                         <div className="flex gap-4 w-full md:w-auto">
-                            {!todayRecord || !todayRecord.checkIn ? (
+                            {!todayRecord || !todayRecord.checkIn?.time || todayRecord.status === 'Absent' ? (
                                 <button
                                     onClick={() => handleMarkAttendance('checkIn')}
                                     disabled={marking || loading}

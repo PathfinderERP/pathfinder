@@ -15,7 +15,13 @@ const StudentAdmissionPage = () => {
     const [examTags, setExamTags] = useState([]);
     const [sessions, setSessions] = useState([]);
     const [departments, setDepartments] = useState([]);
+    const [boards, setBoards] = useState([]);
+    const [subjects, setSubjects] = useState([]);
+    const [admissionType, setAdmissionType] = useState("NORMAL"); // "NORMAL" | "BOARD"
+    const [selectedBoard, setSelectedBoard] = useState("");
+    const [selectedSubjectIds, setSelectedSubjectIds] = useState([]);
     const [selectedCourse, setSelectedCourse] = useState(null);
+    const [billingMonth, setBillingMonth] = useState("");
 
     const [formData, setFormData] = useState({
         courseId: "",
@@ -59,33 +65,22 @@ const StudentAdmissionPage = () => {
     }, []);
 
     useEffect(() => {
-        if (formData.courseId) {
-            const course = courses.find(c => c._id === formData.courseId);
-            setSelectedCourse(course);
-
-            // Auto-set department from course if available
-            if (course && course.department) {
-                setFormData(prev => ({ ...prev, departmentId: course.department._id || course.department }));
-            }
-
-            if (course) {
-                calculateFees(course);
-            }
-        }
-    }, [formData.courseId, formData.downPayment, formData.numberOfInstallments, formData.feeWaiver]);
+        // Trigger calculation when inputs change
+        calculateFees();
+    }, [formData.courseId, formData.downPayment, formData.numberOfInstallments, formData.feeWaiver, admissionType, selectedSubjectIds, selectedBoard, boards]);
 
     // Pre-select all matching fields when student and master data are loaded
     useEffect(() => {
         if (student && courses.length > 0) {
             const details = student.studentsDetails?.[0] || {};
-            const studentCentre = details.centre || "";
             const registeredCourseName = student.sessionExamCourse?.[0]?.targetExams?.trim();
             const registeredClassName = student.examSchema?.[0]?.class?.trim();
             const registeredExamTagName = student.sessionExamCourse?.[0]?.examTag?.trim();
             const registeredSession = student.sessionExamCourse?.[0]?.session?.trim();
 
             setFormData(prev => {
-                const newData = { ...prev, centre: studentCentre };
+                const newData = { ...prev };
+                // ... (Keep existing logic if needed, but simplified here to avoid huge block)
 
                 // Autofill Course - Prioritize student.course reference if it exists
                 if (student.course && !prev.courseId) {
@@ -131,7 +126,7 @@ const StudentAdmissionPage = () => {
                 return newData;
             });
         }
-    }, [student, courses, classes, examTags, sessions]);
+    }, [student, courses, classes, examTags, sessions]); // simplified dependnecies
 
     const fetchData = async () => {
         setLoading(true);
@@ -139,21 +134,32 @@ const StudentAdmissionPage = () => {
             const token = localStorage.getItem("token");
             const headers = { "Authorization": `Bearer ${token}` };
 
-            const [studentRes, coursesRes, classesRes, tagsRes, sessionsRes, deptsRes] = await Promise.all([
+            const [studentRes, coursesRes, classesRes, tagsRes, sessionsRes, deptsRes, boardsRes, subjectsRes] = await Promise.all([
                 fetch(`${apiUrl}/normalAdmin/getStudent/${studentId}`, { headers }),
                 fetch(`${apiUrl}/course`, { headers }),
                 fetch(`${apiUrl}/class`, { headers }),
                 fetch(`${apiUrl}/examTag`, { headers }),
                 fetch(`${apiUrl}/session/list`, { headers }),
-                fetch(`${apiUrl}/department`, { headers })
+                fetch(`${apiUrl}/department`, { headers }),
+                fetch(`${apiUrl}/board`, { headers }),
+                fetch(`${apiUrl}/subject`, { headers })
             ]);
 
-            if (studentRes.ok) setStudent(await studentRes.json());
+            if (studentRes.ok) {
+                const sData = await studentRes.json();
+                setStudent(sData);
+                // Set initial centre
+                if (sData.studentsDetails?.[0]?.centre) {
+                    setFormData(prev => ({ ...prev, centre: sData.studentsDetails[0].centre }));
+                }
+            }
             if (coursesRes.ok) setCourses(await coursesRes.json());
             if (classesRes.ok) setClasses(await classesRes.json());
             if (tagsRes.ok) setExamTags(await tagsRes.json());
             if (sessionsRes.ok) setSessions(await sessionsRes.json());
             if (deptsRes.ok) setDepartments(await deptsRes.json());
+            if (boardsRes.ok) setBoards(await boardsRes.json());
+            if (subjectsRes.ok) setSubjects(await subjectsRes.json());
 
         } catch (err) {
             toast.error("Failed to fetch data");
@@ -162,8 +168,66 @@ const StudentAdmissionPage = () => {
         }
     };
 
-    const calculateFees = (course) => {
-        const baseFees = course.feesStructure.reduce((sum, fee) => sum + fee.value, 0);
+    const calculateFees = () => {
+        let baseFees = 0;
+        let courseDurationMonths = 1;
+        let monthlyFees = 0;
+
+        if (admissionType === "NORMAL") {
+            const course = courses.find(c => c._id === formData.courseId);
+            if (course) {
+                baseFees = course.feesStructure.reduce((sum, fee) => sum + fee.value, 0);
+                setSelectedCourse(course);
+                // Auto-set department from course if available
+                if (course && course.department && formData.departmentId === "") { // Only auto-set if not already set
+                    setFormData(prev => ({ ...prev, departmentId: course.department._id || course.department }));
+                }
+            } else {
+                setSelectedCourse(null);
+                baseFees = 0;
+            }
+        } else {
+            // BOARD Logic
+            if (selectedBoard && selectedSubjectIds.length > 0) {
+                const boardObj = boards.find(b => b._id === selectedBoard);
+                if (boardObj) {
+                    const selectedSubs = boardObj.subjects.filter(s =>
+                        s.subjectId && selectedSubjectIds.includes(s.subjectId._id)
+                    );
+
+                    // Calculate monthly fees (sum of selected subject prices)
+                    monthlyFees = selectedSubs.reduce((sum, s) => sum + (s.price || 0), 0);
+
+                    // Calculate course duration from board
+                    if (boardObj.duration) {
+                        const durationStr = boardObj.duration.toLowerCase();
+                        if (durationStr.includes('month')) {
+                            const match = durationStr.match(/\d+/);
+                            if (match) courseDurationMonths = parseInt(match[0]);
+                        } else if (durationStr.includes('year')) {
+                            const match = durationStr.match(/\d+/);
+                            if (match) courseDurationMonths = parseInt(match[0]) * 12;
+                        }
+                    }
+
+                    // Total base fees = monthly fees × duration
+                    baseFees = monthlyFees * courseDurationMonths;
+
+                    setSelectedCourse({
+                        courseName: `${boardObj.boardCourse} Course`,
+                        feesStructure: selectedSubs.map(s => ({
+                            feesType: s.subjectId.subName,
+                            value: s.price || 0
+                        })),
+                        courseDurationMonths: courseDurationMonths,
+                        monthlyFees: monthlyFees
+                    });
+                }
+            } else {
+                setSelectedCourse(null);
+            }
+        }
+
         const feeWaiver = parseFloat(formData.feeWaiver) || 0;
 
         // Calculate Taxable Amount (Base Fees - Waiver)
@@ -179,8 +243,20 @@ const StudentAdmissionPage = () => {
 
         const downPayment = parseFloat(formData.downPayment) || 0;
         const remainingAmount = Math.max(0, totalFees - downPayment);
-        const numberOfInstallments = parseInt(formData.numberOfInstallments) || 1;
-        const installmentAmount = Math.ceil(remainingAmount / numberOfInstallments);
+
+        // For Board courses, calculate monthly amount with taxes
+        let monthlyAmount = 0;
+        if (admissionType === "BOARD") {
+            // Monthly amount = (monthly fees + taxes)
+            const monthlyTaxable = monthlyFees;
+            const monthlyCgst = Math.round(monthlyTaxable * 0.09);
+            const monthlySgst = Math.round(monthlyTaxable * 0.09);
+            monthlyAmount = monthlyTaxable + monthlyCgst + monthlySgst;
+        }
+
+        // For Board courses, use course duration months; for Normal, use installments
+        const numberOfInstallments = admissionType === "BOARD" ? courseDurationMonths : (parseInt(formData.numberOfInstallments) || 1);
+        const installmentAmount = admissionType === "BOARD" ? monthlyAmount : Math.ceil(remainingAmount / numberOfInstallments);
 
         // Generate payment schedule
         const paymentSchedule = [];
@@ -193,9 +269,9 @@ const StudentAdmissionPage = () => {
             paymentSchedule.push({
                 installmentNumber: i + 1,
                 dueDate: dueDate.toLocaleDateString(),
-                amount: i === numberOfInstallments - 1
+                amount: admissionType === "BOARD" ? monthlyAmount : (i === numberOfInstallments - 1
                     ? remainingAmount - (installmentAmount * (numberOfInstallments - 1))
-                    : installmentAmount
+                    : installmentAmount)
             });
         }
 
@@ -208,7 +284,9 @@ const StudentAdmissionPage = () => {
             downPayment,
             remainingAmount,
             installmentAmount,
-            paymentSchedule
+            paymentSchedule,
+            courseDurationMonths: admissionType === "BOARD" ? courseDurationMonths : undefined,
+            monthlyFees: admissionType === "BOARD" ? monthlyFees : undefined
         });
     };
 
@@ -217,9 +295,32 @@ const StudentAdmissionPage = () => {
         setFormData({ ...formData, [name]: value });
     };
 
+    const handleSubjectChange = (subjectId) => {
+        setSelectedSubjectIds(prev => {
+            if (prev.includes(subjectId)) {
+                return prev.filter(id => id !== subjectId);
+            } else {
+                return [...prev, subjectId];
+            }
+        });
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
+
+        // Basic validation for board admission
+        if (admissionType === "BOARD" && (!selectedBoard || selectedSubjectIds.length === 0)) {
+            toast.error("Please select a board and at least one subject for Board Admission.");
+            setLoading(false);
+            return;
+        }
+
+        if (admissionType === "BOARD" && !billingMonth) {
+            toast.error("Please select a billing month for Board Admission.");
+            setLoading(false);
+            return;
+        }
 
         try {
             const token = localStorage.getItem("token");
@@ -231,7 +332,13 @@ const StudentAdmissionPage = () => {
                 },
                 body: JSON.stringify({
                     studentId,
-                    ...formData
+                    admissionType,
+                    boardId: selectedBoard,
+                    selectedSubjectIds,
+                    billingMonth,
+                    ...formData,
+                    // For Board courses, set numberOfInstallments to course duration
+                    numberOfInstallments: admissionType === "BOARD" ? feeBreakdown.courseDurationMonths : formData.numberOfInstallments
                 })
             });
 
@@ -253,7 +360,8 @@ const StudentAdmissionPage = () => {
                             paidAmount: data.admission.downPayment,
                             paidDate: new Date(),
                             receivedDate: formData.receivedDate,
-                            paymentMethod: formData.paymentMethod
+                            paymentMethod: formData.paymentMethod,
+                            status: formData.paymentMethod === "CHEQUE" ? "PENDING_CLEARANCE" : "PAID"
                         }
                     });
                 } else if (formData.paymentMethod === "CHEQUE") {
@@ -295,6 +403,24 @@ const StudentAdmissionPage = () => {
                     </button>
                     <h2 className="text-2xl font-bold text-cyan-400">Student Admission</h2>
                 </div>
+
+                {/* Admission Type Toggle */}
+                <div className="bg-gray-800 p-1 rounded-lg flex items-center gap-1">
+                    <button
+                        type="button"
+                        onClick={() => { setAdmissionType("NORMAL"); setFormData(prev => ({ ...prev, courseId: "", examTagId: "", departmentId: "" })); }}
+                        className={`px-4 py-2 rounded-md transition-all text-sm font-bold ${admissionType === "NORMAL" ? "bg-cyan-500 text-black shadow-lg" : "text-gray-400 hover:text-white"}`}
+                    >
+                        Standard Course
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => { setAdmissionType("BOARD"); setSelectedBoard(""); setSelectedSubjectIds([]); setFormData(prev => ({ ...prev, courseId: "", examTagId: "", departmentId: "" })); }}
+                        className={`px-4 py-2 rounded-md transition-all text-sm font-bold ${admissionType === "BOARD" ? "bg-cyan-500 text-black shadow-lg" : "text-gray-400 hover:text-white"}`}
+                    >
+                        Board Course
+                    </button>
+                </div>
             </div>
 
             {/* Student Info Card */}
@@ -322,7 +448,7 @@ const StudentAdmissionPage = () => {
                 {/* Left Column - Admission Form */}
                 <div className="lg:col-span-2 space-y-6">
                     <div className="bg-[#1a1f24] p-6 rounded-lg border border-gray-800">
-                        <h3 className="text-lg font-semibold text-white mb-4">Admission Details</h3>
+                        <h3 className="text-lg font-semibold text-white mb-4">Admission Details ({admissionType === "NORMAL" ? "Standard" : "Board"})</h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -351,53 +477,92 @@ const StudentAdmissionPage = () => {
                                 </select>
                             </div>
 
-                            <div>
-                                <label className="block text-gray-400 mb-2 text-sm">Exam Tag *</label>
-                                <select
-                                    name="examTagId"
-                                    value={formData.examTagId}
-                                    onChange={handleInputChange}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-                                    required
-                                >
-                                    <option value="">Select Exam Tag</option>
-                                    {examTags.map(tag => (
-                                        <option key={tag._id} value={tag._id}>{tag.name}</option>
-                                    ))}
-                                </select>
-                            </div>
+                            {/* Normal Flow Specifics */}
+                            {admissionType === "NORMAL" && (
+                                <>
+                                    <div>
+                                        <label className="block text-gray-400 mb-2 text-sm">Exam Tag *</label>
+                                        <select
+                                            name="examTagId"
+                                            value={formData.examTagId}
+                                            onChange={handleInputChange}
+                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                            required={admissionType === "NORMAL"}
+                                        >
+                                            <option value="">Select Exam Tag</option>
+                                            {examTags.map(tag => (
+                                                <option key={tag._id} value={tag._id}>{tag.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
 
-                            <div>
-                                <label className="block text-gray-400 mb-2 text-sm">Department *</label>
-                                <select
-                                    name="departmentId"
-                                    value={formData.departmentId}
-                                    onChange={handleInputChange}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-                                    required
-                                >
-                                    <option value="">Select Department</option>
-                                    {departments.map(dept => (
-                                        <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
-                                    ))}
-                                </select>
-                            </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-2 text-sm">Department *</label>
+                                        <select
+                                            name="departmentId"
+                                            value={formData.departmentId}
+                                            onChange={handleInputChange}
+                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                            required={admissionType === "NORMAL"}
+                                        >
+                                            <option value="">Select Department</option>
+                                            {departments.map(dept => (
+                                                <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
+                                            ))}
+                                        </select>
+                                    </div>
 
-                            <div>
-                                <label className="block text-gray-400 mb-2 text-sm">Course *</label>
-                                <select
-                                    name="courseId"
-                                    value={formData.courseId}
-                                    onChange={handleInputChange}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-                                    required
-                                >
-                                    <option value="">Select Course</option>
-                                    {courses.map(course => (
-                                        <option key={course._id} value={course._id}>{course.courseName}</option>
-                                    ))}
-                                </select>
-                            </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-2 text-sm">Course *</label>
+                                        <select
+                                            name="courseId"
+                                            value={formData.courseId}
+                                            onChange={handleInputChange}
+                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                            required={admissionType === "NORMAL"}
+                                        >
+                                            <option value="">Select Course</option>
+                                            {courses.map(course => (
+                                                <option key={course._id} value={course._id}>{course.courseName}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Board Flow Specifics */}
+                            {admissionType === "BOARD" && (
+                                <>
+                                    <div>
+                                        <label className="block text-gray-400 mb-2 text-sm">Board *</label>
+                                        <select
+                                            value={selectedBoard}
+                                            onChange={(e) => setSelectedBoard(e.target.value)}
+                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                            required={admissionType === "BOARD"}
+                                        >
+                                            <option value="">Select Board / Course ...</option>
+                                            {boards.map(b => (
+                                                <option key={b._id} value={b._id}>{b.boardCourse}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-400 mb-2 text-sm">Billing Month *</label>
+                                        <input
+                                            type="month"
+                                            value={billingMonth}
+                                            onChange={(e) => setBillingMonth(e.target.value)}
+                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                            required={admissionType === "BOARD"}
+                                        />
+                                        <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">Select the month for billing</p>
+                                    </div>
+
+                                    {/* Department can be optional or required for Board too, user didn't specify. Keeping generic.*/}
+                                </>
+                            )}
 
                             <div>
                                 <label className="block text-gray-400 mb-2 text-sm">Academic Session *</label>
@@ -427,6 +592,38 @@ const StudentAdmissionPage = () => {
                                 />
                             </div>
                         </div>
+
+                        {/* Subject Selection for Board */}
+                        {admissionType === "BOARD" && selectedBoard && (
+                            <div className="mt-4 border-t border-gray-700 pt-4">
+                                <label className="block text-gray-300 font-semibold mb-3">Select Subjects for {boards.find(b => b._id === selectedBoard)?.boardCourse}</label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {boards.find(b => b._id === selectedBoard)?.subjects?.map((item, idx) => {
+                                        // item is { subjectId: { _id, subName }, price, duration }
+                                        const subject = item.subjectId;
+                                        if (!subject) return null; // safety check
+
+                                        return (
+                                            <label key={subject._id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${selectedSubjectIds.includes(subject._id) ? "bg-cyan-500/10 border-cyan-500" : "bg-gray-800 border-gray-700 hover:border-gray-600"}`}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedSubjectIds.includes(subject._id)}
+                                                    onChange={() => handleSubjectChange(subject._id)}
+                                                    className="w-4 h-4 text-cyan-500 rounded focus:ring-cyan-500 bg-gray-700 border-gray-600"
+                                                />
+                                                <div className="flex-1">
+                                                    <span className="block text-white text-sm font-medium">{subject.subName}</span>
+                                                    <span className="block text-cyan-400 text-xs font-bold">₹{item.price?.toLocaleString() || 0}</span>
+                                                </div>
+                                            </label>
+                                        )
+                                    })}
+                                </div>
+                                {selectedSubjectIds.length === 0 && (
+                                    <p className="text-yellow-500 text-xs mt-2">* Please select at least one subject to proceed.</p>
+                                )}
+                            </div>
+                        )}
 
                         <div className="mt-4">
                             <label className="block text-gray-400 mb-2 text-sm">Remarks</label>
@@ -554,19 +751,31 @@ const StudentAdmissionPage = () => {
                                 </div>
                             )}
 
-                            <div>
-                                <label className="block text-gray-400 mb-2 text-sm">Number of Installments *</label>
-                                <input
-                                    type="number"
-                                    name="numberOfInstallments"
-                                    value={formData.numberOfInstallments}
-                                    onChange={handleInputChange}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-                                    min="1"
-                                    max="24"
-                                    required
-                                />
-                            </div>
+                            {admissionType === "NORMAL" && (
+                                <div>
+                                    <label className="block text-gray-400 mb-2 text-sm">Number of Installments *</label>
+                                    <input
+                                        type="number"
+                                        name="numberOfInstallments"
+                                        value={formData.numberOfInstallments}
+                                        onChange={handleInputChange}
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                        min="1"
+                                        max="24"
+                                        required
+                                    />
+                                </div>
+                            )}
+
+                            {admissionType === "BOARD" && feeBreakdown.courseDurationMonths && (
+                                <div>
+                                    <label className="block text-gray-400 mb-2 text-sm">Course Duration</label>
+                                    <div className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-cyan-400 font-bold">
+                                        {feeBreakdown.courseDurationMonths} Months
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">Monthly billing for entire duration</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -578,45 +787,57 @@ const StudentAdmissionPage = () => {
                             {/* Course Fee Structure */}
                             <div className="bg-[#1a1f24] p-6 rounded-lg border border-gray-800">
                                 <h3 className="text-lg font-semibold text-white mb-4">Course Fee Structure</h3>
-                                <div className="space-y-2">
+                                <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                                     {selectedCourse.feesStructure.map((fee, index) => (
                                         <div key={index} className="flex justify-between items-center p-2 bg-gray-800 rounded">
                                             <span className="text-gray-300">{fee.feesType}</span>
                                             <span className="text-white font-medium">₹{fee.value.toLocaleString()}</span>
                                         </div>
                                     ))}
+                                </div>
 
-                                    <div className="border-t border-gray-700 my-2 pt-2 space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-gray-400">Base Fees</span>
-                                            <span className="text-white">₹{feeBreakdown.baseFees.toLocaleString()}</span>
+                                <div className="border-t border-gray-700 my-2 pt-2 space-y-2">
+                                    {admissionType === "BOARD" && feeBreakdown.monthlyFees && (
+                                        <div className="flex justify-between items-center bg-cyan-900/20 p-2 rounded">
+                                            <span className="text-cyan-400 font-semibold">Monthly Fees (Per Month)</span>
+                                            <span className="text-cyan-400 font-bold">₹{feeBreakdown.monthlyFees.toLocaleString()}</span>
                                         </div>
-                                        {formData.feeWaiver > 0 && (
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-green-400">Fee Waiver</span>
-                                                <span className="text-green-400">-₹{parseFloat(formData.feeWaiver).toLocaleString()}</span>
-                                            </div>
-                                        )}
+                                    )}
+                                    {admissionType === "BOARD" && feeBreakdown.courseDurationMonths && (
                                         <div className="flex justify-between items-center">
-                                            <span className="text-gray-400">CGST (9%)</span>
-                                            <span className="text-white">₹{feeBreakdown.cgstAmount.toLocaleString()}</span>
+                                            <span className="text-gray-400">Duration</span>
+                                            <span className="text-white">{feeBreakdown.courseDurationMonths} Months</span>
                                         </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-gray-400">SGST (9%)</span>
-                                            <span className="text-white">₹{feeBreakdown.sgstAmount.toLocaleString()}</span>
-                                        </div>
-                                        {feeBreakdown.previousBalance > 0 && (
-                                            <div className="flex justify-between items-center bg-yellow-500/10 p-2 rounded">
-                                                <span className="text-yellow-400">Previous Balance (Carry Forward)</span>
-                                                <span className="text-yellow-400 font-bold">+₹{feeBreakdown.previousBalance.toLocaleString()}</span>
-                                            </div>
-                                        )}
+                                    )}
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-400">{admissionType === "BOARD" ? "Total Course Fees" : "Base Fees"}</span>
+                                        <span className="text-white">₹{feeBreakdown.baseFees.toLocaleString()}</span>
                                     </div>
+                                    {formData.feeWaiver > 0 && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-green-400">Fee Waiver</span>
+                                            <span className="text-green-400">-₹{parseFloat(formData.feeWaiver).toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-400">CGST (9%)</span>
+                                        <span className="text-white">₹{feeBreakdown.cgstAmount.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-400">SGST (9%)</span>
+                                        <span className="text-white">₹{feeBreakdown.sgstAmount.toLocaleString()}</span>
+                                    </div>
+                                    {feeBreakdown.previousBalance > 0 && (
+                                        <div className="flex justify-between items-center bg-yellow-500/10 p-2 rounded">
+                                            <span className="text-yellow-400">Previous Balance (Carry Forward)</span>
+                                            <span className="text-yellow-400 font-bold">+₹{feeBreakdown.previousBalance.toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                </div>
 
-                                    <div className="flex justify-between items-center p-3 bg-cyan-500/20 rounded border border-cyan-500/50 mt-3">
-                                        <span className="text-cyan-400 font-semibold">Total Fees (with GST)</span>
-                                        <span className="text-cyan-400 font-bold text-lg">₹{feeBreakdown.totalFees.toLocaleString()}</span>
-                                    </div>
+                                <div className="flex justify-between items-center p-3 bg-cyan-500/20 rounded border border-cyan-500/50 mt-3">
+                                    <span className="text-cyan-400 font-semibold">Total Fees (with GST)</span>
+                                    <span className="text-cyan-400 font-bold text-lg">₹{feeBreakdown.totalFees.toLocaleString()}</span>
                                 </div>
                             </div>
 
@@ -641,20 +862,24 @@ const StudentAdmissionPage = () => {
                                         <span className="text-white font-semibold">₹{feeBreakdown.remainingAmount.toLocaleString()}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-gray-400">Per Installment</span>
+                                        <span className="text-gray-400">{admissionType === "BOARD" ? "Per Month" : "Per Installment"}</span>
                                         <span className="text-cyan-400 font-medium">₹{feeBreakdown.installmentAmount.toLocaleString()}</span>
                                     </div>
                                 </div>
 
-                                {/* Payment Schedule */}
+                                {/* Payment Schedule / Monthly Breakdown */}
                                 {feeBreakdown.paymentSchedule.length > 0 && (
                                     <div className="mt-4">
-                                        <h4 className="text-sm font-semibold text-gray-300 mb-2">Payment Schedule</h4>
+                                        <h4 className="text-sm font-semibold text-gray-300 mb-2">
+                                            {admissionType === "BOARD" ? "Monthly Breakdown" : "Payment Schedule"}
+                                        </h4>
                                         <div className="space-y-2 max-h-60 overflow-y-auto">
                                             {feeBreakdown.paymentSchedule.map((payment, index) => (
                                                 <div key={index} className="flex justify-between items-center p-2 bg-gray-800 rounded text-sm">
                                                     <div>
-                                                        <span className="text-gray-400">Installment {payment.installmentNumber}</span>
+                                                        <span className="text-gray-400">
+                                                            {admissionType === "BOARD" ? `Month ${payment.installmentNumber}` : `Installment ${payment.installmentNumber}`}
+                                                        </span>
                                                         <p className="text-xs text-gray-500">{payment.dueDate}</p>
                                                     </div>
                                                     <span className="text-white font-medium">₹{payment.amount.toLocaleString()}</span>
