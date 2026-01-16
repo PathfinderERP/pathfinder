@@ -108,6 +108,7 @@ export const createAdmission = async (req, res) => {
         let boardCourseNameString = "";
         let selectedSubjectsData = [];
         let course = null;
+        let durationMonths = 0; // Initialize durationMonths
 
         if (admissionType === "NORMAL") {
             // Fetch course details
@@ -117,6 +118,7 @@ export const createAdmission = async (req, res) => {
             }
             baseFees = course.feesStructure.reduce((sum, fee) => sum + fee.value, 0);
             feeSnapshot = course.feesStructure;
+            durationMonths = course.courseDurationMonths || 0; // Set duration for normal course
         } else if (admissionType === "BOARD") {
             // Fetch Board with populated subjects
             const board = await Board.findById(boardId).populate("subjects.subjectId");
@@ -125,30 +127,33 @@ export const createAdmission = async (req, res) => {
             // Validate and calculate fees based on Board's configuration
             const validSelectedSubjects = [];
             for (const subjectId of selectedSubjectIds) {
-                const boardSubject = board.subjects.find(s => s.subjectId._id.toString() === subjectId);
-                if (boardSubject) {
+                const boardSubject = board.subjects.find(s => {
+                    const sId = s.subjectId?._id || s.subjectId;
+                    return sId && sId.toString() === subjectId.toString();
+                });
+                if (boardSubject && boardSubject.subjectId) {
                     validSelectedSubjects.push({
-                        _id: boardSubject.subjectId._id,
-                        subName: boardSubject.subjectId.subName,
+                        _id: boardSubject.subjectId._id || boardSubject.subjectId,
+                        subName: boardSubject.subjectId.subName || "Unknown Subject",
                         price: boardSubject.price || 0
                     });
                 }
             }
 
             if (validSelectedSubjects.length !== selectedSubjectIds.length) {
-                return res.status(400).json({ message: "One or more subjects not configured for this board" });
+                const missingCount = selectedSubjectIds.length - validSelectedSubjects.length;
+                return res.status(400).json({
+                    message: `${missingCount} selected subject(s) are not configured for this board. Please refresh and try again.`,
+                    received: selectedSubjectIds,
+                    valid: validSelectedSubjects.map(v => v._id)
+                });
             }
 
-            baseFees = validSelectedSubjects.reduce((sum, sub) => sum + sub.price, 0);
-            feeSnapshot = validSelectedSubjects.map(sub => ({ feesType: sub.subName, value: sub.price }));
-            selectedSubjectsData = validSelectedSubjects.map(sub => ({ subject: sub._id, name: sub.subName, price: sub.price }));
-
-            // Construct Name: "BoardName Session Subject1+Subject2..."
-            const subNames = validSelectedSubjects.map(s => s.subName).join('+');
-            boardCourseNameString = `${board.boardCourse} ${academicSession} ${subNames}`; // Use boardCourse instead of name
+            // Monthly fees calculated (sum of subject prices)
+            const monthlyFees = validSelectedSubjects.reduce((sum, sub) => sum + sub.price, 0);
 
             // Calculate course duration in months from board.duration
-            let durationMonths = 12; // Default to 12 months
+            durationMonths = 12; // Default to 12 months
             if (board.duration) {
                 const durationStr = board.duration.toLowerCase();
                 if (durationStr.includes('month')) {
@@ -160,8 +165,17 @@ export const createAdmission = async (req, res) => {
                 }
             }
 
-            // Store course duration
-            course = { courseDurationMonths: durationMonths };
+            // For Board courses, baseFees is the TOTAL fees (monthly * duration)
+            baseFees = monthlyFees * durationMonths;
+            feeSnapshot = validSelectedSubjects.map(sub => ({ feesType: sub.subName, value: sub.price }));
+            selectedSubjectsData = validSelectedSubjects.map(sub => ({ subject: sub._id, name: sub.subName, price: sub.price }));
+
+            // Construct Name: "BoardName Session Subject1+Subject2..."
+            const subNames = validSelectedSubjects.map(s => s.subName).join('+');
+            boardCourseNameString = `${board.boardCourse} ${academicSession} ${subNames}`; // Use boardCourse instead of name
+
+            // Store duration and course info helper
+            course = { courseDurationMonths: durationMonths, monthlyFees: monthlyFees };
         }
 
         // Calculate Fees
@@ -182,10 +196,8 @@ export const createAdmission = async (req, res) => {
 
         // For Board courses, calculate monthly payment amount
         let monthlyPaymentAmount = 0;
-        if (admissionType === "BOARD") {
-            // Monthly fees already calculated (sum of subject prices)
-            const monthlyFees = baseFees / course.courseDurationMonths;
-            const monthlyTaxable = monthlyFees;
+        if (admissionType === "BOARD" && durationMonths > 0) {
+            const monthlyTaxable = baseFees / durationMonths;
             const monthlyCgst = Math.round(monthlyTaxable * 0.09);
             const monthlySgst = Math.round(monthlyTaxable * 0.09);
             monthlyPaymentAmount = monthlyTaxable + monthlyCgst + monthlySgst;
@@ -217,12 +229,25 @@ export const createAdmission = async (req, res) => {
         const admissionNumber = existingAdmission ? existingAdmission.admissionNumber : undefined;
 
         // Initialize monthly subject history for Board admissions
-        const monthlyHistory = admissionType === "BOARD" ? [{
-            month: billingMonth,
-            subjects: selectedSubjectsData,
-            totalAmount: totalFees,
-            isPaid: (paymentMethod !== "CHEQUE" && downPayment >= totalFees)
-        }] : [];
+        const monthlyHistory = [];
+        if (admissionType === "BOARD" && durationMonths > 0) {
+            // Start from the selected billing month or admission date
+            const startMonthStr = billingMonth; // e.g. "2026-01"
+            const [startYear, startMonth] = startMonthStr.split('-').map(Number);
+
+            for (let i = 0; i < durationMonths; i++) {
+                const mDate = new Date(startYear, startMonth - 1 + i, 1);
+                const mKey = `${mDate.getFullYear()}-${String(mDate.getMonth() + 1).padStart(2, '0')}`;
+
+                monthlyHistory.push({
+                    month: mKey,
+                    subjects: selectedSubjectsData,
+                    totalAmount: monthlyPaymentAmount,
+                    // Only the first month is marked as potentially paid by downpayment
+                    isPaid: (mKey === startMonthStr && paymentMethod !== "CHEQUE" && downPayment >= monthlyPaymentAmount)
+                });
+            }
+        }
 
         // Create admission
         const admission = new Admission({
@@ -234,7 +259,7 @@ export const createAdmission = async (req, res) => {
             selectedSubjects: selectedSubjectsData,
             billingMonth: billingMonth || null,
             monthlySubjectHistory: monthlyHistory,
-            courseDurationMonths: admissionType === "BOARD" && course ? course.courseDurationMonths : undefined,
+            courseDurationMonths: durationMonths, // Use the calculated durationMonths
             boardCourseName: boardCourseNameString || null,
             class: classId || null,
             examTag: examTagId || undefined,
@@ -317,6 +342,7 @@ export const createAdmission = async (req, res) => {
                 accountHolderName: accountHolderName,
                 chequeDate: chequeDate,
                 billingMonth: billingMonth || null,
+                boardCourseName: boardCourseNameString || null,
                 remarks: "Down Payment at Admission",
                 recordedBy: req.user._id,
                 // Bill Details

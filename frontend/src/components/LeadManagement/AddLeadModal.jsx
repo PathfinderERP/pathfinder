@@ -47,6 +47,14 @@ const AddLeadModal = ({ onClose, onSuccess }) => {
         try {
             const token = localStorage.getItem("token");
 
+            // Fetch current user data for accurate centre assignments and role
+            const userProfileRes = await fetch(`${import.meta.env.VITE_API_URL}/profile/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const profileData = await userProfileRes.json();
+            const currentUser = profileData.user || JSON.parse(localStorage.getItem("user") || "{}");
+            const isSuperAdmin = currentUser.role === "superAdmin";
+
             // Fetch classes
             const classResponse = await fetch(`${import.meta.env.VITE_API_URL}/class`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -59,7 +67,19 @@ const AddLeadModal = ({ onClose, onSuccess }) => {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const centreData = await centreResponse.json();
-            if (centreResponse.ok) setCentres(Array.isArray(centreData) ? centreData : []);
+            if (centreResponse.ok) {
+                let list = Array.isArray(centreData) ? centreData : [];
+                if (!isSuperAdmin) {
+                    const userCentreIds = currentUser.centres?.map(c => c._id || c) || [];
+                    list = list.filter(c => userCentreIds.includes(c._id));
+                }
+                setCentres(list);
+
+                // Auto-select first centre for non-superAdmin if not already set
+                if (!isSuperAdmin && list.length > 0 && !formData.centre) {
+                    setFormData(prev => ({ ...prev, centre: list[0]._id }));
+                }
+            }
 
             // Fetch courses
             const courseResponse = await fetch(`${import.meta.env.VITE_API_URL}/course`, {
@@ -75,14 +95,32 @@ const AddLeadModal = ({ onClose, onSuccess }) => {
             const sourceData = await sourceResponse.json();
             if (sourceResponse.ok) setSources(sourceData.sources || []);
 
-            // Fetch telecallers (users with role telecaller)
+            // Fetch telecallers
             const userResponse = await fetch(`${import.meta.env.VITE_API_URL}/superAdmin/getAllUsers`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const userData = await userResponse.json();
             if (userResponse.ok) {
-                const telecallerUsers = (userData.users || []).filter(user => user.role === "telecaller");
+                let telecallerUsers = (userData.users || []).filter(u => u.role === "telecaller");
+
+                if (currentUser.role === "telecaller") {
+                    // If current user is a telecaller, only show their own name
+                    telecallerUsers = telecallerUsers.filter(u => u.name === currentUser.name);
+                    if (telecallerUsers.length === 0) {
+                        telecallerUsers = [{ _id: currentUser._id, name: currentUser.name }];
+                    }
+                }
+                // If isSuperAdmin or Admin, they see all telecallerUsers
+
                 setTelecallers(telecallerUsers);
+
+                // Auto-select lead responsibility if only one or if it's the current user
+                if (telecallerUsers.length === 1) {
+                    setFormData(prev => ({ ...prev, leadResponsibility: telecallerUsers[0].name }));
+                } else if (currentUser.role === "telecaller") {
+                    const myName = telecallerUsers.find(u => u.name === currentUser.name)?.name;
+                    if (myName) setFormData(prev => ({ ...prev, leadResponsibility: myName }));
+                }
             }
 
             // Fetch exam tags

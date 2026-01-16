@@ -250,7 +250,7 @@ const TransactionList = () => {
             item.session || "-",
             item.department || "-",
             item.course,
-            item.installmentNumber === 1 ? "Initial" : "EMI",
+            item.installmentNumber === 0 ? "Initial" : "EMI",
             item.transactionId || "-",
             item.centre,
             item.method,
@@ -345,23 +345,18 @@ const TransactionList = () => {
 
                 {/* Stats Cards Row (Optional - based on user preference for "Transaction List" page) */}
                 {/* The user screenshot shows stats cards at the top */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
-                        <div>
-                            <div className="bg-blue-100 text-blue-600 p-3 rounded-lg">
-                                <FaChartBar size={24} />
-                            </div>
-                        </div>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 flex items-center justify-between col-span-1 md:col-span-1">
                         <div className="text-right flex-1">
-                            <div className="flex flex-col border-b border-gray-100 pb-2 mb-2">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Total (With GST)</span>
-                                <h3 className="text-lg font-black text-gray-900 leading-none">Rs.{stats.previousYear ? stats.previousYear.toLocaleString('en-IN') : 0}</h3>
+                            <div className="flex flex-col border-b border-gray-700 pb-2 mb-2">
+                                <span className="text-[10px] font-black text-cyan-400 uppercase tracking-tighter">Selection Total (With GST)</span>
+                                <h3 className="text-xl font-black text-white leading-none">Rs.{stats.selectionTotalWithGst ? stats.selectionTotalWithGst.toLocaleString('en-IN') : 0}</h3>
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-[10px] font-black text-orange-400 uppercase tracking-tighter">Revenue (Base)</span>
-                                <h3 className="text-lg font-black text-orange-600 leading-none">Rs.{stats.previousYearRevenue ? Math.round(stats.previousYearRevenue).toLocaleString('en-IN') : 0}</h3>
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Selection Revenue (Base)</span>
+                                <h3 className="text-xl font-black text-gray-300 leading-none">Rs.{stats.selectionTotalBase ? Math.round(stats.selectionTotalBase).toLocaleString('en-IN') : 0}</h3>
                             </div>
-                            <p className="text-[9px] text-gray-400 uppercase font-black tracking-[0.2em] mt-3 bg-gray-50 px-2 py-0.5 rounded-full inline-block">{stats.previousYearLabel} FISCAL</p>
+                            <p className="text-[9px] text-cyan-500 uppercase font-black tracking-[0.2em] mt-3 bg-cyan-500/10 px-2 py-0.5 rounded-full inline-block">MATCHED TOTAL</p>
                         </div>
                     </div>
 
@@ -656,7 +651,7 @@ const TransactionList = () => {
                                             <td className="p-4 text-sm text-orange-500 font-bold uppercase">{item.department || "-"}</td>
                                             <td className="p-4 text-sm text-gray-600 max-w-xs truncate" title={item.course}>{item.course}</td>
                                             <td className="p-4 text-sm text-gray-600">
-                                                {item.installmentNumber === 1 ? "Initial" : "EMI"}
+                                                {item.installmentNumber === 0 ? "Initial" : "EMI"}
                                             </td>
                                             <td className="p-4 text-sm text-gray-500 font-mono text-xs">
                                                 {item.method === "CASH" ? "CASH" : (item.transactionId || "-")}

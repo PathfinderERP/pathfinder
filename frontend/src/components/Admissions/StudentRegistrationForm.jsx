@@ -78,7 +78,8 @@ const StudentRegistrationForm = () => {
         // New Fields
         course: "",
         batches: [],
-        department: ""
+        department: "",
+        counselledBy: ""
     });
 
     useEffect(() => {
@@ -109,10 +110,17 @@ const StudentRegistrationForm = () => {
                 source: lead.source || "",
                 targetExams: lead.targetExam || "",
                 class: classVal,
-                whatsappNumber: lead.phoneNumber || "" // Use phone as WA default
+                whatsappNumber: lead.phoneNumber || "", // Use phone as WA default
+                counselledBy: lead.leadResponsibility || ""
             }));
 
             toast.info("Lead details autofilled");
+        } else {
+            // Default to current user's name if not from lead
+            const user = JSON.parse(localStorage.getItem("user") || "{}");
+            if (user.name) {
+                setFormData(prev => ({ ...prev, counselledBy: user.name }));
+            }
         }
     }, [location.state]);
 
@@ -342,7 +350,8 @@ const StudentRegistrationForm = () => {
                 ],
                 course: formData.course,
                 batches: formData.batches,
-                department: formData.department
+                department: formData.department,
+                counselledBy: formData.counselledBy
             };
 
             console.log("📤 Sending student registration payload:", JSON.stringify(payload, null, 2));
@@ -454,6 +463,7 @@ const StudentRegistrationForm = () => {
                                 <input type="text" name="schoolName" required value={formData.schoolName} onChange={handleChange} placeholder="School Name *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="pincode" required value={formData.pincode} onChange={handleChange} placeholder="Pincode *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="source" value={formData.source} onChange={handleChange} placeholder="Source" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <input type="text" name="counselledBy" value={formData.counselledBy} onChange={handleChange} placeholder="Counselled By" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full border-cyan-700/50" />
                                 <textarea name="address" required value={formData.address} onChange={handleChange} placeholder="Address *" rows="2" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full md:col-span-2 lg:col-span-3 resize-none"></textarea>
                             </div>
                         </div>

@@ -32,6 +32,10 @@ export const PERMISSION_MODULES = {
             transactionReport: {
                 label: "Transaction Report",
                 operations: ["create", "edit", "delete"]
+            },
+            boardReport: {
+                label: "Board Analysis Report",
+                operations: ["create", "edit", "delete"]
             }
         }
     },

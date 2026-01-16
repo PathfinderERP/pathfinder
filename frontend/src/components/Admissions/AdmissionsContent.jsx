@@ -273,6 +273,7 @@ const AdmissionsContent = () => {
             { label: 'Enrolled', key: 'isEnrolled' },
             { label: 'Carry Forward Balance', key: 'carryForwardBalance' },
             { label: 'Marked For Carry Forward', key: 'markedForCarryForward' },
+            { label: 'Counselled By', key: 'counselledBy' },
             { label: 'Registration Date', key: 'createdAt' }
         ];
 
@@ -331,6 +332,7 @@ const AdmissionsContent = () => {
                 isEnrolled: student.isEnrolled ? 'Yes' : 'No',
                 carryForwardBalance: student.carryForwardBalance || 0,
                 markedForCarryForward: student.markedForCarryForward ? 'Yes' : 'No',
+                counselledBy: student.counselledBy || 'N/A',
                 createdAt: student.createdAt ? new Date(student.createdAt).toLocaleDateString() : ''
             };
         });
@@ -387,6 +389,7 @@ const AdmissionsContent = () => {
             { label: 'Enrolled', key: 'isEnrolled' },
             { label: 'Carry Forward Balance', key: 'carryForwardBalance' },
             { label: 'Marked For Carry Forward', key: 'markedForCarryForward' },
+            { label: 'Counselled By', key: 'counselledBy' },
             { label: 'Registration Date', key: 'createdAt' }
         ];
 
@@ -445,6 +448,7 @@ const AdmissionsContent = () => {
                 isEnrolled: student.isEnrolled ? 'Yes' : 'No',
                 carryForwardBalance: student.carryForwardBalance || 0,
                 markedForCarryForward: student.markedForCarryForward ? 'Yes' : 'No',
+                counselledBy: student.counselledBy || 'N/A',
                 createdAt: student.createdAt ? new Date(student.createdAt).toLocaleDateString() : ''
             };
         });
@@ -613,6 +617,7 @@ const AdmissionsContent = () => {
                                 <th className="p-4 font-medium">Batch</th>
                                 <th className="p-4 font-medium">Centre</th>
                                 <th className="p-4 font-medium">Department</th>
+                                <th className="p-4 font-medium">Counselled By</th>
                                 <th className="p-4 font-medium">Email</th>
                                 <th className="p-4 font-medium">Class</th>
                                 <th className="p-4 font-medium">Mobile</th>
@@ -675,6 +680,9 @@ const AdmissionsContent = () => {
                                                 {/* DEPARTMENT */}
                                                 <td className="p-4 text-gray-400 text-sm">
                                                     {student.department?.departmentName || "N/A"}
+                                                </td>
+                                                <td className="p-4 text-yellow-500 font-bold text-sm">
+                                                    {student.counselledBy || "N/A"}
                                                 </td>
 
                                                 {/* 6️⃣ EMAIL */}

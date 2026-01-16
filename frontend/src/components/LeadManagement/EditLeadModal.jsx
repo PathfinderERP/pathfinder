@@ -62,6 +62,14 @@ const EditLeadModal = ({ lead, onClose, onSuccess }) => {
         try {
             const token = localStorage.getItem("token");
 
+            // Fetch current user data for accurate centre assignments and role
+            const userProfileRes = await fetch(`${import.meta.env.VITE_API_URL}/profile/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const profileData = await userProfileRes.json();
+            const currentUser = profileData.user || JSON.parse(localStorage.getItem("user") || "{}");
+            const isSuperAdmin = currentUser.role === "superAdmin";
+
             // Fetch classes
             const classResponse = await fetch(`${import.meta.env.VITE_API_URL}/class`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -74,7 +82,19 @@ const EditLeadModal = ({ lead, onClose, onSuccess }) => {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const centreData = await centreResponse.json();
-            if (centreResponse.ok) setCentres(Array.isArray(centreData) ? centreData : []);
+            if (centreResponse.ok) {
+                let list = Array.isArray(centreData) ? centreData : [];
+                if (!isSuperAdmin) {
+                    const userCentreIds = currentUser.centres?.map(c => c._id || c) || [];
+                    list = list.filter(c => userCentreIds.includes(c._id));
+
+                    // Ensure the current lead's centre is in the list even if user access changed
+                    if (lead?.centre?._id && !list.find(c => c._id === lead.centre._id)) {
+                        list.push(lead.centre);
+                    }
+                }
+                setCentres(list);
+            }
 
             // Fetch courses
             const courseResponse = await fetch(`${import.meta.env.VITE_API_URL}/course`, {
@@ -96,7 +116,15 @@ const EditLeadModal = ({ lead, onClose, onSuccess }) => {
             });
             const userData = await userResponse.json();
             if (userResponse.ok) {
-                const telecallerUsers = (userData.users || []).filter(user => user.role === "telecaller");
+                let telecallerUsers = (userData.users || []).filter(u => u.role === "telecaller");
+
+                if (currentUser.role === "telecaller") {
+                    telecallerUsers = telecallerUsers.filter(u => u.name === currentUser.name);
+                    if (telecallerUsers.length === 0) {
+                        telecallerUsers = [{ _id: currentUser._id, name: currentUser.name }];
+                    }
+                }
+
                 setTelecallers(telecallerUsers);
             }
 

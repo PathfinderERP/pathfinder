@@ -44,6 +44,9 @@ const paymentSchema = new mongoose.Schema({
     billingMonth: {
         type: String // e.g. "January 2026"
     },
+    boardCourseName: {
+        type: String
+    },
 
     // Payment Method Details
     paymentMethod: {

@@ -285,8 +285,11 @@ const EnrolledStudentsContent = () => {
 
         // Filter by student status (viewMode)
         result = result.filter(item => {
+            if (viewMode === 'Board') {
+                return item.admissions.some(a => a.admissionType === 'BOARD') && (item.student?.status || 'Active') === 'Active';
+            }
             const status = item.student?.status || 'Active';
-            return status === viewMode;
+            return status === viewMode && item.admissions.some(a => a.admissionType === 'NORMAL');
         });
 
         setFilteredStudents(result);
@@ -715,6 +718,15 @@ const EnrolledStudentsContent = () => {
                         }`}
                 >
                     Active Students
+                </button>
+                <button
+                    onClick={() => setViewMode('Board')}
+                    className={`px-6 py-2 rounded-lg font-bold transition-all ${viewMode === 'Board'
+                        ? "bg-purple-500 text-white shadow-lg shadow-purple-500/20"
+                        : "bg-[#1a1f24] text-gray-400 border border-gray-700 hover:text-white"
+                        }`}
+                >
+                    Board Courses
                 </button>
                 <button
                     onClick={() => setViewMode('Deactivated')}
@@ -1154,7 +1166,7 @@ const EnrolledStudentsContent = () => {
                                                     </h5>
                                                     <p className="text-sm text-gray-400">
                                                         Enrollment ID: <span className="text-cyan-400 font-mono font-semibold">{admission.admissionNumber}</span> •
-                                                        <span className="text-orange-400 font-semibold mx-1">{admission.department?.departmentName}</span> •
+                                                        <span className="text-orange-400 font-semibold mx-1">{admission.admissionType === 'BOARD' ? (admission.board?.boardCourse || 'Board Course') : admission.department?.departmentName}</span> •
                                                         Academic: {admission.academicSession} •
                                                         Admission: {formatDate(admission.admissionDate)} • Admitted By: <span className="text-white font-semibold">{admission.createdBy?.name || (admission.createdBy ? "Unknown User" : "System")}</span>
                                                     </p>
@@ -1169,27 +1181,36 @@ const EnrolledStudentsContent = () => {
                                                     <span className={`px-3 py-1 rounded text-sm font-bold border ${getStatusColor(admission.admissionStatus)}`}>
                                                         {admission.admissionStatus}
                                                     </span>
-                                                    {canEdit && (
+                                                    {admission.admissionType === 'BOARD' ? (
                                                         <button
-                                                            onClick={() => {
-                                                                if (selectedStudent.status === 'Deactivated') {
-                                                                    toast.error("This student is deactivated. Updates are restricted.");
-                                                                    return;
-                                                                }
-                                                                setIsModalOpen(false);
-                                                                setSelectedStudent(null);
-                                                                setStudentAdmissions([]);
-                                                                // Open edit modal for this admission
-                                                                window.location.href = `/enrolled-students?edit=${admission._id}`;
-                                                            }}
-                                                            disabled={selectedStudent.status === 'Deactivated'}
-                                                            className={`p-2 rounded transition-all ${selectedStudent.status === 'Deactivated'
-                                                                ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                                                                : 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20'}`}
-                                                            title={selectedStudent.status === 'Deactivated' ? "Student is deactivated" : "Edit Admission"}
+                                                            onClick={() => navigate(`/edit-board-subjects/${admission._id}`)}
+                                                            className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg transition-all flex items-center gap-2"
                                                         >
-                                                            <FaSync />
+                                                            <FaMoneyBillWave /> Manage Monthly Bill
                                                         </button>
+                                                    ) : (
+                                                        canEdit && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (selectedStudent.status === 'Deactivated') {
+                                                                        toast.error("This student is deactivated. Updates are restricted.");
+                                                                        return;
+                                                                    }
+                                                                    setIsModalOpen(false);
+                                                                    setSelectedStudent(null);
+                                                                    setStudentAdmissions([]);
+                                                                    // Open edit modal for this admission
+                                                                    window.location.href = `/enrolled-students?edit=${admission._id}`;
+                                                                }}
+                                                                disabled={selectedStudent.status === 'Deactivated'}
+                                                                className={`p-2 rounded transition-all ${selectedStudent.status === 'Deactivated'
+                                                                    ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                                                                    : 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20'}`}
+                                                                title={selectedStudent.status === 'Deactivated' ? "Student is deactivated" : "Edit Admission"}
+                                                            >
+                                                                <FaSync />
+                                                            </button>
+                                                        )
                                                     )}
                                                 </div>
                                             </div>
@@ -1240,127 +1261,199 @@ const EnrolledStudentsContent = () => {
                                                     </div>
                                                 </div>
 
-                                                {/* Payment Breakdown */}
+                                                {/* Payment Breakdown / Monthly Breakdown */}
                                                 <div>
                                                     <h6 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
-                                                        <FaCalendar /> Payment Schedule
+                                                        <FaCalendar /> {admission.admissionType === 'BOARD' ? 'Monthly Payment History' : 'Payment Schedule'}
                                                     </h6>
                                                     <div className="overflow-x-auto">
-                                                        <table className="w-full text-sm">
-                                                            <thead>
-                                                                <tr className="bg-gray-900 text-gray-400">
-                                                                    <th className="p-2 text-left">Inst #</th>
-                                                                    <th className="p-2 text-left">Due Date</th>
-                                                                    <th className="p-2 text-left">Original Amount</th>
-                                                                    <th className="p-2 text-left">Adjustments</th>
-                                                                    <th className="p-2 text-left">Current Amount</th>
-                                                                    <th className="p-2 text-left">Paid</th>
-                                                                    <th className="p-2 text-left">Method</th>
-                                                                    <th className="p-2 text-left">Status</th>
-                                                                    {canEdit && <th className="p-2 text-left">Action</th>}
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                {admission.paymentBreakdown?.map((payment, paymentIndex) => {
-                                                                    const isPaid = ["PAID", "COMPLETED"].includes(payment.status);
-                                                                    // Check if all previous installments are paid
-                                                                    const previousPaid = paymentIndex === 0 || admission.paymentBreakdown
-                                                                        .slice(0, paymentIndex)
-                                                                        .every(p => ["PAID", "COMPLETED"].includes(p.status));
+                                                        {admission.admissionType === 'BOARD' ? (
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                                {admission.monthlySubjectHistory?.length > 0 ? (
+                                                                    admission.monthlySubjectHistory.sort((a, b) => a.month.localeCompare(b.month)).map((history, hIdx) => {
+                                                                        const isFirstMonth = hIdx === 0;
+                                                                        const displayPaid = history.isPaid || (isFirstMonth && admission.totalPaidAmount >= (history.totalAmount - 10));
 
-                                                                    // Calculate original amount (before adjustments)
-                                                                    const baseInstallmentAmount = Math.ceil(admission.remainingAmount / admission.numberOfInstallments);
+                                                                        const getMonthName = (mKey) => {
+                                                                            try {
+                                                                                const [year, month] = mKey.split('-').map(Number);
+                                                                                return new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                                                                            } catch (e) { return mKey; }
+                                                                        };
 
-                                                                    // Parse remarks to extract adjustment info
-                                                                    const remarks = payment.remarks || "";
-                                                                    const arrearsMatch = remarks.match(/Includes ₹([\d,]+) arrears from Inst #(\d+)/);
-                                                                    const creditMatch = remarks.match(/Credit of ₹([\d,]+) from Inst #(\d+)/);
-                                                                    const carryForwardMatch = remarks.match(/Carried Forward Arrears: ₹([\d,]+)/);
-
-                                                                    let adjustmentText = null;
-                                                                    let adjustmentColor = "";
-
-                                                                    if (arrearsMatch) {
-                                                                        const amount = arrearsMatch[1].replace(/,/g, '');
-                                                                        const fromInst = arrearsMatch[2];
-                                                                        adjustmentText = `+₹${parseFloat(amount).toLocaleString()} from Inst #${fromInst}`;
-                                                                        adjustmentColor = "text-red-400";
-                                                                    } else if (creditMatch) {
-                                                                        const amount = creditMatch[1].replace(/,/g, '');
-                                                                        const fromInst = creditMatch[2];
-                                                                        adjustmentText = `-₹${parseFloat(amount).toLocaleString()} from Inst #${fromInst}`;
-                                                                        adjustmentColor = "text-green-400";
-                                                                    }
-
-                                                                    return (
-                                                                        <tr key={payment.installmentNumber} className="border-t border-gray-700 hover:bg-gray-800/30">
-                                                                            <td className="p-2 text-white font-semibold">#{payment.installmentNumber}</td>
-                                                                            <td className="p-2 text-gray-300">
-                                                                                {formatDate(payment.dueDate)}
-                                                                            </td>
-                                                                            <td className="p-2 text-gray-400">
-                                                                                ₹{baseInstallmentAmount.toLocaleString()}
-                                                                            </td>
-                                                                            <td className="p-2">
-                                                                                {adjustmentText ? (
-                                                                                    <span className={`${adjustmentColor} font-medium text-xs`}>
-                                                                                        {adjustmentText}
-                                                                                    </span>
-                                                                                ) : (
-                                                                                    <span className="text-gray-600">-</span>
-                                                                                )}
-                                                                            </td>
-                                                                            <td className="p-2 text-white font-bold">
-                                                                                ₹{payment.amount?.toLocaleString()}
-                                                                            </td>
-                                                                            <td className="p-2 text-green-400 font-medium">
-                                                                                ₹{payment.paidAmount?.toLocaleString() || 0}
-                                                                            </td>
-                                                                            <td className="p-2 text-gray-300">
-                                                                                {payment.paymentMethod || "-"}
-                                                                            </td>
-                                                                            <td className="p-2">
-                                                                                <span className={`px-2 py-1 rounded text-xs font-bold ${getInstallmentStatusColor(payment.status)}`}>
-                                                                                    {payment.status === "PENDING_CLEARANCE" ? "IN PROCESS" : payment.status}
-                                                                                </span>
-                                                                                {carryForwardMatch && (
-                                                                                    <div className="mt-1">
-                                                                                        <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-xs">
-                                                                                            CF: ₹{carryForwardMatch[1]}
-                                                                                        </span>
+                                                                        return (
+                                                                            <div key={hIdx} className={`p-4 rounded-lg border flex flex-col h-full transition-all group ${displayPaid ? 'bg-green-500/5 border-green-500/20' : 'bg-gray-800 border-gray-700 hover:border-cyan-500/30'}`}>
+                                                                                <div className="flex justify-between items-center mb-3">
+                                                                                    <div>
+                                                                                        <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Month {hIdx + 1} / {admission.courseDurationMonths}</span>
+                                                                                        <span className="text-white font-bold">{getMonthName(history.month)}</span>
                                                                                     </div>
-                                                                                )}
-                                                                            </td>
-                                                                            {canEdit && (
-                                                                                <td className="p-2">
-                                                                                    {(!isPaid && payment.status !== "PENDING_CLEARANCE") ? (
+                                                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${displayPaid ? 'bg-green-500 text-white' : 'bg-yellow-500 text-black'}`}>
+                                                                                        {displayPaid ? 'PAID' : 'PENDING'}
+                                                                                    </span>
+                                                                                </div>
+                                                                                <div className="space-y-1 mb-4 flex-grow">
+                                                                                    {history.subjects?.map((sub, sIdx) => (
+                                                                                        <div key={sIdx} className="flex justify-between text-xs">
+                                                                                            <span className="text-gray-400">{sub.name}</span>
+                                                                                            <span className="text-gray-300">₹{sub.price}</span>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                                <div className="pt-3 border-t border-gray-700">
+                                                                                    <div className="flex justify-between items-center">
+                                                                                        <span className="text-gray-400 text-xs font-bold">TOTAL</span>
+                                                                                        <span className="text-cyan-400 font-bold">₹{history.totalAmount?.toLocaleString()}</span>
+                                                                                    </div>
+                                                                                    {displayPaid && (
                                                                                         <button
-                                                                                            onClick={() => selectedStudent.status !== 'Deactivated' && openPaymentModal(admission, payment)}
-                                                                                            disabled={!previousPaid || selectedStudent.status === 'Deactivated'}
-                                                                                            className={`px-3 py-1 text-white text-sm rounded transition-colors ${(!previousPaid || selectedStudent.status === 'Deactivated')
-                                                                                                ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                                                                                                : 'bg-cyan-600 hover:bg-cyan-500'
-                                                                                                }`}
-                                                                                            title={selectedStudent.status === 'Deactivated' ? "Student is deactivated" : (!previousPaid ? "Complete previous installment first" : "Pay Now")}
+                                                                                            onClick={() => setBillModal({
+                                                                                                show: true,
+                                                                                                admission: admission,
+                                                                                                installment: {
+                                                                                                    installmentNumber: 0,
+                                                                                                    billingMonth: history.month,
+                                                                                                    status: "PAID"
+                                                                                                }
+                                                                                            })}
+                                                                                            className="mt-3 w-full py-1 bg-gray-700 hover:bg-gray-600 text-cyan-400 rounded text-[10px] font-bold flex items-center justify-center gap-1 transition-colors"
                                                                                         >
-                                                                                            Pay Now
-                                                                                        </button>
-                                                                                    ) : (
-                                                                                        <button
-                                                                                            onClick={() => selectedStudent.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
-                                                                                            disabled={selectedStudent.status === 'Deactivated'}
-                                                                                            className={`px-3 py-1 text-sm rounded transition-colors flex items-center gap-1 ${selectedStudent.status === 'Deactivated' ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-700 hover:bg-gray-600 text-cyan-400'}`}
-                                                                                        >
-                                                                                            <FaFileInvoice /> {payment.status === "PENDING_CLEARANCE" ? " Receipt" : " Bill"}
+                                                                                            <FaFileInvoice /> View Bill
                                                                                         </button>
                                                                                     )}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })
+                                                                ) : (
+                                                                    <div className="col-span-full py-6 text-center text-gray-500 italic">
+                                                                        No monthly bills generated yet.
+                                                                        <button
+                                                                            onClick={() => navigate(`/edit-board-subjects/${admission._id}`)}
+                                                                            className="ml-2 text-cyan-400 hover:underline"
+                                                                        >
+                                                                            Generate First Bill
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <table className="w-full text-sm">
+                                                                <thead>
+                                                                    <tr className="bg-gray-900 text-gray-400">
+                                                                        <th className="p-2 text-left">Inst #</th>
+                                                                        <th className="p-2 text-left">Due Date</th>
+                                                                        <th className="p-2 text-left">Original Amount</th>
+                                                                        <th className="p-2 text-left">Adjustments</th>
+                                                                        <th className="p-2 text-left">Current Amount</th>
+                                                                        <th className="p-2 text-left">Paid</th>
+                                                                        <th className="p-2 text-left">Method</th>
+                                                                        <th className="p-2 text-left">Status</th>
+                                                                        {canEdit && <th className="p-2 text-left">Action</th>}
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {admission.paymentBreakdown?.map((payment, paymentIndex) => {
+                                                                        const isPaid = ["PAID", "COMPLETED"].includes(payment.status);
+                                                                        // Check if all previous installments are paid
+                                                                        const previousPaid = paymentIndex === 0 || admission.paymentBreakdown
+                                                                            .slice(0, paymentIndex)
+                                                                            .every(p => ["PAID", "COMPLETED"].includes(p.status));
+
+                                                                        // Calculate original amount (before adjustments)
+                                                                        const baseInstallmentAmount = Math.ceil(admission.remainingAmount / admission.numberOfInstallments);
+
+                                                                        // Parse remarks to extract adjustment info
+                                                                        const remarks = payment.remarks || "";
+                                                                        const arrearsMatch = remarks.match(/Includes ₹([\d,]+) arrears from Inst #(\d+)/);
+                                                                        const creditMatch = remarks.match(/Credit of ₹([\d,]+) from Inst #(\d+)/);
+                                                                        const carryForwardMatch = remarks.match(/Carried Forward Arrears: ₹([\d,]+)/);
+
+                                                                        let adjustmentText = null;
+                                                                        let adjustmentColor = "";
+
+                                                                        if (arrearsMatch) {
+                                                                            const amount = arrearsMatch[1].replace(/,/g, '');
+                                                                            const fromInst = arrearsMatch[2];
+                                                                            adjustmentText = `+₹${parseFloat(amount).toLocaleString()} from Inst #${fromInst}`;
+                                                                            adjustmentColor = "text-red-400";
+                                                                        } else if (creditMatch) {
+                                                                            const amount = creditMatch[1].replace(/,/g, '');
+                                                                            const fromInst = creditMatch[2];
+                                                                            adjustmentText = `-₹${parseFloat(amount).toLocaleString()} from Inst #${fromInst}`;
+                                                                            adjustmentColor = "text-green-400";
+                                                                        }
+
+                                                                        return (
+                                                                            <tr key={payment.installmentNumber} className="border-t border-gray-700 hover:bg-gray-800/30">
+                                                                                <td className="p-2 text-white font-semibold">#{payment.installmentNumber}</td>
+                                                                                <td className="p-2 text-gray-300">
+                                                                                    {formatDate(payment.dueDate)}
                                                                                 </td>
-                                                                            )}
-                                                                        </tr>
-                                                                    );
-                                                                })}
-                                                            </tbody>
-                                                        </table>
+                                                                                <td className="p-2 text-gray-400">
+                                                                                    ₹{baseInstallmentAmount.toLocaleString()}
+                                                                                </td>
+                                                                                <td className="p-2">
+                                                                                    {adjustmentText ? (
+                                                                                        <span className={`${adjustmentColor} font-medium text-xs`}>
+                                                                                            {adjustmentText}
+                                                                                        </span>
+                                                                                    ) : (
+                                                                                        <span className="text-gray-600">-</span>
+                                                                                    )}
+                                                                                </td>
+                                                                                <td className="p-2 text-white font-bold">
+                                                                                    ₹{payment.amount?.toLocaleString()}
+                                                                                </td>
+                                                                                <td className="p-2 text-green-400 font-medium">
+                                                                                    ₹{payment.paidAmount?.toLocaleString() || 0}
+                                                                                </td>
+                                                                                <td className="p-2 text-gray-300">
+                                                                                    {payment.paymentMethod || "-"}
+                                                                                </td>
+                                                                                <td className="p-2">
+                                                                                    <span className={`px-2 py-1 rounded text-xs font-bold ${getInstallmentStatusColor(payment.status)}`}>
+                                                                                        {payment.status === "PENDING_CLEARANCE" ? "IN PROCESS" : payment.status}
+                                                                                    </span>
+                                                                                    {carryForwardMatch && (
+                                                                                        <div className="mt-1">
+                                                                                            <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-xs">
+                                                                                                CF: ₹{carryForwardMatch[1]}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </td>
+                                                                                {canEdit && (
+                                                                                    <td className="p-2">
+                                                                                        {(!isPaid && payment.status !== "PENDING_CLEARANCE") ? (
+                                                                                            <button
+                                                                                                onClick={() => selectedStudent.status !== 'Deactivated' && openPaymentModal(admission, payment)}
+                                                                                                disabled={!previousPaid || selectedStudent.status === 'Deactivated'}
+                                                                                                className={`px-3 py-1 text-white text-sm rounded transition-colors ${(!previousPaid || selectedStudent.status === 'Deactivated')
+                                                                                                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                                                                                                    : 'bg-cyan-600 hover:bg-cyan-500'
+                                                                                                    }`}
+                                                                                                title={selectedStudent.status === 'Deactivated' ? "Student is deactivated" : (!previousPaid ? "Complete previous installment first" : "Pay Now")}
+                                                                                            >
+                                                                                                Pay Now
+                                                                                            </button>
+                                                                                        ) : (
+                                                                                            <button
+                                                                                                onClick={() => selectedStudent.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
+                                                                                                disabled={selectedStudent.status === 'Deactivated'}
+                                                                                                className={`px-3 py-1 text-sm rounded transition-colors flex items-center gap-1 ${selectedStudent.status === 'Deactivated' ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-700 hover:bg-gray-600 text-cyan-400'}`}
+                                                                                            >
+                                                                                                <FaFileInvoice /> {payment.status === "PENDING_CLEARANCE" ? " Receipt" : " Bill"}
+                                                                                            </button>
+                                                                                        )}
+                                                                                    </td>
+                                                                                )}
+                                                                            </tr>
+                                                                        );
+                                                                    })}
+                                                                </tbody>
+                                                            </table>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -1395,275 +1488,279 @@ const EnrolledStudentsContent = () => {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div >
             )}
 
             {/* Payment Modal */}
-            {showPaymentModal && selectedInstallment && selectedAdmission && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4">
-                    <div className="bg-[#1e2329] rounded-xl w-full max-w-2xl border border-gray-700 shadow-2xl">
-                        <div className="p-6 border-b border-gray-700 flex justify-between items-center">
-                            <div>
-                                <h3 className="text-xl font-bold text-white">Process Payment - Installment #{selectedInstallment.installmentNumber}</h3>
-                                <p className="text-sm text-gray-400 mt-1">
-                                    {selectedAdmission.course?.courseName} • {selectedAdmission.student?.studentsDetails?.[0]?.studentName}
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => setShowPaymentModal(false)}
-                                className="text-gray-400 hover:text-white p-2 rounded-full hover:bg-gray-700 transition-colors"
-                            >
-                                <FaTimes size={20} />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handlePaymentSubmit} className="p-6 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+            {
+                showPaymentModal && selectedInstallment && selectedAdmission && (
+                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4">
+                        <div className="bg-[#1e2329] rounded-xl w-full max-w-2xl border border-gray-700 shadow-2xl">
+                            <div className="p-6 border-b border-gray-700 flex justify-between items-center">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                                        Installment Amount
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={selectedInstallment.amount}
-                                        disabled
-                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
-                                    />
+                                    <h3 className="text-xl font-bold text-white">Process Payment - Installment #{selectedInstallment.installmentNumber}</h3>
+                                    <p className="text-sm text-gray-400 mt-1">
+                                        {selectedAdmission.course?.courseName} • {selectedAdmission.student?.studentsDetails?.[0]?.studentName}
+                                    </p>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                                        Paid Amount <span className="text-red-400">*</span>
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={paymentData.paidAmount}
-                                        onChange={(e) => setPaymentData({ ...paymentData, paidAmount: parseFloat(e.target.value) || 0 })}
-                                        required
-                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Payment Difference Indicator */}
-                            {(() => {
-                                const diff = selectedInstallment.amount - paymentData.paidAmount;
-                                if (diff > 0) {
-                                    return (
-                                        <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                                            <div className="flex items-center gap-2">
-                                                <FaExclamationCircle className="text-yellow-400" />
-                                                <div className="flex-1">
-                                                    <p className="text-yellow-400 font-semibold text-sm">Partial Payment</p>
-                                                    <p className="text-gray-300 text-xs">
-                                                        Remaining <span className="font-bold">₹{diff.toLocaleString()}</span> will be added to the next installment
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                } else if (diff < 0) {
-                                    return (
-                                        <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                                            <div className="flex items-center gap-2">
-                                                <FaCheckCircle className="text-green-400" />
-                                                <div className="flex-1">
-                                                    <p className="text-green-400 font-semibold text-sm">Overpayment</p>
-                                                    <p className="text-gray-300 text-xs">
-                                                        Excess <span className="font-bold">₹{Math.abs(diff).toLocaleString()}</span> will be credited to the next installment
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                } else {
-                                    return (
-                                        <div className="p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
-                                            <div className="flex items-center gap-2">
-                                                <FaCheckCircle className="text-cyan-400" />
-                                                <p className="text-cyan-400 font-semibold text-sm">Exact Payment</p>
-                                            </div>
-                                        </div>
-                                    );
-                                }
-                            })()}
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">
-                                    Payment Method <span className="text-red-400">*</span>
-                                </label>
-                                <select
-                                    value={paymentData.paymentMethod}
-                                    onChange={(e) => setPaymentData({ ...paymentData, paymentMethod: e.target.value })}
-                                    required
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                <button
+                                    onClick={() => setShowPaymentModal(false)}
+                                    className="text-gray-400 hover:text-white p-2 rounded-full hover:bg-gray-700 transition-colors"
                                 >
-                                    <option value="CASH">Cash</option>
-                                    <option value="UPI">UPI</option>
-                                    <option value="CARD">Card</option>
-                                    <option value="BANK_TRANSFER">Bank Transfer</option>
-                                    <option value="CHEQUE">Cheque</option>
-                                </select>
+                                    <FaTimes size={20} />
+                                </button>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">
-                                    Received Date <span className="text-red-400">*</span>
-                                </label>
-                                <input
-                                    type="date"
-                                    value={paymentData.receivedDate}
-                                    onChange={(e) => setPaymentData({ ...paymentData, receivedDate: e.target.value })}
-                                    required
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-                                />
-                                <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">The actual date money was received</p>
-                            </div>
-
-                            {/* Conditional Fields for Online Payments */}
-                            {["UPI", "CARD", "BANK_TRANSFER"].includes(paymentData.paymentMethod) && (
-                                <div className="space-y-4 p-4 bg-blue-500/5 border border-blue-500/20 rounded-lg">
+                            <form onSubmit={handlePaymentSubmit} className="p-6 space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                                            Transaction ID <span className="text-red-400">*</span>
+                                            Installment Amount
                                         </label>
                                         <input
-                                            type="text"
-                                            value={paymentData.transactionId}
-                                            onChange={(e) => setPaymentData({ ...paymentData, transactionId: e.target.value })}
+                                            type="number"
+                                            value={selectedInstallment.amount}
+                                            disabled
+                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                                            Paid Amount <span className="text-red-400">*</span>
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={paymentData.paidAmount}
+                                            onChange={(e) => setPaymentData({ ...paymentData, paidAmount: parseFloat(e.target.value) || 0 })}
                                             required
-                                            placeholder="Enter transaction ID"
                                             className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
                                         />
                                     </div>
                                 </div>
-                            )}
 
-                            {/* Conditional Fields for Cheque */}
-                            {paymentData.paymentMethod === "CHEQUE" && (
-                                <div className="space-y-4 p-4 bg-purple-500/5 border border-purple-500/20 rounded-lg">
-                                    <div className="grid grid-cols-2 gap-4">
+                                {/* Payment Difference Indicator */}
+                                {(() => {
+                                    const diff = selectedInstallment.amount - paymentData.paidAmount;
+                                    if (diff > 0) {
+                                        return (
+                                            <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                                                <div className="flex items-center gap-2">
+                                                    <FaExclamationCircle className="text-yellow-400" />
+                                                    <div className="flex-1">
+                                                        <p className="text-yellow-400 font-semibold text-sm">Partial Payment</p>
+                                                        <p className="text-gray-300 text-xs">
+                                                            Remaining <span className="font-bold">₹{diff.toLocaleString()}</span> will be added to the next installment
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    } else if (diff < 0) {
+                                        return (
+                                            <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                                                <div className="flex items-center gap-2">
+                                                    <FaCheckCircle className="text-green-400" />
+                                                    <div className="flex-1">
+                                                        <p className="text-green-400 font-semibold text-sm">Overpayment</p>
+                                                        <p className="text-gray-300 text-xs">
+                                                            Excess <span className="font-bold">₹{Math.abs(diff).toLocaleString()}</span> will be credited to the next installment
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    } else {
+                                        return (
+                                            <div className="p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
+                                                <div className="flex items-center gap-2">
+                                                    <FaCheckCircle className="text-cyan-400" />
+                                                    <p className="text-cyan-400 font-semibold text-sm">Exact Payment</p>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                })()}
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        Payment Method <span className="text-red-400">*</span>
+                                    </label>
+                                    <select
+                                        value={paymentData.paymentMethod}
+                                        onChange={(e) => setPaymentData({ ...paymentData, paymentMethod: e.target.value })}
+                                        required
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                    >
+                                        <option value="CASH">Cash</option>
+                                        <option value="UPI">UPI</option>
+                                        <option value="CARD">Card</option>
+                                        <option value="BANK_TRANSFER">Bank Transfer</option>
+                                        <option value="CHEQUE">Cheque</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        Received Date <span className="text-red-400">*</span>
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={paymentData.receivedDate}
+                                        onChange={(e) => setPaymentData({ ...paymentData, receivedDate: e.target.value })}
+                                        required
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                    />
+                                    <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">The actual date money was received</p>
+                                </div>
+
+                                {/* Conditional Fields for Online Payments */}
+                                {["UPI", "CARD", "BANK_TRANSFER"].includes(paymentData.paymentMethod) && (
+                                    <div className="space-y-4 p-4 bg-blue-500/5 border border-blue-500/20 rounded-lg">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                Bank Name <span className="text-red-400">*</span>
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={paymentData.accountHolderName}
-                                                onChange={(e) => setPaymentData({ ...paymentData, accountHolderName: e.target.value })}
-                                                required
-                                                placeholder="Enter name on cheque"
-                                                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                Cheque Number <span className="text-red-400">*</span>
+                                                Transaction ID <span className="text-red-400">*</span>
                                             </label>
                                             <input
                                                 type="text"
                                                 value={paymentData.transactionId}
                                                 onChange={(e) => setPaymentData({ ...paymentData, transactionId: e.target.value })}
                                                 required
-                                                placeholder="Enter cheque number"
+                                                placeholder="Enter transaction ID"
                                                 className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
                                             />
                                         </div>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                                            Cheque Date <span className="text-red-400">*</span>
-                                        </label>
-                                        <input
-                                            type="date"
-                                            value={paymentData.chequeDate}
-                                            onChange={(e) => setPaymentData({ ...paymentData, chequeDate: e.target.value })}
-                                            required
-                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-                                        />
-                                    </div>
-                                </div>
-                            )}
+                                )}
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">
-                                    Remarks
-                                </label>
-                                <textarea
-                                    value={paymentData.remarks}
-                                    onChange={(e) => setPaymentData({ ...paymentData, remarks: e.target.value })}
-                                    rows={3}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-                                    placeholder="Add any additional notes..."
-                                />
-                            </div>
-
-                            {/* Carry Forward Checkbox - Only show for partial payment on last installment */}
-                            {(() => {
-                                const diff = selectedInstallment.amount - paymentData.paidAmount;
-                                const isLastInstallment = selectedInstallment.installmentNumber === selectedAdmission.numberOfInstallments;
-
-                                if (diff > 0 && isLastInstallment) {
-                                    return (
-                                        <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                                            <label className="flex items-start gap-3 cursor-pointer">
+                                {/* Conditional Fields for Cheque */}
+                                {paymentData.paymentMethod === "CHEQUE" && (
+                                    <div className="space-y-4 p-4 bg-purple-500/5 border border-purple-500/20 rounded-lg">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                                    Bank Name <span className="text-red-400">*</span>
+                                                </label>
                                                 <input
-                                                    type="checkbox"
-                                                    checked={paymentData.carryForward}
-                                                    onChange={(e) => setPaymentData({ ...paymentData, carryForward: e.target.checked })}
-                                                    className="w-5 h-5 mt-0.5 text-yellow-600 bg-gray-800 border-gray-700 rounded focus:ring-yellow-500"
+                                                    type="text"
+                                                    value={paymentData.accountHolderName}
+                                                    onChange={(e) => setPaymentData({ ...paymentData, accountHolderName: e.target.value })}
+                                                    required
+                                                    placeholder="Enter name on cheque"
+                                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
                                                 />
-                                                <div className="flex-1">
-                                                    <span className="text-yellow-400 font-bold text-sm block">Carry Forward Balance</span>
-                                                    <span className="text-gray-300 text-xs block mt-1">
-                                                        This is the last installment. Check this to carry forward the remaining ₹{diff.toLocaleString()} to the student's balance for future course enrollment.
-                                                    </span>
-                                                </div>
-                                            </label>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                                    Cheque Number <span className="text-red-400">*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={paymentData.transactionId}
+                                                    onChange={(e) => setPaymentData({ ...paymentData, transactionId: e.target.value })}
+                                                    required
+                                                    placeholder="Enter cheque number"
+                                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                                />
+                                            </div>
                                         </div>
-                                    );
-                                }
-                                return null;
-                            })()}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                                                Cheque Date <span className="text-red-400">*</span>
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={paymentData.chequeDate}
+                                                onChange={(e) => setPaymentData({ ...paymentData, chequeDate: e.target.value })}
+                                                required
+                                                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
 
-                            <div className="flex gap-3 pt-4">
-                                <button
-                                    type="submit"
-                                    disabled={processingPayment}
-                                    className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:bg-gray-700 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                >
-                                    {processingPayment ? (
-                                        <>
-                                            <FaSync className="animate-spin" />
-                                            Processing...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <FaCheckCircle />
-                                            Submit Payment
-                                        </>
-                                    )}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPaymentModal(false)}
-                                    className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </form>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        Remarks
+                                    </label>
+                                    <textarea
+                                        value={paymentData.remarks}
+                                        onChange={(e) => setPaymentData({ ...paymentData, remarks: e.target.value })}
+                                        rows={3}
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                        placeholder="Add any additional notes..."
+                                    />
+                                </div>
+
+                                {/* Carry Forward Checkbox - Only show for partial payment on last installment */}
+                                {(() => {
+                                    const diff = selectedInstallment.amount - paymentData.paidAmount;
+                                    const isLastInstallment = selectedInstallment.installmentNumber === selectedAdmission.numberOfInstallments;
+
+                                    if (diff > 0 && isLastInstallment) {
+                                        return (
+                                            <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                                                <label className="flex items-start gap-3 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={paymentData.carryForward}
+                                                        onChange={(e) => setPaymentData({ ...paymentData, carryForward: e.target.checked })}
+                                                        className="w-5 h-5 mt-0.5 text-yellow-600 bg-gray-800 border-gray-700 rounded focus:ring-yellow-500"
+                                                    />
+                                                    <div className="flex-1">
+                                                        <span className="text-yellow-400 font-bold text-sm block">Carry Forward Balance</span>
+                                                        <span className="text-gray-300 text-xs block mt-1">
+                                                            This is the last installment. Check this to carry forward the remaining ₹{diff.toLocaleString()} to the student's balance for future course enrollment.
+                                                        </span>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()}
+
+                                <div className="flex gap-3 pt-4">
+                                    <button
+                                        type="submit"
+                                        disabled={processingPayment}
+                                        className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:bg-gray-700 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    >
+                                        {processingPayment ? (
+                                            <>
+                                                <FaSync className="animate-spin" />
+                                                Processing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <FaCheckCircle />
+                                                Submit Payment
+                                            </>
+                                        )}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPaymentModal(false)}
+                                        className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Bill Generator Modal */}
-            {billModal.show && billModal.admission && billModal.installment && (
-                <BillGenerator
-                    admission={billModal.admission}
-                    installment={billModal.installment}
-                    onClose={() => setBillModal({ show: false, admission: null, installment: null })}
-                />
-            )}
+            {
+                billModal.show && billModal.admission && billModal.installment && (
+                    <BillGenerator
+                        admission={billModal.admission}
+                        installment={billModal.installment}
+                        onClose={() => setBillModal({ show: false, admission: null, installment: null })}
+                    />
+                )
+            }
         </div >
 
     );

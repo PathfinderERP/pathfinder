@@ -9,8 +9,7 @@ import { toggleStudentStatus } from "../../controllers/Admission/toggleStudentSt
 import { requireAuth, requireGranularPermission, requireAnyGranularPermission } from "../../middleware/permissionMiddleware.js";
 
 import { searchAdmission, transferCourse } from "../../controllers/Admission/courseTransfer.js";
-import { updateBoardSubjects } from "../../controllers/Admission/updateBoardSubjects.js";
-import { generateMonthlyBill, getMonthlyBreakdown } from "../../controllers/Admission/generateMonthlyBill.js";
+import { generateMonthlyBill, getMonthlyBreakdown, updateBoardSubjects } from "../../controllers/Admission/generateMonthlyBill.js";
 
 import { getStudentSections, allotSection } from "../../controllers/Admission/sectionAllotmentController.js";
 

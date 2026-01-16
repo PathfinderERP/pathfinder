@@ -40,8 +40,8 @@ export const getTransactionReport = async (req, res) => {
         if (transactionType) {
             const types = transactionType.split(',').map(t => t.toLowerCase());
             let criteria = [];
-            if (types.includes("initial")) criteria.push({ installmentNumber: 1 });
-            if (types.includes("emi")) criteria.push({ installmentNumber: { $gt: 1 } });
+            if (types.includes("initial")) criteria.push({ installmentNumber: 0 });
+            if (types.includes("emi")) criteria.push({ installmentNumber: { $gt: 0 } });
 
             if (criteria.length > 0) {
                 if (criteria.length > 1) {
@@ -128,30 +128,33 @@ export const getTransactionReport = async (req, res) => {
             { $match: paymentMatch },
 
             // 2. Lookup Admission Details
-            {
-                $lookup: {
-                    from: "admissions",
-                    localField: "admission",
-                    foreignField: "_id",
-                    as: "admissionInfo"
-                }
-            },
+            { $lookup: { from: "admissions", localField: "admission", foreignField: "_id", as: "admissionInfo" } },
             { $unwind: "$admissionInfo" },
 
-            // 3. Match Admission Filters
-            { $match: admissionMatch },
-
             // Lookup Course for Dept Filter (and general info)
+            { $lookup: { from: "courses", localField: "admissionInfo.course", foreignField: "_id", as: "courseInfo" } },
+            { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
+
+            // 3. Match Admission & Dept Filters
             {
-                $lookup: {
-                    from: "courses",
-                    localField: "admissionInfo.course",
-                    foreignField: "_id",
-                    as: "courseInfo"
+                $match: {
+                    ...admissionMatch,
+                    ...(departmentIds ? {
+                        $or: [
+                            { "courseInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id)) } },
+                            { "admissionInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id)) } }
+                        ]
+                    } : {})
                 }
             },
-            { $unwind: "$courseInfo" },
-            { $match: departmentMatch },
+
+            // Add Fallback Date for Grouping
+            {
+                $addFields: {
+                    reportDate: { $ifNull: ["$paidDate", { $ifNull: ["$receivedDate", "$createdAt"] }] },
+                    revenueBase: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] }
+                }
+            },
 
             // 4. Facets for Charts
             {
@@ -160,9 +163,9 @@ export const getTransactionReport = async (req, res) => {
                     monthlyRevenue: [
                         {
                             $group: {
-                                _id: { $month: "$paidDate" },
+                                _id: { $month: "$reportDate" },
                                 revenue: { $sum: "$paidAmount" }, // With GST
-                                revenueWithoutGst: { $sum: { $divide: ["$paidAmount", 1.18] } }, // Without GST
+                                revenueWithoutGst: { $sum: "$revenueBase" }, // Use calculated base
                                 count: { $sum: 1 }
                             }
                         },
@@ -175,7 +178,7 @@ export const getTransactionReport = async (req, res) => {
                             $group: {
                                 _id: "$paymentMethod",
                                 value: { $sum: "$paidAmount" }, // With GST
-                                revenueWithoutGst: { $sum: { $divide: ["$paidAmount", 1.18] } },
+                                revenueWithoutGst: { $sum: "$revenueBase" },
                                 count: { $sum: 1 }
                             }
                         }
@@ -198,14 +201,13 @@ export const getTransactionReport = async (req, res) => {
                     courseRevenue: [
                         {
                             $group: {
-                                _id: "$admissionInfo.course",
+                                _id: { $ifNull: ["$admissionInfo.course", "$admissionInfo.boardCourseName"] },
                                 revenue: { $sum: "$paidAmount" },
                                 revenueWithoutGst: { $sum: { $divide: ["$paidAmount", 1.18] } },
                                 count: { $sum: 1 }
                             }
                         },
                         {
-                            // Optimized: courseInfo is already present
                             $lookup: {
                                 from: "courses",
                                 localField: "_id",
@@ -213,11 +215,11 @@ export const getTransactionReport = async (req, res) => {
                                 as: "courseDetails"
                             }
                         },
-                        { $unwind: "$courseDetails" },
                         {
                             $project: {
-                                name: "$courseDetails.courseName",
+                                name: { $ifNull: [{ $arrayElemAt: ["$courseDetails.courseName", 0] }, "$_id"] },
                                 revenue: 1,
+                                revenueWithoutGst: 1,
                                 count: 1
                             }
                         },
@@ -231,44 +233,47 @@ export const getTransactionReport = async (req, res) => {
         // We reuse the pipeline logic but project detailed fields
         const detailedData = await Payment.aggregate([
             { $match: paymentMatch },
-            {
-                $lookup: {
-                    from: "admissions",
-                    localField: "admission",
-                    foreignField: "_id",
-                    as: "admissionInfo"
-                }
-            },
+            { $lookup: { from: "admissions", localField: "admission", foreignField: "_id", as: "admissionInfo" } },
             { $unwind: "$admissionInfo" },
             { $match: admissionMatch },
+            { $lookup: { from: "students", localField: "admissionInfo.student", foreignField: "_id", as: "studentInfo" } },
+            { $unwind: { path: "$studentInfo", preserveNullAndEmptyArrays: true } },
+            { $lookup: { from: "courses", localField: "admissionInfo.course", foreignField: "_id", as: "courseInfo" } },
+            { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
             {
                 $lookup: {
-                    from: "students",
-                    localField: "admissionInfo.student",
+                    from: "departments",
+                    localField: "admissionInfo.department",
                     foreignField: "_id",
-                    as: "studentInfo"
+                    as: "directDept"
                 }
             },
-            { $unwind: "$studentInfo" },
-            {
-                $lookup: {
-                    from: "courses",
-                    localField: "admissionInfo.course",
-                    foreignField: "_id",
-                    as: "courseInfo"
-                }
-            },
-            { $unwind: "$courseInfo" },
             {
                 $lookup: {
                     from: "departments",
                     localField: "courseInfo.department",
                     foreignField: "_id",
-                    as: "departmentDetails"
+                    as: "courseDept"
                 }
             },
-            { $unwind: { path: "$departmentDetails", preserveNullAndEmptyArrays: true } },
-            { $match: departmentMatch },
+            {
+                $addFields: {
+                    departmentDetails: {
+                        $ifNull: [
+                            { $arrayElemAt: ["$directDept", 0] },
+                            { $arrayElemAt: ["$courseDept", 0] }
+                        ]
+                    }
+                }
+            },
+            {
+                $match: departmentIds ? {
+                    $or: [
+                        { "courseInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id)) } },
+                        { "admissionInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id)) } }
+                    ]
+                } : {}
+            },
             { $sort: { paidDate: -1 } },
             {
                 $project: {
@@ -281,15 +286,15 @@ export const getTransactionReport = async (req, res) => {
                     // Admission/Student Info
                     studentName: { $arrayElemAt: ["$studentInfo.studentsDetails.studentName", 0] },
                     centre: "$admissionInfo.centre",
-                    course: "$courseInfo.courseName",
+                    course: { $ifNull: ["$courseInfo.courseName", "$admissionInfo.boardCourseName", "$boardCourseName"] },
                     department: "$departmentDetails.departmentName",
                     session: "$admissionInfo.academicSession",
                     admissionNumber: "$admissionInfo.admissionNumber",
-                    receivedDate: "$receivedDate",
+                    receivedDate: { $ifNull: ["$receivedDate", "$paidDate"] },
                     receiptNo: "$billId",
                     installmentNumber: "$installmentNumber",
-                    revenueWithoutGst: { $divide: ["$paidAmount", 1.18] },
-                    gstAmount: { $subtract: ["$paidAmount", { $divide: ["$paidAmount", 1.18] }] }
+                    revenueWithoutGst: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] },
+                    gstAmount: { $ifNull: [{ $add: ["$cgst", "$sgst"] }, { $subtract: ["$paidAmount", { $divide: ["$paidAmount", 1.18] }] }] }
                 }
             }
         ]);
@@ -297,15 +302,17 @@ export const getTransactionReport = async (req, res) => {
 
         // --- Stats Calculation (Current Year, Previous Year, Current Month, Previous Month) ---
         // Dynamically calculate based on current date
+        // Dynamically calculate based on current date
         const now = new Date();
         const currentYear = now.getFullYear();
-        const previousYear = currentYear - 1;
 
-        const startCY = new Date(currentYear, 0, 1);
-        const endCY = new Date(currentYear, 11, 31, 23, 59, 59, 999);
+        // Financial Year Logic (April - March)
+        const fyStartYear = now.getMonth() >= 3 ? currentYear : currentYear - 1;
+        const startCFY = new Date(fyStartYear, 3, 1);
+        const endCFY = new Date(fyStartYear + 1, 2, 31, 23, 59, 59, 999);
 
-        const startPY = new Date(previousYear, 0, 1);
-        const endPY = new Date(previousYear, 11, 31, 23, 59, 59, 999);
+        const startPFY = new Date(fyStartYear - 1, 3, 1);
+        const endPFY = new Date(fyStartYear, 2, 31, 23, 59, 59, 999);
 
         const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
@@ -316,46 +323,39 @@ export const getTransactionReport = async (req, res) => {
         // Stats Aggregation - Uses baseAttributesMatch (ignores user date filter) but keeps context filters
         const statsData = await Payment.aggregate([
             { $match: baseAttributesMatch },
-            {
-                $lookup: {
-                    from: "admissions",
-                    localField: "admission",
-                    foreignField: "_id",
-                    as: "admissionInfo"
-                }
-            },
+            { $lookup: { from: "admissions", localField: "admission", foreignField: "_id", as: "admissionInfo" } },
             { $unwind: "$admissionInfo" },
             { $match: admissionMatch },
+            { $lookup: { from: "courses", localField: "admissionInfo.course", foreignField: "_id", as: "courseInfo" } },
+            { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
             {
-                $lookup: {
-                    from: "courses",
-                    localField: "admissionInfo.course",
-                    foreignField: "_id",
-                    as: "courseInfo"
-                }
+                $match: departmentIds ? {
+                    $or: [
+                        { "courseInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id)) } },
+                        { "admissionInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id)) } }
+                    ]
+                } : {}
             },
-            { $unwind: "$courseInfo" },
-            { $match: departmentMatch },
             {
                 $project: {
                     paidAmount: 1,
-                    paidDate: 1
+                    paidDate: { $ifNull: ["$paidDate", { $ifNull: ["$receivedDate", "$createdAt"] }] }
                 }
             },
             {
                 $group: {
                     _id: null,
                     currentYearWithGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", startCY] }, { $lte: ["$paidDate", endCY] }] }, "$paidAmount", 0] }
+                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", startCFY] }, { $lte: ["$paidDate", endCFY] }] }, "$paidAmount", 0] }
                     },
                     currentYearWithoutGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", startCY] }, { $lte: ["$paidDate", endCY] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
+                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", startCFY] }, { $lte: ["$paidDate", endCFY] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
                     },
                     previousYearWithGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", startPY] }, { $lte: ["$paidDate", endPY] }] }, "$paidAmount", 0] }
+                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", startPFY] }, { $lte: ["$paidDate", endPFY] }] }, "$paidAmount", 0] }
                     },
                     previousYearWithoutGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", startPY] }, { $lte: ["$paidDate", endPY] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
+                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", startPFY] }, { $lte: ["$paidDate", endPFY] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
                     },
                     currentMonthWithGst: {
                         $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", currentMonthStart] }, { $lte: ["$paidDate", currentMonthEnd] }] }, "$paidAmount", 0] }
@@ -425,10 +425,12 @@ export const getTransactionReport = async (req, res) => {
                 currentMonthRevenue: stats.currentMonthWithoutGst,
                 previousMonth: stats.previousMonthWithGst,
                 previousMonthRevenue: stats.previousMonthWithoutGst,
-                currentYearLabel: currentYear,
-                previousYearLabel: previousYear,
+                currentYearLabel: `${fyStartYear}-${(fyStartYear + 1).toString().slice(-2)}`,
+                previousYearLabel: `${fyStartYear - 1}-${fyStartYear.toString().slice(-2)}`,
                 currentMonthLabel: now.toLocaleString('default', { month: 'long' }),
-                previousMonthLabel: prevMonthStart.toLocaleString('default', { month: 'long' })
+                previousMonthLabel: prevMonthStart.toLocaleString('default', { month: 'long' }),
+                selectionTotalWithGst: result.paymentMethods.reduce((acc, curr) => acc + curr.value, 0),
+                selectionTotalBase: result.paymentMethods.reduce((acc, curr) => acc + (curr.revenueWithoutGst || 0), 0)
             }
         });
 

@@ -4,6 +4,7 @@ import { FaDownload, FaChevronDown, FaChevronLeft, FaChevronRight, FaFilter, FaC
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { useNavigate } from "react-router-dom";
 
 import {
     PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
@@ -11,6 +12,7 @@ import {
 } from 'recharts';
 
 const CourseReport = () => {
+    const navigate = useNavigate();
     // ---- State ----
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState([]);
@@ -462,6 +464,13 @@ const CourseReport = () => {
                                 Reset
                             </button>
                         </div>
+
+                        <button
+                            onClick={() => navigate("/sales/board-report")}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium flex items-center gap-2 shadow-sm uppercase text-[11px] tracking-widest"
+                        >
+                            <FaChartBar size={14} /> Board analysis
+                        </button>
 
                         <button
                             onClick={handleDownloadExcel}

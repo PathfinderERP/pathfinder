@@ -148,10 +148,20 @@ export const generateBill = async (req, res) => {
 
         // Check if payment record exists
         console.log(`🔍 Looking for payment record: Admission ${admissionId}, Installment ${installmentNum}`);
-        let payment = await Payment.findOne({
+        // Check if payment record exists
+        const { billingMonth } = req.query;
+        console.log(`🔍 Looking for payment record: Admission ${admissionId}, Installment ${installmentNum}, Month: ${billingMonth}`);
+
+        let query = {
             admission: admissionId,
             installmentNumber: installmentNum
-        });
+        };
+
+        if (admission.admissionType === 'BOARD' && billingMonth) {
+            query.billingMonth = billingMonth;
+        }
+
+        let payment = await Payment.findOne(query);
 
         // If payment record is missing but installment is PAID, create it (Self-healing)
         if (!payment) {
@@ -227,7 +237,7 @@ export const generateBill = async (req, res) => {
                 email: admission.student.studentsDetails?.[0]?.studentEmail || 'N/A'
             },
             course: {
-                name: (admission.admissionType === "BOARD" && admission.boardCourseName) ? admission.boardCourseName : (admission.course?.courseName || 'N/A'),
+                name: payment.boardCourseName || (admission.boardCourseName || (admission.course?.courseName || 'N/A')),
                 department: admission.department?.departmentName || 'N/A',
                 examTag: admission.examTag?.name || 'N/A',
                 class: admission.class?.name || 'N/A',
@@ -311,7 +321,7 @@ export const getBillById = async (req, res) => {
                 email: admission.student.studentsDetails?.[0]?.studentEmail || 'N/A'
             },
             course: {
-                name: (admission.admissionType === "BOARD" && admission.boardCourseName) ? admission.boardCourseName : (admission.course?.courseName || 'N/A'),
+                name: payment.boardCourseName || (admission.boardCourseName || (admission.course?.courseName || 'N/A')),
                 department: admission.department?.departmentName || 'N/A',
                 examTag: admission.examTag?.name || 'N/A',
                 class: admission.class?.name || 'N/A',

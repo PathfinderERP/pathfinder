@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { FaTimes, FaUser, FaGraduationCap, FaMoneyBillWave, FaCalendar, FaCheckCircle, FaExclamationCircle, FaFileInvoice, FaSync } from 'react-icons/fa';
+import React, { useState, useEffect } from 'react';
+import { FaTimes, FaUser, FaGraduationCap, FaMoneyBillWave, FaCalendar, FaCheckCircle, FaExclamationCircle, FaFileInvoice, FaSync, FaInfoCircle } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import BillGenerator from '../Finance/BillGenerator';
 
@@ -18,8 +19,35 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
         carryForward: false
     });
     const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
+    const [monthlyBreakdown, setMonthlyBreakdown] = useState([]);
+    const [loadingBreakdown, setLoadingBreakdown] = useState(false);
 
     const apiUrl = import.meta.env.VITE_API_URL;
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (admission && admission.admissionType === 'BOARD') {
+            fetchBreakdown();
+        }
+    }, [admission]);
+
+    const fetchBreakdown = async () => {
+        setLoadingBreakdown(true);
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${apiUrl}/admission/${admission._id}/monthly-breakdown`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setMonthlyBreakdown(data.monthlyBreakdown);
+            }
+        } catch (error) {
+            console.error('Error fetching breakdown:', error);
+        } finally {
+            setLoadingBreakdown(false);
+        }
+    };
 
     if (!admission) return null;
 
@@ -140,21 +168,32 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                             <p className="text-cyan-400 font-mono text-sm mt-1">{admission.admissionNumber}</p>
                         </div>
                         <div className="flex items-center gap-3">
-                            {canEdit && (
+                            {admission.admissionType === 'BOARD' ? (
                                 <button
                                     onClick={() => {
-                                        // Close this modal and open edit modal
                                         onClose();
-                                        // You'll need to pass an onEdit callback from parent
-                                        if (window.openEditModal) {
-                                            window.openEditModal(admission);
-                                        }
+                                        navigate(`/edit-board-subjects/${admission._id}`);
                                     }}
-                                    className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-lg transition-colors flex items-center gap-2"
+                                    className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-black font-semibold rounded-lg transition-colors flex items-center gap-2"
                                 >
-                                    <FaUser />
-                                    Edit Student Details
+                                    <FaMoneyBillWave />
+                                    Manage Monthly Bill
                                 </button>
+                            ) : (
+                                canEdit && (
+                                    <button
+                                        onClick={() => {
+                                            onClose();
+                                            if (window.openEditModal) {
+                                                window.openEditModal(admission);
+                                            }
+                                        }}
+                                        className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-lg transition-colors flex items-center gap-2"
+                                    >
+                                        <FaUser />
+                                        Edit Student Details
+                                    </button>
+                                )
                             )}
                             <button onClick={onClose} className="text-gray-400 hover:text-white">
                                 <FaTimes size={24} />
@@ -251,8 +290,12 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label className="text-gray-400 text-sm">Course</label>
-                                    <p className="text-white font-medium">{admission.course?.courseName || "N/A"}</p>
+                                    <label className="text-gray-400 text-sm">Course / Board</label>
+                                    <p className="text-white font-medium">
+                                        {admission.admissionType === 'BOARD'
+                                            ? admission.board?.boardCourse
+                                            : (admission.course?.courseName || "N/A")}
+                                    </p>
                                 </div>
                                 <div>
                                     <label className="text-gray-400 text-sm">Centre</label>
@@ -336,85 +379,179 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                             </div>
                         </div>
 
-                        {/* Payment Schedule */}
+                        {/* Payment Schedule / Monthly History */}
                         <div className="bg-[#131619] p-6 rounded-lg border border-gray-800">
-                            <div className="flex items-center gap-3 mb-4">
-                                <FaCalendar className="text-cyan-400" />
-                                <h3 className="text-xl font-semibold text-white">Payment Schedule</h3>
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                    <FaCalendar className="text-cyan-400" />
+                                    <h3 className="text-xl font-semibold text-white">
+                                        {admission.admissionType === 'BOARD' ? 'Monthly Payment History' : 'Payment Schedule'}
+                                    </h3>
+                                </div>
+                                {admission.admissionType === 'BOARD' && (
+                                    <button
+                                        onClick={() => {
+                                            onClose();
+                                            navigate(`/edit-board-subjects/${admission._id}`);
+                                        }}
+                                        className="text-cyan-400 hover:text-cyan-300 text-sm font-bold flex items-center gap-1"
+                                    >
+                                        <FaSync /> Manage Bills
+                                    </button>
+                                )}
                             </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="bg-gray-800 text-gray-400 text-sm">
-                                            <th className="p-3 text-left">Installment</th>
-                                            <th className="p-3 text-left">Due Date</th>
-                                            <th className="p-3 text-left">Amount</th>
-                                            <th className="p-3 text-left">Paid</th>
-                                            <th className="p-3 text-left">Method</th>
-                                            <th className="p-3 text-left">Status</th>
-                                            <th className="p-3 text-left">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {admission.paymentBreakdown?.map((payment, index) => {
-                                            const previousPaid = index === 0 || ["PAID", "COMPLETED"].includes(admission.paymentBreakdown[index - 1].status);
-                                            const isPaid = ["PAID", "COMPLETED"].includes(payment.status);
 
-                                            return (
-                                                <tr key={index} className="border-t border-gray-800">
-                                                    <td className="p-3 text-white">#{payment.installmentNumber}</td>
-                                                    <td className="p-3 text-gray-300">{formatDate(payment.dueDate)}</td>
-                                                    <td className="p-3 text-white font-medium">
-                                                        ₹{payment.amount?.toLocaleString()}
-                                                        {payment.remarks && payment.remarks.includes("Includes") && (
-                                                            <div className="text-xs text-yellow-500 mt-1">{payment.remarks}</div>
-                                                        )}
-                                                    </td>
-                                                    <td className="p-3 text-green-400">₹{payment.paidAmount?.toLocaleString() || 0}</td>
-                                                    <td className="p-3 text-gray-300">{payment.paymentMethod || "-"}</td>
-                                                    <td className="p-3">
-                                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${getInstallmentStatusColor(payment.status)}`}>
-                                                            {payment.status === "PENDING_CLEARANCE" ? "IN PROCESS" : payment.status}
-                                                        </span>
-                                                    </td>
-                                                    <td className="p-3">
-                                                        {canEdit ? (
-                                                            (!isPaid && payment.status !== "PENDING_CLEARANCE") ? (
-                                                                <button
-                                                                    onClick={() => admission.student?.status !== 'Deactivated' && openPaymentModal(payment)}
-                                                                    disabled={!previousPaid || admission.student?.status === 'Deactivated'}
-                                                                    className={`px-3 py-1 text-white text-sm rounded transition-colors ${(!previousPaid || admission.student?.status === 'Deactivated') ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500'}`}
-                                                                    title={admission.student?.status === 'Deactivated' ? "Student is deactivated" : (!previousPaid ? "Complete previous installment first" : "Pay Now")}
-                                                                >
-                                                                    Pay Now
-                                                                </button>
-                                                            ) : (
-                                                                <button
-                                                                    onClick={() => admission.student?.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
-                                                                    disabled={admission.student?.status === 'Deactivated'}
-                                                                    className={`px-3 py-1 text-sm rounded transition-colors flex items-center gap-1 ${admission.student?.status === 'Deactivated' ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-700 hover:bg-gray-600 text-cyan-400'}`}
-                                                                >
-                                                                    <FaFileInvoice /> {payment.status === "PENDING_CLEARANCE" ? " Receipt" : " Bill"}
-                                                                </button>
-                                                            )
+                            {admission.admissionType === 'BOARD' ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {loadingBreakdown ? (
+                                        <div className="col-span-full py-12 text-center text-gray-500">
+                                            <FaSync className="animate-spin mx-auto mb-2 text-2xl" />
+                                            Loading payment schedule...
+                                        </div>
+                                    ) : (
+                                        monthlyBreakdown.map((item, idx) => (
+                                            <div key={idx} className={`p-4 rounded-lg border flex flex-col h-full transition-all group ${item.isPaid ? 'bg-green-500/5 border-green-500/20' : 'bg-gray-800 border-gray-700 hover:border-cyan-500/30'}`}>
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <div>
+                                                        <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Month {idx + 1} / {admission.courseDurationMonths}</span>
+                                                        <span className="text-white font-bold">{item.monthName}</span>
+                                                    </div>
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${item.isPaid ? 'bg-green-500 text-white' : 'bg-yellow-500 text-black'}`}>
+                                                        {item.isPaid ? 'PAID' : 'PENDING'}
+                                                    </span>
+                                                </div>
+                                                <div className="space-y-1 mb-4 flex-grow">
+                                                    {item.subjects.length > 0 ? (
+                                                        item.subjects.map((sub, sidx) => (
+                                                            <div key={sidx} className="flex justify-between text-xs">
+                                                                <span className="text-gray-400">{sub.name}</span>
+                                                                <span className="text-gray-300">₹{sub.price}</span>
+                                                            </div>
+                                                        ))
+                                                    ) : (
+                                                        <p className="text-[10px] text-gray-500 italic">No subjects selected yet (Inherits previous selections on payment)</p>
+                                                    )}
+                                                </div>
+                                                <div className="pt-3 border-t border-gray-700">
+                                                    <div className="flex justify-between items-center mb-3">
+                                                        <span className="text-gray-400 text-xs text-uppercase font-bold">TOTAL</span>
+                                                        <span className="text-cyan-400 font-bold">₹{item.totalAmount?.toLocaleString() || '0'}</span>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-2 gap-2 mt-2 transition-opacity">
+                                                        {item.isPaid ? (
+                                                            <button
+                                                                className="col-span-2 py-1.5 bg-gray-700 hover:bg-gray-600 text-cyan-400 rounded text-xs font-bold flex items-center justify-center gap-1"
+                                                                onClick={() => {
+                                                                    // Show bill/receipt
+                                                                    setBillModal({ show: true, admission: admission, installment: { installmentNumber: 0, billingMonth: item.month } });
+                                                                }}
+                                                            >
+                                                                <FaFileInvoice /> View Bill
+                                                            </button>
                                                         ) : (
-                                                            (isPaid || payment.status === "PENDING_CLEARANCE") && (
+                                                            <>
                                                                 <button
-                                                                    onClick={() => admission.student?.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
-                                                                    disabled={admission.student?.status === 'Deactivated'}
-                                                                    className={`px-3 py-1 text-sm rounded transition-colors flex items-center gap-1 ${admission.student?.status === 'Deactivated' ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-700 hover:bg-gray-600 text-cyan-400'}`}
+                                                                    className="py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs font-bold flex items-center justify-center gap-1"
+                                                                    onClick={() => {
+                                                                        onClose();
+                                                                        navigate(`/edit-board-subjects/${admission._id}?month=${item.month}&action=pay`);
+                                                                    }}
                                                                 >
-                                                                    <FaFileInvoice /> {payment.status === "PENDING_CLEARANCE" ? " Receipt" : " Bill"}
+                                                                    <FaMoneyBillWave /> Pay Now
                                                                 </button>
-                                                            )
+                                                                <button
+                                                                    className="py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs font-bold flex items-center justify-center gap-1"
+                                                                    onClick={() => {
+                                                                        onClose();
+                                                                        navigate(`/edit-board-subjects/${admission._id}?month=${item.month}&action=edit`);
+                                                                    }}
+                                                                >
+                                                                    <FaSync /> Edit
+                                                                </button>
+                                                            </>
                                                         )}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="bg-gray-800 text-gray-400 text-sm">
+                                                <th className="p-3 text-left">Installment</th>
+                                                <th className="p-3 text-left">Due Date</th>
+                                                <th className="p-3 text-left">Amount</th>
+                                                <th className="p-3 text-left">Paid</th>
+                                                <th className="p-3 text-left">Method</th>
+                                                <th className="p-3 text-left">Status</th>
+                                                <th className="p-3 text-left">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {admission.paymentBreakdown?.map((payment, index) => {
+                                                const previousPaid = index === 0 || ["PAID", "COMPLETED"].includes(admission.paymentBreakdown[index - 1].status);
+                                                const isPaid = ["PAID", "COMPLETED"].includes(payment.status);
+
+                                                return (
+                                                    <tr key={index} className="border-t border-gray-800">
+                                                        <td className="p-3 text-white">#{payment.installmentNumber}</td>
+                                                        <td className="p-3 text-gray-300">{formatDate(payment.dueDate)}</td>
+                                                        <td className="p-3 text-white font-medium">
+                                                            ₹{payment.amount?.toLocaleString()}
+                                                            {payment.remarks && payment.remarks.includes("Includes") && (
+                                                                <div className="text-xs text-yellow-500 mt-1">{payment.remarks}</div>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-3 text-green-400">₹{payment.paidAmount?.toLocaleString() || 0}</td>
+                                                        <td className="p-3 text-gray-300">{payment.paymentMethod || "-"}</td>
+                                                        <td className="p-3">
+                                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${getInstallmentStatusColor(payment.status)}`}>
+                                                                {payment.status === "PENDING_CLEARANCE" ? "IN PROCESS" : payment.status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-3">
+                                                            {canEdit ? (
+                                                                (!isPaid && payment.status !== "PENDING_CLEARANCE") ? (
+                                                                    <button
+                                                                        onClick={() => admission.student?.status !== 'Deactivated' && openPaymentModal(payment)}
+                                                                        disabled={!previousPaid || admission.student?.status === 'Deactivated'}
+                                                                        className={`px-3 py-1 text-white text-sm rounded transition-colors ${(!previousPaid || admission.student?.status === 'Deactivated') ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500'}`}
+                                                                        title={admission.student?.status === 'Deactivated' ? "Student is deactivated" : (!previousPaid ? "Complete previous installment first" : "Pay Now")}
+                                                                    >
+                                                                        Pay Now
+                                                                    </button>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => admission.student?.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
+                                                                        disabled={admission.student?.status === 'Deactivated'}
+                                                                        className={`px-3 py-1 text-sm rounded transition-colors flex items-center gap-1 ${admission.student?.status === 'Deactivated' ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-700 hover:bg-gray-600 text-cyan-400'}`}
+                                                                    >
+                                                                        <FaFileInvoice /> {payment.status === "PENDING_CLEARANCE" ? " Receipt" : " Bill"}
+                                                                    </button>
+                                                                )
+                                                            ) : (
+                                                                (isPaid || payment.status === "PENDING_CLEARANCE") && (
+                                                                    <button
+                                                                        onClick={() => admission.student?.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
+                                                                        disabled={admission.student?.status === 'Deactivated'}
+                                                                        className={`px-3 py-1 text-sm rounded transition-colors flex items-center gap-1 ${admission.student?.status === 'Deactivated' ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-700 hover:bg-gray-600 text-cyan-400'}`}
+                                                                    >
+                                                                        <FaFileInvoice /> {payment.status === "PENDING_CLEARANCE" ? " Receipt" : " Bill"}
+                                                                    </button>
+                                                                )
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
 
                         {/* Payment Summary */}

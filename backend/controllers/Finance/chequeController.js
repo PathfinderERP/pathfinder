@@ -137,6 +137,14 @@ export const clearCheque = async (req, res) => {
             admission.paymentStatus = "PARTIAL";
         }
 
+        // 4. Update Board Course monthly history if applicable
+        if (admission.admissionType === 'BOARD' && payment.billingMonth) {
+            const historyEntry = admission.monthlySubjectHistory.find(h => h.month === payment.billingMonth);
+            if (historyEntry) {
+                historyEntry.isPaid = true;
+            }
+        }
+
         await admission.save();
 
         res.status(200).json({
@@ -201,6 +209,14 @@ export const rejectCheque = async (req, res) => {
             (sum, p) => sum + (p.status === "PAID" ? (p.paidAmount || 0) : 0),
             0
         ) + (admission.downPaymentStatus === "PAID" ? admission.downPayment : 0);
+
+        // 4. Update Board Course monthly history if applicable
+        if (admission.admissionType === 'BOARD' && payment.billingMonth) {
+            const historyEntry = admission.monthlySubjectHistory.find(h => h.month === payment.billingMonth);
+            if (historyEntry) {
+                historyEntry.isPaid = false;
+            }
+        }
 
         await admission.save();
 

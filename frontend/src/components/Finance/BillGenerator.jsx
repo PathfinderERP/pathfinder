@@ -40,8 +40,9 @@ const BillGenerator = ({ admission, installment, onClose }) => {
         setGenerating(true);
         try {
             const token = localStorage.getItem('token');
+            const billingMonthParam = installment.billingMonth ? `?billingMonth=${installment.billingMonth}` : '';
             const response = await fetch(
-                `${apiUrl}/payment/generate-bill/${admission._id}/${installment.installmentNumber}`,
+                `${apiUrl}/payment/generate-bill/${admission._id}/${installment.installmentNumber}${billingMonthParam}`,
                 {
                     method: 'POST',
                     headers: {
@@ -266,9 +267,9 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             // Right: ID
             doc.rect(midPoint, yPos, midPoint - margin, rowHeight);
             doc.setFont('helvetica', 'normal');
-            doc.text('Student ID:', midPoint + 2, yPos + 5.5);
+            doc.text('Admission No:', midPoint + 2, yPos + 5.5);
             doc.setFont('helvetica', 'bold');
-            doc.text(safeStr(billData.student?.admissionNumber), midPoint + 22, yPos + 5.5);
+            doc.text(safeStr(billData.student?.admissionNumber), midPoint + 26, yPos + 5.5);
             yPos += rowHeight;
 
             // 6. Contact No. | Session
@@ -559,7 +560,6 @@ const BillGenerator = ({ admission, installment, onClose }) => {
                                     <div className="grid grid-cols-2 gap-3 text-sm">
                                         <div><span className="text-gray-400">Name:</span> <span className="text-white font-medium">{billData.student.name}</span></div>
                                         <div><span className="text-gray-400">Admission No:</span> <span className="text-white font-medium">{billData.student.admissionNumber}</span></div>
-                                        <div><span className="text-gray-400">Student ID:</span> <span className="text-white font-medium">{billData.student.id || 'N/A'}</span></div>
                                         <div><span className="text-gray-400">Phone:</span> <span className="text-white font-medium">{billData.student.phoneNumber}</span></div>
                                         <div className="col-span-2"><span className="text-gray-400">Email:</span> <span className="text-white font-medium">{billData.student.email || 'N/A'}</span></div>
                                     </div>

@@ -67,7 +67,8 @@ const StudentSchema = new mongoose.Schema({
   status: { type: String, enum: ['Active', 'Deactivated'], default: 'Active' },
   deactivationDate: { type: Date },
   carryForwardBalance: { type: Number, default: 0 },
-  markedForCarryForward: { type: Boolean, default: false }
+  markedForCarryForward: { type: Boolean, default: false },
+  counselledBy: { type: String }
 }, { timestamps: true });
 
 const Student = mongoose.model("Student", StudentSchema);

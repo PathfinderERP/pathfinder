@@ -136,16 +136,11 @@ const LeadManagementContent = () => {
                 const userCentres = currentUser.centres || [];
                 console.log("Lead Management - User centres from profile:", userCentres);
                 setAllowedCentres(userCentres);
-
-                // Auto-select first centre for non-superAdmin users
-                if (userCentres.length > 0 && !filters.centre) {
-                    setFilters(prev => ({ ...prev, centre: userCentres[0]._id }));
-                }
             }
         } catch (error) {
             console.error("Error fetching allowed centres:", error);
         }
-    }, [filters.centre]);
+    }, []);
 
     const fetchFilterData = useCallback(async () => {
         try {

@@ -14,6 +14,7 @@ import AdmissionReport from "./pages/Sales/AdmissionReport";
 import CourseReport from "./pages/Sales/CourseReport";
 import DiscountReport from "./pages/Sales/DiscountReport";
 import TransactionReport from "./pages/Sales/TransactionReport";
+import BoardReport from "./pages/Sales/BoardReport";
 import TransactionList from "./pages/Finance/TransactionList";
 import HR from "./pages/HR";
 import Academics from "./pages/Academics";
@@ -50,6 +51,7 @@ import MasterDataBoard from "./pages/MasterDataBoard";
 import MasterDataSubject from "./pages/MasterDataSubject";
 import MasterDataFollowUpFeedback from "./pages/MasterDataFollowUpFeedback";
 import ZoneManagement from "./pages/ZoneManagement";
+import EditBoardSubjects from "./pages/EditBoardSubjects";
 
 // ... [existing imports]
 
@@ -183,6 +185,7 @@ function App() {
         <Route path="/sales/course-report" element={<CourseReport />} />
         <Route path="/sales/discount-report" element={<DiscountReport />} />
         <Route path="/sales/transaction-report" element={<TransactionReport />} />
+        <Route path="/sales/board-report" element={<BoardReport />} />
         <Route path="/hr" element={<HR />} />
         <Route path="/hr/employee/list" element={<EmployeeList />} />
         <Route path="/hr/employee/add" element={<AddEmployee />} />
@@ -276,6 +279,7 @@ function App() {
         <Route path="/course-management/carry-forward" element={<CarryForward />} />
         <Route path="/course-management/course-transfer" element={<CourseTransfer />} />
         <Route path="/enrolled-students" element={<EnrolledStudents />} />
+        <Route path="/edit-board-subjects/:admissionId" element={<EditBoardSubjects />} />
         <Route path="/user-management" element={<UserManagement />} />
         <Route path="/profile" element={<Profile />} />
       </Routes>

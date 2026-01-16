@@ -11,6 +11,7 @@ const CourseContent = () => {
     const [classes, setClasses] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [examTags, setExamTags] = useState([]);
+    const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -29,7 +30,8 @@ const CourseContent = () => {
         courseType: "",
         class: "",
         department: "",
-        examTag: ""
+        examTag: "",
+        courseSession: ""
     });
 
     const [formData, setFormData] = useState({
@@ -53,11 +55,12 @@ const CourseContent = () => {
             const token = localStorage.getItem("token");
             const headers = { "Authorization": `Bearer ${token}` };
 
-            const [coursesRes, classesRes, deptsRes, tagsRes] = await Promise.all([
+            const [coursesRes, classesRes, deptsRes, tagsRes, sessionsRes] = await Promise.all([
                 fetch(`${apiUrl}/course`, { headers }),
                 fetch(`${apiUrl}/class`, { headers }),
                 fetch(`${apiUrl}/department`, { headers }),
-                fetch(`${apiUrl}/examTag`, { headers })
+                fetch(`${apiUrl}/examTag`, { headers }),
+                fetch(`${apiUrl}/session/list`, { headers })
             ]);
 
             if (coursesRes.ok) {
@@ -68,6 +71,7 @@ const CourseContent = () => {
             if (classesRes.ok) setClasses(await classesRes.json());
             if (deptsRes.ok) setDepartments(await deptsRes.json());
             if (tagsRes.ok) setExamTags(await tagsRes.json());
+            if (sessionsRes.ok) setSessions(await sessionsRes.json());
 
         } catch (err) {
             toast.error("Failed to fetch data");
@@ -99,6 +103,9 @@ const CourseContent = () => {
         if (filters.examTag) {
             filtered = filtered.filter(c => c.examTag?._id === filters.examTag);
         }
+        if (filters.courseSession) {
+            filtered = filtered.filter(c => c.courseSession === filters.courseSession);
+        }
 
         setFilteredCourses(filtered);
     };
@@ -117,7 +124,8 @@ const CourseContent = () => {
             courseType: "",
             class: "",
             department: "",
-            examTag: ""
+            examTag: "",
+            courseSession: ""
         });
     };
 
@@ -328,6 +336,19 @@ const CourseContent = () => {
                             {examTags.map(tag => <option key={tag._id} value={tag._id}>{tag.name}</option>)}
                         </select>
                     </div>
+                    <div>
+                        <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Session</label>
+                        <select
+                            value={filters.courseSession}
+                            onChange={(e) => handleFilterChange('courseSession', e.target.value)}
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-xs sm:text-sm focus:outline-none focus:border-cyan-500"
+                        >
+                            <option value="">All Sessions</option>
+                            {sessions.map(sess => (
+                                <option key={sess._id} value={sess.sessionName}>{sess.sessionName}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
                 <div className="mt-3 flex justify-end">
                     <button
@@ -510,7 +531,18 @@ const CourseContent = () => {
                                 </div>
                                 <div>
                                     <label className="block text-gray-400 mb-1 text-sm">Course Session</label>
-                                    <input type="text" name="courseSession" value={formData.courseSession} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required placeholder="e.g. 2025-2026" />
+                                    <select
+                                        name="courseSession"
+                                        value={formData.courseSession}
+                                        onChange={handleInputChange}
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                        required
+                                    >
+                                        <option value="">Select Session</option>
+                                        {sessions.map(sess => (
+                                            <option key={sess._id} value={sess.sessionName}>{sess.sessionName}</option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div>
                                     <label className="block text-gray-400 mb-1 text-sm">Department</label>

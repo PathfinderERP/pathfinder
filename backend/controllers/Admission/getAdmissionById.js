@@ -7,6 +7,12 @@ export const getAdmissionById = async (req, res) => {
         const admission = await Admission.findById(id)
             .populate('student')
             .populate('course')
+            .populate({
+                path: 'board',
+                populate: {
+                    path: 'subjects.subjectId'
+                }
+            })
             .populate('class')
             .populate('examTag')
             .populate('department')
