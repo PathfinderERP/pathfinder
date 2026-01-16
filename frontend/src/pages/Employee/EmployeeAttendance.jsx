@@ -26,7 +26,7 @@ const ShiftTimer = ({ checkIn, targetHours }) => {
             setElapsed(Math.max(0, now - start));
         };
         update();
-        const interval = setInterval(update, 1000); // Updated to 1000ms
+        const interval = setInterval(update, 1000);
         return () => clearInterval(interval);
     }, [checkIn]);
 
@@ -50,6 +50,14 @@ const ShiftTimer = ({ checkIn, targetHours }) => {
 
     const progressPercent = Math.min(100, (elapsedHours / targetHours) * 100);
 
+    // Dynamic Color Logic: Red -> Yellow -> Green
+    const getProgressColor = () => {
+        if (remaining <= 0) return 'bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.6)]'; // Overtime
+        if (progressPercent < 50) return 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.6)]'; // Initial / Absent range
+        if (progressPercent < 90) return 'bg-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.6)]'; // Half day / Progressing
+        return 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.6)]'; // Target Met
+    };
+
     return (
         <div className="w-full max-w-md">
             <div className="flex justify-between items-end mb-2">
@@ -59,14 +67,21 @@ const ShiftTimer = ({ checkIn, targetHours }) => {
                 </div>
                 <div className="text-right">
                     <p className="text-gray-400 text-[9px] font-black uppercase tracking-widest mb-1">{remaining <= 0 ? 'Overtime' : 'Remaining'}</p>
-                    <p className={`font-black text-2xl tracking-tighter tabular-nums drop-shadow-md ${remaining <= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>{remainingTimeStr()}</p>
+                    <p className={`font-black text-2xl tracking-tighter tabular-nums drop-shadow-md ${remaining <= 0 ? 'text-indigo-400 animate-pulse' : 'text-gray-300'}`}>{remainingTimeStr()}</p>
                 </div>
             </div>
-            <div className="h-3 bg-gray-800 rounded-[2px] overflow-hidden border border-gray-700 shadow-inner">
+            {/* Progress Bar Container */}
+            <div className="h-4 bg-gray-800 rounded-full overflow-hidden border border-gray-700 shadow-inner p-[2px]">
                 <div
-                    className={`h-full transition-all duration-1000 ease-linear ${remaining <= 0 ? 'bg-emerald-500' : 'bg-gradient-to-r from-cyan-500 to-blue-500'}`}
+                    className={`h-full rounded-full transition-all duration-1000 ease-linear ${getProgressColor()}`}
                     style={{ width: `${progressPercent}%` }}
                 ></div>
+            </div>
+            {/* Markers */}
+            <div className="flex justify-between mt-1 px-1">
+                <span className="text-[8px] font-black uppercase text-red-500">Start</span>
+                <span className="text-[8px] font-black uppercase text-yellow-500">50%</span>
+                <span className="text-[8px] font-black uppercase text-emerald-500">Target</span>
             </div>
         </div>
     );
@@ -381,30 +396,31 @@ const EmployeeAttendance = () => {
 
                     <div className="flex flex-col md:flex-row items-center gap-6">
                         {/* Legend moved to header area */}
-                        <div className="hidden md:flex flex-wrap gap-4 px-6 py-3 bg-[#131619] border border-gray-800 rounded-[2px] shadow-inner">
+                        {/* Legend visible on mobile and desktop */}
+                        <div className="flex flex-wrap gap-2 md:gap-4 px-4 md:px-6 py-3 bg-[#131619] border border-gray-800 rounded-[2px] shadow-inner w-full md:w-auto justify-center md:justify-start">
                             <div className="flex items-center gap-2">
                                 <div className="w-2.5 h-2.5 bg-red-500 rounded-[1px]" />
-                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Absent</span>
+                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Absent (&lt;4h)</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className="w-2.5 h-2.5 bg-orange-500 rounded-[1px]" />
-                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Half Day</span>
+                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Half Day (&lt;4.5h)</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className="w-2.5 h-2.5 bg-pink-500 rounded-[1px]" />
-                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Early</span>
+                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Early Leave (up to 8.5h)</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className="w-2.5 h-2.5 bg-lime-500 rounded-[1px]" />
-                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Short</span>
+                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Short Leave (8.5 - 9h)</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className="w-2.5 h-2.5 bg-emerald-500 rounded-[1px]" />
-                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Present</span>
+                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Present (9h)</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className="w-2.5 h-2.5 bg-indigo-500 rounded-[1px]" />
-                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">OT ★</span>
+                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Overtime (&gt;9h) ★</span>
                             </div>
                         </div>
 
