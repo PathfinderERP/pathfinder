@@ -474,7 +474,7 @@ const StudentRegistrationForm = () => {
                                 <input type="text" name="mobileNum" required pattern="[0-9]{10}" value={formData.mobileNum} onChange={handleChange} placeholder="Mobile Number (10 digits) *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="whatsappNumber" required pattern="[0-9]{10}" value={formData.whatsappNumber} onChange={handleChange} placeholder="WhatsApp Number (10 digits) *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="schoolName" required value={formData.schoolName} onChange={handleChange} placeholder="School Name *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <input type="text" name="pincode" required value={formData.pincode} onChange={handleChange} placeholder="Pincode *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <input type="text" name="pincode" value={formData.pincode} onChange={handleChange} placeholder="Pincode" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="source" value={formData.source} onChange={handleChange} placeholder="Source" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <div className="relative">
                                     <label className="text-[10px] text-gray-500 absolute -top-2 left-2 bg-[#131619] px-1">Counserlled By</label>
@@ -486,7 +486,7 @@ const StudentRegistrationForm = () => {
                                         className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-gray-400 w-full border-cyan-700/50 cursor-not-allowed focus:outline-none"
                                     />
                                 </div>
-                                <textarea name="address" required value={formData.address} onChange={handleChange} placeholder="Address *" rows="2" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full md:col-span-2 lg:col-span-3 resize-none"></textarea>
+                                <textarea name="address" value={formData.address} onChange={handleChange} placeholder="Address" rows="2" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full md:col-span-2 lg:col-span-3 resize-none"></textarea>
                             </div>
                         </div>
 
@@ -510,23 +510,23 @@ const StudentRegistrationForm = () => {
                         <div>
                             <h4 className="text-lg font-semibold text-cyan-400 mb-3">Exam Details</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                                <select name="examName" required value={formData.examName} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
-                                    <option value="">Select Exam Name *</option>
+                                <select name="examName" value={formData.examName} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
+                                    <option value="">Select Exam Name</option>
                                     {examTags.map((tag) => (
                                         <option key={tag._id} value={tag.name}>{tag.name}</option>
                                     ))}
                                 </select>
-                                <select name="class" required value={formData.class} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
-                                    <option value="">Select Class *</option>
+                                <select name="class" value={formData.class} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
+                                    <option value="">Select Class</option>
                                     <option value="8">Class 8</option>
                                     <option value="9">Class 9</option>
                                     <option value="10">Class 10</option>
                                     <option value="11">Class 11</option>
                                     <option value="12">Class 12</option>
                                 </select>
-                                <input type="text" name="examStatus" required value={formData.examStatus} onChange={handleChange} placeholder="Exam Status *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <input type="text" name="markAgregate" required value={formData.markAgregate} onChange={handleChange} placeholder="Mark Aggregate *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <input type="text" name="scienceMathParcent" required value={formData.scienceMathParcent} onChange={handleChange} placeholder="Science/Math Percent *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <input type="text" name="examStatus" value={formData.examStatus} onChange={handleChange} placeholder="Exam Status" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <input type="text" name="markAgregate" value={formData.markAgregate} onChange={handleChange} placeholder="Mark Aggregate" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <input type="text" name="scienceMathParcent" value={formData.scienceMathParcent} onChange={handleChange} placeholder="Science/Math Percent" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                             </div>
                         </div>
 
@@ -566,11 +566,11 @@ const StudentRegistrationForm = () => {
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                                <select name="course" value={formData.course} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full lg:col-span-2 border-cyan-700/50 focus:border-cyan-500">
-                                    <option value="">Select Enrolling Course *</option>
-                                    {filteredCourses.map((c) => (
-                                        <option key={c._id} value={c._id}>
-                                            {c.courseName} ({c.mode} - {c.courseType})
+                                <select name="session" value={formData.session} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
+                                    <option value="">Select Session</option>
+                                    {sessions.map((session) => (
+                                        <option key={session._id} value={session.sessionName || session.name}>
+                                            {session.sessionName || session.name}
                                         </option>
                                     ))}
                                 </select>
@@ -580,15 +580,15 @@ const StudentRegistrationForm = () => {
                                         <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
                                     ))}
                                 </select>
-                                <input type="text" name="sectionType" value={formData.sectionType} onChange={handleChange} placeholder="Section Type" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <select name="session" value={formData.session} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
-                                    <option value="">Select Session</option>
-                                    {sessions.map((session) => (
-                                        <option key={session._id} value={session.sessionName || session.name}>
-                                            {session.sessionName || session.name}
+                                <select name="course" value={formData.course} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full lg:col-span-2 border-cyan-700/50 focus:border-cyan-500">
+                                    <option value="">Select Enrolling Course *</option>
+                                    {filteredCourses.map((c) => (
+                                        <option key={c._id} value={c._id}>
+                                            {c.courseName} ({c.mode} - {c.courseType})
                                         </option>
                                     ))}
                                 </select>
+                                <input type="text" name="sectionType" value={formData.sectionType} onChange={handleChange} placeholder="Section Type" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <select name="examTag" value={formData.examTag} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
                                     <option value="">Select Exam Tag</option>
                                     {examTags.map((tag) => (

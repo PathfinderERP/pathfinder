@@ -15,11 +15,11 @@ const GuardianSchema = new mongoose.Schema({
 
 
 const ExamSchema = new mongoose.Schema({
-  examName: { type: String, required: true },
-  class: { type: String, required: true },
-  examStatus: { type: String, required: true },
-  markAgregate: { type: String, required: true },
-  scienceMathParcent: { type: String, required: true },
+  examName: { type: String },
+  class: { type: String },
+  examStatus: { type: String },
+  markAgregate: { type: String },
+  scienceMathParcent: { type: String },
 });
 
 
@@ -46,9 +46,9 @@ const StudentsDetailsSchema = new mongoose.Schema({
   mobileNum: { type: String, required: true, match: /^[0-9]{10}$/ },
   whatsappNumber: { type: String, required: true, match: /^[0-9]{10}$/ },
   schoolName: { type: String, required: true },
-  pincode: { type: String, required: true },
+  pincode: { type: String },
   source: { type: String },
-  address: { type: String, required: true },
+  address: { type: String },
 
   guardians: { type: [GuardianSchema] },
   examSchema: { type: [ExamSchema] },
@@ -57,7 +57,7 @@ const StudentsDetailsSchema = new mongoose.Schema({
 const StudentSchema = new mongoose.Schema({
   studentsDetails: { type: [StudentsDetailsSchema], required: true },
   guardians: { type: [GuardianSchema] },
-  examSchema: { type: [ExamSchema], required: true },
+  examSchema: { type: [ExamSchema] },
   section: { type: [SectionSchema], required: false },
   sessionExamCourse: { type: [SessionExamCourseSchema] },
   batches: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }],
