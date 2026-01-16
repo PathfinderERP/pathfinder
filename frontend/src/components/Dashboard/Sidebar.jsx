@@ -19,6 +19,37 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     const [user, setUser] = useState(JSON.parse(localStorage.getItem("user") || "{}"));
 
     useEffect(() => {
+        const fetchUserProfile = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                if (!token) return;
+
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/profile/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.user) {
+                        const currentUser = JSON.stringify(data.user);
+                        const storedUser = localStorage.getItem("user");
+
+                        // Only update if data actually changed to avoid unnecessary re-renders
+                        if (currentUser !== storedUser) {
+                            localStorage.setItem("user", currentUser);
+                            setUser(data.user);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to refresh user profile", err);
+            }
+        };
+
+        fetchUserProfile();
+
         const handleStorageChange = () => {
             setUser(JSON.parse(localStorage.getItem("user") || "{}"));
         };

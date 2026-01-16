@@ -132,18 +132,37 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             }
 
             // Center Title
-            doc.setFontSize(12);
+            doc.setFontSize(16); // Increased slightly
             doc.setTextColor(0, 0, 0);
             doc.setFont('helvetica', 'bold');
             doc.text('PATHFINDER', pageWidth / 2, yPos, { align: 'center' });
 
-            // Centre Address (instead of name)
-            yPos += 5;
+            // Right Side Header (Status)
             doc.setFontSize(10);
-            const address = safeStr(billData.centre?.address || billData.centre?.name);
-            const splitAddress = doc.splitTextToSize(address, pageWidth - 2 * margin);
+            doc.setFont('helvetica', 'normal');
+            doc.text(copyType, pageWidth - margin, yPos, { align: 'right' });
+
+            doc.setFontSize(12);
+            doc.setTextColor(0, 0, 255); // Blue
+            doc.setFont('helvetica', 'bold');
+            // Check status for "RECEIVED" vs "IN PROCESS"
+            const statusLabel = (billData.payment?.status === "PENDING_CLEARANCE") ? "IN PROCESS" : "RECEIVED";
+            doc.text(statusLabel, pageWidth - margin, yPos + 6, { align: 'right' });
+
+            // Centre Address (instead of name)
+            // Move address down to clear the "RECEIVED" text
+            yPos += 15;
+
+            doc.setTextColor(0, 0, 0); // Reset to black
+            doc.setFontSize(10);
+
+            let address = safeStr(billData.centre?.address || billData.centre?.name);
+            // Fix literal \n to actual newlines
+            address = address.replace(/\\n/g, '\n');
+
+            const splitAddress = doc.splitTextToSize(address, pageWidth - 4 * margin); // tighter margins for address
             doc.text(splitAddress, pageWidth / 2, yPos, { align: 'center' });
-            yPos += (splitAddress.length * 4);
+            yPos += (splitAddress.length * 5); // spacing based on lines
 
             // Address below title - Dynamic from centre data
             // doc.setFontSize(8);
@@ -153,20 +172,7 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             // doc.text(centreAddress, pageWidth / 2, yPos + 5, { align: 'center' });
             // doc.text(`Ph.: ${centrePhone}`, pageWidth / 2, yPos + 9, { align: 'center' });
 
-            // Right Side Header
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'normal');
-            doc.text(copyType, pageWidth - margin, 15, { align: 'right' });
-
-            doc.setFontSize(12);
-            doc.setTextColor(0, 0, 255); // Blue
-            doc.setFont('helvetica', 'bold');
-
-            // Check status for "RECEIVED" vs "IN PROCESS"
-            const statusLabel = (billData.payment?.status === "PENDING_CLEARANCE") ? "IN PROCESS" : "RECEIVED";
-            doc.text(statusLabel, pageWidth - margin, 15 + 6, { align: 'right' });
-
-            yPos += 15;
+            yPos += 5;
 
             // --- Main Content Box (Grid) ---
             doc.setDrawColor(0);

@@ -17,6 +17,7 @@ const StudentRegistrationForm = () => {
     const [departments, setDepartments] = useState([]);
     const [filteredCourses, setFilteredCourses] = useState([]);
     const [selectedBatches, setSelectedBatches] = useState([]);
+    const [boards, setBoards] = useState([]);
 
     const [courseFilters, setCourseFilters] = useState({
         mode: "",
@@ -83,15 +84,11 @@ const StudentRegistrationForm = () => {
     });
 
     useEffect(() => {
+        const user = JSON.parse(localStorage.getItem("user") || "{}");
+        const currentUserName = user.name || "";
+
         if (location.state?.leadData) {
             const lead = location.state.leadData;
-
-            // Map Lead Status
-            let statusMap = {
-                "HOT LEAD": "Hot",
-                "COLD LEAD": "Cold",
-                "NEGATIVE": "Negative"
-            };
 
             // Extract Class Number
             let classVal = "";
@@ -110,16 +107,15 @@ const StudentRegistrationForm = () => {
                 source: lead.source || "",
                 targetExams: lead.targetExam || "",
                 class: classVal,
-                whatsappNumber: lead.phoneNumber || "", // Use phone as WA default
-                counselledBy: lead.leadResponsibility || ""
+                whatsappNumber: lead.phoneNumber || "",
+                counselledBy: currentUserName // Always set to current user performing the action
             }));
 
             toast.info("Lead details autofilled");
         } else {
-            // Default to current user's name if not from lead
-            const user = JSON.parse(localStorage.getItem("user") || "{}");
-            if (user.name) {
-                setFormData(prev => ({ ...prev, counselledBy: user.name }));
+            // Default to current user's name for walk-ins too
+            if (currentUserName) {
+                setFormData(prev => ({ ...prev, counselledBy: currentUserName }));
             }
         }
     }, [location.state]);
@@ -141,6 +137,17 @@ const StudentRegistrationForm = () => {
         } catch (error) {
             console.error("Error fetching centres:", error);
         }
+    };
+
+    const fetchBoards = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/board/`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await response.json();
+            if (response.ok) setBoards(data);
+        } catch (error) { console.error("Error fetching boards:", error); }
     };
 
     const fetchExamTags = async () => {
@@ -222,6 +229,7 @@ const StudentRegistrationForm = () => {
 
     useEffect(() => {
         fetchCentres();
+        fetchBoards();
         fetchExamTags();
         fetchBatches();
         fetchCourses();
@@ -450,7 +458,12 @@ const StudentRegistrationForm = () => {
                                         <option key={centre._id} value={centre.centreName}>{centre.centreName}</option>
                                     ))}
                                 </select>
-                                <input type="text" name="board" required value={formData.board} onChange={handleChange} placeholder="Board *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <select name="board" required value={formData.board} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
+                                    <option value="">Select Board *</option>
+                                    {boards.map((b) => (
+                                        <option key={b._id} value={b.boardCourse}>{b.boardCourse}</option>
+                                    ))}
+                                </select>
                                 <select name="state" required value={formData.state} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
                                     <option value="">Select State *</option>
                                     {indianStates.map((state) => (
@@ -463,7 +476,16 @@ const StudentRegistrationForm = () => {
                                 <input type="text" name="schoolName" required value={formData.schoolName} onChange={handleChange} placeholder="School Name *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="pincode" required value={formData.pincode} onChange={handleChange} placeholder="Pincode *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="source" value={formData.source} onChange={handleChange} placeholder="Source" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <input type="text" name="counselledBy" value={formData.counselledBy} onChange={handleChange} placeholder="Counselled By" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full border-cyan-700/50" />
+                                <div className="relative">
+                                    <label className="text-[10px] text-gray-500 absolute -top-2 left-2 bg-[#131619] px-1">Counserlled By</label>
+                                    <input
+                                        type="text"
+                                        name="counselledBy"
+                                        value={formData.counselledBy}
+                                        readOnly
+                                        className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-gray-400 w-full border-cyan-700/50 cursor-not-allowed focus:outline-none"
+                                    />
+                                </div>
                                 <textarea name="address" required value={formData.address} onChange={handleChange} placeholder="Address *" rows="2" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full md:col-span-2 lg:col-span-3 resize-none"></textarea>
                             </div>
                         </div>
