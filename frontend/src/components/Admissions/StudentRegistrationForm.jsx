@@ -445,9 +445,9 @@ const StudentRegistrationForm = () => {
                             <h4 className="text-lg font-semibold text-cyan-400 mb-3">Student Details</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                                 <input type="text" name="studentName" required value={formData.studentName} onChange={handleChange} placeholder="Student Name *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <input type="date" name="dateOfBirth" required value={formData.dateOfBirth} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <select name="gender" required value={formData.gender} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
-                                    <option value="">Select Gender *</option>
+                                <input type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <select name="gender" value={formData.gender} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
+                                    <option value="">Select Gender</option>
                                     <option value="Male">Male</option>
                                     <option value="Female">Female</option>
                                     <option value="Other">Other</option>
@@ -470,10 +470,10 @@ const StudentRegistrationForm = () => {
                                         <option key={state} value={state}>{state}</option>
                                     ))}
                                 </select>
-                                <input type="email" name="studentEmail" required value={formData.studentEmail} onChange={handleChange} placeholder="Student Email *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <input type="email" name="studentEmail" value={formData.studentEmail} onChange={handleChange} placeholder="Student Email" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="mobileNum" required pattern="[0-9]{10}" value={formData.mobileNum} onChange={handleChange} placeholder="Mobile Number (10 digits) *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="whatsappNumber" required pattern="[0-9]{10}" value={formData.whatsappNumber} onChange={handleChange} placeholder="WhatsApp Number (10 digits) *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <input type="text" name="schoolName" required value={formData.schoolName} onChange={handleChange} placeholder="School Name *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <input type="text" name="schoolName" value={formData.schoolName} onChange={handleChange} placeholder="School Name" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="pincode" value={formData.pincode} onChange={handleChange} placeholder="Pincode" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="source" value={formData.source} onChange={handleChange} placeholder="Source" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <div className="relative">
