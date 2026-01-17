@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { FaFilter, FaPlus, FaSearch, FaDownload, FaEye, FaEdit, FaTrash, FaSync } from "react-icons/fa";
+import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import StudentDetailsModal from './StudentDetailsModal';
@@ -26,6 +27,8 @@ const AdmissionsContent = () => {
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
     const itemsPerPage = 10;
 
     // Permission checks
@@ -43,7 +46,7 @@ const AdmissionsContent = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, filterCentre, filterBoard, filterExamTag, filterDepartment]);
+    }, [searchQuery, filterCentre, filterBoard, filterExamTag, filterDepartment, startDate, endDate]);
 
     const fetchStudents = async () => {
         try {
@@ -120,6 +123,8 @@ const AdmissionsContent = () => {
         setFilterBoard([]);
         setFilterExamTag([]);
         setFilterDepartment([]);
+        setStartDate("");
+        setEndDate("");
         setLoading(true);
         fetchStudents();
         fetchDepartments();
@@ -176,10 +181,79 @@ const AdmissionsContent = () => {
         const departmentName = student.department?.departmentName || "";
         const matchesDepartment = filterDepartment.length === 0 || filterDepartment.includes(departmentName);
 
-        return matchesSearch && matchesCentre && matchesBoard && matchesExamTag && matchesDepartment;
+        // Date Range Filter
+        let matchesDate = true;
+        if (startDate || endDate) {
+            const regDate = student.createdAt ? new Date(student.createdAt) : null;
+            if (!regDate) {
+                matchesDate = false;
+            } else {
+                if (startDate) {
+                    const start = new Date(startDate);
+                    if (regDate < start) matchesDate = false;
+                }
+                if (endDate && matchesDate) { // optimization
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    if (regDate > end) matchesDate = false;
+                }
+            }
+        }
+
+        return matchesSearch && matchesCentre && matchesBoard && matchesExamTag && matchesDepartment && matchesDate;
     });
 
+    // Analysis for visible filtered students
+    const totalStudents = filteredStudents.length;
+    const enrolledCount = filteredStudents.filter(s => s.isEnrolled).length;
+    const pendingEnrolment = totalStudents - enrolledCount;
+    const uniqueCoursesCount = new Set(filteredStudents.map(s => s.course?.courseName).filter(Boolean)).size;
+    const conversionRate = totalStudents > 0 ? ((enrolledCount / totalStudents) * 100).toFixed(1) : "0.0";
+    const todaysNew = filteredStudents.filter(s => {
+        if (!s.createdAt) return false;
+        const d = new Date(s.createdAt);
+        const today = new Date();
+        return d.getDate() === today.getDate() &&
+            d.getMonth() === today.getMonth() &&
+            d.getFullYear() === today.getFullYear();
+    }).length;
 
+    // Prepare Chart Data
+    const chartData = React.useMemo(() => {
+        const dateMap = {};
+        filteredStudents.forEach(student => {
+            if (student.createdAt) {
+                const date = new Date(student.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                dateMap[date] = (dateMap[date] || 0) + 1;
+            }
+        });
+
+        // Convert to array and sort by date (approximation by creation order would be better but simple string sort might fail for '01 Jan' vs '02 Feb', 
+        // essentially we rely on the filteredStudents being sorted by date already or we sort by raw date)
+        // Better: Process sorted students
+        const data = [];
+        const processedDates = new Set();
+
+        // filteredStudents is sorted desc in fetch, but we need asc for chart usually? 
+        // Re-sorting filteredStudents asc for chart generation
+        const sortedForChart = [...filteredStudents].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+        sortedForChart.forEach(student => {
+            if (student.createdAt) {
+                const rawDate = new Date(student.createdAt);
+                const dateLabel = rawDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+
+                const existing = data.find(d => d.date === dateLabel);
+                if (existing) {
+                    existing.count += 1;
+                } else {
+                    data.push({ date: dateLabel, count: 1, fullDate: rawDate });
+                }
+            }
+        });
+
+        return data;
+    }, [filteredStudents]);
 
     const handleViewStudent = (student) => {
         setSelectedStudent(student);
@@ -461,24 +535,69 @@ const AdmissionsContent = () => {
         <div className="flex-1 p-6 overflow-y-auto bg-[#131619]">
             {/* Header Section */}
             <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-white">Admissions</h2>
-                <div className="flex gap-3">
-                    {/* <button className="flex items-center gap-2 px-4 py-2 bg-[#1a1f24] text-gray-300 rounded-lg border border-gray-700 hover:bg-gray-800">
+                <div className="flex items-center gap-8">
+                    <h2 className="text-2xl font-bold text-white">Admissions</h2>
+
+                    {/* Small Area Chart Analysis */}
+                    {chartData.length > 0 && (
+                        <div className="hidden md:block h-[50px] w-[200px] bg-[#1a1f24] rounded-lg border border-gray-800 p-1 relative overflow-hidden group">
+                            <div className="absolute top-1 left-2 text-[10px] text-gray-400 font-semibold z-10">Trend</div>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={chartData}>
+                                    <defs>
+                                        <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.8} />
+                                            <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#1a1f24', border: '1px solid #374151', borderRadius: '4px', fontSize: '10px' }}
+                                        itemStyle={{ color: '#22d3ee' }}
+                                        labelStyle={{ display: 'none' }}
+                                    />
+                                    <Area type="monotone" dataKey="count" stroke="#06b6d4" fillOpacity={1} fill="url(#colorCount)" strokeWidth={2} />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+                </div>
+
+                {/* Additional Analyis Metrics */}
+                <div className="hidden md:flex gap-3">
+                    <div className="bg-[#1a1f24] rounded-lg border border-gray-800 px-4 py-1 h-[50px] flex flex-col justify-center min-w-[100px]">
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Conversion</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl font-bold text-white">{conversionRate}%</span>
+                            {/* <span className="text-[10px] text-green-400 bg-green-500/10 px-1 rounded">Rate</span> */}
+                        </div>
+                    </div>
+
+                    <div className="bg-[#1a1f24] rounded-lg border border-gray-800 px-4 py-1 h-[50px] flex flex-col justify-center min-w-[100px]">
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Today</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl font-bold text-white">+{todaysNew}</span>
+                            <span className="text-[10px] text-cyan-400 bg-cyan-500/10 px-1 rounded">New</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex gap-3">
+                {/* <button className="flex items-center gap-2 px-4 py-2 bg-[#1a1f24] text-gray-300 rounded-lg border border-gray-700 hover:bg-gray-800">
                         <FaFilter /> Filter
                     </button> */}
 
-                    {canCreate && (
-                        <button
-                            onClick={() => {
-                                console.log("Navigating to student registration");
-                                navigate("/student-registration");
-                            }}
-                            className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-semibold rounded-lg hover:bg-cyan-400"
-                        >
-                            <FaPlus /> New Registration
-                        </button>
-                    )}
-                </div>
+                {canCreate && (
+                    <button
+                        onClick={() => {
+                            console.log("Navigating to student registration");
+                            navigate("/student-registration");
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-semibold rounded-lg hover:bg-cyan-400"
+                    >
+                        <FaPlus /> New Registration
+                    </button>
+                )}
             </div>
 
             {/* Tabs */}
@@ -525,7 +644,29 @@ const AdmissionsContent = () => {
                 </button>
             </div> */}
 
-            {/* KPI Cards Removed */}
+            {/* KPI Cards */}
+            <div className="grid grid-cols-4 gap-6 mb-8">
+                <div className="bg-[#1a1f24] p-6 rounded-xl border-l-4 border-cyan-500 shadow-lg">
+                    <h3 className="text-gray-400 text-sm font-medium mb-2">Total Registrations</h3>
+                    <p className="text-4xl font-bold text-white mb-2">{totalStudents}</p>
+                    <p className="text-gray-500 text-xs text-ellipsis overflow-hidden whitespace-nowrap">Matching current filters</p>
+                </div>
+                <div className="bg-[#1a1f24] p-6 rounded-xl border-l-4 border-green-500 shadow-lg">
+                    <h3 className="text-gray-400 text-sm font-medium mb-2">Enrolled</h3>
+                    <p className="text-4xl font-bold text-white mb-2">{enrolledCount}</p>
+                    <p className="text-gray-500 text-xs">Students admitted</p>
+                </div>
+                <div className="bg-[#1a1f24] p-6 rounded-xl border-l-4 border-yellow-500 shadow-lg">
+                    <h3 className="text-gray-400 text-sm font-medium mb-2">Pending</h3>
+                    <p className="text-4xl font-bold text-white mb-2">{pendingEnrolment}</p>
+                    <p className="text-gray-500 text-xs">Waiting for admission</p>
+                </div>
+                <div className="bg-[#1a1f24] p-6 rounded-xl border-l-4 border-purple-500 shadow-lg">
+                    <h3 className="text-gray-400 text-sm font-medium mb-2">Courses</h3>
+                    <p className="text-4xl font-bold text-white mb-2">{uniqueCoursesCount}</p>
+                    <p className="text-gray-500 text-xs">Unique courses in view</p>
+                </div>
+            </div>
 
             {/* Search & Table Controls */}
             <div className="bg-[#1a1f24] p-4 rounded-xl border border-gray-800 mb-6">
@@ -573,6 +714,27 @@ const AdmissionsContent = () => {
                         onChange={setFilterDepartment}
                     />
 
+                    <div className="flex bg-[#131619] rounded-lg border border-gray-700 overflow-hidden">
+                        <div className="px-3 py-2 border-r border-gray-700 text-gray-400 text-xs font-bold uppercase tracking-wider flex items-center bg-[#1a1f24]">
+                            Date Range
+                        </div>
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="bg-[#131619] text-white px-3 py-2 focus:outline-none text-sm"
+                            placeholder="Start Date"
+                        />
+                        <div className="px-2 py-2 text-gray-500 flex items-center">-</div>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="bg-[#131619] text-white px-3 py-2 focus:outline-none text-sm"
+                            placeholder="End Date"
+                        />
+                    </div>
+
                     <button
                         onClick={handleRefresh}
                         className="flex items-center gap-2 px-4 py-2 bg-[#131619] text-gray-300 rounded-lg border border-gray-700 hover:bg-gray-800 hover:text-cyan-400 transition-all"
@@ -613,6 +775,7 @@ const AdmissionsContent = () => {
                             <tr className="bg-[#252b32] text-gray-400 text-sm uppercase">
                                 <th className="p-4 font-medium">Reg. Date</th>
                                 <th className="p-4 font-medium">Student Name</th>
+                                <th className="p-4 font-medium">Programme</th>
                                 <th className="p-4 font-medium">Course</th>
                                 <th className="p-4 font-medium">Batch</th>
                                 <th className="p-4 font-medium">Centre</th>
@@ -658,6 +821,11 @@ const AdmissionsContent = () => {
                                                 {/* 2️⃣ STUDENT NAME */}
                                                 <td className="p-4 text-white font-medium">
                                                     {details.studentName || "N/A"}
+                                                </td>
+
+                                                {/* PROGRAMME */}
+                                                <td className="p-4 text-white font-medium">
+                                                    {details.programme || "N/A"}
                                                 </td>
 
                                                 {/* 3️⃣ COURSE */}
@@ -755,32 +923,36 @@ const AdmissionsContent = () => {
             />
 
             {/* Modals */}
-            {showDetailsModal && selectedStudent && (
-                <StudentDetailsModal
-                    student={selectedStudent}
-                    canEdit={canEdit}
-                    onClose={() => {
-                        setShowDetailsModal(false);
-                        setSelectedStudent(null);
-                    }}
-                    onEdit={() => {
-                        setShowDetailsModal(false);
-                        setShowEditModal(true);
-                    }}
-                />
-            )}
+            {
+                showDetailsModal && selectedStudent && (
+                    <StudentDetailsModal
+                        student={selectedStudent}
+                        canEdit={canEdit}
+                        onClose={() => {
+                            setShowDetailsModal(false);
+                            setSelectedStudent(null);
+                        }}
+                        onEdit={() => {
+                            setShowDetailsModal(false);
+                            setShowEditModal(true);
+                        }}
+                    />
+                )
+            }
 
-            {showEditModal && selectedStudent && (
-                <EditStudentModal
-                    student={selectedStudent}
-                    onClose={() => {
-                        setShowEditModal(false);
-                        setSelectedStudent(null);
-                    }}
-                    onUpdate={handleUpdateSuccess}
-                />
-            )}
-        </div>
+            {
+                showEditModal && selectedStudent && (
+                    <EditStudentModal
+                        student={selectedStudent}
+                        onClose={() => {
+                            setShowEditModal(false);
+                            setSelectedStudent(null);
+                        }}
+                        onUpdate={handleUpdateSuccess}
+                    />
+                )
+            }
+        </div >
     );
 };
 

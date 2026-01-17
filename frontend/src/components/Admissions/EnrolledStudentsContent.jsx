@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FaSearch, FaEye, FaDownload, FaFilter, FaUserGraduate, FaSync, FaTimes, FaBook, FaCalendar, FaMoneyBillWave, FaFileInvoice, FaCheckCircle, FaExclamationCircle, FaUser, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaSchool, FaHistory, FaUsers, FaIdCard, FaBirthdayCake, FaVenusMars, FaPassport } from 'react-icons/fa';
+import { FaSearch, FaEye, FaDownload, FaFilter, FaUserGraduate, FaSync, FaTimes, FaBook, FaCalendar, FaMoneyBillWave, FaFileInvoice, FaCheckCircle, FaExclamationCircle, FaUser, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaSchool, FaHistory, FaUsers, FaIdCard, FaBirthdayCake, FaVenusMars, FaPassport, FaBuilding } from 'react-icons/fa';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -26,6 +27,8 @@ const EnrolledStudentsContent = () => {
     const [filterCourse, setFilterCourse] = useState([]);
     const [filterClass, setFilterClass] = useState([]);
     const [filterSession, setFilterSession] = useState([]);
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
 
     // Master Data States
     const [masterCentres, setMasterCentres] = useState([]);
@@ -236,7 +239,10 @@ const EnrolledStudentsContent = () => {
 
         if (filterStatus.length > 0) {
             result = result.filter(item =>
-                item.admissions.some(admission => filterStatus.includes(admission.admissionStatus))
+                item.admissions.some(admission =>
+                    filterStatus.includes(admission.admissionStatus) ||
+                    filterStatus.includes(admission.paymentStatus)
+                )
             );
         }
 
@@ -283,6 +289,28 @@ const EnrolledStudentsContent = () => {
             );
         }
 
+        if (startDate) {
+            result = result.filter(item =>
+                item.admissions.some(admission => {
+                    const admDate = new Date(admission.admissionDate);
+                    const start = new Date(startDate);
+                    return admDate >= start;
+                })
+            );
+        }
+
+        if (endDate) {
+            result = result.filter(item =>
+                item.admissions.some(admission => {
+                    const admDate = new Date(admission.admissionDate);
+                    const end = new Date(endDate);
+                    // Set end date to end of day to include the full day
+                    end.setHours(23, 59, 59, 999);
+                    return admDate <= end;
+                })
+            );
+        }
+
         // Filter by student status (viewMode)
         result = result.filter(item => {
             if (viewMode === 'Board') {
@@ -293,11 +321,23 @@ const EnrolledStudentsContent = () => {
         });
 
         setFilteredStudents(result);
-    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, students, viewMode]);
+    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, startDate, endDate, students, viewMode]);
 
-    const filteredAdmissions = filteredStudents.flatMap(s => s.admissions);
+    const filteredAdmissions = filteredStudents.flatMap(s =>
+        s.admissions.filter(a => {
+            if (viewMode === 'Board') return a.admissionType === 'BOARD';
+            return a.admissionType === 'NORMAL';
+        })
+    );
     const totalCollected = filteredAdmissions.reduce((sum, a) => sum + (a.totalPaidAmount || 0), 0);
-    const pendingPaymentCount = filteredAdmissions.filter(a => a.paymentStatus === "PENDING" || a.paymentStatus === "PARTIAL").length;
+
+    // Count students with pending payments, not admissions, for consistency with the list
+    const pendingPaymentCount = filteredStudents.filter(s =>
+        s.admissions.some(a => {
+            const isMatch = viewMode === 'Board' ? a.admissionType === 'BOARD' : a.admissionType === 'NORMAL';
+            return isMatch && (a.paymentStatus === "PENDING" || a.paymentStatus === "PARTIAL");
+        })
+    ).length;
 
     const handleRefresh = () => {
         setSearchQuery("");
@@ -307,6 +347,8 @@ const EnrolledStudentsContent = () => {
         setFilterCourse([]);
         setFilterClass([]);
         setFilterSession([]);
+        setStartDate("");
+        setEndDate("");
         setCurrentPage(1);
         setLoading(true);
         fetchAdmissions();
@@ -806,6 +848,28 @@ const EnrolledStudentsContent = () => {
                         selectedValues={filterSession}
                         onChange={setFilterSession}
                     />
+
+                    <div className="flex bg-[#131619] rounded-lg border border-gray-700 overflow-hidden">
+                        <div className="px-3 py-2 border-r border-gray-700 text-gray-400 text-xs font-bold uppercase tracking-wider flex items-center bg-[#1a1f24]">
+                            Date Range
+                        </div>
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="bg-[#131619] text-white px-3 py-2 focus:outline-none text-sm"
+                            placeholder="Start Date"
+                        />
+                        <div className="px-2 py-2 text-gray-500 flex items-center">-</div>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="bg-[#131619] text-white px-3 py-2 focus:outline-none text-sm"
+                            placeholder="End Date"
+                        />
+                    </div>
+
 
                     <button
                         onClick={handleRefresh}

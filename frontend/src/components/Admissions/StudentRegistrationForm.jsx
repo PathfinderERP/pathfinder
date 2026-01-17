@@ -49,6 +49,7 @@ const StudentRegistrationForm = () => {
         pincode: "",
         source: "",
         address: "",
+        programme: "",
 
         // Guardian Details
         guardianName: "",
@@ -300,6 +301,7 @@ const StudentRegistrationForm = () => {
                         pincode: formData.pincode,
                         source: formData.source,
                         address: formData.address,
+                        programme: formData.programme,
                         // Nested schemas inside StudentsDetailsSchema
                         guardians: [
                             {
@@ -486,6 +488,17 @@ const StudentRegistrationForm = () => {
                                         className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-gray-400 w-full border-cyan-700/50 cursor-not-allowed focus:outline-none"
                                     />
                                 </div>
+
+                                <select
+                                    name="programme"
+                                    value={formData.programme}
+                                    onChange={handleChange}
+                                    className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full"
+                                >
+                                    <option value="">Select Programme</option>
+                                    <option value="CRP">CRP</option>
+                                    <option value="NCRP">NCRP</option>
+                                </select>
                                 <textarea name="address" value={formData.address} onChange={handleChange} placeholder="Address" rows="2" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full md:col-span-2 lg:col-span-3 resize-none"></textarea>
                             </div>
                         </div>
@@ -630,8 +643,8 @@ const StudentRegistrationForm = () => {
                         </button>
                     </form>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 

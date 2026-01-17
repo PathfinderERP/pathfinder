@@ -15,6 +15,7 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
         state: student.studentsDetails?.[0]?.state || '',
         schoolName: student.studentsDetails?.[0]?.schoolName || '',
         address: student.studentsDetails?.[0]?.address || '',
+        programme: student.studentsDetails?.[0]?.programme || '',
         pincode: student.studentsDetails?.[0]?.pincode || '',
         class: student.examSchema?.[0]?.class || '',
         scienceMathParcent: student.examSchema?.[0]?.scienceMathParcent || '',
@@ -214,6 +215,7 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                     state: formData.state,
                     schoolName: formData.schoolName,
                     address: formData.address,
+                    programme: formData.programme,
                     pincode: formData.pincode,
                     source: student.studentsDetails?.[0]?.source || '',
                 }],
@@ -311,23 +313,21 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Date of Birth *</label>
+                                <label className="block text-gray-400 text-sm mb-2">Date of Birth</label>
                                 <input
                                     type="text"
                                     name="dateOfBirth"
                                     value={formData.dateOfBirth}
                                     onChange={handleChange}
-                                    required
                                     className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Gender *</label>
+                                <label className="block text-gray-400 text-sm mb-2">Gender</label>
                                 <select
                                     name="gender"
                                     value={formData.gender}
                                     onChange={handleChange}
-                                    required
                                     className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
                                 >
                                     <option value="">Select Gender</option>
@@ -351,6 +351,19 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                                     ))}
                                 </select>
                             </div>
+                            <div>
+                                <label className="block text-gray-400 text-sm mb-2">Programme</label>
+                                <select
+                                    name="programme"
+                                    value={formData.programme}
+                                    onChange={handleChange}
+                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                >
+                                    <option value="">Select Programme</option>
+                                    <option value="CRP">CRP</option>
+                                    <option value="NCRP">NCRP</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -359,13 +372,12 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                         <h3 className="text-lg font-semibold text-white mb-4">Contact Information</h3>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Email *</label>
+                                <label className="block text-gray-400 text-sm mb-2">Email</label>
                                 <input
                                     type="email"
                                     name="studentEmail"
                                     value={formData.studentEmail}
                                     onChange={handleChange}
-                                    required
                                     className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
                                 />
                             </div>
@@ -394,23 +406,21 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Pincode *</label>
+                                <label className="block text-gray-400 text-sm mb-2">Pincode</label>
                                 <input
                                     type="text"
                                     name="pincode"
                                     value={formData.pincode}
                                     onChange={handleChange}
-                                    required
                                     className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
                                 />
                             </div>
                             <div className="col-span-2">
-                                <label className="block text-gray-400 text-sm mb-2">Address *</label>
+                                <label className="block text-gray-400 text-sm mb-2">Address</label>
                                 <textarea
                                     name="address"
                                     value={formData.address}
                                     onChange={handleChange}
-                                    required
                                     rows="2"
                                     className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
                                 />
@@ -423,13 +433,12 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                         <h3 className="text-lg font-semibold text-white mb-4">Academic Information</h3>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">School Name *</label>
+                                <label className="block text-gray-400 text-sm mb-2">School Name</label>
                                 <input
                                     type="text"
                                     name="schoolName"
                                     value={formData.schoolName}
                                     onChange={handleChange}
-                                    required
                                     className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
                                 />
                             </div>
@@ -445,13 +454,12 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Class *</label>
+                                <label className="block text-gray-400 text-sm mb-2">Class</label>
                                 <input
                                     type="text"
                                     name="class"
                                     value={formData.class}
                                     onChange={handleChange}
-                                    required
                                     className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
                                 />
                             </div>
@@ -487,12 +495,11 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Department *</label>
+                                <label className="block text-gray-400 text-sm mb-2">Department</label>
                                 <select
                                     name="department"
                                     value={formData.department}
                                     onChange={handleChange}
-                                    required
                                     className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
                                 >
                                     <option value="">Select Department</option>
@@ -576,12 +583,11 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                                     {examTags.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
                                 </select>
                             </div>
-                            <label className="block text-gray-400 text-sm mb-2">Enrolling Course *</label>
+                            <label className="block text-gray-400 text-sm mb-2">Enrolling Course</label>
                             <select
                                 name="course"
                                 value={formData.course}
                                 onChange={handleChange}
-                                required
                                 className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
                             >
                                 <option value="">Select Course</option>
@@ -622,68 +628,62 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                         <h3 className="text-lg font-semibold text-white mb-4">Guardian Information</h3>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Guardian Name *</label>
+                                <label className="block text-gray-400 text-sm mb-2">Guardian Name</label>
                                 <input
                                     type="text"
                                     name="guardianName"
                                     value={formData.guardianName}
                                     onChange={handleChange}
-                                    required
                                     className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Guardian Mobile *</label>
+                                <label className="block text-gray-400 text-sm mb-2">Guardian Mobile</label>
                                 <input
                                     type="text"
                                     name="guardianMobile"
                                     value={formData.guardianMobile}
                                     onChange={handleChange}
-                                    required
                                     className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Guardian Email *</label>
+                                <label className="block text-gray-400 text-sm mb-2">Guardian Email</label>
                                 <input
                                     type="email"
                                     name="guardianEmail"
                                     value={formData.guardianEmail}
                                     onChange={handleChange}
-                                    required
                                     className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Occupation *</label>
+                                <label className="block text-gray-400 text-sm mb-2">Occupation</label>
                                 <input
                                     type="text"
                                     name="occupation"
                                     value={formData.occupation}
                                     onChange={handleChange}
-                                    required
                                     className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Annual Income *</label>
+                                <label className="block text-gray-400 text-sm mb-2">Annual Income</label>
                                 <input
                                     type="text"
                                     name="annualIncome"
                                     value={formData.annualIncome}
                                     onChange={handleChange}
-                                    required
                                     className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Qualification *</label>
+                                <label className="block text-gray-400 text-sm mb-2">Qualification</label>
                                 <input
                                     type="text"
                                     name="qualification"
                                     value={formData.qualification}
                                     onChange={handleChange}
-                                    required
                                     className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
                                 />
                             </div>

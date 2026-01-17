@@ -33,6 +33,7 @@ import rmRoutes from "./routes/Academics/rm.routes.js";
 import hodRoutes from "./routes/Academics/hod.routes.js";
 import coordinatorRoutes from "./routes/Academics/coordinator.routes.js";
 import employeeRoutes from "./routes/HR/employee.routes.js";
+import cvAnalysisRoutes from "./routes/HR/cvAnalysis.routes.js";
 import letterRoutes from "./routes/HR/letter.routes.js";
 import designationRoutes from "./routes/designation/designation.routes.js";
 import attendanceRoutes from "./routes/Attendance/attendance.routes.js";
@@ -133,6 +134,7 @@ app.use("/api/hr/birthdays", birthdayRoutes);
 app.use("/api/hr/feedback", feedbackRoutes);
 app.use("/api/hr/reimbursement", reimbursementRoutes);
 app.use("/api/hr/posh", poshRoutes);
+app.use("/api/hr/cv", cvAnalysisRoutes);
 
 //finance routes
 app.use("/api/finance/installment", installmentRoutes);

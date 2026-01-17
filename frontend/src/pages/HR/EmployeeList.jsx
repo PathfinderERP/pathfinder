@@ -764,6 +764,112 @@ const EmployeeList = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Demographics Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                            {/* Gender Distribution Pie Chart */}
+                            <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                    <FaUsers className="text-4xl text-pink-500" />
+                                </div>
+                                <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
+                                    <span className="w-1 h-4 bg-pink-500 rounded-full"></span>
+                                    Gender Stats
+                                </h3>
+                                <div className="h-64 w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={analytics.genderDistribution.map(d => ({ name: d._id || 'Not Specified', value: d.count }))}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={60}
+                                                outerRadius={80}
+                                                paddingAngle={5}
+                                                dataKey="value"
+                                            >
+                                                {analytics.genderDistribution.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={['#ec4899', '#3b82f6', '#9ca3af'][index % 3]} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip content={<CustomTooltip />} />
+                                            <Legend verticalAlign="bottom" height={36} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+
+                            {/* State Distribution Pie Chart */}
+                            <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                    <FaMapMarkerAlt className="text-4xl text-orange-500" />
+                                </div>
+                                <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
+                                    <span className="w-1 h-4 bg-orange-500 rounded-full"></span>
+                                    State Wise
+                                </h3>
+                                <div className="h-64 w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={analytics.stateDistribution?.map(d => ({ name: d._id || 'Unknown', value: d.count })) || []}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={60}
+                                                outerRadius={80}
+                                                paddingAngle={5}
+                                                dataKey="value"
+                                            >
+                                                {(analytics.stateDistribution || []).map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={['#f97316', '#eab308', '#84cc16', '#22c55e', '#06b6d4'][index % 5]} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip content={<CustomTooltip />} />
+                                            <Legend verticalAlign="bottom" height={36} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+
+                            {/* City Distribution Pie Chart */}
+                            <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                    <FaBuilding className="text-4xl text-indigo-500" />
+                                </div>
+                                <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
+                                    <span className="w-1 h-4 bg-indigo-500 rounded-full"></span>
+                                    City Wise
+                                </h3>
+                                <div className="h-64 w-full overflow-y-auto custom-scrollbar">
+                                    <div className="h-[300px] w-full min-w-[300px]">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={analytics.cityDistribution?.map(d => ({ name: d._id || 'Unknown', value: d.count })) || []}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={60}
+                                                    outerRadius={80}
+                                                    paddingAngle={5}
+                                                    dataKey="value"
+                                                >
+                                                    {(analytics.cityDistribution || []).map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={['#6366f1', '#8b5cf6', '#d946ef', '#0ea5e9', '#14b8a6'][index % 5]} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip content={<CustomTooltip />} />
+                                                <Legend
+                                                    layout="vertical"
+                                                    verticalAlign="middle"
+                                                    align="right"
+                                                    wrapperStyle={{ fontSize: '10px', paddingLeft: '10px' }}
+                                                />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
 

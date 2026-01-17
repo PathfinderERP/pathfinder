@@ -49,6 +49,7 @@ const StudentsDetailsSchema = new mongoose.Schema({
   pincode: { type: String },
   source: { type: String },
   address: { type: String },
+  programme: { type: String, enum: ['CRP', 'NCRP'] },
 
   guardians: { type: [GuardianSchema] },
   examSchema: { type: [ExamSchema] },

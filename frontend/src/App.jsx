@@ -122,6 +122,7 @@ import ReimbursementList from "./pages/HR/ReimbursementList";
 import AddReimbursement from "./pages/HR/AddReimbursement";
 import PoshComplaint from "./pages/Employee/PoshComplaint";
 import PoshDashboard from "./pages/HR/PoshDashboard";
+import CandidateHiring from "./pages/HR/CandidateHiring";
 import InstallmentPayment from "./pages/Finance/InstallmentPayment";
 import FeeDueList from "./pages/Finance/FeeDueList";
 import ChequeManagement from "./pages/Finance/ChequeManagement";
@@ -224,6 +225,7 @@ function App() {
         <Route path="/hr/reimbursement" element={<ReimbursementList />} />
         <Route path="/hr/reimbursement/add" element={<AddReimbursement />} />
         <Route path="/hr/posh-table" element={<PoshDashboard />} />
+        <Route path="/hr/candidate-hiring" element={<CandidateHiring />} />
 
 
         <Route path="/academics" element={<Academics />} />

@@ -115,15 +115,28 @@ export const getEmployeeAnalytics = async (req, res) => {
             { $sort: { "_id.year": 1, "_id.month": 1 } }
         ]);
 
-        // Gender distribution
+
+        // Gender distribution - Case Insensitive
         const genderDistribution = await Employee.aggregate([
             {
                 $group: {
-                    _id: "$gender",
+                    _id: { $toLower: "$gender" },
                     count: { $sum: 1 }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    gender: "$_id",
+                    count: 1
                 }
             }
         ]);
+        // Normalize gender labels back to proper case for consistency if needed, or handle in frontend
+        const normalizedGenderDist = genderDistribution.map(g => ({
+            _id: g.gender ? g.gender.charAt(0).toUpperCase() + g.gender.slice(1) : "Unknown",
+            count: g.count
+        }));
 
         // Average salary by department
         const avgSalaryByDept = await Employee.aggregate([
@@ -147,6 +160,37 @@ export const getEmployeeAnalytics = async (req, res) => {
             { $limit: 10 }
         ]);
 
+        // City distribution - Case Insensitive & No Limit
+        const cityDistribution = await Employee.aggregate([
+            {
+                $group: {
+                    _id: { $toLower: "$city" },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { count: -1 } }
+        ]);
+        const normalizedCityDist = cityDistribution.map(c => ({
+            _id: c._id ? c._id.toUpperCase() : "UNKNOWN", // Convert to uppercase for display
+            count: c.count
+        }));
+
+
+        // State distribution - Case Insensitive
+        const stateDistribution = await Employee.aggregate([
+            {
+                $group: {
+                    _id: { $toLower: "$state" },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { count: -1 } }
+        ]);
+        const normalizedStateDist = stateDistribution.map(s => ({
+            _id: s._id ? s._id.toUpperCase() : "UNKNOWN",
+            count: s.count
+        }));
+
         res.status(200).json({
             totalEmployees,
             totalDepartments,
@@ -157,8 +201,10 @@ export const getEmployeeAnalytics = async (req, res) => {
             centreDistribution,
             employmentTypeDistribution,
             monthlyJoiningTrend,
-            genderDistribution,
-            avgSalaryByDept
+            genderDistribution: normalizedGenderDist,
+            avgSalaryByDept,
+            cityDistribution: normalizedCityDist,
+            stateDistribution: normalizedStateDist
         });
     } catch (error) {
         console.error("Error fetching employee analytics:", error);

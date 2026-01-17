@@ -199,6 +199,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             subItems: [
                 // { name: "Overview", path: "/hr", icon: <FaThLarge />, permissionSection: "overview" },
                 { name: "Employee Management", path: "/hr/employee/list", icon: <FaUsers />, permissionSection: "employees" },
+                { name: "Candidate Hiring", path: "/hr/candidate-hiring", icon: <FaUserTie />, permissionSection: "candidateHiring" },
                 {
                     name: "Attendance Management",
                     icon: <FaCalendarCheck />,
