@@ -32,11 +32,21 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          debug: true # Enable debugging to see why it fails
+          script_stop: true # Stop script on first error
           script: |
             # Navigate to project directory
-            # CHANGE THESE PATHS TO MATCH YOUR SERVER SETUP
-            export PROJECT_PATH="/home/ubuntu/course-management-erp"
+            export PROJECT_PATH="/home/ubuntu/pathfinder"
             
+            # DEBUG: Check if directory exists
+            if [ ! -d "$PROJECT_PATH" ]; then
+              echo "ERROR: Directory $PROJECT_PATH does not exist!"
+              echo "Current directories in /home/ubuntu:"
+              ls -la /home/ubuntu
+              exit 1
+            fi
+
             # 1. Pull latest code
             cd $PROJECT_PATH
             git pull origin main
@@ -44,18 +54,14 @@ jobs:
             # 2. Update Backend
             cd backend
             npm install
-            # Restart backend service (assuming a PM2 process named 'api-server')
-            pm2 restart api-server || pm2 start server.js --name api-server
+            # Restart backend service
+            pm2 restart backend || pm2 start server.js --name backend
             
-            # 3. Update Frontend (Serve Build)
-            # Option A: If you serve frontend via Nginx from the build folder
+            # 3. Update Frontend (build locally and upload? No, we are building on server here based on previous steps)
+            # Wait, previous step built locally but didn't upload artifacts. 
+            # This script pulls code and builds on server.
             cd ../frontend
             npm install
             npm run build
-            # If using standard Nginx path:
-            # sudo cp -r dist/* /var/www/html/
-            
-            # Option B: If simple serve (not recommended for prod but easy)
-            # pm2 restart client-server
             
             echo "Deployment Complete"
