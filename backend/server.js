@@ -71,7 +71,10 @@ import { startPaymentReminderCron } from "./services/cronService.js";
 const app = express();
 
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+    origin: ["https://pathfinder-three-mu.vercel.app", "http://localhost:5173", "http://localhost:5000"],
+    credentials: true
+}));
 app.use(express.urlencoded({ extended: true }));
 app.use("/api/uploads", express.static(path.join(__dirname, "uploads")));
 
