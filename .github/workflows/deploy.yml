@@ -67,8 +67,10 @@ jobs:
             npm run build
             
             # 4. Deploy Frontend to Nginx
-            echo "Deploying frontend to /var/www/html..."
-            sudo rm -rf /var/www/html/*
-            sudo cp -r dist/* /var/www/html/
+            echo "Deploying frontend to /var/www/pathfinder-frontend..."
+            # Ensure directory exists
+            sudo mkdir -p /var/www/pathfinder-frontend
+            sudo rm -rf /var/www/pathfinder-frontend/*
+            sudo cp -r dist/* /var/www/pathfinder-frontend/
             
             echo "Deployment Complete"
