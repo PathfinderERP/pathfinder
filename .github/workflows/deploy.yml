@@ -32,7 +32,6 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
           debug: true # Enable debugging to see why it fails
           script_stop: true # Stop script on first error
           script: |
