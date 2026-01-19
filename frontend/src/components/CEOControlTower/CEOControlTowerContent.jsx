@@ -393,6 +393,64 @@ const CEOControlTowerContent = () => {
                 </ChartContainer>
             </div>
 
+            {/* Academic Intelligence Dropdown - Comprehensive Course & Board Analysis */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                {/* Board Course Wise Analysis - Area Chart */}
+                <ChartContainer title="Board Course Analysis" isDarkMode={isDarkMode} color="cyan">
+                    <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                        <AreaChart data={data?.academics?.boardCourse || []}>
+                            <defs>
+                                <linearGradient id="colorBoard" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4} />
+                                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
+                            <XAxis dataKey="name" stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} axisLine={false} tickLine={false} />
+                            <YAxis stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} axisLine={false} tickLine={false} />
+                            <Tooltip contentStyle={chartTooltipStyle} cursor={{ stroke: '#06b6d4', strokeWidth: 1, strokeDasharray: '3 3' }} />
+                            <Area type="monotone" dataKey="count" stroke="#06b6d4" strokeWidth={2} fill="url(#colorBoard)" name="Students" animationDuration={1500} />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </ChartContainer>
+
+                {/* Normal Course Wise Analysis - Bar Graph */}
+                <ChartContainer title="Standard Course Distribution" isDarkMode={isDarkMode} color="purple">
+                    <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                        <BarChart data={data?.academics?.normalCourse || []} layout="vertical">
+                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
+                            <XAxis type="number" stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} axisLine={false} tickLine={false} />
+                            <YAxis dataKey="name" type="category" stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} axisLine={false} tickLine={false} width={100} />
+                            <Tooltip contentStyle={chartTooltipStyle} cursor={{ fill: isDarkMode ? '#ffffff05' : '#00000005' }} />
+                            <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
+                                {(data?.academics?.normalCourse || []).map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={["#a855f7", "#8b5cf6", "#7c3aed", "#6d28d9"][index % 4]} />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </ChartContainer>
+            </div>
+
+            {/* Subject Analysis for Board Students */}
+            <div className="mb-8">
+                <ChartContainer title="Board Subject Preference" isDarkMode={isDarkMode} color="emerald">
+                    <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                        <BarChart data={data?.academics?.boardSubjects || []}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
+                            <XAxis dataKey="name" stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} axisLine={false} tickLine={false} />
+                            <YAxis stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} axisLine={false} tickLine={false} />
+                            <Tooltip contentStyle={chartTooltipStyle} cursor={{ fill: isDarkMode ? '#ffffff05' : '#00000005' }} />
+                            <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={40}>
+                                {(data?.academics?.boardSubjects || []).map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={["#10b981", "#34d399", "#059669", "#047857"][index % 4]} />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </ChartContainer>
+            </div>
+
             {/* Final Distribution Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 <ChartContainer title="Regional Spread" isDarkMode={isDarkMode} color="purple">

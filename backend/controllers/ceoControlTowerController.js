@@ -172,7 +172,7 @@ export const getCEOAnalytics = async (req, res) => {
         ]);
 
         // 3. Student Demographics (Filterable)
-        const [studentGender, studentState, studentBoard, studentDept, studentCourse] = await Promise.all([
+        const [studentGender, studentState, studentBoard, studentDept, studentCourse, boardCourseAnalysis, normalCourseAnalysis, boardSubjectAnalysis] = await Promise.all([
             Admission.aggregate([
                 { $match: { admissionStatus: 'ACTIVE', ...admissionDateFilter, ...centreFilter } },
                 { $lookup: { from: "students", localField: "student", foreignField: "_id", as: "s" } },
@@ -207,6 +207,29 @@ export const getCEOAnalytics = async (req, res) => {
                 { $group: { _id: "$c.courseName", count: { $sum: 1 } } },
                 { $sort: { count: -1 } },
                 { $limit: 10 }
+            ]),
+            // New: Board Course Analysis
+            Admission.aggregate([
+                { $match: { admissionStatus: 'ACTIVE', admissionType: "BOARD", ...admissionDateFilter, ...centreFilter } },
+                { $lookup: { from: "boards", localField: "board", foreignField: "_id", as: "b" } },
+                { $unwind: { path: "$b", preserveNullAndEmptyArrays: true } },
+                { $group: { _id: "$b.name", count: { $sum: 1 }, revenue: { $sum: "$totalPaidAmount" } } },
+                { $sort: { count: -1 } }
+            ]),
+            // New: Normal Course Analysis
+            Admission.aggregate([
+                { $match: { admissionStatus: 'ACTIVE', admissionType: "NORMAL", ...admissionDateFilter, ...centreFilter } },
+                { $lookup: { from: "courses", localField: "course", foreignField: "_id", as: "c" } },
+                { $unwind: { path: "$c", preserveNullAndEmptyArrays: true } },
+                { $group: { _id: "$c.courseName", count: { $sum: 1 }, revenue: { $sum: "$totalPaidAmount" } } },
+                { $sort: { count: -1 } }
+            ]),
+            // New: Board Subject Analysis
+            Admission.aggregate([
+                { $match: { admissionStatus: 'ACTIVE', admissionType: "BOARD", ...admissionDateFilter, ...centreFilter } },
+                { $unwind: "$selectedSubjects" },
+                { $group: { _id: "$selectedSubjects.name", count: { $sum: 1 } } },
+                { $sort: { count: -1 } }
             ])
         ]);
 
@@ -259,6 +282,11 @@ export const getCEOAnalytics = async (req, res) => {
                     board: studentBoard.map(b => ({ name: b._id || "N/A", count: b.count })),
                     department: studentDept.map(d => ({ name: d._id || "N/A", count: d.count })),
                     course: studentCourse.map(c => ({ name: c._id || "N/A", count: c.count }))
+                },
+                academics: {
+                    boardCourse: boardCourseAnalysis.map(b => ({ name: b._id || "Unknown Board", count: b.count, revenue: b.revenue })),
+                    normalCourse: normalCourseAnalysis.map(c => ({ name: c._id || "Unknown Course", count: c.count, revenue: c.revenue })),
+                    boardSubjects: boardSubjectAnalysis.map(s => ({ name: s._id || "Unknown Subject", count: s.count }))
                 }
             }
         });
