@@ -1,0 +1,61 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches:
+      - main  # or master, depending on your default branch
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Dependencies & Build Frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+          # This creates a 'dist' or 'build' folder in frontend/
+
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Navigate to project directory
+            # CHANGE THESE PATHS TO MATCH YOUR SERVER SETUP
+            export PROJECT_PATH="/home/ubuntu/course-management-erp"
+            
+            # 1. Pull latest code
+            cd $PROJECT_PATH
+            git pull origin main
+            
+            # 2. Update Backend
+            cd backend
+            npm install
+            # Restart backend service (assuming a PM2 process named 'api-server')
+            pm2 restart api-server || pm2 start server.js --name api-server
+            
+            # 3. Update Frontend (Serve Build)
+            # Option A: If you serve frontend via Nginx from the build folder
+            cd ../frontend
+            npm install
+            npm run build
+            # If using standard Nginx path:
+            # sudo cp -r dist/* /var/www/html/
+            
+            # Option B: If simple serve (not recommended for prod but easy)
+            # pm2 restart client-server
+            
+            echo "Deployment Complete"
