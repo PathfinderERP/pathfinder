@@ -57,6 +57,12 @@ const centreSchema = mongoose.Schema({
     corporateOfficeAddr: { type: String },
     corporateOfficePhoneNo: { type: String },
     gstNo: { type: String },
+    locations: [{
+        latitude: Number,
+        longitude: Number,
+        address: String,
+        label: String // e.g., "Main Gate", "Back Office"
+    }],
     locationAddress: { type: String }
 });
 

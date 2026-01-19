@@ -56,13 +56,32 @@ export const markAttendance = async (req, res) => {
         const radius = 200; // Increased to 200 meters for better GPS reliability & larger facilities
 
         for (const centre of allCentres) {
+            // Check Legacy Single Location
             if (centre.latitude && centre.longitude) {
                 const dist = calculateDistance(latitude, longitude, centre.latitude, centre.longitude);
                 if (dist < minDistance) minDistance = dist;
                 if (dist <= radius) {
                     matchingCentre = centre;
+                    // matchLabel used to identify which specific spot they are at
+                    matchingCentre.matchLabel = "Main Location";
                     break;
                 }
+            }
+
+            // Check New Multiple Locations
+            if (centre.locations && Array.isArray(centre.locations)) {
+                for (const loc of centre.locations) {
+                    if (loc.latitude && loc.longitude) {
+                        const dist = calculateDistance(latitude, longitude, loc.latitude, loc.longitude);
+                        if (dist < minDistance) minDistance = dist;
+                        if (dist <= radius) {
+                            matchingCentre = centre;
+                            matchingCentre.matchLabel = loc.label || loc.address || "Annex Location";
+                            break;
+                        }
+                    }
+                }
+                if (matchingCentre) break;
             }
         }
 
@@ -92,7 +111,7 @@ export const markAttendance = async (req, res) => {
                     time: new Date(),
                     latitude,
                     longitude,
-                    address: matchingCentre.centreName // Store the centre name as address/meta
+                    address: matchingCentre.matchLabel || matchingCentre.centreName // Store specific location label if available
                 },
                 status: "Present"
             });
@@ -105,7 +124,7 @@ export const markAttendance = async (req, res) => {
                         time: new Date(),
                         latitude,
                         longitude,
-                        address: matchingCentre.centreName
+                        address: matchingCentre.matchLabel || matchingCentre.centreName
                     };
                     attendance.checkOut = undefined; // Clear previous checkout
                     attendance.status = "Present";
@@ -147,7 +166,7 @@ export const markAttendance = async (req, res) => {
                 time: checkOutTime,
                 latitude,
                 longitude,
-                address: matchingCentre.centreName
+                address: matchingCentre.matchLabel || matchingCentre.centreName
             };
 
             attendance.workingHours = parseFloat(workedHours.toFixed(2));

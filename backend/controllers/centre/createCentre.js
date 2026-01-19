@@ -14,7 +14,8 @@ export const createCentre = async (req, res) => {
             locationPreview,
             enterGstNo,
             enterCorporateOfficeAddress,
-            enterCorporateOfficePhoneNumber
+            enterCorporateOfficePhoneNumber,
+            locations // New field
         } = req.body;
 
         if (!centreName || !enterCode || !state || !email || !phoneNumber || !salesPassword) {
@@ -33,7 +34,8 @@ export const createCentre = async (req, res) => {
             locationPreview,
             enterGstNo,
             enterCorporateOfficeAddress,
-            enterCorporateOfficePhoneNumber
+            enterCorporateOfficePhoneNumber,
+            locations // Save locations
         });
 
         await newCentre.save();

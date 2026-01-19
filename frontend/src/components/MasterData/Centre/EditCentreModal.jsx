@@ -24,7 +24,9 @@ const EditCentreModal = ({ centre, onClose, onSuccess }) => {
         corporateOfficeAddr: "",
         corporateOfficePhoneNo: "",
         gstNo: "",
-        locationAddress: ""
+
+        locationAddress: "",
+        locations: []
     });
     const [loading, setLoading] = useState(false);
     const [gettingLocation, setGettingLocation] = useState(false);
@@ -53,7 +55,9 @@ const EditCentreModal = ({ centre, onClose, onSuccess }) => {
                 corporateOfficeAddr: centre.corporateOfficeAddr || "",
                 corporateOfficePhoneNo: centre.corporateOfficePhoneNo || "",
                 gstNo: centre.gstNo || "",
-                locationAddress: centre.locationAddress || ""
+
+                locationAddress: centre.locationAddress || "",
+                locations: centre.locations || []
             });
         }
     }, [centre]);
@@ -351,6 +355,7 @@ const EditCentreModal = ({ centre, onClose, onSuccess }) => {
                                         latitude={formData.latitude}
                                         longitude={formData.longitude}
                                         onLocationSelect={handleMapClick}
+                                        markers={formData.locations}
                                     />
                                     <div className="mt-2 flex items-center justify-between">
                                         <p className="text-xs text-gray-500 flex items-center gap-2">
@@ -379,6 +384,64 @@ const EditCentreModal = ({ centre, onClose, onSuccess }) => {
                             )}
                         </div>
 
+                        {/* Multiple Locations Management */}
+                        <div className="md:col-span-2 mt-4 border-t border-gray-700 pt-4">
+                            <div className="flex justify-between items-center mb-2">
+                                <h4 className="text-cyan-400 font-semibold flex items-center gap-2">
+                                    <FaMapMarkerAlt /> Added Locations List
+                                </h4>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (!formData.latitude || !formData.longitude) {
+                                            toast.error("Please select a location on the map first");
+                                            return;
+                                        }
+                                        const newLoc = {
+                                            latitude: formData.latitude,
+                                            longitude: formData.longitude,
+                                            label: `Location ${formData.locations.length + 1}`,
+                                            address: searchQuery || "Pinned Location"
+                                        };
+                                        setFormData({
+                                            ...formData,
+                                            locations: [...formData.locations, newLoc]
+                                        });
+                                        toast.success("Location added to list!");
+                                    }}
+                                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-500"
+                                >
+                                    + Add Current Pin to List
+                                </button>
+                            </div>
+
+                            {formData.locations.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                                    {formData.locations.map((loc, idx) => (
+                                        <div key={idx} className="bg-gray-800 p-3 rounded border border-gray-700 flex justify-between items-start">
+                                            <div>
+                                                <p className="text-white font-medium text-sm">{loc.label}</p>
+                                                <p className="text-gray-400 text-xs">{loc.latitude.toFixed(5)}, {loc.longitude.toFixed(5)}</p>
+                                                <p className="text-gray-500 text-xs truncate max-w-[150px]">{loc.address}</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const newLocs = formData.locations.filter((_, i) => i !== idx);
+                                                    setFormData({ ...formData, locations: newLocs });
+                                                }}
+                                                className="text-red-400 hover:text-red-300 text-xs"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-gray-500 text-sm italic mb-4">No extra locations added yet.</p>
+                            )}
+
+                        </div>
                         <div className="md:col-span-2">
                             <h4 className="text-cyan-400 font-semibold mt-2 mb-2">Corporate Office Details</h4>
                         </div>

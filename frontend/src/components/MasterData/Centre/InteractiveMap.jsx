@@ -1,9 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 
-const InteractiveMap = ({ latitude, longitude, onLocationSelect }) => {
+const InteractiveMap = ({ latitude, longitude, onLocationSelect, markers = [] }) => {
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const markerRef = useRef(null);
+    const markersLayerRef = useRef(null);
 
     useEffect(() => {
         // Wait for Leaflet to load from CDN
@@ -30,22 +31,27 @@ const InteractiveMap = ({ latitude, longitude, onLocationSelect }) => {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(mapInstanceRef.current);
 
-            // Add initial marker if coordinates exist
+            // Layer group for multiple markers
+            markersLayerRef.current = L.layerGroup().addTo(mapInstanceRef.current);
+
+            // Add current selection marker if coordinates exist
             if (latitude && longitude) {
-                markerRef.current = L.marker([latitude, longitude]).addTo(mapInstanceRef.current);
+                markerRef.current = L.marker([latitude, longitude], { draggable: false }).addTo(mapInstanceRef.current);
+                markerRef.current.bindPopup("Current Selection").openPopup();
             }
 
             // Add click event to map
             mapInstanceRef.current.on('click', (e) => {
                 const { lat, lng } = e.latlng;
 
-                // Remove existing marker
+                // Remove existing selection marker
                 if (markerRef.current) {
                     mapInstanceRef.current.removeLayer(markerRef.current);
                 }
 
-                // Add new marker
+                // Add new selection marker
                 markerRef.current = L.marker([lat, lng]).addTo(mapInstanceRef.current);
+                markerRef.current.bindPopup("Selected Location").openPopup();
 
                 // Call callback with new coordinates
                 if (onLocationSelect) {
@@ -76,23 +82,42 @@ const InteractiveMap = ({ latitude, longitude, onLocationSelect }) => {
         };
     }, []);
 
-    // Update marker when coordinates change externally
+    // Update main selection marker
     useEffect(() => {
-        if (mapInstanceRef.current && latitude && longitude && window.L) {
+        if (mapInstanceRef.current && window.L) {
             const L = window.L;
-
-            // Remove existing marker
-            if (markerRef.current) {
-                mapInstanceRef.current.removeLayer(markerRef.current);
+            if (latitude && longitude) {
+                // Remove existing marker
+                if (markerRef.current) {
+                    mapInstanceRef.current.removeLayer(markerRef.current);
+                }
+                // Add new marker
+                markerRef.current = L.marker([latitude, longitude]).addTo(mapInstanceRef.current);
+                markerRef.current.bindPopup("Result / Selection").openPopup(); // Don't auto-center religiously, let user pan
             }
-
-            // Add new marker
-            markerRef.current = L.marker([latitude, longitude]).addTo(mapInstanceRef.current);
-
-            // Center map on new location
-            mapInstanceRef.current.setView([latitude, longitude], 13);
         }
     }, [latitude, longitude]);
+
+    // Update multiple saved markers
+    useEffect(() => {
+        if (mapInstanceRef.current && window.L && markersLayerRef.current) {
+            const L = window.L;
+            markersLayerRef.current.clearLayers(); // Clear old markers
+
+            if (markers && markers.length > 0) {
+                markers.forEach((m, idx) => {
+                    if (m.latitude && m.longitude) {
+                        const savedMarker = L.marker([m.latitude, m.longitude], {
+                            opacity: 0.7, // Make saved markers slightly distinct
+                            title: m.label || `Location ${idx + 1}`
+                        });
+                        savedMarker.bindPopup(`<b>${m.label || "Saved Location"}</b><br/>${m.address || ""}`);
+                        markersLayerRef.current.addLayer(savedMarker);
+                    }
+                });
+            }
+        }
+    }, [markers]);
 
     return (
         <div

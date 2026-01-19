@@ -5,6 +5,7 @@ export const updateCentre = async (req, res) => {
         const { id } = req.params;
         const updates = req.body;
 
+        // Ensure locations array is correctly updated (mongoose handles array replacement by default for direct assignment)
         const updatedCentre = await CentreSchema.findByIdAndUpdate(id, updates, { new: true });
 
         if (!updatedCentre) {
