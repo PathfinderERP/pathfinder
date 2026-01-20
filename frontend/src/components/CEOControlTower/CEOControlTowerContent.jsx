@@ -55,6 +55,18 @@ const ChartContainer = ({ title, children, isDarkMode, color = "cyan", onExport 
     </div>
 );
 
+const ScrollableChartContainer = ({ title, children, isDarkMode, color = "cyan", height = 300 }) => (
+    <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border p-6 rounded-[2px] relative overflow-hidden group min-w-0`}>
+        <div className="flex justify-between items-center mb-6">
+            <h4 className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-[0.2em]`}>{title}</h4>
+            <div className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-[1px]`} style={{ backgroundColor: `${color === 'cyan' ? '#06b6d4' : (color === 'purple' ? '#a855f7' : (color === 'amber' ? '#f59e0b' : '#10b981'))}20`, color: color === 'cyan' ? '#06b6d4' : (color === 'purple' ? '#a855f7' : (color === 'amber' ? '#f59e0b' : '#10b981')) }}>ANALYTICS</div>
+        </div>
+        <div style={{ height: height }} className="w-full relative overflow-y-auto custom-scrollbar">
+            {children}
+        </div>
+    </div>
+);
+
 const CEOControlTowerContent = () => {
     const [isDarkMode, setIsDarkMode] = useState(true);
     const [loading, setLoading] = useState(true);
@@ -79,7 +91,7 @@ const CEOControlTowerContent = () => {
     const fetchCentres = async () => {
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/master-data/centre`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/master-data/centre`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const result = await response.json();
@@ -365,20 +377,23 @@ const CEOControlTowerContent = () => {
                 </div>
             </div>
 
-            {/* Academic & Demographics Section */}
+            {/* Employee Analytics Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <ChartContainer title="Academic Department Distribution" isDarkMode={isDarkMode} color="purple">
-                    <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
-                        <BarChart data={data?.students?.department || []} layout="vertical">
-                            <XAxis type="number" hide />
-                            <YAxis dataKey="name" type="category" stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} axisLine={false} tickLine={false} width={100} />
-                            <Tooltip contentStyle={chartTooltipStyle} cursor={{ fill: isDarkMode ? '#ffffff05' : '#00000005' }} />
-                            <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                                {(data?.students?.department || []).map((entry, index) => <Cell key={`cell-${index}`} fill={["#06b6d4", "#a855f7", "#10b981", "#f59e0b", "#ef4444"][index % 5]} />)}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </ChartContainer>
+                <ScrollableChartContainer title="Employee Department Distribution" isDarkMode={isDarkMode} color="purple" height={300}>
+                    <div style={{ height: Math.max(300, (data?.workforce?.departments?.length || 0) * 40) }}>
+                        <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                            <BarChart data={data?.workforce?.departments || []} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }} barSize={15}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
+                                <XAxis type="number" hide />
+                                <YAxis dataKey="name" type="category" stroke={isDarkMode ? "#9ca3af" : "#6b7280"} fontSize={9} fontWeight={700} axisLine={false} tickLine={false} width={120} />
+                                <Tooltip cursor={{ fill: isDarkMode ? '#1f2937' : '#f9fafb' }} contentStyle={chartTooltipStyle} />
+                                <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                                    {(data?.workforce?.departments || []).map((entry, index) => <Cell key={`cell-${index}`} fill={["#06b6d4", "#a855f7", "#10b981", "#f59e0b", "#ef4444"][index % 5]} />)}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </ScrollableChartContainer>
 
                 <ChartContainer title="Lead Acquisition Sources" isDarkMode={isDarkMode} color="emerald" onExport={() => exportToExcel(sales?.leadSourceStats || [], 'lead_sources')}>
                     <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
@@ -391,6 +406,41 @@ const CEOControlTowerContent = () => {
                         </BarChart>
                     </ResponsiveContainer>
                 </ChartContainer>
+            </div>
+
+            {/* Employee Designation & Centre Distribution */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <ScrollableChartContainer title="Employee Designation Distribution" isDarkMode={isDarkMode} color="cyan" height={350}>
+                    <div style={{ height: Math.max(350, (data?.workforce?.designations?.length || 0) * 35) }}>
+                        <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                            <BarChart data={data?.workforce?.designations || []} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }} barSize={15}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
+                                <XAxis type="number" hide />
+                                <YAxis dataKey="name" type="category" stroke={isDarkMode ? "#9ca3af" : "#6b7280"} fontSize={9} fontWeight={700} axisLine={false} tickLine={false} width={140} />
+                                <Tooltip cursor={{ fill: isDarkMode ? '#1f2937' : '#f9fafb' }} contentStyle={chartTooltipStyle} />
+                                <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                                    {(data?.workforce?.designations || []).map((entry, index) => <Cell key={`cell-${index}`} fill={["#a855f7", "#06b6d4", "#f59e0b", "#10b981", "#ef4444"][index % 5]} />)}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </ScrollableChartContainer>
+
+                <ScrollableChartContainer title="Employee Centre Distribution" isDarkMode={isDarkMode} color="amber" height={350}>
+                    <div style={{ height: Math.max(350, (data?.workforce?.centres?.length || 0) * 35) }}>
+                        <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                            <BarChart data={data?.workforce?.centres || []} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }} barSize={15}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
+                                <XAxis type="number" hide />
+                                <YAxis dataKey="name" type="category" stroke={isDarkMode ? "#9ca3af" : "#6b7280"} fontSize={9} fontWeight={700} axisLine={false} tickLine={false} width={140} />
+                                <Tooltip cursor={{ fill: isDarkMode ? '#1f2937' : '#f9fafb' }} contentStyle={chartTooltipStyle} />
+                                <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                                    {(data?.workforce?.centres || []).map((entry, index) => <Cell key={`cell-${index}`} fill={["#f59e0b", "#ef4444", "#10b981", "#06b6d4", "#a855f7"][index % 5]} />)}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </ScrollableChartContainer>
             </div>
 
             {/* Academic Intelligence Dropdown - Comprehensive Course & Board Analysis */}

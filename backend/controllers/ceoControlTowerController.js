@@ -4,6 +4,9 @@ import Student from "../models/Students.js";
 import Employee from "../models/HR/Employee.js";
 import EmployeeAttendance from "../models/Attendance/EmployeeAttendance.js";
 import User from "../models/User.js";
+import Department from "../models/Master_data/Department.js";
+import Designation from "../models/Master_data/Designation.js";
+import Centre from "../models/Master_data/Centre.js";
 import mongoose from "mongoose";
 
 /**
@@ -38,9 +41,23 @@ export const getCEOAnalytics = async (req, res) => {
             employeeCentreFilter = { centerArray: centre }; // Match strings in centerArray
         }
 
+        // Fetch Master Data for Workforce Distribution
+        const [allDepartments, allDesignations, allCentres] = await Promise.all([
+            Department.find({}).select("departmentName").lean(),
+            Designation.find({}).select("name").lean(),
+            Centre.find({}).select("centreName").lean()
+        ]);
+
         // 1. Workforce Analytics (Filter-friendly)
-        const [totalEmployees, deptDistribution, attendanceToday] = await Promise.all([
+        const [
+            totalEmployees,
+            deptDistributionRaw,
+            designationDistributionRaw,
+            centreDistributionRaw,
+            attendanceToday
+        ] = await Promise.all([
             Employee.countDocuments({ status: "Active", ...employeeCentreFilter }),
+            // Department Distribution
             Employee.aggregate([
                 { $match: { status: "Active", ...employeeCentreFilter } },
                 {
@@ -54,6 +71,35 @@ export const getCEOAnalytics = async (req, res) => {
                 { $unwind: { path: "$deptInfo", preserveNullAndEmptyArrays: true } },
                 { $group: { _id: "$deptInfo.departmentName", count: { $sum: 1 } } }
             ]),
+            // Designation Distribution
+            Employee.aggregate([
+                { $match: { status: "Active", ...employeeCentreFilter } },
+                {
+                    $lookup: {
+                        from: "designations",
+                        localField: "designation",
+                        foreignField: "_id",
+                        as: "desigInfo"
+                    }
+                },
+                { $unwind: { path: "$desigInfo", preserveNullAndEmptyArrays: true } },
+                { $group: { _id: "$desigInfo.name", count: { $sum: 1 } } }
+            ]),
+            // Centre Distribution (Using Primary Centre)
+            Employee.aggregate([
+                { $match: { status: "Active", ...employeeCentreFilter } },
+                {
+                    $lookup: {
+                        from: "centreschemas", // Correct collection name for CentreSchema model
+                        localField: "primaryCentre", // Using primaryCentre for unique distribution
+                        foreignField: "_id",
+                        as: "centreInfo"
+                    }
+                },
+                { $unwind: { path: "$centreInfo", preserveNullAndEmptyArrays: true } },
+                { $group: { _id: "$centreInfo.centreName", count: { $sum: 1 } } }
+            ]),
+            // Attendance
             EmployeeAttendance.aggregate([
                 {
                     $match: {
@@ -77,6 +123,21 @@ export const getCEOAnalytics = async (req, res) => {
                 { $count: "count" }
             ])
         ]);
+
+        // Format Distributions (Ensure all Master Data items are present)
+        const formatDistribution = (masterList, rawData, nameKey) => {
+            return masterList.map(item => {
+                const found = rawData.find(d => d._id === item[nameKey]);
+                return {
+                    name: item[nameKey],
+                    count: found ? found.count : 0
+                };
+            }).sort((a, b) => b.count - a.count); // Sort by count desc
+        };
+
+        const deptDistribution = formatDistribution(allDepartments, deptDistributionRaw, "departmentName");
+        const designationDistribution = formatDistribution(allDesignations, designationDistributionRaw, "name");
+        const centreDistribution = formatDistribution(allCentres, centreDistributionRaw, "centreName");
 
         const attendanceCount = attendanceToday[0]?.count || 0;
 
@@ -261,9 +322,11 @@ export const getCEOAnalytics = async (req, res) => {
             data: {
                 workforce: {
                     totalEmployees,
-                    attendanceToday,
-                    presenceRate: totalEmployees > 0 ? ((attendanceToday / totalEmployees) * 100).toFixed(1) : 0,
-                    departments: deptDistribution.map(d => ({ name: d._id || "Other", count: d.count }))
+                    attendanceToday: attendanceCount,
+                    presenceRate: totalEmployees > 0 ? ((attendanceCount / totalEmployees) * 100).toFixed(1) : 0,
+                    departments: deptDistribution,
+                    designations: designationDistribution,
+                    centres: centreDistribution
                 },
                 sales: {
                     totalRevenue: rev.totalRevenue,
