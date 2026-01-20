@@ -159,7 +159,7 @@ const ClassContent = () => {
                             classes.map((cls, index) => (
                                 <tr key={cls._id} className="master-data-row-wave border-b border-gray-800 transition-colors">
                                     <td className="p-4 text-gray-400">{index + 1}</td>
-                                    <td className="p-4 font-medium">{cls.name}</td>
+                                    <td className="p-4 font-medium text-white">{cls.name}</td>
                                     <td className="p-4 text-right">
                                         <div className="flex justify-end gap-2">
                                             {canEdit && (
