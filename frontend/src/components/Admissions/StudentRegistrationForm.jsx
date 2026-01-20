@@ -23,7 +23,9 @@ const StudentRegistrationForm = () => {
         mode: "",
         courseType: "",
         class: "",
-        examTag: ""
+        examTag: "",
+        session: "",
+        department: ""
     });
 
     const indianStates = [
@@ -69,13 +71,8 @@ const StudentRegistrationForm = () => {
         markAgregate: "",
         scienceMathParcent: "",
 
-        // Section
-        sectionType: "",
-
         // Session Exam Course
         session: "",
-        examTag: "",
-        targetExams: "",
 
         // New Fields
         course: "",
@@ -245,6 +242,8 @@ const StudentRegistrationForm = () => {
         if (courseFilters.courseType) result = result.filter(v => v.courseType === courseFilters.courseType);
         if (courseFilters.class) result = result.filter(v => v.class?._id === courseFilters.class || v.class === courseFilters.class);
         if (courseFilters.examTag) result = result.filter(v => v.examTag?._id === courseFilters.examTag || v.examTag === courseFilters.examTag);
+        if (courseFilters.session) result = result.filter(v => v.courseSession === courseFilters.session);
+        if (courseFilters.department) result = result.filter(v => v.department?._id === courseFilters.department || v.department === courseFilters.department);
         setFilteredCourses(result);
     }, [courseFilters, courses]);
 
@@ -258,7 +257,9 @@ const StudentRegistrationForm = () => {
             mode: "",
             courseType: "",
             class: "",
-            examTag: ""
+            examTag: "",
+            session: "",
+            department: ""
         });
     };
 
@@ -290,6 +291,13 @@ const StudentRegistrationForm = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
+
+        // Validate batch selection
+        if (!formData.batches || formData.batches.length === 0) {
+            toast.error("Please select at least one batch");
+            setLoading(false);
+            return;
+        }
 
         try {
             const token = localStorage.getItem("token");
@@ -360,12 +368,9 @@ const StudentRegistrationForm = () => {
                         scienceMathParcent: formData.scienceMathParcent,
                     }
                 ],
-                section: formData.sectionType ? [{ type: formData.sectionType }] : [],
                 sessionExamCourse: [
                     {
-                        session: formData.session,
-                        examTag: formData.examTag,
-                        targetExams: formData.targetExams,
+                        session: formData.session
                     }
                 ],
                 course: formData.course,
@@ -488,6 +493,22 @@ const StudentRegistrationForm = () => {
                                 <input type="text" name="schoolName" value={formData.schoolName} onChange={handleChange} placeholder="School Name" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="pincode" value={formData.pincode} onChange={handleChange} placeholder="Pincode" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="source" value={formData.source} onChange={handleChange} placeholder="Source" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+
+                                <select name="session" value={formData.session} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
+                                    <option value="">Select Session</option>
+                                    {sessions.map((session) => (
+                                        <option key={session._id} value={session.sessionName || session.name}>
+                                            {session.sessionName || session.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <select name="department" value={formData.department} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
+                                    <option value="">Select Department *</option>
+                                    {departments.map((dept) => (
+                                        <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
+                                    ))}
+                                </select>
+
                                 <div className="relative">
                                     <label className="text-[10px] text-gray-500 absolute -top-2 left-2 bg-[#131619] px-1">Counserlled By</label>
                                     <input
@@ -558,7 +579,7 @@ const StudentRegistrationForm = () => {
                             </h4>
                             <div className="bg-[#131619] p-4 rounded-lg border border-gray-700 mb-4">
                                 <p className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider">Refine Course List</p>
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
                                     <select name="mode" value={courseFilters.mode} onChange={handleCourseFilterChange} className="bg-[#1a1f24] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm">
                                         <option value="">All Modes</option>
                                         <option value="ONLINE">ONLINE</option>
@@ -577,24 +598,18 @@ const StudentRegistrationForm = () => {
                                         <option value="">All Exam Tags</option>
                                         {examTags.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
                                     </select>
+                                    <select name="session" value={courseFilters.session} onChange={handleCourseFilterChange} className="bg-[#1a1f24] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm">
+                                        <option value="">All Sessions</option>
+                                        {sessions.map(s => <option key={s._id} value={s.sessionName || s.name}>{s.sessionName || s.name}</option>)}
+                                    </select>
+                                    <select name="department" value={courseFilters.department} onChange={handleCourseFilterChange} className="bg-[#1a1f24] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm">
+                                        <option value="">All Departments</option>
+                                        {departments.map(d => <option key={d._id} value={d._id}>{d.departmentName}</option>)}
+                                    </select>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                                <select name="session" value={formData.session} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
-                                    <option value="">Select Session</option>
-                                    {sessions.map((session) => (
-                                        <option key={session._id} value={session.sessionName || session.name}>
-                                            {session.sessionName || session.name}
-                                        </option>
-                                    ))}
-                                </select>
-                                <select name="department" value={formData.department} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
-                                    <option value="">Select Department *</option>
-                                    {departments.map((dept) => (
-                                        <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
-                                    ))}
-                                </select>
-                                <select name="course" value={formData.course} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full lg:col-span-2 border-cyan-700/50 focus:border-cyan-500">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-5">
+                                <select name="course" value={formData.course} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full border-cyan-700/50 focus:border-cyan-500">
                                     <option value="">Select Enrolling Course *</option>
                                     {filteredCourses.map((c) => (
                                         <option key={c._id} value={c._id}>
@@ -602,20 +617,12 @@ const StudentRegistrationForm = () => {
                                         </option>
                                     ))}
                                 </select>
-                                <input type="text" name="sectionType" value={formData.sectionType} onChange={handleChange} placeholder="Section Type" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <select name="examTag" value={formData.examTag} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
-                                    <option value="">Select Exam Tag</option>
-                                    {examTags.map((tag) => (
-                                        <option key={tag._id} value={tag.name}>{tag.name}</option>
-                                    ))}
-                                </select>
-                                <input type="text" name="targetExams" value={formData.targetExams} onChange={handleChange} placeholder="Target Exams" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                             </div>
                         </div>
 
                         {/* Batch Selection */}
                         <div>
-                            <h4 className="text-lg font-semibold text-cyan-400 mb-3">Batch Allocation (Multiple Selection)</h4>
+                            <h4 className="text-lg font-semibold text-cyan-400 mb-3">Batch Allocation (Multiple Selection) *</h4>
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 bg-[#131619] p-4 rounded-xl border border-gray-800">
                                 {batches.map((batch) => (
                                     <label key={batch._id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${formData.batches.includes(batch._id) ? 'bg-cyan-600/20 border-cyan-500 text-white shadow-lg' : 'bg-[#1a1f24] border-gray-700 hover:border-gray-500 text-gray-400'}`}>

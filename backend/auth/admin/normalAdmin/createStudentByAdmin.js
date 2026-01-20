@@ -31,12 +31,15 @@ export const createStudentByAdmin = async (req, res) => {
       examSchema.length === 0 ||
       !sessionExamCourse ||
       !Array.isArray(sessionExamCourse) ||
-      sessionExamCourse.length === 0
+      sessionExamCourse.length === 0 ||
+      !batches ||
+      !Array.isArray(batches) ||
+      batches.length === 0
     ) {
       console.error("❌ Validation failed: Missing required fields");
       return res.status(400).json({
         message:
-          "studentsDetails, guardians, examSchema, and sessionExamCourse are required and must be arrays",
+          "studentsDetails, guardians, examSchema, sessionExamCourse, and batches are required and must be arrays. At least one batch must be selected.",
       });
     }
 
