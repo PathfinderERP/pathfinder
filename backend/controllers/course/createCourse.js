@@ -13,10 +13,11 @@ export const createCourse = async (req, res) => {
             feesStructure,
             mode,
             courseType,
+            programme,
         } = req.body;
 
         // Validate fields
-        if (!courseName || !examTag || !courseDuration || !coursePeriod || !department || !courseSession || !feesStructure || !mode || !courseType) {
+        if (!courseName || !examTag || !courseDuration || !coursePeriod || !department || !courseSession || !feesStructure || !mode || !courseType || !programme) {
             return res.status(400).json({ message: "All required fields must be provided." });
         }
 
@@ -32,6 +33,7 @@ export const createCourse = async (req, res) => {
             feesStructure,
             mode,
             courseType,
+            programme,
         });
 
         await newCourse.save();

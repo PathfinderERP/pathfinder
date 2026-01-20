@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash, FaPlus, FaTimes, FaEye, FaFilter } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaTimes, FaEye, FaFilter, FaFileExport, FaFileImport } from 'react-icons/fa';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import '../MasterDataWave.css';
 import { hasPermission } from '../../../config/permissions';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 const CourseContent = () => {
     const [courses, setCourses] = useState([]);
@@ -31,19 +33,21 @@ const CourseContent = () => {
         class: "",
         department: "",
         examTag: "",
-        courseSession: ""
+        courseSession: "",
+        programme: ""
     });
 
     const [formData, setFormData] = useState({
         courseName: "",
         examTag: "",
         courseDuration: "",
-        coursePeriod: "Yearly",
+        coursePeriod: "",
         class: "",
         department: "",
         courseSession: "",
-        mode: "OFFLINE",
-        courseType: "INSTATION",
+        mode: "",
+        courseType: "",
+        programme: "",
         feesStructure: [{ feesType: "", value: "", discount: "" }]
     });
 
@@ -106,6 +110,9 @@ const CourseContent = () => {
         if (filters.courseSession) {
             filtered = filtered.filter(c => c.courseSession === filters.courseSession);
         }
+        if (filters.programme) {
+            filtered = filtered.filter(c => c.programme === filters.programme);
+        }
 
         setFilteredCourses(filtered);
     };
@@ -125,7 +132,8 @@ const CourseContent = () => {
             class: "",
             department: "",
             examTag: "",
-            courseSession: ""
+            courseSession: "",
+            programme: ""
         });
     };
 
@@ -165,6 +173,7 @@ const CourseContent = () => {
                 courseSession: course.courseSession,
                 mode: course.mode,
                 courseType: course.courseType,
+                programme: course.programme,
                 feesStructure: course.feesStructure.length > 0 ? course.feesStructure : [{ feesType: "", value: "", discount: "" }]
             });
         } else {
@@ -173,12 +182,13 @@ const CourseContent = () => {
                 courseName: "",
                 examTag: "",
                 courseDuration: "",
-                coursePeriod: "Yearly",
+                coursePeriod: "",
                 class: "",
                 department: "",
                 courseSession: "",
-                mode: "OFFLINE",
-                courseType: "INSTATION",
+                mode: "",
+                courseType: "",
+                programme: "",
                 feesStructure: [{ feesType: "", value: "", discount: "" }]
             });
         }
@@ -255,19 +265,181 @@ const CourseContent = () => {
         }
     };
 
+    const handleExportToExcel = () => {
+        try {
+            const exportData = filteredCourses.map(course => ({
+                'Course Name': course.courseName,
+                'Department': course.department?.departmentName || '',
+                'Class': course.class?.name || '',
+                'Exam Tag': course.examTag?.name || '',
+                'Course Session': course.courseSession,
+                'Duration': course.courseDuration,
+                'Period': course.coursePeriod,
+                'Mode': course.mode,
+                'Course Type': course.courseType,
+                'Programme': course.programme,
+                'Fee Type 1': course.feesStructure[0]?.feesType || '',
+                'Fee Value 1': course.feesStructure[0]?.value || '',
+                'Fee Discount 1': course.feesStructure[0]?.discount || '',
+                'Fee Type 2': course.feesStructure[1]?.feesType || '',
+                'Fee Value 2': course.feesStructure[1]?.value || '',
+                'Fee Discount 2': course.feesStructure[1]?.discount || '',
+                'Fee Type 3': course.feesStructure[2]?.feesType || '',
+                'Fee Value 3': course.feesStructure[2]?.value || '',
+                'Fee Discount 3': course.feesStructure[2]?.discount || ''
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Courses');
+            const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            saveAs(data, `Courses_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+            toast.success(`Exported ${exportData.length} courses to Excel`);
+        } catch (error) {
+            console.error('Export error:', error);
+            toast.error('Failed to export courses');
+        }
+    };
+
+    const handleImportFromExcel = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        try {
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                try {
+                    const workbook = XLSX.read(event.target.result, { type: 'binary' });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const importedData = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (importedData.length === 0) {
+                        toast.error('No data found in Excel file');
+                        return;
+                    }
+
+                    const token = localStorage.getItem('token');
+                    let successCount = 0;
+                    let errorCount = 0;
+
+                    for (const row of importedData) {
+                        try {
+                            // Find matching IDs from master data
+                            const dept = departments.find(d => d.departmentName === row['Department']);
+                            const cls = classes.find(c => c.name === row['Class']);
+                            const tag = examTags.find(t => t.name === row['Exam Tag']);
+
+                            if (!dept || !tag) {
+                                console.warn(`Skipping row: Missing department or exam tag for ${row['Course Name']}`);
+                                errorCount++;
+                                continue;
+                            }
+
+                            const feesStructure = [];
+                            if (row['Fee Type 1']) {
+                                feesStructure.push({
+                                    feesType: row['Fee Type 1'],
+                                    value: row['Fee Value 1'] || 0,
+                                    discount: row['Fee Discount 1'] || '0'
+                                });
+                            }
+                            if (row['Fee Type 2']) {
+                                feesStructure.push({
+                                    feesType: row['Fee Type 2'],
+                                    value: row['Fee Value 2'] || 0,
+                                    discount: row['Fee Discount 2'] || '0'
+                                });
+                            }
+                            if (row['Fee Type 3']) {
+                                feesStructure.push({
+                                    feesType: row['Fee Type 3'],
+                                    value: row['Fee Value 3'] || 0,
+                                    discount: row['Fee Discount 3'] || '0'
+                                });
+                            }
+
+                            const courseData = {
+                                courseName: row['Course Name'],
+                                department: dept._id,
+                                class: cls?._id || null,
+                                examTag: tag._id,
+                                courseSession: row['Course Session'],
+                                courseDuration: row['Duration'],
+                                coursePeriod: row['Period'],
+                                mode: row['Mode'],
+                                courseType: row['Course Type'],
+                                programme: row['Programme'],
+                                feesStructure: feesStructure.length > 0 ? feesStructure : [{ feesType: 'Default', value: 0, discount: '0' }]
+                            };
+
+                            const response = await fetch(`${apiUrl}/course/create`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`
+                                },
+                                body: JSON.stringify(courseData)
+                            });
+
+                            if (response.ok) {
+                                successCount++;
+                            } else {
+                                errorCount++;
+                            }
+                        } catch (rowError) {
+                            console.error('Row import error:', rowError);
+                            errorCount++;
+                        }
+                    }
+
+                    toast.success(`Import complete: ${successCount} courses added, ${errorCount} failed`);
+                    fetchData();
+                } catch (parseError) {
+                    console.error('Parse error:', parseError);
+                    toast.error('Failed to parse Excel file');
+                }
+            };
+            reader.readAsBinaryString(file);
+        } catch (error) {
+            console.error('Import error:', error);
+            toast.error('Failed to import courses');
+        }
+        e.target.value = '';
+    };
+
+
     return (
         <div className="flex-1 bg-[#131619] p-3 sm:p-6 overflow-y-auto text-white">
             <ToastContainer position="top-right" theme="dark" />
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 sm:mb-6">
                 <h2 className="text-xl sm:text-2xl font-bold text-cyan-400">Course Master Data</h2>
-                {canCreate && (
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                     <button
-                        onClick={() => openModal()}
-                        className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base w-full sm:w-auto justify-center"
+                        onClick={handleExportToExcel}
+                        className="flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base flex-1 sm:flex-initial justify-center"
                     >
-                        <FaPlus /> Add Course
+                        <FaFileExport /> Export
                     </button>
-                )}
+                    <label className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base flex-1 sm:flex-initial justify-center cursor-pointer">
+                        <FaFileImport /> Import
+                        <input
+                            type="file"
+                            accept=".xlsx,.xls"
+                            onChange={handleImportFromExcel}
+                            className="hidden"
+                        />
+                    </label>
+                    {canCreate && (
+                        <button
+                            onClick={() => openModal()}
+                            className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base flex-1 sm:flex-initial justify-center"
+                        >
+                            <FaPlus /> Add Course
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Filter Section */}
@@ -349,6 +521,18 @@ const CourseContent = () => {
                             ))}
                         </select>
                     </div>
+                    <div>
+                        <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Programme</label>
+                        <select
+                            value={filters.programme}
+                            onChange={(e) => handleFilterChange('programme', e.target.value)}
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-xs sm:text-sm focus:outline-none focus:border-cyan-500"
+                        >
+                            <option value="">All Programmes</option>
+                            <option value="CRP">CRP</option>
+                            <option value="NCRP">NCRP</option>
+                        </select>
+                    </div>
                 </div>
                 <div className="mt-3 flex justify-end">
                     <button
@@ -371,6 +555,7 @@ const CourseContent = () => {
                             <th className="p-4 border-b border-gray-700">Exam Tag</th>
                             <th className="p-4 border-b border-gray-700">Mode</th>
                             <th className="p-4 border-b border-gray-700">Type</th>
+                            <th className="p-4 border-b border-gray-700">Programme</th>
                             <th className="p-4 border-b border-gray-700 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -398,6 +583,11 @@ const CourseContent = () => {
                                     <td className="p-4 text-gray-400">
                                         <span className={`px-2 py-1 rounded text-xs ${course.courseType === 'INSTATION' ? 'bg-purple-500/20 text-purple-400' : 'bg-orange-500/20 text-orange-400'}`}>
                                             {course.courseType}
+                                        </span>
+                                    </td>
+                                    <td className="p-4 text-gray-400">
+                                        <span className={`px-2 py-1 rounded text-xs ${course.programme === 'CRP' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-pink-500/20 text-pink-400'}`}>
+                                            {course.programme}
                                         </span>
                                     </td>
                                     <td className="p-4 text-right">
@@ -505,6 +695,14 @@ const CourseContent = () => {
                                         </span>
                                     </p>
                                 </div>
+                                <div>
+                                    <span className="text-gray-500">Programme:</span>
+                                    <p>
+                                        <span className={`px-2 py-0.5 rounded text-xs ${course.programme === 'CRP' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-pink-500/20 text-pink-400'}`}>
+                                            {course.programme}
+                                        </span>
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     ))
@@ -572,6 +770,7 @@ const CourseContent = () => {
                                 <div>
                                     <label className="block text-gray-400 mb-1 text-sm">Course Period</label>
                                     <select name="coursePeriod" value={formData.coursePeriod} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required>
+                                        <option value="">Select Period</option>
                                         <option value="Yearly">Yearly</option>
                                         <option value="Monthly">Monthly</option>
                                     </select>
@@ -579,6 +778,7 @@ const CourseContent = () => {
                                 <div>
                                     <label className="block text-gray-400 mb-1 text-sm">Mode</label>
                                     <select name="mode" value={formData.mode} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required>
+                                        <option value="">Select Mode</option>
                                         <option value="OFFLINE">OFFLINE</option>
                                         <option value="ONLINE">ONLINE</option>
                                     </select>
@@ -586,8 +786,17 @@ const CourseContent = () => {
                                 <div>
                                     <label className="block text-gray-400 mb-1 text-sm">Course Type</label>
                                     <select name="courseType" value={formData.courseType} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required>
+                                        <option value="">Select Type</option>
                                         <option value="INSTATION">INSTATION</option>
                                         <option value="OUTSTATION">OUTSTATION</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-gray-400 mb-1 text-sm">Programme</label>
+                                    <select name="programme" value={formData.programme} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required>
+                                        <option value="">Select Programme</option>
+                                        <option value="CRP">CRP</option>
+                                        <option value="NCRP">NCRP</option>
                                     </select>
                                 </div>
                             </div>
@@ -685,6 +894,14 @@ const CourseContent = () => {
                                     <p>
                                         <span className={`px-3 py-1 rounded ${selectedCourse.courseType === 'INSTATION' ? 'bg-purple-500/20 text-purple-400' : 'bg-orange-500/20 text-orange-400'}`}>
                                             {selectedCourse.courseType}
+                                        </span>
+                                    </p>
+                                </div>
+                                <div>
+                                    <label className="text-gray-400 text-sm">Programme</label>
+                                    <p>
+                                        <span className={`px-3 py-1 rounded ${selectedCourse.programme === 'CRP' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-pink-500/20 text-pink-400'}`}>
+                                            {selectedCourse.programme}
                                         </span>
                                     </p>
                                 </div>

@@ -274,7 +274,17 @@ const StudentRegistrationForm = () => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData({ ...formData, [name]: value });
+
+        if (name === "course") {
+            const selectedCourseObj = courses.find(c => c._id === value);
+            setFormData(prev => ({
+                ...prev,
+                [name]: value,
+                programme: selectedCourseObj ? selectedCourseObj.programme : ""
+            }));
+        } else {
+            setFormData({ ...formData, [name]: value });
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -489,16 +499,7 @@ const StudentRegistrationForm = () => {
                                     />
                                 </div>
 
-                                <select
-                                    name="programme"
-                                    value={formData.programme}
-                                    onChange={handleChange}
-                                    className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full"
-                                >
-                                    <option value="">Select Programme</option>
-                                    <option value="CRP">CRP</option>
-                                    <option value="NCRP">NCRP</option>
-                                </select>
+
                                 <textarea name="address" value={formData.address} onChange={handleChange} placeholder="Address" rows="2" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full md:col-span-2 lg:col-span-3 resize-none"></textarea>
                             </div>
                         </div>

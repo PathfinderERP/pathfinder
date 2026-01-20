@@ -486,6 +486,22 @@ const EnrolledStudentsContent = () => {
                     }
                 });
 
+                // Update local state for immediate reflection
+                setStudentAdmissions(prev => prev.map(adm => {
+                    if (adm._id === (data.admission?._id || selectedAdmission._id)) {
+                        return data.admission || {
+                            ...selectedAdmission,
+                            paymentBreakdown: selectedAdmission.paymentBreakdown.map(inst =>
+                                inst.installmentNumber === selectedInstallment.installmentNumber
+                                    ? { ...inst, paidAmount: paymentData.paidAmount, paidDate: paymentData.receivedDate, status: paymentData.paymentMethod === "CHEQUE" ? "PENDING_CLEARANCE" : "PAID", paymentMethod: paymentData.paymentMethod }
+                                    : inst
+                            ),
+                            totalPaidAmount: (selectedAdmission.totalPaidAmount || 0) + paymentData.paidAmount
+                        };
+                    }
+                    return adm;
+                }));
+
                 setSelectedInstallment(null);
                 setSelectedAdmission(null);
                 fetchAdmissions();
@@ -1330,7 +1346,7 @@ const EnrolledStudentsContent = () => {
                                                     <h6 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
                                                         <FaCalendar /> {admission.admissionType === 'BOARD' ? 'Monthly Payment History' : 'Payment Schedule'}
                                                     </h6>
-                                                    <div className="overflow-x-auto">
+                                                    <div className="overflow-x-auto max-h-[300px] overflow-y-auto custom-scrollbar">
                                                         {admission.admissionType === 'BOARD' ? (
                                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                                                 {admission.monthlySubjectHistory?.length > 0 ? (

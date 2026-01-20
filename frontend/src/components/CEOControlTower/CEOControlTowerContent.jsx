@@ -11,6 +11,7 @@ import {
 
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import EmployeeAttendanceAnalytics from './EmployeeAttendanceAnalytics';
 
 // Reusable Components matching Attendance Management Styling
 const StatCard = ({ title, value, subValue, icon, color = "cyan", isDarkMode }) => (
@@ -549,6 +550,15 @@ const CEOControlTowerContent = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Employee Attendance Analytics Section */}
+            <EmployeeAttendanceAnalytics
+                masterData={{
+                    departments: data?.workforce?.departments || [],
+                    designations: data?.workforce?.designations || [],
+                    centres: data?.workforce?.centres || []
+                }}
+            />
 
             <style>{`
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }

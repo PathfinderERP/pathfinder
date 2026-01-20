@@ -37,8 +37,9 @@ export const getCEOAnalytics = async (req, res) => {
         let centreFilter = {};
         let employeeCentreFilter = {};
         if (centre && centre !== 'ALL') {
-            centreFilter = { centre: centre };
-            employeeCentreFilter = { centerArray: centre }; // Match strings in centerArray
+            const centres = centre.split(',');
+            centreFilter = { centre: { $in: centres } };
+            employeeCentreFilter = { centerArray: { $in: centres } };
         }
 
         // Fetch Master Data for Workforce Distribution
@@ -48,7 +49,7 @@ export const getCEOAnalytics = async (req, res) => {
             Centre.find({}).select("centreName").lean()
         ]);
 
-        // 1. Workforce Analytics (Filter-friendly)
+        // 1. Workforce Analytics
         const [
             totalEmployees,
             deptDistributionRaw,
@@ -85,13 +86,13 @@ export const getCEOAnalytics = async (req, res) => {
                 { $unwind: { path: "$desigInfo", preserveNullAndEmptyArrays: true } },
                 { $group: { _id: "$desigInfo.name", count: { $sum: 1 } } }
             ]),
-            // Centre Distribution (Using Primary Centre)
+            // Centre Distribution
             Employee.aggregate([
                 { $match: { status: "Active", ...employeeCentreFilter } },
                 {
                     $lookup: {
-                        from: "centreschemas", // Correct collection name for CentreSchema model
-                        localField: "primaryCentre", // Using primaryCentre for unique distribution
+                        from: "centreschemas",
+                        localField: "primaryCentre",
                         foreignField: "_id",
                         as: "centreInfo"
                     }
@@ -114,7 +115,7 @@ export const getCEOAnalytics = async (req, res) => {
                     $lookup: {
                         from: "employees",
                         localField: "employeeId",
-                        foreignField: "employeeId",
+                        foreignField: "_id", // FIXED: link to _id (ObjectId), not employeeId (String)
                         as: "emp"
                     }
                 },
@@ -124,7 +125,7 @@ export const getCEOAnalytics = async (req, res) => {
             ])
         ]);
 
-        // Format Distributions (Ensure all Master Data items are present)
+        // Format Distributions
         const formatDistribution = (masterList, rawData, nameKey) => {
             return masterList.map(item => {
                 const found = rawData.find(d => d._id === item[nameKey]);
@@ -132,7 +133,7 @@ export const getCEOAnalytics = async (req, res) => {
                     name: item[nameKey],
                     count: found ? found.count : 0
                 };
-            }).sort((a, b) => b.count - a.count); // Sort by count desc
+            }).sort((a, b) => b.count - a.count);
         };
 
         const deptDistribution = formatDistribution(allDepartments, deptDistributionRaw, "departmentName");
@@ -180,7 +181,7 @@ export const getCEOAnalytics = async (req, res) => {
                 },
                 { $sort: { "_id": 1 } }
             ]),
-            // Transaction Method Distribution (Realized Payments Only)
+            // Transaction Method Distribution
             Admission.aggregate([
                 { $match: { admissionStatus: 'ACTIVE', ...admissionDateFilter, ...centreFilter } },
                 {
@@ -232,7 +233,7 @@ export const getCEOAnalytics = async (req, res) => {
             ])
         ]);
 
-        // 3. Student Demographics (Filterable)
+        // 3. Student Demographics
         const [studentGender, studentState, studentBoard, studentDept, studentCourse, boardCourseAnalysis, normalCourseAnalysis, boardSubjectAnalysis] = await Promise.all([
             Admission.aggregate([
                 { $match: { admissionStatus: 'ACTIVE', ...admissionDateFilter, ...centreFilter } },
@@ -269,7 +270,6 @@ export const getCEOAnalytics = async (req, res) => {
                 { $sort: { count: -1 } },
                 { $limit: 10 }
             ]),
-            // New: Board Course Analysis
             Admission.aggregate([
                 { $match: { admissionStatus: 'ACTIVE', admissionType: "BOARD", ...admissionDateFilter, ...centreFilter } },
                 { $lookup: { from: "boards", localField: "board", foreignField: "_id", as: "b" } },
@@ -277,7 +277,6 @@ export const getCEOAnalytics = async (req, res) => {
                 { $group: { _id: "$b.name", count: { $sum: 1 }, revenue: { $sum: "$totalPaidAmount" } } },
                 { $sort: { count: -1 } }
             ]),
-            // New: Normal Course Analysis
             Admission.aggregate([
                 { $match: { admissionStatus: 'ACTIVE', admissionType: "NORMAL", ...admissionDateFilter, ...centreFilter } },
                 { $lookup: { from: "courses", localField: "course", foreignField: "_id", as: "c" } },
@@ -285,7 +284,6 @@ export const getCEOAnalytics = async (req, res) => {
                 { $group: { _id: "$c.courseName", count: { $sum: 1 }, revenue: { $sum: "$totalPaidAmount" } } },
                 { $sort: { count: -1 } }
             ]),
-            // New: Board Subject Analysis
             Admission.aggregate([
                 { $match: { admissionStatus: 'ACTIVE', admissionType: "BOARD", ...admissionDateFilter, ...centreFilter } },
                 { $unwind: "$selectedSubjects" },
@@ -294,7 +292,7 @@ export const getCEOAnalytics = async (req, res) => {
             ])
         ]);
 
-        // 4. Centre Performance (Global Comparison)
+        // 4. Centre Performance
         const centrePerformance = await Admission.aggregate([
             { $match: { admissionStatus: 'ACTIVE', ...admissionDateFilter } },
             { $group: { _id: "$centre", revenue: { $sum: "$totalPaidAmount" }, count: { $sum: 1 } } },
@@ -302,7 +300,7 @@ export const getCEOAnalytics = async (req, res) => {
             { $limit: 20 }
         ]);
 
-        // Combined Conversion Trend (Registrations vs Admissions)
+        // Combined Conversion Trend
         const allDates = [...new Set([...dailyTrend.map(d => d._id), ...registrationTrend.map(r => r._id)])].sort();
         const conversionTrend = allDates.map(date => {
             const adm = dailyTrend.find(d => d._id === date) || { count: 0, revenue: 0 };
@@ -357,5 +355,211 @@ export const getCEOAnalytics = async (req, res) => {
     } catch (error) {
         console.error("CEO Analytics Controller Error:", error);
         res.status(500).json({ success: false, message: "Server error", error: error.message });
+    }
+};
+
+/**
+ * Get Detailed Employee Attendance Analytics for CEO Dashboard
+ */
+export const getCEOAttendanceAnalytics = async (req, res) => {
+    try {
+        const { startDate, endDate, centre, department, designation, period } = req.query;
+
+        // Date Filters
+        const dateFilter = {};
+        if (startDate && endDate) {
+            dateFilter.date = {
+                $gte: new Date(startDate),
+                $lte: new Date(endDate)
+            };
+        }
+
+        // Aggregation Pipeline
+        const pipeline = [
+            { $match: dateFilter },
+            {
+                $lookup: {
+                    from: "employees",
+                    localField: "employeeId",
+                    foreignField: "_id", // FIXED: link to _id (ObjectId)
+                    as: "emp"
+                }
+            },
+            { $unwind: "$emp" },
+            { $match: { "emp.status": "Active" } },
+        ];
+
+        // Multi-select handling for Centre
+        if (centre && centre !== 'ALL') {
+            const centres = centre.split(',');
+            pipeline.push({ $match: { "emp.centerArray": { $in: centres } } });
+        }
+
+        // Lookup Department & Designation
+        if (department || designation) {
+            pipeline.push(
+                {
+                    $lookup: {
+                        from: "departments",
+                        localField: "emp.department",
+                        foreignField: "_id",
+                        as: "emp.deptInfo"
+                    }
+                },
+                { $unwind: { path: "$emp.deptInfo", preserveNullAndEmptyArrays: true } },
+                {
+                    $lookup: {
+                        from: "designations",
+                        localField: "emp.designation",
+                        foreignField: "_id",
+                        as: "emp.desigInfo"
+                    }
+                },
+                { $unwind: { path: "$emp.desigInfo", preserveNullAndEmptyArrays: true } }
+            );
+
+            // Multi-select handling for Department/Designation
+            if (department && department !== 'ALL') {
+                const depts = department.split(',');
+                pipeline.push({ $match: { "emp.deptInfo.departmentName": { $in: depts } } });
+            }
+            if (designation && designation !== 'ALL') {
+                const desigs = designation.split(',');
+                pipeline.push({ $match: { "emp.desigInfo.name": { $in: desigs } } });
+            }
+        }
+
+        // Grouping by Period
+        let dateFormat = "%Y-%m-%d"; // Default 'day'
+        if (period === 'week') dateFormat = "%Y-%U";
+        else if (period === 'month') dateFormat = "%Y-%m";
+        else if (period === 'year') dateFormat = "%Y";
+
+        pipeline.push({
+            $group: {
+                _id: { $dateToString: { format: dateFormat, date: "$date" } },
+                present: { $sum: { $cond: [{ $eq: ["$status", "Present"] }, 1, 0] } },
+                absent: { $sum: { $cond: [{ $eq: ["$status", "Absent"] }, 1, 0] } },
+                late: { $sum: { $cond: [{ $eq: ["$status", "Late"] }, 1, 0] } },
+                halfDay: { $sum: { $cond: [{ $eq: ["$status", "Half Day"] }, 1, 0] } },
+                totalRecords: { $sum: 1 }
+            }
+        });
+
+        pipeline.push({ $sort: { "_id": 1 } });
+
+        const trends = await EmployeeAttendance.aggregate(pipeline);
+
+        res.status(200).json({
+            success: true,
+            data: trends
+        });
+
+    } catch (error) {
+        console.error("Attendance Analytics Error:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+};
+
+/**
+ * Get Single Employee Performance Analytics
+ */
+export const getEmployeePerformance = async (req, res) => {
+    try {
+        const { employeeId, startDate, endDate } = req.query;
+
+        if (!employeeId) return res.status(400).json({ success: false, message: "Employee ID required" });
+
+        const dateFilter = {};
+        if (startDate && endDate) {
+            dateFilter.date = {
+                $gte: new Date(startDate),
+                $lte: new Date(endDate)
+            };
+        }
+
+        // 1. Fetch Employee Details
+        const employee = await Employee.findOne({ employeeId: employeeId })
+            .populate('department', 'departmentName')
+            .populate('designation', 'name')
+            .populate('primaryCentre', 'centreName')
+            .lean();
+
+        if (!employee) return res.status(404).json({ success: false, message: "Employee not found" });
+
+        // 2. Fetch Attendance Records
+        const attendanceRecords = await EmployeeAttendance.find({
+            employeeId: employee._id, // FIXED: Use ObjectId (_id)
+            ...dateFilter
+        }).sort({ date: 1 }).lean();
+
+        // 3. Process Stats
+        const stats = {
+            present: 0,
+            absent: 0,
+            late: 0,
+            halfDay: 0,
+            totalDays: attendanceRecords.length
+        };
+
+        const timeline = attendanceRecords.map(record => {
+            if (record.status === 'Present') stats.present++;
+            if (record.status === 'Absent') stats.absent++;
+            if (record.status === 'Late') stats.late++;
+            if (record.status === 'Half Day') stats.halfDay++;
+
+            return {
+                date: record.date.toISOString().split('T')[0],
+                status: record.status,
+                punchIn: record.punchIn || null,
+                punchOut: record.punchOut || null
+            };
+        });
+
+        res.status(200).json({
+            success: true,
+            data: {
+                employee: {
+                    name: employee.employeeName, // Correct field name
+                    id: employee.employeeId,
+                    department: employee.department?.departmentName || "N/A",
+                    designation: employee.designation?.name || "N/A",
+                    centre: employee.primaryCentre?.centreName || "N/A",
+                    image: employee.employeeImage
+                },
+                stats,
+                timeline
+            }
+        });
+
+    } catch (error) {
+        console.error("Employee Performance Error:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+};
+
+/**
+ * Search Employees for CEO Dashboard
+ */
+export const searchEmployees = async (req, res) => {
+    try {
+        const { query } = req.query;
+        if (!query) return res.json({ success: true, data: [] });
+
+        const employees = await Employee.find({
+            status: "Active",
+            $or: [
+                { employeeName: { $regex: query, $options: "i" } },
+                { employeeId: { $regex: query, $options: "i" } }
+            ]
+        })
+            .select("employeeName employeeId employeeImage")
+            .limit(10)
+            .lean();
+
+        res.json({ success: true, data: employees });
+    } catch (error) {
+        console.error("Search Error:", error);
+        res.status(500).json({ success: false, message: "Server error" });
     }
 };

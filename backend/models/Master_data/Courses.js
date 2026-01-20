@@ -53,6 +53,11 @@ const courseSchema = new mongoose.Schema({
         type: String,
         enum: ["INSTATION", "OUTSTATION"],
         required: true,
+    },
+    programme: {
+        type: String,
+        enum: ["CRP", "NCRP"],
+        required: true,
     }
 }, { timestamps: true });
 
