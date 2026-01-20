@@ -177,7 +177,7 @@ export const generateMonthlyBill = async (req, res) => {
                         admission.monthlySubjectHistory[histologicalIndex].totalAmount = totalAmount;
 
                         // If it's the CURRENT month being paid, set isPaid
-                        if (mKey === billingMonth && paymentMethod !== "CHEQUE" && Number(paymentAmount) >= totalAmount) {
+                        if (mKey === billingMonth && Number(paymentAmount) >= totalAmount) {
                             admission.monthlySubjectHistory[histologicalIndex].isPaid = true;
                         }
                     }
@@ -187,7 +187,7 @@ export const generateMonthlyBill = async (req, res) => {
                         month: mKey,
                         subjects: selectedSubjectsData,
                         totalAmount: totalAmount,
-                        isPaid: (mKey === billingMonth && paymentMethod !== "CHEQUE" && Number(paymentAmount) >= totalAmount)
+                        isPaid: (mKey === billingMonth && Number(paymentAmount) >= totalAmount)
                     });
                 }
             }
@@ -243,20 +243,17 @@ export const generateMonthlyBill = async (req, res) => {
                 existingPayment.courseFee = baseFees;
                 existingPayment.totalAmount = totalAmount;
 
-                // Keep existing billId or generate if missing
-                if (!existingPayment.billId && paymentMethod !== "CHEQUE") {
+                // Generate bill ID for all methods if missing
+                if (!existingPayment.billId) {
                     existingPayment.billId = await generateBillId(centreCode);
                 }
 
                 await existingPayment.save();
             } else {
-                // Create NEW Payment record
-                let newBillId = null;
-                if (paymentMethod !== "CHEQUE") {
-                    newBillId = await generateBillId(centreCode);
-                }
+                // Generate bill ID for all methods to allow receipts
+                let newBillId = await generateBillId(centreCode);
 
-                const payment = new Payment({
+                const paymentData = {
                     admission: admission._id,
                     installmentNumber: 0,
                     amount: totalAmount,
@@ -273,12 +270,17 @@ export const generateMonthlyBill = async (req, res) => {
                     boardCourseName: specificBoardCourseName,
                     remarks: `Monthly Payment for ${billingMonth}`,
                     recordedBy: req.user._id,
-                    billId: newBillId,
                     cgst: cgstAmount,
                     sgst: sgstAmount,
                     courseFee: baseFees,
                     totalAmount: totalAmount
-                });
+                };
+
+                if (newBillId) {
+                    paymentData.billId = newBillId;
+                }
+
+                const payment = new Payment(paymentData);
                 await payment.save();
             }
 

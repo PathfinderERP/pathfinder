@@ -95,13 +95,20 @@ export const createEmployee = async (req, res) => {
         // ---------------------------------------------------------
         // 1. Manually Generate Unique Employee ID (Fixing collision issue)
         // ---------------------------------------------------------
-        const lastEmpById = await Employee.findOne({ employeeId: { $regex: /^EMP/ } }).sort({ employeeId: -1 });
-        let newCount = 1;
+        const now = new Date();
+        const year = now.getFullYear().toString().slice(-2);
+        const prefix = `EMP${year}`;
+
+        const lastEmpById = await Employee.findOne({
+            employeeId: { $regex: new RegExp(`^${prefix}`) }
+        }).sort({ employeeId: -1 });
+
+        let sequence = 1;
         if (lastEmpById && lastEmpById.employeeId) {
-            const num = parseInt(lastEmpById.employeeId.replace("EMP", ""), 10);
-            if (!isNaN(num)) newCount = num + 1;
+            const lastSeq = parseInt(lastEmpById.employeeId.slice(5), 10);
+            if (!isNaN(lastSeq)) sequence = lastSeq + 1;
         }
-        employeeData.employeeId = `EMP${String(newCount).padStart(7, "0")}`;
+        employeeData.employeeId = `${prefix}${String(sequence).padStart(6, "0")}`;
 
         // ---------------------------------------------------------
         // 2. Create User Account (Auto-generate if not exists)

@@ -133,13 +133,10 @@ export const updateBoardSubjects = async (req, res) => {
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
 
-            // Only generate bill ID if NOT a cheque
-            let newBillId = null;
-            if (paymentMethod !== "CHEQUE") {
-                newBillId = await generateBillId(centreCode);
-            }
+            // Generate bill ID for all payment methods (including Cheque) to allow receipt download
+            let newBillId = await generateBillId(centreCode);
 
-            const payment = new Payment({
+            const paymentData = {
                 admission: admission._id,
                 installmentNumber: 0, // Monthly payment
                 amount: paymentAmount,
@@ -156,12 +153,17 @@ export const updateBoardSubjects = async (req, res) => {
                 remarks: `Monthly Payment for ${billingMonth}`,
                 recordedBy: req.user._id,
                 // Bill Details
-                billId: newBillId,
                 cgst: parseFloat(dpCgst.toFixed(2)),
                 sgst: parseFloat(dpSgst.toFixed(2)),
                 courseFee: parseFloat(dpCourseFee.toFixed(2)),
                 totalAmount: parseFloat(Number(paymentAmount).toFixed(2))
-            });
+            };
+
+            if (newBillId) {
+                paymentData.billId = newBillId;
+            }
+
+            const payment = new Payment(paymentData);
             await payment.save();
 
             // Update Centre Target Achieved

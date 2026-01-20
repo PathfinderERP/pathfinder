@@ -226,9 +226,22 @@ const admissionSchema = new mongoose.Schema({
 // Generate admission number before saving
 admissionSchema.pre('save', async function () {
     if (!this.admissionNumber) {
-        const year = new Date().getFullYear();
-        const count = await this.constructor.countDocuments();
-        this.admissionNumber = `PathStd${year}${String(count + 1).padStart(5, '0')}`;
+        const now = new Date();
+        const year = now.getFullYear().toString().slice(-2);
+        const prefix = `PATH${year}`;
+
+        // Find the latest admission number for the current year
+        const lastRecord = await this.constructor.findOne({
+            admissionNumber: new RegExp(`^${prefix}`)
+        }).sort({ admissionNumber: -1 });
+
+        let sequence = 1;
+        if (lastRecord && lastRecord.admissionNumber) {
+            const lastSeq = parseInt(lastRecord.admissionNumber.slice(6), 10);
+            if (!isNaN(lastSeq)) sequence = lastSeq + 1;
+        }
+
+        this.admissionNumber = `${prefix}${String(sequence).padStart(6, '0')}`;
     }
 });
 

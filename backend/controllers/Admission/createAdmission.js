@@ -243,8 +243,8 @@ export const createAdmission = async (req, res) => {
                     month: mKey,
                     subjects: selectedSubjectsData,
                     totalAmount: monthlyPaymentAmount,
-                    // Only the first month is marked as potentially paid by downpayment
-                    isPaid: (mKey === startMonthStr && paymentMethod !== "CHEQUE" && downPayment >= monthlyPaymentAmount)
+                    // The first month is marked as paid/covered by downpayment
+                    isPaid: (mKey === startMonthStr && downPayment >= monthlyPaymentAmount)
                 });
             }
         }
@@ -281,8 +281,8 @@ export const createAdmission = async (req, res) => {
             studentImage: studentImage || null,
             remarks: remarks ? `${remarks} (Prev Balance: ₹${previousBalance})` : (previousBalance > 0 ? `Previous Balance Included: ₹${previousBalance}` : ""),
             createdBy: req.user._id,
-            totalPaidAmount: (paymentMethod === "CHEQUE") ? 0 : downPayment,
-            paymentStatus: (paymentMethod === "CHEQUE") ? "PARTIAL" : (downPayment >= totalFees ? "COMPLETED" : "PARTIAL"),
+            totalPaidAmount: downPayment,
+            paymentStatus: (downPayment >= totalFees) ? "COMPLETED" : "PARTIAL",
             downPaymentStatus: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
             downPaymentReceivedDate: receivedDate ? new Date(receivedDate) : new Date(),
             downPaymentMethod: paymentMethod,
@@ -322,13 +322,10 @@ export const createAdmission = async (req, res) => {
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
 
-            // Only generate bill ID if NOT a cheque
-            let newBillId = null;
-            if (paymentMethod !== "CHEQUE") {
-                newBillId = await generateBillId(centreCode);
-            }
+            // Generate bill ID for all payment methods (including Cheque) to allow receipt download
+            let newBillId = await generateBillId(centreCode);
 
-            const payment = new Payment({
+            const paymentData = {
                 admission: admission._id,
                 installmentNumber: 0, // 0 for down payment
                 amount: downPayment,
@@ -346,12 +343,17 @@ export const createAdmission = async (req, res) => {
                 remarks: "Down Payment at Admission",
                 recordedBy: req.user._id,
                 // Bill Details
-                billId: newBillId,
                 cgst: parseFloat(dpCgst.toFixed(2)),
                 sgst: parseFloat(dpSgst.toFixed(2)),
                 courseFee: parseFloat(dpCourseFee.toFixed(2)),
                 totalAmount: parseFloat(Number(downPayment).toFixed(2))
-            });
+            };
+
+            if (newBillId) {
+                paymentData.billId = newBillId;
+            }
+
+            const payment = new Payment(paymentData);
             await payment.save();
         }
 
