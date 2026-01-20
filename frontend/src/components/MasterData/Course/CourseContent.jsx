@@ -764,7 +764,7 @@ const CourseContent = () => {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-gray-400 mb-1 text-sm">Course Duration</label>
+                                    <label className="block text-gray-400 mb-1 text-sm">Course Duration (In Month)</label>
                                     <input type="text" name="courseDuration" value={formData.courseDuration} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required />
                                 </div>
                                 <div>
@@ -785,7 +785,7 @@ const CourseContent = () => {
                                 </div>
                                 <div>
                                     <label className="block text-gray-400 mb-1 text-sm">Course Type</label>
-                                    <select name="courseType" value={formData.courseType} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required>
+                                    <select name="courseType" value={formData.courseType} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500">
                                         <option value="">Select Type</option>
                                         <option value="INSTATION">INSTATION</option>
                                         <option value="OUTSTATION">OUTSTATION</option>
@@ -793,7 +793,7 @@ const CourseContent = () => {
                                 </div>
                                 <div>
                                     <label className="block text-gray-400 mb-1 text-sm">Programme</label>
-                                    <select name="programme" value={formData.programme} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required>
+                                    <select name="programme" value={formData.programme} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500">
                                         <option value="">Select Programme</option>
                                         <option value="CRP">CRP</option>
                                         <option value="NCRP">NCRP</option>

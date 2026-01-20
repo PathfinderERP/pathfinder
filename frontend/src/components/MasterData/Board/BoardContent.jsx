@@ -295,7 +295,6 @@ const BoardContent = () => {
                                     onChange={handleInputChange}
                                     className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
                                     placeholder="Enter duration (e.g. 6 Months, 1 Year)"
-                                    required
                                 />
                             </div>
 

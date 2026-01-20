@@ -17,7 +17,7 @@ export const createCourse = async (req, res) => {
         } = req.body;
 
         // Validate fields
-        if (!courseName || !examTag || !courseDuration || !coursePeriod || !department || !courseSession || !feesStructure || !mode || !courseType || !programme) {
+        if (!courseName || !examTag || !courseDuration || !coursePeriod || !department || !courseSession || !feesStructure || !mode) {
             return res.status(400).json({ message: "All required fields must be provided." });
         }
 

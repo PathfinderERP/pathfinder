@@ -18,6 +18,7 @@ const StudentRegistrationForm = () => {
     const [filteredCourses, setFilteredCourses] = useState([]);
     const [selectedBatches, setSelectedBatches] = useState([]);
     const [boards, setBoards] = useState([]);
+    const [sources, setSources] = useState([]);
 
     const [courseFilters, setCourseFilters] = useState({
         mode: "",
@@ -214,6 +215,20 @@ const StudentRegistrationForm = () => {
         } catch (error) { console.error("Error fetching sessions:", error); }
     };
 
+    const fetchSources = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/source`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await response.json();
+            if (response.ok) {
+                // The API returns { sources: [...] } based on the controller research
+                setSources(data.sources || data);
+            }
+        } catch (error) { console.error("Error fetching sources:", error); }
+    };
+
     const fetchDepartments = async () => {
         try {
             const token = localStorage.getItem("token");
@@ -234,6 +249,7 @@ const StudentRegistrationForm = () => {
         fetchClasses();
         fetchSessions();
         fetchDepartments();
+        fetchSources();
     }, []);
 
     useEffect(() => {
@@ -475,14 +491,14 @@ const StudentRegistrationForm = () => {
                                         <option key={centre._id} value={centre.centreName}>{centre.centreName}</option>
                                     ))}
                                 </select>
-                                <select name="board" required value={formData.board} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
-                                    <option value="">Select Board *</option>
+                                <select name="board" value={formData.board} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
+                                    <option value="">Select Board</option>
                                     {boards.map((b) => (
                                         <option key={b._id} value={b.boardCourse}>{b.boardCourse}</option>
                                     ))}
                                 </select>
-                                <select name="state" required value={formData.state} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
-                                    <option value="">Select State *</option>
+                                <select name="state" value={formData.state} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
+                                    <option value="">Select State</option>
                                     {indianStates.map((state) => (
                                         <option key={state} value={state}>{state}</option>
                                     ))}
@@ -492,7 +508,12 @@ const StudentRegistrationForm = () => {
                                 <input type="text" name="whatsappNumber" required pattern="[0-9]{10}" value={formData.whatsappNumber} onChange={handleChange} placeholder="WhatsApp Number (10 digits) *" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="schoolName" value={formData.schoolName} onChange={handleChange} placeholder="School Name" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="pincode" value={formData.pincode} onChange={handleChange} placeholder="Pincode" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
-                                <input type="text" name="source" value={formData.source} onChange={handleChange} placeholder="Source" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
+                                <select name="source" value={formData.source} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
+                                    <option value="">Select Source</option>
+                                    {sources.map((s) => (
+                                        <option key={s._id} value={s.sourceName}>{s.sourceName}</option>
+                                    ))}
+                                </select>
 
                                 <select name="session" value={formData.session} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
                                     <option value="">Select Session</option>
@@ -503,7 +524,7 @@ const StudentRegistrationForm = () => {
                                     ))}
                                 </select>
                                 <select name="department" value={formData.department} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
-                                    <option value="">Select Department *</option>
+                                    <option value="">Select Department</option>
                                     {departments.map((dept) => (
                                         <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
                                     ))}
