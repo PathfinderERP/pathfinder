@@ -293,7 +293,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false }
                                     <label className="text-gray-400 text-sm">Course / Board</label>
                                     <p className="text-white font-medium">
                                         {admission.admissionType === 'BOARD'
-                                            ? admission.board?.boardCourse
+                                            ? (admission.boardCourseName || admission.board?.boardCourse || "Board Course")
                                             : (admission.course?.courseName || "N/A")}
                                     </p>
                                 </div>

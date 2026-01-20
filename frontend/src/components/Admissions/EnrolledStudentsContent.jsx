@@ -268,7 +268,7 @@ const EnrolledStudentsContent = () => {
         if (filterCourse.length > 0) {
             result = result.filter(item =>
                 item.admissions.some(admission => {
-                    const courseName = admission.course?.courseName || "";
+                    const courseName = admission.course?.courseName || admission.boardCourseName || "";
                     return filterCourse.includes(courseName);
                 })
             );
@@ -362,7 +362,7 @@ const EnrolledStudentsContent = () => {
         .filter(Boolean))].sort();
 
     const uniqueCourses = [...new Set(admissions
-        .map(a => a.course?.courseName)
+        .map(a => a.course?.courseName || a.boardCourseName)
         .filter(Boolean))].sort();
 
     const getStatusColor = (status) => {
@@ -911,14 +911,15 @@ const EnrolledStudentsContent = () => {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-[#252b32] text-gray-400 text-sm uppercase">
+                                <th className="p-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Enrollment ID</th>
                                 <th className="p-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Department</th>
                                 <th className="p-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Student</th>
                                 <th className="p-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Mobile</th>
                                 <th className="p-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Latest Course</th>
-                                <th className="p-4 font-medium">Total Courses</th>
-                                <th className="p-4 font-medium">Latest Status</th>
-                                <th className="p-4 font-medium">Admitted By</th>
-                                <th className="p-4 font-medium">Actions</th>
+                                <th className="p-4 font-medium text-xs font-bold text-gray-400 uppercase tracking-wider">Total Courses</th>
+                                <th className="p-4 font-medium text-xs font-bold text-gray-400 uppercase tracking-wider">Latest Status</th>
+                                <th className="p-4 font-medium text-xs font-bold text-gray-400 uppercase tracking-wider">Admitted By</th>
+                                <th className="p-4 font-medium text-xs font-bold text-gray-400 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800">
@@ -937,7 +938,12 @@ const EnrolledStudentsContent = () => {
                                     .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                                     .map((studentItem) => {
                                         const student = studentItem.student?.studentsDetails?.[0] || {};
-                                        const latestAdmission = studentItem.latestAdmission;
+                                        // Use the latest admission that matches the current view mode for display
+                                        const relevantAdmissions = studentItem.admissions.filter(a => {
+                                            if (viewMode === 'Board') return a.admissionType === 'BOARD';
+                                            return a.admissionType === 'NORMAL';
+                                        });
+                                        const latestAdmission = relevantAdmissions[0] || studentItem.latestAdmission;
                                         const studentImage = student.studentImage || null;
 
                                         return (
@@ -946,9 +952,14 @@ const EnrolledStudentsContent = () => {
                                                 className={`admissions-row-wave transition-colors group cursor-pointer ${studentItem.student.status === 'Deactivated' ? 'bg-red-500/5 hover:bg-red-500/10' : 'hover:bg-gray-800/50'}`}
                                                 onClick={() => openStudentModal(studentItem)}
                                             >
+                                                <td className="p-4 whitespace-nowrap">
+                                                    <span className="text-sm text-cyan-400 font-bold font-mono tracking-tight bg-cyan-400/5 px-2 py-1 rounded border border-cyan-400/20">
+                                                        {latestAdmission?.admissionNumber || "N/A"}
+                                                    </span>
+                                                </td>
                                                 <td className="p-4">
                                                     <span className="text-sm text-gray-300 font-medium bg-gray-800 px-2 py-1 rounded border border-gray-700">
-                                                        {latestAdmission?.department?.departmentName || "N/A"}
+                                                        {latestAdmission?.department?.departmentName || latestAdmission?.centre || "N/A"}
                                                     </span>
                                                 </td>
                                                 <td className="p-4">
@@ -975,12 +986,14 @@ const EnrolledStudentsContent = () => {
                                                 </td>
                                                 <td className="p-4 text-gray-300">{student.mobileNum || "N/A"}</td>
                                                 <td className="p-4">
-                                                    <div className="text-white font-medium">{latestAdmission?.course?.courseName || "N/A"}</div>
+                                                    <div className="text-white font-medium">
+                                                        {latestAdmission?.course?.courseName || latestAdmission?.boardCourseName || "N/A"}
+                                                    </div>
                                                     <div className="text-xs text-gray-400">{latestAdmission?.academicSession || ""}</div>
                                                 </td>
-                                                <td className="p-4">
+                                                <td className="p-4 text-center">
                                                     <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm font-semibold">
-                                                        {studentItem.totalCourses}
+                                                        {relevantAdmissions.length}
                                                     </span>
                                                 </td>
                                                 <td className="p-4">
@@ -1242,11 +1255,11 @@ const EnrolledStudentsContent = () => {
                                             <div className="bg-gray-800 p-4 flex justify-between items-center">
                                                 <div>
                                                     <h5 className="text-lg font-bold text-white">
-                                                        Course {index + 1}: {admission.course?.courseName}
+                                                        Course {index + 1}: {admission.course?.courseName || admission.boardCourseName || "N/A"}
                                                     </h5>
                                                     <p className="text-sm text-gray-400">
-                                                        Enrollment ID: <span className="text-cyan-400 font-mono font-semibold">{admission.admissionNumber}</span> •
-                                                        <span className="text-orange-400 font-semibold mx-1">{admission.admissionType === 'BOARD' ? (admission.board?.boardCourse || 'Board Course') : admission.department?.departmentName}</span> •
+                                                        Enrollment ID: <span className="text-cyan-400 font-mono font-semibold">{admission.admissionNumber || "N/A"}</span> •
+                                                        <span className="text-orange-400 font-semibold mx-1">{admission.admissionType === 'BOARD' ? (admission.board?.boardCourse || 'Board Course') : (admission.department?.departmentName || admission.centre)}</span> •
                                                         Academic: {admission.academicSession} •
                                                         Admission: {formatDate(admission.admissionDate)} • Admitted By: <span className="text-white font-semibold">{admission.createdBy?.name || (admission.createdBy ? "Unknown User" : "System")}</span>
                                                     </p>

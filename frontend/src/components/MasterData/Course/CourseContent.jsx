@@ -807,11 +807,16 @@ const CourseContent = () => {
                                     <label className="block text-gray-400 text-sm">Fees Structure</label>
                                     <button type="button" onClick={addFeeRow} className="text-xs text-cyan-400 hover:text-cyan-300">+ Add Fee</button>
                                 </div>
+                                <div className="flex gap-2 mb-1">
+                                    <span className="w-1/3 text-[10px] text-gray-500 uppercase tracking-wider">Fee Type</span>
+                                    <span className="w-1/3 text-[10px] text-gray-500 uppercase tracking-wider">Amount</span>
+                                    <span className="w-1/4 text-[10px] text-gray-500 uppercase tracking-wider">Discount</span>
+                                </div>
                                 {formData.feesStructure.map((fee, index) => (
                                     <div key={index} className="flex gap-2 mb-2">
-                                        <input type="text" placeholder="Type (e.g. Tuition)" value={fee.feesType} onChange={(e) => handleFeeChange(index, 'feesType', e.target.value)} className="w-1/3 bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm" required />
-                                        <input type="number" placeholder="Value" value={fee.value} onChange={(e) => handleFeeChange(index, 'value', e.target.value)} className="w-1/3 bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm" required />
-                                        <input type="text" placeholder="Discount (e.g. 10%)" value={fee.discount} onChange={(e) => handleFeeChange(index, 'discount', e.target.value)} className="w-1/4 bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm" required />
+                                        <input type="text" placeholder="e.g. Tuition" value={fee.feesType} onChange={(e) => handleFeeChange(index, 'feesType', e.target.value)} className="w-1/3 bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm" required />
+                                        <input type="number" placeholder="0.00" value={fee.value} onChange={(e) => handleFeeChange(index, 'value', e.target.value)} className="w-1/3 bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm" required />
+                                        <input type="text" placeholder="e.g. 0%" value={fee.discount} onChange={(e) => handleFeeChange(index, 'discount', e.target.value)} className="w-1/4 bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm" required />
                                         {formData.feesStructure.length > 1 && (
                                             <button type="button" onClick={() => removeFeeRow(index)} className="text-red-400 hover:text-red-300">
                                                 <FaTimes />
