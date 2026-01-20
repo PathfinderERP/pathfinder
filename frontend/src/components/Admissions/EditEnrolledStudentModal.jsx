@@ -122,18 +122,6 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate }) => {
                             board: formData.board,
                             centre: formData.centre,
                             source: admission.student?.studentsDetails?.[0]?.source || 'Walk-in',
-                            guardians: [{
-                                guardianName: formData.guardianName,
-                                qualification: formData.qualification,
-                                guardianEmail: formData.guardianEmail,
-                                guardianMobile: formData.guardianMobile,
-                                occupation: formData.occupation,
-                                annualIncome: formData.annualIncome,
-                                organizationName: formData.organizationName,
-                                designation: formData.designation,
-                                officeAddress: formData.officeAddress
-                            }],
-                            examSchema: admission.student?.studentsDetails?.[0]?.examSchema || []
                         }],
                         guardians: [{
                             guardianName: formData.guardianName,

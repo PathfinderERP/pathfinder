@@ -987,7 +987,10 @@ const EnrolledStudentsContent = () => {
                                                 <td className="p-4 text-gray-300">{student.mobileNum || "N/A"}</td>
                                                 <td className="p-4">
                                                     <div className="text-white font-medium">
-                                                        {latestAdmission?.course?.courseName || latestAdmission?.boardCourseName || "N/A"}
+                                                        {latestAdmission?.course?.courseName ||
+                                                            latestAdmission?.boardCourseName ||
+                                                            latestAdmission?.board?.boardCourse ||
+                                                            (typeof latestAdmission?.course === 'string' ? latestAdmission.course : "N/A")}
                                                     </div>
                                                     <div className="text-xs text-gray-400">{latestAdmission?.academicSession || ""}</div>
                                                 </td>

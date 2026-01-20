@@ -242,9 +242,9 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                     designation: student.guardians?.[0]?.designation || '',
                     officeAddress: student.guardians?.[0]?.officeAddress || '',
                 }],
-                course: formData.course,
-                batches: formData.batches,
-                department: formData.department,
+                course: formData.course || null,
+                batches: (formData.batches || []).filter(Boolean),
+                department: formData.department || null,
                 section: student.section || [],
             };
 
