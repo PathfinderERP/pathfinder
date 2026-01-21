@@ -4,7 +4,7 @@ import { FaPlus, FaEdit, FaTrash, FaMapMarkerAlt, FaBuilding, FaSearch, FaMap, F
 import { toast } from 'react-toastify';
 import { hasPermission } from '../config/permissions';
 import InteractiveMap from '../components/MasterData/Centre/InteractiveMap';
-import ExcelImportExport from "../components/Common/ExcelImportExport";
+import ExcelImportExport from "../components/common/ExcelImportExport";
 
 const ZoneManagement = () => {
     const [zones, setZones] = useState([]);

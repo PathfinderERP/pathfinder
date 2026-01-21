@@ -11,7 +11,7 @@ import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
-import ExcelImportExport from "../../components/Common/ExcelImportExport";
+import ExcelImportExport from "../../components/common/ExcelImportExport";
 
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {

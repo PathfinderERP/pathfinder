@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import Layout from "../components/Layout";
 import { FaPlus, FaEdit, FaTrash } from "react-icons/fa";
 import { toast } from "react-toastify";
-import ExcelImportExport from "../components/Common/ExcelImportExport";
+import ExcelImportExport from "../components/common/ExcelImportExport";
 
 const MasterDataDesignation = () => {
     const [designations, setDesignations] = useState([]);
