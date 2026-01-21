@@ -9,7 +9,8 @@ import {
     getEmployeesForDropdown,
     upload,
     getMyProfile,
-    updateMyProfile
+    updateMyProfile,
+    bulkImportEmployees
 } from "../../controllers/HR/employeeController.js";
 import { getEmployeeAnalytics } from "../../controllers/HR/employeeAnalyticsController.js";
 import authMiddleware from "../../middleware/authMiddleware.js";
@@ -42,6 +43,9 @@ router.get("/dropdown", getEmployeesForDropdown);
 // My Profile Routes (Must be before /:id)
 router.get("/me", getMyProfile);
 router.put("/me", uploadFields, updateMyProfile);
+
+// Bulk operations
+router.post("/bulk/import", bulkImportEmployees);
 
 // CRUD routes
 router.post("/", uploadFields, createEmployee);

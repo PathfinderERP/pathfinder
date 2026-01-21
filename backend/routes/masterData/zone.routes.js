@@ -8,6 +8,8 @@ import {
     addCentresToZone,
     removeCentresFromZone
 } from '../../controllers/masterData/zoneController.js';
+import { bulkImport } from '../../controllers/common/bulkController.js';
+import Zone from '../../models/Zone.js';
 import { requireAuth, requirePermission } from '../../middleware/permissionMiddleware.js';
 
 const router = express.Router();
@@ -20,6 +22,7 @@ router.get('/:id', requireAuth, requirePermission('Zone Management', 'read'), ge
 
 // Create new zone (requires create permission)
 router.post('/', requireAuth, requirePermission('Zone Management', 'create'), createZone);
+router.post('/import', requireAuth, requirePermission('Zone Management', 'create'), bulkImport(Zone));
 
 // Update zone (requires edit permission)
 router.put('/:id', requireAuth, requirePermission('Zone Management', 'edit'), updateZone);

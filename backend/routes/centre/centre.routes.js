@@ -4,6 +4,8 @@ import { getCentres, getCentreById } from "../../controllers/centre/getCentres.j
 import { updateCentre } from "../../controllers/centre/updateCentre.js";
 import { deleteCentre } from "../../controllers/centre/deleteCentre.js";
 import { requireAuth, requireGranularPermission } from "../../middleware/permissionMiddleware.js";
+import { bulkImport } from "../../controllers/common/bulkController.js";
+import Centre from "../../models/Master_data/Centre.js";
 
 const router = express.Router();
 
@@ -14,6 +16,7 @@ router.get("/:id", requireAuth, getCentreById);
 
 // Write routes - Require granular permissions
 router.post("/create", requireGranularPermission("masterData", "centre", "create"), createCentre);
+router.post("/import", requireGranularPermission("masterData", "centre", "create"), bulkImport(Centre));
 router.put("/:id", requireGranularPermission("masterData", "centre", "edit"), updateCentre);
 router.delete("/:id", requireGranularPermission("masterData", "centre", "delete"), deleteCentre);
 

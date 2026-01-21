@@ -1,5 +1,5 @@
 import express from "express";
-import { createAccountBySuperAdmin } from "../../auth/admin/superAdmin/createAccount.js";
+import { createAccountBySuperAdmin, bulkImportUsers } from "../../auth/admin/superAdmin/createAccount.js";
 import { getAllAdminsBySuperAdmin, getAllTeachersBySuperAdmin, getAllUsersBySuperAdmin } from "../../auth/admin/superAdmin/getAdminsTeachers.js";
 import { updateUserBySuperAdmin, deleteUserBySuperAdmin } from "../../auth/admin/superAdmin/updateDeleteUser.js";
 import adminTeacherLogin from "../../auth/admin/normalAdmin/adminTeacherLogin.js";
@@ -10,6 +10,7 @@ const router = express.Router();
 
 // User Management routes
 router.post("/createAccountbyAdmin", requireGranularPermission("userManagement", "users", "create"), createAccountBySuperAdmin);
+router.post("/importUsers", requireGranularPermission("userManagement", "users", "create"), bulkImportUsers);
 router.get("/getAllAdminsBySuperAdmin", requireAuth, getAllAdminsBySuperAdmin);
 router.get("/getAllTeachersBySuperAdmin", requireAuth, getAllTeachersBySuperAdmin);
 router.get("/getAllUsers", requireAuth, getAllUsersBySuperAdmin);

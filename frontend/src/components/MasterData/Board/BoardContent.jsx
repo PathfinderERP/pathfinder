@@ -4,6 +4,7 @@ import '../MasterDataWave.css';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { hasPermission } from '../../../config/permissions';
+import ExcelImportExport from "../../Common/ExcelImportExport";
 
 const BoardContent = () => {
     const [boards, setBoards] = useState([]);
@@ -183,19 +184,121 @@ const BoardContent = () => {
         }
     };
 
+    const handleBulkImport = async (importData) => {
+        const token = localStorage.getItem("token");
+
+        // Resolve subject names to IDs and structure the subjects array
+        const resolvedData = importData.map(item => {
+            const resolvedItem = { ...item };
+            const subjects = [];
+
+            // Pattern: Subject1:Price1, Subject2:Price2
+            for (let i = 1; i <= 5; i++) {
+                const subName = item[`subject${i}`];
+                const subPrice = item[`price${i}`];
+
+                if (subName && subPrice) {
+                    const matchedSub = allSubjects.find(s =>
+                        s.subName.toLowerCase() === subName.trim().toLowerCase()
+                    );
+                    if (matchedSub) {
+                        subjects.push({
+                            subjectId: matchedSub._id,
+                            price: Number(subPrice)
+                        });
+                    } else {
+                        throw new Error(`Subject "${subName}" not found for board ${item.boardCourse}`);
+                    }
+                }
+            }
+
+            if (subjects.length > 0) {
+                resolvedItem.subjects = subjects;
+            }
+
+            return resolvedItem;
+        });
+
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/board/import`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(resolvedData),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || "Bulk import failed");
+        }
+
+        fetchBoards();
+    };
+
+    const boardColumns = [
+        { header: "Board Name", key: "boardCourse" },
+        { header: "Duration", key: "duration" },
+        { header: "Subject 1", key: "subject1" },
+        { header: "Price 1", key: "price1" },
+        { header: "Subject 2", key: "subject2" },
+        { header: "Price 2", key: "price2" },
+        { header: "Subject 3", key: "subject3" },
+        { header: "Price 3", key: "price3" },
+    ];
+
+    const boardMapping = {
+        "Board Name": "boardCourse",
+        "Duration": "duration",
+        "Subject 1": "subject1",
+        "Price 1": "price1",
+        "Subject 2": "subject2",
+        "Price 2": "price2",
+        "Subject 3": "subject3",
+        "Price 3": "price3",
+    };
+
+    const prepareExportData = () => {
+        return boards.map(b => {
+            const row = { ...b };
+            b.subjects?.forEach((s, idx) => {
+                if (idx < 5) {
+                    row[`subject${idx + 1}`] = s.subjectId?.subName;
+                    row[`price${idx + 1}`] = s.price;
+                }
+            });
+            return row;
+        });
+    };
+
     return (
         <div className="flex-1 bg-[#131619] p-6 overflow-y-auto text-white">
             <ToastContainer position="top-right" theme="dark" />
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-cyan-400">Board Master Data</h2>
-                {canCreate && (
-                    <button
-                        onClick={() => openModal()}
-                        className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-colors"
-                    >
-                        <FaPlus /> Add Board
-                    </button>
-                )}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 className="text-2xl font-bold text-cyan-400">Board Master Data</h2>
+                    <p className="text-gray-400 text-sm mt-1">Manage boards and courses</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                    {canCreate && (
+                        <ExcelImportExport
+                            data={prepareExportData()}
+                            columns={boardColumns}
+                            mapping={boardMapping}
+                            onImport={handleBulkImport}
+                            fileName="board_masters"
+                        />
+                    )}
+                    {canCreate && (
+                        <button
+                            onClick={() => openModal()}
+                            className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-colors"
+                        >
+                            <FaPlus /> Add Board
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="bg-[#1a1f24] rounded-lg border border-gray-800 overflow-hidden">

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Layout from "../components/Layout";
 import { FaPlus, FaEdit, FaTrash } from "react-icons/fa";
 import { toast } from "react-toastify";
+import ExcelImportExport from "../components/Common/ExcelImportExport";
 
 const MasterDataDesignation = () => {
     const [designations, setDesignations] = useState([]);
@@ -137,6 +138,65 @@ const MasterDataDesignation = () => {
         }
     };
 
+    const handleBulkImport = async (importData) => {
+        const token = localStorage.getItem("token");
+
+        // Resolve department names to IDs
+        const resolvedData = importData.map(item => {
+            const resolvedItem = { ...item };
+
+            if (item.department) {
+                const matchedDept = departments.find(d =>
+                    d.departmentName.toLowerCase() === item.department.trim().toLowerCase()
+                );
+                if (matchedDept) {
+                    resolvedItem.department = matchedDept._id;
+                } else {
+                    throw new Error(`Department "${item.department}" not found for designation ${item.name}`);
+                }
+            }
+
+            return resolvedItem;
+        });
+
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/designation/import`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(resolvedData),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || "Bulk import failed");
+        }
+
+        fetchDesignations();
+    };
+
+    const designationColumns = [
+        { header: "Designation Name", key: "name" },
+        { header: "Department", key: "departmentName" },
+        { header: "Travel Amount", key: "travelAmount" },
+        { header: "Description", key: "description" }
+    ];
+
+    const designationMapping = {
+        "Designation Name": "name",
+        "Department": "department",
+        "Travel Amount": "travelAmount",
+        "Description": "description"
+    };
+
+    const prepareExportData = () => {
+        return designations.map(d => ({
+            ...d,
+            departmentName: d.department?.departmentName
+        }));
+    };
+
     const handleAddNew = () => {
         console.log("Opening modal, departments:", departments);
         setFormData({ name: "", description: "", department: "", travelAmount: 0 });
@@ -155,12 +215,21 @@ const MasterDataDesignation = () => {
                         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Designation</h1>
                         <p className="text-gray-600 dark:text-gray-400">Manage employee designations</p>
                     </div>
-                    <button
-                        onClick={handleAddNew}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
-                    >
-                        <FaPlus /> Add Designation
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <ExcelImportExport
+                            data={prepareExportData()}
+                            columns={designationColumns}
+                            mapping={designationMapping}
+                            onImport={handleBulkImport}
+                            fileName="designations"
+                        />
+                        <button
+                            onClick={handleAddNew}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-lg shadow-blue-500/20"
+                        >
+                            <FaPlus /> Add Designation
+                        </button>
+                    </div>
                 </div>
 
                 {/* Table */}

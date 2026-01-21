@@ -6,6 +6,7 @@ import AddCentreModal from "./AddCentreModal";
 import EditCentreModal from "./EditCentreModal";
 import "../MasterDataWave.css";
 import { hasPermission } from "../../../config/permissions";
+import ExcelImportExport from "../../Common/ExcelImportExport";
 
 const CentreContent = () => {
     const [centres, setCentres] = useState([]);
@@ -79,6 +80,53 @@ const CentreContent = () => {
         setShowEditModal(true);
     };
 
+    const handleBulkImport = async (importData) => {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${apiUrl}/centre/import`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(importData),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || "Bulk import failed");
+        }
+
+        fetchCentres();
+    };
+
+    const centreColumns = [
+        { header: "Centre Name", key: "centreName" },
+        { header: "Centre Code", key: "enterCode" },
+        { header: "State", key: "state" },
+        { header: "Email", key: "email" },
+        { header: "Phone Number", key: "phoneNumber" },
+        { header: "Location", key: "location" },
+        { header: "Address", key: "address" },
+        { header: "GST Number", key: "enterGstNo" },
+        { header: "Corporate Office Address", key: "enterCorporateOfficeAddress" },
+        { header: "Corporate Office Phone", key: "enterCorporateOfficePhoneNumber" },
+        { header: "Account Number", key: "accountNumber" },
+    ];
+
+    const centreMapping = {
+        "Centre Name": "centreName",
+        "Centre Code": "enterCode",
+        "State": "state",
+        "Email": "email",
+        "Phone Number": "phoneNumber",
+        "Location": "location",
+        "Address": "address",
+        "GST Number": "enterGstNo",
+        "Corporate Office Address": "enterCorporateOfficeAddress",
+        "Corporate Office Phone": "enterCorporateOfficePhoneNumber",
+        "Account Number": "accountNumber",
+    };
+
     const filteredCentres = centres.filter(centre =>
         centre.centreName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         centre.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -89,16 +137,31 @@ const CentreContent = () => {
         <div className="flex-1 p-6 overflow-y-auto bg-[#131619]">
             <ToastContainer position="top-right" theme="dark" />
 
-            <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-white">Centre Management</h2>
-                {canCreate && (
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-semibold rounded-lg hover:bg-cyan-400 transition-colors"
-                    >
-                        <FaPlus /> Add Centre
-                    </button>
-                )}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 className="text-2xl font-bold text-white">Centre Management</h2>
+                    <p className="text-gray-400 text-sm mt-1">Manage all your centres and branches</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                    {canCreate && (
+                        <ExcelImportExport
+                            data={centres}
+                            columns={centreColumns}
+                            mapping={centreMapping}
+                            onImport={handleBulkImport}
+                            fileName="centres"
+                        />
+                    )}
+                    {canCreate && (
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-semibold rounded-lg hover:bg-cyan-400 transition-colors"
+                        >
+                            <FaPlus /> Add Centre
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="bg-[#1a1f24] p-4 rounded-xl border border-gray-800 mb-6">

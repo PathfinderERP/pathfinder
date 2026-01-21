@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaEdit, FaTrash, FaPlus, FaTimes } from 'react-icons/fa';
 import '../MasterDataWave.css';
 import { hasPermission } from '../../../config/permissions';
+import ExcelImportExport from "../../Common/ExcelImportExport";
 
 const ExamTagContent = () => {
     const [examTags, setExamTags] = useState([]);
@@ -118,18 +119,55 @@ const ExamTagContent = () => {
         }
     };
 
+    const handleBulkImport = async (importData) => {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/examTag/import`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(importData),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || "Bulk import failed");
+        }
+
+        fetchExamTags();
+    };
+
+    const examTagColumns = [{ header: "Exam Tag Name", key: "name" }];
+    const examTagMapping = { "Exam Tag Name": "name" };
+
     return (
         <div className="flex-1 bg-[#131619] p-6 overflow-y-auto text-white">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-cyan-400">Exam Tag Master Data</h2>
-                {canCreate && (
-                    <button
-                        onClick={() => openModal()}
-                        className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-colors"
-                    >
-                        <FaPlus /> Add Exam Tag
-                    </button>
-                )}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 className="text-2xl font-bold text-cyan-400">Exam Tag Master Data</h2>
+                    <p className="text-gray-400 text-sm mt-1">Manage categories and tags for exams</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                    {canCreate && (
+                        <ExcelImportExport
+                            data={examTags}
+                            columns={examTagColumns}
+                            mapping={examTagMapping}
+                            onImport={handleBulkImport}
+                            fileName="exam_tags"
+                        />
+                    )}
+                    {canCreate && (
+                        <button
+                            onClick={() => openModal()}
+                            className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-colors"
+                        >
+                            <FaPlus /> Add Exam Tag
+                        </button>
+                    )}
+                </div>
             </div>
 
             {error && <div className="bg-red-500/20 text-red-400 p-3 rounded-lg mb-4">{error}</div>}

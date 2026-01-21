@@ -75,3 +75,51 @@ export async function createAccountBySuperAdmin(req, res) {
         res.status(500).json({ message: "Internal server error to create account by super admin" });
     }
 }
+
+export async function bulkImportUsers(req, res) {
+    try {
+        const users = req.body;
+        if (!Array.isArray(users) || users.length === 0) {
+            return res.status(400).json({ message: "Invalid data format. Expected an array." });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const processedUsers = await Promise.all(users.map(async (user) => {
+            const userData = { ...user };
+            // Hash password if provided
+            if (userData.password) {
+                userData.password = await bcrypt.hash(userData.password.toString(), salt);
+            }
+
+            // Handle granularPermissions if they come as a JSON string
+            if (userData.granularPermissions && typeof userData.granularPermissions === 'string') {
+                try {
+                    userData.granularPermissions = JSON.parse(userData.granularPermissions);
+                } catch (e) {
+                    userData.granularPermissions = {};
+                }
+            } else if (!userData.granularPermissions) {
+                userData.granularPermissions = {};
+            }
+
+            return userData;
+        }));
+
+        const results = await User.insertMany(processedUsers, { ordered: false });
+
+        res.status(201).json({
+            message: `${results.length} users imported successfully`,
+            count: results.length
+        });
+    } catch (err) {
+        console.error("Bulk import users error:", err);
+        if (err.name === 'BulkWriteError' || err.code === 11000) {
+            return res.status(207).json({
+                message: "Partial import success. Some records might be duplicates or invalid.",
+                importedCount: err.result?.nInserted || 0,
+                error: err.message
+            });
+        }
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+}

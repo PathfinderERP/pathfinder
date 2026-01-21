@@ -5,6 +5,8 @@ import { getExamTagById } from "../../controllers/examTag/getExamTagById.js";
 import { updateExamTag } from "../../controllers/examTag/updateExamTag.js";
 import { deleteExamTag } from "../../controllers/examTag/deleteExamTag.js";
 import { requireAuth, requireGranularPermission } from "../../middleware/permissionMiddleware.js";
+import { bulkImport } from "../../controllers/common/bulkController.js";
+import ExamTag from "../../models/Master_data/ExamTag.js";
 
 const router = express.Router();
 
@@ -14,6 +16,7 @@ router.get("/:id", requireAuth, getExamTagById);
 
 // Write routes - Require granular permissions
 router.post("/create", requireGranularPermission("masterData", "examTag", "create"), createExamTag);
+router.post("/import", requireGranularPermission("masterData", "examTag", "create"), bulkImport(ExamTag));
 router.put("/:id", requireGranularPermission("masterData", "examTag", "edit"), updateExamTag);
 router.delete("/:id", requireGranularPermission("masterData", "examTag", "delete"), deleteExamTag);
 

@@ -4,6 +4,7 @@ import '../MasterDataWave.css';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { hasPermission } from '../../../config/permissions';
+import ExcelImportExport from "../../Common/ExcelImportExport";
 
 const DepartmentContent = () => {
     const [departments, setDepartments] = useState([]);
@@ -120,19 +121,62 @@ const DepartmentContent = () => {
         }
     };
 
+    const handleBulkImport = async (importData) => {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/department/import`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(importData),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || "Bulk import failed");
+        }
+
+        fetchDepartments();
+    };
+
+    const departmentColumns = [
+        { header: "Department Name", key: "departmentName" },
+        { header: "Description", key: "description" }
+    ];
+    const departmentMapping = {
+        "Department Name": "departmentName",
+        "Description": "description"
+    };
+
     return (
         <div className="flex-1 bg-[#131619] p-6 overflow-y-auto text-white">
             <ToastContainer position="top-right" theme="dark" />
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-cyan-400">Department Master Data</h2>
-                {canCreate && (
-                    <button
-                        onClick={() => openModal()}
-                        className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-colors"
-                    >
-                        <FaPlus /> Add Department
-                    </button>
-                )}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 className="text-2xl font-bold text-cyan-400">Department Master Data</h2>
+                    <p className="text-gray-400 text-sm mt-1">Manage organizational departments</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                    {canCreate && (
+                        <ExcelImportExport
+                            data={departments}
+                            columns={departmentColumns}
+                            mapping={departmentMapping}
+                            onImport={handleBulkImport}
+                            fileName="departments"
+                        />
+                    )}
+                    {canCreate && (
+                        <button
+                            onClick={() => openModal()}
+                            className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-colors"
+                        >
+                            <FaPlus /> Add Department
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="bg-[#1a1f24] rounded-lg border border-gray-800 overflow-hidden">

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaEdit, FaTrash, FaPlus, FaTimes } from 'react-icons/fa';
 import '../MasterDataWave.css';
 import { hasPermission } from '../../../config/permissions';
+import ExcelImportExport from "../../Common/ExcelImportExport";
 
 const ClassContent = () => {
     const [classes, setClasses] = useState([]);
@@ -117,18 +118,55 @@ const ClassContent = () => {
         }
     };
 
+    const handleBulkImport = async (importData) => {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/class/import`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(importData),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || "Bulk import failed");
+        }
+
+        fetchClasses();
+    };
+
+    const classColumns = [{ header: "Class Name", key: "name" }];
+    const classMapping = { "Class Name": "name" };
+
     return (
         <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-white">Class Management</h2>
-                {canCreate && (
-                    <button
-                        onClick={() => openModal()}
-                        className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-bold rounded-lg hover:bg-cyan-400 transition-colors"
-                    >
-                        <FaPlus /> Add Class
-                    </button>
-                )}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 className="text-2xl font-bold text-white">Class Management</h2>
+                    <p className="text-gray-400 text-sm mt-1">Manage all available classes</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                    {canCreate && (
+                        <ExcelImportExport
+                            data={classes}
+                            columns={classColumns}
+                            mapping={classMapping}
+                            onImport={handleBulkImport}
+                            fileName="classes"
+                        />
+                    )}
+                    {canCreate && (
+                        <button
+                            onClick={() => openModal()}
+                            className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-bold rounded-lg hover:bg-cyan-400 transition-colors"
+                        >
+                            <FaPlus /> Add Class
+                        </button>
+                    )}
+                </div>
             </div>
 
             {error && (

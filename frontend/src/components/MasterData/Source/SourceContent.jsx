@@ -3,6 +3,7 @@ import { FaPlus, FaEdit, FaTrash, FaSearch } from "react-icons/fa";
 import { toast } from "react-toastify";
 import AddSourceModal from "./AddSourceModal";
 import EditSourceModal from "./EditSourceModal";
+import ExcelImportExport from "../../Common/ExcelImportExport";
 
 const SourceContent = () => {
     const [sources, setSources] = useState([]);
@@ -89,6 +90,38 @@ const SourceContent = () => {
         }
     };
 
+    const handleBulkImport = async (importData) => {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/source/import`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(importData),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || "Bulk import failed");
+        }
+
+        fetchSources();
+    };
+
+    const sourceColumns = [
+        { header: "Source Name", key: "sourceName" },
+        { header: "Source", key: "source" },
+        { header: "Sub Source", key: "subSource" },
+        { header: "Source Type", key: "sourceType" }
+    ];
+    const sourceMapping = {
+        "Source Name": "sourceName",
+        "Source": "source",
+        "Sub Source": "subSource",
+        "Source Type": "sourceType"
+    };
+
     const handleEdit = (source) => {
         setSelectedSource(source);
         setShowEditModal(true);
@@ -110,12 +143,21 @@ const SourceContent = () => {
                     <h2 className="text-2xl font-bold text-white">Source Management</h2>
                     <p className="text-gray-400 text-sm">Manage lead sources</p>
                 </div>
-                <button
-                    onClick={() => setShowAddModal(true)}
-                    className="flex items-center gap-2 bg-cyan-500 text-black px-4 py-2 rounded-lg font-semibold hover:bg-cyan-400 transition-colors"
-                >
-                    <FaPlus /> Add Source
-                </button>
+                <div className="flex items-center gap-3">
+                    <ExcelImportExport
+                        data={sources}
+                        columns={sourceColumns}
+                        mapping={sourceMapping}
+                        onImport={handleBulkImport}
+                        fileName="sources"
+                    />
+                    <button
+                        onClick={() => setShowAddModal(true)}
+                        className="flex items-center gap-2 bg-cyan-500 text-black px-4 py-2 rounded-lg font-semibold hover:bg-cyan-400 transition-colors shadow-lg shadow-cyan-500/20"
+                    >
+                        <FaPlus /> Add Source
+                    </button>
+                </div>
             </div>
 
             {/* Search Bar */}

@@ -11,6 +11,7 @@ import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
+import ExcelImportExport from "../../components/Common/ExcelImportExport";
 
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -47,7 +48,6 @@ const EmployeeList = () => {
         totalEmployees: 0
     });
     const [jumpPage, setJumpPage] = useState("");
-    const [showImportModal, setShowImportModal] = useState(false);
     const [analytics, setAnalytics] = useState(null);
     const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
@@ -60,6 +60,7 @@ const EmployeeList = () => {
     const [departments, setDepartments] = useState([]);
     const [designations, setDesignations] = useState([]);
     const [centres, setCentres] = useState([]);
+    const [allEmployeesDropdown, setAllEmployeesDropdown] = useState([]);
 
     useEffect(() => {
         fetchMasterData();
@@ -92,15 +93,17 @@ const EmployeeList = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [deptRes, desigRes, centreRes] = await Promise.all([
+            const [deptRes, desigRes, centreRes, empRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/department`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/designation`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/hr/employee/dropdown`, { headers })
             ]);
 
             if (deptRes.ok) setDepartments(await deptRes.json());
             if (desigRes.ok) setDesignations(await desigRes.json());
             if (centreRes.ok) setCentres(await centreRes.json());
+            if (empRes.ok) setAllEmployeesDropdown(await empRes.json());
         } catch (error) {
             console.error("Error fetching master data:", error);
         }
@@ -163,71 +166,173 @@ const EmployeeList = () => {
         toast.info("Filters cleared");
     };
 
-    const handleExportExcel = async () => {
-        try {
-            toast.info("Preparing export... Please wait");
-            const token = localStorage.getItem("token");
+    const employeeColumns = [
+        { header: "Name", key: "name" },
+        { header: "Email", key: "email" },
+        { header: "Phone Number", key: "phoneNumber" },
+        { header: "WhatsApp Number", key: "whatsappNumber" },
+        { header: "Date of Birth", key: "dateOfBirth" },
+        { header: "Gender", key: "gender" },
+        { header: "Blood Group", key: "bloodGroup" },
+        { header: "Spouse Name", key: "spouseName" },
+        { header: "Date of Joining", key: "dateOfJoining" },
+        { header: "Department", key: "department" },
+        { header: "Designation", key: "designation" },
+        { header: "Primary Centre", key: "primaryCentre" },
+        { header: "Grade", key: "grade" },
+        { header: "Manager", key: "manager" },
+        { header: "Employment Type", key: "typeOfEmployment" },
+        { header: "Working Hours", key: "workingHours" },
+        { header: "Current Salary", key: "currentSalary" },
+        { header: "Status", key: "status" },
+        { header: "Address", key: "address" },
+        { header: "City", key: "city" },
+        { header: "State", key: "state" },
+        { header: "Pin Code", key: "pinCode" },
+        { header: "Aadhar Number", key: "aadharNumber" },
+        { header: "PAN Number", key: "panNumber" },
+        { header: "Bank Name", key: "bankName" },
+        { header: "Branch Name", key: "branchName" },
+        { header: "Account Number", key: "accountNumber" },
+        { header: "IFSC Code", key: "ifscCode" },
+    ];
 
-            // Fetch ALL employees without pagination
+    const employeeMapping = {
+        name: "Name",
+        email: "Email",
+        phoneNumber: "Phone Number",
+        whatsappNumber: "WhatsApp Number",
+        dateOfBirth: "Date of Birth",
+        gender: "Gender",
+        bloodGroup: "Blood Group",
+        spouseName: "Spouse Name",
+        dateOfJoining: "Date of Joining",
+        department: "Department",
+        designation: "Designation",
+        primaryCentre: "Primary Centre",
+        grade: "Grade",
+        manager: "Manager",
+        typeOfEmployment: "Employment Type",
+        workingHours: "Working Hours",
+        currentSalary: "Current Salary",
+        status: "Status",
+        address: "Address",
+        city: "City",
+        state: "State",
+        pinCode: "Pin Code",
+        aadharNumber: "Aadhar Number",
+        panNumber: "PAN Number",
+        bankName: "Bank Name",
+        branchName: "Branch Name",
+        accountNumber: "Account Number",
+        ifscCode: "IFSC Code",
+    };
+
+    const prepareExportData = (data) => {
+        return data.map(emp => ({
+            ...emp,
+            department: emp.department?.departmentName || "",
+            designation: emp.designation?.name || "",
+            primaryCentre: emp.primaryCentre?.centreName || "",
+            manager: emp.manager?.name || "",
+            dateOfBirth: emp.dateOfBirth ? new Date(emp.dateOfBirth).toLocaleDateString() : "",
+            dateOfJoining: emp.dateOfJoining ? new Date(emp.dateOfJoining).toLocaleDateString() : "",
+        }));
+    };
+
+    const handleExportAllFiltered = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const params = new URLSearchParams({
+                limit: 100000, // Large limit to get all filtered records
+                ...(search && { search }),
+                ...(filters.department && { department: filters.department }),
+                ...(filters.designation && { designation: filters.designation }),
+                ...(filters.centre && { centre: filters.centre }),
+                ...(filters.status && { status: filters.status })
+            });
+
             const response = await fetch(
-                `${import.meta.env.VITE_API_URL}/hr/employee?limit=10000`,
+                `${import.meta.env.VITE_API_URL}/hr/employee?${params}`,
                 {
                     headers: { Authorization: `Bearer ${token}` }
                 }
             );
 
-            if (!response.ok) {
-                toast.error("Failed to fetch employee data");
-                return;
+            if (response.ok) {
+                const data = await response.json();
+                return data.employees || [];
+            } else {
+                toast.error("Failed to fetch data for export");
+                return [];
             }
-
-            const data = await response.json();
-            const allEmployees = data.employees || [];
-
-            if (allEmployees.length === 0) {
-                toast.warn("No data to export");
-                return;
-            }
-
-            const exportData = allEmployees.map(emp => ({
-                "Employee ID": emp.employeeId || "",
-                "Name": emp.name || "",
-                "Email": emp.email || "",
-                "Phone Number": emp.phoneNumber || "",
-                "WhatsApp Number": emp.whatsappNumber || "",
-                "Date of Birth": emp.dateOfBirth ? new Date(emp.dateOfBirth).toLocaleDateString() : "",
-                "Gender": emp.gender || "",
-                "Date of Joining": emp.dateOfJoining ? new Date(emp.dateOfJoining).toLocaleDateString() : "",
-                "Department": emp.department?.departmentName || "",
-                "Designation": emp.designation?.name || "",
-                "Primary Centre": emp.primaryCentre?.centreName || "",
-                "Employment Type": emp.typeOfEmployment || "",
-                "Working Hours": emp.workingHours || "",
-                "Current Salary": emp.currentSalary || "",
-                "Status": emp.status || "",
-                "Address": emp.address || "",
-                "City": emp.city || "",
-                "State": emp.state || "",
-                "Pin Code": emp.pinCode || "",
-                "Aadhar Number": emp.aadharNumber || "",
-                "PAN Number": emp.panNumber || "",
-                "Bank Name": emp.bankName || "",
-                "Account Number": emp.accountNumber || "",
-                "IFSC Code": emp.ifscCode || "",
-                "Spouse Name": emp.spouseName || "",
-                "Blood Group": emp.bloodGroup || ""
-            }));
-
-            const ws = XLSX.utils.json_to_sheet(exportData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "All Employees");
-            const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-            const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
-            saveAs(blob, `All_Employees_${new Date().toISOString().slice(0, 10)}.xlsx`);
-            toast.success(`Exported ${allEmployees.length} employees successfully!`);
         } catch (error) {
-            console.error("Export error:", error);
-            toast.error("Error exporting data");
+            console.error("Export fetch error:", error);
+            toast.error("Error fetching data for export");
+            return [];
+        }
+    };
+
+    const handleBulkDataImport = async (data) => {
+        try {
+            const processedData = data.map(item => {
+                const mapped = {};
+                Object.keys(employeeMapping).forEach(key => {
+                    const excelHeader = employeeMapping[key];
+                    if (item[excelHeader] !== undefined) {
+                        mapped[key] = item[excelHeader];
+                    }
+                });
+
+                // Resolve Reference Names to IDs
+                if (mapped.department) {
+                    const dept = departments.find(d => d.departmentName?.toLowerCase() === mapped.department.toLowerCase());
+                    mapped.department = dept ? dept._id : null;
+                }
+                if (mapped.designation) {
+                    const desig = designations.find(d => d.name?.toLowerCase() === mapped.designation.toLowerCase());
+                    mapped.designation = desig ? desig._id : null;
+                }
+                if (mapped.primaryCentre) {
+                    const centre = centres.find(c => c.centreName?.toLowerCase() === mapped.primaryCentre.toLowerCase());
+                    mapped.primaryCentre = centre ? centre._id : null;
+                }
+                if (mapped.manager) {
+                    const mgr = allEmployeesDropdown.find(e => e.name?.toLowerCase() === mapped.manager.toLowerCase());
+                    mapped.manager = mgr ? mgr._id : null;
+                }
+
+                // Format numbers
+                if (mapped.workingHours) mapped.workingHours = Number(mapped.workingHours);
+                if (mapped.currentSalary) mapped.currentSalary = Number(mapped.currentSalary);
+
+                return mapped;
+            });
+
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee/bulk/import`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(processedData)
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                toast.success(result.message);
+                fetchEmployees();
+                fetchAnalytics();
+            } else {
+                toast.error(result.message || "Import failed");
+                if (result.stats?.failed > 0) {
+                    console.error("Import errors:", result.stats.errors);
+                }
+            }
+        } catch (error) {
+            console.error("Import error:", error);
+            toast.error("Error during import processing");
         }
     };
 
@@ -406,7 +511,6 @@ const EmployeeList = () => {
 
     return (
         <Layout activePage="HR & Manpower">
-            {showImportModal && <ImportOverviewModal />}
             <div className="space-y-6 animate-fade-in pb-10">
                 {/* Header */}
                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
@@ -417,26 +521,24 @@ const EmployeeList = () => {
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-3">
-                        {canCreate && (
-                            <button
-                                onClick={() => setShowImportModal(true)}
-                                className="bg-[#1a1f24] hover:bg-[#252a30] text-gray-400 hover:text-white px-5 py-3 rounded-[2px] font-black uppercase text-[10px] tracking-widest transition-all border border-gray-800 flex items-center gap-2 shadow-sm"
-                            >
-                                <FaFileUpload className="text-blue-500" /> Import
-                            </button>
-                        )}
-                        <button
-                            onClick={handleExportExcel}
-                            className="bg-[#1a1f24] hover:bg-[#252a30] text-gray-400 hover:text-white px-5 py-3 rounded-[2px] font-black uppercase text-[10px] tracking-widest transition-all border border-gray-800 flex items-center gap-2 shadow-sm"
-                        >
-                            <FaFileExcel className="text-green-500" /> Excel
-                        </button>
-                        <button
-                            onClick={handleExportPDF}
-                            className="bg-[#1a1f24] hover:bg-[#252a30] text-gray-400 hover:text-white px-5 py-3 rounded-[2px] font-black uppercase text-[10px] tracking-widest transition-all border border-gray-800 flex items-center gap-2 shadow-sm"
-                        >
-                            <FaFilePdf className="text-red-500" /> PDF
-                        </button>
+                        <ExcelImportExport
+                            columns={employeeColumns}
+                            mapping={employeeMapping}
+                            data={employees}
+                            onImport={handleBulkDataImport}
+                            onExport={handleExportAllFiltered}
+                            prepareExportData={prepareExportData}
+                            fileName="Employee_List"
+                            templateName="Employee_Import_Template"
+                            extraButtons={
+                                <button
+                                    onClick={handleExportPDF}
+                                    className="bg-[#1a1f24] hover:bg-[#252a30] text-gray-400 hover:text-white px-5 py-3 rounded-[2px] font-black uppercase text-[10px] tracking-widest transition-all border border-gray-800 flex items-center gap-2 shadow-sm"
+                                >
+                                    <FaFilePdf className="text-red-500" /> PDF
+                                </button>
+                            }
+                        />
                         {canCreate && (
                             <button
                                 onClick={() => navigate("/hr/employee/add")}

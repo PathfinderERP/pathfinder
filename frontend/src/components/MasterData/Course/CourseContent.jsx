@@ -4,8 +4,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import '../MasterDataWave.css';
 import { hasPermission } from '../../../config/permissions';
-import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver';
+import ExcelImportExport from "../../Common/ExcelImportExport";
 
 const CourseContent = () => {
     const [courses, setCourses] = useState([]);
@@ -265,148 +264,138 @@ const CourseContent = () => {
         }
     };
 
-    const handleExportToExcel = () => {
-        try {
-            const exportData = filteredCourses.map(course => ({
-                'Course Name': course.courseName,
-                'Department': course.department?.departmentName || '',
-                'Class': course.class?.name || '',
-                'Exam Tag': course.examTag?.name || '',
-                'Course Session': course.courseSession,
-                'Duration': course.courseDuration,
-                'Period': course.coursePeriod,
-                'Mode': course.mode,
-                'Course Type': course.courseType,
-                'Programme': course.programme,
-                'Fee Type 1': course.feesStructure[0]?.feesType || '',
-                'Fee Value 1': course.feesStructure[0]?.value || '',
-                'Fee Discount 1': course.feesStructure[0]?.discount || '',
-                'Fee Type 2': course.feesStructure[1]?.feesType || '',
-                'Fee Value 2': course.feesStructure[1]?.value || '',
-                'Fee Discount 2': course.feesStructure[1]?.discount || '',
-                'Fee Type 3': course.feesStructure[2]?.feesType || '',
-                'Fee Value 3': course.feesStructure[2]?.value || '',
-                'Fee Discount 3': course.feesStructure[2]?.discount || ''
-            }));
+    const handleBulkImport = async (importData) => {
+        const token = localStorage.getItem("token");
 
-            const worksheet = XLSX.utils.json_to_sheet(exportData);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, 'Courses');
-            const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-            const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-            saveAs(data, `Courses_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
-            toast.success(`Exported ${exportData.length} courses to Excel`);
-        } catch (error) {
-            console.error('Export error:', error);
-            toast.error('Failed to export courses');
+        // Resolve reference names back to IDs
+        const resolvedData = importData.map(item => {
+            const resolvedItem = { ...item };
+
+            // Resolve Department
+            if (typeof item.department === 'string') {
+                const matchedDept = departments.find(d =>
+                    d.departmentName.toLowerCase() === item.department.trim().toLowerCase()
+                );
+                if (matchedDept) resolvedItem.department = matchedDept._id;
+                else throw new Error(`Department "${item.department}" not found.`);
+            }
+
+            // Resolve Class
+            if (typeof item.class === 'string' && item.class.trim() !== "") {
+                const matchedClass = classes.find(c =>
+                    c.name.toLowerCase() === item.class.trim().toLowerCase()
+                );
+                if (matchedClass) resolvedItem.class = matchedClass._id;
+                else throw new Error(`Class "${item.class}" not found.`);
+            } else if (item.class === "") {
+                resolvedItem.class = null;
+            }
+
+            // Resolve Exam Tag
+            if (typeof item.examTag === 'string') {
+                const matchedTag = examTags.find(t =>
+                    t.name.toLowerCase() === item.examTag.trim().toLowerCase()
+                );
+                if (matchedTag) resolvedItem.examTag = matchedTag._id;
+                else throw new Error(`Exam Tag "${item.examTag}" not found.`);
+            }
+
+            // Parse Fees Structure (expecting standard format like 'Fee Type 1:Value1, Fee Type 2:Value2')
+            // However, to keep it simple and consistent with the existing export, we'll map multiple columns
+            const feesStructure = [];
+            for (let i = 1; i <= 3; i++) {
+                if (item[`feeType${i}`]) {
+                    feesStructure.push({
+                        feesType: item[`feeType${i}`],
+                        value: Number(item[`feeValue${i}`] || 0),
+                        discount: String(item[`feeDiscount${i}`] || "0")
+                    });
+                }
+            }
+            if (feesStructure.length > 0) {
+                resolvedItem.feesStructure = feesStructure;
+            }
+
+            return resolvedItem;
+        });
+
+        const response = await fetch(`${apiUrl}/course/import`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(resolvedData),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || "Bulk import failed");
         }
+
+        fetchData();
     };
 
-    const handleImportFromExcel = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    const courseColumns = [
+        { header: "Course Name", key: "courseName" },
+        { header: "Department", key: "department" },
+        { header: "Class", key: "class" },
+        { header: "Exam Tag", key: "examTag" },
+        { header: "Session", key: "courseSession" },
+        { header: "Duration (Months)", key: "courseDuration" },
+        { header: "Period", key: "coursePeriod" },
+        { header: "Mode", key: "mode" },
+        { header: "Course Type", key: "courseType" },
+        { header: "Programme", key: "programme" },
+        { header: "Fee Type 1", key: "feeType1" },
+        { header: "Fee Value 1", key: "feeValue1" },
+        { header: "Fee Discount 1", key: "feeDiscount1" },
+        { header: "Fee Type 2", key: "feeType2" },
+        { header: "Fee Value 2", key: "feeValue2" },
+        { header: "Fee Discount 2", key: "feeDiscount2" },
+        { header: "Fee Type 3", key: "feeType3" },
+        { header: "Fee Value 3", key: "feeValue3" },
+        { header: "Fee Discount 3", key: "feeDiscount3" },
+    ];
 
-        try {
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                try {
-                    const workbook = XLSX.read(event.target.result, { type: 'binary' });
-                    const sheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[sheetName];
-                    const importedData = XLSX.utils.sheet_to_json(worksheet);
+    const courseMapping = {
+        "Course Name": "courseName",
+        "Department": "department",
+        "Class": "class",
+        "Exam Tag": "examTag",
+        "Session": "courseSession",
+        "Duration (Months)": "courseDuration",
+        "Period": "coursePeriod",
+        "Mode": "mode",
+        "Course Type": "courseType",
+        "Programme": "programme",
+        "Fee Type 1": "feeType1",
+        "Fee Value 1": "feeValue1",
+        "Fee Discount 1": "feeDiscount1",
+        "Fee Type 2": "feeType2",
+        "Fee Value 2": "feeValue2",
+        "Fee Discount 2": "feeDiscount2",
+        "Fee Type 3": "feeType3",
+        "Fee Value 3": "feeValue3",
+        "Fee Discount 3": "feeDiscount3",
+    };
 
-                    if (importedData.length === 0) {
-                        toast.error('No data found in Excel file');
-                        return;
-                    }
-
-                    const token = localStorage.getItem('token');
-                    let successCount = 0;
-                    let errorCount = 0;
-
-                    for (const row of importedData) {
-                        try {
-                            // Find matching IDs from master data
-                            const dept = departments.find(d => d.departmentName === row['Department']);
-                            const cls = classes.find(c => c.name === row['Class']);
-                            const tag = examTags.find(t => t.name === row['Exam Tag']);
-
-                            if (!dept || !tag) {
-                                console.warn(`Skipping row: Missing department or exam tag for ${row['Course Name']}`);
-                                errorCount++;
-                                continue;
-                            }
-
-                            const feesStructure = [];
-                            if (row['Fee Type 1']) {
-                                feesStructure.push({
-                                    feesType: row['Fee Type 1'],
-                                    value: row['Fee Value 1'] || 0,
-                                    discount: row['Fee Discount 1'] || '0'
-                                });
-                            }
-                            if (row['Fee Type 2']) {
-                                feesStructure.push({
-                                    feesType: row['Fee Type 2'],
-                                    value: row['Fee Value 2'] || 0,
-                                    discount: row['Fee Discount 2'] || '0'
-                                });
-                            }
-                            if (row['Fee Type 3']) {
-                                feesStructure.push({
-                                    feesType: row['Fee Type 3'],
-                                    value: row['Fee Value 3'] || 0,
-                                    discount: row['Fee Discount 3'] || '0'
-                                });
-                            }
-
-                            const courseData = {
-                                courseName: row['Course Name'],
-                                department: dept._id,
-                                class: cls?._id || null,
-                                examTag: tag._id,
-                                courseSession: row['Course Session'],
-                                courseDuration: row['Duration'],
-                                coursePeriod: row['Period'],
-                                mode: row['Mode'],
-                                courseType: row['Course Type'],
-                                programme: row['Programme'],
-                                feesStructure: feesStructure.length > 0 ? feesStructure : [{ feesType: 'Default', value: 0, discount: '0' }]
-                            };
-
-                            const response = await fetch(`${apiUrl}/course/create`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${token}`
-                                },
-                                body: JSON.stringify(courseData)
-                            });
-
-                            if (response.ok) {
-                                successCount++;
-                            } else {
-                                errorCount++;
-                            }
-                        } catch (rowError) {
-                            console.error('Row import error:', rowError);
-                            errorCount++;
-                        }
-                    }
-
-                    toast.success(`Import complete: ${successCount} courses added, ${errorCount} failed`);
-                    fetchData();
-                } catch (parseError) {
-                    console.error('Parse error:', parseError);
-                    toast.error('Failed to parse Excel file');
-                }
-            };
-            reader.readAsBinaryString(file);
-        } catch (error) {
-            console.error('Import error:', error);
-            toast.error('Failed to import courses');
-        }
-        e.target.value = '';
+    const prepareExportData = () => {
+        return filteredCourses.map(c => ({
+            ...c,
+            department: c.department?.departmentName,
+            class: c.class?.name,
+            examTag: c.examTag?.name,
+            feeType1: c.feesStructure[0]?.feesType,
+            feeValue1: c.feesStructure[0]?.value,
+            feeDiscount1: c.feesStructure[0]?.discount,
+            feeType2: c.feesStructure[1]?.feesType,
+            feeValue2: c.feesStructure[1]?.value,
+            feeDiscount2: c.feesStructure[1]?.discount,
+            feeType3: c.feesStructure[2]?.feesType,
+            feeValue3: c.feesStructure[2]?.value,
+            feeDiscount3: c.feesStructure[2]?.discount,
+        }));
     };
 
 
@@ -415,22 +404,16 @@ const CourseContent = () => {
             <ToastContainer position="top-right" theme="dark" />
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 sm:mb-6">
                 <h2 className="text-xl sm:text-2xl font-bold text-cyan-400">Course Master Data</h2>
-                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                    <button
-                        onClick={handleExportToExcel}
-                        className="flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base flex-1 sm:flex-initial justify-center"
-                    >
-                        <FaFileExport /> Export
-                    </button>
-                    <label className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base flex-1 sm:flex-initial justify-center cursor-pointer">
-                        <FaFileImport /> Import
-                        <input
-                            type="file"
-                            accept=".xlsx,.xls"
-                            onChange={handleImportFromExcel}
-                            className="hidden"
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    {canCreate && (
+                        <ExcelImportExport
+                            data={prepareExportData()}
+                            columns={courseColumns}
+                            mapping={courseMapping}
+                            onImport={handleBulkImport}
+                            fileName="courses"
                         />
-                    </label>
+                    )}
                     {canCreate && (
                         <button
                             onClick={() => openModal()}

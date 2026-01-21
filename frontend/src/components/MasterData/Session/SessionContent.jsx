@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { FaEdit, FaTrash, FaPlus, FaTimes } from 'react-icons/fa';
 import '../MasterDataWave.css';
 import { hasPermission } from '../../../config/permissions';
+import ExcelImportExport from "../../Common/ExcelImportExport";
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const SessionContent = () => {
     const [sessions, setSessions] = useState([]);
@@ -123,18 +126,60 @@ const SessionContent = () => {
         }
     };
 
+    const handleBulkImport = async (importData) => {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/session/import`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(importData),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || "Bulk import failed");
+        }
+
+        fetchSessions();
+    };
+
+    const sessionColumns = [
+        { header: "Session Name", key: "sessionName" }
+    ];
+    const sessionMapping = {
+        "Session Name": "sessionName"
+    };
+
     return (
         <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-white">Session Management</h2>
-                {canCreate && (
-                    <button
-                        onClick={() => openModal()}
-                        className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-bold rounded-lg hover:bg-cyan-400 transition-colors"
-                    >
-                        <FaPlus /> Add Session
-                    </button>
-                )}
+            <ToastContainer position="top-right" theme="dark" />
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 className="text-2xl font-bold text-white">Session Management</h2>
+                    <p className="text-gray-400 text-sm mt-1">Manage academic sessions</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                    {canCreate && (
+                        <ExcelImportExport
+                            data={sessions}
+                            columns={sessionColumns}
+                            mapping={sessionMapping}
+                            onImport={handleBulkImport}
+                            fileName="sessions"
+                        />
+                    )}
+                    {canCreate && (
+                        <button
+                            onClick={() => openModal()}
+                            className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-colors"
+                        >
+                            <FaPlus /> Add Session
+                        </button>
+                    )}
+                </div>
             </div>
 
             {error && (

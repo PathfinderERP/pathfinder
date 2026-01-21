@@ -8,6 +8,8 @@ import EditUserModal from "./EditUserModal";
 import PermissionsDetailModal from "./PermissionsDetailModal";
 import "./UserCardWave.css";
 import { hasPermission, getAccessibleModules, PERMISSION_MODULES } from "../../config/permissions";
+import ExcelImportExport from "../Common/ExcelImportExport";
+
 
 const UserManagementContent = () => {
     const [users, setUsers] = useState([]);
@@ -20,6 +22,9 @@ const UserManagementContent = () => {
     const [selectedPermUser, setSelectedPermUser] = useState(null);
     const [showPermModal, setShowPermModal] = useState(false);
     const [viewMode, setViewMode] = useState("grid"); // "grid" or "table"
+    const [allCentres, setAllCentres] = useState([]);
+    const [allScripts, setAllScripts] = useState([]);
+
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -37,7 +42,23 @@ const UserManagementContent = () => {
 
     useEffect(() => {
         fetchUsers();
+        fetchAuxiliaryData();
     }, []);
+
+    const fetchAuxiliaryData = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const [centresRes, scriptsRes] = await Promise.all([
+                fetch(`${apiUrl}/centre`, { headers: { Authorization: `Bearer ${token}` } }),
+                fetch(`${apiUrl}/script/list`, { headers: { Authorization: `Bearer ${token}` } })
+            ]);
+
+            if (centresRes.ok) setAllCentres(await centresRes.json());
+            if (scriptsRes.ok) setAllScripts(await scriptsRes.json());
+        } catch (error) {
+            console.error("Error fetching auxiliary data:", error);
+        }
+    };
 
     const fetchUsers = async () => {
         try {
@@ -146,6 +167,123 @@ const UserManagementContent = () => {
         return role.charAt(0).toUpperCase() + role.slice(1);
     };
 
+    const userColumns = [
+        { header: "Name", key: "name" },
+        { header: "Employee ID", key: "employeeId" },
+        { header: "Email", key: "email" },
+        { header: "Mobile", key: "mobNum" },
+        { header: "Password", key: "password" },
+        { header: "Role", key: "role" },
+        { header: "Centres (Names, comma separated)", key: "centresDisplay" },
+        { header: "Subject", key: "subject" },
+        { header: "Teacher Department", key: "teacherDepartment" },
+        { header: "Board Type", key: "boardType" },
+        { header: "Teacher Type", key: "teacherType" },
+        { header: "Designation", key: "designation" },
+        { header: "Is Dept HOD (True/False)", key: "isDeptHod" },
+        { header: "Is Board HOD (True/False)", key: "isBoardHod" },
+        { header: "Is Subject HOD (True/False)", key: "isSubjectHod" },
+        { header: "Granular Permissions (JSON)", key: "granularPermissions" },
+        { header: "Assigned Script (Name)", key: "scriptName" }
+    ];
+
+    const userMapping = {
+        name: "Name",
+        employeeId: "Employee ID",
+        email: "Email",
+        mobNum: "Mobile",
+        password: "Password",
+        role: "Role",
+        centresDisplay: "Centres (Names, comma separated)",
+        subject: "Subject",
+        teacherDepartment: "Teacher Department",
+        boardType: "Board Type",
+        teacherType: "Teacher Type",
+        designation: "Designation",
+        isDeptHod: "Is Dept HOD (True/False)",
+        isBoardHod: "Is Board HOD (True/False)",
+        isSubjectHod: "Is Subject HOD (True/False)",
+        granularPermissions: "Granular Permissions (JSON)",
+        scriptName: "Assigned Script (Name)"
+    };
+
+    const prepareExportData = (data) => {
+        return data.map(user => ({
+            ...user,
+            centresDisplay: user.centres?.map(c => c.centreName).join(", ") || "",
+            scriptName: user.assignedScript?.scriptName || "",
+            granularPermissions: user.granularPermissions ? JSON.stringify(user.granularPermissions) : "",
+            isDeptHod: user.isDeptHod ? "True" : "False",
+            isBoardHod: user.isBoardHod ? "True" : "False",
+            isSubjectHod: user.isSubjectHod ? "True" : "False"
+        }));
+    };
+
+    const handleBulkImport = async (data) => {
+        const processedData = data.map(item => {
+            const mapped = {};
+            // Direct mappings
+            mapped.name = item.name;
+            mapped.employeeId = item.employeeId;
+            mapped.email = item.email;
+            mapped.mobNum = item.mobNum;
+            mapped.password = item.password;
+            mapped.role = item.role;
+            mapped.subject = item.subject;
+            mapped.teacherDepartment = item.teacherDepartment;
+            mapped.boardType = item.boardType;
+            mapped.teacherType = item.teacherType;
+            mapped.designation = item.designation;
+
+            // Boolean conversions
+            mapped.isDeptHod = String(item.isDeptHod).toLowerCase() === "true";
+            mapped.isBoardHod = String(item.isBoardHod).toLowerCase() === "true";
+            mapped.isSubjectHod = String(item.isSubjectHod).toLowerCase() === "true";
+
+            // JSON parsing
+            mapped.granularPermissions = item.granularPermissions || "{}";
+
+            // Centre resolution
+            if (item.centresDisplay) {
+                const centreNames = item.centresDisplay.split(",").map(n => n.trim().toLowerCase());
+                mapped.centres = allCentres
+                    .filter(c => centreNames.includes(c.centreName.toLowerCase()))
+                    .map(c => c._id);
+            }
+
+            // Script resolution
+            if (item.scriptName) {
+                const matchedScript = allScripts.find(s => s.scriptName.toLowerCase() === item.scriptName.toLowerCase());
+                if (matchedScript) mapped.assignedScript = matchedScript._id;
+            }
+
+            return mapped;
+        });
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${apiUrl}/superAdmin/importUsers`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(processedData),
+            });
+
+            const result = await response.json();
+            if (response.ok || response.status === 207) {
+                toast.success(result.message);
+                fetchUsers();
+            } else {
+                toast.error(result.message || "Import failed");
+            }
+        } catch (error) {
+            console.error("Import error:", error);
+            toast.error("An error occurred during import");
+        }
+    };
+
     return (
         <div className="flex-1 p-6 overflow-y-auto bg-[#131619]">
             <ToastContainer position="top-right" theme="dark" />
@@ -172,14 +310,18 @@ const UserManagementContent = () => {
                         </button>
                     </div>
 
-                    {/* Export Button - SuperAdmin Only */}
+                    {/* Export/Import Component */}
                     {isSuperAdmin && (
-                        <button
-                            onClick={handleExport}
-                            className="flex items-center gap-2 px-4 py-2 bg-green-600/20 text-green-400 border border-green-600/50 rounded-lg hover:bg-green-600/30 transition-colors"
-                        >
-                            <FaFileExcel /> Export
-                        </button>
+                        <ExcelImportExport
+                            columns={userColumns}
+                            mapping={userMapping}
+                            data={users}
+                            onExport={() => filteredUsers}
+                            onImport={handleBulkImport}
+                            prepareExportData={prepareExportData}
+                            fileName="User_List"
+                            templateName="User_Import_Template"
+                        />
                     )}
 
                     {/* Add User Button - Only for users with canEditUsers permission */}

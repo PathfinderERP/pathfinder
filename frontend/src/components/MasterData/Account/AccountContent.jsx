@@ -4,6 +4,7 @@ import '../MasterDataWave.css';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { hasPermission } from '../../../config/permissions';
+import ExcelImportExport from "../../Common/ExcelImportExport";
 
 const AccountContent = () => {
     const [accounts, setAccounts] = useState([]);
@@ -132,19 +133,62 @@ const AccountContent = () => {
         }
     };
 
+    const handleBulkImport = async (importData) => {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/master-data/account/import`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(importData),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || "Bulk import failed");
+        }
+
+        fetchAccounts();
+    };
+
+    const accountColumns = [
+        { header: "Acc No", key: "accno" },
+        { header: "Acc Name", key: "accname" }
+    ];
+    const accountMapping = {
+        "Acc No": "accno",
+        "Acc Name": "accname"
+    };
+
     return (
         <div className="flex-1 bg-[#131619] p-6 overflow-y-auto text-white">
             <ToastContainer position="top-right" theme="dark" />
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-cyan-400">Account Master Data</h2>
-                {canCreate && (
-                    <button
-                        onClick={() => openModal()}
-                        className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-colors"
-                    >
-                        <FaPlus /> Add Account
-                    </button>
-                )}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 className="text-2xl font-bold text-cyan-400">Account Master Data</h2>
+                    <p className="text-gray-400 text-sm mt-1">Manage bank accounts</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                    {canCreate && (
+                        <ExcelImportExport
+                            data={accounts}
+                            columns={accountColumns}
+                            mapping={accountMapping}
+                            onImport={handleBulkImport}
+                            fileName="account_masters"
+                        />
+                    )}
+                    {canCreate && (
+                        <button
+                            onClick={() => openModal()}
+                            className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-colors"
+                        >
+                            <FaPlus /> Add Account
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="bg-[#1a1f24] rounded-lg border border-gray-800 overflow-hidden">

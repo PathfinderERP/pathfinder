@@ -5,16 +5,27 @@ export const updateStudent = async (req, res) => {
         const { studentId } = req.params;
         const updateData = req.body;
 
-        // Clean up empty strings for ObjectId fields to avoid CastError
-        if (updateData.course === "") updateData.course = null;
-        if (updateData.department === "") updateData.department = null;
-        if (Array.isArray(updateData.batches)) {
-            updateData.batches = updateData.batches.filter(id => id !== "");
-        }
+        // Helper to recursively clean empty strings to null
+        const cleanEmptyStrings = (obj) => {
+            if (Array.isArray(obj)) {
+                return obj.map(item => cleanEmptyStrings(item));
+            } else if (typeof obj === 'object' && obj !== null) {
+                const newObj = {};
+                for (const key in obj) {
+                    newObj[key] = cleanEmptyStrings(obj[key]);
+                }
+                return newObj;
+            } else if (obj === "") {
+                return null;
+            }
+            return obj;
+        };
+
+        const cleanedData = cleanEmptyStrings(updateData);
 
         const student = await Student.findByIdAndUpdate(
             studentId,
-            { $set: updateData },
+            { $set: cleanedData },
             { new: true, runValidators: true }
         );
 

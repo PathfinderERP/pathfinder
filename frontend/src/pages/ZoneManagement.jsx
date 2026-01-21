@@ -4,6 +4,7 @@ import { FaPlus, FaEdit, FaTrash, FaMapMarkerAlt, FaBuilding, FaSearch, FaMap, F
 import { toast } from 'react-toastify';
 import { hasPermission } from '../config/permissions';
 import InteractiveMap from '../components/MasterData/Centre/InteractiveMap';
+import ExcelImportExport from "../components/Common/ExcelImportExport";
 
 const ZoneManagement = () => {
     const [zones, setZones] = useState([]);
@@ -197,6 +198,79 @@ const ZoneManagement = () => {
         }
     };
 
+    const handleBulkImport = async (importData) => {
+        const token = localStorage.getItem('token');
+
+        // Restructure location fields for backend
+        const restructuredData = importData.map(item => ({
+            name: item.name,
+            description: item.description,
+            isActive: item.isActive !== undefined ? item.isActive : true,
+            location: {
+                address: item.address,
+                city: item.city,
+                state: item.state,
+                country: item.country || 'India',
+                pincode: item.pincode,
+                coordinates: {
+                    latitude: item.latitude,
+                    longitude: item.longitude
+                }
+            }
+        }));
+
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/zone/import`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(restructuredData),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || "Bulk import failed");
+        }
+
+        fetchZones();
+    };
+
+    const zoneColumns = [
+        { header: "Zone Name", key: "name" },
+        { header: "Description", key: "description" },
+        { header: "Address", key: "address" },
+        { header: "City", key: "city" },
+        { header: "State", key: "state" },
+        { header: "Pincode", key: "pincode" },
+        { header: "Latitude", key: "latitude" },
+        { header: "Longitude", key: "longitude" }
+    ];
+
+    const zoneMapping = {
+        "Zone Name": "name",
+        "Description": "description",
+        "Address": "address",
+        "City": "city",
+        "State": "state",
+        "Pincode": "pincode",
+        "Latitude": "latitude",
+        "Longitude": "longitude"
+    };
+
+    const prepareExportData = () => {
+        return zones.map(z => ({
+            name: z.name,
+            description: z.description,
+            address: z.location?.address,
+            city: z.location?.city,
+            state: z.location?.state,
+            pincode: z.location?.pincode,
+            latitude: z.location?.coordinates?.latitude,
+            longitude: z.location?.coordinates?.longitude
+        }));
+    };
+
     const handleEdit = (zone) => {
         if (!canEdit) {
             toast.error('You do not have permission to edit zones');
@@ -314,14 +388,25 @@ const ZoneManagement = () => {
                             </h1>
                             <p className="text-gray-400 mt-2">Manage zones with location and assign centres</p>
                         </div>
-                        {canCreate && (
-                            <button
-                                onClick={() => setShowModal(true)}
-                                className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg font-bold flex items-center gap-2 hover:from-cyan-600 hover:to-blue-600 transition-all shadow-lg hover:shadow-cyan-500/50"
-                            >
-                                <FaPlus /> Add Zone
-                            </button>
-                        )}
+                        <div className="flex flex-wrap items-center gap-3">
+                            {canCreate && (
+                                <ExcelImportExport
+                                    data={prepareExportData()}
+                                    columns={zoneColumns}
+                                    mapping={zoneMapping}
+                                    onImport={handleBulkImport}
+                                    fileName="zones"
+                                />
+                            )}
+                            {canCreate && (
+                                <button
+                                    onClick={() => setShowModal(true)}
+                                    className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg font-bold flex items-center gap-2 hover:from-cyan-600 hover:to-blue-600 transition-all shadow-lg hover:shadow-cyan-500/50"
+                                >
+                                    <FaPlus /> Add Zone
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Search */}

@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { FaEdit, FaTrash, FaPlus, FaTimes } from 'react-icons/fa';
 import '../MasterDataWave.css';
-// import { hasPermission } from '../../../config/permissions'; // Assuming permissions exist
+import { hasPermission } from '../../../config/permissions';
+import ExcelImportExport from "../../Common/ExcelImportExport";
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const BatchContent = () => {
     const [batches, setBatches] = useState([]);
@@ -116,18 +119,60 @@ const BatchContent = () => {
         }
     };
 
+    const handleBulkImport = async (importData) => {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/batch/import`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(importData),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || "Bulk import failed");
+        }
+
+        fetchBatches();
+    };
+
+    const batchColumns = [
+        { header: "Batch Name", key: "batchName" }
+    ];
+    const batchMapping = {
+        "Batch Name": "batchName"
+    };
+
     return (
         <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-white">Batch Management</h2>
-                {canCreate && (
-                    <button
-                        onClick={() => openModal()}
-                        className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-bold rounded-lg hover:bg-cyan-400 transition-colors"
-                    >
-                        <FaPlus /> Add Batch
-                    </button>
-                )}
+            <ToastContainer position="top-right" theme="dark" />
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 className="text-2xl font-bold text-white">Batch Management</h2>
+                    <p className="text-gray-400 text-sm mt-1">Manage student batches</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                    {canCreate && (
+                        <ExcelImportExport
+                            data={batches}
+                            columns={batchColumns}
+                            mapping={batchMapping}
+                            onImport={handleBulkImport}
+                            fileName="batches"
+                        />
+                    )}
+                    {canCreate && (
+                        <button
+                            onClick={() => openModal()}
+                            className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-colors"
+                        >
+                            <FaPlus /> Add Batch
+                        </button>
+                    )}
+                </div>
             </div>
 
             {error && (

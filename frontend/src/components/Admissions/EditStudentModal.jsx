@@ -187,10 +187,20 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
+
+        if (name === "course") {
+            const selectedCourseObj = courses.find(c => c._id === value);
+            setFormData(prev => ({
+                ...prev,
+                [name]: value,
+                programme: selectedCourseObj ? selectedCourseObj.programme : ""
+            }));
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                [name]: value
+            }));
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -204,40 +214,40 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
             // Construct the update payload matching the Student schema structure
             const updatePayload = {
                 studentsDetails: [{
-                    studentName: formData.studentName,
-                    studentEmail: formData.studentEmail,
-                    mobileNum: formData.mobileNum,
-                    whatsappNumber: formData.whatsappNumber,
-                    dateOfBirth: formData.dateOfBirth,
-                    gender: formData.gender,
-                    centre: formData.centre,
-                    board: formData.board,
-                    state: formData.state,
-                    schoolName: formData.schoolName,
-                    address: formData.address,
-                    programme: formData.programme,
-                    pincode: formData.pincode,
+                    studentName: formData.studentName || null,
+                    studentEmail: formData.studentEmail || null,
+                    mobileNum: formData.mobileNum || null,
+                    whatsappNumber: formData.whatsappNumber || null,
+                    dateOfBirth: formData.dateOfBirth || null,
+                    gender: formData.gender || null,
+                    centre: formData.centre || null,
+                    board: formData.board || null,
+                    state: formData.state || null,
+                    schoolName: formData.schoolName || null,
+                    address: formData.address || null,
+                    programme: formData.programme || null,
+                    pincode: formData.pincode || null,
                     source: student.studentsDetails?.[0]?.source || '',
                 }],
                 examSchema: [{
                     examName: student.examSchema?.[0]?.examName || '',
-                    class: formData.class,
+                    class: formData.class || null,
                     examStatus: student.examSchema?.[0]?.examStatus || '',
-                    markAgregate: formData.markAgregate,
-                    scienceMathParcent: formData.scienceMathParcent,
+                    markAgregate: formData.markAgregate || null,
+                    scienceMathParcent: formData.scienceMathParcent || null,
                 }],
                 sessionExamCourse: [{
-                    examTag: formData.examTag,
-                    targetExams: formData.targetExams,
-                    session: formData.session,
+                    examTag: formData.examTag || null,
+                    targetExams: formData.targetExams || null,
+                    session: formData.session || null,
                 }],
                 guardians: [{
-                    guardianName: formData.guardianName,
-                    guardianEmail: formData.guardianEmail,
-                    guardianMobile: formData.guardianMobile,
-                    occupation: formData.occupation,
-                    annualIncome: formData.annualIncome,
-                    qualification: formData.qualification,
+                    guardianName: formData.guardianName || null,
+                    guardianEmail: formData.guardianEmail || null,
+                    guardianMobile: formData.guardianMobile || null,
+                    occupation: formData.occupation || null,
+                    annualIncome: formData.annualIncome || null,
+                    qualification: formData.qualification || null,
                     organizationName: student.guardians?.[0]?.organizationName || '',
                     designation: student.guardians?.[0]?.designation || '',
                     officeAddress: student.guardians?.[0]?.officeAddress || '',

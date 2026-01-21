@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { FaEdit, FaTrash, FaPlus, FaTimes } from 'react-icons/fa';
 import '../MasterDataWave.css';
 import { hasPermission } from '../../../config/permissions';
+import ExcelImportExport from "../../Common/ExcelImportExport";
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const FollowUpFeedbackContent = () => {
     const [feedbacks, setFeedbacks] = useState([]);
@@ -117,18 +120,60 @@ const FollowUpFeedbackContent = () => {
         }
     };
 
+    const handleBulkImport = async (importData) => {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/master-data/follow-up-feedback/import`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(importData),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || "Bulk import failed");
+        }
+
+        fetchFeedbacks();
+    };
+
+    const feedbackColumns = [
+        { header: "Feedback Name", key: "name" }
+    ];
+    const feedbackMapping = {
+        "Feedback Name": "name"
+    };
+
     return (
         <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-white uppercase tracking-tight">Follow-Up Feedback Master Data</h2>
-                {canCreate && (
-                    <button
-                        onClick={() => openModal()}
-                        className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-bold rounded-lg hover:bg-cyan-400 transition-colors uppercase text-sm tracking-widest"
-                    >
-                        <FaPlus /> Add Feedback
-                    </button>
-                )}
+            <ToastContainer position="top-right" theme="dark" />
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 className="text-2xl font-bold text-white uppercase tracking-tight">Follow-Up Feedback</h2>
+                    <p className="text-gray-400 text-sm mt-1 uppercase tracking-widest text-[10px]">Manage lead feedback options</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                    {canCreate && (
+                        <ExcelImportExport
+                            data={feedbacks}
+                            columns={feedbackColumns}
+                            mapping={feedbackMapping}
+                            onImport={handleBulkImport}
+                            fileName="followup_feedbacks"
+                        />
+                    )}
+                    {canCreate && (
+                        <button
+                            onClick={() => openModal()}
+                            className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-bold rounded-lg hover:bg-cyan-400 transition-colors uppercase text-sm tracking-widest"
+                        >
+                            <FaPlus /> Add Feedback
+                        </button>
+                    )}
+                </div>
             </div>
 
             {error && (
