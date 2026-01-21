@@ -15,7 +15,10 @@ const CancelChequePayment = () => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const canCancelCheque = hasPermission(user, 'financeFees', 'cancelCheque', 'delete');
 
-    // Mock data - replace with API call
+    // State for cheques
+    const [cheques, setCheques] = useState([]);
+    const [loading, setLoading] = useState(true);
+
     const [filters, setFilters] = useState({
         centre: "",
         course: "",
@@ -29,7 +32,16 @@ const CancelChequePayment = () => {
 
     useEffect(() => {
         fetchMetadata();
+        fetchCheques();
     }, []);
+
+    // Fetch cheques when filters or search change
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            fetchCheques();
+        }, 500); // Debounce search
+        return () => clearTimeout(timer);
+    }, [filters, searchTerm]);
 
     const fetchMetadata = async () => {
         try {
@@ -53,38 +65,38 @@ const CancelChequePayment = () => {
             });
         } catch (error) {
             console.error("Error fetching metadata:", error);
+            toast.error("Failed to load metadata");
         }
     };
 
-    // Mock data - replace with API call (Enhanced with filterable fields)
-    const [cheques, setCheques] = useState([
-        {
-            id: 1,
-            studentName: "Rahul Kumar",
-            admissionNo: "ADM2024001",
-            chequeNumber: "CHQ123456",
-            bankName: "HDFC Bank",
-            amount: 25000,
-            chequeDate: "2024-12-25",
-            status: "Pending",
-            centre: "Kolkata Main Campus",
-            course: "JEE Advanced",
-            department: "Engineering"
-        },
-        {
-            id: 2,
-            studentName: "Priya Sharma",
-            admissionNo: "ADM2024002",
-            chequeNumber: "CHQ789012",
-            bankName: "ICICI Bank",
-            amount: 30000,
-            chequeDate: "2024-12-20",
-            status: "Cleared",
-            centre: "Salt Lake Centre",
-            course: "NEET Medical",
-            department: "Medical"
+    const fetchCheques = async () => {
+        try {
+            setLoading(true);
+            const token = localStorage.getItem("token");
+            if (!token) return; // Wait for auth
+
+            // Build query params
+            const queryParams = new URLSearchParams();
+            if (filters.centre) queryParams.append("centre", filters.centre);
+            if (filters.course) queryParams.append("course", filters.course);
+            if (filters.department) queryParams.append("department", filters.department);
+            if (searchTerm) queryParams.append("search", searchTerm);
+
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/finance/cheque/all?${queryParams.toString()}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (!response.ok) throw new Error("Failed to fetch cheques");
+
+            const data = await response.json();
+            setCheques(Array.isArray(data) ? data : []);
+        } catch (error) {
+            console.error("Error fetching cheques:", error);
+            toast.error("Failed to load cheque payments");
+        } finally {
+            setLoading(false);
         }
-    ]);
+    };
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
@@ -97,18 +109,18 @@ const CancelChequePayment = () => {
     };
 
     const exportToExcel = () => {
-        if (filteredCheques.length === 0) {
+        if (cheques.length === 0) {
             toast.info("No data to export");
             return;
         }
 
-        const dataToExport = filteredCheques.map(c => ({
+        const dataToExport = cheques.map(c => ({
             "Cheque No": c.chequeNumber,
             "Student Name": c.studentName,
             "Admission No": c.admissionNo,
             "Bank": c.bankName,
             "Amount": c.amount,
-            "Date": c.chequeDate,
+            "Date": new Date(c.chequeDate).toLocaleDateString(),
             "Status": c.status,
             "Centre": c.centre,
             "Course": c.course,
@@ -124,43 +136,45 @@ const CancelChequePayment = () => {
         toast.success("Exported successfully!");
     };
 
-    const filteredCheques = cheques.filter(c => {
-        const matchesSearch = c.studentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            c.admissionNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            c.chequeNumber?.toLowerCase().includes(searchTerm.toLowerCase());
-
-        const matchesCentre = !filters.centre || c.centre === filters.centre;
-        const matchesCourse = !filters.course || c.course === filters.course; // Typically match ID if real data, using Name for mock
-        const matchesDept = !filters.department || c.department === filters.department; // Typically match ID if real data, using Name for mock
-
-        // Note: For real metadata usage, filters.course would be an ID. 
-        // Since mock data uses names ("JEE Advanced"), we should adjust logic or mock data.
-        // Assuming metadata returns objects with IDs, we should update mock data to use IDs or filter by comparing Names if we map them.
-        // For simplicity with this hybrid "Real Metadata + Mock Data" approach, we'll try to match vaguely or assumes mock data is updated to match what's selected (Real Metadata uses IDs usually).
-        // Let's assume the user selects from metadata (which has IDs).
-        // To make this work with Mock Data containing strings, we'll perform a loose check or just assume strings for now in this snippet. 
-        // ACTUALLY: The metadata dropdowns will use IDs as values. The mock data needs IDs or the filter needs to look up the name.
-        // Let's stick to using IDs in mock data for correctness if we could, OR just use the text value in dropdowns.
-        // Using text value in dropdowns is safer for hybrid state.
-
-        return matchesSearch && matchesCentre && matchesCourse && matchesDept;
-    });
+    // No need for client-side filtering anymore since API handles it
+    const filteredCheques = cheques;
 
     const handleCancelClick = (cheque) => {
         setSelectedCheque(cheque);
         setShowModal(true);
     };
 
-    const handleCancelConfirm = () => {
+    const handleCancelConfirm = async () => {
         if (!cancelReason.trim()) {
             toast.error("Please provide a cancellation reason");
             return;
         }
-        // API call to cancel cheque
-        toast.success(`Cheque ${selectedCheque.chequeNumber} cancelled successfully`);
-        setShowModal(false);
-        setCancelReason("");
-        setSelectedCheque(null);
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/finance/cheque/cancel/${selectedCheque.paymentId}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ reason: cancelReason })
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.message || "Failed to cancel cheque");
+            }
+
+            toast.success(`Cheque ${selectedCheque.chequeNumber} cancelled successfully`);
+            setShowModal(false);
+            setCancelReason("");
+            setSelectedCheque(null);
+            fetchCheques(); // Refresh list
+        } catch (error) {
+            console.error("Cancel Error:", error);
+            toast.error(error.message);
+        }
     };
 
     return (
@@ -278,14 +292,14 @@ const CancelChequePayment = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800">
-                            {filteredCheques.length === 0 ? (
+                            {cheques.length === 0 ? (
                                 <tr>
                                     <td colSpan="7" className="p-12 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
                                         No cheques found
                                     </td>
                                 </tr>
                             ) : (
-                                filteredCheques.map((cheque) => (
+                                cheques.map((cheque) => (
                                     <tr key={cheque.id} className="hover:bg-red-500/[0.02] transition-colors group">
                                         <td className="p-6">
                                             <span className="text-cyan-500 font-black">{cheque.chequeNumber}</span>
@@ -294,19 +308,24 @@ const CancelChequePayment = () => {
                                             <div className="font-bold text-white">{cheque.studentName}</div>
                                             <div className="text-[10px] text-gray-500 uppercase">{cheque.admissionNo}</div>
                                         </td>
-                                        <td className="p-6 text-gray-300">{cheque.bankName}</td>
+                                        {/* Display Bank Name if available, otherwise Account Holder */}
+                                        <td className="p-6 text-gray-300">
+                                            {cheque.bankName && cheque.bankName !== "N/A" ? cheque.bankName : (cheque.accountHolderName || "N/A")}
+                                        </td>
                                         <td className="p-6 text-white font-bold">₹{cheque.amount.toLocaleString()}</td>
                                         <td className="p-6 text-gray-300">{new Date(cheque.chequeDate).toLocaleDateString('en-IN')}</td>
                                         <td className="p-6">
                                             <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${cheque.status === "Pending"
-                                                ? "text-yellow-500 bg-yellow-500/10 border-yellow-500/20"
-                                                : "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
+                                                    ? "text-yellow-500 bg-yellow-500/10 border-yellow-500/20"
+                                                    : cheque.status === "Cleared"
+                                                        ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
+                                                        : "text-red-500 bg-red-500/10 border-red-500/20" // Default/Cancelled
                                                 }`}>
                                                 {cheque.status}
                                             </span>
                                         </td>
                                         <td className="p-6 text-right">
-                                            {canCancelCheque && (
+                                            {canCancelCheque && cheque.status !== "Cancelled" && (
                                                 <button
                                                     onClick={() => handleCancelClick(cheque)}
                                                     className="px-4 py-2 bg-red-500/10 text-red-500 font-bold text-xs uppercase rounded-lg hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 ml-auto"

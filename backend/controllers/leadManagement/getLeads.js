@@ -48,12 +48,13 @@ export const getLeads = async (req, res) => {
         const skip = (page - 1) * limit;
 
         // Build Filter
-        const { search, leadType, source, centre, course, leadResponsibility } = req.query;
+        const { search, leadType, source, centre, course, leadResponsibility, board } = req.query;
         const query = {};
 
         if (leadType) query.leadType = leadType;
         if (source) query.source = source;
         if (course) query.course = course;
+        if (board) query.board = board;
         if (leadResponsibility) query.leadResponsibility = leadResponsibility;
 
         // Exclude counseled leads from the main list
@@ -133,6 +134,7 @@ export const getLeads = async (req, res) => {
             .populate('className', 'name')
             .populate('centre', 'centreName')
             .populate('course', 'courseName')
+            .populate('board', 'boardName')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -164,7 +166,8 @@ export const getLeadById = async (req, res) => {
         const lead = await LeadManagement.findById(id)
             .populate('className', 'name')
             .populate('centre', 'centreName')
-            .populate('course', 'courseName');
+            .populate('course', 'courseName')
+            .populate('board', 'boardName');
 
         if (!lead) {
             return res.status(404).json({ message: "Lead not found" });

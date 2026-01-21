@@ -46,12 +46,14 @@ const LeadManagementContent = () => {
         source: "",
         centre: "",
         course: "",
+        board: "",
         leadResponsibility: ""
     });
 
     // Dropdown data for filters
     const [sources, setSources] = useState([]);
     const [courses, setCourses] = useState([]);
+    const [boards, setBoards] = useState([]);
     const [telecallers, setTelecallers] = useState([]);
     const [allowedCentres, setAllowedCentres] = useState([]);
 
@@ -163,6 +165,13 @@ const LeadManagementContent = () => {
             const courseData = await courseResponse.json();
             if (courseResponse.ok) setCourses(Array.isArray(courseData) ? courseData : []);
 
+            // Fetch boards
+            const boardResponse = await fetch(`${import.meta.env.VITE_API_URL}/board`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const boardData = await boardResponse.json();
+            if (boardResponse.ok) setBoards(Array.isArray(boardData) ? boardData : []);
+
             // Fetch telecallers
             const userResponse = await fetch(`${import.meta.env.VITE_API_URL}/superAdmin/getAllUsers`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -222,6 +231,7 @@ const LeadManagementContent = () => {
             source: "",
             centre: "",
             course: "",
+            board: "",
             leadResponsibility: ""
         });
         setSearchTerm("");
@@ -287,6 +297,7 @@ const LeadManagementContent = () => {
             PhoneNumber: lead.phoneNumber,
             SchoolName: lead.schoolName,
             Class: lead.className?.name || "",
+            Board: lead.board?.boardName || "",
             Centre: lead.centre?.centreName || "",
             Course: lead.course?.courseName || "",
             Source: lead.source,
@@ -442,6 +453,19 @@ const LeadManagementContent = () => {
                         </select>
                     </div>
                     <div>
+                        <label className="block text-gray-400 text-xs mb-1">Board</label>
+                        <select
+                            value={filters.board}
+                            onChange={(e) => handleFilterChange('board', e.target.value)}
+                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white text-sm"
+                        >
+                            <option value="">All Boards</option>
+                            {boards.map(board => (
+                                <option key={board._id} value={board._id}>{board.boardName}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
                         <label className="block text-gray-400 text-xs mb-1">Lead Responsibility</label>
                         <select
                             value={filters.leadResponsibility}
@@ -477,6 +501,7 @@ const LeadManagementContent = () => {
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Email</th>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Phone Number</th>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Class</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Board</th>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">School Name</th>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Centre</th>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Course</th>
@@ -490,13 +515,13 @@ const LeadManagementContent = () => {
                         <tbody className="divide-y divide-gray-700">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="13" className="px-4 py-8 text-center text-cyan-400">
+                                    <td colSpan="14" className="px-4 py-8 text-center text-cyan-400">
                                         Loading...
                                     </td>
                                 </tr>
                             ) : leads.length === 0 ? (
                                 <tr>
-                                    <td colSpan="13" className="px-4 py-8 text-center text-gray-400">
+                                    <td colSpan="14" className="px-4 py-8 text-center text-gray-400">
                                         No leads found
                                     </td>
                                 </tr>
@@ -508,6 +533,7 @@ const LeadManagementContent = () => {
                                         <td className="px-4 py-3 text-gray-400">{lead.email}</td>
                                         <td className="px-4 py-3 text-gray-400">{lead.phoneNumber || "N/A"}</td>
                                         <td className="px-4 py-3 text-gray-400">{lead.className?.name || "N/A"}</td>
+                                        <td className="px-4 py-3 text-gray-400">{lead.board?.boardName || "N/A"}</td>
                                         <td className="px-4 py-3 text-gray-400">{lead.schoolName}</td>
                                         <td className="px-4 py-3 text-gray-400">{lead.centre?.centreName || "N/A"}</td>
                                         <td className="px-4 py-3 text-gray-400">{lead.course?.courseName || "N/A"}</td>

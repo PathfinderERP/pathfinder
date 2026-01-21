@@ -30,6 +30,10 @@ const leadManagementSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Course",
     },
+    board: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Board",
+    },
     source: {
         type: String,
     },

@@ -226,3 +226,166 @@ export const rejectCheque = async (req, res) => {
         res.status(500).json({ message: "Error rejecting cheque", error: error.message });
     }
 };
+
+// Get all cheques (Pending & Cleared) with filters
+export const getAllCheques = async (req, res) => {
+    try {
+        const { centre, course, department, search } = req.query;
+
+        // Build query for retrieving payments
+        const query = {
+            paymentMethod: "CHEQUE",
+            status: { $in: ["PENDING_CLEARANCE", "PAID", "CLEARED"] } // "PAID" usually means cleared for cheques
+        };
+
+        let cheques = await Payment.find(query)
+            .populate({
+                path: "admission",
+                populate: [
+                    { path: "student" },
+                    { path: "course", select: "courseName" },
+                    { path: "department", select: "departmentName" } // Ensure retrieval of department name
+                ]
+            })
+            .sort({ createdAt: -1 });
+
+        // Filter results based on query params (since some data is in populated fields)
+        if (centre || course || department || search) {
+            cheques = cheques.filter(c => {
+                const adm = c.admission;
+                if (!adm) return false;
+
+                const matchesCentre = !centre || adm.centre === centre;
+                const matchesCourse = !course || adm.course?.courseName === course;
+                // Note: Department might be an ObjectId or populated object depending on schema. 
+                // Assuming populated based on getAllCheques population logic above.
+                const matchesDept = !department || adm.department?.departmentName === department;
+
+                let matchesSearch = true;
+                if (search) {
+                    const searchLower = search.toLowerCase();
+                    const studentName = adm.student?.studentsDetails?.[0]?.studentName?.toLowerCase() || "";
+                    const admissionNo = adm.admissionNumber?.toLowerCase() || "";
+                    const chequeNo = c.transactionId?.toLowerCase() || "";
+
+                    matchesSearch = studentName.includes(searchLower) ||
+                        admissionNo.includes(searchLower) ||
+                        chequeNo.includes(searchLower);
+                }
+
+                return matchesCentre && matchesCourse && matchesDept && matchesSearch;
+            });
+        }
+
+        const formattedCheques = cheques.map(c => ({
+            id: c._id,
+            paymentId: c._id,
+            studentName: c.admission?.student?.studentsDetails?.[0]?.studentName || "Unknown",
+            admissionNo: c.admission?.admissionNumber || "N/A",
+            chequeNumber: c.transactionId || "N/A",
+            bankName: c.accountHolderName || "N/A",
+            amount: c.paidAmount,
+            chequeDate: c.chequeDate,
+            status: c.status === "PAID" ? "Cleared" : "Pending", // Map backend status to UI status
+            centre: c.admission?.centre || "N/A",
+            course: c.admission?.course?.courseName || "N/A",
+            department: c.admission?.department?.departmentName || "N/A"
+        }));
+
+        res.status(200).json(formattedCheques);
+    } catch (error) {
+        console.error("Get All Cheques Error:", error);
+        res.status(500).json({ message: "Error fetching cheques", error: error.message });
+    }
+};
+
+// Cancel a cheque
+export const cancelCheque = async (req, res) => {
+    try {
+        const { paymentId } = req.params;
+        const { reason } = req.body;
+
+        const payment = await Payment.findById(paymentId);
+        if (!payment) {
+            return res.status(404).json({ message: "Payment record not found" });
+        }
+
+        const admission = await Admission.findById(payment.admission);
+        if (!admission) {
+            return res.status(404).json({ message: "Admission record not found" });
+        }
+
+        // 1. Update Payment record
+        payment.status = "CANCELLED"; // Or "REJECTED" if you want to reuse that enum
+        payment.remarks = (payment.remarks ? payment.remarks + "; " : "") + `CANCELLED: ${reason}`;
+        await payment.save();
+
+        // 2. Update Admission paymentBreakdown or Down Payment
+        if (payment.installmentNumber === 0) {
+            // If it was a down payment
+            if (admission.downPaymentStatus === "PAID" || admission.downPaymentStatus === "PENDING_CLEARANCE") {
+                admission.downPaymentStatus = "REJECTED"; // Logic similar to rejection, or add CANCELLED status enum
+                // Note: Schema has ["PENDING", "PAID", "PENDING_CLEARANCE", "REJECTED"] for downPaymentStatus.
+                // We'll use REJECTED to signify it's invalid now, or consider adding CANCELLED if strictly needed.
+                // Using REJECTED for now to be safe with existing enum validation.
+            }
+            admission.remarks = (admission.remarks ? admission.remarks + "; " : "") + `Down payment cheque cancelled: ${reason}`;
+        } else {
+            // If it was an installment
+            const installment = admission.paymentBreakdown.find(
+                p => p.installmentNumber === payment.installmentNumber
+            );
+
+            if (installment) {
+                // Revert to PENDING or OVERDUE
+                const today = new Date();
+                if (new Date(installment.dueDate) < today) {
+                    installment.status = "OVERDUE";
+                } else {
+                    installment.status = "PENDING";
+                }
+                installment.paidAmount = 0;
+                installment.paymentMethod = null;
+                installment.transactionId = null;
+                installment.remarks = (installment.remarks ? installment.remarks + "; " : "") + `Cheque cancelled: ${reason}`;
+
+                // If it was marked as paid, we need to subtract from totalPaidAmount?
+                // Yes, logic below handles totalPaidAmount recalculation.
+            }
+        }
+
+        // 3. Recalculate totalPaidAmount
+        // This is crucial to ensure financial accuracy
+        admission.totalPaidAmount = admission.paymentBreakdown.reduce(
+            (sum, p) => sum + (p.status === "PAID" ? (p.paidAmount || 0) : 0),
+            0
+        ) + (admission.downPaymentStatus === "PAID" ? admission.downPayment : 0);
+
+        // Update paymentStatus
+        if (admission.totalPaidAmount >= admission.totalFees) {
+            admission.paymentStatus = "COMPLETED";
+        } else {
+            // If it was completed, it might go back to partial or pending
+            if (admission.totalPaidAmount > 0) {
+                admission.paymentStatus = "PARTIAL";
+            } else {
+                admission.paymentStatus = "PENDING";
+            }
+        }
+
+        // 4. Update Board Course monthly history if applicable
+        if (admission.admissionType === 'BOARD' && payment.billingMonth) {
+            const historyEntry = admission.monthlySubjectHistory.find(h => h.month === payment.billingMonth);
+            if (historyEntry) {
+                historyEntry.isPaid = false;
+            }
+        }
+
+        await admission.save();
+
+        res.status(200).json({ message: "Cheque cancelled successfully" });
+    } catch (error) {
+        console.error("Cancel Cheque Error:", error);
+        res.status(500).json({ message: "Error cancelling cheque", error: error.message });
+    }
+};
