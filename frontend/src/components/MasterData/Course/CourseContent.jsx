@@ -4,7 +4,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import '../MasterDataWave.css';
 import { hasPermission } from '../../../config/permissions';
-import ExcelImportExport from "../../Common/ExcelImportExport";
+import ExcelImportExport from "../../common/ExcelImportExport";
 
 const CourseContent = () => {
     const [courses, setCourses] = useState([]);

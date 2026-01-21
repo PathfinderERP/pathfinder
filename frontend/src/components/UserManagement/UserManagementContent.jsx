@@ -8,7 +8,7 @@ import EditUserModal from "./EditUserModal";
 import PermissionsDetailModal from "./PermissionsDetailModal";
 import "./UserCardWave.css";
 import { hasPermission, getAccessibleModules, PERMISSION_MODULES } from "../../config/permissions";
-import ExcelImportExport from "../Common/ExcelImportExport";
+import ExcelImportExport from "../../common/ExcelImportExport";
 
 
 const UserManagementContent = () => {

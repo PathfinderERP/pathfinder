@@ -6,7 +6,7 @@ import AddCentreModal from "./AddCentreModal";
 import EditCentreModal from "./EditCentreModal";
 import "../MasterDataWave.css";
 import { hasPermission } from "../../../config/permissions";
-import ExcelImportExport from "../../Common/ExcelImportExport";
+import ExcelImportExport from "../../common/ExcelImportExport";
 
 const CentreContent = () => {
     const [centres, setCentres] = useState([]);

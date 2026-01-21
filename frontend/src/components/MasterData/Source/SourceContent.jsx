@@ -3,7 +3,7 @@ import { FaPlus, FaEdit, FaTrash, FaSearch } from "react-icons/fa";
 import { toast } from "react-toastify";
 import AddSourceModal from "./AddSourceModal";
 import EditSourceModal from "./EditSourceModal";
-import ExcelImportExport from "../../Common/ExcelImportExport";
+import ExcelImportExport from "../../common/ExcelImportExport";
 
 const SourceContent = () => {
     const [sources, setSources] = useState([]);

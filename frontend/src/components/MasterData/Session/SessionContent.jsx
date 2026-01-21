@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaEdit, FaTrash, FaPlus, FaTimes } from 'react-icons/fa';
 import '../MasterDataWave.css';
 import { hasPermission } from '../../../config/permissions';
-import ExcelImportExport from "../../Common/ExcelImportExport";
+import ExcelImportExport from "../../common/ExcelImportExport";
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
