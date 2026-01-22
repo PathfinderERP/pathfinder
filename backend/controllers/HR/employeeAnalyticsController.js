@@ -191,15 +191,37 @@ export const getEmployeeAnalytics = async (req, res) => {
             count: s.count
         }));
 
+        // teacher vs staff breakdown logic
+        const teacherStaffEmployment = await Employee.aggregate([
+            {
+                $project: {
+                    isTeacher: { $regexMatch: { input: "$employeeId", regex: /^TCH/i } },
+                    typeOfEmployment: 1
+                }
+            },
+            {
+                $group: {
+                    _id: { isTeacher: "$isTeacher", employment: "$typeOfEmployment" },
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        const teachersCount = await Employee.countDocuments({ employeeId: { $regex: /^TCH/i } });
+        const staffCount = await Employee.countDocuments({ employeeId: { $not: /^TCH/i } });
+
         res.status(200).json({
             totalEmployees,
             totalDepartments,
             totalCentres,
+            teachersCount,
+            staffCount,
             statusBreakdown,
             departmentDistribution,
             designationDistribution,
             centreDistribution,
             employmentTypeDistribution,
+            teacherStaffEmployment,
             monthlyJoiningTrend,
             genderDistribution: normalizedGenderDist,
             avgSalaryByDept,

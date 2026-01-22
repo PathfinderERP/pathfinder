@@ -571,32 +571,32 @@ const EmployeeList = () => {
                                 <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Total Workforce</p>
                             </div>
 
+                            <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2px] hover:border-cyan-500/30 transition-all group relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-cyan-500/10"></div>
+                                <div className="flex items-center justify-between mb-4 relative z-10">
+                                    <div className="p-2 bg-cyan-500/10 rounded-[2px]">
+                                        <FaUsers className="text-cyan-500 text-xl" />
+                                    </div>
+                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Teachers</span>
+                                </div>
+                                <p className="text-4xl font-black text-cyan-500 tracking-tighter relative z-10 bg-gradient-to-br from-cyan-400 to-cyan-600 bg-clip-text text-transparent">
+                                    {analytics.teachersCount || 0}
+                                </p>
+                                <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Educational Staff</p>
+                            </div>
+
                             <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2px] hover:border-emerald-500/30 transition-all group relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-emerald-500/10"></div>
                                 <div className="flex items-center justify-between mb-4 relative z-10">
                                     <div className="p-2 bg-emerald-500/10 rounded-[2px]">
-                                        <FaChartPie className="text-emerald-500 text-xl" />
+                                        <FaUsers className="text-emerald-500 text-xl" />
                                     </div>
-                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Operations</span>
+                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Other Staff</span>
                                 </div>
                                 <p className="text-4xl font-black text-emerald-500 tracking-tighter relative z-10 bg-gradient-to-br from-emerald-400 to-emerald-600 bg-clip-text text-transparent">
-                                    {analytics.statusBreakdown.find(s => s._id === "Active")?.count || 0}
+                                    {analytics.staffCount || 0}
                                 </p>
-                                <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Active Personnel</p>
-                            </div>
-
-                            <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2px] hover:border-blue-500/30 transition-all group relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-blue-500/10"></div>
-                                <div className="flex items-center justify-between mb-4 relative z-10">
-                                    <div className="p-2 bg-blue-500/10 rounded-[2px]">
-                                        <FaBuilding className="text-blue-500 text-xl" />
-                                    </div>
-                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Structure</span>
-                                </div>
-                                <p className="text-4xl font-black text-blue-500 tracking-tighter relative z-10 bg-gradient-to-br from-blue-400 to-blue-600 bg-clip-text text-transparent">
-                                    {analytics.totalDepartments || analytics.departmentDistribution.length}
-                                </p>
-                                <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Total Departments</p>
+                                <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Administrative & Ops</p>
                             </div>
 
                             <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2px] hover:border-amber-500/30 transition-all group relative overflow-hidden">
@@ -825,44 +825,70 @@ const EmployeeList = () => {
                                 </div>
                             </div>
 
-                            {/* Employment Type Distribution - New Component in the empty space */}
+                            {/* Detailed Employment Breakdown */}
                             <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                    <FaFileAlt className="text-4xl text-purple-500" />
+                                    <FaUsers className="text-4xl text-cyan-500" />
                                 </div>
                                 <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
-                                    <span className="w-1 h-4 bg-purple-500 rounded-full"></span>
-                                    Employment Type
+                                    <span className="w-1 h-4 bg-cyan-500 rounded-full"></span>
+                                    Teacher Breakdown (FT/PT)
                                 </h3>
-                                <div className="h-72 w-full">
-                                    <ResponsiveContainer width="100%" height="100%" debounce={100}>
+                                <div className="h-64 w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie
-                                                data={analytics.employmentTypeDistribution.map((d, i) => ({
-                                                    name: d._id || "Regular",
+                                                data={analytics.teacherStaffEmployment?.filter(d => d._id.isTeacher).map(d => ({
+                                                    name: (d._id.employment || "Full-time").toUpperCase(),
                                                     value: d.count
-                                                }))}
+                                                })) || []}
                                                 cx="50%"
-                                                cy="45%"
-                                                innerRadius={45}
-                                                outerRadius={75}
-                                                paddingAngle={4}
+                                                cy="50%"
+                                                innerRadius={50}
+                                                outerRadius={70}
+                                                paddingAngle={5}
                                                 dataKey="value"
-                                                stroke="none"
                                             >
-                                                {analytics.employmentTypeDistribution.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={['#a855f7', '#ec4899', '#f43f5e', '#ef4444'][index % 4]} />
+                                                {(analytics.teacherStaffEmployment?.filter(d => d._id.isTeacher) || []).map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={['#06b6d4', '#0ea5e9', '#3b82f6'][index % 3]} />
                                                 ))}
                                             </Pie>
                                             <Tooltip content={<CustomTooltip />} />
-                                            <Legend
-                                                verticalAlign="bottom"
-                                                height={80}
-                                                iconType="circle"
-                                                iconSize={8}
-                                                wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }}
-                                                formatter={(value) => <span className="text-[10px] uppercase font-black text-gray-400 hover:text-white transition-colors ml-2">{value}</span>}
-                                            />
+                                            <Legend verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '9px', textTransform: 'uppercase', fontWeight: 'bold' }} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+
+                            <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                    <FaUsers className="text-4xl text-emerald-500" />
+                                </div>
+                                <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
+                                    <span className="w-1 h-4 bg-emerald-500 rounded-full"></span>
+                                    Admin Staff Breakdown
+                                </h3>
+                                <div className="h-64 w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={analytics.teacherStaffEmployment?.filter(d => !d._id.isTeacher).map(d => ({
+                                                    name: (d._id.employment || "Regular").toUpperCase(),
+                                                    value: d.count
+                                                })) || []}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={50}
+                                                outerRadius={70}
+                                                paddingAngle={5}
+                                                dataKey="value"
+                                            >
+                                                {(analytics.teacherStaffEmployment?.filter(d => !d._id.isTeacher) || []).map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={['#10b981', '#059669', '#34d399'][index % 3]} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip content={<CustomTooltip />} />
+                                            <Legend verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '9px', textTransform: 'uppercase', fontWeight: 'bold' }} />
                                         </PieChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -1052,8 +1078,11 @@ const EmployeeList = () => {
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full">
-                                <thead className="bg-[#1a1f24]/50 border-b border-gray-800">
-                                    <tr>
+                                <thead>
+                                    <tr className="bg-[#1a1f24]/50 border-b border-gray-800">
+                                        <th className="px-6 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-widest w-16">
+                                            S.No
+                                        </th>
                                         {["Employee", "Email", "Department", "Designation", "Centre", "Status", "Actions"].map((head, i) => (
                                             <th key={i} className="px-6 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-widest">
                                                 {head}
@@ -1062,8 +1091,11 @@ const EmployeeList = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-800">
-                                    {employees.map((employee) => (
+                                    {employees.map((employee, index) => (
                                         <tr key={employee._id} className="hover:bg-cyan-500/[0.02] transition-colors group">
+                                            <td className="px-6 py-4 whitespace-nowrap text-[10px] font-black text-gray-600 font-mono">
+                                                {(pagination.currentPage - 1) * 10 + index + 1}
+                                            </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center gap-4">
                                                     <div className="w-10 h-10 rounded-full bg-gray-800 border-2 border-gray-700 overflow-hidden flex-shrink-0 group-hover:border-cyan-500/50 transition-colors">

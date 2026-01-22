@@ -129,7 +129,22 @@ const StudentRegistrationForm = () => {
             });
             const data = await response.json();
             if (response.ok) {
-                setCentres(data);
+                const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+                // If superAdmin, show all centres
+                if (user.role === "superAdmin") {
+                    setCentres(data);
+                }
+                // If centres are restricted to the user profile
+                else if (user.centres && user.centres.length > 0) {
+                    const authorizedCentreNames = user.centres.map(c => c.centreName);
+                    const filtered = data.filter(c => authorizedCentreNames.includes(c.centreName));
+                    setCentres(filtered);
+                }
+                // Fallback: show all if no restrictions found (or handle as per policy)
+                else {
+                    setCentres(data);
+                }
             } else {
                 console.error("Failed to fetch centres");
             }
