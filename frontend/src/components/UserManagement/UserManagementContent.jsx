@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { FaPlus, FaSearch, FaEdit, FaTrash, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaTable, FaTh, FaFileExcel } from "react-icons/fa";
+import { FaPlus, FaSearch, FaEdit, FaTrash, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaTable, FaTh, FaFileExcel, FaUndo } from "react-icons/fa";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import * as XLSX from "xlsx";
@@ -22,6 +23,10 @@ const UserManagementContent = () => {
     const [selectedPermUser, setSelectedPermUser] = useState(null);
     const [showPermModal, setShowPermModal] = useState(false);
     const [viewMode, setViewMode] = useState("grid"); // "grid" or "table"
+    const [filterCentre, setFilterCentre] = useState("all");
+    const [filterTeacherType, setFilterTeacherType] = useState("all");
+    const [filterDepartment, setFilterDepartment] = useState("all");
+    const [filterBoardType, setFilterBoardType] = useState("all");
     const [allCentres, setAllCentres] = useState([]);
     const [allScripts, setAllScripts] = useState([]);
 
@@ -121,6 +126,16 @@ const UserManagementContent = () => {
         return "N/A";
     };
 
+    const handleResetFilters = () => {
+        setSearchQuery("");
+        setFilterRole("all");
+        setFilterCentre("all");
+        setFilterTeacherType("all");
+        setFilterDepartment("all");
+        setFilterBoardType("all");
+        toast.info("Filters reset to default");
+    };
+
     const handleExport = () => {
         if (!isSuperAdmin) return;
 
@@ -148,8 +163,57 @@ const UserManagementContent = () => {
 
         const matchesRole = filterRole === "all" || user.role === filterRole;
 
-        return matchesSearch && matchesRole;
+        const matchesCentre = filterCentre === "all" ||
+            (user.centres && user.centres.some(c => c._id === filterCentre)) ||
+            (user.centre && (user.centre._id === filterCentre || user.centre === filterCentre));
+
+        const matchesTeacherType = filterTeacherType === "all" || user.teacherType === filterTeacherType;
+
+        const matchesDepartment = filterDepartment === "all" || user.teacherDepartment === filterDepartment;
+
+        const matchesBoardType = filterBoardType === "all" || user.boardType === filterBoardType;
+
+        return matchesSearch && matchesRole && matchesCentre && matchesTeacherType && matchesDepartment && matchesBoardType;
     });
+
+    // Analytics Summary
+    const stats = {
+        total: filteredUsers.length,
+        superAdmin: filteredUsers.filter(u => u.role === "superAdmin").length,
+        admin: filteredUsers.filter(u => u.role === "admin").length,
+        teacher: filteredUsers.filter(u => u.role === "teacher").length,
+        counsellor: filteredUsers.filter(u => u.role === "counsellor").length,
+        telecaller: filteredUsers.filter(u => u.role === "telecaller").length,
+        deptHod: filteredUsers.filter(u => u.isDeptHod).length
+    };
+
+    // Data for Pie Charts within cards
+    const getPieData = (label) => {
+        if (label === "Total Users") {
+            return [
+                { name: 'SuperAdmin', value: stats.superAdmin, color: '#ef4444' },
+                { name: 'Admin', value: stats.admin, color: '#3b82f6' },
+                { name: 'Teacher', value: stats.teacher, color: '#22c55e' },
+                { name: 'Counsellor', value: stats.counsellor, color: '#f97316' },
+                { name: 'Telecaller', value: stats.telecaller, color: '#a855f7' }
+            ].filter(d => d.value > 0);
+        }
+        if (label === "Teacher") {
+            return [
+                { name: 'Full Time', value: filteredUsers.filter(u => u.role === 'teacher' && u.teacherType === 'Full Time').length, color: '#22c55e' },
+                { name: 'Part Time', value: filteredUsers.filter(u => u.role === 'teacher' && u.teacherType === 'Part Time').length, color: '#10b981' }
+            ].filter(d => d.value > 0);
+        }
+        if (label === "Admin" || label === "SuperAdmin" || label === "Counsellor" || label === "Telecaller") {
+            const roleKey = label.toLowerCase();
+            // Just show a simple distribution of something else, e.g., location or just a solid color proportion
+            return [
+                { name: label, value: stats[roleKey], color: '#ffffff50' },
+                { name: 'Other', value: stats.total - stats[roleKey], color: '#00000020' }
+            ].filter(d => d.value > 0);
+        }
+        return [];
+    };
 
     const getRoleBadgeColor = (role) => {
         const colors = {
@@ -336,6 +400,47 @@ const UserManagementContent = () => {
                 </div>
             </div>
 
+            {/* Analytics Summary Row */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+                {[
+                    { label: "Total Users", count: stats.total, color: "from-cyan-500/20 to-blue-500/20", border: "border-cyan-500/30" },
+                    { label: "SuperAdmin", count: stats.superAdmin, color: "from-red-500/20 to-orange-500/20", border: "border-red-500/30" },
+                    { label: "Admin", count: stats.admin, color: "from-blue-500/20 to-indigo-500/20", border: "border-blue-500/30" },
+                    { label: "Teacher", count: stats.teacher, color: "from-green-500/20 to-emerald-500/20", border: "border-green-500/30" },
+                    { label: "Counsellor", count: stats.counsellor, color: "from-orange-500/20 to-yellow-500/20", border: "border-orange-500/30" },
+                    { label: "Telecaller", count: stats.telecaller, color: "from-purple-500/20 to-pink-500/20", border: "border-purple-500/30" }
+                ].map((item, idx) => (
+                    <div key={idx} className={`bg-gradient-to-br ${item.color} ${item.border} border p-4 rounded-xl backdrop-blur-sm relative overflow-hidden flex items-center justify-between`}>
+                        <div className="z-10">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">{item.label}</p>
+                            <p className="text-2xl font-black text-white">{item.count}</p>
+                        </div>
+
+                        {/* Small Pie Chart Overlay */}
+                        <div className="w-16 h-16 opacity-80">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={getPieData(item.label)}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={18}
+                                        outerRadius={28}
+                                        paddingAngle={2}
+                                        dataKey="value"
+                                        stroke="none"
+                                    >
+                                        {getPieData(item.label).map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
             <div className="bg-[#1a1f24] p-4 rounded-xl border border-gray-800 mb-6">
                 <div className="flex flex-col md:flex-row gap-4">
                     <div className="relative flex-1">
@@ -345,24 +450,86 @@ const UserManagementContent = () => {
                             placeholder="Search by name, email, or employee ID..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-[#131619] text-white pl-10 pr-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                            className="w-full bg-[#131619] text-white pl-10 pr-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500 font-medium"
                         />
                     </div>
-                    {/* Role filter - Only show for SuperAdmin and Admin */}
-                    {isSuperAdminOrAdmin && (
+
+                    {/* Multi Filters Row */}
+                    <div className="flex flex-wrap gap-3">
+                        {/* Centre Filter */}
                         <select
-                            value={filterRole}
-                            onChange={(e) => setFilterRole(e.target.value)}
-                            className="bg-[#131619] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                            value={filterCentre}
+                            onChange={(e) => setFilterCentre(e.target.value)}
+                            className="bg-[#131619] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500 text-sm font-medium"
                         >
-                            <option value="all">All Roles</option>
-                            <option value="superAdmin">SuperAdmin</option>
-                            <option value="admin">Admin</option>
-                            <option value="teacher">Teacher</option>
-                            <option value="telecaller">Telecaller</option>
-                            <option value="counsellor">Counsellor</option>
+                            <option value="all">All Centres</option>
+                            {allCentres.map(c => (
+                                <option key={c._id} value={c._id}>{c.centreName}</option>
+                            ))}
                         </select>
-                    )}
+
+                        {/* Role filter - Only show for SuperAdmin and Admin */}
+                        {isSuperAdminOrAdmin && (
+                            <select
+                                value={filterRole}
+                                onChange={(e) => setFilterRole(e.target.value)}
+                                className="bg-[#131619] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500 text-sm font-medium"
+                            >
+                                <option value="all">All Roles</option>
+                                <option value="superAdmin">SuperAdmin</option>
+                                <option value="admin">Admin</option>
+                                <option value="teacher">Teacher</option>
+                                <option value="telecaller">Telecaller</option>
+                                <option value="counsellor">Counsellor</option>
+                            </select>
+                        )}
+
+                        {/* Teacher Type Filter */}
+                        <select
+                            value={filterTeacherType}
+                            onChange={(e) => setFilterTeacherType(e.target.value)}
+                            className="bg-[#131619] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500 text-sm font-medium"
+                        >
+                            <option value="all">All Types (FT/PT)</option>
+                            <option value="Full Time">Full Time</option>
+                            <option value="Part Time">Part Time</option>
+                        </select>
+
+                        {/* Department Filter */}
+                        <select
+                            value={filterDepartment}
+                            onChange={(e) => setFilterDepartment(e.target.value)}
+                            className="bg-[#131619] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500 text-sm font-medium"
+                        >
+                            <option value="all">All Departments</option>
+                            <option value="Foundation">Foundation</option>
+                            <option value="All India">All India</option>
+                            <option value="Board">Board</option>
+                        </select>
+
+                        {/* Board Type Filter */}
+                        <select
+                            value={filterBoardType}
+                            onChange={(e) => setFilterBoardType(e.target.value)}
+                            className="bg-[#131619] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500 text-sm font-medium"
+                        >
+                            <option value="all">All Boards</option>
+                            <option value="JEE">JEE</option>
+                            <option value="NEET">NEET</option>
+                            <option value="CBSE">CBSE</option>
+                            <option value="ICSE">ICSE</option>
+                            <option value="WBBSE">WBBSE</option>
+                        </select>
+
+                        {/* Reset Filters Button */}
+                        <button
+                            onClick={handleResetFilters}
+                            className="bg-gray-800 text-gray-400 p-2 rounded-lg border border-gray-700 hover:text-white hover:bg-gray-700 transition-all"
+                            title="Reset all filters"
+                        >
+                            <FaUndo />
+                        </button>
+                    </div>
                 </div>
             </div>
 
