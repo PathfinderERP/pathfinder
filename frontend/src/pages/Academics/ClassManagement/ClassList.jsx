@@ -4,8 +4,56 @@ import { FaEdit, FaTrash, FaPlus, FaSearch, FaLayerGroup } from "react-icons/fa"
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { hasPermission } from "../../../config/permissions";
+import ExcelImportExport from "../../../components/common/ExcelImportExport";
+import * as XLSX from "xlsx";
 
 const ClassList = () => {
+    // ... [existing state]
+
+    const classColumns = ["Name"];
+
+    const classMapping = {
+        "Name": "className",
+        "name": "className",
+        "Class Name": "className",
+        "CLASS NAME": "className"
+    };
+
+    const handleBulkImport = async (data) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${API_URL}/academics/class/bulk-import`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(data.map(row => ({
+                    className: row['Name'] || row['name'] || row['Class Name'] || Object.values(row)[0] // Loose mapping
+                })))
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                toast.success(`Imported: ${result.results.successCount}, Failed: ${result.results.failedCount}`);
+                if (result.results.errors.length > 0) {
+                    console.error("Import Errors:", result.results.errors);
+                    toast.warn("Check console for import details/errors");
+                }
+                fetchClasses();
+            } else {
+                toast.error(result.message || "Import failed");
+            }
+        } catch (error) {
+            toast.error("Error during import");
+        }
+    };
+
+    const prepareExportData = () => {
+        return classes.map(c => ({
+            "Name": c.className
+        }));
+    };
     const [classes, setClasses] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
@@ -139,14 +187,24 @@ const ClassList = () => {
                             className="w-full bg-[#131619] text-white pl-10 pr-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500 transition-colors"
                         />
                     </div>
-                    {canCreate && (
-                        <button
-                            onClick={openAddModal}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-semibold transition shadow-md"
-                        >
-                            <FaPlus /> Add Class
-                        </button>
-                    )}
+
+                    <div className="flex gap-2">
+                        <ExcelImportExport
+                            columns={classColumns}
+                            data={classes}
+                            onImport={handleBulkImport}
+                            onExport={prepareExportData}
+                            filename="Class_List"
+                        />
+                        {canCreate && (
+                            <button
+                                onClick={openAddModal}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-semibold transition shadow-md"
+                            >
+                                <FaPlus /> Add Class
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Table */}

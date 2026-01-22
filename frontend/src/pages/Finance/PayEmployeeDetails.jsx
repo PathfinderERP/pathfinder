@@ -27,6 +27,7 @@ const PayEmployeeDetails = () => {
     const [logoBase64, setLogoBase64] = useState(null);
     const [workedDays, setWorkedDays] = useState(26); // Default 26
     const [sundays, setSundays] = useState(4); // Default 4
+    const [baseGrossSalary, setBaseGrossSalary] = useState(0);
     const [calculatedSalary, setCalculatedSalary] = useState(null);
 
     useEffect(() => {
@@ -55,18 +56,60 @@ const PayEmployeeDetails = () => {
     }, [id, selectedMonth, selectedYear]);
 
     useEffect(() => {
-        if (employee && employee.salaryStructure?.[0]) {
-            calculateProRatedSalary(employee.salaryStructure[0]);
+        if (employee) {
+            let baseStructure = employee.salaryStructure?.[0];
+
+            // If no structure exists, generate a logical fallback from baseGrossSalary
+            if (!baseStructure && baseGrossSalary > 0) {
+                baseStructure = calculateSalaryBreakdown(baseGrossSalary);
+            } else if (baseStructure && baseGrossSalary !== (employee.salaryStructure?.[0]?.totalEarnings || 0)) {
+                // If user edited the base salary, override the structure components
+                baseStructure = calculateSalaryBreakdown(baseGrossSalary);
+            }
+
+            if (baseStructure) {
+                calculateProRatedSalary(baseStructure);
+            } else {
+                setCalculatedSalary(null);
+            }
         }
-    }, [employee, workedDays, sundays]);
+    }, [employee, workedDays, sundays, baseGrossSalary]);
+
+    const calculateSalaryBreakdown = (grossAmount) => {
+        if (!grossAmount) return {
+            basic: 0, hra: 0, conveyance: 0, specialAllowance: 0, cca: 0, adjustment: 0,
+            pf: 0, esi: 0, pTax: 0, tds: 0, lossOfPay: 0, totalEarnings: 0, totalDeductions: 0, netSalary: 0
+        };
+
+        const gross = parseFloat(grossAmount);
+        const basic = Math.round(gross * 0.50);
+        const hra = Math.round(basic * 0.50);
+        const conveyance = Math.round(basic * 0.25);
+        const specialAllowance = gross - (basic + hra + conveyance);
+
+        // Deductions
+        let pf = basic <= 15000 ? Math.round(basic * 0.12) : 1800;
+        let esi = gross <= 21000 ? Math.ceil(gross * 0.0075) : 0;
+        let pTax = 0;
+        if (gross > 10000 && gross <= 15000) pTax = 110;
+        else if (gross > 15000 && gross <= 25000) pTax = 130;
+        else if (gross > 25000 && gross <= 40000) pTax = 150;
+        else if (gross > 40000) pTax = 200;
+
+        const totalDeductions = pf + esi + pTax;
+
+        return {
+            basic, hra, conveyance, specialAllowance, cca: 0, adjustment: 0,
+            pf, esi, pTax, tds: 0, lossOfPay: 0,
+            totalEarnings: gross,
+            totalDeductions,
+            netSalary: gross - totalDeductions
+        };
+    };
 
     const calculateProRatedSalary = (baseStructure) => {
         const holidays = sundays;
-        // Logic: (Actual / 30) * (Worked + Sundays)
-        // User requested: DIVIDE BY 30, then * (working days + 4 Sundays)
         const payableDays = Number(workedDays) + holidays;
-
-        // Strictly following the user's logic:
         const ratio = payableDays / 30;
 
         const newEarnings = {
@@ -79,18 +122,28 @@ const PayEmployeeDetails = () => {
 
         const totalEarnings = Object.values(newEarnings).reduce((a, b) => a + b, 0);
 
-        // Deductions - assuming fixed for now or stick to original? 
-        // User didn't specify deduction logic change, but usually PF is % of Basic.
-        // Let's keep deductions fixed to avoid complex statutory logic errors, 
-        // OR assume user wants "minusing their actual salary" means Pro-rated Gross - Deductions.
+        // Recalculate Deductions Logically (PF, ESI, P.Tax based on pro-rated earnings)
+        let pf = newEarnings.basic <= 15000 ? Math.round(newEarnings.basic * 0.12) : 1800;
+        let esi = totalEarnings <= 21000 ? Math.ceil(totalEarnings * 0.0075) : 0;
+        let pTax = 0;
+        if (totalEarnings > 10000 && totalEarnings <= 15000) pTax = 110;
+        else if (totalEarnings > 15000 && totalEarnings <= 25000) pTax = 130;
+        else if (totalEarnings > 25000 && totalEarnings <= 40000) pTax = 150;
+        else if (totalEarnings > 40000) pTax = 200;
 
-        const totalDeductions = baseStructure.totalDeductions || 0;
+        // Keep other deductions fixed from structure if they exist
+        const extraDeductions = (parseFloat(baseStructure.tds) || 0) + (parseFloat(baseStructure.lossOfPay) || 0);
+        const totalDeductions = pf + esi + pTax + extraDeductions;
         const netSalary = Math.round(totalEarnings - totalDeductions);
 
         setCalculatedSalary({
             ...baseStructure,
             ...newEarnings,
+            pf,
+            esi,
+            pTax,
             totalEarnings,
+            totalDeductions,
             netSalary
         });
     };
@@ -105,11 +158,12 @@ const PayEmployeeDetails = () => {
             const data = await response.json();
             if (response.ok) {
                 setEmployee(data);
+                setBaseGrossSalary(data.currentSalary || (data.salaryStructure?.[0]?.totalEarnings) || 0);
                 if (data.attendanceCount !== undefined) {
-                    setWorkedDays(data.attendanceCount);
+                    setWorkedDays(data.attendanceCount > 0 ? data.attendanceCount : 26);
                 }
                 if (data.sundaysCount !== undefined) {
-                    setSundays(data.sundaysCount);
+                    setSundays(data.sundaysCount || 4);
                 }
                 // initial calculation triggered by useEffect
             } else {
@@ -246,7 +300,7 @@ const PayEmployeeDetails = () => {
         ];
 
         const deductions = [
-            { label: "PF Check", val: structure.pf },
+            { label: "Provident Fund", val: structure.pf },
             { label: "Professional Tax", val: structure.pTax },
             { label: "TDS", val: structure.tds },
             { label: "ESI", val: structure.esi },
@@ -405,15 +459,34 @@ const PayEmployeeDetails = () => {
                                     </select>
                                 </div>
                                 <div className="col-span-2">
+                                    <label className="text-gray-500 text-[10px] font-bold uppercase block mb-2">Base Gross Salary</label>
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <span className="text-gray-500 font-bold">₹</span>
+                                        <input
+                                            type="number"
+                                            value={baseGrossSalary}
+                                            onChange={(e) => setBaseGrossSalary(Number(e.target.value))}
+                                            placeholder="Enter Gross Salary"
+                                            className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:border-green-500 outline-none font-bold"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="col-span-2">
                                     <label className="text-gray-500 text-[10px] font-bold uppercase block mb-2">Worked Days</label>
-                                    <input
-                                        type="number"
-                                        value={workedDays}
-                                        readOnly
-                                        className="w-full bg-gray-900 border border-gray-700 text-gray-400 rounded-lg px-3 py-2 text-sm focus:border-green-500 outline-none font-bold cursor-not-allowed"
-                                    />
-                                    <p className="text-[10px] text-gray-500 mt-1">
-                                        Calculated: (Salary / 30) * ({Number(workedDays)} + {sundays} Sundays)
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="number"
+                                            value={workedDays}
+                                            onChange={(e) => setWorkedDays(Number(e.target.value))}
+                                            className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:border-green-500 outline-none font-bold"
+                                            min="0"
+                                            max="31"
+                                        />
+                                        <span className="text-gray-500 text-xs">Days</span>
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-1 italic">
+                                        (Net Pay = (Gross / 30) * ({Number(workedDays)} Worked + {sundays} Sundays) - Deductions)
                                     </p>
                                 </div>
                             </div>

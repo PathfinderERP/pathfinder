@@ -53,3 +53,69 @@ export const deleteClass = async (req, res) => {
         res.status(500).json({ message: "Server Error", error: error.message });
     }
 };
+
+// Bulk Import Classes
+export const bulkImportClasses = async (req, res) => {
+    try {
+        if (!req.body || !Array.isArray(req.body) || req.body.length === 0) {
+            return res.status(400).json({ message: "No data provided" });
+        }
+
+        const importData = req.body;
+        const results = {
+            successCount: 0,
+            failedCount: 0,
+            errors: []
+        };
+
+        for (const row of importData) {
+            try {
+                // Determine class name from row keys (case-insensitive 'name' or first value)
+                const keys = Object.keys(row);
+                const nameKey = keys.find(k => k.trim().toLowerCase().includes("name"));
+
+                let className = row[nameKey];
+
+                // Fallback to first value if needed
+                if (!className || String(className).trim() === "") {
+                    const values = Object.values(row);
+                    if (values.length > 0) className = values[0];
+                }
+
+                if (!className || String(className).trim() === "") {
+                    results.failedCount++;
+                    results.errors.push({ row, error: "Missing Class Name" });
+                    continue;
+                }
+
+                className = String(className).trim();
+
+                // Check for duplicate (case-insensitive regex)
+                const existing = await AcademicsClass.findOne({
+                    className: { $regex: new RegExp(`^${className}$`, "i") }
+                });
+
+                if (existing) {
+                    results.errors.push({ row, error: `Class '${className}' already exists` });
+                    continue;
+                }
+
+                const newClass = new AcademicsClass({ className });
+                await newClass.save();
+                results.successCount++;
+
+            } catch (err) {
+                results.failedCount++;
+                results.errors.push({ row, error: err.message });
+            }
+        }
+
+        res.status(200).json({
+            message: "Import processed",
+            results
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};

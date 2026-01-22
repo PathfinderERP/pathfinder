@@ -772,3 +772,118 @@ export const manualMarkAttendance = async (req, res) => {
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
+export const bulkImportAttendance = async (req, res) => {
+    try {
+        const attendanceData = req.body; // Expecting array of objects
+
+        if (!Array.isArray(attendanceData) || attendanceData.length === 0) {
+            return res.status(400).json({ message: "Invalid data format. Expected an array." });
+        }
+
+        const stats = {
+            total: attendanceData.length,
+            success: 0,
+            failed: 0,
+            errors: []
+        };
+
+        for (const record of attendanceData) {
+            try {
+                // 1. Validate required fields
+                // Expected keys based on export: 'Date', 'Employee ID', 'Check In', 'Check Out', 'Status', 'Remarks'
+                // But we should be flexible with keys or expect mapped keys from frontend
+                // The frontend will send: date, employeeId, checkIn, checkOut, status, remarks
+
+                const { date, employeeId, checkIn, checkOut, status, remarks } = record;
+
+                if (!date || !employeeId) {
+                    stats.failed++;
+                    stats.errors.push(`Missing Date or Employee ID for a record.`);
+                    continue;
+                }
+
+                // 2. Find Employee
+                const employee = await Employee.findOne({ employeeId: employeeId }).populate('primaryCentre');
+                if (!employee) {
+                    stats.failed++;
+                    stats.errors.push(`Employee not found: ${employeeId}`);
+                    continue;
+                }
+
+                if (!employee.user || !employee.primaryCentre) {
+                    // Try to find if they have ANY centre (fallback)
+                    if (!employee.user) {
+                        stats.failed++;
+                        stats.errors.push(`Employee ${employeeId} missing user account.`);
+                        continue;
+                    }
+                }
+
+                const targetCentreId = employee.primaryCentre?._id || (employee.centres?.[0] || null);
+                if (!targetCentreId) {
+                    stats.failed++;
+                    stats.errors.push(`Employee ${employeeId} has no assigned centre.`);
+                    continue;
+                }
+
+
+                // 3. Prepare Data
+                const markDate = startOfDay(new Date(date));
+                const updateData = {
+                    user: employee.user,
+                    employeeId: employee._id,
+                    centreId: targetCentreId,
+                    date: markDate,
+                    status: status || "Present",
+                    remarks: (remarks || "Bulk Import").toUpperCase()
+                };
+
+                // 4. Handle Times
+                if (checkIn && checkIn !== '--:--' && checkIn !== '-') {
+                    // Check In is expected in HH:mm format
+                    const [hours, minutes] = checkIn.split(':');
+                    const checkInTime = new Date(markDate);
+                    checkInTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                    updateData.checkIn = { time: checkInTime, address: "Bulk Import" };
+                }
+
+                if (checkOut && checkOut !== '--:--' && checkOut !== '-') {
+                    // Check Out is expected in HH:mm format
+                    const [hours, minutes] = checkOut.split(':');
+                    const checkOutTime = new Date(markDate);
+                    checkOutTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                    updateData.checkOut = { time: checkOutTime, address: "Bulk Import" };
+
+                    if (updateData.checkIn) {
+                        const diffMs = updateData.checkOut.time - updateData.checkIn.time;
+                        updateData.workingHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
+                    }
+                }
+
+                // 5. Update or Create
+                let attendance = await EmployeeAttendance.findOne({ employeeId: employee._id, date: markDate });
+
+                if (attendance) {
+                    await EmployeeAttendance.findByIdAndUpdate(attendance._id, updateData);
+                } else {
+                    await new EmployeeAttendance(updateData).save();
+                }
+
+                stats.success++;
+
+            } catch (err) {
+                stats.failed++;
+                stats.errors.push(`Error processing record for ${record.employeeId}: ${err.message}`);
+            }
+        }
+
+        res.status(stats.failed > 0 ? 207 : 200).json({
+            message: `Import completed. ${stats.success} success, ${stats.failed} failed.`,
+            stats
+        });
+
+    } catch (error) {
+        console.error("Bulk Import Error:", error);
+        res.status(500).json({ message: "Server error during import", error: error.message });
+    }
+};

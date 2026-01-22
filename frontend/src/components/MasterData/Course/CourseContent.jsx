@@ -266,42 +266,56 @@ const CourseContent = () => {
 
     const handleBulkImport = async (importData) => {
         const token = localStorage.getItem("token");
+        const resolutionErrors = [];
 
         // Resolve reference names back to IDs
-        const resolvedData = importData.map(item => {
+        const resolvedData = importData.map((item, index) => {
             const resolvedItem = { ...item };
+            const rowNum = index + 2; // +2 because header is row 1 and index is 0-based
 
             // Resolve Department
-            if (typeof item.department === 'string') {
+            if (item.department) {
                 const matchedDept = departments.find(d =>
-                    d.departmentName.toLowerCase() === item.department.trim().toLowerCase()
+                    d.departmentName.trim().toLowerCase() === item.department.toString().trim().toLowerCase()
                 );
                 if (matchedDept) resolvedItem.department = matchedDept._id;
-                else throw new Error(`Department "${item.department}" not found.`);
+                else resolutionErrors.push(`Row ${rowNum}: Department "${item.department}" not found.`);
+            } else {
+                resolutionErrors.push(`Row ${rowNum}: Department is required.`);
             }
 
             // Resolve Class
-            if (typeof item.class === 'string' && item.class.trim() !== "") {
+            if (item.class && item.class.toString().trim() !== "") {
                 const matchedClass = classes.find(c =>
-                    c.name.toLowerCase() === item.class.trim().toLowerCase()
+                    c.name.toString().trim().toLowerCase() === item.class.toString().trim().toLowerCase()
                 );
                 if (matchedClass) resolvedItem.class = matchedClass._id;
-                else throw new Error(`Class "${item.class}" not found.`);
-            } else if (item.class === "") {
+                else resolutionErrors.push(`Row ${rowNum}: Class "${item.class}" not found.`);
+            } else {
                 resolvedItem.class = null;
             }
 
             // Resolve Exam Tag
-            if (typeof item.examTag === 'string') {
+            if (item.examTag) {
                 const matchedTag = examTags.find(t =>
-                    t.name.toLowerCase() === item.examTag.trim().toLowerCase()
+                    t.name.trim().toLowerCase() === item.examTag.toString().trim().toLowerCase()
                 );
                 if (matchedTag) resolvedItem.examTag = matchedTag._id;
-                else throw new Error(`Exam Tag "${item.examTag}" not found.`);
+                else resolutionErrors.push(`Row ${rowNum}: Exam Tag "${item.examTag}" not found.`);
+            } else {
+                resolutionErrors.push(`Row ${rowNum}: Exam Tag is required.`);
             }
 
-            // Parse Fees Structure (expecting standard format like 'Fee Type 1:Value1, Fee Type 2:Value2')
-            // However, to keep it simple and consistent with the existing export, we'll map multiple columns
+            // Normalize Enums
+            if (item.mode) resolvedItem.mode = item.mode.toString().toUpperCase().trim();
+            if (item.courseType) resolvedItem.courseType = item.courseType.toString().toUpperCase().trim();
+            if (item.programme) resolvedItem.programme = item.programme.toString().toUpperCase().trim();
+            if (item.coursePeriod) {
+                const period = item.coursePeriod.toString().trim();
+                resolvedItem.coursePeriod = period.charAt(0).toUpperCase() + period.slice(1).toLowerCase(); // Yearly or Monthly
+            }
+
+            // Parse Fees Structure
             const feesStructure = [];
             for (let i = 1; i <= 3; i++) {
                 if (item[`feeType${i}`]) {
@@ -314,10 +328,26 @@ const CourseContent = () => {
             }
             if (feesStructure.length > 0) {
                 resolvedItem.feesStructure = feesStructure;
+            } else {
+                resolutionErrors.push(`Row ${rowNum}: At least one Fee Type is required.`);
             }
 
             return resolvedItem;
         });
+
+        if (resolutionErrors.length > 0) {
+            console.error("Import Resolution Errors:", resolutionErrors);
+            toast.error(
+                <div>
+                    <p className="font-bold mb-1">Import failed! Resolve these issues:</p>
+                    <ul className="text-[10px] list-disc pl-4 max-h-40 overflow-y-auto">
+                        {resolutionErrors.map((err, i) => <li key={i}>{err}</li>)}
+                    </ul>
+                </div>,
+                { autoClose: false }
+            );
+            throw new Error("Resolution failed. See logs/toast for details.");
+        }
 
         const response = await fetch(`${apiUrl}/course/import`, {
             method: 'POST',
@@ -328,9 +358,16 @@ const CourseContent = () => {
             body: JSON.stringify(resolvedData),
         });
 
+        const result = await response.json();
+
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || "Bulk import failed");
+            throw new Error(result.message || "Bulk import failed");
+        }
+
+        if (response.status === 207) {
+            toast.info(`Partial Success: ${result.importedCount} records imported. Some might be duplicates.`);
+        } else {
+            toast.success(`${result.count} courses imported successfully!`);
         }
 
         fetchData();

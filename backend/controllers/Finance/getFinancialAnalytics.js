@@ -111,6 +111,41 @@ export const getFinancialAnalytics = async (req, res) => {
             }
         });
 
+        // 5. Monthly Revenue Trend (Last 12 Months)
+        const trendData = [];
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+        // Let's get data for the last 12 months for the trend
+        for (let i = 11; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const mStart = new Date(d.getFullYear(), d.getMonth(), 1);
+            const mEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+
+            const mPayments = periodPayments.filter(p => {
+                const pDate = new Date(p.paidDate || p.receivedDate || p.createdAt);
+                return pDate >= mStart && pDate <= mEnd;
+            });
+
+            trendData.push({
+                name: monthNames[d.getMonth()] + " " + d.getFullYear().toString().slice(-2),
+                revenue: mPayments.reduce((sum, p) => sum + (p.paidAmount || 0), 0)
+            });
+        }
+
+        // 6. Centre-wise Revenue (if All Centres is selected)
+        let centreData = [];
+        if (!centreId) {
+            const allCentres = await Centre.find({});
+            for (const c of allCentres) {
+                const cAdmissions = await Admission.find({ centre: c.centreName }).distinct('_id');
+                const cPayments = periodPayments.filter(p => cAdmissions.some(aId => aId.toString() === p.admission.toString()));
+                const cRevenue = cPayments.reduce((sum, p) => sum + (p.paidAmount || 0), 0);
+                if (cRevenue > 0) {
+                    centreData.push({ name: c.centreName, value: cRevenue });
+                }
+            }
+        }
+
         res.status(200).json({
             totalAmountToCome: Number(totalAmountToCome.toFixed(2)),
             totalAmountCame: Number(totalAmountCame.toFixed(2)),
@@ -123,7 +158,9 @@ export const getFinancialAnalytics = async (req, res) => {
                 BANK_TRANSFER: Number(paymentBreakdown.BANK_TRANSFER.toFixed(2)),
                 CHEQUE: Number(paymentBreakdown.CHEQUE.toFixed(2)),
                 CHEQUE_PENDING: Number(paymentBreakdown.CHEQUE_PENDING.toFixed(2))
-            }
+            },
+            trendData,
+            centreData
         });
 
     } catch (error) {

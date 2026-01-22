@@ -167,6 +167,7 @@ const EmployeeList = () => {
     };
 
     const employeeColumns = [
+        { header: "Employee ID", key: "employeeId" },
         { header: "Name", key: "name" },
         { header: "Email", key: "email" },
         { header: "Phone Number", key: "phoneNumber" },
@@ -198,6 +199,7 @@ const EmployeeList = () => {
     ];
 
     const employeeMapping = {
+        employeeId: "Employee ID",
         name: "Name",
         email: "Email",
         phoneNumber: "Phone Number",

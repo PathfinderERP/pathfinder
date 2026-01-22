@@ -6,7 +6,8 @@ import {
     getAllAttendance,
     getAttendanceAnalysis,
     getAttendanceDashboardStats,
-    manualMarkAttendance
+    manualMarkAttendance,
+    bulkImportAttendance
 } from "../../controllers/Attendance/employeeAttendanceController.js";
 
 const router = express.Router();
@@ -23,5 +24,6 @@ router.get("/analysis", getAttendanceAnalysis);
 router.get("/dashboard-stats", getAttendanceDashboardStats);
 router.get("/all", getAllAttendance);
 router.post("/manual-mark", manualMarkAttendance);
+router.post("/bulk-import", bulkImportAttendance);
 
 export default router;

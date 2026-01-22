@@ -1,5 +1,127 @@
 import AcademicsTopic from "../../models/Academics/Academics_topic.js";
 import AcademicsChapter from "../../models/Academics/Academics_chapter.js";
+import AcademicsSubject from "../../models/Academics/Academics_subject.js";
+import AcademicsClass from "../../models/Academics/Academics_class.js";
+
+// Bulk Import Topics
+export const bulkImportTopics = async (req, res) => {
+    try {
+        if (!req.body || !Array.isArray(req.body) || req.body.length === 0) {
+            return res.status(400).json({ message: "No data provided" });
+        }
+
+        const importData = req.body;
+        const results = {
+            successCount: 0,
+            failedCount: 0,
+            errors: []
+        };
+
+        // Cache to minimize DB calls
+        const classCache = {};
+        const subjectCache = {};
+        const chapterCache = {};
+
+        for (const row of importData) {
+            try {
+                // Normalize keys (handle CSV variations)
+                const topicName = row['Topic Name'] || row['topic'] || row['Topic'];
+                const className = row['Class Name'] || row['classifyId'] || row['Section'] || row['Class'];
+                const subjectName = row['Subject Name'] || row['subjectId'] || row['Subject'];
+                const chapterName = row['Chapter Name'] || row['chapterId'] || row['Chapter'];
+
+                if (!topicName || !className || !subjectName || !chapterName) {
+                    results.failedCount++;
+                    results.errors.push({ row, error: "Missing required fields (Topic, Chapter, Subject, Class)" });
+                    continue;
+                }
+
+                const normClassName = String(className).trim();
+                const normSubjectName = String(subjectName).trim();
+                const normChapterName = String(chapterName).trim();
+                const normTopicName = String(topicName).trim();
+
+                // 1. Find or Create Class
+                let classId = classCache[normClassName.toLowerCase()];
+                if (!classId) {
+                    let classDoc = await AcademicsClass.findOne({
+                        className: { $regex: new RegExp(`^${normClassName}$`, "i") }
+                    });
+                    if (!classDoc) {
+                        classDoc = new AcademicsClass({ className: normClassName });
+                        await classDoc.save();
+                    }
+                    classId = classDoc._id;
+                    classCache[normClassName.toLowerCase()] = classId;
+                }
+
+                // 2. Find or Create Subject
+                const subjectKey = `${classId}_${normSubjectName}`.toLowerCase();
+                let subjectId = subjectCache[subjectKey];
+                if (!subjectId) {
+                    let subjectDoc = await AcademicsSubject.findOne({
+                        subjectName: { $regex: new RegExp(`^${normSubjectName}$`, "i") },
+                        classId: classId
+                    });
+                    if (!subjectDoc) {
+                        subjectDoc = new AcademicsSubject({ subjectName: normSubjectName, classId: classId });
+                        await subjectDoc.save();
+                    }
+                    subjectId = subjectDoc._id;
+                    subjectCache[subjectKey] = subjectId;
+                }
+
+                // 3. Find or Create Chapter
+                const chapterKey = `${subjectId}_${normChapterName}`.toLowerCase();
+                let chapterId = chapterCache[chapterKey];
+                if (!chapterId) {
+                    let chapterDoc = await AcademicsChapter.findOne({
+                        chapterName: { $regex: new RegExp(`^${normChapterName}$`, "i") },
+                        subjectId: subjectId
+                    });
+                    if (!chapterDoc) {
+                        chapterDoc = new AcademicsChapter({ chapterName: normChapterName, subjectId: subjectId });
+                        await chapterDoc.save();
+                    }
+                    chapterId = chapterDoc._id;
+                    chapterCache[chapterKey] = chapterId;
+                }
+
+                // 4. Check Duplicate Topic
+                const existingTopic = await AcademicsTopic.findOne({
+                    topicName: { $regex: new RegExp(`^${normTopicName}$`, "i") },
+                    chapterId: chapterId
+                });
+
+                if (existingTopic) {
+                    // Skip duplicate
+                    continue;
+                }
+
+                // 5. Create Topic
+                const newTopic = new AcademicsTopic({
+                    topicName: normTopicName,
+                    chapterId: chapterId
+                });
+
+                await newTopic.save();
+                results.successCount++;
+
+            } catch (err) {
+                results.failedCount++;
+                results.errors.push({ row, error: err.message });
+            }
+        }
+
+        res.status(200).json({
+            message: "Import processed",
+            results
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
 
 // Create Topic
 export const createTopic = async (req, res) => {

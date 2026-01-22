@@ -4,6 +4,9 @@ import { FaEdit, FaTrash, FaPlus, FaSearch, FaBookOpen } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+import { hasPermission } from "../../../config/permissions";
+import ExcelImportExport from "../../../components/common/ExcelImportExport";
+
 const ChapterList = () => {
     const [chapters, setChapters] = useState([]);
     const [subjects, setSubjects] = useState([]);
@@ -15,6 +18,57 @@ const ChapterList = () => {
     const [showModal, setShowModal] = useState(false);
     const [formData, setFormData] = useState({ chapterName: "", subjectId: "", classId: "" });
     const [editId, setEditId] = useState(null);
+
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canCreate = hasPermission(user, "academics", "chapters", "create");
+
+    const chapterColumns = ["Chapter Name", "Class Name", "Subject Name"];
+
+    const handleBulkImport = async (data) => {
+        try {
+            const token = localStorage.getItem("token");
+
+            // Normalize data
+            const formattedData = data.map(row => ({
+                chapterName: row['Chapter Name'] || row['name'] || row['Name'],
+                className: row['Class Name'] || row['classifyId'] || row['Section'] || row['Class'],
+                subjectName: row['Subject Name'] || row['subjectId'] || row['Subject']
+            }));
+
+            const response = await fetch(`${API_URL}/academics/chapter/bulk-import`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(formattedData)
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                toast.success(`Imported: ${result.results.successCount}, Failed: ${result.results.failedCount}`);
+                if (result.results.errors.length > 0) {
+                    console.error("Import Errors:", result.results.errors);
+                    toast.warn("Check console for import details/errors");
+                }
+                fetchChapters();
+                fetchClasses();
+                fetchSubjects();
+            } else {
+                toast.error(result.message || "Import failed");
+            }
+        } catch (error) {
+            toast.error("Error during import");
+        }
+    };
+
+    const prepareExportData = () => {
+        return chapters.map(c => ({
+            "Chapter Name": c.chapterName,
+            "Class Name": c.subjectId?.classId?.className || "N/A",
+            "Subject Name": c.subjectId?.subjectName || "N/A"
+        }));
+    };
 
     const API_URL = import.meta.env.VITE_API_URL;
 
@@ -209,12 +263,22 @@ const ChapterList = () => {
                             ))}
                         </select>
                     </div>
-                    <button
-                        onClick={openAddModal}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-semibold transition shadow-md"
-                    >
-                        <FaPlus /> Add Chapter
-                    </button>
+
+                    <div className="flex gap-2">
+                        <ExcelImportExport
+                            columns={chapterColumns}
+                            data={chapters}
+                            onImport={handleBulkImport}
+                            onExport={prepareExportData}
+                            filename="Chapter_List"
+                        />
+                        <button
+                            onClick={openAddModal}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-semibold transition shadow-md"
+                        >
+                            <FaPlus /> Add Chapter
+                        </button>
+                    </div>
                 </div>
 
                 {/* Table */}

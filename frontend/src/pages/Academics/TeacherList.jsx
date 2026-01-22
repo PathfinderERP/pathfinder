@@ -6,12 +6,19 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import MultiSelectFilter from "../../components/common/MultiSelectFilter";
 import { hasPermission } from "../../config/permissions";
+import ExcelImportExport from "../../components/common/ExcelImportExport";
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    PieChart, Pie, Cell, Legend
+} from "recharts";
 
 const TeacherList = () => {
     const navigate = useNavigate();
     const [teachers, setTeachers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(15);
 
     // Permissions
     const [user, setUser] = useState(null);
@@ -31,6 +38,7 @@ const TeacherList = () => {
     const [filterTypes, setFilterTypes] = useState([]);
 
     const [showModal, setShowModal] = useState(false);
+    const [viewOnly, setViewOnly] = useState(false);
     const [centres, setCentres] = useState([]);
 
     // Form Data State
@@ -74,8 +82,7 @@ const TeacherList = () => {
         }
     };
 
-    // Fetch Centres (Optional, for dropdown) - assuming endpoint exists or skip
-    // We'll try to fetch centres if possible, else just input
+    // Fetch Centres
     const fetchCentres = async () => {
         try {
             const token = localStorage.getItem("token");
@@ -93,7 +100,7 @@ const TeacherList = () => {
                 }
             }
         } catch (err) {
-            // Ignore if fails
+            // Ignore
         }
     };
 
@@ -113,8 +120,6 @@ const TeacherList = () => {
     // Handle Input Change
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-
-        // HOD Mutually Exclusive Logic
         if (["isDeptHod", "isBoardHod", "isSubjectHod"].includes(name) && checked) {
             setFormData(prev => ({
                 ...prev,
@@ -124,7 +129,6 @@ const TeacherList = () => {
             }));
             return;
         }
-
         setFormData(prev => ({
             ...prev,
             [name]: type === "checkbox" ? checked : value
@@ -133,7 +137,6 @@ const TeacherList = () => {
 
     const [editId, setEditId] = useState(null);
 
-    // Handle Edit population
     const handleEdit = (teacher) => {
         setFormData({
             name: teacher.name,
@@ -141,7 +144,7 @@ const TeacherList = () => {
             mobNum: teacher.mobNum,
             employeeId: teacher.employeeId,
             subject: teacher.subject,
-            centre: teacher.centres?.[0] || "", // Assuming single centre for now from array
+            centre: teacher.centres?.[0] || "",
             teacherDepartment: teacher.teacherDepartment,
             boardType: teacher.boardType,
             teacherType: teacher.teacherType,
@@ -154,7 +157,6 @@ const TeacherList = () => {
         setShowModal(true);
     };
 
-    // Handle Delete
     const handleDelete = async (id) => {
         if (!window.confirm("Are you sure you want to delete this teacher?")) return;
         try {
@@ -174,33 +176,23 @@ const TeacherList = () => {
         }
     };
 
-    // Handle Submit (Create or Update)
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
             const token = localStorage.getItem("token");
-            const url = editId
-                ? `${API_URL}/academics/teacher/update/${editId}`
-                : `${API_URL}/academics/teacher/create`;
-
+            const url = editId ? `${API_URL}/academics/teacher/update/${editId}` : `${API_URL}/academics/teacher/create`;
             const method = editId ? "PUT" : "POST";
-
             const response = await fetch(url, {
                 method: method,
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`
-                },
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                 body: JSON.stringify(formData)
             });
             const data = await response.json();
-
             if (response.ok) {
                 toast.success(editId ? "Teacher updated successfully!" : "Teacher added successfully!");
                 setShowModal(false);
-                setEditId(null); // Reset edit state
+                setEditId(null);
                 fetchTeachers();
-                // Reset Form
                 setFormData({
                     name: "", email: "", mobNum: "", employeeId: "", subject: "",
                     centre: "", teacherDepartment: "", boardType: "", teacherType: "", designation: "",
@@ -214,7 +206,6 @@ const TeacherList = () => {
         }
     };
 
-    // Reset form when modal closes or opens for Add
     const openAddModal = () => {
         setFormData({
             name: "", email: "", mobNum: "", employeeId: "", subject: "",
@@ -222,10 +213,31 @@ const TeacherList = () => {
             isDeptHod: false, isBoardHod: false, isSubjectHod: false
         });
         setEditId(null);
+        setViewOnly(false);
         setShowModal(true);
     };
 
-    // Extract Options for Filters
+    const handleView = (teacher) => {
+        setFormData({
+            name: teacher.name,
+            email: teacher.email,
+            mobNum: teacher.mobNum,
+            employeeId: teacher.employeeId,
+            subject: teacher.subject,
+            centre: teacher.centres?.[0]?._id || teacher.centres?.[0] || teacher.centre || "",
+            teacherDepartment: teacher.teacherDepartment,
+            boardType: teacher.boardType,
+            teacherType: teacher.teacherType,
+            designation: teacher.designation,
+            isDeptHod: teacher.isDeptHod,
+            isBoardHod: teacher.isBoardHod,
+            isSubjectHod: teacher.isSubjectHod
+        });
+        setViewOnly(true);
+        setEditId(null);
+        setShowModal(true);
+    };
+
     const getOptions = (key) => {
         const unique = [...new Set(teachers.map(t => t[key]).filter(Boolean))];
         return unique.map(val => ({ value: val, label: val }));
@@ -242,13 +254,10 @@ const TeacherList = () => {
     const typeOptions = getOptions('teacherType');
 
     const filteredTeachers = teachers.filter(t => {
-        // Global Search
         const matchesSearch =
             t.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             t.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             t.employeeId?.toLowerCase().includes(searchTerm.toLowerCase());
-
-        // Multi-Select Filters
         const matchesName = filterNames.length === 0 || filterNames.includes(t.name);
         const matchesEmail = filterEmails.length === 0 || filterEmails.includes(t.email);
         const matchesEmpId = filterEmployeeIds.length === 0 || filterEmployeeIds.includes(t.employeeId);
@@ -258,10 +267,33 @@ const TeacherList = () => {
         const matchesDesig = filterDesignations.length === 0 || filterDesignations.includes(t.designation);
         const matchesSubject = filterSubjects.length === 0 || filterSubjects.includes(t.subject);
         const matchesType = filterTypes.length === 0 || filterTypes.includes(t.teacherType);
-
         return matchesSearch && matchesName && matchesEmail && matchesEmpId && matchesMobile &&
             matchesDept && matchesBoard && matchesDesig && matchesSubject && matchesType;
     });
+
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentItems = filteredTeachers.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(filteredTeachers.length / itemsPerPage);
+
+    const handlePageChange = (pageNumber) => setCurrentPage(pageNumber);
+
+    // --- Analytics Data Processing ---
+    const getStatsData = (key) => {
+        const counts = {};
+        teachers.forEach(t => {
+            const val = t[key] || "Unknown";
+            counts[val] = (counts[val] || 0) + 1;
+        });
+        return Object.entries(counts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+    };
+
+    const deptChartData = getStatsData('teacherDepartment');
+    const typeChartData = getStatsData('teacherType');
+    const boardChartData = getStatsData('boardType');
+    const subjectChartData = getStatsData('subject').slice(0, 5);
+
+    const PIE_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
     const resetFilters = () => {
         setSearchTerm("");
@@ -276,13 +308,154 @@ const TeacherList = () => {
         setFilterTypes([]);
     };
 
+    const teacherColumns = [
+        { header: "Name", key: "name" },
+        { header: "Email", key: "email" },
+        { header: "Employee ID", key: "employeeId" },
+        { header: "Mobile", key: "mobNum" },
+        { header: "Centre", key: "centre" },
+        { header: "Department", key: "teacherDepartment" },
+        { header: "Board", key: "boardType" },
+        { header: "Subject", key: "subject" },
+        { header: "Designation", key: "designation" },
+        { header: "Type", key: "teacherType" },
+        { header: "Dept HOD", key: "isDeptHod" },
+        { header: "Board HOD", key: "isBoardHod" },
+        { header: "Subject HOD", key: "isSubjectHod" },
+    ];
+
+    const teacherMapping = {
+        name: "name", email: "email", employeeId: "employeeId", mobNum: "phoneNumber",
+        centre: "center", teacherDepartment: "depertment", boardType: "examArea",
+        teacherType: "type", subject: "subject", designation: "designation",
+        isDeptHod: "deptTypeHod", isBoardHod: "boardTypeHod", isSubjectHod: "subjectWiseHod"
+    };
+
+    const handleBulkImport = async (data) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${API_URL}/academics/teacher/bulk-import`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            if (response.ok) {
+                toast.success(result.message);
+                fetchTeachers();
+            } else {
+                toast.error(result.message || "Import failed");
+                result.stats?.errors?.slice(0, 3).forEach(err => toast.error(err));
+            }
+        } catch (error) {
+            toast.error("Error processing import");
+        }
+    };
+
+    const prepareExportData = (data) => {
+        return data.map(t => ({
+            ...t,
+            centre: Array.isArray(t.centres) ? t.centres.map(c => c.centreName || c).join(", ") : t.centre || ""
+        }));
+    };
+
     return (
         <Layout activePage="Academics">
             <div className="p-6 text-white min-h-screen">
                 <ToastContainer theme="dark" />
-
-                {/* Header */}
                 <h1 className="text-2xl font-bold mb-6">Teacher List</h1>
+
+                {/* Analytics Section - Charts */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    {/* Dept Stats - Bar Chart */}
+                    <div className="bg-[#1e2530] p-4 rounded-xl border border-gray-700 shadow-lg h-[240px] flex flex-col">
+                        <h3 className="text-xs font-semibold text-gray-400 mb-4 uppercase tracking-wider">Department Wise</h3>
+                        <div className="flex-1 min-h-0">
+                            <ResponsiveContainer width="100%" height="100%" minHeight={150}>
+                                <BarChart data={deptChartData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                                    <XAxis dataKey="name" stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} />
+                                    <YAxis stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff' }}
+                                        itemStyle={{ color: '#22d3ee' }}
+                                    />
+                                    <Bar dataKey="value" fill="#06b6d4" radius={[4, 4, 0, 0]} barSize={30} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Board Stats - Pie Chart */}
+                    <div className="bg-[#1e2530] p-4 rounded-xl border border-gray-700 shadow-lg h-[240px] flex flex-col">
+                        <h3 className="text-xs font-semibold text-gray-400 mb-4 uppercase tracking-wider">Board Distribution</h3>
+                        <div className="flex-1 min-h-0">
+                            <ResponsiveContainer width="100%" height="100%" minHeight={150}>
+                                <PieChart>
+                                    <Pie
+                                        data={boardChartData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={40}
+                                        outerRadius={55}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                    >
+                                        {boardChartData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff' }} />
+                                    <Legend iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Type Stats - Donut Chart */}
+                    <div className="bg-[#1e2530] p-4 rounded-xl border border-gray-700 shadow-lg h-[240px] flex flex-col">
+                        <h3 className="text-xs font-semibold text-gray-400 mb-4 uppercase tracking-wider">Teacher Type</h3>
+                        <div className="flex-1 min-h-0">
+                            <ResponsiveContainer width="100%" height="100%" minHeight={150}>
+                                <PieChart>
+                                    <Pie
+                                        data={typeChartData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={50}
+                                        outerRadius={65}
+                                        dataKey="value"
+                                    >
+                                        {typeChartData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.name === 'Full Time' ? '#10b981' : '#f59e0b'} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff' }} />
+                                    <Legend iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Top Subjects - Horizontal Bar Chart */}
+                    <div className="bg-[#1e2530] p-4 rounded-xl border border-gray-700 shadow-lg h-[240px] flex flex-col">
+                        <h3 className="text-xs font-semibold text-gray-400 mb-4 uppercase tracking-wider">Top 5 Subjects</h3>
+                        <div className="flex-1 min-h-0">
+                            <ResponsiveContainer width="100%" height="100%" minHeight={150}>
+                                <BarChart data={subjectChartData} layout="vertical">
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
+                                    <XAxis type="number" hide />
+                                    <YAxis dataKey="name" type="category" stroke="#9ca3af" fontSize={10} width={70} tickLine={false} axisLine={false} />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff' }}
+                                        itemStyle={{ color: '#a855f7' }}
+                                    />
+                                    <Bar dataKey="value" fill="#a855f7" radius={[0, 4, 4, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
 
                 {/* Filters Section */}
                 <div className="bg-[#1e2530] p-4 rounded-xl border border-gray-700 shadow-lg mb-6">
@@ -291,6 +464,16 @@ const TeacherList = () => {
                             <FaFilter /> <span className="font-semibold">Filters</span>
                         </div>
                         <div className="flex gap-2">
+                            <ExcelImportExport
+                                columns={teacherColumns}
+                                mapping={teacherMapping}
+                                data={teachers}
+                                onImport={handleBulkImport}
+                                onExport={() => teachers}
+                                prepareExportData={prepareExportData}
+                                fileName="Teacher_List"
+                                templateName="Teacher_Import_Template"
+                            />
                             <button onClick={resetFilters} className="text-gray-400 hover:text-white text-sm flex items-center gap-1 transition-colors">
                                 <FaSync /> Reset
                             </button>
@@ -331,10 +514,10 @@ const TeacherList = () => {
 
                 {/* Table */}
                 <div className="bg-[#1a1f24] rounded-lg border border-gray-800 overflow-hidden">
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full text-left border-collapse table-auto">
                         <thead>
                             <tr className="text-gray-400 text-xs uppercase border-b border-gray-700 bg-[#131619]">
-                                <th className="p-4 font-semibold">Name</th>
+                                <th className="p-4 font-semibold min-w-[200px]">Name</th>
                                 <th className="p-4 font-semibold">Emp ID</th>
                                 <th className="p-4 font-semibold">Email</th>
                                 <th className="p-4 font-semibold">Mobile</th>
@@ -349,75 +532,86 @@ const TeacherList = () => {
                         <tbody>
                             {loading ? (
                                 <tr><td colSpan="10" className="p-8 text-center text-gray-500">Loading...</td></tr>
-                            ) : filteredTeachers.length === 0 ? (
+                            ) : currentItems.length === 0 ? (
                                 <tr>
                                     <td colSpan="10" className="p-8 text-center text-gray-500">
                                         No teachers found matching criteria.
                                     </td>
                                 </tr>
                             ) : (
-                                filteredTeachers.map((teacher) => (
+                                currentItems.map((teacher) => (
                                     <tr
                                         key={teacher._id}
                                         className="border-b border-gray-800 hover:bg-[#2a323c] transition-all duration-200 hover:shadow-lg group"
                                     >
-                                        <td className="p-4 flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-gray-900 border border-gray-700 overflow-hidden flex-shrink-0">
-                                                {teacher.profileImage && !teacher.profileImage.startsWith('undefined/') ? (
-                                                    <img src={teacher.profileImage} alt="" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-cyan-500 bg-cyan-500/10">
-                                                        {teacher.name?.charAt(0)}
-                                                    </div>
-                                                )}
+                                        <td className="p-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-gray-900 border border-gray-700 overflow-hidden flex-shrink-0">
+                                                    {teacher.profileImage && !teacher.profileImage.startsWith('undefined/') ? (
+                                                        <img src={teacher.profileImage} alt="" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-xs font-bold text-cyan-500 bg-cyan-500/10">
+                                                            {teacher.name?.charAt(0)}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span
+                                                        className="font-bold text-white group-hover:text-cyan-400 transition-colors uppercase cursor-pointer hover:underline break-words max-w-[200px]"
+                                                        onClick={() => handleView(teacher)}
+                                                        title="Click to view full details"
+                                                    >
+                                                        {teacher.name}
+                                                    </span>
+                                                    <span className="text-[10px] text-gray-500">{teacher.designation || "Faculty"}</span>
+                                                </div>
                                             </div>
-                                            <span className="font-bold text-white group-hover:text-cyan-400 transition-colors uppercase">
-                                                {teacher.name}
-                                            </span>
                                         </td>
                                         <td className="p-4 text-gray-300">
                                             <span className="bg-gray-800/50 font-mono text-xs px-2 py-1 rounded border border-gray-700">
                                                 {teacher.employeeId || "N/A"}
                                             </span>
                                         </td>
-                                        <td className="p-4 text-gray-300">{teacher.email}</td>
-                                        <td className="p-4 text-gray-400">{teacher.mobNum}</td>
-                                        <td className="p-4 text-white">{teacher.subject || "-"}</td>
-                                        <td className="p-4 text-gray-300">{teacher.designation || "-"}</td>
-                                        <td className="p-4 text-gray-300">{teacher.teacherDepartment || "-"}</td>
-                                        <td className="p-4 text-white">{teacher.boardType || "-"}</td>
+                                        <td className="p-4 text-gray-300 text-sm">{teacher.email}</td>
+                                        <td className="p-4 text-gray-400 text-sm">{teacher.mobNum}</td>
+                                        <td className="p-4 text-white text-sm">{teacher.subject || "-"}</td>
+                                        <td className="p-4 text-gray-300 text-sm">{teacher.designation || "-"}</td>
+                                        <td className="p-4 text-gray-300 text-sm">{teacher.teacherDepartment || "-"}</td>
+                                        <td className="p-4 text-white text-sm">{teacher.boardType || "-"}</td>
                                         <td className="p-4">
-                                            <span className={`px-2 py-1 rounded text-xs font-semibold ${teacher.teacherType === 'Full Time' ? 'bg-green-900 text-green-300' : 'bg-yellow-900 text-yellow-300'
+                                            <span className={`px-2 py-1 rounded text-[10px] font-semibold ${teacher.teacherType === 'Full Time' ? 'bg-green-900/50 text-green-400 border border-green-800' : 'bg-yellow-900/50 text-yellow-400 border border-yellow-800'
                                                 }`}>
                                                 {teacher.teacherType || "-"}
                                             </span>
                                         </td>
-                                        <td className="p-4 text-sm flex gap-3">
-                                            <span
-                                                className="text-cyan-400 cursor-pointer flex items-center gap-1 hover:text-cyan-300 transition-colors"
-                                                title="View Details"
-                                                onClick={() => navigate(`/academics/teacher/view/${teacher._id}`)}
-                                            >
-                                                <FaEye />
-                                            </span>
-                                            {canEdit && (
+                                        <td className="p-4 text-sm">
+                                            <div className="flex gap-3">
                                                 <span
-                                                    className="text-yellow-400 cursor-pointer flex items-center gap-1 hover:text-yellow-300 transition-colors"
-                                                    title="Edit"
-                                                    onClick={() => handleEdit(teacher)}
+                                                    className="text-cyan-400 cursor-pointer flex items-center gap-1 hover:text-cyan-300 transition-colors p-1"
+                                                    title="View Details"
+                                                    onClick={() => navigate(`/academics/teacher/view/${teacher._id}`)}
                                                 >
-                                                    <FaEdit />
+                                                    <FaEye />
                                                 </span>
-                                            )}
-                                            {canDelete && (
-                                                <span
-                                                    className="text-red-400 cursor-pointer flex items-center gap-1 hover:text-red-300 transition-colors"
-                                                    title="Delete"
-                                                    onClick={() => handleDelete(teacher._id)}
-                                                >
-                                                    <FaTrash />
-                                                </span>
-                                            )}
+                                                {canEdit && (
+                                                    <span
+                                                        className="text-yellow-400 cursor-pointer flex items-center gap-1 hover:text-yellow-300 transition-colors p-1"
+                                                        title="Edit"
+                                                        onClick={() => handleEdit(teacher)}
+                                                    >
+                                                        <FaEdit />
+                                                    </span>
+                                                )}
+                                                {canDelete && (
+                                                    <span
+                                                        className="text-red-400 cursor-pointer flex items-center gap-1 hover:text-red-300 transition-colors p-1"
+                                                        title="Delete"
+                                                        onClick={() => handleDelete(teacher._id)}
+                                                    >
+                                                        <FaTrash />
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -426,12 +620,64 @@ const TeacherList = () => {
                     </table>
                 </div>
 
+                {/* Pagination Controls */}
+                <div className="p-4 bg-[#1e2530] border border-gray-700 rounded-xl mt-6 flex flex-col lg:flex-row items-center justify-between gap-4 shadow-lg">
+                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                        <span className="text-gray-400 text-sm">
+                            Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredTeachers.length)} of {filteredTeachers.length} entries
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-gray-400 text-sm">Rows per page:</span>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                className="bg-[#131619] text-white border border-gray-700 rounded px-2 py-1 text-xs focus:outline-none focus:border-cyan-500"
+                            >
+                                {[10, 15, 20, 30, 50, 100].map(val => (
+                                    <option key={val} value={val}>{val}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-2 sm:pb-0">
+                        <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className="px-3 py-1.5 rounded-lg bg-[#131619] border border-gray-700 text-gray-300 hover:bg-[#2a323c] disabled:opacity-50 disabled:cursor-not-allowed transition text-sm whitespace-nowrap"
+                        >
+                            Prev
+                        </button>
+                        <div className="flex gap-1">
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(number => (
+                                <button
+                                    key={number}
+                                    onClick={() => handlePageChange(number)}
+                                    className={`w-8 h-8 rounded-lg border text-xs flex items-center justify-center transition ${currentPage === number ? 'bg-blue-600 border-blue-600 text-white' : 'bg-[#131619] border-gray-700 text-gray-300 hover:bg-[#2a323c]'}`}
+                                >
+                                    {number}
+                                </button>
+                            ))}
+                        </div>
+                        <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className="px-3 py-1.5 rounded-lg bg-[#131619] border border-gray-700 text-gray-300 hover:bg-[#2a323c] disabled:opacity-50 disabled:cursor-not-allowed transition text-sm whitespace-nowrap"
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
+
+
                 {/* Modal */}
                 {showModal && (
                     <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 backdrop-blur-sm p-4">
                         <div className="bg-[#1e2530] w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl border border-gray-700 shadow-2xl animate-fade-in custom-scrollbar">
                             <div className="p-6 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-[#1e2530] z-10">
-                                <h2 className="text-xl font-bold text-white">{editId ? "Edit Teacher" : "Add Teacher"}</h2>
+                                <h2 className="text-xl font-bold text-white">
+                                    {viewOnly ? "View Teacher Details" : editId ? "Edit Teacher" : "Add Teacher"}
+                                </h2>
                                 <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white text-2xl">&times;</button>
                             </div>
 
@@ -440,32 +686,32 @@ const TeacherList = () => {
                                     {/* Row 1 */}
                                     <div>
                                         <label className="block text-gray-400 text-sm mb-1">Teacher Name <span className="text-red-500">*</span></label>
-                                        <input type="text" name="name" required value={formData.name} onChange={handleChange}
-                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none" placeholder="Enter Teacher Name" />
+                                        <input type="text" name="name" required disabled={viewOnly} value={formData.name} onChange={handleChange}
+                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none disabled:opacity-70" placeholder="Enter Teacher Name" />
                                     </div>
                                     <div>
                                         <label className="block text-gray-400 text-sm mb-1">Teacher Email <span className="text-red-500">*</span></label>
-                                        <input type="email" name="email" required value={formData.email} onChange={handleChange}
-                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none" placeholder="abc@gmail.com" />
+                                        <input type="email" name="email" required disabled={viewOnly} value={formData.email} onChange={handleChange}
+                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none disabled:opacity-70" placeholder="abc@gmail.com" />
                                     </div>
 
                                     {/* Row 2 */}
                                     <div>
                                         <label className="block text-gray-400 text-sm mb-1">Phone Number <span className="text-red-500">*</span></label>
-                                        <input type="text" name="mobNum" required value={formData.mobNum} onChange={handleChange}
-                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none" placeholder="9733..." />
+                                        <input type="text" name="mobNum" required disabled={viewOnly} value={formData.mobNum} onChange={handleChange}
+                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none disabled:opacity-70" placeholder="9733..." />
                                     </div>
                                     <div>
                                         <label className="block text-gray-400 text-sm mb-1">Subject <span className="text-red-500">*</span></label>
-                                        <input type="text" name="subject" required value={formData.subject} onChange={handleChange}
-                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none" placeholder="Select a subject" />
+                                        <input type="text" name="subject" required disabled={viewOnly} value={formData.subject} onChange={handleChange}
+                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none disabled:opacity-70" placeholder="Select a subject" />
                                     </div>
 
                                     {/* Row 3 - Centre */}
                                     <div className="md:col-span-2">
                                         <label className="block text-gray-400 text-sm mb-1">Centre <span className="text-red-500">*</span></label>
-                                        <select name="centre" required value={formData.centre} onChange={handleChange}
-                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none">
+                                        <select name="centre" required disabled={viewOnly} value={formData.centre} onChange={handleChange}
+                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none disabled:opacity-70">
                                             <option value="">Select a Center</option>
                                             {centres.map((c, idx) => (
                                                 <option key={idx} value={c._id}>{c.centreName}</option>
@@ -478,8 +724,8 @@ const TeacherList = () => {
                                     {/* Row 4 */}
                                     <div>
                                         <label className="block text-gray-400 text-sm mb-1">Teacher Department <span className="text-red-500">*</span></label>
-                                        <select name="teacherDepartment" required value={formData.teacherDepartment} onChange={handleChange}
-                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none">
+                                        <select name="teacherDepartment" required disabled={viewOnly} value={formData.teacherDepartment} onChange={handleChange}
+                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none disabled:opacity-70">
                                             <option value="">Select</option>
                                             <option value="Foundation">Foundation</option>
                                             <option value="Board">Board</option>
@@ -488,8 +734,8 @@ const TeacherList = () => {
                                     </div>
                                     <div>
                                         <label className="block text-gray-400 text-sm mb-1">Board Type <span className="text-red-500">*</span></label>
-                                        <select name="boardType" required value={formData.boardType} onChange={handleChange}
-                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none">
+                                        <select name="boardType" required disabled={viewOnly} value={formData.boardType} onChange={handleChange}
+                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none disabled:opacity-70">
                                             <option value="">Select</option>
                                             <option value="CBSE">CBSE</option>
                                             <option value="ICSE">ICSE</option>
@@ -501,8 +747,8 @@ const TeacherList = () => {
                                     {/* Row 5 */}
                                     <div>
                                         <label className="block text-gray-400 text-sm mb-1">Teacher Type <span className="text-red-500">*</span></label>
-                                        <select name="teacherType" required value={formData.teacherType} onChange={handleChange}
-                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none">
+                                        <select name="teacherType" required disabled={viewOnly} value={formData.teacherType} onChange={handleChange}
+                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none disabled:opacity-70">
                                             <option value="">Select</option>
                                             <option value="Full Time">Full Time</option>
                                             <option value="Part Time">Part Time</option>
@@ -515,38 +761,40 @@ const TeacherList = () => {
                                     {/* Row 6 */}
                                     <div>
                                         <label className="block text-gray-400 text-sm mb-1">Employee Id <span className="text-red-500">*</span></label>
-                                        <input type="text" name="employeeId" required value={formData.employeeId} onChange={handleChange}
-                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none" placeholder="Enter ID" />
+                                        <input type="text" name="employeeId" required disabled={viewOnly} value={formData.employeeId} onChange={handleChange}
+                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none disabled:opacity-70" placeholder="Enter ID" />
                                     </div>
                                     <div>
                                         <label className="block text-gray-400 text-sm mb-1">Designation <span className="text-red-500">*</span></label>
-                                        <input type="text" name="designation" required value={formData.designation} onChange={handleChange}
-                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none" placeholder="Select a designation" />
+                                        <input type="text" name="designation" required disabled={viewOnly} value={formData.designation} onChange={handleChange}
+                                            className="w-full bg-[#13171c] border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none disabled:opacity-70" placeholder="Select a designation" />
                                     </div>
                                 </div>
 
                                 {/* Checkboxes */}
                                 <div className="flex gap-6 mt-4 border-t border-gray-700 pt-4">
-                                    <label className="flex items-center gap-2 cursor-pointer text-gray-300">
-                                        <input type="checkbox" name="isDeptHod" checked={formData.isDeptHod} onChange={handleChange} className="w-4 h-4 rounded" />
+                                    <label className={`flex items-center gap-2 cursor-pointer text-gray-300 ${viewOnly ? 'cursor-default' : ''}`}>
+                                        <input type="checkbox" name="isDeptHod" disabled={viewOnly} checked={formData.isDeptHod} onChange={handleChange} className="w-4 h-4 rounded disabled:opacity-70" />
                                         <span>Dept Type HOD</span>
                                     </label>
-                                    <label className="flex items-center gap-2 cursor-pointer text-gray-300">
-                                        <input type="checkbox" name="isBoardHod" checked={formData.isBoardHod} onChange={handleChange} className="w-4 h-4 rounded" />
+                                    <label className={`flex items-center gap-2 cursor-pointer text-gray-300 ${viewOnly ? 'cursor-default' : ''}`}>
+                                        <input type="checkbox" name="isBoardHod" disabled={viewOnly} checked={formData.isBoardHod} onChange={handleChange} className="w-4 h-4 rounded disabled:opacity-70" />
                                         <span>Board Type HOD</span>
                                     </label>
-                                    <label className="flex items-center gap-2 cursor-pointer text-gray-300">
-                                        <input type="checkbox" name="isSubjectHod" checked={formData.isSubjectHod} onChange={handleChange} className="w-4 h-4 rounded" />
+                                    <label className={`flex items-center gap-2 cursor-pointer text-gray-300 ${viewOnly ? 'cursor-default' : ''}`}>
+                                        <input type="checkbox" name="isSubjectHod" disabled={viewOnly} checked={formData.isSubjectHod} onChange={handleChange} className="w-4 h-4 rounded disabled:opacity-70" />
                                         <span>Subject Wise HOD</span>
                                     </label>
                                 </div>
 
                                 {/* Footer Buttons */}
-                                <div className="mt-8 flex gap-4">
-                                    <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition shadow-lg">
-                                        {editId ? "Update" : "Add"}
-                                    </button>
-                                </div>
+                                {!viewOnly && (
+                                    <div className="mt-8 flex gap-4">
+                                        <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition shadow-lg">
+                                            {editId ? "Update" : "Add"}
+                                        </button>
+                                    </div>
+                                )}
                             </form>
                         </div>
                     </div>

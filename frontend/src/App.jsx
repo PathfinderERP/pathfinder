@@ -174,6 +174,7 @@ function App() {
         <Route path="/finance/cash/centre/:centreId" element={<CashCentreDetails />} />
         <Route path="/finance/transaction-list" element={<TransactionList />} />
         <Route path="/finance/analysis" element={<FinancialAnalysis />} />
+        <Route path="/finance/payment-analysis" element={<FinancialAnalysis />} />
         <Route path="/finance/center-tagging" element={<CenterTagging />} />
         <Route path="/finance/budget" element={<Budget />} />
         <Route path="/finance/budget/:centreId" element={<BudgetDetails />} />

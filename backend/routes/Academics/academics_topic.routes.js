@@ -1,10 +1,11 @@
 import express from "express";
-import { createTopic, getAllTopics, getTopicsByChapter, updateTopic, deleteTopic } from "../../controllers/Academics/Academics_topicController.js";
+import { createTopic, getAllTopics, getTopicsByChapter, updateTopic, deleteTopic, bulkImportTopics } from "../../controllers/Academics/Academics_topicController.js";
 import authMiddleware from "../../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 router.post("/create", authMiddleware, createTopic);
+router.post("/bulk-import", authMiddleware, bulkImportTopics);
 router.get("/list", authMiddleware, getAllTopics);
 router.get("/list/chapter/:chapterId", authMiddleware, getTopicsByChapter);
 router.put("/update/:id", authMiddleware, updateTopic);

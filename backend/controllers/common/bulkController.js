@@ -17,11 +17,16 @@ export const bulkImport = (Model) => async (req, res) => {
         console.error(`Bulk import error for ${Model.modelName}:`, err);
 
         // Handle partial success if ordered: false
-        if (err.name === 'BulkWriteError' || err.code === 11000) {
+        if (err.name === 'BulkWriteError' || err.code === 11000 || err.name === 'MongoBulkWriteError') {
+            const insertedCount = err.result?.nInserted || err.insertedCount || 0;
+            const writeErrors = err.writeErrors || [];
+
             return res.status(207).json({
                 message: "Partial import success. Some records might be duplicates or invalid.",
-                importedCount: err.result?.nInserted || 0,
-                error: err.message
+                count: insertedCount,
+                importedCount: insertedCount,
+                errorCount: writeErrors.length,
+                details: writeErrors.map(e => e.errmsg || e.message).slice(0, 5) // Send first 5 errors
             });
         }
 

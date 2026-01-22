@@ -1,7 +1,108 @@
 import User from "../../models/User.js";
 import Employee from "../../models/HR/Employee.js";
+import Centre from "../../models/Master_data/Centre.js";
 import bcrypt from "bcrypt";
 import { getSignedFileUrl } from "../../utils/r2Upload.js";
+
+// Bulk Import Teachers
+export const bulkImportTeachers = async (req, res) => {
+    try {
+        const teachersData = req.body;
+        if (!Array.isArray(teachersData) || teachersData.length === 0) {
+            return res.status(400).json({ message: "Invalid data format. Expected an array of records." });
+        }
+
+        const stats = {
+            total: teachersData.length,
+            success: 0,
+            failed: 0,
+            errors: []
+        };
+
+        const centres = await Centre.find({});
+        const centreMap = new Map(centres.map(c => [c.centreName.toLowerCase(), c._id]));
+
+        for (const data of teachersData) {
+            try {
+                // Basic Validation
+                if (!data.name || !data.email || !data.employeeId) {
+                    stats.failed++;
+                    stats.errors.push(`Missing required fields for ${data.name || 'Unknown'}`);
+                    continue;
+                }
+
+                // Duplicate Check
+                const existing = await User.findOne({
+                    $or: [{ email: data.email }, { employeeId: data.employeeId }],
+                    role: "teacher" // Only check against teachers? User email must be unique across system actually.
+                    // User model uniqueness is usually on email/employeeId globally.
+                });
+
+                if (existing) {
+                    stats.failed++;
+                    stats.errors.push(`User already exists: ${data.email} / ${data.employeeId}`);
+                    continue;
+                }
+
+                // Resolve Centre
+                let assignedCentres = [];
+                if (data.centre) {
+                    const cId = centreMap.get(data.centre.toLowerCase());
+                    if (cId) assignedCentres.push(cId);
+                }
+
+                // Map Booleans
+                const isTrue = (val) => String(val).toLowerCase() === 'true';
+
+                // Hash Password (default to employeeId)
+                const salt = await bcrypt.genSalt(10);
+                const hashedPassword = await bcrypt.hash(data.employeeId, salt);
+
+                const newTeacher = new User({
+                    name: data.name,
+                    email: data.email,
+                    employeeId: data.employeeId,
+                    mobNum: data.mobNum || data.phoneNumber || "",
+                    password: hashedPassword,
+                    role: "teacher",
+
+                    // Academic Fields
+                    subject: data.subject,
+                    designation: data.designation,
+                    teacherDepartment: data.teacherDepartment || data.depertment, // Handle spelling typo in CSV 'depertment'
+                    boardType: data.boardType || data.examArea, // 'examArea' in CSV
+                    teacherType: data.teacherType || data.type, // 'type' in CSV
+
+                    centres: assignedCentres,
+
+                    // Permissions/HOD flags
+                    isDeptHod: isTrue(data.isDeptHod || data.deptTypeHod),
+                    isBoardHod: isTrue(data.isBoardHod || data.boardTypeHod),
+                    isSubjectHod: isTrue(data.isSubjectHod || data.subjectWiseHod),
+
+                    permissions: [],
+                    granularPermissions: {}
+                });
+
+                await newTeacher.save();
+                stats.success++;
+
+            } catch (err) {
+                stats.failed++;
+                stats.errors.push(`Error importing ${data.name}: ${err.message}`);
+            }
+        }
+
+        res.status(201).json({
+            message: `Import processed. Success: ${stats.success}, Failed: ${stats.failed}`,
+            stats
+        });
+
+    } catch (error) {
+        console.error("Bulk Import Error:", error);
+        res.status(500).json({ message: "Server error during import", error: error.message });
+    }
+};
 
 // Create Teacher
 export const createTeacher = async (req, res) => {

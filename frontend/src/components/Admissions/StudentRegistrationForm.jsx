@@ -574,11 +574,11 @@ const StudentRegistrationForm = () => {
                                 </select>
                                 <select name="class" value={formData.class} onChange={handleChange} className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full">
                                     <option value="">Select Class</option>
-                                    <option value="8">Class 8</option>
-                                    <option value="9">Class 9</option>
-                                    <option value="10">Class 10</option>
-                                    <option value="11">Class 11</option>
-                                    <option value="12">Class 12</option>
+                                    {classes.map(c => (
+                                        <option key={c._id} value={c.name || c.className}>
+                                            Class {c.name || c.className}
+                                        </option>
+                                    ))}
                                 </select>
                                 <input type="text" name="examStatus" value={formData.examStatus} onChange={handleChange} placeholder="Exam Status" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
                                 <input type="text" name="markAgregate" value={formData.markAgregate} onChange={handleChange} placeholder="Mark Aggregate" className="bg-[#131619] border border-gray-700 rounded-lg px-4 py-3 text-white w-full" />
