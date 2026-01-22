@@ -20,6 +20,14 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
     const [centres, setCentres] = useState([]);
     const [scripts, setScripts] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [permissionsConfig, setPermissionsConfig] = useState(null);
+
+    // Load permissions config
+    useEffect(() => {
+        import("../../config/permissions").then(module => {
+            setPermissionsConfig(module.PERMISSION_MODULES);
+        });
+    }, []);
 
     // Get current logged-in user to check if they're SuperAdmin
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
@@ -41,6 +49,24 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                 userCentres = [user.centre._id || user.centre];
             }
 
+            let granularPermissions = user.granularPermissions || {};
+
+            // If user is superAdmin, force all permissions to true if config is loaded
+            if (user.role === "superAdmin" && permissionsConfig) {
+                const allPerms = {};
+                Object.entries(permissionsConfig).forEach(([modKey, modData]) => {
+                    allPerms[modKey] = {};
+                    Object.keys(modData.sections).forEach(secKey => {
+                        allPerms[modKey][secKey] = {
+                            create: true,
+                            edit: true,
+                            delete: true
+                        };
+                    });
+                });
+                granularPermissions = allPerms;
+            }
+
             setFormData({
                 name: user.name || "",
                 employeeId: user.employeeId || "",
@@ -50,13 +76,13 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                 role: user.role || "admin",
                 centres: userCentres,
                 permissions: user.permissions || [],
-                granularPermissions: user.granularPermissions || {},
+                granularPermissions: granularPermissions,
                 canEditUsers: user.canEditUsers || false,
                 canDeleteUsers: user.canDeleteUsers || false,
                 assignedScript: user.assignedScript?._id || user.assignedScript || ""
             });
         }
-    }, [user]);
+    }, [user, permissionsConfig]); // Added permissionsConfig dependency
 
     const fetchCentres = async () => {
         try {
@@ -93,7 +119,47 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
     };
 
     const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        setFormData(prev => {
+            const newData = { ...prev, [name]: value };
+
+            // Auto-populate permissions if role is SuperAdmin
+            if (name === "role" && value === "superAdmin" && permissionsConfig) {
+                const allPerms = {};
+                Object.entries(permissionsConfig).forEach(([modKey, modData]) => {
+                    allPerms[modKey] = {};
+                    Object.keys(modData.sections).forEach(secKey => {
+                        allPerms[modKey][secKey] = {
+                            create: true,
+                            edit: true,
+                            delete: true
+                        };
+                    });
+                });
+                newData.granularPermissions = allPerms;
+            }
+            // If switching TO a regular role, ensure Employee Center is at least present
+            else if (name === "role" && value !== "superAdmin" && permissionsConfig) {
+                if (!newData.granularPermissions.employeeCenter) {
+                    const empCenterPerms = {};
+                    if (permissionsConfig.employeeCenter) {
+                        Object.keys(permissionsConfig.employeeCenter.sections).forEach(sectionKey => {
+                            empCenterPerms[sectionKey] = {
+                                create: true,
+                                edit: true,
+                                delete: true
+                            };
+                        });
+                        newData.granularPermissions = {
+                            ...newData.granularPermissions,
+                            employeeCenter: empCenterPerms
+                        };
+                    }
+                }
+            }
+
+            return newData;
+        });
     };
 
     const handleCentreChange = (centreId) => {

@@ -21,6 +21,29 @@ const AddUserModal = ({ onClose, onSuccess }) => {
     const [centres, setCentres] = useState([]);
     const [scripts, setScripts] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [permissionsConfig, setPermissionsConfig] = useState(null);
+
+    // Initialize with Employee Center access
+    useEffect(() => {
+        import("../../config/permissions").then(module => {
+            const config = module.PERMISSION_MODULES;
+            setPermissionsConfig(config);
+
+            // Set default Employee Center permissions for new user
+            const defaultPerms = {};
+            if (config.employeeCenter) {
+                defaultPerms.employeeCenter = {};
+                Object.keys(config.employeeCenter.sections).forEach(sectionKey => {
+                    defaultPerms.employeeCenter[sectionKey] = {
+                        create: true,
+                        edit: true,
+                        delete: true
+                    };
+                });
+            }
+            setFormData(prev => ({ ...prev, granularPermissions: defaultPerms }));
+        });
+    }, []);
 
     // Get current logged-in user to check if they're SuperAdmin
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
@@ -70,7 +93,45 @@ const AddUserModal = ({ onClose, onSuccess }) => {
     };
 
     const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        setFormData(prev => {
+            const newData = { ...prev, [name]: value };
+
+            // Auto-populate permissions if role is SuperAdmin
+            if (name === "role" && value === "superAdmin" && permissionsConfig) {
+                const allPerms = {};
+                Object.entries(permissionsConfig).forEach(([modKey, modData]) => {
+                    allPerms[modKey] = {};
+                    Object.keys(modData.sections).forEach(secKey => {
+                        allPerms[modKey][secKey] = {
+                            create: true,
+                            edit: true,
+                            delete: true
+                        };
+                    });
+                });
+                newData.granularPermissions = allPerms;
+            }
+            // If changing FROM superAdmin TO something else, maybe reset or keep Employee Center?
+            // User said "for the super admin their all checkbok... be marked"
+            // So if they switch back, we should probably keep employee center at least.
+            else if (name === "role" && prev.role === "superAdmin" && permissionsConfig) {
+                const defaultPerms = {};
+                if (permissionsConfig.employeeCenter) {
+                    defaultPerms.employeeCenter = {};
+                    Object.keys(permissionsConfig.employeeCenter.sections).forEach(sectionKey => {
+                        defaultPerms.employeeCenter[sectionKey] = {
+                            create: true,
+                            edit: true,
+                            delete: true
+                        };
+                    });
+                }
+                newData.granularPermissions = defaultPerms;
+            }
+
+            return newData;
+        });
     };
 
     const handleCentreChange = (centreId) => {
