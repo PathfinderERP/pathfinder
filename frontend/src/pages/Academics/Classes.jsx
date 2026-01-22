@@ -39,6 +39,7 @@ const Classes = () => {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalRecords, setTotalRecords] = useState(0);
+    const [jumpPage, setJumpPage] = useState("");
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const isAdmin = user.role === "admin" || user.role === "superAdmin";
@@ -289,6 +290,56 @@ const Classes = () => {
         } catch (error) {
             toast.error("Error updating class schedule");
         }
+    };
+
+    const handleJumpPage = (e) => {
+        e.preventDefault();
+        const pageNum = parseInt(jumpPage);
+        if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+            setPage(pageNum);
+            setJumpPage("");
+        } else {
+            toast.error(`Please enter a page between 1 and ${totalPages}`);
+        }
+    };
+
+    const renderPageNumbers = () => {
+        const pages = [];
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pages.push(i);
+        } else {
+            if (page <= 4) {
+                for (let i = 1; i <= 5; i++) pages.push(i);
+                pages.push("...");
+                pages.push(totalPages);
+            } else if (page >= totalPages - 3) {
+                pages.push(1);
+                pages.push("...");
+                for (let i = totalPages - 4; i <= totalPages; i++) pages.push(i);
+            } else {
+                pages.push(1);
+                pages.push("...");
+                for (let i = page - 1; i <= page + 1; i++) pages.push(i);
+                pages.push("...");
+                pages.push(totalPages);
+            }
+        }
+
+        return pages.map((p, index) => (
+            <button
+                key={index}
+                onClick={() => typeof p === "number" && setPage(p)}
+                disabled={p === "..."}
+                className={`min-w-[36px] h-9 flex items-center justify-center rounded-lg font-bold transition-all text-xs ${p === page
+                    ? "bg-cyan-600 text-white shadow-lg shadow-cyan-900/40"
+                    : p === "..."
+                        ? "text-gray-500 cursor-default"
+                        : "bg-[#131619] text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-800"
+                    }`}
+            >
+                {p}
+            </button>
+        ));
     };
 
     const TimeRemaining = ({ endTimeString, classDate }) => {
@@ -614,25 +665,41 @@ const Classes = () => {
                     </div>
 
                     {/* Pagination Footer */}
-                    <div className="flex justify-between items-center mt-6 text-sm text-gray-400 border-t border-gray-800 pt-6">
-                        <div>
-                            Showing <span className="text-white font-bold">{totalRecords === 0 ? 0 : ((page - 1) * limit) + 1}</span> to <span className="text-white font-bold">{Math.min(page * limit, totalRecords)}</span> of <span className="text-white font-bold">{totalRecords}</span> entries
+                    <div className="flex flex-col md:flex-row justify-between items-center mt-6 text-sm text-gray-400 border-t border-gray-800 pt-6 gap-4">
+                        <div className="flex items-center gap-6">
+                            <div>
+                                Showing <span className="text-white font-bold">{totalRecords === 0 ? 0 : ((page - 1) * limit) + 1}</span> to <span className="text-white font-bold">{Math.min(page * limit, totalRecords)}</span> of <span className="text-white font-bold">{totalRecords}</span> entries
+                            </div>
+                            <form onSubmit={handleJumpPage} className="hidden md:flex items-center gap-2 bg-[#131619] px-3 py-1 rounded-lg border border-gray-700">
+                                <span className="text-[10px] font-bold uppercase text-gray-500">Go to</span>
+                                <input
+                                    type="text"
+                                    value={jumpPage}
+                                    onChange={(e) => setJumpPage(e.target.value)}
+                                    placeholder="Pg"
+                                    className="w-10 bg-transparent text-white text-center outline-none text-xs font-bold font-mono"
+                                />
+                            </form>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
                             <button
                                 onClick={() => setPage(prev => Math.max(prev - 1, 1))}
                                 disabled={page === 1}
-                                className="px-4 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 disabled:opacity-30 transition font-bold"
+                                className="px-3 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 disabled:opacity-30 transition font-bold text-xs flex items-center gap-1"
                             >
-                                &lt; Prev
+                                <span>&lt;</span> Prev
                             </button>
-                            <span className="flex items-center px-4 bg-gray-900/50 rounded-lg border border-gray-700 text-xs text-cyan-400 font-mono"> Page {page} / {totalPages} </span>
+
+                            <div className="flex gap-1">
+                                {renderPageNumbers()}
+                            </div>
+
                             <button
                                 onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
                                 disabled={page === totalPages || totalPages === 0}
-                                className="px-4 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 disabled:opacity-30 transition font-bold"
+                                className="px-3 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 disabled:opacity-30 transition font-bold text-xs flex items-center gap-1"
                             >
-                                Next &gt;
+                                Next <span>&gt;</span>
                             </button>
                         </div>
                     </div>
