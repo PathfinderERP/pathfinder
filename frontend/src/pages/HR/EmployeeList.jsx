@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
-import { FaPlus, FaEdit, FaEye, FaSearch, FaFileExcel, FaFilePdf, FaTrash, FaChevronLeft, FaChevronRight, FaFileUpload, FaFilter, FaFileAlt, FaIdCard, FaBuilding, FaMapMarkerAlt, FaEnvelope, FaUsers, FaChartPie } from "react-icons/fa";
+import { FaPlus, FaEdit, FaEye, FaSearch, FaFileExcel, FaFilePdf, FaTrash, FaChevronLeft, FaChevronRight, FaFileUpload, FaFilter, FaFileAlt, FaIdCard, FaBuilding, FaMapMarkerAlt, FaEnvelope, FaUsers, FaChartPie, FaSun, FaMoon } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -16,13 +16,13 @@ import ExcelImportExport from "../../components/common/ExcelImportExport";
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
         return (
-            <div className="bg-[#1a1f24] border border-gray-700/50 p-4 rounded-[2px] shadow-2xl backdrop-blur-sm">
-                <p className="text-white text-sm font-black mb-2 uppercase tracking-widest border-b border-gray-800 pb-2">{label}</p>
+            <div className="bg-white dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-700/50 p-4 rounded-[2px] shadow-2xl backdrop-blur-sm">
+                <p className="text-gray-900 dark:text-white text-sm font-black mb-2 uppercase tracking-widest border-b border-gray-200 dark:border-gray-800 pb-2">{label}</p>
                 {payload.map((entry, index) => (
                     <div key={index} className="flex items-center gap-3 text-xs font-bold py-1">
                         <div className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(entry.color,0.5)]" style={{ backgroundColor: entry.color }}></div>
-                        <span className="text-gray-400 uppercase tracking-tight">{entry.name}:</span>
-                        <span className="text-white font-mono ml-auto">{entry.value}</span>
+                        <span className="text-gray-600 dark:text-gray-400 uppercase tracking-tight">{entry.name}:</span>
+                        <span className="text-gray-900 dark:text-white font-mono ml-auto">{entry.value}</span>
                     </div>
                 ))}
             </div>
@@ -36,6 +36,7 @@ const EmployeeList = () => {
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
+    const [showImportModal, setShowImportModal] = useState(false);
     const [filters, setFilters] = useState({
         department: "",
         designation: "",
@@ -431,13 +432,13 @@ const EmployeeList = () => {
 
     const ImportOverviewModal = () => (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-            <div className="bg-[#131619] w-full max-w-2xl rounded-[2px] shadow-2xl border border-gray-800 overflow-hidden transform transition-all">
-                <div className="px-6 py-4 bg-gray-900 border-b border-gray-800 flex items-center justify-between">
+            <div className="bg-white dark:bg-[#131619] w-full max-w-2xl rounded-[2px] shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden transform transition-all">
+                <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-cyan-500/10 rounded-[2px] text-cyan-500">
                             <FaFileUpload size={20} />
                         </div>
-                        <h3 className="text-xl font-bold text-white">Import Employee Data</h3>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">Import Employee Data</h3>
                     </div>
                     <button onClick={() => setShowImportModal(false)} className="text-gray-400 hover:text-white transition-colors">
                         <FaPlus className="rotate-45" size={24} />
@@ -486,14 +487,14 @@ const EmployeeList = () => {
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-800">
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-800">
                         <button className="text-cyan-500 hover:text-cyan-400 text-sm font-bold flex items-center gap-2">
                             <FaFileExcel /> Download Sample Template
                         </button>
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setShowImportModal(false)}
-                                className="px-6 py-2 rounded-[2px] text-gray-400 font-bold hover:bg-gray-800 transition-all"
+                                className="px-6 py-2 rounded-[2px] text-gray-400 font-bold hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
                             >
                                 Cancel
                             </button>
@@ -511,18 +512,37 @@ const EmployeeList = () => {
         </div>
     );
 
+    const [localTheme, setLocalTheme] = useState(() => localStorage.getItem('employeeListTheme') || 'dark');
+
+    useEffect(() => {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('employeeListTheme', localTheme);
+    }, [localTheme]);
+
+    const toggleLocalTheme = () => {
+        setLocalTheme(prev => prev === 'dark' ? 'light' : 'dark');
+    };
+
     return (
+        <div className={localTheme === 'dark' ? 'dark' : ''}>
         <Layout activePage="HR & Manpower">
             <div className="space-y-6 animate-fade-in pb-10">
                 {/* Header */}
                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
                     <div>
-                        <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">All <span className="text-cyan-500">Employees</span></h1>
+                        <h1 className="text-3xl font-black text-gray-900 dark:text-white italic uppercase tracking-tighter">All <span className="text-cyan-500">Employees</span></h1>
                         <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">
-                            Showing <span className="text-white">{(pagination.currentPage - 1) * 10 + 1}-{Math.min(pagination.currentPage * 10, pagination.totalEmployees)}</span> of <span className="text-white">{pagination.totalEmployees}</span>
+                            Showing <span className="text-gray-900 dark:text-white">{(pagination.currentPage - 1) * 10 + 1}-{Math.min(pagination.currentPage * 10, pagination.totalEmployees)}</span> of <span className="text-gray-900 dark:text-white">{pagination.totalEmployees}</span>
                         </p>
                     </div>
-                    <div className="flex flex-wrap gap-3">
+                    <div className="flex flex-wrap gap-3 items-center">
+                        <button
+                            onClick={toggleLocalTheme}
+                            className="p-3 rounded-[2px] bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-yellow-400 hover:bg-gray-300 dark:hover:bg-gray-700 transition-all shadow-sm"
+                            title={`Switch to ${localTheme === 'dark' ? 'light' : 'dark'} mode`}
+                        >
+                            {localTheme === 'dark' ? <FaSun size={16} /> : <FaMoon size={16} className="text-gray-600" />}
+                        </button>
                         <ExcelImportExport
                             columns={employeeColumns}
                             mapping={employeeMapping}
@@ -535,7 +555,7 @@ const EmployeeList = () => {
                             extraButtons={
                                 <button
                                     onClick={handleExportPDF}
-                                    className="bg-[#1a1f24] hover:bg-[#252a30] text-gray-400 hover:text-white px-5 py-3 rounded-[2px] font-black uppercase text-[10px] tracking-widest transition-all border border-gray-800 flex items-center gap-2 shadow-sm"
+                                    className="bg-white dark:bg-[#1a1f24] hover:bg-gray-100 dark:hover:bg-[#252a30] text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white px-5 py-3 rounded-[2px] font-black uppercase text-[10px] tracking-widest transition-all border border-gray-200 dark:border-gray-800 flex items-center gap-2 shadow-sm"
                                 >
                                     <FaFilePdf className="text-red-500" /> PDF
                                 </button>
@@ -557,7 +577,7 @@ const EmployeeList = () => {
                     <div className="space-y-6">
                         {/* Key Stats Cards */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2px] hover:border-cyan-500/30 transition-all group relative overflow-hidden">
+                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 p-6 rounded-[2px] hover:border-cyan-500/30 transition-all group relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-cyan-500/10"></div>
                                 <div className="flex items-center justify-between mb-4 relative z-10">
                                     <div className="p-2 bg-cyan-500/10 rounded-[2px]">
@@ -565,13 +585,13 @@ const EmployeeList = () => {
                                     </div>
                                     <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Live Force</span>
                                 </div>
-                                <p className="text-4xl font-black text-white tracking-tighter relative z-10 bg-gradient-to-br from-white to-gray-400 bg-clip-text text-transparent">
+                                <p className="text-4xl font-black text-gray-900 dark:text-white tracking-tighter relative z-10 bg-gradient-to-br from-gray-800 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
                                     {analytics.totalEmployees}
                                 </p>
                                 <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Total Workforce</p>
                             </div>
 
-                            <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2px] hover:border-cyan-500/30 transition-all group relative overflow-hidden">
+                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 p-6 rounded-[2px] hover:border-cyan-500/30 transition-all group relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-cyan-500/10"></div>
                                 <div className="flex items-center justify-between mb-4 relative z-10">
                                     <div className="p-2 bg-cyan-500/10 rounded-[2px]">
@@ -585,7 +605,7 @@ const EmployeeList = () => {
                                 <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Educational Staff</p>
                             </div>
 
-                            <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2px] hover:border-emerald-500/30 transition-all group relative overflow-hidden">
+                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 p-6 rounded-[2px] hover:border-emerald-500/30 transition-all group relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-emerald-500/10"></div>
                                 <div className="flex items-center justify-between mb-4 relative z-10">
                                     <div className="p-2 bg-emerald-500/10 rounded-[2px]">
@@ -599,7 +619,7 @@ const EmployeeList = () => {
                                 <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Administrative & Ops</p>
                             </div>
 
-                            <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2px] hover:border-amber-500/30 transition-all group relative overflow-hidden">
+                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 p-6 rounded-[2px] hover:border-cyan-500/30 transition-all group relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-amber-500/10"></div>
                                 <div className="flex items-center justify-between mb-4 relative z-10">
                                     <div className="p-2 bg-amber-500/10 rounded-[2px]">
@@ -618,7 +638,7 @@ const EmployeeList = () => {
                         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                             {/* Department Distribution Pie Chart */}
                             {/* Department Distribution Bar Chart - Scrollable to show ALL */}
-                            <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                     <FaChartPie className="text-4xl text-cyan-500" />
                                 </div>
@@ -647,7 +667,7 @@ const EmployeeList = () => {
                                                     <stop offset="100%" stopColor="#0891b2" stopOpacity={0.6} />
                                                 </linearGradient>
                                             </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} vertical={false} />
+                                            <CartesianGrid strokeDasharray="3 3" stroke={localTheme === 'dark' ? "#374151" : "#e5e7eb"} opacity={0.2} vertical={false} />
                                             <XAxis
                                                 dataKey="name"
                                                 stroke="#9ca3af"
@@ -676,7 +696,7 @@ const EmployeeList = () => {
                             </div>
 
                             {/* Designation Distribution Bar Chart - Scrollable to show ALL */}
-                            <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                     <FaChartPie className="text-4xl text-emerald-500" />
                                 </div>
@@ -705,7 +725,7 @@ const EmployeeList = () => {
                                                     <stop offset="100%" stopColor="#059669" stopOpacity={0.6} />
                                                 </linearGradient>
                                             </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} vertical={false} />
+                                            <CartesianGrid strokeDasharray="3 3" stroke={localTheme === 'dark' ? "#374151" : "#e5e7eb"} opacity={0.2} vertical={false} />
                                             <XAxis
                                                 dataKey="name"
                                                 stroke="#9ca3af"
@@ -734,7 +754,7 @@ const EmployeeList = () => {
                             </div>
 
                             {/* Monthly Joining Trend Area Chart */}
-                            <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                     <FaUsers className="text-4xl text-blue-500" />
                                 </div>
@@ -765,7 +785,7 @@ const EmployeeList = () => {
                             </div>
 
                             {/* Centre Distribution Bar Chart - Left Side */}
-                            <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl lg:col-span-2 overflow-hidden relative group">
+                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl lg:col-span-2 overflow-hidden relative group">
                                 <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
                                     <FaMapMarkerAlt className="text-6xl text-amber-500" />
                                 </div>
@@ -794,7 +814,7 @@ const EmployeeList = () => {
                                                     <stop offset="100%" stopColor="#d97706" stopOpacity={0.6} />
                                                 </linearGradient>
                                             </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} vertical={false} />
+                                            <CartesianGrid strokeDasharray="3 3" stroke={localTheme === 'dark' ? "#374151" : "#e5e7eb"} opacity={0.2} vertical={false} />
                                             <XAxis
                                                 dataKey="name"
                                                 stroke="#9ca3af"
@@ -826,7 +846,7 @@ const EmployeeList = () => {
                             </div>
 
                             {/* Detailed Employment Breakdown */}
-                            <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                     <FaUsers className="text-4xl text-cyan-500" />
                                 </div>
@@ -860,7 +880,7 @@ const EmployeeList = () => {
                                 </div>
                             </div>
 
-                            <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                     <FaUsers className="text-4xl text-emerald-500" />
                                 </div>
@@ -898,7 +918,7 @@ const EmployeeList = () => {
                         {/* Demographics Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                             {/* Gender Distribution Pie Chart */}
-                            <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                     <FaUsers className="text-4xl text-pink-500" />
                                 </div>
@@ -930,7 +950,7 @@ const EmployeeList = () => {
                             </div>
 
                             {/* State Distribution Pie Chart */}
-                            <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                     <FaMapMarkerAlt className="text-4xl text-orange-500" />
                                 </div>
@@ -962,7 +982,7 @@ const EmployeeList = () => {
                             </div>
 
                             {/* City Distribution Pie Chart */}
-                            <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                     <FaBuilding className="text-4xl text-indigo-500" />
                                 </div>
@@ -1004,7 +1024,7 @@ const EmployeeList = () => {
                 )}
 
                 {/* Filters */}
-                <div className="bg-[#131619] p-6 rounded-[2px] shadow-xl border border-gray-800">
+                <div className="bg-white dark:bg-[#131619] p-6 rounded-[2px] shadow-xl border border-gray-200 dark:border-gray-800">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6 items-end">
                         <div className="lg:col-span-1 space-y-2">
                             <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Search</label>
@@ -1015,7 +1035,7 @@ const EmployeeList = () => {
                                     placeholder="NAME / ID..."
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-3 bg-[#1a1f24] border border-gray-800 rounded-[2px] focus:border-cyan-500/50 outline-none text-white transition-all text-xs font-bold uppercase tracking-wider placeholder:text-gray-700"
+                                    className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-800 rounded-[2px] focus:border-cyan-500/50 outline-none text-gray-900 dark:text-white transition-all text-xs font-bold uppercase tracking-wider placeholder:text-gray-500 dark:placeholder:text-gray-700"
                                 />
                             </div>
                         </div>
@@ -1030,7 +1050,7 @@ const EmployeeList = () => {
                                 <select
                                     value={filter.value}
                                     onChange={(e) => handleFilterChange(filter.key, e.target.value)}
-                                    className="w-full px-4 py-3 bg-[#1a1f24] border border-gray-800 rounded-[2px] focus:border-cyan-500/50 outline-none text-white transition-all text-xs font-bold uppercase tracking-wider appearance-none cursor-pointer text-gray-400"
+                                    className="w-full px-4 py-3 bg-gray-50 dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-800 rounded-[2px] focus:border-cyan-500/50 outline-none text-gray-900 dark:text-white transition-all text-xs font-bold uppercase tracking-wider appearance-none cursor-pointer text-gray-600 dark:text-gray-400"
                                 >
                                     <option value="">All {filter.label}s</option>
                                     {filter.options.map(opt => (
@@ -1045,7 +1065,7 @@ const EmployeeList = () => {
                             <select
                                 value={filters.status}
                                 onChange={(e) => handleFilterChange("status", e.target.value)}
-                                className="w-full px-4 py-3 bg-[#1a1f24] border border-gray-800 rounded-[2px] focus:border-cyan-500/50 outline-none text-white transition-all text-xs font-bold uppercase tracking-wider appearance-none cursor-pointer text-gray-400"
+                                className="w-full px-4 py-3 bg-gray-50 dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-800 rounded-[2px] focus:border-cyan-500/50 outline-none text-gray-900 dark:text-white transition-all text-xs font-bold uppercase tracking-wider appearance-none cursor-pointer text-gray-600 dark:text-gray-400"
                             >
                                 <option value="">All Status</option>
                                 <option value="Active">Active</option>
@@ -1057,7 +1077,7 @@ const EmployeeList = () => {
 
                         <button
                             onClick={handleClearFilters}
-                            className="h-[46px] flex items-center justify-center gap-2 bg-gray-800 hover:bg-red-500/20 hover:text-red-500 text-gray-400 px-6 rounded-[2px] text-[10px] font-black uppercase tracking-widest transition-all border border-transparent hover:border-red-500/20 group"
+                            className="h-[46px] flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-800 hover:bg-red-500/20 hover:text-red-500 text-gray-600 dark:text-gray-400 px-6 rounded-[2px] text-[10px] font-black uppercase tracking-widest transition-all border border-transparent hover:border-red-500/20 group"
                         >
                             <FaFilter className="group-hover:text-red-500 transition-colors" /> Clear
                         </button>
@@ -1065,7 +1085,7 @@ const EmployeeList = () => {
                 </div>
 
                 {/* Desktop Table View */}
-                <div className="hidden md:block bg-[#131619] rounded-[2rem] shadow-xl border border-gray-800 overflow-hidden">
+                <div className="hidden md:block bg-white dark:bg-[#131619] rounded-[2rem] shadow-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
                     {loading ? (
                         <div className="flex items-center justify-center h-64">
                             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-cyan-500"></div>
@@ -1079,7 +1099,7 @@ const EmployeeList = () => {
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead>
-                                    <tr className="bg-[#1a1f24]/50 border-b border-gray-800">
+                                    <tr className="bg-gray-50 dark:bg-[#1a1f24]/50 border-b border-gray-200 dark:border-gray-800">
                                         <th className="px-6 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-widest w-16">
                                             S.No
                                         </th>
@@ -1090,7 +1110,7 @@ const EmployeeList = () => {
                                         ))}
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-800">
+                                <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
                                     {employees.map((employee, index) => (
                                         <tr key={employee._id} className="hover:bg-cyan-500/[0.02] transition-colors group">
                                             <td className="px-6 py-4 whitespace-nowrap text-[10px] font-black text-gray-600 font-mono">
@@ -1098,7 +1118,7 @@ const EmployeeList = () => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center gap-4">
-                                                    <div className="w-10 h-10 rounded-full bg-gray-800 border-2 border-gray-700 overflow-hidden flex-shrink-0 group-hover:border-cyan-500/50 transition-colors">
+                                                    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-700 overflow-hidden flex-shrink-0 group-hover:border-cyan-500/50 transition-colors">
                                                         {employee.profileImage && !employee.profileImage.startsWith('undefined/') ? (
                                                             <img src={employee.profileImage} alt="" className="w-full h-full object-cover" />
                                                         ) : (
@@ -1108,7 +1128,7 @@ const EmployeeList = () => {
                                                         )}
                                                     </div>
                                                     <div>
-                                                        <div className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors uppercase tracking-tight">
+                                                        <div className="text-sm font-bold text-gray-900 dark:text-white group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors uppercase tracking-tight">
                                                             {employee.name}
                                                         </div>
                                                         <div className="text-[9px] font-black text-gray-600 uppercase tracking-widest mt-0.5">
@@ -1127,7 +1147,7 @@ const EmployeeList = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest bg-gray-800/50 px-2 py-1 rounded">
+                                                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest bg-gray-100 dark:bg-gray-800/50 px-2 py-1 rounded">
                                                     {employee.designation?.name || "N/A"}
                                                 </span>
                                             </td>
@@ -1146,14 +1166,14 @@ const EmployeeList = () => {
                                                 <div className="flex gap-2">
                                                     <button
                                                         onClick={() => navigate(`/hr/employee/letters/${employee._id}`)}
-                                                        className="p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-cyan-500/20 rounded-[2px] transition-all"
+                                                        className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white bg-gray-100 dark:bg-gray-800 hover:bg-cyan-500/20 rounded-[2px] transition-all"
                                                         title="Letters"
                                                     >
                                                         <FaFileAlt size={14} />
                                                     </button>
                                                     <button
                                                         onClick={() => navigate(`/hr/employee/view/${employee._id}`)}
-                                                        className="p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-blue-500/20 rounded-[2px] transition-all"
+                                                        className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white bg-gray-100 dark:bg-gray-800 hover:bg-blue-500/20 rounded-[2px] transition-all"
                                                         title="View"
                                                     >
                                                         <FaEye size={14} />
@@ -1161,7 +1181,7 @@ const EmployeeList = () => {
                                                     {canEdit && (
                                                         <button
                                                             onClick={() => navigate(`/hr/employee/edit/${employee._id}`)}
-                                                            className="p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-emerald-500/20 rounded-[2px] transition-all"
+                                                            className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white bg-gray-100 dark:bg-gray-800 hover:bg-emerald-500/20 rounded-[2px] transition-all"
                                                             title="Edit"
                                                         >
                                                             <FaEdit size={14} />
@@ -1170,7 +1190,7 @@ const EmployeeList = () => {
                                                     {canDelete && (
                                                         <button
                                                             onClick={() => handleDelete(employee._id)}
-                                                            className="p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-red-500/20 rounded-[2px] transition-all"
+                                                            className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white bg-gray-100 dark:bg-gray-800 hover:bg-red-500/20 rounded-[2px] transition-all"
                                                             title="Delete"
                                                         >
                                                             <FaTrash size={14} />
@@ -1193,8 +1213,8 @@ const EmployeeList = () => {
                             <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-cyan-500"></div>
                         </div>
                     ) : employees.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center p-8 bg-[#131619] rounded-[2px] border border-gray-800 border-dashed">
-                            <p className="text-gray-500 font-bold uppercase text-xs">No employees found</p>
+                        <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-[#131619] rounded-[2px] border border-gray-200 dark:border-gray-800 border-dashed">
+                            <p className="text-gray-500 dark:text-gray-300 text-sm uppercase">No employees found</p>
                         </div>
                     ) : (
                         employees.map((employee) => (
@@ -1294,6 +1314,7 @@ const EmployeeList = () => {
                 )}
             </div>
         </Layout>
+        </div>
     );
 };
 

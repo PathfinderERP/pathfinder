@@ -29,13 +29,21 @@ export const exportLeadsExcel = async (req, res) => {
         }
 
         if (centre) {
-            query.centre = mongoose.Types.ObjectId.isValid(centre) ? new mongoose.Types.ObjectId(centre) : centre;
+             const centreIds = Array.isArray(centre) ? centre : [centre];
+             query.centre = { $in: centreIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
         }
         if (course) {
-            query.course = mongoose.Types.ObjectId.isValid(course) ? new mongoose.Types.ObjectId(course) : course;
+             const courseIds = Array.isArray(course) ? course : [course];
+             query.course = { $in: courseIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
         }
-        if (leadResponsibility) query.leadResponsibility = { $regex: leadResponsibility, $options: "i" };
-        if (leadType) query.leadType = leadType;
+        if (leadResponsibility) {
+            query.leadResponsibility = Array.isArray(leadResponsibility) 
+                ? { $in: leadResponsibility } 
+                : { $regex: leadResponsibility, $options: "i" };
+        }
+        if (leadType) {
+            query.leadType = Array.isArray(leadType) ? { $in: leadType } : leadType;
+        }
         if (req.query.feedback) {
             query.followUps = {
                 $elemMatch: { feedback: { $regex: req.query.feedback, $options: "i" } }

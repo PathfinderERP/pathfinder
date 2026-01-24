@@ -51,11 +51,16 @@ export const getLeads = async (req, res) => {
         const { search, leadType, source, centre, course, leadResponsibility, board } = req.query;
         const query = {};
 
-        if (leadType) query.leadType = leadType;
-        if (source) query.source = source;
-        if (course) query.course = course;
-        if (board) query.board = board;
-        if (leadResponsibility) query.leadResponsibility = leadResponsibility;
+        if (leadType) query.leadType = Array.isArray(leadType) ? { $in: leadType } : leadType;
+        if (source) query.source = Array.isArray(source) ? { $in: source } : source;
+        if (course) query.course = Array.isArray(course) ? { $in: course } : course;
+        if (board) query.board = Array.isArray(board) ? { $in: board } : board;
+        
+        if (leadResponsibility) {
+             query.leadResponsibility = Array.isArray(leadResponsibility) 
+                ? { $in: leadResponsibility } 
+                : leadResponsibility;
+        }
 
         // Exclude counseled leads from the main list
         query.isCounseled = { $ne: true };

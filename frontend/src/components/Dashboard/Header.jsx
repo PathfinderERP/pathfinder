@@ -181,32 +181,33 @@ const Header = ({ toggleSidebar }) => {
     };
 
     return (
-        <header className="flex items-center justify-between p-4 bg-[#1a1f24] border-b border-gray-800">
+        <header className="flex items-center justify-between p-4 bg-white dark:bg-[#1a1f24] border-b border-gray-200 dark:border-gray-800 transition-colors">
             <div className="flex items-center gap-4">
                 {/* Hamburger Menu */}
                 <button
                     onClick={toggleSidebar}
-                    className="text-gray-400 hover:text-white transition-colors text-xl"
+                    className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors text-xl"
                     title="Toggle sidebar"
                 >
                     <FaBars />
                 </button>
 
                 {/* Breadcrumb */}
-                <div className="hidden md:flex items-center gap-2 text-sm text-gray-400">
+                <div className="hidden md:flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                     <span>Dashboard</span>
                     <span>›</span>
-                    <span className="text-white font-semibold">Pathfinder ERP</span>
+                    <span className="text-gray-900 dark:text-white font-semibold">Pathfinder ERP</span>
                 </div>
             </div>
 
             {/* Right Section - User Info & Logout */}
             <div className="flex items-center gap-4">
+                
                 {/* User Info - Clickable ONLY for SuperAdmin */}
                 {userRole === "superAdmin" ? (
                     <div
                         onClick={() => navigate("/profile")}
-                        className="hidden sm:flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-800/50 p-2 rounded-lg transition-colors"
+                        className="hidden sm:flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50 p-2 rounded-lg transition-colors"
                         title="View Profile"
                     >
                         <div className="w-8 h-8 rounded-full bg-cyan-900 border border-cyan-500/30 flex items-center justify-center overflow-hidden shadow-lg shadow-cyan-500/10">
@@ -217,8 +218,8 @@ const Header = ({ toggleSidebar }) => {
                             )}
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-white font-semibold">{userName}</span>
-                            <span className="text-xs text-gray-400">{getRoleDisplayName(userRole)}</span>
+                            <span className="text-gray-900 dark:text-white font-semibold">{userName}</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">{getRoleDisplayName(userRole)}</span>
                         </div>
                     </div>
                 ) : (
@@ -234,8 +235,8 @@ const Header = ({ toggleSidebar }) => {
                             )}
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-white font-semibold">{userName}</span>
-                            <span className="text-xs text-gray-400">{getRoleDisplayName(userRole)}</span>
+                            <span className="text-gray-900 dark:text-white font-semibold">{userName}</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">{getRoleDisplayName(userRole)}</span>
                         </div>
                     </div>
                 )}
@@ -243,7 +244,7 @@ const Header = ({ toggleSidebar }) => {
                 {/* Logout Button */}
                 <button
                     onClick={handleLogout}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/50 rounded-lg text-sm font-semibold hover:bg-red-500/30 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/50 rounded-lg text-sm font-semibold hover:bg-red-100 dark:hover:bg-red-500/30 transition-colors"
                     title="Logout"
                 >
                     <FaSignOutAlt />

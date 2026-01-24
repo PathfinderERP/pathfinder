@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FaPlus, FaEdit, FaTrash, FaSearch, FaFilter, FaRedo, FaFileExcel, FaDownload, FaChevronLeft, FaChevronRight, FaHistory, FaChartLine, FaUserPlus } from "react-icons/fa";
+import { FaPlus, FaEdit, FaTrash, FaSearch, FaFilter, FaRedo, FaFileExcel, FaDownload, FaChevronLeft, FaChevronRight, FaHistory, FaChartLine, FaUserPlus, FaSun, FaMoon } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
@@ -11,6 +11,7 @@ import LeadDetailsModal from "./LeadDetailsModal";
 import AddFollowUpModal from "./AddFollowUpModal";
 import FollowUpHistoryModal from "./FollowUpHistoryModal";
 import FollowUpListModal from "./FollowUpListModal";
+import CustomMultiSelect from "../common/CustomMultiSelect";
 import { hasPermission } from "../../config/permissions";
 
 const LeadManagementContent = () => {
@@ -42,12 +43,12 @@ const LeadManagementContent = () => {
 
     // Filter states
     const [filters, setFilters] = useState({
-        leadType: "",
-        source: "",
-        centre: "",
-        course: "",
-        board: "",
-        leadResponsibility: ""
+        leadType: [],
+        source: [],
+        centre: [],
+        course: [],
+        board: [],
+        leadResponsibility: []
     });
 
     // Dropdown data for filters
@@ -63,17 +64,18 @@ const LeadManagementContent = () => {
             const token = localStorage.getItem("token");
 
             // Build query params
-            const params = new URLSearchParams({
-                page: currentPage,
-                limit: limit,
-                search: searchTerm,
-                ...filters
-            });
+            const params = new URLSearchParams();
+            params.append("page", currentPage);
+            params.append("limit", limit);
+            if (searchTerm) params.append("search", searchTerm);
 
-            // Remove empty filters
-            for (const [key, value] of params.entries()) {
-                if (!value) params.delete(key);
-            }
+            Object.entries(filters).forEach(([key, value]) => {
+                if (Array.isArray(value) && value.length > 0) {
+                    value.forEach(v => params.append(key, v.value || v)); // Handle object from react-select or raw value
+                } else if (value) {
+                     params.append(key, value);
+                }
+            });
 
             console.log("Lead Management - Fetching leads with params:", Object.fromEntries(params));
             console.log("Lead Management - Current filters:", filters);
@@ -187,7 +189,7 @@ const LeadManagementContent = () => {
 
                     // Auto-select the telecaller's own name
                     if (currentTelecaller) {
-                        setFilters(prev => ({ ...prev, leadResponsibility: currentTelecaller.name }));
+                        setFilters(prev => ({ ...prev, leadResponsibility: [{ value: currentTelecaller.name, label: currentTelecaller.name }] }));
                     }
                 } else {
                     // For other roles, show all telecallers
@@ -220,19 +222,19 @@ const LeadManagementContent = () => {
         return () => clearTimeout(timeout);
     }, [searchTerm, filters, currentPage, fetchLeads]);
 
-    const handleFilterChange = (name, value) => {
-        setFilters(prev => ({ ...prev, [name]: value }));
-        setCurrentPage(1); // Reset to first page on filter change
+    const handleFilterChange = (name, selectedOptions) => {
+        setFilters(prev => ({ ...prev, [name]: selectedOptions || [] }));
+        setCurrentPage(1);
     };
 
     const resetFilters = () => {
         setFilters({
-            leadType: "",
-            source: "",
-            centre: "",
-            course: "",
-            board: "",
-            leadResponsibility: ""
+            leadType: [],
+            source: [],
+            centre: [],
+            course: [],
+            board: [],
+            leadResponsibility: []
         });
         setSearchTerm("");
         setCurrentPage(1);
@@ -280,38 +282,37 @@ const LeadManagementContent = () => {
         navigate("/student-registration", { state: { leadData: lead } });
     };
 
-    const handleExport = () => {
-        // Basic export of current page (or fetching all - implementing basic current view export for now)
-        // Ideally should have a backend "export all" endpoint, but frontend export is limited to what's loaded.
-        // User asked for output excel data, assumedly of visible or filtered data.
-        // For now, I'll export currently loaded leads.
+    const handleExport = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const params = new URLSearchParams();
+            if (searchTerm) params.append("search", searchTerm);
+            
+             Object.entries(filters).forEach(([key, value]) => {
+                if (Array.isArray(value) && value.length > 0) {
+                    value.forEach(v => params.append(key, v.value || v));
+                } else if (value) {
+                     params.append(key, value);
+                }
+            });
 
-        if (leads.length === 0) {
-            toast.warn("No leads to export");
-            return;
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/export/excel?${params.toString()}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                saveAs(blob, "Leads_Export.xlsx");
+            } else {
+                const error = await response.json();
+                toast.error(error.message || "Failed to export leads");
+            }
+        } catch (error) {
+            console.error("Export error:", error);
+            toast.error("Error exporting leads");
         }
-
-        const exportData = leads.map(lead => ({
-            Name: lead.name,
-            Email: lead.email,
-            PhoneNumber: lead.phoneNumber,
-            SchoolName: lead.schoolName,
-            Class: lead.className?.name || "",
-            Board: lead.board?.boardName || "",
-            Centre: lead.centre?.centreName || "",
-            Course: lead.course?.courseName || "",
-            Source: lead.source,
-            TargetExam: lead.targetExam,
-            LeadType: lead.leadType,
-            LeadResponsibility: lead.leadResponsibility
-        }));
-
-        const ws = XLSX.utils.json_to_sheet(exportData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Leads");
-        const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-        const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-        saveAs(data, "Leads_Export.xlsx");
     };
 
     const getLeadTypeColor = (type) => {
@@ -327,15 +328,39 @@ const LeadManagementContent = () => {
         }
     };
 
+    const [localTheme, setLocalTheme] = useState(() => localStorage.getItem('leadManagementTheme') || 'dark');
+
+    useEffect(() => {
+        // Remove global dark class to ensure isolation
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('leadManagementTheme', localTheme);
+    }, [localTheme]);
+
+    const toggleLocalTheme = () => {
+        setLocalTheme(prev => prev === 'dark' ? 'light' : 'dark');
+    };
+
+    // ... existing code ...
+
     return (
-        <div className="p-6 space-y-6">
+        <div className={`p-6 space-y-6 ${localTheme === 'dark' ? 'dark' : ''}`}>
+             {/* Wrapper to apply dark class locally */}
+             {/* Note: Tailwind 'dark' class relies on parent. If we put 'dark' here, children using dark: variant will work */}
+             
             {/* Header */}
             <div className="flex justify-between items-center flex-wrap gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-white">Lead Management</h2>
-                    <p className="text-gray-400 text-sm">Manage and track all your leads</p>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Lead Management</h2>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm">Manage and track all your leads</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        onClick={toggleLocalTheme}
+                        className="p-2 mr-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-yellow-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                        title={`Switch to ${localTheme === 'dark' ? 'light' : 'dark'} mode`}
+                    >
+                        {localTheme === 'dark' ? <FaSun size={18} /> : <FaMoon size={18} className="text-gray-600" />}
+                    </button>
                     <button
                         onClick={handleExport}
                         className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-500 transition-colors"
@@ -377,7 +402,7 @@ const LeadManagementContent = () => {
             </div>
 
             {/* Search Bar */}
-            <div className="bg-[#1a1f24] border border-gray-700 rounded-lg p-4">
+            <div className="bg-white dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm dark:shadow-none transition-colors">
                 <div className="relative">
                     <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                     <input
@@ -388,102 +413,88 @@ const LeadManagementContent = () => {
                             setSearchTerm(e.target.value);
                             setCurrentPage(1);
                         }}
-                        className="w-full bg-[#131619] border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500"
+                        className="w-full bg-gray-50 dark:bg-[#131619] border border-gray-200 dark:border-gray-700 rounded-lg pl-10 pr-4 py-2 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-colors"
                     />
                 </div>
             </div>
 
             {/* Filters */}
-            <div className="bg-[#1a1f24] border border-gray-700 rounded-lg p-4">
+            <div className="bg-white dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm dark:shadow-none transition-colors">
                 <div className="flex items-center gap-2 mb-3">
-                    <FaFilter className="text-cyan-400" />
-                    <h3 className="text-white font-semibold">Filters</h3>
+                    <FaFilter className="text-cyan-600 dark:text-cyan-400" />
+                    <h3 className="text-gray-900 dark:text-white font-semibold">Filters</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
                     <div>
-                        <label className="block text-gray-400 text-xs mb-1">Lead Type</label>
-                        <select
+                        <label className="block text-gray-600 dark:text-gray-400 text-xs mb-1">Lead Type</label>
+                        <CustomMultiSelect
+                            options={[
+                                { value: "HOT LEAD", label: "HOT LEAD" },
+                                { value: "COLD LEAD", label: "COLD LEAD" },
+                                { value: "NEGATIVE", label: "NEGATIVE" }
+                            ]}
                             value={filters.leadType}
-                            onChange={(e) => handleFilterChange('leadType', e.target.value)}
-                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white text-sm"
-                        >
-                            <option value="">All Types</option>
-                            <option value="HOT LEAD">HOT LEAD</option>
-                            <option value="COLD LEAD">COLD LEAD</option>
-                            <option value="NEGATIVE">NEGATIVE</option>
-                        </select>
+                            onChange={(selected) => handleFilterChange('leadType', selected)}
+                            placeholder="Select Type"
+                            theme={localTheme}
+                        />
                     </div>
                     <div>
-                        <label className="block text-gray-400 text-xs mb-1">Source</label>
-                        <select
+                        <label className="block text-gray-600 dark:text-gray-400 text-xs mb-1">Source</label>
+                        <CustomMultiSelect
+                            options={sources.map(s => ({ value: s.sourceName, label: s.sourceName }))}
                             value={filters.source}
-                            onChange={(e) => handleFilterChange('source', e.target.value)}
-                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white text-sm"
-                        >
-                            <option value="">All Sources</option>
-                            {sources.map(source => (
-                                <option key={source._id} value={source.sourceName}>{source.sourceName}</option>
-                            ))}
-                        </select>
+                            onChange={(selected) => handleFilterChange('source', selected)}
+                            placeholder="Select Source"
+                            theme={localTheme}
+                        />
                     </div>
                     <div>
-                        <label className="block text-gray-400 text-xs mb-1">Centre</label>
-                        <select
+                        <label className="block text-gray-600 dark:text-gray-400 text-xs mb-1">Centre</label>
+                        <CustomMultiSelect
+                            options={allowedCentres.map(c => ({ value: c._id, label: c.centreName }))}
                             value={filters.centre}
-                            onChange={(e) => handleFilterChange('centre', e.target.value)}
-                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white text-sm"
-                        >
-                            <option value="">All Centres</option>
-                            {allowedCentres.map(centre => (
-                                <option key={centre._id} value={centre._id}>{centre.centreName}</option>
-                            ))}
-                        </select>
+                            onChange={(selected) => handleFilterChange('centre', selected)}
+                            placeholder="Select Centre"
+                            theme={localTheme}
+                        />
                     </div>
                     <div>
-                        <label className="block text-gray-400 text-xs mb-1">Course</label>
-                        <select
+                        <label className="block text-gray-600 dark:text-gray-400 text-xs mb-1">Course</label>
+                        <CustomMultiSelect
+                            options={courses.map(c => ({ value: c._id, label: c.courseName }))}
                             value={filters.course}
-                            onChange={(e) => handleFilterChange('course', e.target.value)}
-                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white text-sm"
-                        >
-                            <option value="">All Courses</option>
-                            {courses.map(course => (
-                                <option key={course._id} value={course._id}>{course.courseName}</option>
-                            ))}
-                        </select>
+                            onChange={(selected) => handleFilterChange('course', selected)}
+                            placeholder="Select Course"
+                            theme={localTheme}
+                        />
                     </div>
                     <div>
-                        <label className="block text-gray-400 text-xs mb-1">Board</label>
-                        <select
+                        <label className="block text-gray-600 dark:text-gray-400 text-xs mb-1">Board</label>
+                        <CustomMultiSelect
+                            options={boards.map(b => ({ value: b._id, label: b.boardName || b.boardCourse }))} // Fallback to boardCourse if name not populated as boardName
                             value={filters.board}
-                            onChange={(e) => handleFilterChange('board', e.target.value)}
-                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white text-sm"
-                        >
-                            <option value="">All Boards</option>
-                            {boards.map(board => (
-                                <option key={board._id} value={board._id}>{board.boardName}</option>
-                            ))}
-                        </select>
+                            onChange={(selected) => handleFilterChange('board', selected)}
+                            placeholder="Select Board"
+                            theme={localTheme}
+                        />
                     </div>
                     <div>
-                        <label className="block text-gray-400 text-xs mb-1">Lead Responsibility</label>
-                        <select
+                        <label className="block text-gray-600 dark:text-gray-400 text-xs mb-1">Lead Responsibility</label>
+                         <CustomMultiSelect
+                            options={telecallers.map(t => ({ value: t.name, label: t.name }))}
                             value={filters.leadResponsibility}
-                            onChange={(e) => handleFilterChange('leadResponsibility', e.target.value)}
-                            disabled={user?.role === 'telecaller'}
-                            className={`w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white text-sm ${user?.role === 'telecaller' ? 'opacity-75 cursor-not-allowed' : ''}`}
-                        >
-                            {user?.role !== 'telecaller' && <option value="">All Telecallers</option>}
-                            {telecallers.map(telecaller => (
-                                <option key={telecaller._id} value={telecaller.name}>{telecaller.name}</option>
-                            ))}
-                        </select>
+                            onChange={(selected) => handleFilterChange('leadResponsibility', selected)}
+                            placeholder="Select Telecaller"
+                            isDisabled={user?.role === 'telecaller'}
+                            theme={localTheme}
+                        />
                     </div>
                 </div>
                 <div className="mt-3 flex justify-end">
                     <button
                         onClick={resetFilters}
-                        className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300 text-sm"
+                        className="flex items-center gap-2 text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 dark:hover:text-cyan-300 text-sm font-medium"
                     >
                         <FaRedo size={12} /> Reset Filters
                     </button>
@@ -491,72 +502,72 @@ const LeadManagementContent = () => {
             </div>
 
             {/* Leads Table */}
-            <div className="bg-[#1a1f24] border border-gray-700 rounded-lg overflow-hidden">
+            <div className="bg-white dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm dark:shadow-none transition-colors">
                 <div className="overflow-x-auto">
                     <table className="w-full">
-                        <thead className="bg-[#131619] border-b border-gray-700">
+                        <thead className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
                             <tr>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">S/N</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Name</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Email</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Phone Number</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Class</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Board</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">School Name</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Centre</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Course</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Source</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Target Exam</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Lead Type</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Lead Responsibility</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Actions</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">S/N</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Phone Number</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Class</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Board</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">School Name</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Centre</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Course</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Source</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Target Exam</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Lead Type</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Lead Responsibility</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-700">
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="14" className="px-4 py-8 text-center text-cyan-400">
+                                    <td colSpan="14" className="px-4 py-8 text-center text-cyan-600 dark:text-cyan-400">
                                         Loading...
                                     </td>
                                 </tr>
                             ) : leads.length === 0 ? (
                                 <tr>
-                                    <td colSpan="14" className="px-4 py-8 text-center text-gray-400">
+                                    <td colSpan="14" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                                         No leads found
                                     </td>
                                 </tr>
                             ) : (
                                 leads.map((lead, index) => (
-                                    <tr key={lead._id} onClick={() => handleRowClick(lead)} className="hover-wave-row hover:bg-[#131619] transition-colors border-b border-gray-800 cursor-pointer">
-                                        <td className="px-4 py-3 text-white">{(currentPage - 1) * limit + index + 1}</td>
-                                        <td className="px-4 py-3 text-white">{lead.name}</td>
-                                        <td className="px-4 py-3 text-gray-400">{lead.email}</td>
-                                        <td className="px-4 py-3 text-gray-400">{lead.phoneNumber || "N/A"}</td>
-                                        <td className="px-4 py-3 text-gray-400">{lead.className?.name || "N/A"}</td>
-                                        <td className="px-4 py-3 text-gray-400">{lead.board?.boardName || "N/A"}</td>
-                                        <td className="px-4 py-3 text-gray-400">{lead.schoolName}</td>
-                                        <td className="px-4 py-3 text-gray-400">{lead.centre?.centreName || "N/A"}</td>
-                                        <td className="px-4 py-3 text-gray-400">{lead.course?.courseName || "N/A"}</td>
-                                        <td className="px-4 py-3 text-gray-400">{lead.source || "N/A"}</td>
-                                        <td className="px-4 py-3 text-gray-400">{lead.targetExam || "N/A"}</td>
+                                    <tr key={lead._id} onClick={() => handleRowClick(lead)} className="hover:bg-gray-50 dark:hover:bg-[#131619] transition-colors border-b border-gray-200 dark:border-gray-800 cursor-pointer">
+                                        <td className="px-4 py-3 text-gray-900 dark:text-white">{(currentPage - 1) * limit + index + 1}</td>
+                                        <td className="px-4 py-3 text-gray-900 dark:text-white font-medium">{lead.name}</td>
+                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.email}</td>
+                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.phoneNumber || "N/A"}</td>
+                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.className?.name || "N/A"}</td>
+                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.board?.boardName || "N/A"}</td>
+                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.schoolName}</td>
+                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.centre?.centreName || "N/A"}</td>
+                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.course?.courseName || "N/A"}</td>
+                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.source || "N/A"}</td>
+                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.targetExam || "N/A"}</td>
                                         <td className="px-4 py-3">
-                                            <span className={`px-2 py-1 rounded text-xs border ${getLeadTypeColor(lead.leadType)}`}>
+                                            <span className={`px-2 py-1 rounded text-xs border ${getLeadTypeColor(lead.leadType)} font-medium`}>
                                                 {lead.leadType || "N/A"}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 text-gray-400">{lead.leadResponsibility || "N/A"}</td>
+                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.leadResponsibility || "N/A"}</td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-2">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleCounseling(lead); }}
-                                                    className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-400 transition-colors"
+                                                    className="bg-blue-600 dark:bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-500 dark:hover:bg-blue-400 transition-colors shadow-sm"
                                                 >
                                                     Counseling
                                                 </button>
                                                 {canEdit && (
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); handleEdit(lead); }}
-                                                        className="text-cyan-400 hover:text-cyan-300 transition-colors"
+                                                        className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 dark:hover:text-cyan-300 transition-colors"
                                                     >
                                                         <FaEdit size={16} />
                                                     </button>
@@ -564,7 +575,7 @@ const LeadManagementContent = () => {
                                                 {canDelete && (
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); handleDelete(lead._id); }}
-                                                        className="text-red-400 hover:text-red-300 transition-colors"
+                                                        className="text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors"
                                                     >
                                                         <FaTrash size={16} />
                                                     </button>
@@ -580,15 +591,15 @@ const LeadManagementContent = () => {
             </div>
 
             {/* Pagination */}
-            <div className="flex justify-between items-center border-t border-gray-700 pt-4">
-                <div className="text-gray-400 text-sm">
+            <div className="flex justify-between items-center border-t border-gray-200 dark:border-gray-700 pt-4">
+                <div className="text-gray-600 dark:text-gray-400 text-sm">
                     Showing {leads.length === 0 ? 0 : (currentPage - 1) * limit + 1} to {Math.min(currentPage * limit, totalLeads)} of {totalLeads} entries
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                         disabled={currentPage === 1}
-                        className="bg-[#1a1f24] border border-gray-700 text-gray-400 p-2 rounded-lg hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-gray-100 dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 p-2 rounded-lg hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         <FaChevronLeft size={12} />
                     </button>
@@ -598,8 +609,8 @@ const LeadManagementContent = () => {
                             key={i}
                             onClick={() => setCurrentPage(i + 1)}
                             className={`px-3 py-1 rounded-lg text-sm transition-colors ${currentPage === i + 1
-                                ? "bg-cyan-500 text-black font-bold"
-                                : "bg-[#1a1f24] border border-gray-700 text-gray-400 hover:text-white"
+                                ? "bg-cyan-600 dark:bg-cyan-500 text-white font-bold"
+                                : "bg-gray-100 dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                                 }`}
                         >
                             {i + 1}
@@ -609,7 +620,7 @@ const LeadManagementContent = () => {
                     <button
                         onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                         disabled={currentPage === totalPages}
-                        className="bg-[#1a1f24] border border-gray-700 text-gray-400 p-2 rounded-lg hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-gray-100 dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 p-2 rounded-lg hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         <FaChevronRight size={12} />
                     </button>
