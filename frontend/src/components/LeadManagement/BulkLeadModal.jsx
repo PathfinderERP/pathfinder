@@ -14,6 +14,7 @@ const BulkLeadModal = ({ onClose, onSuccess }) => {
     const [classes, setClasses] = useState([]);
     const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
+    const [boards, setBoards] = useState([]);
     const [sources, setSources] = useState([]);
     const [telecallers, setTelecallers] = useState([]);
 
@@ -27,10 +28,11 @@ const BulkLeadModal = ({ onClose, onSuccess }) => {
             const headers = { Authorization: `Bearer ${token}` };
             const baseUrl = import.meta.env.VITE_API_URL;
 
-            const [classRes, centreRes, courseRes, sourceRes, userRes] = await Promise.all([
+            const [classRes, centreRes, courseRes, boardRes, sourceRes, userRes] = await Promise.all([
                 fetch(`${baseUrl}/class`, { headers }),
                 fetch(`${baseUrl}/centre`, { headers }),
                 fetch(`${baseUrl}/course`, { headers }),
+                fetch(`${baseUrl}/board`, { headers }),
                 fetch(`${baseUrl}/source`, { headers }),
                 fetch(`${baseUrl}/superAdmin/getAllUsers`, { headers })
             ]);
@@ -38,12 +40,14 @@ const BulkLeadModal = ({ onClose, onSuccess }) => {
             const classData = await classRes.json();
             const centreData = await centreRes.json();
             const courseData = await courseRes.json();
+            const boardData = await boardRes.json();
             const sourceData = await sourceRes.json();
             const userData = await userRes.json();
 
             setClasses(Array.isArray(classData) ? classData : []);
             setCentres(Array.isArray(centreData) ? centreData : []);
             setCourses(Array.isArray(courseData) ? courseData : []);
+            setBoards(Array.isArray(boardData) ? boardData : []);
             setSources(sourceData.sources || []);
 
             if (userRes.ok && userData.users) {
@@ -70,6 +74,7 @@ const BulkLeadModal = ({ onClose, onSuccess }) => {
                 Class: "Class 10",
                 Centre: "Delhi Centre",
                 Course: "JEE Main",
+                Board: "CBSE",
                 Source: "Facebook",
                 TargetExam: "JEE",
                 LeadType: "HOT LEAD",
@@ -156,6 +161,13 @@ const BulkLeadModal = ({ onClose, onSuccess }) => {
                         if (crs) courseId = crs._id;
                     }
 
+                    // Board
+                    let boardId = null;
+                    if (row.Board) {
+                        const brd = boards.find(b => b.boardCourse.toLowerCase() === row.Board.toLowerCase());
+                        if (brd) boardId = brd._id;
+                    }
+
                     // Source (String matching)
                     // If source in DB, fine. If not, we can still save the string as per schema.
 
@@ -167,6 +179,7 @@ const BulkLeadModal = ({ onClose, onSuccess }) => {
                         className: classId,
                         centre: centreId,
                         course: courseId,
+                        board: boardId,
                         source: row.Source, // Just string match or keep as is
                         targetExam: row.TargetExam,
                         leadType: row.LeadType ? row.LeadType.toUpperCase() : "COLD LEAD", // Default or normalize
