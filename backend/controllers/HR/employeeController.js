@@ -203,15 +203,22 @@ export const getEmployees = async (req, res) => {
             ];
         }
 
-        if (department) query.department = department;
-        if (designation) query.designation = designation;
+        if (department) {
+             query.department = { $in: department.split(',') };
+        }
+        if (designation) {
+            query.designation = { $in: designation.split(',') };
+        }
         if (centre) {
+            const centreIds = centre.split(',');
             query.$or = [
-                { primaryCentre: centre },
-                { centres: centre }
+                { primaryCentre: { $in: centreIds } },
+                { centres: { $in: centreIds } }
             ];
         }
-        if (status) query.status = status;
+        if (status) {
+            query.status = { $in: status.split(',') };
+        }
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
 

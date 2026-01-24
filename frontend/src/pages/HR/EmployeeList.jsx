@@ -12,6 +12,7 @@ import {
     XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import ExcelImportExport from "../../components/common/ExcelImportExport";
+import CustomMultiSelect from "../../components/common/CustomMultiSelect";
 
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -521,6 +522,56 @@ const EmployeeList = () => {
 
     const toggleLocalTheme = () => {
         setLocalTheme(prev => prev === 'dark' ? 'light' : 'dark');
+    };
+
+    // Helper for Multi-Select Options
+    const selectAllOption = useMemo(() => ({ label: "Select All", value: "ALL" }), []);
+
+    const departmentOptions = useMemo(() => [selectAllOption, ...departments.map(d => ({ label: d.departmentName, value: d._id }))], [departments, selectAllOption]);
+    const designationOptions = useMemo(() => [selectAllOption, ...designations.map(d => ({ label: d.name, value: d._id }))], [designations, selectAllOption]);
+    const centreOptions = useMemo(() => [selectAllOption, ...centres.map(c => ({ label: c.centreName, value: c._id }))], [centres, selectAllOption]);
+    const statusOptions = [
+        selectAllOption,
+        { label: "Active", value: "Active" },
+        { label: "Inactive", value: "Inactive" },
+        { label: "Resigned", value: "Resigned" },
+        { label: "Terminated", value: "Terminated" }
+    ];
+
+    const getSelectedOptions = (valueString, options) => {
+        if (!valueString) return [];
+        const ids = valueString.split(',');
+        const realOptions = options.filter(o => o.value !== 'ALL');
+        const selectedReal = realOptions.filter(o => ids.includes(o.value));
+        
+        // If all real options are selected, add "Select All" to visual selection
+        if (selectedReal.length === realOptions.length && realOptions.length > 0) {
+            return [selectAllOption, ...selectedReal];
+        }
+        return selectedReal;
+    };
+
+    const handleMultiSelectChange = (key, selectedOpts, actionMeta, allOptions) => {
+        // Handle Select All Logic
+        if (actionMeta && actionMeta.option && actionMeta.option.value === 'ALL') {
+            if (actionMeta.action === 'select-option') {
+                // Select All clicked -> Select all real options
+                const realValues = allOptions.filter(o => o.value !== 'ALL').map(o => o.value).join(',');
+                handleFilterChange(key, realValues);
+                return;
+            } else if (actionMeta.action === 'deselect-option') {
+                // Select All unclicked -> Deselect all
+                handleFilterChange(key, "");
+                return;
+            }
+        }
+
+        // Check if "Select All" was removed implicity by removing values or otherwise
+        // Standard behavior: just map values ignoring "ALL" if present provided it wasn't the trigger target
+        // Actually, if we just selected all manually, we might want "Select All" to appear, which is handled by getSelectedOptions.
+        // Here we just save real values.
+        const values = selectedOpts ? selectedOpts.filter(o => o.value !== 'ALL').map(o => o.value).join(',') : "";
+        handleFilterChange(key, values);
     };
 
     return (
@@ -1040,39 +1091,52 @@ const EmployeeList = () => {
                             </div>
                         </div>
 
-                        {[
-                            { label: "Department", value: filters.department, key: "department", options: departments, optKey: "departmentName" },
-                            { label: "Designation", value: filters.designation, key: "designation", options: designations, optKey: "name" },
-                            { label: "Centre", value: filters.centre, key: "centre", options: centres, optKey: "centreName" }
-                        ].map((filter, idx) => (
-                            <div key={idx} className="space-y-2">
-                                <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">{filter.label}</label>
-                                <select
-                                    value={filter.value}
-                                    onChange={(e) => handleFilterChange(filter.key, e.target.value)}
-                                    className="w-full px-4 py-3 bg-gray-50 dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-800 rounded-[2px] focus:border-cyan-500/50 outline-none text-gray-900 dark:text-white transition-all text-xs font-bold uppercase tracking-wider appearance-none cursor-pointer text-gray-600 dark:text-gray-400"
-                                >
-                                    <option value="">All {filter.label}s</option>
-                                    {filter.options.map(opt => (
-                                        <option key={opt._id} value={opt._id}>{opt[filter.optKey]}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        ))}
+                        <div className="lg:col-span-1 space-y-2">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Department</label>
+                            <CustomMultiSelect
+                                options={departmentOptions}
+                                value={getSelectedOptions(filters.department, departmentOptions)}
+                                onChange={(val, action) => handleMultiSelectChange("department", val, action, departmentOptions)}
+                                placeholder="Select Departments"
+                                className="w-full"
+                                theme={localTheme}
+                            />
+                        </div>
+
+                        <div className="lg:col-span-1 space-y-2">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Designation</label>
+                            <CustomMultiSelect
+                                options={designationOptions}
+                                value={getSelectedOptions(filters.designation, designationOptions)}
+                                onChange={(val, action) => handleMultiSelectChange("designation", val, action, designationOptions)}
+                                placeholder="Select Designations"
+                                className="w-full"
+                                theme={localTheme}
+                            />
+                        </div>
+
+                        <div className="lg:col-span-1 space-y-2">
+                           <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Centre</label>
+                            <CustomMultiSelect
+                                options={centreOptions}
+                                value={getSelectedOptions(filters.centre, centreOptions)}
+                                onChange={(val, action) => handleMultiSelectChange("centre", val, action, centreOptions)}
+                                placeholder="Select Centres"
+                                className="w-full"
+                                theme={localTheme}
+                            />
+                        </div>
 
                         <div className="space-y-2">
                             <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Status</label>
-                            <select
-                                value={filters.status}
-                                onChange={(e) => handleFilterChange("status", e.target.value)}
-                                className="w-full px-4 py-3 bg-gray-50 dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-800 rounded-[2px] focus:border-cyan-500/50 outline-none text-gray-900 dark:text-white transition-all text-xs font-bold uppercase tracking-wider appearance-none cursor-pointer text-gray-600 dark:text-gray-400"
-                            >
-                                <option value="">All Status</option>
-                                <option value="Active">Active</option>
-                                <option value="Inactive">Inactive</option>
-                                <option value="Resigned">Resigned</option>
-                                <option value="Terminated">Terminated</option>
-                            </select>
+                            <CustomMultiSelect
+                                options={statusOptions}
+                                value={getSelectedOptions(filters.status, statusOptions)}
+                                onChange={(val, action) => handleMultiSelectChange("status", val, action, statusOptions)}
+                                placeholder="Select Status"
+                                className="w-full"
+                                theme={localTheme}
+                            />
                         </div>
 
                         <button
