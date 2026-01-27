@@ -386,7 +386,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     return (
         <div
             className={`
-            bg-[#1a1f24] text-gray-400 h-screen flex flex-col border-r border-gray-800 transition-all duration-300
+            bg-white dark:bg-[#1a1f24] text-gray-600 dark:text-gray-400 h-screen flex flex-col border-r border-gray-200 dark:border-gray-800 transition-all duration-300
             ${isOpen ? "w-64" : "w-0"} overflow-hidden fixed inset-y-0 left-0 z-50 lg:relative
         `}
         >
@@ -397,8 +397,8 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                         <FaChartBar className="text-cyan-400" />
                     </div>
                     <div>
-                        <h1 className="font-bold text-lg tracking-wide text-cyan-400">Pathfinder ERP</h1>
-                        <p className="text-xs text-gray-500">Education Cloud</p>
+                        <h1 className="font-bold text-lg tracking-wide text-cyan-600 dark:text-cyan-400">Pathfinder ERP</h1>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">Education Cloud</p>
                     </div>
                 </div>
 
@@ -416,8 +416,8 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                 item.subItems ? toggleMenu(item.name) : navigate(item.path)
                             }
                             className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${item.name === activePage
-                                ? "bg-cyan-500 text-black font-semibold"
-                                : "hover:bg-gray-800 hover:text-white"
+                                ? "bg-cyan-500 text-white dark:text-black font-semibold shadow-lg shadow-cyan-500/20"
+                                : "hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
                                 }`}
                         >
                             <div className="flex items-center gap-3">
@@ -487,9 +487,9 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             </nav>
 
             {/* Profile */}
-            <div className="p-4 border-t border-gray-800">
+            <div className="p-4 border-t border-gray-200 dark:border-gray-800">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-cyan-900 border border-cyan-500/30 flex items-center justify-center text-cyan-400 font-bold overflow-hidden shadow-lg shadow-cyan-500/10">
+                    <div className="w-10 h-10 rounded-full bg-cyan-100 dark:bg-cyan-900 border border-cyan-200 dark:border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-bold overflow-hidden shadow-lg shadow-cyan-500/10">
                         {user.profileImage && !user.profileImage.startsWith('undefined/') ? (
                             <img src={user.profileImage} alt="" className="w-full h-full object-cover" />
                         ) : (
@@ -497,7 +497,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                         )}
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-semibold truncate">{user.name || "User"}</p>
+                        <p className="text-gray-900 dark:text-white text-sm font-semibold truncate">{user.name || "User"}</p>
                         <p className="text-xs text-gray-500 truncate">{user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "Role"}</p>
                     </div>
                 </div>

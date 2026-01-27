@@ -92,11 +92,11 @@ const CEOControlTowerContent = () => {
     const fetchCentres = async () => {
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/master-data/centre`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/centre`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const result = await response.json();
-            if (result.success) setCentres(result.data);
+            if (response.ok) setCentres(result);
         } catch (error) {
             console.error("Error fetching centres:", error);
         }
@@ -276,7 +276,7 @@ const CEOControlTowerContent = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 <div className="lg:col-span-2">
                     <ChartContainer title="Registrations vs Admissions Velocity" isDarkMode={isDarkMode} color="cyan" onExport={() => exportToExcel(sales?.conversionTrend || [], 'conversion_trend')}>
-                        <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                             <AreaChart data={sales?.conversionTrend || []}>
                                 <defs>
                                     <linearGradient id="colorReg" x1="0" y1="0" x2="0" y2="1">
@@ -301,7 +301,7 @@ const CEOControlTowerContent = () => {
                 </div>
 
                 <ChartContainer title="Transaction Method Mix" isDarkMode={isDarkMode} color="emerald" onExport={() => exportToExcel(sales?.transactionStats || [], 'transactions')}>
-                    <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                    <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                         <PieChart>
                             <Pie data={sales?.transactionStats || []} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={5} dataKey="count" nameKey="name" stroke="none">
                                 {(sales?.transactionStats || []).map((entry, index) => <Cell key={`cell-${index}`} fill={["#10b981", "#06b6d4", "#f59e0b", "#a855f7", "#ef4444"][index % 5]} />)}
@@ -382,7 +382,7 @@ const CEOControlTowerContent = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 <ScrollableChartContainer title="Employee Department Distribution" isDarkMode={isDarkMode} color="purple" height={300}>
                     <div style={{ height: Math.max(300, (data?.workforce?.departments?.length || 0) * 40) }}>
-                        <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                             <BarChart data={data?.workforce?.departments || []} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }} barSize={15}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
                                 <XAxis type="number" hide />
@@ -397,7 +397,7 @@ const CEOControlTowerContent = () => {
                 </ScrollableChartContainer>
 
                 <ChartContainer title="Lead Acquisition Sources" isDarkMode={isDarkMode} color="emerald" onExport={() => exportToExcel(sales?.leadSourceStats || [], 'lead_sources')}>
-                    <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                    <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                         <BarChart data={sales?.leadSourceStats || []}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
                             <XAxis dataKey="name" stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} axisLine={false} tickLine={false} />
@@ -413,7 +413,7 @@ const CEOControlTowerContent = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 <ScrollableChartContainer title="Employee Designation Distribution" isDarkMode={isDarkMode} color="cyan" height={350}>
                     <div style={{ height: Math.max(350, (data?.workforce?.designations?.length || 0) * 35) }}>
-                        <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                             <BarChart data={data?.workforce?.designations || []} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }} barSize={15}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
                                 <XAxis type="number" hide />
@@ -429,7 +429,7 @@ const CEOControlTowerContent = () => {
 
                 <ScrollableChartContainer title="Employee Centre Distribution" isDarkMode={isDarkMode} color="amber" height={350}>
                     <div style={{ height: Math.max(350, (data?.workforce?.centres?.length || 0) * 35) }}>
-                        <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                             <BarChart data={data?.workforce?.centres || []} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }} barSize={15}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
                                 <XAxis type="number" hide />
@@ -448,7 +448,7 @@ const CEOControlTowerContent = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 {/* Board Course Wise Analysis - Area Chart */}
                 <ChartContainer title="Board Course Analysis" isDarkMode={isDarkMode} color="cyan">
-                    <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                    <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                         <AreaChart data={data?.academics?.boardCourse || []}>
                             <defs>
                                 <linearGradient id="colorBoard" x1="0" y1="0" x2="0" y2="1">
@@ -467,7 +467,7 @@ const CEOControlTowerContent = () => {
 
                 {/* Normal Course Wise Analysis - Bar Graph */}
                 <ChartContainer title="Standard Course Distribution" isDarkMode={isDarkMode} color="purple">
-                    <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                    <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                         <BarChart data={data?.academics?.normalCourse || []} layout="vertical">
                             <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
                             <XAxis type="number" stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} axisLine={false} tickLine={false} />
@@ -486,7 +486,7 @@ const CEOControlTowerContent = () => {
             {/* Subject Analysis for Board Students */}
             <div className="mb-8">
                 <ChartContainer title="Board Subject Preference" isDarkMode={isDarkMode} color="emerald">
-                    <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                    <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                         <BarChart data={data?.academics?.boardSubjects || []}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
                             <XAxis dataKey="name" stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} axisLine={false} tickLine={false} />
@@ -505,7 +505,7 @@ const CEOControlTowerContent = () => {
             {/* Final Distribution Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 <ChartContainer title="Regional Spread" isDarkMode={isDarkMode} color="purple">
-                    <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                    <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                         <PieChart>
                             <Pie data={data?.students?.state || []} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="count" nameKey="name" stroke="none">
                                 {(data?.students?.state || []).map((entry, index) => <Cell key={`cell-${index}`} fill={["#a855f7", "#10b981", "#f59e0b", "#06b6d4", "#ef4444"][index % 5]} />)}
@@ -517,7 +517,7 @@ const CEOControlTowerContent = () => {
                 </ChartContainer>
 
                 <ChartContainer title="Student Board Mix" isDarkMode={isDarkMode} color="amber">
-                    <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                    <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                         <PieChart>
                             <Pie data={data?.students?.board || []} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={5} dataKey="count" nameKey="name" stroke="none">
                                 {(data?.students?.board || []).map((entry, index) => <Cell key={`cell-${index}`} fill={["#f59e0b", "#ef4444", "#10b981", "#06b6d4"][index % 4]} />)}
@@ -553,6 +553,7 @@ const CEOControlTowerContent = () => {
 
             {/* Employee Attendance Analytics Section */}
             <EmployeeAttendanceAnalytics
+                isDarkMode={isDarkMode}
                 masterData={{
                     departments: data?.workforce?.departments || [],
                     designations: data?.workforce?.designations || [],

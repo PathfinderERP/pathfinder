@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { FaTimes, FaSave } from 'react-icons/fa';
+import { FaTimes, FaSave, FaUser, FaPhoneAlt, FaSchool, FaBook, FaEdit } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
-const EditStudentModal = ({ student, onClose, onUpdate }) => {
+const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
     const [formData, setFormData] = useState({
         studentName: student.studentsDetails?.[0]?.studentName || '',
         studentEmail: student.studentsDetails?.[0]?.studentEmail || '',
@@ -283,93 +283,108 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
         }
     };
 
+    const labelClass = "block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5 flex items-center gap-2";
+    const inputClass = `w-full p-2.5 rounded-[4px] border font-bold text-[11px] uppercase tracking-wider focus:outline-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`;
+    const sectionClass = `p-6 rounded-[4px] border transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`;
+
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-[#1a1f24] rounded-xl border border-gray-800 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
+            <div className={`rounded-[4px] border border-gray-800 max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`}>
                 {/* Header */}
-                <div className="sticky top-0 bg-[#1a1f24] border-b border-gray-800 p-6 flex items-center justify-between z-10">
-                    <div className="flex flex-col gap-1">
-                        <h2 className="text-2xl font-bold text-white leading-tight">Edit Student Details</h2>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Registered On:</span>
-                            <span className="text-xs text-cyan-400 font-mono italic">
-                                {student.createdAt ? new Date(student.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : 'N/A'}
-                            </span>
+                <div className={`p-6 border-b flex items-center justify-between sticky top-0 z-10 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-[4px] bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20">
+                                <FaEdit className="text-cyan-500 text-xl" />
+                            </div>
+                            <div>
+                                <h2 className={`text-2xl font-black italic tracking-tighter uppercase leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    Modify Student
+                                </h2>
+                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] mt-2">
+                                    SYNCHRONIZING CORE DATA <span className="mx-2 text-cyan-500">|</span> <span className="text-cyan-500">ID: {student._id?.slice(-8).toUpperCase()}</span>
+                                </p>
+                            </div>
                         </div>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="p-2 hover:bg-red-500/10 hover:text-red-500 text-gray-400 rounded-lg transition-all"
-                    >
-                        <FaTimes className="text-xl" />
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={onClose}
+                            className={`p-3 rounded-[4px] transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10' : 'bg-gray-100 text-gray-400 hover:text-gray-900 hover:bg-gray-200'}`}
+                        >
+                            <FaTimes className="text-lg" />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                <form onSubmit={handleSubmit} className={`p-8 overflow-y-auto space-y-8 custom-scrollbar ${isDarkMode ? 'dark' : ''}`}>
                     {/* Personal Information */}
-                    <div className="bg-[#131619] p-6 rounded-xl border border-gray-800">
-                        <h3 className="text-lg font-semibold text-white mb-4">Personal Information</h3>
-                        <div className="grid grid-cols-2 gap-4">
+                    <div className={sectionClass}>
+                        <h3 className="text-[12px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+                            <FaUser size={14} /> PERSONAL IDENTIFICATION
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Student Name *</label>
+                                <label className={labelClass}>STUDENT NAME *</label>
                                 <input
                                     type="text"
                                     name="studentName"
                                     value={formData.studentName}
                                     onChange={handleChange}
                                     required
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Date of Birth</label>
+                                <label className={labelClass}>DATE OF BIRTH</label>
                                 <input
                                     type="text"
                                     name="dateOfBirth"
                                     value={formData.dateOfBirth}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
+                                    placeholder="DD/MM/YYYY"
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Gender</label>
+                                <label className={labelClass}>GENDER BIOMETRIC</label>
                                 <select
                                     name="gender"
                                     value={formData.gender}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 >
-                                    <option value="">Select Gender</option>
-                                    <option value="Male">Male</option>
-                                    <option value="Female">Female</option>
-                                    <option value="Other">Other</option>
+                                    <option value="">SELECT GENDER</option>
+                                    <option value="Male">MALE</option>
+                                    <option value="Female">FEMALE</option>
+                                    <option value="Other">OTHER</option>
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Centre *</label>
+                                <label className={labelClass}>BASE CENTRE *</label>
                                 <select
                                     name="centre"
                                     value={formData.centre}
                                     onChange={handleChange}
                                     required
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 >
-                                    <option value="">Select Centre</option>
+                                    <option value="">SELECT CENTRE</option>
                                     {centres.map((centre) => (
                                         <option key={centre._id} value={centre.centreName}>{centre.centreName}</option>
                                     ))}
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Programme</label>
+                                <label className={labelClass}>ACADEMIC PROGRAMME</label>
                                 <select
                                     name="programme"
                                     value={formData.programme}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 >
-                                    <option value="">Select Programme</option>
+                                    <option value="">SELECT PROGRAMME</option>
                                     <option value="CRP">CRP</option>
                                     <option value="NCRP">NCRP</option>
                                 </select>
@@ -378,21 +393,23 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                     </div>
 
                     {/* Contact Information */}
-                    <div className="bg-[#131619] p-6 rounded-xl border border-gray-800">
-                        <h3 className="text-lg font-semibold text-white mb-4">Contact Information</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-gray-400 text-sm mb-2">Email</label>
+                    <div className={sectionClass}>
+                        <h3 className="text-[12px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+                            <FaPhoneAlt size={14} /> COMMUNICATION CHANNELS
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div className="lg:col-span-2">
+                                <label className={labelClass}>DIGITAL MAILBOX</label>
                                 <input
                                     type="email"
                                     name="studentEmail"
                                     value={formData.studentEmail}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Mobile *</label>
+                                <label className={labelClass}>TELECOM LINE *</label>
                                 <input
                                     type="text"
                                     name="mobileNum"
@@ -400,11 +417,11 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                                     onChange={handleChange}
                                     required
                                     pattern="[0-9]{10}"
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">WhatsApp *</label>
+                                <label className={labelClass}>WHATSAPP SECURE *</label>
                                 <input
                                     type="text"
                                     name="whatsappNumber"
@@ -412,107 +429,109 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                                     onChange={handleChange}
                                     required
                                     pattern="[0-9]{10}"
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Pincode</label>
+                                <label className={labelClass}>GEO-POSTAL CODE</label>
                                 <input
                                     type="text"
                                     name="pincode"
                                     value={formData.pincode}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 />
                             </div>
-                            <div className="col-span-2">
-                                <label className="block text-gray-400 text-sm mb-2">Address</label>
+                            <div className="lg:col-span-3">
+                                <label className={labelClass}>PHYSICAL ADDRESS</label>
                                 <textarea
                                     name="address"
                                     value={formData.address}
                                     onChange={handleChange}
                                     rows="2"
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={`${inputClass} normal-case h-[42px] py-2`}
                                 />
                             </div>
                         </div>
                     </div>
 
                     {/* Academic Information */}
-                    <div className="bg-[#131619] p-6 rounded-xl border border-gray-800">
-                        <h3 className="text-lg font-semibold text-white mb-4">Academic Information</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-gray-400 text-sm mb-2">School Name</label>
+                    <div className={sectionClass}>
+                        <h3 className="text-[12px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+                            <FaSchool size={14} /> ACADEMIC RECORD
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="lg:col-span-2">
+                                <label className={labelClass}>PRIMARY INSTITUTION</label>
                                 <input
                                     type="text"
                                     name="schoolName"
                                     value={formData.schoolName}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Board *</label>
+                                <label className={labelClass}>EDUCATIONAL BOARD *</label>
                                 <input
                                     type="text"
                                     name="board"
                                     value={formData.board}
                                     onChange={handleChange}
                                     required
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Class</label>
+                                <label className={labelClass}>CURRENT CLASS</label>
                                 <input
                                     type="text"
                                     name="class"
                                     value={formData.class}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">State *</label>
+                                <label className={labelClass}>STATE JURISDICTION *</label>
                                 <input
                                     type="text"
                                     name="state"
                                     value={formData.state}
                                     onChange={handleChange}
                                     required
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Science/Math %</label>
+                                <label className={labelClass}>SCIENCE/MATH %</label>
                                 <input
                                     type="text"
                                     name="scienceMathParcent"
                                     value={formData.scienceMathParcent}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Aggregate Marks</label>
+                                <label className={labelClass}>AGGREGATE SCORE</label>
                                 <input
                                     type="text"
                                     name="markAgregate"
                                     value={formData.markAgregate}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Department</label>
+                                <label className={labelClass}>DEPARTMENT HQ</label>
                                 <select
                                     name="department"
                                     value={formData.department}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 >
-                                    <option value="">Select Department</option>
+                                    <option value="">SELECT DEPARTMENT</option>
                                     {departments.map((dept) => (
                                         <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
                                     ))}
@@ -522,42 +541,44 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                     </div>
 
                     {/* Exam & Course Information */}
-                    <div className="bg-[#131619] p-6 rounded-xl border border-gray-800">
-                        <h3 className="text-lg font-semibold text-white mb-4">Exam & Course Information</h3>
-                        <div className="grid grid-cols-2 gap-4">
+                    <div className={sectionClass}>
+                        <h3 className="text-[12px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+                            <FaBook size={14} /> ENROLLED SCHEMAS
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Exam Tag</label>
+                                <label className={labelClass}>EXAM TAG</label>
                                 <select
                                     name="examTag"
                                     value={formData.examTag}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 >
-                                    <option value="">Select Exam Tag</option>
+                                    <option value="">SELECT EXAM TAG</option>
                                     {examTags.map((tag) => (
                                         <option key={tag._id} value={tag.name}>{tag.name}</option>
                                     ))}
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Target Exams</label>
+                                <label className={labelClass}>TARGET MATRIX</label>
                                 <input
                                     type="text"
                                     name="targetExams"
                                     value={formData.targetExams}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Session</label>
+                                <label className={labelClass}>ACTIVE SESSION</label>
                                 <select
                                     name="session"
                                     value={formData.session}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 >
-                                    <option value="">Select Session</option>
+                                    <option value="">SELECT SESSION</option>
                                     {sessions.map((session) => (
                                         <option key={session._id} value={session.sessionName || session.name}>
                                             {session.sessionName || session.name}
@@ -568,55 +589,58 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                         </div>
 
                         {/* Course Filters */}
-                        <div className="mt-6">
-                            <h4 className="flex justify-between items-center text-md font-semibold text-gray-300 mb-3 uppercase tracking-wider">
-                                <span>Refine Course List</span>
-                                <button type="button" onClick={resetCourseFilters} className="text-[10px] bg-gray-800 hover:bg-gray-700 text-gray-400 px-2 py-1 rounded">Clear</button>
-                            </h4>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                                <select name="mode" value={courseFilters.mode} onChange={handleCourseFilterChange} className="bg-[#1a1f24] border border-gray-700 rounded text-xs p-2 text-white">
-                                    <option value="">All Modes</option>
+                        <div className={`mt-8 p-6 rounded-[4px] border ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-white border-gray-100'}`}>
+                            <div className="flex justify-between items-center mb-6">
+                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">REFINE COURSE INVENTORY</h4>
+                                <button type="button" onClick={resetCourseFilters} className="text-[9px] font-black bg-cyan-500/10 text-cyan-500 px-3 py-1 rounded-[4px] hover:bg-cyan-500/20 transition-all border border-cyan-500/20 uppercase tracking-widest">RESET FILTERS</button>
+                            </div>
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                                <select name="mode" value={courseFilters.mode} onChange={handleCourseFilterChange} className={inputClass}>
+                                    <option value="">ALL MODES</option>
                                     <option value="ONLINE">ONLINE</option>
                                     <option value="OFFLINE">OFFLINE</option>
                                 </select>
-                                <select name="courseType" value={courseFilters.courseType} onChange={handleCourseFilterChange} className="bg-[#1a1f24] border border-gray-700 rounded text-xs p-2 text-white">
-                                    <option value="">All Types</option>
+                                <select name="courseType" value={courseFilters.courseType} onChange={handleCourseFilterChange} className={inputClass}>
+                                    <option value="">ALL TYPES</option>
                                     <option value="INSTATION">INSTATION</option>
                                     <option value="OUTSTATION">OUTSTATION</option>
                                 </select>
-                                <select name="class" value={courseFilters.class} onChange={handleCourseFilterChange} className="bg-[#1a1f24] border border-gray-700 rounded text-xs p-2 text-white">
-                                    <option value="">All Classes</option>
+                                <select name="class" value={courseFilters.class} onChange={handleCourseFilterChange} className={inputClass}>
+                                    <option value="">ALL CLASSES</option>
                                     {classes.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                                 </select>
-                                <select name="examTag" value={courseFilters.examTag} onChange={handleCourseFilterChange} className="bg-[#1a1f24] border border-gray-700 rounded text-xs p-2 text-white">
-                                    <option value="">All Exam Tags</option>
+                                <select name="examTag" value={courseFilters.examTag} onChange={handleCourseFilterChange} className={inputClass}>
+                                    <option value="">ALL TAGS</option>
                                     {examTags.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
                                 </select>
                             </div>
-                            <label className="block text-gray-400 text-sm mb-2">Enrolling Course</label>
-                            <select
-                                name="course"
-                                value={formData.course}
-                                onChange={handleChange}
-                                className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
-                            >
-                                <option value="">Select Course</option>
-                                {filteredCourses.map((c) => (
-                                    <option key={c._id} value={c._id}>{c.courseName} ({c.mode} - {c.courseType})</option>
-                                ))}
-                            </select>
+
+                            <div>
+                                <label className={labelClass}>ENROLLING TRACK COURSE</label>
+                                <select
+                                    name="course"
+                                    value={formData.course}
+                                    onChange={handleChange}
+                                    className={`${inputClass} text-cyan-500 border-cyan-500/30 bg-cyan-500/5`}
+                                >
+                                    <option value="">SELECT CORE COURSE</option>
+                                    {filteredCourses.map((c) => (
+                                        <option key={c._id} value={c._id}>{c.courseName} ({c.mode} - {c.courseType})</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
 
                         {/* Batch Selection */}
-                        <div className="mt-6">
-                            <h4 className="text-md font-semibold text-gray-300 mb-3 uppercase tracking-wider">Batch Allocation</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        <div className="mt-8">
+                            <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">BATCH ALLOCATION MATRIX</h4>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                 {availableBatches.map((batch) => (
                                     <label
                                         key={batch._id}
-                                        className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-all ${formData.batches.includes(batch._id)
-                                            ? 'bg-cyan-600/20 border-cyan-500 text-white'
-                                            : 'bg-[#1a1f24] border-gray-700 text-gray-400 hover:border-gray-500'
+                                        className={`flex items-center gap-3 p-3 rounded-[4px] border cursor-pointer transition-all ${formData.batches.includes(batch._id)
+                                            ? 'bg-cyan-600 border-cyan-500 text-white shadow-lg shadow-cyan-500/20'
+                                            : `border-gray-800 text-gray-400 hover:border-gray-600 ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`
                                             }`}
                                     >
                                         <input
@@ -625,101 +649,113 @@ const EditStudentModal = ({ student, onClose, onUpdate }) => {
                                             checked={formData.batches.includes(batch._id)}
                                             onChange={() => handleBatchToggle(batch._id)}
                                         />
-                                        <span className="text-xs truncate">{batch.batchName}</span>
+                                        <div className={`w-3 h-3 rounded-[2px] border ${formData.batches.includes(batch._id) ? 'bg-white border-white' : 'border-gray-600'}`}></div>
+                                        <span className="text-[10px] font-black uppercase tracking-widest truncate">{batch.batchName}</span>
                                     </label>
                                 ))}
-                                {availableBatches.length === 0 && <p className="text-gray-600 text-xs italic">No batches available...</p>}
+                                {availableBatches.length === 0 && <p className="text-gray-600 text-[10px] font-bold italic uppercase tracking-widest">NO BATCHES DETECTED</p>}
                             </div>
                         </div>
                     </div>
 
                     {/* Guardian Information */}
-                    <div className="bg-[#131619] p-6 rounded-xl border border-gray-800">
-                        <h3 className="text-lg font-semibold text-white mb-4">Guardian Information</h3>
-                        <div className="grid grid-cols-2 gap-4">
+                    <div className={sectionClass}>
+                        <h3 className="text-[12px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+                            <FaUser size={14} /> GUARDIAN / SECONDARY IDENTIFICATION
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Guardian Name</label>
+                                <label className={labelClass}>GUARDIAN NAME</label>
                                 <input
                                     type="text"
                                     name="guardianName"
                                     value={formData.guardianName}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Guardian Mobile</label>
+                                <label className={labelClass}>CONTACT SECURE</label>
                                 <input
                                     type="text"
                                     name="guardianMobile"
                                     value={formData.guardianMobile}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Guardian Email</label>
+                                <label className={labelClass}>GUARDIAN EMAIL</label>
                                 <input
                                     type="email"
                                     name="guardianEmail"
                                     value={formData.guardianEmail}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Occupation</label>
+                                <label className={labelClass}>PROFESSIONAL VECTOR</label>
                                 <input
                                     type="text"
                                     name="occupation"
                                     value={formData.occupation}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Annual Income</label>
+                                <label className={labelClass}>ANNUAL REVENUE</label>
                                 <input
                                     type="text"
                                     name="annualIncome"
                                     value={formData.annualIncome}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Qualification</label>
+                                <label className={labelClass}>CREDENTIALS</label>
                                 <input
                                     type="text"
                                     name="qualification"
                                     value={formData.qualification}
                                     onChange={handleChange}
-                                    className="w-full bg-[#1a1f24] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                                    className={inputClass}
                                 />
                             </div>
                         </div>
                     </div>
 
                     {/* Footer */}
-                    <div className="flex justify-end gap-4 pt-4">
+                    <div className={`flex justify-end gap-3 pt-6 border-t sticky bottom-0 mt-auto ${isDarkMode ? 'border-gray-800 bg-[#1a1f24]' : 'border-gray-100 bg-white'}`}>
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                            className={`px-8 py-3 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700' : 'bg-gray-100 text-gray-500 hover:text-gray-900'}`}
                         >
-                            Cancel
+                            ABORT MODIFICATION
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="flex items-center gap-2 px-6 py-2 bg-cyan-500 text-black font-semibold rounded-lg hover:bg-cyan-400 transition-colors disabled:opacity-50"
+                            className={`flex items-center justify-center gap-3 px-10 py-3 bg-cyan-600 text-white text-[10px] font-black uppercase tracking-widest rounded-[4px] hover:bg-cyan-500 transition-all shadow-lg shadow-cyan-500/20 active:scale-95 disabled:opacity-50`}
                         >
-                            <FaSave />
-                            {loading ? 'Saving...' : 'Save Changes'}
+                            {loading ? (
+                                <><div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> SYNCHRONIZING...</>
+                            ) : (
+                                <><FaSave /> AUTHORIZE CHANGES</>
+                            )}
                         </button>
                     </div>
                 </form>
             </div>
+            <style jsx>{`
+                .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: ${isDarkMode ? '#0f1215' : 'transparent'}; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDarkMode ? '#1f2937' : '#d1d5db'}; border-radius: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: ${isDarkMode ? '#374151' : '#9ca3af'}; }
+            `}</style>
         </div>
     );
 };

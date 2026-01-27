@@ -107,9 +107,9 @@ const PayEmployee = () => {
             const centres = centreRes.ok ? await centreRes.json() : [];
 
             setOptions({
-                departments: depts.map(d => d.departmentName),
-                designations: desigs.map(d => d.name),
-                centres: centres.map(c => c.centreName)
+                departments: [...new Set(depts.map(d => d.departmentName))],
+                designations: [...new Set(desigs.map(d => d.name))],
+                centres: [...new Set(centres.map(c => c.centreName))]
             });
 
         } catch (error) {

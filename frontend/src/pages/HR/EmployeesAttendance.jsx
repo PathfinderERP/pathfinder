@@ -1065,7 +1065,7 @@ const EmployeesAttendance = () => {
                                     </div>
                                 </div>
                                 <div className="h-[280px] w-full">
-                                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                    <ResponsiveContainer width="100%" height="100%" minHeight={280} minWidth={100}>
                                         <AreaChart data={stats?.dailyCautionsTrend}>
                                             <defs>
                                                 <linearGradient id="multiOvertime" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.1} /><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} /></linearGradient>
@@ -1125,7 +1125,7 @@ const EmployeesAttendance = () => {
                                     </div>
 
                                     <div className="flex-1 min-h-0">
-                                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                        <ResponsiveContainer width="100%" height="100%" minHeight={150} minWidth={100}>
                                             <AreaChart data={stats?.dailyCautionsTrend}>
                                                 <defs>
                                                     <linearGradient id="multiForgot" x1="0" y1="0" x2="0" y2="1">
@@ -1160,7 +1160,7 @@ const EmployeesAttendance = () => {
                                 <button className="text-cyan-500 text-[10px] font-black uppercase hover:underline">View Report</button>
                             </div>
                             <div className="flex-1 w-full min-h-0">
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                <ResponsiveContainer width="100%" height="100%" minHeight={300} minWidth={100}>
                                     <AreaChart data={stats?.dailyTrend || []} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                         <defs>
                                             <linearGradient id="colorPresent" x1="0" y1="0" x2="0" y2="1">
@@ -1190,7 +1190,7 @@ const EmployeesAttendance = () => {
                         <div className={`border rounded-[2px] p-6 flex flex-col ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                             <h3 className={`font-black text-[10px] uppercase tracking-[0.2em] mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Department Distribution</h3>
                             <div className="flex-1 w-full min-h-0">
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                <ResponsiveContainer width="100%" height="100%" minHeight={300} minWidth={100}>
                                     <BarChart layout="vertical" data={departmentData} margin={{ top: 0, right: 20, left: 40, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
                                         <XAxis type="number" hide />
@@ -1461,7 +1461,7 @@ const EmployeesAttendance = () => {
                                                         <FaChartBar className="text-purple-500" /> Yearly Performance
                                                     </h4>
                                                     <div className={`h-[180px] w-full rounded-[2px] border p-2 ${isDarkMode ? 'bg-gray-900/30 border-gray-800/50' : 'bg-gray-50 border-gray-200 shadow-sm'}`}>
-                                                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                                        <ResponsiveContainer width="100%" height="100%" minHeight={180} minWidth={100}>
                                                             <BarChart data={userAnalysisData.monthlyStats}>
                                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} opacity={0.5} />
                                                                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#6b7280' : '#9ca3af', fontSize: 8, fontWeight: 700 }} />
@@ -1481,7 +1481,7 @@ const EmployeesAttendance = () => {
                                                         <FaChartLine className="text-cyan-500" /> Daily Activity ({format(new Date(filters.year, filters.month - 1), 'MMMM')})
                                                     </h4>
                                                     <div className={`h-[180px] w-full rounded-[2px] border p-2 ${isDarkMode ? 'bg-gray-900/30 border-gray-800/50' : 'bg-gray-50 border-gray-200 shadow-sm'}`}>
-                                                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                                        <ResponsiveContainer width="100%" height="100%" minHeight={180} minWidth={100}>
                                                             <AreaChart data={userAnalysisData.dailyData}>
                                                                 <defs>
                                                                     <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
@@ -1509,7 +1509,7 @@ const EmployeesAttendance = () => {
                                                             <FaChartPie className="text-emerald-500" /> Attendance Mix
                                                         </h4>
                                                         <div className={`h-[160px] w-full rounded-[2px] border relative ${isDarkMode ? 'bg-gray-900/30 border-gray-800/50' : 'bg-gray-50 border-gray-200'}`}>
-                                                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                                            <ResponsiveContainer width="100%" height="100%" minHeight={160} minWidth={100}>
                                                                 <PieChart>
                                                                     <Pie
                                                                         data={userAnalysisData.statusDistribution}

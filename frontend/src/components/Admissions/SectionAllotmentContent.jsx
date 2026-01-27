@@ -1,16 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { FaSearch, FaTimes } from 'react-icons/fa';
+import { FaSearch, FaTimes, FaSun, FaMoon, FaSync, FaFilter, FaLayerGroup } from 'react-icons/fa';
 import CustomMultiSelect from '../common/CustomMultiSelect';
 
 const SectionAllotmentContent = () => {
+    const [isDarkMode, setIsDarkMode] = useState(() => {
+        const saved = localStorage.getItem('sectionAllotmentThemePremium');
+        return saved ? JSON.parse(saved) : true;
+    });
+
+    useEffect(() => {
+        localStorage.setItem('sectionAllotmentThemePremium', JSON.stringify(isDarkMode));
+    }, [isDarkMode]);
+
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
     const [selectedDetail, setSelectedDetail] = useState(null); // For Modal
     const [showModal, setShowModal] = useState(false);
-    
+
     // Filter Lists
     const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
@@ -39,7 +48,7 @@ const SectionAllotmentContent = () => {
     }, []);
 
     useEffect(() => {
-         // Debounce search/filter fetch
+        // Debounce search/filter fetch
         const timer = setTimeout(() => {
             fetchData();
         }, 500);
@@ -62,7 +71,6 @@ const SectionAllotmentContent = () => {
                 if (isSuperAdmin) {
                     setCentres(allCentres);
                 } else {
-                    // Filter centres for non-superadmin
                     const userCentreIds = user.centres?.map(c => c._id || c) || [];
                     const allowedCentres = allCentres.filter(c => userCentreIds.includes(c._id));
                     setCentres(allowedCentres);
@@ -80,18 +88,9 @@ const SectionAllotmentContent = () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
-            let url = `${import.meta.env.VITE_API_URL}/admission/section-allotment?`; // Using same endpoint base, but controller is getAdmissions?
-            // Wait, the file uses /admission/section-allotment. I need to verify if this maps to getAdmissions.
-            // If previous code was working, I stick to it. But I added filters to getAdmissions.
-            // Assuming /admission/section-allotment maps to getAdmissions or similar logic.
-            // If the user said "add here all the fields", I should use the endpoint that gives me the data.
-            
-            // Construct query params
             const params = new URLSearchParams();
-            if (search) params.append('search', search); // Backend might not support search in getAdmissions? It used 'centre' and 'status'.
-            // If getAdmissions doesn't support search, I might need to implement it or use what's available.
-            // Previous code used url += `search=${search}&`. So backend must support it somewhere.
-            
+            if (search) params.append('search', search);
+
             if (filters.centre.length) params.append('centre', filters.centre.map(c => c.value).join(','));
             if (filters.course.length) params.append('course', filters.course.map(c => c.value).join(','));
             if (filters.class.length) params.append('class', filters.class.map(c => c.value).join(','));
@@ -99,7 +98,7 @@ const SectionAllotmentContent = () => {
             const response = await fetch(`${import.meta.env.VITE_API_URL}/admission/section-allotment?${params.toString()}`, {
                 headers: { "Authorization": `Bearer ${token}` }
             });
-            
+
             const data = await response.json();
             if (response.ok) {
                 setStudents(data);
@@ -142,7 +141,7 @@ const SectionAllotmentContent = () => {
             if (response.ok) {
                 toast.success("Section allotted successfully");
                 setShowModal(false);
-                fetchData(); // Refresh list
+                fetchData();
             } else {
                 toast.error("Failed to update");
             }
@@ -151,211 +150,241 @@ const SectionAllotmentContent = () => {
         }
     };
 
-    const renderEmpty = () => (
-        <tr>
-            <td colSpan="10" className="p-4 text-center text-gray-500">No students found</td>
-        </tr>
-    );
-
     return (
-        <div className="flex-1 bg-[#131619] p-6 overflow-hidden flex flex-col h-full text-white">
-            <ToastContainer position="top-right" theme="dark" />
+        <div className={`flex-1 flex flex-col h-full overflow-hidden transition-all duration-300 ${isDarkMode ? 'bg-[#0f1215] text-gray-400' : 'bg-gray-50 text-gray-600'}`}>
+            <ToastContainer theme={isDarkMode ? 'dark' : 'light'} />
 
-            {/* Header & Filters */}
-            <div className="mb-6 space-y-4">
-                <div className="flex flex-wrap justify-between items-center gap-4">
-                    <div className="relative w-full md:w-96">
-                        <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Search..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="w-full bg-[#1a1f24] border border-gray-700 text-white pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500"
-                        />
-                    </div>
-                    <div className="flex items-center gap-3">
-                         <button className="text-red-500 font-medium hover:text-red-400 flex items-center gap-2">
-                            + Sync in Study
-                        </button>
-                    </div>
+            {/* Header Section */}
+            <div className={`p-6 border-b flex items-center justify-between sticky top-0 z-30 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-2xl' : 'bg-white border-gray-200 shadow-md'}`}>
+                <div className="flex flex-col">
+                    <h2 className={`text-2xl font-black italic tracking-tighter uppercase leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        Section Allotment
+                    </h2>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] mt-2">
+                        ADMISSIONS CONTROL MODULE <span className="mx-2 text-cyan-500">|</span> <span className="text-cyan-500">COHORT SEGMENTATION</span>
+                    </p>
                 </div>
 
-                {/* Filters Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-[#1a1f24] p-4 rounded-lg border border-gray-800">
-                     <div>
-                        <label className="block text-gray-400 text-xs mb-1">Centre</label>
-                        <CustomMultiSelect
-                            options={centres.map(c => ({ value: c.centreName, label: c.centreName }))} // Assuming backend expects names or IDs? getAdmissions used names for centre logic
-                            value={filters.centre}
-                            onChange={(selected) => setFilters({ ...filters, centre: selected })}
-                            placeholder="Select Centre"
-                            // Force manual dark theme if needed, or rely on CustomMultiSelect default (which is light if no context/prop). 
-                            // Since this page is hardcoded dark, we MUST pass theme='dark' to look good.
-                            theme="dark"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-gray-400 text-xs mb-1">Course</label>
-                        <CustomMultiSelect
-                            options={courses.map(c => ({ value: c._id, label: c.courseName }))}
-                            value={filters.course}
-                            onChange={(selected) => setFilters({ ...filters, course: selected })}
-                            placeholder="Select Course"
-                             theme="dark"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-gray-400 text-xs mb-1">Class</label>
-                        <CustomMultiSelect
-                             options={classes.map(c => ({ value: c._id, label: c.name }))}
-                             value={filters.class}
-                             onChange={(selected) => setFilters({ ...filters, class: selected })}
-                             placeholder="Select Class"
-                              theme="dark"
-                        />
-                    </div>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => setIsDarkMode(!isDarkMode)}
+                        className={`p-2.5 rounded-[4px] border transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 text-yellow-400 hover:bg-white/10' : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'}`}
+                        title="Toggle Local Theme"
+                    >
+                        {isDarkMode ? <FaSun /> : <FaMoon />}
+                    </button>
+                    <button
+                        onClick={fetchData}
+                        className={`p-2.5 rounded-[4px] border transition-all active:scale-95 ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500 hover:text-black' : 'bg-cyan-50 border-cyan-200 text-cyan-600 hover:bg-cyan-100'}`}
+                        title="Sync Registry"
+                    >
+                        <FaSync className={loading ? 'animate-spin' : ''} />
+                    </button>
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="bg-[#1a1f24] rounded-lg border border-gray-800 flex-1 overflow-hidden flex flex-col">
-                <div className="overflow-x-auto overflow-y-auto custom-scrollbar flex-1">
-                    <table className="w-full text-left border-collapse">
-                        <thead className="sticky top-0 bg-gray-800 z-10">
-                            <tr className="text-gray-300 text-sm uppercase">
-                                <th className="p-4 border-b border-gray-700">Name</th>
-                                <th className="p-4 border-b border-gray-700">Email</th>
-                                <th className="p-4 border-b border-gray-700">Enrollment No</th>
-                                <th className="p-4 border-b border-gray-700">Phone</th>
-                                <th className="p-4 border-b border-gray-700">Centre</th>
-                                <th className="p-4 border-b border-gray-700">Course</th>
-                                <th className="p-4 border-b border-gray-700">Class</th>
-                                <th className="p-4 border-b border-gray-700">Exam Section</th>
-                                <th className="p-4 border-b border-gray-700">Study Section</th>
-                                <th className="p-4 border-b border-gray-700 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr>
-                                    <td colSpan="10" className="p-4 text-center text-gray-500">Loading...</td>
+            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                {/* Filters Section */}
+                <div className={`p-6 rounded-[4px] border mb-8 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                    <div className="flex items-center gap-3 mb-6">
+                        <FaFilter className="text-cyan-500" />
+                        <h3 className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Segment Selection Engine</h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Master Search</label>
+                            <div className="relative">
+                                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={12} />
+                                <input
+                                    type="text"
+                                    placeholder="INITIATE SCAN..."
+                                    className={`w-full pl-10 pr-4 py-2.5 rounded-[4px] border text-[11px] font-bold tracking-tight transition-all focus:outline-none focus:ring-1 ${isDarkMode ? 'bg-[#111418] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Centre HQ</label>
+                            <CustomMultiSelect
+                                options={centres.map(c => ({ value: c.centreName, label: c.centreName }))}
+                                value={filters.centre}
+                                onChange={(selected) => setFilters({ ...filters, centre: selected })}
+                                placeholder="ALL NODES"
+                                theme={isDarkMode ? "dark" : "light"}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Academic Syllabus</label>
+                            <CustomMultiSelect
+                                options={courses.map(c => ({ value: c._id, label: c.courseName }))}
+                                value={filters.course}
+                                onChange={(selected) => setFilters({ ...filters, course: selected })}
+                                placeholder="ALL PROGRAMS"
+                                theme={isDarkMode ? "dark" : "light"}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Grade Level</label>
+                            <CustomMultiSelect
+                                options={classes.map(c => ({ value: c._id, label: c.name }))}
+                                value={filters.class}
+                                onChange={(selected) => setFilters({ ...filters, class: selected })}
+                                placeholder="ALL LEVELS"
+                                theme={isDarkMode ? "dark" : "light"}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Data Grid */}
+                <div className={`rounded-[4px] border overflow-hidden transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-2xl' : 'bg-white border-gray-100 shadow-sm'}`}>
+                    <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className={`${isDarkMode ? 'bg-[#131619] border-b border-gray-800' : 'bg-gray-50 border-b border-gray-200'}`}>
+                                    <th className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Reg Number</th>
+                                    <th className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Entity Identification</th>
+                                    <th className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Exam Section</th>
+                                    <th className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Study Section</th>
+                                    <th className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Actions</th>
                                 </tr>
-                            ) : students.length === 0 ? renderEmpty() : (
-                                students.map((admission) => {
-                                    const student = admission.student?.studentsDetails?.[0] || {};
-                                    return (
-                                        <tr key={admission._id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors text-sm">
-                                            <td className="p-4 font-medium text-white">{student.studentName}</td>
-                                            <td className="p-4 text-gray-400">{student.studentEmail}</td>
-                                            <td className="p-4 text-gray-400">{admission.admissionNumber}</td>
-                                            <td className="p-4 text-gray-400">{student.mobileNum}</td>
-                                            <td className="p-4 text-gray-400">{admission.centre}</td>
-                                            <td className="p-4 text-gray-400">{admission.course?.courseName || admission.board?.name || 'N/A'}</td>
-                                            <td className="p-4 text-gray-400">{admission.class?.name || 'N/A'}</td>
-                                            <td className="p-4 text-gray-400 text-center font-bold text-cyan-500">{admission.sectionAllotment?.examSection || '-'}</td>
-                                            <td className="p-4 text-gray-400 text-center font-bold text-purple-500">{admission.sectionAllotment?.studySection || '-'}</td>
-                                            <td className="p-4 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    <button
-                                                        onClick={() => handleAllotClick(admission)}
-                                                        className="px-3 py-1 border border-cyan-600 text-cyan-500 rounded hover:bg-cyan-600 hover:text-white transition-all text-xs font-medium"
-                                                    >
-                                                        Allot
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan="5" className="p-12 text-center">
+                                            <div className="flex flex-col items-center gap-4">
+                                                <FaSync size={24} className="text-cyan-500 animate-spin" />
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">SYNCHRONIZING RECORDS...</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ) : students.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="5" className="p-12 text-center">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 italic">No students allocated in the current Matrix</p>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    students.map((admission) => {
+                                        const student = admission.student?.studentsDetails?.[0] || {};
+                                        return (
+                                            <tr key={admission._id} className={`transition-all ${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'}`}>
+                                                <td className="p-4">
+                                                    <span className={`px-2 py-0.5 rounded-[4px] text-[10px] font-black tracking-widest ${isDarkMode ? 'bg-[#131619] text-cyan-400 border border-cyan-400/20' : 'bg-gray-100 text-cyan-700 border border-cyan-200'}`}>{admission.admissionNumber}</span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <p className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{student.studentName}</p>
+                                                    <p className="text-[8px] font-bold text-gray-500 uppercase tracking-tighter mt-0.5">{admission.centre.toUpperCase()} | {admission.course?.courseName || 'GENERIC'}</p>
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-[4px] font-black text-xs ${admission.sectionAllotment?.examSection ? (isDarkMode ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border border-cyan-200') : (isDarkMode ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-400')}`}>
+                                                        {admission.sectionAllotment?.examSection || '-'}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-[4px] font-black text-xs ${admission.sectionAllotment?.studySection ? (isDarkMode ? 'bg-purple-500/10 text-purple-500 border border-purple-500/20' : 'bg-purple-50 text-purple-600 border-purple-200') : (isDarkMode ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-400')}`}>
+                                                        {admission.sectionAllotment?.studySection || '-'}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex justify-center">
+                                                        <button
+                                                            onClick={() => handleAllotClick(admission)}
+                                                            className={`px-4 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-sm ${isDarkMode ? 'bg-gray-800 text-cyan-400 border border-gray-700 hover:bg-cyan-500 hover:text-white' : 'bg-white text-cyan-600 border border-cyan-200 hover:bg-cyan-600 hover:text-white active:scale-95'}`}
+                                                        >
+                                                            ALLOT
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
-            {/* Modal */}
-            {/* Same Modal Code... */}
+            {/* Strategic Modal */}
             {showModal && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg w-full max-w-sm shadow-2xl relative overflow-hidden">
-                        {/* Modal Header */}
-                        <div className="flex justify-between items-center p-4 border-b border-gray-200">
-                            <h3 className="text-xl font-bold text-gray-800">Choose Section</h3>
-                            <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
-                                <FaTimes />
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                    <div className={`${isDarkMode ? 'bg-[#1e2329] border-gray-700' : 'bg-white border-gray-200'} rounded-[4px] w-full max-w-sm border shadow-2xl overflow-hidden`}>
+                        <div className={`flex justify-between items-center p-6 border-b ${isDarkMode ? 'border-gray-700 bg-[#1e2329]' : 'border-gray-100 bg-gray-50'}`}>
+                            <div>
+                                <h3 className={`text-xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Choose Section</h3>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Strategic Allotment</p>
+                            </div>
+                            <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-white transition-colors">
+                                <FaTimes size={18} />
                             </button>
                         </div>
 
-                        {/* Modal Body */}
-                        <form onSubmit={handleSave} className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-gray-500 text-sm mb-1 bg-white">Exam section</label>
-                                <select
-                                    name="examSection"
-                                    value={formData.examSection}
-                                    onChange={handleInputChange}
-                                    className="w-full border border-gray-300 rounded p-2 text-gray-700 focus:outline-none focus:border-blue-500"
-                                >
-                                    <option value="">Select Target Exams</option>
-                                    <option value="A">Section A</option>
-                                    <option value="B">Section B</option>
-                                    <option value="C">Section C</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-gray-500 text-sm mb-1">Study Section</label>
-                                <select
-                                    name="studySection"
-                                    value={formData.studySection}
-                                    onChange={handleInputChange}
-                                    className="w-full border border-gray-300 rounded p-2 text-gray-700 focus:outline-none focus:border-blue-500"
-                                >
-                                    <option value="">Select Study Section</option>
-                                    <option value="A">Section A</option>
-                                    <option value="B">Section B</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-gray-500 text-sm mb-1">OMR Selection</label>
-                                <select
-                                    name="omrCode"
-                                    value={formData.omrCode}
-                                    onChange={handleInputChange}
-                                    className="w-full border border-gray-300 rounded p-2 text-gray-700 focus:outline-none focus:border-blue-500"
-                                >
-                                    <option value="">Select OMR options</option>
-                                    <option value="OMR1">OMR 1</option>
-                                    <option value="OMR2">OMR 2</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-gray-500 text-sm mb-1">Select RM</label>
-                                <select
-                                    name="rm"
-                                    value={formData.rm}
-                                    onChange={handleInputChange}
-                                    className="w-full border border-gray-300 rounded p-2 text-gray-700 focus:outline-none focus:border-blue-500"
-                                >
-                                    <option value="">Select RM</option>
-                                    <option value="RM1">RM 1</option>
-                                    <option value="RM2">RM 2</option>
-                                </select>
+                        <form onSubmit={handleSave} className="p-8 space-y-6">
+                            <div className="grid grid-cols-1 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Exam Section</label>
+                                    <select
+                                        name="examSection"
+                                        value={formData.examSection}
+                                        onChange={handleInputChange}
+                                        className={`w-full p-3 rounded-[4px] border font-black uppercase tracking-widest text-[11px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                    >
+                                        <option value="">Select Section</option>
+                                        <option value="A">Section A</option>
+                                        <option value="B">Section B</option>
+                                        <option value="C">Section C</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Study Section</label>
+                                    <select
+                                        name="studySection"
+                                        value={formData.studySection}
+                                        onChange={handleInputChange}
+                                        className={`w-full p-3 rounded-[4px] border font-black uppercase tracking-widest text-[11px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-purple-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-purple-500'}`}
+                                    >
+                                        <option value="">Select Section</option>
+                                        <option value="A">Section A</option>
+                                        <option value="B">Section B</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">OMR Code</label>
+                                    <input
+                                        type="text"
+                                        name="omrCode"
+                                        value={formData.omrCode}
+                                        onChange={handleInputChange}
+                                        className={`w-full p-3 rounded-[4px] border font-black uppercase tracking-widest text-[11px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                        placeholder="Enter OMR Code"
+                                    />
+                                </div>
                             </div>
 
                             <button
                                 type="submit"
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors mt-4"
+                                className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-[4px] text-[11px] font-black uppercase tracking-[0.3em] transition-all shadow-lg active:scale-95 shadow-cyan-500/20"
                             >
-                                Allot
+                                Commit Allotment
                             </button>
                         </form>
                     </div>
                 </div>
             )}
+
+            <style jsx>{`
+                .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: ${isDarkMode ? '#0f1215' : '#f3f4f6'}; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDarkMode ? '#1f2937' : '#d1d5db'}; border-radius: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: ${isDarkMode ? '#374151' : '#9ca3af'}; }
+            `}</style>
         </div>
     );
 };

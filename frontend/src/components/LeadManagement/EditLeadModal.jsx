@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { FaTimes } from "react-icons/fa";
+import { FaTimes, FaUserEdit, FaSync, FaSave, FaFilter } from "react-icons/fa";
 import { toast } from "react-toastify";
 
-const EditLeadModal = ({ lead, onClose, onSuccess }) => {
+const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
     const [formData, setFormData] = useState({
         name: "",
         email: "",
@@ -62,7 +62,6 @@ const EditLeadModal = ({ lead, onClose, onSuccess }) => {
         try {
             const token = localStorage.getItem("token");
 
-            // Fetch current user data for accurate centre assignments and role
             const userProfileRes = await fetch(`${import.meta.env.VITE_API_URL}/profile/me`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -70,14 +69,12 @@ const EditLeadModal = ({ lead, onClose, onSuccess }) => {
             const currentUser = profileData.user || JSON.parse(localStorage.getItem("user") || "{}");
             const isSuperAdmin = currentUser.role === "superAdmin";
 
-            // Fetch classes
             const classResponse = await fetch(`${import.meta.env.VITE_API_URL}/class`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const classData = await classResponse.json();
             if (classResponse.ok) setClasses(Array.isArray(classData) ? classData : []);
 
-            // Fetch centres
             const centreResponse = await fetch(`${import.meta.env.VITE_API_URL}/centre`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -87,8 +84,6 @@ const EditLeadModal = ({ lead, onClose, onSuccess }) => {
                 if (!isSuperAdmin) {
                     const userCentreIds = currentUser.centres?.map(c => c._id || c) || [];
                     list = list.filter(c => userCentreIds.includes(c._id));
-
-                    // Ensure the current lead's centre is in the list even if user access changed
                     if (lead?.centre?._id && !list.find(c => c._id === lead.centre._id)) {
                         list.push(lead.centre);
                     }
@@ -96,39 +91,33 @@ const EditLeadModal = ({ lead, onClose, onSuccess }) => {
                 setCentres(list);
             }
 
-            // Fetch courses
             const courseResponse = await fetch(`${import.meta.env.VITE_API_URL}/course`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const courseData = await courseResponse.json();
             if (courseResponse.ok) setCourses(Array.isArray(courseData) ? courseData : []);
 
-            // Fetch sources
             const sourceResponse = await fetch(`${import.meta.env.VITE_API_URL}/source`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const sourceData = await sourceResponse.json();
             if (sourceResponse.ok) setSources(sourceData.sources || []);
 
-            // Fetch telecallers
             const userResponse = await fetch(`${import.meta.env.VITE_API_URL}/superAdmin/getAllUsers`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const userData = await userResponse.json();
             if (userResponse.ok) {
                 let telecallerUsers = (userData.users || []).filter(u => u.role === "telecaller");
-
                 if (currentUser.role === "telecaller") {
                     telecallerUsers = telecallerUsers.filter(u => u.name === currentUser.name);
                     if (telecallerUsers.length === 0) {
                         telecallerUsers = [{ _id: currentUser._id, name: currentUser.name }];
                     }
                 }
-
                 setTelecallers(telecallerUsers);
             }
 
-            // Fetch exam tags
             const examTagResponse = await fetch(`${import.meta.env.VITE_API_URL}/examTag`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -136,7 +125,7 @@ const EditLeadModal = ({ lead, onClose, onSuccess }) => {
             if (examTagResponse.ok) setExamTags(Array.isArray(examTagData) ? examTagData : []);
         } catch (error) {
             console.error("Error fetching dropdown data:", error);
-            toast.error("Error loading form data");
+            toast.error("Failed to load options");
         }
     };
 
@@ -169,246 +158,197 @@ const EditLeadModal = ({ lead, onClose, onSuccess }) => {
             }
         } catch (error) {
             console.error("Error updating lead:", error);
-            toast.error("Error updating lead");
+            toast.error("An internal error occurred");
         } finally {
             setLoading(false);
         }
     };
 
+    const inputClasses = `w-full px-4 py-2.5 rounded-[4px] border text-[11px] font-black uppercase tracking-widest outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white placeholder-gray-600 focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-cyan-500'}`;
+    const selectClasses = `w-full px-4 py-2.5 rounded-[4px] border text-[11px] font-black uppercase tracking-widest outline-none transition-all appearance-none cursor-pointer ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`;
+    const labelClasses = `block text-[10px] font-black uppercase text-gray-500 mb-1.5 ml-1 tracking-widest`;
+
     return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-[#1a1f24] rounded-xl w-full max-w-3xl border border-gray-700 max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center p-6 border-b border-gray-700 sticky top-0 bg-[#1a1f24] z-10">
-                    <h3 className="text-xl font-bold text-white">Edit Lead</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white">
+        <div className={`fixed inset-0 flex items-center justify-center z-[70] p-4 overflow-y-auto backdrop-blur-md transition-all ${isDarkMode ? 'bg-black/70' : 'bg-white/60'}`}>
+            <div className={`w-full max-w-3xl rounded-[4px] border shadow-2xl transition-all overflow-hidden scale-in ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-cyan-500/10' : 'bg-white border-gray-200'}`}>
+
+                {/* Header */}
+                <div className={`px-8 py-5 border-b flex justify-between items-center transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                    <div>
+                        <h3 className={`text-xl font-black uppercase tracking-tighter italic flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            <FaUserEdit className="text-cyan-500" />
+                            Edit Lead Information
+                        </h3>
+                        <p className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.3em] mt-0.5">Updating lead information</p>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className={`transition-all p-2 rounded-[4px] active:scale-95 ${isDarkMode ? 'bg-white/5 text-gray-400 hover:text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                    >
                         <FaTimes size={20} />
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-gray-400 text-sm mb-1">Enter Name *</label>
-                            <input
-                                type="text"
-                                name="name"
-                                placeholder="Student Name"
-                                required
-                                value={formData.name}
-                                onChange={handleChange}
-                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white placeholder-gray-500"
-                            />
+                <form onSubmit={handleSubmit} className={`p-8 space-y-8 max-h-[80vh] overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4 md:col-span-2">
+                            <div className={`flex items-center gap-3 border-b pb-2 ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                <div className="w-1.5 h-1.5 rounded-full bg-cyan-500"></div>
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-500">Contact Information</h4>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div>
+                                    <label className={labelClasses}>Full Name *</label>
+                                    <input type="text" name="name" required value={formData.name} onChange={handleChange} className={inputClasses} placeholder="Student Name..." />
+                                </div>
+                                <div>
+                                    <label className={labelClasses}>Primary Email *</label>
+                                    <input type="email" name="email" required value={formData.email} onChange={handleChange} className={inputClasses} placeholder="Email Address..." />
+                                </div>
+                                <div>
+                                    <label className={labelClasses}>Phone Number *</label>
+                                    <input type="text" name="phoneNumber" required value={formData.phoneNumber} onChange={handleChange} className={inputClasses} placeholder="Phone Number..." />
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <label className="block text-gray-400 text-sm mb-1">Enter Email *</label>
-                            <input
-                                type="email"
-                                name="email"
-                                placeholder="abc@gmail.com"
-                                required
-                                value={formData.email}
-                                onChange={handleChange}
-                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white placeholder-gray-500"
-                            />
+
+                        <div className="space-y-4 md:col-span-2">
+                            <div className={`flex items-center gap-3 border-b pb-2 ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                <div className="w-1.5 h-1.5 rounded-full bg-cyan-500"></div>
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-500">Academic Details</h4>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div>
+                                    <label className={labelClasses}>Origin School *</label>
+                                    <input type="text" name="schoolName" required value={formData.schoolName} onChange={handleChange} className={inputClasses} placeholder="School/College Name..." />
+                                </div>
+                                <div>
+                                    <label className={labelClasses}>Target Class *</label>
+                                    <select name="className" required value={formData.className} onChange={handleChange} className={selectClasses}>
+                                        <option value="">Select Class</option>
+                                        {classes.map(cls => <option key={cls._id} value={cls._id}>{cls.name.toUpperCase()}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className={labelClasses}>Target Exam</label>
+                                    <input type="text" name="targetExam" value={formData.targetExam} onChange={handleChange} className={inputClasses} placeholder="Target Exam..." />
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <label className="block text-gray-400 text-sm mb-1">Enter phone number *</label>
-                            <input
-                                type="text"
-                                name="phoneNumber"
-                                placeholder="Phone no"
-                                value={formData.phoneNumber}
-                                onChange={handleChange}
-                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white placeholder-gray-500"
-                            />
+
+                        <div className="space-y-4 md:col-span-2">
+                            <div className={`flex items-center gap-3 border-b pb-2 ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                <div className="w-1.5 h-1.5 rounded-full bg-cyan-500"></div>
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-500">Assignment Details</h4>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className={labelClasses}>Target Centre *</label>
+                                    <select name="centre" required value={formData.centre} onChange={handleChange} className={selectClasses}>
+                                        <option value="">Select Centre</option>
+                                        {centres.map(c => <option key={c._id} value={c._id}>{c.centreName.toUpperCase()}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className={labelClasses}>Lead Priority *</label>
+                                    <select name="leadType" required value={formData.leadType} onChange={handleChange} className={selectClasses}>
+                                        <option value="">Select Priority</option>
+                                        <option value="HOT LEAD">HOT LEAD</option>
+                                        <option value="COLD LEAD">COLD LEAD</option>
+                                        <option value="NEGATIVE">NEGATIVE</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <label className="block text-gray-400 text-sm mb-1">Enter school Name</label>
-                            <input
-                                type="text"
-                                name="schoolName"
-                                placeholder="School"
-                                required
-                                value={formData.schoolName}
-                                onChange={handleChange}
-                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white placeholder-gray-500"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-gray-400 text-sm mb-1">Enter class *</label>
-                            <select
-                                name="className"
-                                required
-                                value={formData.className}
-                                onChange={handleChange}
-                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white"
-                            >
-                                <option value="">Class</option>
-                                {classes.map((cls) => (
-                                    <option key={cls._id} value={cls._id}>
-                                        {cls.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-gray-400 text-sm mb-1">Enter Target Exam</label>
-                            <input
-                                type="text"
-                                name="targetExam"
-                                placeholder="Exam"
-                                value={formData.targetExam}
-                                onChange={handleChange}
-                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white placeholder-gray-500"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-gray-400 text-sm mb-1">Centre *</label>
-                            <select
-                                name="centre"
-                                required
-                                value={formData.centre}
-                                onChange={handleChange}
-                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white"
-                            >
-                                <option value="">Choose center</option>
-                                {centres.map((centre) => (
-                                    <option key={centre._id} value={centre._id}>
-                                        {centre.centreName}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="md:col-span-2 space-y-3 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-                            <div className="flex items-center justify-between">
-                                <label className="text-xs text-cyan-400 font-bold uppercase">Filter Courses</label>
+
+                        {/* Course Filter Panel */}
+                        <div className={`md:col-span-2 p-6 rounded-[4px] border border-dashed transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <FaFilter className="text-cyan-500" size={10} />
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Filter Courses</h4>
+                                </div>
                                 <button
                                     type="button"
                                     onClick={() => setCourseFilters({ class: "", mode: "", examTag: "", type: "" })}
-                                    className="text-xs text-gray-400 hover:text-white"
+                                    className={`text-[9px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'text-gray-600 hover:text-cyan-400' : 'text-gray-400 hover:text-cyan-600'}`}
                                 >
-                                    Reset Filters
+                                    Clear Filters
                                 </button>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                <select
-                                    value={courseFilters.type}
-                                    onChange={(e) => setCourseFilters({ ...courseFilters, type: e.target.value })}
-                                    className="bg-[#1a1f24] border border-gray-600 rounded p-1.5 text-xs text-white focus:border-cyan-500 outline-none"
-                                >
-                                    <option value="">All Types</option>
-                                    <option value="INSTATION">Instation</option>
-                                    <option value="OUTSTATION">Outstation</option>
-                                </select>
-                                <select
-                                    value={courseFilters.mode}
-                                    onChange={(e) => setCourseFilters({ ...courseFilters, mode: e.target.value })}
-                                    className="bg-[#1a1f24] border border-gray-600 rounded p-1.5 text-xs text-white focus:border-cyan-500 outline-none"
-                                >
-                                    <option value="">All Modes</option>
-                                    <option value="ONLINE">Online</option>
-                                    <option value="OFFLINE">Offline</option>
-                                </select>
-                                <select
-                                    value={courseFilters.class}
-                                    onChange={(e) => setCourseFilters({ ...courseFilters, class: e.target.value })}
-                                    className="bg-[#1a1f24] border border-gray-600 rounded p-1.5 text-xs text-white focus:border-cyan-500 outline-none"
-                                >
-                                    <option value="">All Classes</option>
-                                    {classes.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                                </select>
-                                <select
-                                    value={courseFilters.examTag}
-                                    onChange={(e) => setCourseFilters({ ...courseFilters, examTag: e.target.value })}
-                                    className="bg-[#1a1f24] border border-gray-600 rounded p-1.5 text-xs text-white focus:border-cyan-500 outline-none"
-                                >
-                                    <option value="">All Exam Tags</option>
-                                    {examTags.map(tag => <option key={tag._id} value={tag._id}>{tag.name}</option>)}
-                                </select>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                {[
+                                    { label: "Admission Type", key: "type", options: [{ v: "INSTATION", l: "INSTA" }, { v: "OUTSTATION", l: "OUT" }] },
+                                    { label: "Mode", key: "mode", options: [{ v: "ONLINE", l: "ON" }, { v: "OFFLINE", l: "OFF" }] },
+                                    { label: "Class", key: "class", options: classes.map(c => ({ v: c._id, l: c.name })) },
+                                    { label: "Exam Type", key: "examTag", options: examTags.map(t => ({ v: t._id, l: t.name })) }
+                                ].map(filter => (
+                                    <div key={filter.key} className="space-y-1">
+                                        <label className="text-[8px] font-black uppercase text-gray-600 tracking-widest">{filter.label}</label>
+                                        <select
+                                            value={courseFilters[filter.key]}
+                                            onChange={(e) => setCourseFilters({ ...courseFilters, [filter.key]: e.target.value })}
+                                            className={`w-full py-1.5 rounded-[2px] border text-[8px] font-black uppercase tracking-widest focus:outline-none transition-all appearance-none cursor-pointer ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-400 focus:border-cyan-500/50' : 'bg-white border-gray-100 text-gray-500 focus:border-cyan-500'}`}
+                                        >
+                                            <option value="">Any</option>
+                                            {filter.options.map(opt => <option key={opt.v} value={opt.v}>{opt.l.toUpperCase()}</option>)}
+                                        </select>
+                                    </div>
+                                ))}
                             </div>
                         </div>
-                        <div>
-                            <label className="block text-gray-400 text-sm mb-1">Course ({filteredCourses.length})</label>
-                            <select
-                                name="course"
-                                value={formData.course}
-                                onChange={handleChange}
-                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white"
-                            >
-                                <option value="">Choose course</option>
-                                {filteredCourses.map((course) => (
-                                    <option key={course._id} value={course._id}>
-                                        {course.courseName}
-                                    </option>
-                                ))}
+
+                        <div className="space-y-1.5">
+                            <label className={labelClasses}>Select Course ({filteredCourses.length}) *</label>
+                            <select name="course" required value={formData.course} onChange={handleChange} className={selectClasses}>
+                                <option value="">Select Course</option>
+                                {filteredCourses.map(c => <option key={c._id} value={c._id}>{c.courseName.toUpperCase()}</option>)}
                             </select>
                         </div>
-                        <div>
-                            <label className="block text-gray-400 text-sm mb-1">Enter source</label>
-                            <select
-                                name="source"
-                                value={formData.source}
-                                onChange={handleChange}
-                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white"
-                            >
-                                <option value="">Choose</option>
-                                {sources.map((source) => (
-                                    <option key={source._id} value={source.sourceName}>
-                                        {source.sourceName}
-                                    </option>
-                                ))}
+
+                        <div className="space-y-1.5">
+                            <label className={labelClasses}>Origin Source *</label>
+                            <select name="source" required value={formData.source} onChange={handleChange} className={selectClasses}>
+                                <option value="">Select Source</option>
+                                {sources.map(s => <option key={s._id} value={s.sourceName}>{s.sourceName.toUpperCase()}</option>)}
                             </select>
                         </div>
-                        <div>
-                            <label className="block text-gray-400 text-sm mb-1">Lead Type</label>
-                            <select
-                                name="leadType"
-                                value={formData.leadType}
-                                onChange={handleChange}
-                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white"
-                            >
-                                <option value="">Choose</option>
-                                <option value="HOT LEAD">HOT LEAD</option>
-                                <option value="COLD LEAD">COLD LEAD</option>
-                                <option value="NEGATIVE">NEGATIVE</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-gray-400 text-sm mb-1">Lead Responsibility</label>
-                            <select
-                                name="leadResponsibility"
-                                value={formData.leadResponsibility}
-                                onChange={handleChange}
-                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white"
-                            >
-                                <option value="">Name</option>
-                                {telecallers.map((telecaller) => (
-                                    <option key={telecaller._id} value={telecaller.name}>
-                                        {telecaller.name}
-                                    </option>
-                                ))}
+
+                        <div className="md:col-span-2 space-y-1.5">
+                            <label className={labelClasses}>Assign To *</label>
+                            <select name="leadResponsibility" required value={formData.leadResponsibility} onChange={handleChange} className={selectClasses}>
+                                <option value="">Select Agent</option>
+                                {telecallers.map(t => <option key={t._id} value={t.name}>{t.name.toUpperCase()}</option>)}
                             </select>
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
+                    <div className={`flex justify-end gap-4 mt-10 pt-6 border-t transition-all ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600"
+                            className={`px-8 py-3 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border ${isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="px-6 py-2 bg-cyan-500 text-black font-bold rounded-lg hover:bg-cyan-400"
+                            className={`px-10 py-3 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg ${isDarkMode ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-500/20' : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-500/30'}`}
                         >
-                            {loading ? "Updating..." : "Update Lead"}
+                            {loading ? <FaSync className="animate-spin" /> : <><FaSave className="inline-block mr-2" /> Save Changes</>}
                         </button>
                     </div>
                 </form>
             </div>
+
+            <style jsx>{`
+                @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+                .scale-in { animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+                .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDarkMode ? '#333' : '#d1d5db'}; border-radius: 4px; }
+            `}</style>
         </div>
     );
 };

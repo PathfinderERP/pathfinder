@@ -71,6 +71,7 @@ import React from "react";
 import { FaBars, FaSignOutAlt, FaUser, FaCheckCircle } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import ThemeToggle from "../ThemeToggle";
 
 const Header = ({ toggleSidebar }) => {
     const navigate = useNavigate();
@@ -202,7 +203,9 @@ const Header = ({ toggleSidebar }) => {
 
             {/* Right Section - User Info & Logout */}
             <div className="flex items-center gap-4">
-                
+                {/* Theme Toggle Button */}
+                <ThemeToggle />
+
                 {/* User Info - Clickable ONLY for SuperAdmin */}
                 {userRole === "superAdmin" ? (
                     <div

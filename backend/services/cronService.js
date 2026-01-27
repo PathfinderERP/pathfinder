@@ -17,10 +17,10 @@ export const startPaymentReminderCron = () => {
 
     // Update overdue status every hour
     cron.schedule('0 * * * *', async () => {
-        console.log('🔄 Updating overdue payment statuses...');
+        // console.log('🔄 Updating overdue payment statuses...');
         try {
             const overduePayments = await checkOverduePayments();
-            console.log(`✅ Updated ${overduePayments.length} overdue payments`);
+            // console.log(`✅ Updated ${overduePayments.length} overdue payments`);
         } catch (error) {
             console.error('❌ Error updating overdue payments:', error);
         }

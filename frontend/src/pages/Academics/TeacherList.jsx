@@ -371,7 +371,7 @@ const TeacherList = () => {
                     <div className="bg-[#1e2530] p-4 rounded-xl border border-gray-700 shadow-lg h-[240px] flex flex-col">
                         <h3 className="text-xs font-semibold text-gray-400 mb-4 uppercase tracking-wider">Department Wise</h3>
                         <div className="flex-1 min-h-0">
-                            <ResponsiveContainer width="100%" height="100%" minHeight={150}>
+                            <ResponsiveContainer width="100%" height="100%" minHeight={150} minWidth={100}>
                                 <BarChart data={deptChartData}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
                                     <XAxis dataKey="name" stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} />
@@ -390,7 +390,7 @@ const TeacherList = () => {
                     <div className="bg-[#1e2530] p-4 rounded-xl border border-gray-700 shadow-lg h-[240px] flex flex-col">
                         <h3 className="text-xs font-semibold text-gray-400 mb-4 uppercase tracking-wider">Board Distribution</h3>
                         <div className="flex-1 min-h-0">
-                            <ResponsiveContainer width="100%" height="100%" minHeight={150}>
+                            <ResponsiveContainer width="100%" height="100%" minHeight={150} minWidth={100}>
                                 <PieChart>
                                     <Pie
                                         data={boardChartData}
@@ -416,7 +416,7 @@ const TeacherList = () => {
                     <div className="bg-[#1e2530] p-4 rounded-xl border border-gray-700 shadow-lg h-[240px] flex flex-col">
                         <h3 className="text-xs font-semibold text-gray-400 mb-4 uppercase tracking-wider">Teacher Type</h3>
                         <div className="flex-1 min-h-0">
-                            <ResponsiveContainer width="100%" height="100%" minHeight={150}>
+                            <ResponsiveContainer width="100%" height="100%" minHeight={150} minWidth={100}>
                                 <PieChart>
                                     <Pie
                                         data={typeChartData}
@@ -441,7 +441,7 @@ const TeacherList = () => {
                     <div className="bg-[#1e2530] p-4 rounded-xl border border-gray-700 shadow-lg h-[240px] flex flex-col">
                         <h3 className="text-xs font-semibold text-gray-400 mb-4 uppercase tracking-wider">Top 5 Subjects</h3>
                         <div className="flex-1 min-h-0">
-                            <ResponsiveContainer width="100%" height="100%" minHeight={150}>
+                            <ResponsiveContainer width="100%" height="100%" minHeight={150} minWidth={100}>
                                 <BarChart data={subjectChartData} layout="vertical">
                                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
                                     <XAxis type="number" hide />

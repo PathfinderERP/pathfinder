@@ -1,9 +1,18 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../../components/Layout";
-import { FaChartLine, FaFilter, FaFileExcel, FaUsers, FaTasks, FaChevronRight, FaSpinner, FaTimes, FaPhone, FaEnvelope, FaCalendarAlt, FaIdBadge } from "react-icons/fa";
+import { FaChartLine, FaFilter, FaFileExcel, FaUsers, FaTasks, FaChevronRight, FaSpinner, FaTimes, FaPhone, FaEnvelope, FaCalendarAlt, FaIdBadge, FaSun, FaMoon, FaChevronLeft } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 const LeadDashboard = () => {
+    const [isDarkMode, setIsDarkMode] = useState(() => {
+        const saved = localStorage.getItem("lead_dashboard_theme");
+        return saved ? JSON.parse(saved) : true;
+    });
+
+    useEffect(() => {
+        localStorage.setItem("lead_dashboard_theme", JSON.stringify(isDarkMode));
+    }, [isDarkMode]);
+
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({
@@ -63,7 +72,6 @@ const LeadDashboard = () => {
             setSidebarLoading(true);
             const token = localStorage.getItem("token");
 
-            // Construct query params incorporating global filters for consistent data context
             const queryParams = new URLSearchParams({
                 leadResponsibility: name,
                 limit: "100",
@@ -144,63 +152,74 @@ const LeadDashboard = () => {
 
     return (
         <Layout activePage="Lead Management">
-            <div className="flex-1 min-h-screen bg-[#131619] p-6 space-y-6 overflow-x-hidden">
+            <div className={`flex-1 min-h-screen p-6 space-y-6 overflow-x-hidden transition-all duration-500 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
                 {/* Header Section */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#1a1f24] border border-gray-800 p-6 rounded-2xl shadow-2xl relative overflow-hidden group">
+                <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 p-8 rounded-[4px] border shadow-2xl relative overflow-hidden group transition-all duration-500 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-cyan-500/5' : 'bg-white border-gray-200 shadow-gray-200/50'}`}>
                     <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none group-hover:bg-cyan-500/10 transition-colors"></div>
                     <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-1">
-                            <div className="p-2.5 bg-cyan-500/10 rounded-xl">
-                                <FaChartLine className="text-cyan-400 text-xl" />
+                        <div className="flex items-center gap-4 mb-2">
+                            <div className={`p-3 rounded-[4px] border ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20' : 'bg-cyan-50 border-cyan-100'}`}>
+                                <FaChartLine className={isDarkMode ? 'text-cyan-400' : 'text-cyan-600'} size={20} />
                             </div>
-                            <h1 className="text-2xl font-black text-white tracking-tight">Lead Analytics Dashboard</h1>
+                            <div>
+                                <h1 className={`text-3xl font-black uppercase tracking-tighter italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Lead Intelligence Matrix</h1>
+                                <p className={`text-[10px] font-black uppercase tracking-[0.3em] mt-1 ${isDarkMode ? 'text-cyan-500/70' : 'text-cyan-600/70'}`}>Performance, Conversion & Dynamic Pipeline Tracking</p>
+                            </div>
                         </div>
-                        <p className="text-gray-400 text-sm font-medium">Track performance, conversions, and upcoming pipeline activity</p>
                     </div>
 
-                    <div className="flex items-center gap-3 relative z-10">
+                    <div className="flex items-center gap-4 relative z-10 text-nowrap">
+                        <button
+                            onClick={() => setIsDarkMode(!isDarkMode)}
+                            className={`p-4 rounded-[4px] border transition-all active:scale-95 flex items-center gap-2 group/toggle ${isDarkMode ? 'bg-gray-800 border-gray-700 text-yellow-400 hover:bg-gray-700' : 'bg-white border-gray-200 text-indigo-600 hover:bg-gray-50'}`}
+                        >
+                            {isDarkMode ? <FaSun size={18} /> : <FaMoon size={18} />}
+                            <span className="text-[10px] font-black uppercase tracking-widest hidden lg:block">Toggle Interface</span>
+                        </button>
                         <button
                             onClick={handleExportExcel}
-                            className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-green-900/20 transition-all hover:-translate-y-0.5 active:scale-95"
+                            className="flex items-center gap-3 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[4px] text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all hover:-translate-y-0.5 active:scale-95"
                         >
                             <FaFileExcel className="text-lg" />
-                            <span>Export Report</span>
+                            <span>Export Intelligence</span>
                         </button>
                     </div>
                 </div>
 
                 {/* Filter Bar */}
-                <div className="bg-[#1a1f24] border border-gray-800 p-5 rounded-2xl shadow-xl">
-                    <div className="flex items-center gap-2 mb-4">
-                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></div>
-                        <h3 className="text-gray-300 font-bold text-xs uppercase tracking-widest">Global Filters</h3>
+                <div className={`p-8 rounded-[4px] border shadow-xl transition-all duration-500 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse shadow-[0_0_10px_#06b6d4]"></div>
+                        <h3 className={`font-black text-[11px] uppercase tracking-[0.3em] ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Filter Parameters</h3>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                         {[
-                            { label: "Centre", name: "centre", type: "select", options: centres, labelKey: "centreName" },
-                            { label: "Course", name: "course", type: "select", options: courses, labelKey: "courseName" },
-                            { label: "Source", name: "source", type: "select", options: sources.map(s => ({ _id: s.sourceName, name: s.sourceName })), labelKey: "name" },
-                            { label: "Feedback", name: "feedback", type: "select", options: feedbacks.map(f => ({ _id: f.name, name: f.name })), labelKey: "name" },
-                            { label: "Status", name: "leadType", type: "select", options: [{ _id: 'HOT LEAD', name: 'HOT LEAD' }, { _id: 'COLD LEAD', name: 'COLD LEAD' }, { _id: 'NEGATIVE', name: 'NEGATIVE' }], labelKey: "name" },
-                            { label: "Telecaller", name: "leadResponsibility", type: "text", placeholder: "Search..." },
-                            { label: "Student", name: "search", type: "text", placeholder: "Search..." },
-                            { label: "From Date", name: "fromDate", type: "date" },
-                            { label: "To Date", name: "toDate", type: "date" }
+                            { label: "Centre Vector", name: "centre", type: "select", options: centres, labelKey: "centreName" },
+                            { label: "Target Course", name: "course", type: "select", options: courses, labelKey: "courseName" },
+                            { label: "Origin Source", name: "source", type: "select", options: sources.map(s => ({ _id: s.sourceName, name: s.sourceName })), labelKey: "name" },
+                            { label: "Feedback Status", name: "feedback", type: "select", options: feedbacks.map(f => ({ _id: f.name, name: f.name })), labelKey: "name" },
+                            { label: "Lead Intensity", name: "leadType", type: "select", options: [{ _id: 'HOT LEAD', name: 'HOT LEAD' }, { _id: 'COLD LEAD', name: 'COLD LEAD' }, { _id: 'NEGATIVE', name: 'NEGATIVE' }], labelKey: "name" },
+                            { label: "Agent Identity", name: "leadResponsibility", type: "text", placeholder: "AGENT_ID..." },
+                            { label: "Student Cipher", name: "search", type: "text", placeholder: "SEARCH..." },
+                            { label: "Window Start", name: "fromDate", type: "date" },
+                            { label: "Window End", name: "toDate", type: "date" }
                         ].map((field) => (
-                            <div key={field.name} className="space-y-1.5">
-                                <label className="text-[10px] font-black uppercase text-gray-500 ml-1 tracking-wider">{field.label}</label>
+                            <div key={field.name} className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-gray-500 ml-1 tracking-widest">{field.label}</label>
                                 {field.type === "select" ? (
-                                    <select
-                                        name={field.name}
-                                        value={filters[field.name]}
-                                        onChange={handleFilterChange}
-                                        className="w-full px-4 py-2.5 bg-[#131619] border border-gray-800 rounded-xl text-sm text-gray-200 outline-none focus:border-cyan-500/50 transition-colors cursor-pointer appearance-none"
-                                    >
-                                        <option value="">All {field.label}s</option>
-                                        {field.options.map(opt => (
-                                            <option key={opt._id} value={opt._id}>{opt[field.labelKey]}</option>
-                                        ))}
-                                    </select>
+                                    <div className="relative group/select">
+                                        <select
+                                            name={field.name}
+                                            value={filters[field.name]}
+                                            onChange={handleFilterChange}
+                                            className={`w-full px-4 py-3 border rounded-[4px] text-[11px] font-black uppercase tracking-widest outline-none transition-all cursor-pointer appearance-none ${isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-300 focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-700 focus:border-cyan-500'}`}
+                                        >
+                                            <option value="">ALL {field.label.split(' ')[0]}S</option>
+                                            {field.options.map(opt => (
+                                                <option key={opt._id} value={opt._id}>{opt[field.labelKey]}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 ) : (
                                     <input
                                         type={field.type}
@@ -208,7 +227,7 @@ const LeadDashboard = () => {
                                         value={filters[field.name]}
                                         onChange={handleFilterChange}
                                         placeholder={field.placeholder}
-                                        className="w-full px-4 py-2.5 bg-[#131619] border border-gray-800 rounded-xl text-sm text-gray-200 outline-none focus:border-cyan-500/50 transition-colors"
+                                        className={`w-full px-4 py-3 border rounded-[4px] text-[11px] font-black uppercase tracking-widest outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-300 focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-700 focus:border-cyan-500'}`}
                                     />
                                 )}
                             </div>
@@ -216,100 +235,110 @@ const LeadDashboard = () => {
                         <div className="flex items-end">
                             <button
                                 onClick={fetchDashboardData}
-                                className="w-full py-2.5 bg-cyan-500 hover:bg-cyan-400 text-black rounded-xl text-sm font-black shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2"
+                                className={`w-full py-3 rounded-[4px] text-[11px] font-black uppercase tracking-[0.2em] transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 shadow-lg ${isDarkMode ? 'bg-cyan-500 text-black shadow-cyan-500/10 hover:bg-cyan-400' : 'bg-cyan-600 text-white shadow-cyan-500/20 hover:bg-cyan-700'}`}
                             >
-                                <FaFilter size={12} /> APPLY
+                                <FaFilter size={10} /> RECALIBRATE
                             </button>
                         </div>
                     </div>
                 </div>
 
                 {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                     {[
-                        { label: "Total Generated", value: stats?.summary?.totalLeads, color: "from-blue-600 to-indigo-700", icon: FaUsers, shadow: "shadow-blue-500/20", tag: "Overall Pool" },
-                        { label: "Hot Leads", value: stats?.summary?.hotLeads, color: "from-green-600 to-emerald-700", icon: FaChartLine, shadow: "shadow-green-500/20", tag: "High Intent", pulse: true },
-                        { label: "Cold Leads", value: stats?.summary?.coldLeads, color: "from-orange-600 to-amber-700", icon: FaTasks, shadow: "shadow-orange-500/20", tag: "Potential" },
-                        { label: "Negative", value: stats?.summary?.negativeLeads, color: "from-red-600 to-rose-700", icon: FaTasks, shadow: "shadow-red-500/20", tag: "Uninterested" }
+                        { label: "Total Pooled leads", value: stats?.summary?.totalLeads, color: "from-blue-600 to-indigo-700", icon: FaUsers, shadow: "shadow-blue-500/20", tag: "Aggregate" },
+                        { label: "High Intent (Hot)", value: stats?.summary?.hotLeads, color: "from-emerald-600 to-teal-700", icon: FaChartLine, shadow: "shadow-emerald-500/20", tag: "Priority", pulse: true },
+                        { label: "Standard leads (Cold)", value: stats?.summary?.coldLeads, color: "from-orange-600 to-amber-700", icon: FaTasks, shadow: "shadow-orange-500/20", tag: "Queue" },
+                        { label: "Negative vectors", value: stats?.summary?.negativeLeads, color: "from-rose-600 to-pink-700", icon: FaTasks, shadow: "shadow-rose-500/20", tag: "Archived" }
                     ].map((card, i) => (
-                        <div key={i} className={`bg-gradient-to-br ${card.color} p-6 rounded-[2rem] shadow-2xl ${card.shadow} relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300`}>
-                            <card.icon className="absolute -right-6 -bottom-6 text-white/10 group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500" size={140} />
-                            {card.pulse && <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-white animate-pulse shadow-[0_0_10px_white]"></div>}
-                            <p className="text-white/70 text-[10px] font-black uppercase tracking-[0.2em] mb-1">{card.label}</p>
-                            <h2 className="text-5xl font-black text-white mt-1 tracking-tighter">
-                                {loading ? <div className="h-12 w-16 bg-white/20 animate-pulse rounded-lg"></div> : card.value || 0}
+                        <div key={i} className={`bg-gradient-to-br ${card.color} p-8 rounded-[4px] shadow-2xl ${card.shadow} relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300`}>
+                            <card.icon className="absolute -right-8 -bottom-8 text-white/10 group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500" size={160} />
+                            {card.pulse && <div className="absolute top-6 right-6 w-2 h-2 rounded-full bg-white animate-pulse shadow-[0_0_15px_white]"></div>}
+                            <p className="text-white/60 text-[10px] font-black uppercase tracking-[0.3em] mb-2">{card.label}</p>
+                            <h2 className="text-6xl font-black text-white tracking-tighter italic">
+                                {loading ? <div className="h-16 w-24 bg-white/20 animate-pulse rounded-[4px]"></div> : (card.value || 0).toLocaleString()}
                             </h2>
-                            <div className="mt-4 flex items-center text-[10px] font-bold bg-black/20 w-max px-3 py-1 rounded-full text-white/90 backdrop-blur-sm">
-                                {card.tag}
+                            <div className="mt-8 flex items-center text-[9px] font-black uppercase tracking-widest bg-black/20 w-max px-4 py-1.5 rounded-[4px] text-white/90 backdrop-blur-sm border border-white/10">
+                                {card.tag} SIGNAL
                             </div>
                         </div>
                     ))}
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-10">
                     {/* Performance Table */}
-                    <div className="lg:col-span-2 bg-[#1a1f24] rounded-3xl shadow-2xl border border-gray-800 overflow-hidden flex flex-col">
-                        <div className="p-6 border-b border-gray-800 bg-[#1e2329]/50 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
-                                    <FaChartLine className="text-orange-500" />
+                    <div className={`lg:col-span-2 rounded-[4px] shadow-2xl border overflow-hidden flex flex-col transition-all duration-500 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <div className={`p-6 border-b flex items-center justify-between transition-all ${isDarkMode ? 'bg-[#1e2329]/50 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                            <div className="flex items-center gap-4">
+                                <div className={`w-12 h-12 rounded-[4px] flex items-center justify-center border transition-all ${isDarkMode ? 'bg-orange-500/10 border-orange-500/20' : 'bg-orange-50 border-orange-100'}`}>
+                                    <FaChartLine className="text-orange-500" size={18} />
                                 </div>
-                                <h3 className="font-black text-white uppercase tracking-wider text-sm">Telecaller Leaderboard</h3>
+                                <div>
+                                    <h3 className={`font-black uppercase tracking-widest text-sm italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Agent Efficiency Roster</h3>
+                                    <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">Telemetry on lead conversion efficiency</p>
+                                </div>
                             </div>
                         </div>
-                        <div className="overflow-x-auto flex-1 h-[500px]">
+                        <div className="overflow-x-auto flex-1 h-[550px] custom-scrollbar">
                             <table className="w-full text-left border-collapse">
-                                <thead className="sticky top-0 bg-[#1a1f24] z-10">
-                                    <tr className="border-b border-gray-800">
-                                        <th className="px-6 py-5 text-[10px] font-black uppercase text-gray-500 tracking-widest">Member</th>
-                                        <th className="px-6 py-5 text-[10px] font-black uppercase text-gray-500 tracking-widest text-center">Leads</th>
-                                        <th className="px-6 py-5 text-[10px] font-black uppercase text-gray-500 tracking-widest text-center">Hot</th>
-                                        <th className="px-6 py-5 text-[10px] font-black uppercase text-gray-500 tracking-widest text-center">Cold</th>
-                                        <th className="px-6 py-5 text-[10px] font-black uppercase text-gray-500 tracking-widest text-center">Efficiency</th>
+                                <thead className={`sticky top-0 z-10 transition-all ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`}>
+                                    <tr className={`border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em]">AGENT_IDENTITY</th>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">LOAD_VOL</th>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">INTENSE (HOT)</th>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">LEVEL (COLD)</th>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">THROUGHPUT</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-800/50">
+                                <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                     {loading ? (
-                                        <tr><td colSpan="5" className="py-20 text-center"><FaSpinner className="animate-spin mx-auto text-cyan-500" size={30} /></td></tr>
+                                        <tr><td colSpan="5" className="py-24 text-center">
+                                            <div className="flex flex-col items-center gap-4">
+                                                <FaSpinner className="animate-spin text-cyan-500" size={40} />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-cyan-500 animate-pulse">Analyzing Member Performance...</span>
+                                            </div>
+                                        </td></tr>
                                     ) : stats?.telecallers?.length > 0 ? (
                                         stats.telecallers.map((tc, idx) => (
-                                            <tr key={idx} className="hover:bg-white/[0.02] transition-colors group">
-                                                <td className="px-6 py-4">
+                                            <tr key={idx} className="hover:bg-cyan-500/[0.03] transition-colors group">
+                                                <td className="px-8 py-6">
                                                     <div
-                                                        className="flex items-center gap-3 cursor-pointer group/name"
+                                                        className="flex items-center gap-4 cursor-pointer group/name"
                                                         onClick={() => fetchTelecallerLeads(tc._id)}
                                                     >
-                                                        <div className="w-9 h-9 rounded-xl bg-cyan-500/10 text-cyan-500 flex items-center justify-center font-black text-xs border border-cyan-500/20 group-hover:bg-cyan-500 group-hover:text-black transition-all">
+                                                        <div className={`w-12 h-12 rounded-[4px] flex items-center justify-center font-black text-sm border transition-all ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400 group-hover/name:bg-cyan-500 group-hover/name:text-black' : 'bg-cyan-50 border-cyan-100 text-cyan-600 group-hover/name:bg-cyan-600 group-hover/name:text-white'}`}>
                                                             {tc._id?.[0] || "?"}
                                                         </div>
                                                         <div className="flex flex-col">
-                                                            <span className="font-bold text-gray-200 text-sm tracking-tight group-hover/name:text-cyan-400 transition-colors">{tc._id || "No Identity"}</span>
-                                                            <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest opacity-0 group-hover/name:opacity-100 transition-opacity">View Students →</span>
+                                                            <span className={`font-black uppercase text-sm tracking-tight transition-colors ${isDarkMode ? 'text-gray-200 group-hover/name:text-cyan-400' : 'text-gray-900 group-hover/name:text-cyan-600'}`}>{tc._id || "OPERATIVE_ANONYMOUS"}</span>
+                                                            <span className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.2em] opacity-40 group-hover/name:opacity-100 transition-opacity italic">Stream Data →</span>
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 text-center font-black text-gray-400">{tc.totalLeads}</td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <span className="px-3 py-1 rounded-full bg-green-500/10 text-green-400 text-[10px] font-black border border-green-500/20">{tc.hotLeads}</span>
+                                                <td className={`px-8 py-6 text-center font-black italic ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{tc.totalLeads}</td>
+                                                <td className="px-8 py-6 text-center">
+                                                    <span className={`px-4 py-1 rounded-[4px] text-[9px] font-black border tracking-widest ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>{tc.hotLeads}</span>
                                                 </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <span className="px-3 py-1 rounded-full bg-orange-500/10 text-orange-400 text-[10px] font-black border border-orange-500/20">{tc.coldLeads}</span>
+                                                <td className="px-8 py-6 text-center">
+                                                    <span className={`px-4 py-1 rounded-[4px] text-[9px] font-black border tracking-widest ${isDarkMode ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>{tc.coldLeads}</span>
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="flex-1 bg-gray-800/50 rounded-full h-1.5 overflow-hidden">
+                                                <td className="px-8 py-6">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={`flex-1 h-2 rounded-[4px] overflow-hidden transition-all ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
                                                             <div
-                                                                className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full rounded-full transition-all duration-1000"
+                                                                className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full rounded-[4px] transition-all duration-1000 shadow-[0_0_10px_rgba(6,182,212,0.5)]"
                                                                 style={{ width: `${(tc.hotLeads / tc.totalLeads) * 100 || 0}%` }}
                                                             />
                                                         </div>
-                                                        <span className="text-[10px] font-bold text-cyan-500 w-8">{Math.round((tc.hotLeads / tc.totalLeads) * 100) || 0}%</span>
+                                                        <span className="text-[10px] font-black text-cyan-500 w-10 text-right">{Math.round((tc.hotLeads / tc.totalLeads) * 100) || 0}%</span>
                                                     </div>
                                                 </td>
                                             </tr>
                                         ))
                                     ) : (
-                                        <tr><td colSpan="5" className="py-20 text-center text-gray-600 font-medium italic">Station waiting for telecaller intelligence...</td></tr>
+                                        <tr><td colSpan="5" className="py-24 text-center opacity-40 italic">
+                                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500">Awaiting Signal Integrity / No Agent Data</p>
+                                        </td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -317,48 +346,51 @@ const LeadDashboard = () => {
                     </div>
 
                     {/* Pipeline / Queue */}
-                    <div className="bg-[#1a1f24] rounded-3xl shadow-2xl border border-gray-800 overflow-hidden flex flex-col h-[578px]">
-                        <div className="p-6 border-b border-gray-800 bg-[#1e2329]/50 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center">
-                                    <FaTasks className="text-cyan-400" />
+                    <div className={`rounded-[4px] shadow-2xl border overflow-hidden flex flex-col h-[628px] transition-all duration-500 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <div className={`p-6 border-b flex items-center justify-between transition-all ${isDarkMode ? 'bg-[#1e2329]/50 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                            <div className="flex items-center gap-4">
+                                <div className={`w-12 h-12 rounded-[4px] flex items-center justify-center border transition-all ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20' : 'bg-cyan-50 border-cyan-100'}`}>
+                                    <FaTasks className="text-cyan-500" size={18} />
                                 </div>
-                                <h3 className="font-black text-white uppercase tracking-wider text-sm">Action Pipeline</h3>
+                                <div>
+                                    <h3 className={`font-black uppercase tracking-widest text-sm italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Active Pipeline</h3>
+                                    <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">Upcoming interaction sequence</p>
+                                </div>
                             </div>
                         </div>
-                        <div className="p-4 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
+                        <div className="p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
                             {loading ? (
-                                <div className="py-20 text-center"><FaSpinner className="animate-spin mx-auto text-cyan-500" size={30} /></div>
+                                <div className="py-24 text-center"><FaSpinner className="animate-spin mx-auto text-cyan-500" size={40} /></div>
                             ) : stats?.nextCalls?.length > 0 ? (
                                 stats.nextCalls.map((call, idx) => (
-                                    <div key={idx} className="p-4 rounded-2xl bg-[#131619] border border-gray-800 hover:border-cyan-500/50 transition-all group relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 w-16 h-16 bg-white/[0.02] -mr-8 -mt-8 rounded-full pointer-events-none group-hover:bg-white/[0.05]"></div>
+                                    <div key={idx} className={`p-6 rounded-[4px] border transition-all group relative overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-cyan-500/50 shadow-lg' : 'bg-gray-50 border-gray-200 hover:border-cyan-500/30'}`}>
+                                        <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/[0.03] -mr-12 -mt-12 rounded-full pointer-events-none group-hover:bg-cyan-500/[0.08] transition-colors"></div>
                                         <div className="flex justify-between items-start relative z-10">
                                             <div>
-                                                <h4 className="font-black text-sm text-gray-100 group-hover:text-cyan-400 transition-colors uppercase tracking-tight">{call.name}</h4>
-                                                <p className="text-xs text-blue-400 font-mono mt-0.5 tracking-tighter underline underline-offset-4 decoration-blue-400/30">{call.phoneNumber}</p>
+                                                <h4 className={`font-black text-[13px] uppercase tracking-tighter italic transition-colors ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>{call.name}</h4>
+                                                <p className="text-[11px] text-cyan-500 font-mono mt-1 font-bold tracking-tight underline underline-offset-4 decoration-cyan-500/20 group-hover:decoration-cyan-500/50 transition-all">{call.phoneNumber}</p>
                                             </div>
-                                            <div className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider shadow-sm border ${call.leadType === 'HOT LEAD' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                                                call.leadType === 'COLD LEAD' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                                                    'bg-gray-800 text-gray-400 border-gray-700'
+                                            <div className={`px-3 py-1.5 rounded-[4px] text-[8px] font-black uppercase tracking-widest border transition-all ${call.leadType === 'HOT LEAD' ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100') :
+                                                call.leadType === 'COLD LEAD' ? (isDarkMode ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-orange-50 text-orange-600 border-orange-100') :
+                                                    (isDarkMode ? 'bg-gray-800 text-gray-500 border-gray-700' : 'bg-gray-100 text-gray-400 border-gray-200')
                                                 }`}>
                                                 {call.leadType}
                                             </div>
                                         </div>
-                                        <div className="mt-4 flex items-center justify-between text-[11px] relative z-10 border-t border-gray-800/50 pt-3">
-                                            <span className="flex items-center gap-1.5 text-gray-400 font-bold bg-[#1a1f24] px-2 py-0.5 rounded-md border border-gray-800">
-                                                <span className="text-orange-500">📅</span> {new Date(call.nextFollowUpDate).toLocaleDateString('en-GB')}
+                                        <div className={`mt-6 flex items-center justify-between text-[11px] relative z-10 border-t pt-4 transition-all ${isDarkMode ? 'border-gray-800' : 'border-gray-200/50'}`}>
+                                            <span className={`flex items-center gap-2 font-black uppercase tracking-widest text-[9px] px-3 py-1 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-gray-400' : 'bg-white border-gray-100 text-gray-500'}`}>
+                                                <span className="text-orange-500">📅</span> {new Date(call.nextFollowUpDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }).toUpperCase()}
                                             </span>
-                                            <span className="flex items-center gap-1 text-gray-500 font-medium group-hover:text-gray-300 transition-colors italic">
-                                                Assignee: <b className="text-gray-300 non-italic">{call.leadResponsibility || "Manual"}</b>
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                                                AGENT: <b className={`non-italic ${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'}`}>{call.leadResponsibility?.toUpperCase() || "UNASSIGNED"}</b>
                                             </span>
                                         </div>
                                     </div>
                                 ))
                             ) : (
-                                <div className="py-20 text-center flex flex-col items-center gap-3">
-                                    <FaTasks className="text-gray-800" size={40} />
-                                    <p className="text-gray-600 font-bold text-sm tracking-widest uppercase">Pipeline Empty</p>
+                                <div className="py-24 text-center flex flex-col items-center gap-4 opacity-30">
+                                    <FaTasks className="text-gray-700" size={48} />
+                                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500">Zero Pipeline Density</p>
                                 </div>
                             )}
                         </div>
@@ -369,80 +401,80 @@ const LeadDashboard = () => {
                 {selectedTelecaller && (
                     <div className="fixed inset-0 z-[100] flex justify-end animate-in fade-in duration-300">
                         <div
-                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                            className="absolute inset-0 bg-black/80 backdrop-blur-md"
                             onClick={() => setSelectedTelecaller(null)}
                         ></div>
-                        <div className="relative w-full max-w-md bg-[#1a1f24] h-full shadow-2xl border-l border-gray-800 flex flex-col transform transition-transform duration-500 animate-in slide-in-from-right">
+                        <div className={`relative w-full max-w-md h-full shadow-2xl border-l flex flex-col transform transition-all duration-500 animate-in slide-in-from-right ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-cyan-500/10' : 'bg-white border-gray-200 shadow-2xl'}`}>
                             {/* Sidebar Header */}
-                            <div className="p-6 border-b border-gray-800 bg-[#1e2329]/50 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-cyan-500/10 rounded-xl">
-                                        <FaIdBadge className="text-cyan-400 text-xl" />
+                            <div className={`p-8 border-b flex items-center justify-between transition-all ${isDarkMode ? 'bg-[#1e2329]/50 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-12 h-12 rounded-[4px] flex items-center justify-center border transition-all ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20' : 'bg-cyan-50 border-cyan-100'}`}>
+                                        <FaIdBadge className="text-cyan-500" size={20} />
                                     </div>
                                     <div>
-                                        <h2 className="text-lg font-black text-white uppercase tracking-tight italic">{selectedTelecaller}</h2>
-                                        <p className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.2em]">Assigned Pipeline</p>
+                                        <h2 className={`text-xl font-black uppercase tracking-tighter italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedTelecaller}</h2>
+                                        <p className="text-[9px] font-black text-cyan-500 uppercase tracking-[0.3em] italic">Assigned Lead Protocol</p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => setSelectedTelecaller(null)}
-                                    className="p-2 hover:bg-white/5 rounded-full text-gray-400 hover:text-white transition-all hover:rotate-90"
+                                    className={`p-3 rounded-[4px] transition-all hover:rotate-90 active:scale-95 ${isDarkMode ? 'bg-white/5 text-gray-400 hover:text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                                 >
-                                    <FaTimes size={20} />
+                                    <FaTimes size={22} />
                                 </button>
                             </div>
 
                             {/* Sidebar Content */}
-                            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-[#131619]">
+                            <div className={`flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar transition-all ${isDarkMode ? 'bg-[#131619]' : 'bg-white'}`}>
                                 {sidebarLoading ? (
-                                    <div className="h-full flex flex-col items-center justify-center gap-4">
-                                        <FaSpinner className="animate-spin text-cyan-500" size={30} />
-                                        <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Retrieving Student Data...</span>
+                                    <div className="h-full flex flex-col items-center justify-center gap-6">
+                                        <FaSpinner className="animate-spin text-cyan-500" size={40} />
+                                        <span className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em] animate-pulse">Syncing Vector Records...</span>
                                     </div>
                                 ) : telecallerLeads.length > 0 ? (
                                     telecallerLeads.map((lead, i) => (
-                                        <div key={i} className="p-4 rounded-2xl bg-[#1a1f24] border border-gray-800 hover:border-cyan-500/30 transition-all group shadow-lg">
-                                            <div className="flex justify-between items-start mb-3">
+                                        <div key={i} className={`p-6 rounded-[4px] border group shadow-xl transition-all duration-500 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 hover:border-cyan-500/30' : 'bg-gray-50 border-gray-200 hover:border-cyan-500/20'}`}>
+                                            <div className="flex justify-between items-start mb-4">
                                                 <div>
-                                                    <h3 className="text-sm font-black text-white group-hover:text-cyan-400 transition-colors uppercase tracking-tight">{lead.name}</h3>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black border ${lead.leadType === 'HOT LEAD' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                                                            lead.leadType === 'COLD LEAD' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                                                                'bg-gray-800 text-gray-400 border-gray-700'
+                                                    <h3 className={`text-[15px] font-black uppercase tracking-tight italic transition-colors ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>{lead.name}</h3>
+                                                    <div className="flex items-center gap-3 mt-2">
+                                                        <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase border tracking-widest ${lead.leadType === 'HOT LEAD' ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100') :
+                                                            lead.leadType === 'COLD LEAD' ? (isDarkMode ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-orange-50 text-orange-600 border-orange-100') :
+                                                                (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700' : 'bg-gray-100 text-gray-400 border-gray-200')
                                                             }`}>
                                                             {lead.leadType}
                                                         </span>
-                                                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest flex items-center gap-1">
-                                                            <FaCalendarAlt size={8} /> {new Date(lead.createdAt).toLocaleDateString('en-GB')}
+                                                        <span className="text-[9px] text-gray-500 font-black uppercase tracking-widest flex items-center gap-1.5 opacity-60">
+                                                            <FaCalendarAlt size={8} /> {new Date(lead.createdAt).toLocaleDateString('en-GB').toUpperCase()}
                                                         </span>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-1 gap-2 border-t border-gray-800 pt-3">
-                                                <div className="flex items-center gap-2 text-[11px] text-gray-400">
-                                                    <FaPhone size={10} className="text-cyan-500/50" />
-                                                    <span className="font-mono">{lead.phoneNumber}</span>
+                                            <div className={`grid grid-cols-1 gap-3 border-t pt-4 transition-all ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                                <div className="flex items-center gap-3 text-[11px] font-mono text-gray-500">
+                                                    <FaPhone size={10} className="text-cyan-500/30" />
+                                                    <span className={`tracking-tighter ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lead.phoneNumber}</span>
                                                 </div>
-                                                <div className="flex items-center gap-2 text-[11px] text-gray-400">
-                                                    <FaEnvelope size={10} className="text-cyan-500/50" />
-                                                    <span className="truncate">{lead.email}</span>
+                                                <div className="flex items-center gap-3 text-[11px] font-mono text-gray-500">
+                                                    <FaEnvelope size={10} className="text-cyan-500/30" />
+                                                    <span className={`truncate tracking-tighter ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lead.email}</span>
                                                 </div>
-                                                <div className="mt-1 flex items-center gap-2">
-                                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-600">Course</span>
-                                                    <span className="text-[9px] font-black text-white text-right flex-1">{lead.course?.courseName || 'N/A'}</span>
+                                                <div className="mt-2 flex items-center gap-3 border-t border-dashed border-gray-800/50 pt-2">
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-600">Protocol Course</span>
+                                                    <span className={`text-[10px] font-black uppercase text-right flex-1 tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{lead.course?.courseName || 'UNASSIGNED'}</span>
                                                 </div>
                                             </div>
 
                                             {lead.followUps && lead.followUps.length > 0 && (
-                                                <div className="mt-3 p-2 bg-black/20 rounded-lg border border-gray-800/50">
-                                                    <p className="text-[9px] font-black text-cyan-500 uppercase tracking-widest mb-1 italic">Last Update</p>
-                                                    <p className="text-[10px] text-gray-400 font-medium leading-relaxed uppercase">
-                                                        {lead.followUps[lead.followUps.length - 1].feedback}
+                                                <div className={`mt-5 p-4 rounded-[4px] border border-dashed transition-all ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-white border-gray-100'}`}>
+                                                    <p className="text-[9px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-2 italic">Intelligence Segment</p>
+                                                    <p className={`text-[11px] font-medium leading-relaxed uppercase italic ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                        "{lead.followUps[lead.followUps.length - 1].feedback}"
                                                     </p>
                                                     {lead.followUps[lead.followUps.length - 1].callDuration && (
-                                                        <p className="text-[9px] text-gray-500 mt-1 flex items-center gap-1 font-mono">
-                                                            ⏱ {lead.followUps[lead.followUps.length - 1].callDuration}
+                                                        <p className="text-[9px] text-gray-500 mt-2 flex items-center gap-2 font-mono font-bold tracking-widest">
+                                                            ⏱ SYNC_LENGTH: {lead.followUps[lead.followUps.length - 1].callDuration}
                                                         </p>
                                                     )}
                                                 </div>
@@ -450,11 +482,11 @@ const LeadDashboard = () => {
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="h-full flex flex-col items-center justify-center text-center p-8">
-                                        <div className="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mb-4">
-                                            <FaUsers className="text-gray-600" size={24} />
+                                    <div className="h-full flex flex-col items-center justify-center text-center p-12 opacity-30">
+                                        <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 border-2 border-dashed ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                                            <FaUsers className="text-gray-500" size={32} />
                                         </div>
-                                        <p className="text-gray-500 font-black text-[10px] uppercase tracking-widest">No assigned students found for this profile</p>
+                                        <p className="text-gray-500 font-black text-[10px] uppercase tracking-[0.4em]">Zero Vector Records Detected For This Profile</p>
                                     </div>
                                 )}
                             </div>
@@ -464,10 +496,10 @@ const LeadDashboard = () => {
             </div>
 
             <style>{`
-                .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+                .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #444; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDarkMode ? '#333' : '#cbd5e1'}; border-radius: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: ${isDarkMode ? '#444' : '#94a3b8'}; }
                 
                 @keyframes fade-in {
                     from { opacity: 0; transform: scale(0.98); }

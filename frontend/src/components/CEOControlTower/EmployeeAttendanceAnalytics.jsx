@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { FaDownload, FaSearch, FaUser, FaClock, FaCalendar, FaExclamationTriangle } from 'react-icons/fa';
+import { FaDownload, FaSearch, FaUser, FaClock, FaCalendar, FaExclamationTriangle, FaSync } from 'react-icons/fa';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import MultiSelectFilter from '../common/MultiSelectFilter'; // Assuming this exists or similar
 
-const EmployeeAttendanceAnalytics = ({ masterData }) => {
+const EmployeeAttendanceAnalytics = ({ masterData, isDarkMode }) => {
     const [loading, setLoading] = useState(false);
     const [analyticsData, setAnalyticsData] = useState([]);
 
@@ -117,36 +116,51 @@ const EmployeeAttendanceAnalytics = ({ masterData }) => {
         return (
             <button
                 onClick={handleExport}
-                className="flex items-center gap-2 px-3 py-1.5 bg-[#1a1f24] text-cyan-400 border border-cyan-500/30 rounded hover:bg-cyan-500/10 transition-all font-bold text-xs uppercase tracking-wider"
+                className={`flex items-center gap-2 px-3 py-1.5 rounded transition-all font-bold text-[10px] uppercase tracking-widest border ${isDarkMode
+                    ? 'bg-[#1a1f24] text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/10'
+                    : 'bg-white text-cyan-600 border-cyan-200 hover:bg-cyan-50 shadow-sm'
+                    }`}
             >
-                <FaDownload /> Export
+                <FaDownload /> Export Matrix
             </button>
         );
     };
 
     const COLORS = ['#06b6d4', '#ef4444', '#f59e0b', '#a855f7']; // Cyan, Red, Yellow, Purple
 
-    return (
-        <div className="mt-8 bg-[#131619] border border-gray-800 rounded-xl p-6 relative overflow-hidden">
-            {/* Background decorative glow */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2/3 h-1 bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent blur-sm"></div>
+    const chartTooltipStyle = {
+        backgroundColor: isDarkMode ? '#1a1f24' : '#ffffff',
+        border: `1px solid ${isDarkMode ? '#374151' : '#e5e7eb'}`,
+        borderRadius: '4px',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        fontSize: '10px',
+        fontWeight: '900',
+        textTransform: 'uppercase'
+    };
 
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+    return (
+        <div className={`mt-8 border rounded-[4px] p-8 relative overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-xl'}`}>
+            {/* Background decorative glow */}
+            <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-2/3 h-1 bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent blur-sm`}></div>
+
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
                 <div>
-                    <h2 className="text-xl font-bold text-white tracking-wide flex items-center gap-2">
-                        <FaClock className="text-cyan-400" /> Employee Attendance Trends
+                    <h2 className={`text-xl font-black uppercase italic tracking-tight flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <FaClock className="text-cyan-500" /> Employee Attendance Intelligence
                     </h2>
-                    <p className="text-gray-500 text-xs mt-1">Workforce presence and punctuality analytics</p>
+                    <p className={`text-[10px] font-black uppercase tracking-[0.3em] mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Workforce Presence & Synchronized Analytics</p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-4">
                     {/* Period Tabs */}
-                    <div className="flex bg-[#1a1f24] rounded-lg p-1 border border-gray-800">
+                    <div className={`flex p-1 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
                         {['day', 'week', 'month', 'year'].map(p => (
                             <button
                                 key={p}
                                 onClick={() => setPeriod(p)}
-                                className={`px-4 py-1.5 rounded text-xs font-bold uppercase transition-all ${period === p ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'text-gray-400 hover:text-white'
+                                className={`px-5 py-1.5 rounded-[2px] text-[10px] font-black uppercase tracking-widest transition-all ${period === p
+                                    ? (isDarkMode ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'bg-white text-cyan-600 shadow-sm')
+                                    : (isDarkMode ? 'text-gray-500 hover:text-white' : 'text-gray-400 hover:text-gray-600')
                                     }`}
                             >
                                 {p}
@@ -159,125 +173,151 @@ const EmployeeAttendanceAnalytics = ({ masterData }) => {
             </div>
 
             {/* Filters Row */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                <div className="flex bg-[#1a1f24] rounded-lg border border-gray-800 overflow-hidden h-10">
-                    <span className="px-3 flex items-center text-gray-400 text-xs font-bold uppercase bg-[#131619] border-r border-gray-800">Date</span>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+                <div className={`flex rounded-[4px] border overflow-hidden h-11 transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                    <span className={`px-4 flex items-center text-[10px] font-black uppercase tracking-widest border-r transition-colors ${isDarkMode ? 'text-gray-500 bg-[#131619] border-gray-800' : 'text-gray-400 bg-white border-gray-200'}`}>Date Range</span>
                     <input
                         type="date"
                         value={dateRange.startDate}
                         onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
-                        className="bg-transparent text-white px-2 py-1 text-xs focus:outline-none w-full"
+                        className={`bg-transparent px-3 py-1 text-[10px] font-black outline-none w-full ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
                     />
-                    <span className="flex items-center text-gray-500">-</span>
+                    <span className="flex items-center text-gray-500 font-black px-1">-</span>
                     <input
                         type="date"
                         value={dateRange.endDate}
                         onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
-                        className="bg-transparent text-white px-2 py-1 text-xs focus:outline-none w-full"
+                        className={`bg-transparent px-3 py-1 text-[10px] font-black outline-none w-full ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
                     />
                 </div>
 
-                {/* Reusing MultiSelectFilter logic would be complex here without prop drilling the component or creating a new one. 
-                    For simplicity in this step, using standard selects or verify if MultiSelectFilter is generic.
-                    Assuming standard selects for now to guarantee functionality, styled to match.
-                */}
                 <select
-                    className="bg-[#1a1f24] text-gray-300 text-xs rounded-lg border border-gray-800 px-3 h-10 focus:border-cyan-500 focus:outline-none"
+                    className={`text-[10px] font-black uppercase tracking-widest rounded-[4px] border px-4 h-11 transition-all outline-none ${isDarkMode
+                        ? 'bg-[#1a1f24] text-gray-300 border-gray-800 focus:border-cyan-500/50'
+                        : 'bg-white text-gray-700 border-gray-200 focus:border-cyan-500 shadow-sm'
+                        }`}
                     onChange={(e) => setFilters({ ...filters, centre: [e.target.value] })}
                     value={filters.centre[0] || 'ALL'}
                 >
-                    <option value="ALL">All Centres</option>
-                    {masterData.centres?.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                    <option value="ALL">Global Centres</option>
+                    {masterData.centres?.map((c, i) => <option key={`centre-${c.name}-${i}`} value={c.name}>{c.name.toUpperCase()}</option>)}
                 </select>
 
                 <select
-                    className="bg-[#1a1f24] text-gray-300 text-xs rounded-lg border border-gray-800 px-3 h-10 focus:border-cyan-500 focus:outline-none"
+                    className={`text-[10px] font-black uppercase tracking-widest rounded-[4px] border px-4 h-11 transition-all outline-none ${isDarkMode
+                        ? 'bg-[#1a1f24] text-gray-300 border-gray-800 focus:border-cyan-500/50'
+                        : 'bg-white text-gray-700 border-gray-200 focus:border-cyan-500 shadow-sm'
+                        }`}
                     onChange={(e) => setFilters({ ...filters, department: [e.target.value] })}
                     value={filters.department[0] || 'ALL'}
                 >
                     <option value="ALL">All Departments</option>
-                    {masterData.departments?.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
+                    {masterData.departments?.map((d, i) => <option key={`dept-${d.name}-${i}`} value={d.name}>{d.name.toUpperCase()}</option>)}
                 </select>
 
                 <select
-                    className="bg-[#1a1f24] text-gray-300 text-xs rounded-lg border border-gray-800 px-3 h-10 focus:border-cyan-500 focus:outline-none"
+                    className={`text-[10px] font-black uppercase tracking-widest rounded-[4px] border px-4 h-11 transition-all outline-none ${isDarkMode
+                        ? 'bg-[#1a1f24] text-gray-300 border-gray-800 focus:border-cyan-500/50'
+                        : 'bg-white text-gray-700 border-gray-200 focus:border-cyan-500 shadow-sm'
+                        }`}
                     onChange={(e) => setFilters({ ...filters, designation: [e.target.value] })}
                     value={filters.designation[0] || 'ALL'}
                 >
                     <option value="ALL">All Designations</option>
-                    {masterData.designations?.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
+                    {masterData.designations?.map((d, i) => <option key={`desig-${d.name}-${i}`} value={d.name}>{d.name.toUpperCase()}</option>)}
                 </select>
             </div>
 
             {/* Attendance Area Chart */}
-            <div className="h-[350px] w-full mb-8 relative">
+            <div className="h-[400px] w-full mb-12 relative p-4 rounded-[4px] border border-dashed transition-colors" style={{ borderColor: isDarkMode ? '#1f2937' : '#e5e7eb' }}>
                 {analyticsData.length === 0 && !loading && (
-                    <div className="absolute inset-0 flex items-center justify-center z-10 text-gray-500 text-sm">No data available for selected range</div>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center z-10 text-gray-500">
+                        <FaExclamationTriangle className="text-2xl mb-2 opacity-20" />
+                        <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Zero Vector Data in Range</span>
+                    </div>
+                )}
+                {loading && (
+                    <div className="absolute inset-0 flex items-center justify-center z-10">
+                        <FaSync className="animate-spin text-cyan-500 text-2xl" />
+                    </div>
                 )}
                 <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={analyticsData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <AreaChart data={analyticsData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
                         <defs>
                             <linearGradient id="colorPresent" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.8} />
+                                <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4} />
                                 <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
                             </linearGradient>
                             <linearGradient id="colorAbsent" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8} />
+                                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
                                 <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                             </linearGradient>
                             <linearGradient id="colorLate" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8} />
+                                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
                                 <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                             </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                        <XAxis dataKey="_id" stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
+                        <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#1f2937" : "#f1f5f9"} vertical={false} />
+                        <XAxis dataKey="_id" stroke={isDarkMode ? "#4b5563" : "#94a3b8"} fontSize={9} fontWeight={900} tickLine={false} axisLine={false} dy={10} />
+                        <YAxis stroke={isDarkMode ? "#4b5563" : "#94a3b8"} fontSize={9} fontWeight={900} tickLine={false} axisLine={false} />
                         <Tooltip
-                            contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)' }}
-                            itemStyle={{ fontSize: '12px' }}
-                            labelStyle={{ color: '#9ca3af', marginBottom: '4px' }}
+                            contentStyle={chartTooltipStyle}
+                            itemStyle={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase' }}
+                            labelStyle={{ color: isDarkMode ? '#6b7280' : '#94a3b8', marginBottom: '8px', fontSize: '10px' }}
+                            cursor={{ stroke: '#06b6d4', strokeWidth: 1, strokeDasharray: '3 3' }}
                         />
-                        <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                        <Area type="monotone" dataKey="present" name="Present" stroke="#06b6d4" fillOpacity={1} fill="url(#colorPresent)" strokeWidth={2} />
-                        <Area type="monotone" dataKey="late" name="Late" stroke="#f59e0b" fillOpacity={1} fill="url(#colorLate)" strokeWidth={2} />
-                        <Area type="monotone" dataKey="absent" name="Absent" stroke="#ef4444" fillOpacity={1} fill="url(#colorAbsent)" strokeWidth={2} />
+                        <Legend
+                            verticalAlign="top"
+                            align="right"
+                            height={36}
+                            iconType="circle"
+                            iconSize={8}
+                            wrapperStyle={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase', paddingBottom: '20px', letterSpacing: '0.1em' }}
+                        />
+                        <Area type="monotone" dataKey="present" name="Present" stroke="#06b6d4" fillOpacity={1} fill="url(#colorPresent)" strokeWidth={2} activeDot={{ r: 4, strokeWidth: 0 }} />
+                        <Area type="monotone" dataKey="late" name="Late" stroke="#f59e0b" fillOpacity={1} fill="url(#colorLate)" strokeWidth={2} activeDot={{ r: 4, strokeWidth: 0 }} />
+                        <Area type="monotone" dataKey="absent" name="Absent" stroke="#ef4444" fillOpacity={1} fill="url(#colorAbsent)" strokeWidth={2} activeDot={{ r: 4, strokeWidth: 0 }} />
                     </AreaChart>
                 </ResponsiveContainer>
             </div>
 
             {/* Single User Analysis Section */}
-            <div className="border-t border-gray-800 pt-8" id="single-user-analysis">
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className={`border-t pt-10 transition-colors ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`} id="single-user-analysis">
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
                     {/* Search Column */}
-                    <div className="lg:col-span-1 border-r border-gray-800 pr-6">
-                        <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                            <FaUser className="text-cyan-400" /> Single User Analysis
+                    <div className={`lg:col-span-1 border-r pr-8 transition-colors ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                        <h3 className={`font-black uppercase tracking-[0.2em] text-[11px] mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            <FaUser className="text-cyan-500" /> Vector Profile Search
                         </h3>
-                        <div className="relative mb-4">
-                            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                        <div className="relative mb-6">
+                            <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs" />
                             <input
                                 type="text"
-                                placeholder="Search Employee..."
+                                placeholder="SEARCH_IDENTITY..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full bg-[#1a1f24] text-white pl-10 pr-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 focus:outline-none text-sm"
+                                className={`w-full pl-11 pr-4 py-3 rounded-[4px] border text-[11px] font-black uppercase tracking-widest transition-all outline-none ${isDarkMode
+                                    ? 'bg-[#1a1f24] text-white border-gray-700 focus:border-cyan-500/50'
+                                    : 'bg-white text-gray-900 border-gray-200 focus:border-cyan-500 shadow-sm'
+                                    }`}
                             />
                         </div>
-                        <div className="flex flex-col gap-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+                        <div className="flex flex-col gap-3 max-h-[450px] overflow-y-auto custom-scrollbar">
                             {searchResults.map(emp => (
                                 <div
                                     key={emp._id || emp.employeeId}
                                     onClick={() => setSelectedEmployee(emp)}
-                                    className={`p-3 rounded-lg cursor-pointer transition-all flex items-center gap-3 ${selectedEmployee?._id === emp._id ? 'bg-cyan-500/10 border border-cyan-500/50' : 'bg-[#1a1f24] border border-transparent hover:bg-gray-800'
+                                    className={`p-4 rounded-[4px] cursor-pointer transition-all flex items-center gap-4 border ${selectedEmployee?._id === emp._id
+                                        ? (isDarkMode ? 'bg-cyan-500/10 border-cyan-500/50' : 'bg-cyan-50 border-cyan-200')
+                                        : (isDarkMode ? 'bg-[#1a1f24]/50 border-transparent hover:border-gray-700' : 'bg-white border-transparent hover:border-gray-200 hover:shadow-sm')
                                         }`}
                                 >
-                                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
-                                        {emp.employeeImage ? <img src={emp.employeeImage} alt="" className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-gray-400">{emp.employeeName?.[0]}</span>}
+                                    <div className={`w-10 h-10 rounded-[2px] flex items-center justify-center overflow-hidden border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
+                                        {emp.employeeImage ? <img src={emp.employeeImage} alt="" className="w-full h-full object-cover" /> : <span className="text-xs font-black text-gray-400">{emp.employeeName?.[0]}</span>}
                                     </div>
-                                    <div>
-                                        <p className={`text-sm font-bold ${selectedEmployee?._id === emp._id ? 'text-cyan-400' : 'text-gray-300'}`}>{emp.employeeName}</p>
-                                        <p className="text-[10px] text-gray-500">{emp.employeeId}</p>
+                                    <div className="min-w-0">
+                                        <p className={`text-[11px] font-black uppercase tracking-widest truncate ${selectedEmployee?._id === emp._id ? 'text-cyan-500' : (isDarkMode ? 'text-gray-300' : 'text-gray-700')}`}>{emp.employeeName}</p>
+                                        <p className="text-[9px] text-gray-500 font-bold tracking-widest">{emp.employeeId.toUpperCase()}</p>
                                     </div>
                                 </div>
                             ))}
@@ -287,37 +327,45 @@ const EmployeeAttendanceAnalytics = ({ masterData }) => {
                     {/* Stats Column */}
                     <div className="lg:col-span-3">
                         {!employeeStats ? (
-                            <div className="h-full flex items-center justify-center text-gray-500 italic">
-                                Select an employee to view detailed performance metrics.
+                            <div className={`h-full flex flex-col items-center justify-center text-center opacity-30`}>
+                                <FaUser className="text-4xl mb-4" />
+                                <span className="text-[10px] font-black uppercase tracking-[0.3em]">Awaiting Identity Selection</span>
+                                <p className="text-[9px] mt-2 font-bold uppercase tracking-widest">Select an employee vector to initialize performance mix</p>
                             </div>
                         ) : (
-                            <div className="animate-fadeIn">
+                            <div className="animate-fadeIn space-y-8">
                                 {/* Profile Header */}
-                                <div className="flex items-center gap-4 mb-6 bg-[#1a1f24] p-4 rounded-xl border border-gray-800">
-                                    <div className="w-16 h-16 rounded-full border-2 border-cyan-500 p-1">
-                                        <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden">
+                                <div className={`flex items-center gap-6 p-6 rounded-[4px] border transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-lg shadow-black/20' : 'bg-white border-gray-200 shadow-md'}`}>
+                                    <div className="w-20 h-20 rounded-[4px] border-2 border-cyan-500/30 p-1.5 bg-gradient-to-br from-cyan-500/10 to-transparent">
+                                        <div className={`w-full h-full rounded-[2px] flex items-center justify-center overflow-hidden h-full ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
                                             {employeeStats.employee.image ? (
                                                 <img src={employeeStats.employee.image} alt="" className="w-full h-full object-cover" />
                                             ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-gray-400">
+                                                <div className="w-full h-full flex items-center justify-center text-3xl font-black text-gray-500 opacity-50">
                                                     {employeeStats.employee.name?.[0]}
                                                 </div>
                                             )}
                                         </div>
                                     </div>
-                                    <div>
-                                        <h3 className="text-xl font-bold text-white mb-1">{employeeStats.employee.name}</h3>
-                                        <div className="flex flex-wrap gap-4 text-xs text-gray-400">
-                                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cyan-500"></span> {employeeStats.employee.designation}</span>
-                                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500"></span> {employeeStats.employee.department}</span>
-                                            <span className="flex items-center gap-1"><FaExclamationTriangle className="text-yellow-500" /> {employeeStats.employee.centre}</span>
+                                    <div className="space-y-2">
+                                        <h3 className={`text-2xl font-black italic tracking-tight uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{employeeStats.employee.name}</h3>
+                                        <div className="flex flex-wrap gap-4">
+                                            {[
+                                                { label: employeeStats.employee.designation, color: 'bg-cyan-500' },
+                                                { label: employeeStats.employee.department, color: 'bg-purple-500' },
+                                                { label: employeeStats.employee.centre, color: 'bg-amber-500' }
+                                            ].map((tag, idx) => (
+                                                <span key={idx} className={`flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-[1px] border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${tag.color}`}></span> {tag.label}
+                                                </span>
+                                            ))}
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     {/* Pie Chart */}
-                                    <div className="bg-[#1a1f24] p-4 rounded-xl border border-gray-800 h-[250px] flex items-center">
+                                    <div className={`p-8 rounded-[4px] border h-[300px] flex items-center transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                                         <div className="flex-1 h-full">
                                             <ResponsiveContainer>
                                                 <PieChart>
@@ -330,93 +378,99 @@ const EmployeeAttendanceAnalytics = ({ masterData }) => {
                                                         ]}
                                                         cx="50%"
                                                         cy="50%"
-                                                        innerRadius={60}
-                                                        outerRadius={80}
-                                                        paddingAngle={5}
+                                                        innerRadius={65}
+                                                        outerRadius={85}
+                                                        paddingAngle={8}
                                                         dataKey="value"
+                                                        stroke="none"
                                                     >
                                                         {['#06b6d4', '#ef4444', '#f59e0b', '#a855f7'].map((entry, index) => (
                                                             <Cell key={`cell-${index}`} fill={entry} />
                                                         ))}
                                                     </Pie>
-                                                    <Tooltip contentStyle={{ backgroundColor: '#111827', border: 'none', borderRadius: '8px' }} />
-                                                    <Legend layout="vertical" align="right" verticalAlign="middle" />
+                                                    <Tooltip contentStyle={chartTooltipStyle} />
+                                                    <Legend layout="vertical" align="right" verticalAlign="middle" iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
                                                 </PieChart>
                                             </ResponsiveContainer>
                                         </div>
-                                        <div className="flex flex-col gap-2 justify-center mr-4">
-                                            <div className="text-center">
-                                                <p className="text-2xl font-bold text-white">{employeeStats.stats.totalDays}</p>
-                                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Total Days</p>
+                                        <div className="flex flex-col gap-6 justify-center ml-4 border-l pl-8 border-gray-800/20">
+                                            <div className="text-left">
+                                                <p className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{employeeStats.stats.totalDays}</p>
+                                                <p className="text-[9px] text-gray-500 font-black uppercase tracking-[0.2em]">Matrix Density</p>
                                             </div>
-                                            <div className="text-center">
-                                                <p className="text-2xl font-bold text-cyan-400">
+                                            <div className="text-left">
+                                                <p className="text-3xl font-black tracking-tighter text-cyan-500">
                                                     {((employeeStats.stats.present / (employeeStats.stats.totalDays || 1)) * 100).toFixed(0)}%
                                                 </p>
-                                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Attendance</p>
+                                                <p className="text-[9px] text-gray-500 font-black uppercase tracking-[0.2em]">Sync Rate</p>
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Stats Grid */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="p-4 bg-gradient-to-br from-green-500/10 to-transparent border border-green-500/20 rounded-xl">
-                                            <p className="text-green-400 text-xs font-bold uppercase mb-1">On Time</p>
-                                            <p className="text-2xl font-bold text-white">{employeeStats.stats.present - employeeStats.stats.late}</p>
-                                        </div>
-                                        <div className="p-4 bg-gradient-to-br from-yellow-500/10 to-transparent border border-yellow-500/20 rounded-xl">
-                                            <p className="text-yellow-400 text-xs font-bold uppercase mb-1">Late Arrivals</p>
-                                            <p className="text-2xl font-bold text-white">{employeeStats.stats.late}</p>
-                                        </div>
-                                        <div className="p-4 bg-gradient-to-br from-red-500/10 to-transparent border border-red-500/20 rounded-xl">
-                                            <p className="text-red-400 text-xs font-bold uppercase mb-1">Absences</p>
-                                            <p className="text-2xl font-bold text-white">{employeeStats.stats.absent}</p>
-                                        </div>
-                                        <div className="p-4 bg-gradient-to-br from-purple-500/10 to-transparent border border-purple-500/20 rounded-xl">
-                                            <p className="text-purple-400 text-xs font-bold uppercase mb-1">Half Days</p>
-                                            <p className="text-2xl font-bold text-white">{employeeStats.stats.halfDay}</p>
-                                        </div>
+                                    <div className="grid grid-cols-2 gap-6">
+                                        {[
+                                            { label: "High Sync", val: employeeStats.stats.present - employeeStats.stats.late, color: "emerald", sub: "On Time" },
+                                            { label: "Delayed", val: employeeStats.stats.late, color: "amber", sub: "Late Shift" },
+                                            { label: "Offline", val: employeeStats.stats.absent, color: "red", sub: "Absences" },
+                                            { label: "Partial", val: employeeStats.stats.halfDay, color: "purple", sub: "Half Cycles" }
+                                        ].map((stat, i) => (
+                                            <div key={i} className={`p-5 rounded-[4px] border group transition-all relative overflow-hidden ${isDarkMode
+                                                ? `bg-gray-800/20 border-gray-800 hover:border-${stat.color}-500/50`
+                                                : `bg-white border-gray-200 hover:border-${stat.color}-500/50 shadow-sm`
+                                                }`}>
+                                                <div className={`absolute top-0 right-0 w-12 h-12 bg-${stat.color}-500/5 rounded-full blur-xl -mr-6 -mt-6 group-hover:bg-${stat.color}-500/10 transition-all`}></div>
+                                                <p className={`text-${stat.color}-500 text-[9px] font-black uppercase tracking-[0.2em] mb-2`}>{stat.label}</p>
+                                                <p className={`text-3xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{stat.val}</p>
+                                                <p className="text-[8px] text-gray-500 font-bold uppercase tracking-widest mt-1">{stat.sub}</p>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
 
                                 {/* Timeline Trend Chart */}
                                 {employeeStats.timeline && employeeStats.timeline.length > 0 && (
-                                    <div className="mt-6 bg-[#1a1f24] p-4 rounded-xl border border-gray-800 h-[200px]">
-                                        <p className="text-gray-400 text-xs font-bold uppercase mb-4">Attendance Consistency Trend</p>
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <AreaChart data={employeeStats.timeline.map(t => ({
-                                                date: t.date,
-                                                score: t.status === 'Present' ? 100 : (t.status === 'Late' ? 75 : (t.status === 'Half Day' ? 50 : 0)),
-                                                status: t.status
-                                            }))}>
-                                                <defs>
-                                                    <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
-                                                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
-                                                    </linearGradient>
-                                                </defs>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" />
-                                                <XAxis dataKey="date" hide />
-                                                <Tooltip
-                                                    cursor={{ stroke: '#06b6d4', strokeWidth: 1 }}
-                                                    content={({ active, payload }) => {
-                                                        if (active && payload && payload.length) {
-                                                            const data = payload[0].payload;
-                                                            return (
-                                                                <div className="bg-[#1f2937] border border-gray-700 p-2 rounded shadow-lg">
-                                                                    <p className="text-gray-400 text-[10px]">{data.date}</p>
-                                                                    <p className={`text-sm font-bold ${data.status === 'Present' ? 'text-cyan-400' : (data.status === 'Absent' ? 'text-red-400' : 'text-yellow-400')}`}>
-                                                                        {data.status}
-                                                                    </p>
-                                                                </div>
-                                                            );
-                                                        }
-                                                        return null;
-                                                    }}
-                                                />
-                                                <Area type="monotone" dataKey="score" stroke="#06b6d4" fill="url(#colorScore)" strokeWidth={2} />
-                                            </AreaChart>
-                                        </ResponsiveContainer>
+                                    <div className={`p-8 rounded-[4px] border transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                                        <div className="flex justify-between items-center mb-8">
+                                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Identity Consistency Vector</p>
+                                            <div className="text-[8px] font-black uppercase tracking-widest text-cyan-500 px-2 py-0.5 border border-cyan-500/20 rounded-[1px]">Realtime Flux</div>
+                                        </div>
+                                        <div className="h-[200px] w-full">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <AreaChart data={employeeStats.timeline.map(t => ({
+                                                    date: t.date,
+                                                    score: t.status === 'Present' ? 100 : (t.status === 'Late' ? 75 : (t.status === 'Half Day' ? 50 : 0)),
+                                                    status: t.status
+                                                }))}>
+                                                    <defs>
+                                                        <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4} />
+                                                            <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                                                        </linearGradient>
+                                                    </defs>
+                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#1f2937" : "#f1f5f9"} />
+                                                    <XAxis dataKey="date" hide />
+                                                    <Tooltip
+                                                        cursor={{ stroke: '#06b6d4', strokeWidth: 1, strokeDasharray: '3 3' }}
+                                                        content={({ active, payload }) => {
+                                                            if (active && payload && payload.length) {
+                                                                const data = payload[0].payload;
+                                                                return (
+                                                                    <div className={`p-3 rounded-[2px] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+                                                                        <p className="text-gray-500 text-[8px] font-black uppercase tracking-widest mb-1">{data.date.toUpperCase()}</p>
+                                                                        <p className={`text-[11px] font-black uppercase tracking-widest ${data.status === 'Present' ? 'text-cyan-500' : (data.status === 'Absent' ? 'text-red-500' : 'text-amber-500')}`}>
+                                                                            SIGNAL: {data.status.toUpperCase()}
+                                                                        </p>
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        }}
+                                                    />
+                                                    <Area type="monotone" dataKey="score" stroke="#06b6d4" fill="url(#colorScore)" strokeWidth={2} activeDot={{ r: 4, strokeWidth: 0 }} />
+                                                </AreaChart>
+                                            </ResponsiveContainer>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -424,6 +478,20 @@ const EmployeeAttendanceAnalytics = ({ masterData }) => {
                     </div>
                 </div>
             </div>
+
+            <style jsx>{`
+                .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { 
+                    background: ${isDarkMode ? '#333' : '#e2e8f0'}; 
+                    border-radius: 4px; 
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { 
+                    background: ${isDarkMode ? '#444' : '#cbd5e1'}; 
+                }
+                @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+                .animate-fadeIn { animation: fadeIn 0.5s ease-out forwards; }
+            `}</style>
         </div>
     );
 };

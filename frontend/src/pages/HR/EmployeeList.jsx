@@ -51,6 +51,14 @@ const EmployeeList = () => {
     const [jumpPage, setJumpPage] = useState("");
     const [analytics, setAnalytics] = useState(null);
     const [analyticsLoading, setAnalyticsLoading] = useState(true);
+    const [isDarkMode, setIsDarkMode] = useState(() => {
+        const saved = localStorage.getItem("employeeListThemePremium");
+        return saved ? saved === "dark" : true;
+    });
+
+    useEffect(() => {
+        localStorage.setItem("employeeListThemePremium", isDarkMode ? "dark" : "light");
+    }, [isDarkMode]);
 
     // Permission checks
     const canCreate = usePermission('hrManpower', 'employees', 'create');
@@ -512,490 +520,418 @@ const EmployeeList = () => {
         </div>
     );
 
-    const [localTheme, setLocalTheme] = useState(() => localStorage.getItem('employeeListTheme') || 'dark');
-
-    useEffect(() => {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('employeeListTheme', localTheme);
-    }, [localTheme]);
-
-    const toggleLocalTheme = () => {
-        setLocalTheme(prev => prev === 'dark' ? 'light' : 'dark');
-    };
+    // Local theme logic removed
 
     return (
-        <div className={localTheme === 'dark' ? 'dark' : ''}>
-        <Layout activePage="HR & Manpower">
-            <div className="space-y-6 animate-fade-in pb-10">
-                {/* Header */}
-                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
-                    <div>
-                        <h1 className="text-3xl font-black text-gray-900 dark:text-white italic uppercase tracking-tighter">All <span className="text-cyan-500">Employees</span></h1>
-                        <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">
-                            Showing <span className="text-gray-900 dark:text-white">{(pagination.currentPage - 1) * 10 + 1}-{Math.min(pagination.currentPage * 10, pagination.totalEmployees)}</span> of <span className="text-gray-900 dark:text-white">{pagination.totalEmployees}</span>
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap gap-3 items-center">
-                        <button
-                            onClick={toggleLocalTheme}
-                            className="p-3 rounded-[2px] bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-yellow-400 hover:bg-gray-300 dark:hover:bg-gray-700 transition-all shadow-sm"
-                            title={`Switch to ${localTheme === 'dark' ? 'light' : 'dark'} mode`}
-                        >
-                            {localTheme === 'dark' ? <FaSun size={16} /> : <FaMoon size={16} className="text-gray-600" />}
-                        </button>
-                        <ExcelImportExport
-                            columns={employeeColumns}
-                            mapping={employeeMapping}
-                            data={employees}
-                            onImport={handleBulkDataImport}
-                            onExport={handleExportAllFiltered}
-                            prepareExportData={prepareExportData}
-                            fileName="Employee_List"
-                            templateName="Employee_Import_Template"
-                            extraButtons={
-                                <button
-                                    onClick={handleExportPDF}
-                                    className="bg-white dark:bg-[#1a1f24] hover:bg-gray-100 dark:hover:bg-[#252a30] text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white px-5 py-3 rounded-[2px] font-black uppercase text-[10px] tracking-widest transition-all border border-gray-200 dark:border-gray-800 flex items-center gap-2 shadow-sm"
-                                >
-                                    <FaFilePdf className="text-red-500" /> PDF
-                                </button>
-                            }
-                        />
-                        {canCreate && (
+        <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
+            <Layout activePage="HR & Manpower">
+                <div className="p-6 md:p-8 max-w-[1800px] mx-auto space-y-8">
+                    {/* Header */}
+                    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+                        <div>
+                            <h1 className={`text-4xl font-black mb-2 tracking-tighter uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                All <span className="text-cyan-500">Employees</span>
+                            </h1>
+                            <p className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} font-bold text-[10px] uppercase tracking-[0.3em] flex items-center gap-2`}>
+                                Human Resource & Manpower Management
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-4">
                             <button
-                                onClick={() => navigate("/hr/employee/add")}
-                                className="bg-cyan-500 hover:bg-cyan-600 text-black px-6 py-3 rounded-[2px] font-black uppercase text-[10px] tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-cyan-500/20"
+                                onClick={() => setIsDarkMode(!isDarkMode)}
+                                className={`p-3 rounded-[2px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
                             >
-                                <FaPlus /> Add Employee
+                                {isDarkMode ? <><FaSun /> Day Mode</> : <><FaMoon /> Night Mode</>}
                             </button>
-                        )}
+
+                            <ExcelImportExport
+                                columns={employeeColumns}
+                                mapping={employeeMapping}
+                                data={employees}
+                                onImport={handleBulkDataImport}
+                                onExport={handleExportAllFiltered}
+                                prepareExportData={prepareExportData}
+                                fileName="Employee_List"
+                                templateName="Employee_Import_Template"
+                                extraButtons={
+                                    <button
+                                        onClick={handleExportPDF}
+                                        className={`px-5 py-3 rounded-[2px] font-black uppercase text-[10px] tracking-widest transition-all border flex items-center gap-2 shadow-sm ${isDarkMode ? 'bg-[#1a1f24] text-gray-400 border-gray-800 hover:text-white dark:hover:bg-[#252a30]' : 'bg-white text-gray-600 border-gray-200 hover:text-gray-900 hover:bg-gray-100'}`}
+                                    >
+                                        <FaFilePdf className="text-red-500" /> PDF
+                                    </button>
+                                }
+                            />
+                            {canCreate && (
+                                <button
+                                    onClick={() => navigate("/hr/employee/add")}
+                                    className="px-6 py-3 bg-cyan-500 text-black hover:bg-cyan-400 rounded-[2px] shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"
+                                >
+                                    <FaPlus /> Add Employee
+                                </button>
+                            )}
+                        </div>
                     </div>
-                </div>
 
-                {/* Analytics Dashboard */}
-                {!analyticsLoading && analytics && (
-                    <div className="space-y-6">
-                        {/* Key Stats Cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 p-6 rounded-[2px] hover:border-cyan-500/30 transition-all group relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-cyan-500/10"></div>
-                                <div className="flex items-center justify-between mb-4 relative z-10">
-                                    <div className="p-2 bg-cyan-500/10 rounded-[2px]">
-                                        <FaUsers className="text-cyan-500 text-xl" />
+                    {/* Analytics Dashboard */}
+                    {!analyticsLoading && analytics && (
+                        <div className="space-y-6">
+                            {/* Key Stats Cards */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} border p-6 rounded-[2px] hover:border-cyan-500/30 transition-all group relative overflow-hidden`}>
+                                    <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-cyan-500/10"></div>
+                                    <div className="flex items-center justify-between mb-4 relative z-10">
+                                        <div className="p-2 bg-cyan-500/10 rounded-[2px]">
+                                            <FaUsers className="text-cyan-500 text-xl" />
+                                        </div>
+                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Live Force</span>
                                     </div>
-                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Live Force</span>
+                                    <p className={`text-4xl font-black tracking-tighter relative z-10 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                        {analytics.totalEmployees}
+                                    </p>
+                                    <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Total Workforce</p>
                                 </div>
-                                <p className="text-4xl font-black text-gray-900 dark:text-white tracking-tighter relative z-10 bg-gradient-to-br from-gray-800 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
-                                    {analytics.totalEmployees}
-                                </p>
-                                <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Total Workforce</p>
+
+                                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} border p-6 rounded-[2px] hover:border-cyan-500/30 transition-all group relative overflow-hidden`}>
+                                    <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-cyan-500/10"></div>
+                                    <div className="flex items-center justify-between mb-4 relative z-10">
+                                        <div className="p-2 bg-cyan-500/10 rounded-[2px]">
+                                            <FaUsers className="text-cyan-500 text-xl" />
+                                        </div>
+                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Teachers</span>
+                                    </div>
+                                    <p className="text-4xl font-black text-cyan-500 tracking-tighter relative z-10 bg-gradient-to-br from-cyan-400 to-cyan-600 bg-clip-text text-transparent">
+                                        {analytics.teachersCount || 0}
+                                    </p>
+                                    <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Educational Staff</p>
+                                </div>
+
+                                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} border p-6 rounded-[2px] hover:border-emerald-500/30 transition-all group relative overflow-hidden`}>
+                                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-emerald-500/10"></div>
+                                    <div className="flex items-center justify-between mb-4 relative z-10">
+                                        <div className="p-2 bg-emerald-500/10 rounded-[2px]">
+                                            <FaUsers className="text-emerald-500 text-xl" />
+                                        </div>
+                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Other Staff</span>
+                                    </div>
+                                    <p className="text-4xl font-black text-emerald-500 tracking-tighter relative z-10 bg-gradient-to-br from-emerald-400 to-emerald-600 bg-clip-text text-transparent">
+                                        {analytics.staffCount || 0}
+                                    </p>
+                                    <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Administrative & Ops</p>
+                                </div>
+
+                                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} border p-6 rounded-[2px] hover:border-cyan-500/30 transition-all group relative overflow-hidden`}>
+                                    <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-amber-500/10"></div>
+                                    <div className="flex items-center justify-between mb-4 relative z-10">
+                                        <div className="p-2 bg-amber-500/10 rounded-[2px]">
+                                            <FaMapMarkerAlt className="text-amber-500 text-xl" />
+                                        </div>
+                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Network</span>
+                                    </div>
+                                    <p className="text-4xl font-black text-amber-500 tracking-tighter relative z-10 bg-gradient-to-br from-amber-400 to-amber-600 bg-clip-text text-transparent">
+                                        {analytics.totalCentres || analytics.centreDistribution.length}
+                                    </p>
+                                    <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Total Locations</p>
+                                </div>
                             </div>
 
-                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 p-6 rounded-[2px] hover:border-cyan-500/30 transition-all group relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-cyan-500/10"></div>
-                                <div className="flex items-center justify-between mb-4 relative z-10">
-                                    <div className="p-2 bg-cyan-500/10 rounded-[2px]">
-                                        <FaUsers className="text-cyan-500 text-xl" />
+                            {/* Charts Grid */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                                {/* Department Distribution Pie Chart */}
+                                {/* Department Distribution Bar Chart - Scrollable to show ALL */}
+                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                        <FaChartPie className="text-4xl text-cyan-500" />
                                     </div>
-                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Teachers</span>
-                                </div>
-                                <p className="text-4xl font-black text-cyan-500 tracking-tighter relative z-10 bg-gradient-to-br from-cyan-400 to-cyan-600 bg-clip-text text-transparent">
-                                    {analytics.teachersCount || 0}
-                                </p>
-                                <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Educational Staff</p>
-                            </div>
-
-                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 p-6 rounded-[2px] hover:border-emerald-500/30 transition-all group relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-emerald-500/10"></div>
-                                <div className="flex items-center justify-between mb-4 relative z-10">
-                                    <div className="p-2 bg-emerald-500/10 rounded-[2px]">
-                                        <FaUsers className="text-emerald-500 text-xl" />
-                                    </div>
-                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Other Staff</span>
-                                </div>
-                                <p className="text-4xl font-black text-emerald-500 tracking-tighter relative z-10 bg-gradient-to-br from-emerald-400 to-emerald-600 bg-clip-text text-transparent">
-                                    {analytics.staffCount || 0}
-                                </p>
-                                <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Administrative & Ops</p>
-                            </div>
-
-                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 p-6 rounded-[2px] hover:border-cyan-500/30 transition-all group relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-amber-500/10"></div>
-                                <div className="flex items-center justify-between mb-4 relative z-10">
-                                    <div className="p-2 bg-amber-500/10 rounded-[2px]">
-                                        <FaMapMarkerAlt className="text-amber-500 text-xl" />
-                                    </div>
-                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Network</span>
-                                </div>
-                                <p className="text-4xl font-black text-amber-500 tracking-tighter relative z-10 bg-gradient-to-br from-amber-400 to-amber-600 bg-clip-text text-transparent">
-                                    {analytics.totalCentres || analytics.centreDistribution.length}
-                                </p>
-                                <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Total Locations</p>
-                            </div>
-                        </div>
-
-                        {/* Charts Grid */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                            {/* Department Distribution Pie Chart */}
-                            {/* Department Distribution Bar Chart - Scrollable to show ALL */}
-                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                    <FaChartPie className="text-4xl text-cyan-500" />
-                                </div>
-                                <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
-                                    <span className="w-1 h-4 bg-cyan-500 rounded-full"></span>
-                                    Department Distribution
-                                </h3>
-                                <div className="h-72 w-full overflow-x-auto custom-scrollbar">
-                                    <div
-                                        className="h-full"
-                                        style={{ width: `${Math.max(analytics.departmentDistribution.length * 70, 400)}px` }}
-                                    >
-                                        <BarChart
-                                            width={Math.max(analytics.departmentDistribution.length * 70, 400)}
-                                            height={260}
-                                            data={analytics.departmentDistribution.map(d => ({
-                                                name: d._id || "Unassigned",
-                                                count: d.count
-                                            }))}
-                                            barSize={20}
-                                            margin={{ top: 10, right: 10, left: -20, bottom: 60 }}
+                                    <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
+                                        <span className="w-1 h-4 bg-cyan-500 rounded-full"></span>
+                                        Department Distribution
+                                    </h3>
+                                    <div className="h-72 w-full overflow-x-auto custom-scrollbar">
+                                        <div
+                                            className="h-full"
+                                            style={{ width: `${Math.max(analytics.departmentDistribution.length * 70, 400)}px` }}
                                         >
-                                            <defs>
-                                                <linearGradient id="deptGradient" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stopColor="#06b6d4" stopOpacity={1} />
-                                                    <stop offset="100%" stopColor="#0891b2" stopOpacity={0.6} />
-                                                </linearGradient>
-                                            </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke={localTheme === 'dark' ? "#374151" : "#e5e7eb"} opacity={0.2} vertical={false} />
-                                            <XAxis
-                                                dataKey="name"
-                                                stroke="#9ca3af"
-                                                fontSize={9}
-                                                fontWeight="bold"
-                                                tickLine={true}
-                                                axisLine={true}
-                                                angle={-45}
-                                                textAnchor="end"
-                                                interval={0}
-                                                strokeOpacity={0.4}
-                                            />
-                                            <YAxis
-                                                stroke="#9ca3af"
-                                                fontSize={9}
-                                                fontWeight="bold"
-                                                tickLine={false}
-                                                axisLine={false}
-                                                strokeOpacity={0.4}
-                                            />
-                                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-                                            <Bar dataKey="count" fill="url(#deptGradient)" radius={[4, 4, 0, 0]} />
-                                        </BarChart>
+                                            <BarChart
+                                                width={Math.max(analytics.departmentDistribution.length * 70, 400)}
+                                                height={260}
+                                                data={analytics.departmentDistribution.map(d => ({
+                                                    name: d._id || "Unassigned",
+                                                    count: d.count
+                                                }))}
+                                                barSize={20}
+                                                margin={{ top: 10, right: 10, left: -20, bottom: 60 }}
+                                            >
+                                                <defs>
+                                                    <linearGradient id="deptGradient" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor="#06b6d4" stopOpacity={1} />
+                                                        <stop offset="100%" stopColor="#0891b2" stopOpacity={0.6} />
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#374151" : "#e5e7eb"} opacity={0.2} vertical={false} />
+                                                <XAxis
+                                                    dataKey="name"
+                                                    stroke="#9ca3af"
+                                                    fontSize={9}
+                                                    fontWeight="bold"
+                                                    tickLine={true}
+                                                    axisLine={true}
+                                                    angle={-45}
+                                                    textAnchor="end"
+                                                    interval={0}
+                                                    strokeOpacity={0.4}
+                                                />
+                                                <YAxis
+                                                    stroke="#9ca3af"
+                                                    fontSize={9}
+                                                    fontWeight="bold"
+                                                    tickLine={false}
+                                                    axisLine={false}
+                                                    strokeOpacity={0.4}
+                                                />
+                                                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                                                <Bar dataKey="count" fill="url(#deptGradient)" radius={[4, 4, 0, 0]} />
+                                            </BarChart>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Designation Distribution Bar Chart - Scrollable to show ALL */}
-                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                    <FaChartPie className="text-4xl text-emerald-500" />
-                                </div>
-                                <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
-                                    <span className="w-1 h-4 bg-emerald-500 rounded-full"></span>
-                                    Designation Distribution
-                                </h3>
-                                <div className="h-72 w-full overflow-x-auto custom-scrollbar">
-                                    <div
-                                        className="h-full"
-                                        style={{ width: `${Math.max(analytics.designationDistribution.length * 60, 400)}px` }}
-                                    >
-                                        <BarChart
-                                            width={Math.max(analytics.designationDistribution.length * 60, 400)}
-                                            height={260}
-                                            data={analytics.designationDistribution.map(d => ({
-                                                name: d._id || "Unassigned",
-                                                count: d.count
-                                            }))}
-                                            barSize={20}
-                                            margin={{ top: 10, right: 10, left: -20, bottom: 60 }}
+                                {/* Designation Distribution Bar Chart - Scrollable to show ALL */}
+                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                        <FaChartPie className="text-4xl text-emerald-500" />
+                                    </div>
+                                    <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
+                                        <span className="w-1 h-4 bg-emerald-500 rounded-full"></span>
+                                        Designation Distribution
+                                    </h3>
+                                    <div className="h-72 w-full overflow-x-auto custom-scrollbar">
+                                        <div
+                                            className="h-full"
+                                            style={{ width: `${Math.max(analytics.designationDistribution.length * 60, 400)}px` }}
                                         >
-                                            <defs>
-                                                <linearGradient id="desigGradient" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
-                                                    <stop offset="100%" stopColor="#059669" stopOpacity={0.6} />
-                                                </linearGradient>
-                                            </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke={localTheme === 'dark' ? "#374151" : "#e5e7eb"} opacity={0.2} vertical={false} />
-                                            <XAxis
-                                                dataKey="name"
-                                                stroke="#9ca3af"
-                                                fontSize={9}
-                                                fontWeight="bold"
-                                                tickLine={true}
-                                                axisLine={true}
-                                                angle={-45}
-                                                textAnchor="end"
-                                                interval={0}
-                                                strokeOpacity={0.4}
-                                            />
-                                            <YAxis
-                                                stroke="#9ca3af"
-                                                fontSize={9}
-                                                fontWeight="bold"
-                                                tickLine={false}
-                                                axisLine={false}
-                                                strokeOpacity={0.4}
-                                            />
-                                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-                                            <Bar dataKey="count" fill="url(#desigGradient)" radius={[4, 4, 0, 0]} />
-                                        </BarChart>
+                                            <BarChart
+                                                width={Math.max(analytics.designationDistribution.length * 60, 400)}
+                                                height={260}
+                                                data={analytics.designationDistribution.map(d => ({
+                                                    name: d._id || "Unassigned",
+                                                    count: d.count
+                                                }))}
+                                                barSize={20}
+                                                margin={{ top: 10, right: 10, left: -20, bottom: 60 }}
+                                            >
+                                                <defs>
+                                                    <linearGradient id="desigGradient" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
+                                                        <stop offset="100%" stopColor="#059669" stopOpacity={0.6} />
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" stroke={localTheme === 'dark' ? "#374151" : "#e5e7eb"} opacity={0.2} vertical={false} />
+                                                <XAxis
+                                                    dataKey="name"
+                                                    stroke="#9ca3af"
+                                                    fontSize={9}
+                                                    fontWeight="bold"
+                                                    tickLine={true}
+                                                    axisLine={true}
+                                                    angle={-45}
+                                                    textAnchor="end"
+                                                    interval={0}
+                                                    strokeOpacity={0.4}
+                                                />
+                                                <YAxis
+                                                    stroke="#9ca3af"
+                                                    fontSize={9}
+                                                    fontWeight="bold"
+                                                    tickLine={false}
+                                                    axisLine={false}
+                                                    strokeOpacity={0.4}
+                                                />
+                                                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                                                <Bar dataKey="count" fill="url(#desigGradient)" radius={[4, 4, 0, 0]} />
+                                            </BarChart>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Monthly Joining Trend Area Chart */}
-                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                    <FaUsers className="text-4xl text-blue-500" />
+                                {/* Monthly Joining Trend Area Chart */}
+                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                        <FaUsers className="text-4xl text-blue-500" />
+                                    </div>
+                                    <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
+                                        <span className="w-1 h-4 bg-blue-500 rounded-full"></span>
+                                        Monthly Joining Trend
+                                    </h3>
+                                    <div className="h-72 w-full">
+                                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
+                                            <AreaChart data={analytics.monthlyJoiningTrend.map(m => ({
+                                                name: `${m._id.month}/${m._id.year}`,
+                                                count: m.count
+                                            }))}>
+                                                <defs>
+                                                    <linearGradient id="colorJoining" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
+                                                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                                                <XAxis dataKey="name" stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} />
+                                                <YAxis stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
+                                                <Tooltip content={<CustomTooltip />} />
+                                                <Area type="monotone" dataKey="count" stroke="#06b6d4" fillOpacity={1} fill="url(#colorJoining)" strokeWidth={2} />
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    </div>
                                 </div>
-                                <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
-                                    <span className="w-1 h-4 bg-blue-500 rounded-full"></span>
-                                    Monthly Joining Trend
-                                </h3>
-                                <div className="h-72 w-full">
-                                    <ResponsiveContainer width="100%" height="100%" debounce={100}>
-                                        <AreaChart data={analytics.monthlyJoiningTrend.map(m => ({
-                                            name: `${m._id.month}/${m._id.year}`,
-                                            count: m.count
-                                        }))}>
-                                            <defs>
-                                                <linearGradient id="colorJoining" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
-                                                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
-                                                </linearGradient>
-                                            </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
-                                            <XAxis dataKey="name" stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} />
-                                            <YAxis stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} />
-                                            <Tooltip content={<CustomTooltip />} />
-                                            <Area type="monotone" dataKey="count" stroke="#06b6d4" fillOpacity={1} fill="url(#colorJoining)" strokeWidth={2} />
-                                        </AreaChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
 
-                            {/* Centre Distribution Bar Chart - Left Side */}
-                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl lg:col-span-2 overflow-hidden relative group">
-                                <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                                    <FaMapMarkerAlt className="text-6xl text-amber-500" />
-                                </div>
-                                <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-8 flex items-center gap-2">
-                                    <span className="w-1 h-4 bg-amber-500 rounded-full"></span>
-                                    Geographic Distribution
-                                </h3>
-                                <div className="h-80 w-full overflow-x-auto custom-scrollbar">
-                                    <div
-                                        className="h-full"
-                                        style={{ width: `${Math.max(analytics.centreDistribution.length * 80, 600)}px` }}
-                                    >
-                                        <BarChart
-                                            width={Math.max(analytics.centreDistribution.length * 80, 600)}
-                                            height={300}
-                                            data={analytics.centreDistribution.map(c => ({
-                                                name: c._id || "Unassigned",
-                                                count: c.count
-                                            }))}
-                                            barSize={32}
-                                            margin={{ top: 20, right: 30, left: 10, bottom: 80 }}
+                                {/* Centre Distribution Bar Chart - Left Side */}
+                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl lg:col-span-2 overflow-hidden relative group">
+                                    <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                                        <FaMapMarkerAlt className="text-6xl text-amber-500" />
+                                    </div>
+                                    <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-8 flex items-center gap-2">
+                                        <span className="w-1 h-4 bg-amber-500 rounded-full"></span>
+                                        Geographic Distribution
+                                    </h3>
+                                    <div className="h-80 w-full overflow-x-auto custom-scrollbar">
+                                        <div
+                                            className="h-full"
+                                            style={{ width: `${Math.max(analytics.centreDistribution.length * 80, 600)}px` }}
                                         >
-                                            <defs>
-                                                <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stopColor="#f59e0b" stopOpacity={1} />
-                                                    <stop offset="100%" stopColor="#d97706" stopOpacity={0.6} />
-                                                </linearGradient>
-                                            </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke={localTheme === 'dark' ? "#374151" : "#e5e7eb"} opacity={0.2} vertical={false} />
-                                            <XAxis
-                                                dataKey="name"
-                                                stroke="#9ca3af"
-                                                fontSize={10}
-                                                fontWeight="bold"
-                                                tickLine={true}
-                                                axisLine={true}
-                                                angle={-45}
-                                                textAnchor="end"
-                                                interval={0}
-                                                strokeOpacity={0.4}
-                                            />
-                                            <YAxis
-                                                stroke="#9ca3af"
-                                                fontSize={10}
-                                                fontWeight="bold"
-                                                tickLine={false}
-                                                axisLine={false}
-                                                strokeOpacity={0.4}
-                                            />
-                                            <Tooltip
-                                                content={<CustomTooltip />}
-                                                cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-                                            />
-                                            <Bar dataKey="count" fill="url(#barGradient)" radius={[4, 4, 0, 0]} />
-                                        </BarChart>
+                                            <BarChart
+                                                width={Math.max(analytics.centreDistribution.length * 80, 600)}
+                                                height={300}
+                                                data={analytics.centreDistribution.map(c => ({
+                                                    name: c._id || "Unassigned",
+                                                    count: c.count
+                                                }))}
+                                                barSize={32}
+                                                margin={{ top: 20, right: 30, left: 10, bottom: 80 }}
+                                            >
+                                                <defs>
+                                                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor="#f59e0b" stopOpacity={1} />
+                                                        <stop offset="100%" stopColor="#d97706" stopOpacity={0.6} />
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" stroke={localTheme === 'dark' ? "#374151" : "#e5e7eb"} opacity={0.2} vertical={false} />
+                                                <XAxis
+                                                    dataKey="name"
+                                                    stroke="#9ca3af"
+                                                    fontSize={10}
+                                                    fontWeight="bold"
+                                                    tickLine={true}
+                                                    axisLine={true}
+                                                    angle={-45}
+                                                    textAnchor="end"
+                                                    interval={0}
+                                                    strokeOpacity={0.4}
+                                                />
+                                                <YAxis
+                                                    stroke="#9ca3af"
+                                                    fontSize={10}
+                                                    fontWeight="bold"
+                                                    tickLine={false}
+                                                    axisLine={false}
+                                                    strokeOpacity={0.4}
+                                                />
+                                                <Tooltip
+                                                    content={<CustomTooltip />}
+                                                    cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                                                />
+                                                <Bar dataKey="count" fill="url(#barGradient)" radius={[4, 4, 0, 0]} />
+                                            </BarChart>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Detailed Employment Breakdown */}
-                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                    <FaUsers className="text-4xl text-cyan-500" />
-                                </div>
-                                <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
-                                    <span className="w-1 h-4 bg-cyan-500 rounded-full"></span>
-                                    Teacher Breakdown (FT/PT)
-                                </h3>
-                                <div className="h-64 w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie
-                                                data={analytics.teacherStaffEmployment?.filter(d => d._id.isTeacher).map(d => ({
-                                                    name: (d._id.employment || "Full-time").toUpperCase(),
-                                                    value: d.count
-                                                })) || []}
-                                                cx="50%"
-                                                cy="50%"
-                                                innerRadius={50}
-                                                outerRadius={70}
-                                                paddingAngle={5}
-                                                dataKey="value"
-                                            >
-                                                {(analytics.teacherStaffEmployment?.filter(d => d._id.isTeacher) || []).map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={['#06b6d4', '#0ea5e9', '#3b82f6'][index % 3]} />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip content={<CustomTooltip />} />
-                                            <Legend verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '9px', textTransform: 'uppercase', fontWeight: 'bold' }} />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-
-                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                    <FaUsers className="text-4xl text-emerald-500" />
-                                </div>
-                                <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
-                                    <span className="w-1 h-4 bg-emerald-500 rounded-full"></span>
-                                    Admin Staff Breakdown
-                                </h3>
-                                <div className="h-64 w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie
-                                                data={analytics.teacherStaffEmployment?.filter(d => !d._id.isTeacher).map(d => ({
-                                                    name: (d._id.employment || "Regular").toUpperCase(),
-                                                    value: d.count
-                                                })) || []}
-                                                cx="50%"
-                                                cy="50%"
-                                                innerRadius={50}
-                                                outerRadius={70}
-                                                paddingAngle={5}
-                                                dataKey="value"
-                                            >
-                                                {(analytics.teacherStaffEmployment?.filter(d => !d._id.isTeacher) || []).map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={['#10b981', '#059669', '#34d399'][index % 3]} />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip content={<CustomTooltip />} />
-                                            <Legend verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '9px', textTransform: 'uppercase', fontWeight: 'bold' }} />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Demographics Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                            {/* Gender Distribution Pie Chart */}
-                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                    <FaUsers className="text-4xl text-pink-500" />
-                                </div>
-                                <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
-                                    <span className="w-1 h-4 bg-pink-500 rounded-full"></span>
-                                    Gender Stats
-                                </h3>
-                                <div className="h-64 w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie
-                                                data={analytics.genderDistribution.map(d => ({ name: d._id || 'Not Specified', value: d.count }))}
-                                                cx="50%"
-                                                cy="50%"
-                                                innerRadius={60}
-                                                outerRadius={80}
-                                                paddingAngle={5}
-                                                dataKey="value"
-                                            >
-                                                {analytics.genderDistribution.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={['#ec4899', '#3b82f6', '#9ca3af'][index % 3]} />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip content={<CustomTooltip />} />
-                                            <Legend verticalAlign="bottom" height={36} />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-
-                            {/* State Distribution Pie Chart */}
-                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                    <FaMapMarkerAlt className="text-4xl text-orange-500" />
-                                </div>
-                                <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
-                                    <span className="w-1 h-4 bg-orange-500 rounded-full"></span>
-                                    State Wise
-                                </h3>
-                                <div className="h-64 w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie
-                                                data={analytics.stateDistribution?.map(d => ({ name: d._id || 'Unknown', value: d.count })) || []}
-                                                cx="50%"
-                                                cy="50%"
-                                                innerRadius={60}
-                                                outerRadius={80}
-                                                paddingAngle={5}
-                                                dataKey="value"
-                                            >
-                                                {(analytics.stateDistribution || []).map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={['#f97316', '#eab308', '#84cc16', '#22c55e', '#06b6d4'][index % 5]} />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip content={<CustomTooltip />} />
-                                            <Legend verticalAlign="bottom" height={36} />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-
-                            {/* City Distribution Pie Chart */}
-                            <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                    <FaBuilding className="text-4xl text-indigo-500" />
-                                </div>
-                                <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
-                                    <span className="w-1 h-4 bg-indigo-500 rounded-full"></span>
-                                    City Wise
-                                </h3>
-                                <div className="h-64 w-full overflow-y-auto custom-scrollbar">
-                                    <div className="h-[300px] w-full min-w-[300px]">
-                                        <ResponsiveContainer width="100%" height="100%">
+                                {/* Detailed Employment Breakdown */}
+                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                        <FaUsers className="text-4xl text-cyan-500" />
+                                    </div>
+                                    <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
+                                        <span className="w-1 h-4 bg-cyan-500 rounded-full"></span>
+                                        Teacher Breakdown (FT/PT)
+                                    </h3>
+                                    <div className="h-64 w-full">
+                                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                                             <PieChart>
                                                 <Pie
-                                                    data={analytics.cityDistribution?.map(d => ({ name: d._id || 'Unknown', value: d.count })) || []}
+                                                    data={analytics.teacherStaffEmployment?.filter(d => d._id.isTeacher).map(d => ({
+                                                        name: (d._id.employment || "Full-time").toUpperCase(),
+                                                        value: d.count
+                                                    })) || []}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={50}
+                                                    outerRadius={70}
+                                                    paddingAngle={5}
+                                                    dataKey="value"
+                                                >
+                                                    {(analytics.teacherStaffEmployment?.filter(d => d._id.isTeacher) || []).map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={['#06b6d4', '#0ea5e9', '#3b82f6'][index % 3]} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip content={<CustomTooltip />} />
+                                                <Legend verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '9px', textTransform: 'uppercase', fontWeight: 'bold' }} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                        <FaUsers className="text-4xl text-emerald-500" />
+                                    </div>
+                                    <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
+                                        <span className="w-1 h-4 bg-emerald-500 rounded-full"></span>
+                                        Admin Staff Breakdown
+                                    </h3>
+                                    <div className="h-64 w-full">
+                                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
+                                            <PieChart>
+                                                <Pie
+                                                    data={analytics.teacherStaffEmployment?.filter(d => !d._id.isTeacher).map(d => ({
+                                                        name: (d._id.employment || "Regular").toUpperCase(),
+                                                        value: d.count
+                                                    })) || []}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={50}
+                                                    outerRadius={70}
+                                                    paddingAngle={5}
+                                                    dataKey="value"
+                                                >
+                                                    {(analytics.teacherStaffEmployment?.filter(d => !d._id.isTeacher) || []).map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={['#10b981', '#059669', '#34d399'][index % 3]} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip content={<CustomTooltip />} />
+                                                <Legend verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '9px', textTransform: 'uppercase', fontWeight: 'bold' }} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Demographics Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                {/* Gender Distribution Pie Chart */}
+                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                        <FaUsers className="text-4xl text-pink-500" />
+                                    </div>
+                                    <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
+                                        <span className="w-1 h-4 bg-pink-500 rounded-full"></span>
+                                        Gender Stats
+                                    </h3>
+                                    <div className="h-64 w-full">
+                                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
+                                            <PieChart>
+                                                <Pie
+                                                    data={analytics.genderDistribution.map(d => ({ name: d._id || 'Not Specified', value: d.count }))}
                                                     cx="50%"
                                                     cy="50%"
                                                     innerRadius={60}
@@ -1003,317 +939,392 @@ const EmployeeList = () => {
                                                     paddingAngle={5}
                                                     dataKey="value"
                                                 >
-                                                    {(analytics.cityDistribution || []).map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={['#6366f1', '#8b5cf6', '#d946ef', '#0ea5e9', '#14b8a6'][index % 5]} />
+                                                    {analytics.genderDistribution.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={['#ec4899', '#3b82f6', '#9ca3af'][index % 3]} />
                                                     ))}
                                                 </Pie>
                                                 <Tooltip content={<CustomTooltip />} />
-                                                <Legend
-                                                    layout="vertical"
-                                                    verticalAlign="middle"
-                                                    align="right"
-                                                    wrapperStyle={{ fontSize: '10px', paddingLeft: '10px' }}
-                                                />
+                                                <Legend verticalAlign="bottom" height={36} />
                                             </PieChart>
                                         </ResponsiveContainer>
                                     </div>
                                 </div>
+
+                                {/* State Distribution Pie Chart */}
+                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                        <FaMapMarkerAlt className="text-4xl text-orange-500" />
+                                    </div>
+                                    <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
+                                        <span className="w-1 h-4 bg-orange-500 rounded-full"></span>
+                                        State Wise
+                                    </h3>
+                                    <div className="h-64 w-full">
+                                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
+                                            <PieChart>
+                                                <Pie
+                                                    data={analytics.stateDistribution?.map(d => ({ name: d._id || 'Unknown', value: d.count })) || []}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={60}
+                                                    outerRadius={80}
+                                                    paddingAngle={5}
+                                                    dataKey="value"
+                                                >
+                                                    {(analytics.stateDistribution || []).map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={['#f97316', '#eab308', '#84cc16', '#22c55e', '#06b6d4'][index % 5]} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip content={<CustomTooltip />} />
+                                                <Legend verticalAlign="bottom" height={36} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                {/* City Distribution Pie Chart */}
+                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                        <FaBuilding className="text-4xl text-indigo-500" />
+                                    </div>
+                                    <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
+                                        <span className="w-1 h-4 bg-indigo-500 rounded-full"></span>
+                                        City Wise
+                                    </h3>
+                                    <div className="h-64 w-full overflow-y-auto custom-scrollbar">
+                                        <div className="h-[300px] w-full min-w-[300px]">
+                                            <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
+                                                <PieChart>
+                                                    <Pie
+                                                        data={analytics.cityDistribution?.map(d => ({ name: d._id || 'Unknown', value: d.count })) || []}
+                                                        cx="50%"
+                                                        cy="50%"
+                                                        innerRadius={60}
+                                                        outerRadius={80}
+                                                        paddingAngle={5}
+                                                        dataKey="value"
+                                                    >
+                                                        {(analytics.cityDistribution || []).map((entry, index) => (
+                                                            <Cell key={`cell-${index}`} fill={['#6366f1', '#8b5cf6', '#d946ef', '#0ea5e9', '#14b8a6'][index % 5]} />
+                                                        ))}
+                                                    </Pie>
+                                                    <Tooltip content={<CustomTooltip />} />
+                                                    <Legend
+                                                        layout="vertical"
+                                                        verticalAlign="middle"
+                                                        align="right"
+                                                        wrapperStyle={{ fontSize: '10px', paddingLeft: '10px' }}
+                                                    />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Filters */}
-                <div className="bg-white dark:bg-[#131619] p-6 rounded-[2px] shadow-xl border border-gray-200 dark:border-gray-800">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6 items-end">
-                        <div className="lg:col-span-1 space-y-2">
-                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Search</label>
-                            <div className="relative group">
-                                <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-600 group-focus-within:text-cyan-500 transition-colors" />
-                                <input
-                                    type="text"
-                                    placeholder="NAME / ID..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-800 rounded-[2px] focus:border-cyan-500/50 outline-none text-gray-900 dark:text-white transition-all text-xs font-bold uppercase tracking-wider placeholder:text-gray-500 dark:placeholder:text-gray-700"
-                                />
-                            </div>
+                    {/* Filters */}
+                    <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} border p-8 space-y-6 rounded-[2px]`}>
+                        <div className="flex items-center gap-3">
+                            <span className="p-2 bg-cyan-500/10 text-cyan-500 rounded-[2px]">
+                                <FaFilter size={12} />
+                            </span>
+                            <h3 className={`text-[12px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Organizational Filters</h3>
                         </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                            <div className="space-y-2">
+                                <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Search</label>
+                                <div className="relative group">
+                                    <FaSearch className={`absolute left-4 top-1/2 transform -translate-y-1/2 ${isDarkMode ? 'text-gray-600 group-focus-within:text-cyan-500' : 'text-gray-400 group-focus-within:text-cyan-600'} transition-colors`} />
+                                    <input
+                                        type="text"
+                                        placeholder="NAME / ID..."
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        className={`w-full pl-10 pr-4 py-3 bg-transparent border rounded-[2px] transition-all text-xs font-bold uppercase tracking-wider placeholder:text-gray-700 outline-none ${isDarkMode ? 'text-white border-gray-800 focus:border-cyan-500/50' : 'text-gray-900 border-gray-200 focus:border-cyan-500/50'}`}
+                                    />
+                                </div>
+                            </div>
 
-                        {[
-                            { label: "Department", value: filters.department, key: "department", options: departments, optKey: "departmentName" },
-                            { label: "Designation", value: filters.designation, key: "designation", options: designations, optKey: "name" },
-                            { label: "Centre", value: filters.centre, key: "centre", options: centres, optKey: "centreName" }
-                        ].map((filter, idx) => (
-                            <div key={idx} className="space-y-2">
-                                <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">{filter.label}</label>
+                            {[
+                                { label: "Department", value: filters.department, key: "department", options: departments, optKey: "departmentName" },
+                                { label: "Designation", value: filters.designation, key: "designation", options: designations, optKey: "name" },
+                                { label: "Centre", value: filters.centre, key: "centre", options: centres, optKey: "centreName" }
+                            ].map((filter, idx) => (
+                                <div key={idx} className="space-y-2">
+                                    <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{filter.label}</label>
+                                    <select
+                                        value={filter.value}
+                                        onChange={(e) => handleFilterChange(filter.key, e.target.value)}
+                                        className={`w-full px-4 py-3 bg-transparent border rounded-[2px] transition-all text-[10px] font-black uppercase tracking-widest outline-none cursor-pointer ${isDarkMode ? 'text-gray-400 border-gray-800 focus:border-cyan-500/50' : 'text-gray-600 border-gray-200 focus:border-cyan-500/50'}`}
+                                    >
+                                        <option value="" className={isDarkMode ? 'bg-[#131619]' : 'bg-white'}>ALL {filter.label.toUpperCase()}S</option>
+                                        {filter.options.map(opt => (
+                                            <option key={opt._id} value={opt._id} className={isDarkMode ? 'bg-[#131619]' : 'bg-white'}>{opt[filter.optKey].toUpperCase()}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            ))}
+
+                            <div className="space-y-2">
+                                <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Status</label>
                                 <select
-                                    value={filter.value}
-                                    onChange={(e) => handleFilterChange(filter.key, e.target.value)}
-                                    className="w-full px-4 py-3 bg-gray-50 dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-800 rounded-[2px] focus:border-cyan-500/50 outline-none text-gray-900 dark:text-white transition-all text-xs font-bold uppercase tracking-wider appearance-none cursor-pointer text-gray-600 dark:text-gray-400"
+                                    value={filters.status}
+                                    onChange={(e) => handleFilterChange("status", e.target.value)}
+                                    className={`w-full px-4 py-3 bg-transparent border rounded-[2px] transition-all text-[10px] font-black uppercase tracking-widest outline-none cursor-pointer ${isDarkMode ? 'text-gray-400 border-gray-800 focus:border-cyan-500/50' : 'text-gray-600 border-gray-200 focus:border-cyan-500/50'}`}
                                 >
-                                    <option value="">All {filter.label}s</option>
-                                    {filter.options.map(opt => (
-                                        <option key={opt._id} value={opt._id}>{opt[filter.optKey]}</option>
-                                    ))}
+                                    <option value="" className={isDarkMode ? 'bg-[#131619]' : 'bg-white'}>ALL STATUS</option>
+                                    <option value="Active" className={isDarkMode ? 'bg-[#131619]' : 'bg-white'}>ACTIVE</option>
+                                    <option value="Inactive" className={isDarkMode ? 'bg-[#131619]' : 'bg-white'}>INACTIVE</option>
+                                    <option value="Resigned" className={isDarkMode ? 'bg-[#131619]' : 'bg-white'}>RESIGNED</option>
+                                    <option value="Terminated" className={isDarkMode ? 'bg-[#131619]' : 'bg-white'}>TERMINATED</option>
                                 </select>
                             </div>
-                        ))}
 
-                        <div className="space-y-2">
-                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Status</label>
-                            <select
-                                value={filters.status}
-                                onChange={(e) => handleFilterChange("status", e.target.value)}
-                                className="w-full px-4 py-3 bg-gray-50 dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-800 rounded-[2px] focus:border-cyan-500/50 outline-none text-gray-900 dark:text-white transition-all text-xs font-bold uppercase tracking-wider appearance-none cursor-pointer text-gray-600 dark:text-gray-400"
-                            >
-                                <option value="">All Status</option>
-                                <option value="Active">Active</option>
-                                <option value="Inactive">Inactive</option>
-                                <option value="Resigned">Resigned</option>
-                                <option value="Terminated">Terminated</option>
-                            </select>
+                            <div className="flex items-end">
+                                <button
+                                    onClick={handleClearFilters}
+                                    className={`w-full h-[41px] flex items-center justify-center gap-2 border rounded-[2px] text-[10px] font-black uppercase tracking-widest transition-all group ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-400 hover:text-red-500 hover:border-red-500/50' : 'bg-gray-100 border-gray-200 text-gray-500 hover:text-red-600 hover:border-red-500/50'}`}
+                                >
+                                    <FaFilter className="group-hover:text-red-500 transition-colors" size={10} /> Reset
+                                </button>
+                            </div>
                         </div>
-
-                        <button
-                            onClick={handleClearFilters}
-                            className="h-[46px] flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-800 hover:bg-red-500/20 hover:text-red-500 text-gray-600 dark:text-gray-400 px-6 rounded-[2px] text-[10px] font-black uppercase tracking-widest transition-all border border-transparent hover:border-red-500/20 group"
-                        >
-                            <FaFilter className="group-hover:text-red-500 transition-colors" /> Clear
-                        </button>
                     </div>
-                </div>
 
-                {/* Desktop Table View */}
-                <div className="hidden md:block bg-white dark:bg-[#131619] rounded-[2rem] shadow-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-                    {loading ? (
-                        <div className="flex items-center justify-center h-64">
-                            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-cyan-500"></div>
-                        </div>
-                    ) : employees.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-                            <FaSearch size={40} className="mb-4 opacity-20" />
-                            <p className="font-black uppercase tracking-widest text-sm">No employees found</p>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="bg-gray-50 dark:bg-[#1a1f24]/50 border-b border-gray-200 dark:border-gray-800">
-                                        <th className="px-6 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-widest w-16">
-                                            S.No
-                                        </th>
-                                        {["Employee", "Email", "Department", "Designation", "Centre", "Status", "Actions"].map((head, i) => (
-                                            <th key={i} className="px-6 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                                                {head}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-                                    {employees.map((employee, index) => (
-                                        <tr key={employee._id} className="hover:bg-cyan-500/[0.02] transition-colors group">
-                                            <td className="px-6 py-4 whitespace-nowrap text-[10px] font-black text-gray-600 font-mono">
-                                                {(pagination.currentPage - 1) * 10 + index + 1}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-700 overflow-hidden flex-shrink-0 group-hover:border-cyan-500/50 transition-colors">
-                                                        {employee.profileImage && !employee.profileImage.startsWith('undefined/') ? (
-                                                            <img src={employee.profileImage} alt="" className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            <div className="w-full h-full flex items-center justify-center text-[10px] font-black text-cyan-500">
-                                                                {employee.name?.charAt(0)}
+                    {/* Desktop Table View */}
+                    <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} border rounded-[2px] overflow-hidden transition-all`}>
+                        {loading ? (
+                            <div className="flex items-center justify-center h-64">
+                                <div className="flex flex-col items-center gap-4">
+                                    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-cyan-500"></div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-cyan-500 animate-pulse">Synchronizing Workforce Data...</p>
+                                </div>
+                            </div>
+                        ) : employees.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-64 text-gray-500 space-y-4">
+                                <FaSearch size={30} className="opacity-20" />
+                                <p className="font-black uppercase tracking-[0.2em] text-[10px]">No active employee vectors found</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto custom-scrollbar">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className={`${isDarkMode ? 'bg-[#0a0a0b] border-gray-800' : 'bg-gray-50 border-gray-200'} border-b`}>
+                                            <th className={`px-6 py-5 text-left text-[9px] font-black uppercase tracking-widest w-16 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>S/N</th>
+                                            {["Employee Structure", "Contact Vector", "Operational Unit", "Designation", "Centre Unit", "Status", "Manual Overrides"].map((head, i) => (
+                                                <th key={i} className={`px-6 py-5 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                    {head}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
+                                        {employees.map((employee, index) => (
+                                            <tr key={employee._id} className={`${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'} transition-all group cursor-pointer`}>
+                                                <td className={`px-6 py-4 text-[10px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                    {(pagination.currentPage - 1) * 10 + index + 1}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={`w-10 h-10 rounded-[2px] border overflow-hidden flex-shrink-0 transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700 group-hover:border-cyan-500/50' : 'bg-gray-100 border-gray-300 group-hover:border-cyan-500/50'}`}>
+                                                            {employee.profileImage && !employee.profileImage.startsWith('undefined/') ? (
+                                                                <img src={employee.profileImage} alt="" className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <div className="w-full h-full flex items-center justify-center text-[11px] font-black text-cyan-500 uppercase">
+                                                                    {employee.name?.charAt(0)}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <div className={`text-[11px] font-black uppercase tracking-tight transition-all ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>
+                                                                {employee.name}
                                                             </div>
+                                                            <div className="text-[8px] font-bold text-gray-500 uppercase mt-1 tracking-wider">
+                                                                {employee.employeeId}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{employee.email}</div>
+                                                    <div className="text-[9px] font-black text-cyan-500 uppercase tracking-widest mt-0.5">{employee.phoneNumber || "NO CONTACT"}</div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                        <FaBuilding className="text-cyan-500/50" size={10} />
+                                                        {employee.department?.departmentName || "N/A"}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-[2px] inline-block ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
+                                                        {employee.designation?.name || "N/A"}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className={`text-[10px] font-black uppercase tracking-tight flex items-center gap-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                        <FaMapMarkerAlt className="text-cyan-500/50" size={10} />
+                                                        {employee.primaryCentre?.centreName || "N/A"}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className={`px-3 py-1 rounded-[2px] text-[8px] font-black uppercase tracking-widest border ${employee.status === "Active" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"}`}>
+                                                        {employee.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <button
+                                                            onClick={() => navigate(`/hr/employee/letters/${employee._id}`)}
+                                                            className={`p-2 rounded-[2px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-white hover:bg-cyan-500/20' : 'bg-gray-100 text-gray-500 hover:text-gray-900 hover:bg-cyan-100'}`}
+                                                            title="Letters"
+                                                        >
+                                                            <FaFileAlt size={12} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => navigate(`/hr/employee/view/${employee._id}`)}
+                                                            className={`p-2 rounded-[2px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-white hover:bg-blue-500/20' : 'bg-gray-100 text-gray-500 hover:text-gray-900 hover:bg-blue-100'}`}
+                                                            title="View"
+                                                        >
+                                                            <FaEye size={12} />
+                                                        </button>
+                                                        {canEdit && (
+                                                            <button
+                                                                onClick={() => navigate(`/hr/employee/edit/${employee._id}`)}
+                                                                className={`p-2 rounded-[2px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-white hover:bg-emerald-500/20' : 'bg-gray-100 text-gray-500 hover:text-gray-900 hover:bg-emerald-100'}`}
+                                                                title="Edit"
+                                                            >
+                                                                <FaEdit size={12} />
+                                                            </button>
+                                                        )}
+                                                        {canDelete && (
+                                                            <button
+                                                                onClick={() => handleDelete(employee._id)}
+                                                                className={`p-2 rounded-[2px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-red-500 hover:bg-red-500/10' : 'bg-gray-100 text-gray-500 hover:text-red-600 hover:bg-red-100'}`}
+                                                                title="Delete"
+                                                            >
+                                                                <FaTrash size={12} />
+                                                            </button>
                                                         )}
                                                     </div>
-                                                    <div>
-                                                        <div className="text-sm font-bold text-gray-900 dark:text-white group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors uppercase tracking-tight">
-                                                            {employee.name}
-                                                        </div>
-                                                        <div className="text-[9px] font-black text-gray-600 uppercase tracking-widest mt-0.5">
-                                                            {employee.employeeId}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-xs font-medium text-gray-400 lowercase font-mono">
-                                                {employee.email}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="flex items-center gap-1.5 text-[10px] uppercase font-black tracking-wider text-gray-300">
-                                                    <FaBuilding className="text-gray-600" />
-                                                    {employee.department?.departmentName || "N/A"}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest bg-gray-100 dark:bg-gray-800/50 px-2 py-1 rounded">
-                                                    {employee.designation?.name || "N/A"}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="flex items-center gap-1 text-[10px] font-black text-gray-400 uppercase tracking-wider">
-                                                    <FaMapMarkerAlt className="text-gray-600" />
-                                                    {employee.primaryCentre?.centreName || "N/A"}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${employee.status === "Active" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-red-500/10 text-red-500 border-red-500/20"}`}>
-                                                    {employee.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        onClick={() => navigate(`/hr/employee/letters/${employee._id}`)}
-                                                        className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white bg-gray-100 dark:bg-gray-800 hover:bg-cyan-500/20 rounded-[2px] transition-all"
-                                                        title="Letters"
-                                                    >
-                                                        <FaFileAlt size={14} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => navigate(`/hr/employee/view/${employee._id}`)}
-                                                        className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white bg-gray-100 dark:bg-gray-800 hover:bg-blue-500/20 rounded-[2px] transition-all"
-                                                        title="View"
-                                                    >
-                                                        <FaEye size={14} />
-                                                    </button>
-                                                    {canEdit && (
-                                                        <button
-                                                            onClick={() => navigate(`/hr/employee/edit/${employee._id}`)}
-                                                            className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white bg-gray-100 dark:bg-gray-800 hover:bg-emerald-500/20 rounded-[2px] transition-all"
-                                                            title="Edit"
-                                                        >
-                                                            <FaEdit size={14} />
-                                                        </button>
-                                                    )}
-                                                    {canDelete && (
-                                                        <button
-                                                            onClick={() => handleDelete(employee._id)}
-                                                            className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white bg-gray-100 dark:bg-gray-800 hover:bg-red-500/20 rounded-[2px] transition-all"
-                                                            title="Delete"
-                                                        >
-                                                            <FaTrash size={14} />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
-
-                {/* Mobile Card View (md:hidden) */}
-                <div className="md:hidden grid grid-cols-1 gap-4">
-                    {loading ? (
-                        <div className="flex items-center justify-center h-32">
-                            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-cyan-500"></div>
-                        </div>
-                    ) : employees.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-[#131619] rounded-[2px] border border-gray-200 dark:border-gray-800 border-dashed">
-                            <p className="text-gray-500 dark:text-gray-300 text-sm uppercase">No employees found</p>
-                        </div>
-                    ) : (
-                        employees.map((employee) => (
-                            <div key={employee._id} className="bg-[#131619] rounded-[2px] p-5 border border-gray-800 shadow-lg relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-3">
-                                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${employee.status === "Active" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-red-500/10 text-red-500 border-red-500/20"}`}>
-                                        {employee.status}
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-4 mb-5">
-                                    <div className="w-14 h-14 rounded-[2px] bg-gray-800 border-2 border-gray-700 overflow-hidden flex-shrink-0 shadow-lg">
-                                        {employee.profileImage && !employee.profileImage.startsWith('undefined/') ? (
-                                            <img src={employee.profileImage} alt="" className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-lg font-black text-cyan-500 bg-gray-900">
-                                                {employee.name?.charAt(0)}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-black text-white uppercase tracking-tight leading-none mb-1">{employee.name}</h3>
-                                        <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest">{employee.employeeId}</p>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3 mb-5">
-                                    <div className="bg-black/30 p-3 rounded-[2px] border border-gray-800/50">
-                                        <div className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1">Department</div>
-                                        <div className="text-xs text-gray-300 font-bold truncate">{employee.department?.departmentName || "N/A"}</div>
-                                    </div>
-                                    <div className="bg-black/30 p-3 rounded-[2px] border border-gray-800/50">
-                                        <div className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1">Role</div>
-                                        <div className="text-xs text-gray-300 font-bold truncate">{employee.designation?.name || "N/A"}</div>
-                                    </div>
-                                    <div className="bg-black/30 p-3 rounded-[2px] border border-gray-800/50 col-span-2">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <FaEnvelope size={10} className="text-gray-600" />
-                                            <span className="text-[9px] text-gray-500 font-black uppercase tracking-widest">Contact</span>
-                                        </div>
-                                        <div className="text-xs text-gray-300 font-medium truncate font-mono">{employee.email}</div>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center justify-between gap-3 pt-4 border-t border-gray-800">
-                                    <button onClick={() => navigate(`/hr/employee/view/${employee._id}`)} className="flex-1 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-[2px] text-xs font-bold transition-all">
-                                        View
-                                    </button>
-                                    {canEdit && (
-                                        <button onClick={() => navigate(`/hr/employee/edit/${employee._id}`)} className="flex-1 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-500 rounded-[2px] text-xs font-bold transition-all border border-cyan-500/20">
-                                            Edit
-                                        </button>
-                                    )}
-                                    <button onClick={() => navigate(`/hr/employee/letters/${employee._id}`)} className="w-10 h-10 flex items-center justify-center bg-gray-800 rounded-[2px] text-gray-400 hover:text-white">
-                                        <FaFileAlt />
-                                    </button>
-                                </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
-                        ))
-                    )}
-                </div>
-
-                {/* Pagination */}
-                {pagination.totalPages > 1 && (
-                    <div className="flex flex-col md:flex-row items-center justify-between bg-[#131619] px-6 py-4 rounded-[2px] shadow-sm border border-gray-800 gap-4 transition-all">
-                        <div className="flex items-center gap-4">
-                            <form onSubmit={handleJumpPage} className="flex items-center gap-2">
-                                <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Go to:</span>
-                                <input
-                                    type="text"
-                                    value={jumpPage}
-                                    onChange={(e) => setJumpPage(e.target.value)}
-                                    placeholder="Pg"
-                                    className="w-12 h-10 bg-[#1a1f24] border border-gray-800 rounded-[2px] text-center text-xs text-white focus:border-cyan-500 outline-none transition-all font-bold"
-                                />
-                            </form>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <button
-                                onClick={() => handlePageChange(pagination.currentPage - 1)}
-                                disabled={pagination.currentPage === 1}
-                                className="w-10 h-10 flex items-center justify-center rounded-[2px] text-gray-500 hover:bg-gray-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-                            >
-                                <FaChevronLeft size={12} />
-                            </button>
-                            <div className="flex gap-1 overflow-x-auto max-w-[200px] md:max-w-none no-scrollbar">
-                                {renderPageNumbers()}
-                            </div>
-                            <button
-                                onClick={() => handlePageChange(pagination.currentPage + 1)}
-                                disabled={pagination.currentPage === pagination.totalPages}
-                                className="w-10 h-10 flex items-center justify-center rounded-[2px] text-gray-500 hover:bg-gray-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-                            >
-                                <FaChevronRight size={12} />
-                            </button>
-                        </div>
+                        )}
                     </div>
-                )}
-            </div>
-        </Layout>
+
+                    {/* Mobile Card View (md:hidden) */}
+                    <div className="md:hidden grid grid-cols-1 gap-4">
+                        {loading ? (
+                            <div className="flex items-center justify-center h-32">
+                                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-cyan-500"></div>
+                            </div>
+                        ) : employees.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-[#131619] rounded-[2px] border border-gray-200 dark:border-gray-800 border-dashed">
+                                <p className="text-gray-500 dark:text-gray-300 text-sm uppercase">No employees found</p>
+                            </div>
+                        ) : (
+                            employees.map((employee) => (
+                                <div key={employee._id} className="bg-[#131619] rounded-[2px] p-5 border border-gray-800 shadow-lg relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 p-3">
+                                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${employee.status === "Active" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-red-500/10 text-red-500 border-red-500/20"}`}>
+                                            {employee.status}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-4 mb-5">
+                                        <div className="w-14 h-14 rounded-[2px] bg-gray-800 border-2 border-gray-700 overflow-hidden flex-shrink-0 shadow-lg">
+                                            {employee.profileImage && !employee.profileImage.startsWith('undefined/') ? (
+                                                <img src={employee.profileImage} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-lg font-black text-cyan-500 bg-gray-900">
+                                                    {employee.name?.charAt(0)}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h3 className="text-lg font-black text-white uppercase tracking-tight leading-none mb-1">{employee.name}</h3>
+                                            <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest">{employee.employeeId}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3 mb-5">
+                                        <div className="bg-black/30 p-3 rounded-[2px] border border-gray-800/50">
+                                            <div className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1">Department</div>
+                                            <div className="text-xs text-gray-300 font-bold truncate">{employee.department?.departmentName || "N/A"}</div>
+                                        </div>
+                                        <div className="bg-black/30 p-3 rounded-[2px] border border-gray-800/50">
+                                            <div className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1">Role</div>
+                                            <div className="text-xs text-gray-300 font-bold truncate">{employee.designation?.name || "N/A"}</div>
+                                        </div>
+                                        <div className="bg-black/30 p-3 rounded-[2px] border border-gray-800/50 col-span-2">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <FaEnvelope size={10} className="text-gray-600" />
+                                                <span className="text-[9px] text-gray-500 font-black uppercase tracking-widest">Contact</span>
+                                            </div>
+                                            <div className="text-xs text-gray-300 font-medium truncate font-mono">{employee.email}</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between gap-3 pt-4 border-t border-gray-800">
+                                        <button onClick={() => navigate(`/hr/employee/view/${employee._id}`)} className="flex-1 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-[2px] text-xs font-bold transition-all">
+                                            View
+                                        </button>
+                                        {canEdit && (
+                                            <button onClick={() => navigate(`/hr/employee/edit/${employee._id}`)} className="flex-1 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-500 rounded-[2px] text-xs font-bold transition-all border border-cyan-500/20">
+                                                Edit
+                                            </button>
+                                        )}
+                                        <button onClick={() => navigate(`/hr/employee/letters/${employee._id}`)} className="w-10 h-10 flex items-center justify-center bg-gray-800 rounded-[2px] text-gray-400 hover:text-white">
+                                            <FaFileAlt />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    {/* Pagination */}
+                    {pagination.totalPages > 1 && (
+                        <div className={`flex flex-col md:flex-row items-center justify-between px-6 py-4 rounded-[2px] border gap-4 transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                            <div className="flex items-center gap-4">
+                                <form onSubmit={handleJumpPage} className="flex items-center gap-2">
+                                    <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Jump:</span>
+                                    <input
+                                        type="text"
+                                        value={jumpPage}
+                                        onChange={(e) => setJumpPage(e.target.value)}
+                                        placeholder="PG"
+                                        className={`w-12 h-10 border rounded-[2px] text-center text-xs outline-none transition-all font-bold ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                    />
+                                </form>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => handlePageChange(pagination.currentPage - 1)}
+                                    disabled={pagination.currentPage === 1}
+                                    className={`w-10 h-10 flex items-center justify-center rounded-[2px] transition-all ${isDarkMode ? 'text-gray-500 hover:bg-gray-800 hover:text-white disabled:opacity-10' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-30'}`}
+                                >
+                                    <FaChevronLeft size={12} />
+                                </button>
+                                <div className="flex gap-1 overflow-x-auto max-w-[200px] md:max-w-none no-scrollbar">
+                                    {renderPageNumbers()}
+                                </div>
+                                <button
+                                    onClick={() => handlePageChange(pagination.currentPage + 1)}
+                                    disabled={pagination.currentPage === pagination.totalPages}
+                                    className={`w-10 h-10 flex items-center justify-center rounded-[2px] transition-all ${isDarkMode ? 'text-gray-500 hover:bg-gray-800 hover:text-white disabled:opacity-10' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-30'}`}
+                                >
+                                    <FaChevronRight size={12} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </Layout>
         </div>
     );
 };

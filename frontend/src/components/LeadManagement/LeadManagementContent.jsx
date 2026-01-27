@@ -16,6 +16,14 @@ import { hasPermission } from "../../config/permissions";
 
 const LeadManagementContent = () => {
     const navigate = useNavigate();
+    const [isDarkMode, setIsDarkMode] = useState(() => {
+        const saved = localStorage.getItem('leadManagementThemePremium');
+        return saved === null ? true : saved === 'dark';
+    });
+
+    useEffect(() => {
+        localStorage.setItem('leadManagementThemePremium', isDarkMode ? 'dark' : 'light');
+    }, [isDarkMode]);
     const [leads, setLeads] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
@@ -73,12 +81,12 @@ const LeadManagementContent = () => {
                 if (Array.isArray(value) && value.length > 0) {
                     value.forEach(v => params.append(key, v.value || v)); // Handle object from react-select or raw value
                 } else if (value) {
-                     params.append(key, value);
+                    params.append(key, value);
                 }
             });
 
-            console.log("Lead Management - Fetching leads with params:", Object.fromEntries(params));
-            console.log("Lead Management - Current filters:", filters);
+            // console.log("Lead Management - Fetching leads with params:", Object.fromEntries(params));
+            // console.log("Lead Management - Current filters:", filters);
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management?${params.toString()}`, {
                 headers: {
@@ -87,7 +95,7 @@ const LeadManagementContent = () => {
             });
 
             const data = await response.json();
-            console.log("Lead Management - Response:", data);
+            // console.log("Lead Management - Response:", data);
 
             if (response.ok) {
                 setLeads(data.leads);
@@ -125,7 +133,7 @@ const LeadManagementContent = () => {
             const responseData = await userResponse.json();
             const currentUser = responseData.user;
 
-            console.log("Lead Management - Current user:", currentUser);
+            // console.log("Lead Management - Current user:", currentUser);
 
             // If superAdmin, fetch all centres
             if (currentUser.role === 'superAdmin') {
@@ -133,12 +141,12 @@ const LeadManagementContent = () => {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const centres = await response.json();
-                console.log("Lead Management - SuperAdmin, all centres:", centres);
+                // console.log("Lead Management - SuperAdmin, all centres:", centres);
                 setAllowedCentres(centres);
             } else {
                 // For non-superAdmin, use populated centres from profile
                 const userCentres = currentUser.centres || [];
-                console.log("Lead Management - User centres from profile:", userCentres);
+                // console.log("Lead Management - User centres from profile:", userCentres);
                 setAllowedCentres(userCentres);
             }
         } catch (error) {
@@ -287,12 +295,12 @@ const LeadManagementContent = () => {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams();
             if (searchTerm) params.append("search", searchTerm);
-            
-             Object.entries(filters).forEach(([key, value]) => {
+
+            Object.entries(filters).forEach(([key, value]) => {
                 if (Array.isArray(value) && value.length > 0) {
                     value.forEach(v => params.append(key, v.value || v));
                 } else if (value) {
-                     params.append(key, value);
+                    params.append(key, value);
                 }
             });
 
@@ -328,445 +336,417 @@ const LeadManagementContent = () => {
         }
     };
 
-    const [localTheme, setLocalTheme] = useState(() => localStorage.getItem('leadManagementTheme') || 'dark');
+    // Local theme logic removed in favor of global theme provider
 
-    useEffect(() => {
-        // Remove global dark class to ensure isolation
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('leadManagementTheme', localTheme);
-    }, [localTheme]);
-
-    const toggleLocalTheme = () => {
-        setLocalTheme(prev => prev === 'dark' ? 'light' : 'dark');
-    };
+    // Local theme effects removed
 
     // ... existing code ...
 
     return (
-        <div className={`p-6 space-y-6 ${localTheme === 'dark' ? 'dark' : ''}`}>
-             {/* Wrapper to apply dark class locally */}
-             {/* Note: Tailwind 'dark' class relies on parent. If we put 'dark' here, children using dark: variant will work */}
-             
-            {/* Header */}
-            <div className="flex justify-between items-center flex-wrap gap-4">
-                <div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Lead Management</h2>
-                    <p className="text-gray-600 dark:text-gray-400 text-sm">Manage and track all your leads</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    <button
-                        onClick={toggleLocalTheme}
-                        className="p-2 mr-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-yellow-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                        title={`Switch to ${localTheme === 'dark' ? 'light' : 'dark'} mode`}
-                    >
-                        {localTheme === 'dark' ? <FaSun size={18} /> : <FaMoon size={18} className="text-gray-600" />}
-                    </button>
-                    <button
-                        onClick={handleExport}
-                        className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-500 transition-colors"
-                    >
-                        <FaDownload /> Export Excel
-                    </button>
-                    {user && hasPermission(user, 'leadManagement', 'dashboard', 'view') && (
+        <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
+            <div className="p-6 md:p-8 max-w-[1800px] mx-auto space-y-8">
+                {/* Header */}
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+                    <div>
+                        <h1 className={`text-4xl font-black mb-2 tracking-tighter uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            Lead <span className="text-cyan-500">Management</span>
+                        </h1>
+                        <p className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} font-bold text-[10px] uppercase tracking-[0.3em] flex items-center gap-2`}>
+                            Lead Tracking & Management
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4">
                         <button
-                            onClick={() => navigate('/lead-management/dashboard')}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95"
+                            onClick={() => setIsDarkMode(!isDarkMode)}
+                            className={`p-3 rounded-[2px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
                         >
-                            <FaChartLine /> Dashboard
+                            {isDarkMode ? <><FaSun /> Day Mode</> : <><FaMoon /> Night Mode</>}
                         </button>
-                    )}
-                    {/* Only show Import if Create is allowed? Or separate permission? Assuming Create permission allows Bulk Import too for simplify */}
-                    {canCreate && (
+
                         <button
-                            onClick={() => setShowBulkModal(true)}
-                            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-500 transition-colors"
+                            onClick={handleExport}
+                            className="px-6 py-3 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-[2px] border border-emerald-500/20 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]"
                         >
-                            <FaFileExcel /> Import Excel
+                            <FaDownload /> Export Excel
                         </button>
-                    )}
-                    <button
-                        onClick={() => setShowFollowUpListModal(true)}
-                        className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-500 transition-colors"
-                    >
-                        <FaHistory /> Follow Up List
-                    </button>
-                    {canCreate && (
+                        {user && hasPermission(user, 'leadManagement', 'dashboard', 'view') && (
+                            <button
+                                onClick={() => navigate('/lead-management/dashboard')}
+                                className="px-6 py-3 bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white rounded-[2px] border border-blue-500/20 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"
+                            >
+                                <FaChartLine /> Dashboard
+                            </button>
+                        )}
+                        {canCreate && (
+                            <button
+                                onClick={() => setShowBulkModal(true)}
+                                className="px-6 py-3 bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500 hover:text-white rounded-[2px] border border-indigo-500/20 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"
+                            >
+                                <FaFileExcel /> Import Excel
+                            </button>
+                        )}
                         <button
-                            onClick={() => setShowAddModal(true)}
-                            className="flex items-center gap-2 bg-cyan-500 text-black px-4 py-2 rounded-lg font-semibold hover:bg-cyan-400 transition-colors"
+                            onClick={() => setShowFollowUpListModal(true)}
+                            className="px-6 py-3 bg-purple-500/10 text-purple-500 hover:bg-purple-500 hover:text-white rounded-[2px] border border-purple-500/20 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"
                         >
-                            <FaPlus /> Add Lead
+                            <FaHistory /> Follow Up List
                         </button>
-                    )}
+                        {canCreate && (
+                            <button
+                                onClick={() => setShowAddModal(true)}
+                                className="px-6 py-3 bg-cyan-500 text-black hover:bg-cyan-400 rounded-[2px] shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"
+                            >
+                                <FaPlus /> Add Lead
+                            </button>
+                        )}
+                    </div>
                 </div>
-            </div>
 
-            {/* Search Bar */}
-            <div className="bg-white dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm dark:shadow-none transition-colors">
-                <div className="relative">
-                    <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    <input
-                        type="text"
-                        placeholder="Search by name, email, phone, or school..."
-                        value={searchTerm}
-                        onChange={(e) => {
-                            setSearchTerm(e.target.value);
-                            setCurrentPage(1);
-                        }}
-                        className="w-full bg-gray-50 dark:bg-[#131619] border border-gray-200 dark:border-gray-700 rounded-lg pl-10 pr-4 py-2 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-colors"
-                    />
+                {/* Search Bar */}
+                <div className={`border rounded-[2px] p-6 relative group transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 focus-within:border-cyan-500/30' : 'bg-white border-gray-200 focus-within:border-cyan-500/30 shadow-sm'}`}>
+                    <div className="relative">
+                        <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 text-xs transition-colors group-focus-within:text-cyan-500" />
+                        <input
+                            type="text"
+                            placeholder="SEARCH BY NAME, EMAIL, PHONE, OR SCHOOL..."
+                            value={searchTerm}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            className={`w-full bg-transparent border-none pl-12 pr-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none placeholder:text-gray-700 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
+                        />
+                    </div>
                 </div>
-            </div>
 
-            {/* Filters */}
-            <div className="bg-white dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm dark:shadow-none transition-colors">
-                <div className="flex items-center gap-2 mb-3">
-                    <FaFilter className="text-cyan-600 dark:text-cyan-400" />
-                    <h3 className="text-gray-900 dark:text-white font-semibold">Filters</h3>
+                {/* Filters */}
+                <div className={`border rounded-[2px] p-8 space-y-6 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                    <div className="flex items-center gap-3">
+                        <span className="p-2 bg-cyan-500/10 text-cyan-500 rounded-[2px]">
+                            <FaFilter size={12} />
+                        </span>
+                        <h3 className={`text-[12px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Filter Leads</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                        <div className="space-y-2">
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Lead Type</label>
+                            <CustomMultiSelect
+                                options={[
+                                    { value: "HOT LEAD", label: "HOT LEAD" },
+                                    { value: "COLD LEAD", label: "COLD LEAD" },
+                                    { value: "NEGATIVE", label: "NEGATIVE" }
+                                ]}
+                                value={filters.leadType}
+                                onChange={(selected) => handleFilterChange('leadType', selected)}
+                                placeholder="Select Type"
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Source</label>
+                            <CustomMultiSelect
+                                options={sources.map(s => ({ value: s.sourceName, label: s.sourceName }))}
+                                value={filters.source}
+                                onChange={(selected) => handleFilterChange('source', selected)}
+                                placeholder="Select Source"
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Centre</label>
+                            <CustomMultiSelect
+                                options={allowedCentres.map(c => ({ value: c._id, label: c.centreName }))}
+                                value={filters.centre}
+                                onChange={(selected) => handleFilterChange('centre', selected)}
+                                placeholder="Select Centre"
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Course</label>
+                            <CustomMultiSelect
+                                options={courses.map(c => ({ value: c._id, label: c.courseName }))}
+                                value={filters.course}
+                                onChange={(selected) => handleFilterChange('course', selected)}
+                                placeholder="Select Course"
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Board</label>
+                            <CustomMultiSelect
+                                options={boards.map(b => ({ value: b._id, label: b.boardName || b.boardCourse }))}
+                                value={filters.board}
+                                onChange={(selected) => handleFilterChange('board', selected)}
+                                placeholder="Select Board"
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Telecaller</label>
+                            <CustomMultiSelect
+                                options={telecallers.map(t => ({ value: t.name, label: t.name }))}
+                                value={filters.leadResponsibility}
+                                onChange={(selected) => handleFilterChange('leadResponsibility', selected)}
+                                placeholder="Select Telecaller"
+                                isDisabled={user?.role === 'telecaller'}
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+                    </div>
+                    <div className="flex justify-end pt-2">
+                        <button
+                            onClick={resetFilters}
+                            className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors ${isDarkMode ? 'text-gray-500 hover:text-cyan-400' : 'text-gray-400 hover:text-cyan-600'}`}
+                        >
+                            <FaRedo size={10} /> Reset Filters
+                        </button>
+                    </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                    <div>
-                        <label className="block text-gray-600 dark:text-gray-400 text-xs mb-1">Lead Type</label>
-                        <CustomMultiSelect
-                            options={[
-                                { value: "HOT LEAD", label: "HOT LEAD" },
-                                { value: "COLD LEAD", label: "COLD LEAD" },
-                                { value: "NEGATIVE", label: "NEGATIVE" }
-                            ]}
-                            value={filters.leadType}
-                            onChange={(selected) => handleFilterChange('leadType', selected)}
-                            placeholder="Select Type"
-                            theme={localTheme}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-gray-600 dark:text-gray-400 text-xs mb-1">Source</label>
-                        <CustomMultiSelect
-                            options={sources.map(s => ({ value: s.sourceName, label: s.sourceName }))}
-                            value={filters.source}
-                            onChange={(selected) => handleFilterChange('source', selected)}
-                            placeholder="Select Source"
-                            theme={localTheme}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-gray-600 dark:text-gray-400 text-xs mb-1">Centre</label>
-                        <CustomMultiSelect
-                            options={allowedCentres.map(c => ({ value: c._id, label: c.centreName }))}
-                            value={filters.centre}
-                            onChange={(selected) => handleFilterChange('centre', selected)}
-                            placeholder="Select Centre"
-                            theme={localTheme}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-gray-600 dark:text-gray-400 text-xs mb-1">Course</label>
-                        <CustomMultiSelect
-                            options={courses.map(c => ({ value: c._id, label: c.courseName }))}
-                            value={filters.course}
-                            onChange={(selected) => handleFilterChange('course', selected)}
-                            placeholder="Select Course"
-                            theme={localTheme}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-gray-600 dark:text-gray-400 text-xs mb-1">Board</label>
-                        <CustomMultiSelect
-                            options={boards.map(b => ({ value: b._id, label: b.boardName || b.boardCourse }))} // Fallback to boardCourse if name not populated as boardName
-                            value={filters.board}
-                            onChange={(selected) => handleFilterChange('board', selected)}
-                            placeholder="Select Board"
-                            theme={localTheme}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-gray-600 dark:text-gray-400 text-xs mb-1">Lead Responsibility</label>
-                         <CustomMultiSelect
-                            options={telecallers.map(t => ({ value: t.name, label: t.name }))}
-                            value={filters.leadResponsibility}
-                            onChange={(selected) => handleFilterChange('leadResponsibility', selected)}
-                            placeholder="Select Telecaller"
-                            isDisabled={user?.role === 'telecaller'}
-                            theme={localTheme}
-                        />
-                    </div>
-                </div>
-                <div className="mt-3 flex justify-end">
-                    <button
-                        onClick={resetFilters}
-                        className="flex items-center gap-2 text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 dark:hover:text-cyan-300 text-sm font-medium"
-                    >
-                        <FaRedo size={12} /> Reset Filters
-                    </button>
-                </div>
-            </div>
 
-            {/* Leads Table */}
-            <div className="bg-white dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm dark:shadow-none transition-colors">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
-                            <tr>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">S/N</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Phone Number</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Class</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Board</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">School Name</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Centre</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Course</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Source</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Target Exam</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Lead Type</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Lead Responsibility</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                            {loading ? (
+                {/* Leads Table */}
+                <div className={`border rounded-[2px] overflow-hidden transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                    <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full">
+                            <thead className={`border-b ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                 <tr>
-                                    <td colSpan="14" className="px-4 py-8 text-center text-cyan-600 dark:text-cyan-400">
-                                        Loading...
-                                    </td>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>S/N</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Name</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Contact Details</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Academic Info</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Operational Info</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Lead Status</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Responsibility</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actions</th>
                                 </tr>
-                            ) : leads.length === 0 ? (
-                                <tr>
-                                    <td colSpan="14" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                                        No leads found
-                                    </td>
-                                </tr>
-                            ) : (
-                                leads.map((lead, index) => (
-                                    <tr key={lead._id} onClick={() => handleRowClick(lead)} className="hover:bg-gray-50 dark:hover:bg-[#131619] transition-colors border-b border-gray-200 dark:border-gray-800 cursor-pointer">
-                                        <td className="px-4 py-3 text-gray-900 dark:text-white">{(currentPage - 1) * limit + index + 1}</td>
-                                        <td className="px-4 py-3 text-gray-900 dark:text-white font-medium">{lead.name}</td>
-                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.email}</td>
-                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.phoneNumber || "N/A"}</td>
-                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.className?.name || "N/A"}</td>
-                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.board?.boardName || "N/A"}</td>
-                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.schoolName}</td>
-                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.centre?.centreName || "N/A"}</td>
-                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.course?.courseName || "N/A"}</td>
-                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.source || "N/A"}</td>
-                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.targetExam || "N/A"}</td>
-                                        <td className="px-4 py-3">
-                                            <span className={`px-2 py-1 rounded text-xs border ${getLeadTypeColor(lead.leadType)} font-medium`}>
-                                                {lead.leadType || "N/A"}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{lead.leadResponsibility || "N/A"}</td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleCounseling(lead); }}
-                                                    className="bg-blue-600 dark:bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-500 dark:hover:bg-blue-400 transition-colors shadow-sm"
-                                                >
-                                                    Counseling
-                                                </button>
-                                                {canEdit && (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleEdit(lead); }}
-                                                        className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 dark:hover:text-cyan-300 transition-colors"
-                                                    >
-                                                        <FaEdit size={16} />
-                                                    </button>
-                                                )}
-                                                {canDelete && (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleDelete(lead._id); }}
-                                                        className="text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors"
-                                                    >
-                                                        <FaTrash size={16} />
-                                                    </button>
-                                                )}
-                                            </div>
+                            </thead>
+                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan="8" className="px-6 py-20 text-center text-cyan-500 font-black uppercase text-[10px] tracking-widest animate-pulse">
+                                            Loading Leads...
                                         </td>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                                ) : leads.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="8" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
+                                            No leads found
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    leads.map((lead, index) => (
+                                        <tr key={lead._id} onClick={() => handleRowClick(lead)} className={`transition-all group cursor-pointer ${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'}`}>
+                                            <td className={`px-6 py-4 text-[10px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{(currentPage - 1) * limit + index + 1}</td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[11px] font-black uppercase tracking-tight ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>{lead.name}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lead.email}</div>
+                                                <div className="text-[10px] font-black text-cyan-500 mt-0.5">{lead.phoneNumber || "NO CONTACT"}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[10px] font-black uppercase ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{lead.className?.name || "N/A"} • {lead.board?.boardName || "N/A"}</div>
+                                                <div className="text-[9px] font-bold text-gray-500 truncate max-w-[150px]">{lead.schoolName}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[10px] font-black uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lead.centre?.centreName || "N/A"}</div>
+                                                <div className="text-[9px] font-bold text-cyan-500 mt-0.5">{lead.course?.courseName || "General Query"}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-3 py-1 rounded-[2px] text-[8px] font-black uppercase tracking-widest border ${getLeadTypeColor(lead.leadType)}`}>
+                                                    {lead.leadType || "UNASSIGNED"}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[9px] font-black uppercase px-2 py-1 rounded-[2px] inline-block ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
+                                                    {lead.leadResponsibility || "NO OWNER"}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleCounseling(lead); }}
+                                                        className="bg-cyan-500 hover:bg-cyan-400 text-black px-4 py-1.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest shadow-lg shadow-cyan-500/20 active:scale-95 transition-all"
+                                                    >
+                                                        Counselling
+                                                    </button>
+                                                    {canEdit && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleEdit(lead); }}
+                                                            className={`transition-colors ${isDarkMode ? 'text-gray-500 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}
+                                                        >
+                                                            <FaEdit size={14} />
+                                                        </button>
+                                                    )}
+                                                    {canDelete && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleDelete(lead._id); }}
+                                                            className="text-red-500 hover:text-red-400 transition-colors"
+                                                        >
+                                                            <FaTrash size={14} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
 
-            {/* Pagination */}
-            <div className="flex justify-between items-center border-t border-gray-200 dark:border-gray-700 pt-4">
-                <div className="text-gray-600 dark:text-gray-400 text-sm">
-                    Showing {leads.length === 0 ? 0 : (currentPage - 1) * limit + 1} to {Math.min(currentPage * limit, totalLeads)} of {totalLeads} entries
-                </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={currentPage === 1}
-                        className="bg-gray-100 dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 p-2 rounded-lg hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                        <FaChevronLeft size={12} />
-                    </button>
-
-                    {[...Array(totalPages)].map((_, i) => (
+                {/* Pagination */}
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 border-t border-gray-800">
+                    <div className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
+                        Showing: {leads.length === 0 ? 0 : (currentPage - 1) * limit + 1}-{Math.min(currentPage * limit, totalLeads)} / {totalLeads} Records
+                    </div>
+                    <div className="flex items-center gap-2">
                         <button
-                            key={i}
-                            onClick={() => setCurrentPage(i + 1)}
-                            className={`px-3 py-1 rounded-lg text-sm transition-colors ${currentPage === i + 1
-                                ? "bg-cyan-600 dark:bg-cyan-500 text-white font-bold"
-                                : "bg-gray-100 dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                                }`}
+                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={currentPage === 1}
+                            className={`p-2 rounded-[2px] transition-all disabled:opacity-30 ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-cyan-500' : 'bg-white border border-gray-200 text-gray-500'}`}
                         >
-                            {i + 1}
+                            <FaChevronLeft size={10} />
                         </button>
-                    ))}
 
-                    <button
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                        disabled={currentPage === totalPages}
-                        className="bg-gray-100 dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 p-2 rounded-lg hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                        <FaChevronRight size={12} />
-                    </button>
+                        {[...Array(totalPages)].map((_, i) => (
+                            <button
+                                key={i}
+                                onClick={() => setCurrentPage(i + 1)}
+                                className={`w-8 h-8 rounded-[2px] text-[10px] font-black transition-all ${currentPage === i + 1
+                                    ? "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20"
+                                    : (isDarkMode ? "bg-gray-800 text-gray-500 hover:text-white" : "bg-white border border-gray-200 text-gray-400 hover:bg-gray-50")
+                                    }`}
+                            >
+                                {i + 1}
+                            </button>
+                        ))}
+
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                            disabled={currentPage === totalPages}
+                            className={`p-2 rounded-[2px] transition-all disabled:opacity-30 ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-cyan-500' : 'bg-white border border-gray-200 text-gray-500'}`}
+                        >
+                            <FaChevronRight size={10} />
+                        </button>
+                    </div>
                 </div>
             </div>
+
+            <style>{`
+                .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDarkMode ? '#1f2937' : '#e5e7eb'}; border-radius: 2px; }
+            `}</style>
 
             {/* Modals */}
-            {
-                showAddModal && (
-                    <AddLeadModal
-                        onClose={() => setShowAddModal(false)}
-                        onSuccess={() => {
-                            setShowAddModal(false);
-                            fetchLeads();
-                        }}
-                    />
-                )
-            }
+            {showAddModal && (
+                <AddLeadModal
+                    isDarkMode={isDarkMode}
+                    onClose={() => setShowAddModal(false)}
+                    onSuccess={() => {
+                        setShowAddModal(false);
+                        fetchLeads();
+                    }}
+                />
+            )}
 
-            {
-                showEditModal && selectedLead && (
-                    <EditLeadModal
-                        lead={selectedLead}
-                        onClose={() => {
-                            setShowEditModal(false);
-                            setSelectedLead(null);
-                        }}
-                        onSuccess={() => {
-                            setShowEditModal(false);
-                            setSelectedLead(null);
-                            fetchLeads();
-                        }}
-                    />
-                )
-            }
+            {showEditModal && selectedLead && (
+                <EditLeadModal
+                    isDarkMode={isDarkMode}
+                    lead={selectedLead}
+                    onClose={() => {
+                        setShowEditModal(false);
+                        setSelectedLead(null);
+                    }}
+                    onSuccess={() => {
+                        setShowEditModal(false);
+                        setSelectedLead(null);
+                        fetchLeads();
+                    }}
+                />
+            )}
 
-            {
-                showBulkModal && (
-                    <BulkLeadModal
-                        onClose={() => setShowBulkModal(false)}
-                        onSuccess={() => {
-                            setShowBulkModal(false);
-                            fetchLeads();
-                        }}
-                    />
-                )
-            }
+            {showBulkModal && (
+                <BulkLeadModal
+                    isDarkMode={isDarkMode}
+                    onClose={() => setShowBulkModal(false)}
+                    onSuccess={() => {
+                        setShowBulkModal(false);
+                        fetchLeads();
+                    }}
+                />
+            )}
 
-            {
-                showDetailModal && selectedDetailLead && (
-                    <LeadDetailsModal
-                        lead={selectedDetailLead}
-                        canEdit={canEdit}
-                        canDelete={canDelete}
-                        onClose={() => {
-                            setShowDetailModal(false);
-                            setSelectedDetailLead(null);
-                        }}
-                        onEdit={(lead) => {
-                            setShowDetailModal(false);
-                            handleEdit(lead);
-                        }}
-                        onDelete={(id) => {
-                            handleDelete(id);
-                            // Close modal if deleted, though handleDelete usually refreshes list. 
-                            // If delete successful, we might need to close modal.
-                            // Assuming fetchLeads handles the refresh, we should close modal to avoid showing stale data.
-                            setShowDetailModal(false);
-                            setSelectedDetailLead(null);
-                        }}
-                        onFollowUp={(lead) => {
-                            setShowDetailModal(false);
-                            setSelectedLead(lead);
-                            setShowFollowUpModal(true);
-                        }}
-                        onCounseling={(lead) => {
-                            handleCounseling(lead);
-                        }}
-                        onShowHistory={(lead) => {
-                            // Keep details open? Or open history on top?
-                            // User said "show pop up... entire screen".
-                            // I'll show history modal.
-                            // I might want to keep detail modal open underneath if history is an overlay, 
-                            // but usually better to switch context or simple overlay.
-                            // Implemeting as separate modal state.
-                            // Let's close detail modal to focus on history or keep it open?
-                            // If "entire screen", it will cover everything anyway.
-                            // I will NOT close detail modal so when they close history they return to details?
-                            // Actually, simplified ux: close details, show history.
-                            // But user might want to go back.
-                            // I'll keep detail modal state as is (open) and render history on top (z-index higher).
-                            // wait, if I don't close it, it's still there.
-                            // If I render HistoryModal conditionally, I need state.
-                            setSelectedDetailLead(lead);
-                            setShowHistoryModal(true);
-                        }}
-                    />
-                )
-            }
+            {showDetailModal && selectedDetailLead && (
+                <LeadDetailsModal
+                    isDarkMode={isDarkMode}
+                    lead={selectedDetailLead}
+                    canEdit={canEdit}
+                    canDelete={canDelete}
+                    onClose={() => {
+                        setShowDetailModal(false);
+                        setSelectedDetailLead(null);
+                    }}
+                    onEdit={(lead) => {
+                        setShowDetailModal(false);
+                        handleEdit(lead);
+                    }}
+                    onDelete={(id) => {
+                        handleDelete(id);
+                        setShowDetailModal(false);
+                        setSelectedDetailLead(null);
+                    }}
+                    onFollowUp={(lead) => {
+                        setShowDetailModal(false);
+                        setSelectedLead(lead);
+                        setShowFollowUpModal(true);
+                    }}
+                    onCounseling={(lead) => {
+                        handleCounseling(lead);
+                    }}
+                    onShowHistory={(lead) => {
+                        setSelectedDetailLead(lead);
+                        setShowHistoryModal(true);
+                    }}
+                />
+            )}
 
-            {
-                showFollowUpModal && selectedLead && (
-                    <AddFollowUpModal
-                        lead={selectedLead}
-                        onClose={() => {
-                            setShowFollowUpModal(false);
-                            setSelectedLead(null);
-                        }}
-                        onSuccess={() => {
-                            setShowFollowUpModal(false);
-                            setSelectedLead(null);
-                            fetchLeads();
-                        }}
-                    />
-                )
-            }
+            {showFollowUpModal && selectedLead && (
+                <AddFollowUpModal
+                    isDarkMode={isDarkMode}
+                    lead={selectedLead}
+                    onClose={() => {
+                        setShowFollowUpModal(false);
+                        setSelectedLead(null);
+                    }}
+                    onSuccess={() => {
+                        setShowFollowUpModal(false);
+                        setSelectedLead(null);
+                        fetchLeads();
+                    }}
+                />
+            )}
 
-            {
-                showHistoryModal && selectedDetailLead && (
-                    <FollowUpHistoryModal
-                        lead={selectedDetailLead}
-                        onClose={() => setShowHistoryModal(false)}
-                    />
-                )
-            }
+            {showHistoryModal && selectedDetailLead && (
+                <FollowUpHistoryModal
+                    isDarkMode={isDarkMode}
+                    lead={selectedDetailLead}
+                    onClose={() => setShowHistoryModal(false)}
+                />
+            )}
 
-            {
-                showFollowUpListModal && (
-                    <FollowUpListModal
-                        onClose={() => setShowFollowUpListModal(false)}
-                        onShowHistory={(lead) => {
-                            // User might want to see detailed history from the list
-                            // We can reuse history modal here.
-                            // Assuming we want to show history on top of list or instead of list?
-                            // User said "button which will be all follow up, after licking on it all the follow up details will be opne"
-                            // I implemented that button inside the ListModal rows.
-                            // So I need to handle opening HistoryModal.
-                            // I'll open history modal on top of list modal (z-index should handle it if history is higher).
-                            // FollowUpHistoryModal z-index is 70, ListModal is 60. So it works.
-                            setSelectedDetailLead(lead);
-                            setShowHistoryModal(true);
-                        }}
-                    />
-                )
-            }
-        </div >
+            {showFollowUpListModal && (
+                <FollowUpListModal
+                    isDarkMode={isDarkMode}
+                    onClose={() => setShowFollowUpListModal(false)}
+                    onShowHistory={(lead) => {
+                        setSelectedDetailLead(lead);
+                        setShowHistoryModal(true);
+                    }}
+                />
+            )}
+        </div>
     );
 };
 

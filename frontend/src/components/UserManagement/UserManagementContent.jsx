@@ -418,7 +418,7 @@ const UserManagementContent = () => {
 
                         {/* Small Pie Chart Overlay */}
                         <div className="w-16 h-16 opacity-80">
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minHeight={64} minWidth={64}>
                                 <PieChart>
                                     <Pie
                                         data={getPieData(item.label)}

@@ -55,10 +55,10 @@ export const getLeads = async (req, res) => {
         if (source) query.source = Array.isArray(source) ? { $in: source } : source;
         if (course) query.course = Array.isArray(course) ? { $in: course } : course;
         if (board) query.board = Array.isArray(board) ? { $in: board } : board;
-        
+
         if (leadResponsibility) {
-             query.leadResponsibility = Array.isArray(leadResponsibility) 
-                ? { $in: leadResponsibility } 
+            query.leadResponsibility = Array.isArray(leadResponsibility)
+                ? { $in: leadResponsibility }
                 : leadResponsibility;
         }
 
@@ -131,7 +131,7 @@ export const getLeads = async (req, res) => {
             ];
         }
 
-        console.log("Lead Management - Final query:", JSON.stringify(query, null, 2));
+
 
         const totalLeads = await LeadManagement.countDocuments(query);
 

@@ -74,7 +74,7 @@ const Layout = ({ children, activePage }) => {
     };
 
     return (
-        <div className="flex h-screen bg-gray-50 dark:bg-[#131619] font-sans overflow-hidden">
+        <div className="flex h-screen bg-gray-50 dark:bg-[#131619] font-sans overflow-hidden transition-colors duration-300">
             {/* Toast Container */}
             <ToastContainer
                 position="top-center"
