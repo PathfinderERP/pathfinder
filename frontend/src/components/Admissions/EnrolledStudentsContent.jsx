@@ -1009,7 +1009,9 @@ const EnrolledStudentsContent = () => {
                                                             latestAdmission?.board?.boardCourse ||
                                                             (typeof latestAdmission?.course === 'string' ? latestAdmission.course : "N/A")}
                                                     </div>
-                                                    <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mt-0.5">{latestAdmission?.academicSession || ""}</div>
+                                                    <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mt-0.5">
+                                                        {latestAdmission?.class?.className || latestAdmission?.class?.name || "N/A"} | {latestAdmission?.academicSession || ""}
+                                                    </div>
                                                 </td>
                                                 <td className="p-4 text-center">
                                                     <span className={`px-3 py-1 rounded-[4px] text-[10px] font-black border ${isDarkMode ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-green-50 text-green-600 border-green-200'}`}>
