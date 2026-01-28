@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTheme } from "../../context/ThemeContext";
 import { FaArrowLeft, FaSun, FaMoon, FaUserEdit } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
@@ -8,14 +9,8 @@ const StudentRegistrationForm = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const [loading, setLoading] = useState(false);
-    const [isDarkMode, setIsDarkMode] = useState(() => {
-        const saved = localStorage.getItem("studentRegistrationThemePremium");
-        return saved ? JSON.parse(saved) : true;
-    });
-
-    useEffect(() => {
-        localStorage.setItem("studentRegistrationThemePremium", JSON.stringify(isDarkMode));
-    }, [isDarkMode]);
+    const { theme, toggleTheme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [centres, setCentres] = useState([]);
     const [examTags, setExamTags] = useState([]);
     const [batches, setBatches] = useState([]);
@@ -472,8 +467,8 @@ const StudentRegistrationForm = () => {
     };
 
     return (
-        <div className="flex-1 p-6 overflow-y-auto bg-[#131619] text-gray-300">
-            <ToastContainer position="top-right" theme="dark" />
+        <div className={`flex-1 p-6 overflow-y-auto ${isDarkMode ? 'bg-[#131619] text-gray-300' : 'bg-gray-50 text-gray-600'}`}>
+            <ToastContainer position="top-right" theme={isDarkMode ? 'dark' : 'light'} />
 
             {/* Header */}
             <div className={`p-6 border-b flex items-center justify-between sticky top-0 z-30 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-md'}`}>
@@ -487,7 +482,7 @@ const StudentRegistrationForm = () => {
                 </div>
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={() => setIsDarkMode(!isDarkMode)}
+                        onClick={toggleTheme}
                         className={`p-2.5 rounded-[4px] border transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 text-yellow-400 hover:bg-white/10' : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'}`}
                     >
                         {isDarkMode ? <FaSun /> : <FaMoon />}

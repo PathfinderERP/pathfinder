@@ -8,6 +8,7 @@ import {
 } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useTheme } from "../context/ThemeContext";
 
 // Custom Audio Player Component
 const AudioPlayer = ({ src, fileName, isDarkMode }) => {
@@ -129,14 +130,8 @@ const AudioPlayer = ({ src, fileName, isDarkMode }) => {
 };
 
 const TelecallingConsole = () => {
-    const [isDarkMode, setIsDarkMode] = useState(() => {
-        const saved = localStorage.getItem('telecallingThemePremium');
-        return saved ? JSON.parse(saved) : true;
-    });
-
-    useEffect(() => {
-        localStorage.setItem('telecallingThemePremium', JSON.stringify(isDarkMode));
-    }, [isDarkMode]);
+    const { theme, toggleTheme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
     const [telecallers, setTelecallers] = useState([]);
     const [assignedLeads, setAssignedLeads] = useState([]);
@@ -263,7 +258,7 @@ const TelecallingConsole = () => {
 
                     <div className="flex items-center gap-4">
                         <button
-                            onClick={() => setIsDarkMode(!isDarkMode)}
+                            onClick={toggleTheme}
                             className={`p-2.5 rounded-[4px] border transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 text-yellow-400 hover:bg-white/10' : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'}`}
                             title="Toggle Mode"
                         >

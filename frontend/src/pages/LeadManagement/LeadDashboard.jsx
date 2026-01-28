@@ -2,16 +2,11 @@ import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../../components/Layout";
 import { FaChartLine, FaFilter, FaFileExcel, FaUsers, FaTasks, FaChevronRight, FaSpinner, FaTimes, FaPhone, FaEnvelope, FaCalendarAlt, FaIdBadge, FaSun, FaMoon, FaChevronLeft } from "react-icons/fa";
 import { toast } from "react-toastify";
+import { useTheme } from "../../context/ThemeContext";
 
 const LeadDashboard = () => {
-    const [isDarkMode, setIsDarkMode] = useState(() => {
-        const saved = localStorage.getItem("lead_dashboard_theme");
-        return saved ? JSON.parse(saved) : true;
-    });
-
-    useEffect(() => {
-        localStorage.setItem("lead_dashboard_theme", JSON.stringify(isDarkMode));
-    }, [isDarkMode]);
+    const { theme, toggleTheme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -170,7 +165,7 @@ const LeadDashboard = () => {
 
                     <div className="flex items-center gap-4 relative z-10 text-nowrap">
                         <button
-                            onClick={() => setIsDarkMode(!isDarkMode)}
+                            onClick={toggleTheme}
                             className={`p-4 rounded-[4px] border transition-all active:scale-95 flex items-center gap-2 group/toggle ${isDarkMode ? 'bg-gray-800 border-gray-700 text-yellow-400 hover:bg-gray-700' : 'bg-white border-gray-200 text-indigo-600 hover:bg-gray-50'}`}
                         >
                             {isDarkMode ? <FaSun size={18} /> : <FaMoon size={18} />}

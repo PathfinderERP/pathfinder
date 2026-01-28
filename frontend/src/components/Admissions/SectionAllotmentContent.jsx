@@ -1,18 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from "../../context/ThemeContext";
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { FaSearch, FaTimes, FaSun, FaMoon, FaSync, FaFilter, FaLayerGroup } from 'react-icons/fa';
 import CustomMultiSelect from '../common/CustomMultiSelect';
 
 const SectionAllotmentContent = () => {
-    const [isDarkMode, setIsDarkMode] = useState(() => {
-        const saved = localStorage.getItem('sectionAllotmentThemePremium');
-        return saved ? JSON.parse(saved) : true;
-    });
-
-    useEffect(() => {
-        localStorage.setItem('sectionAllotmentThemePremium', JSON.stringify(isDarkMode));
-    }, [isDarkMode]);
+    const { theme, toggleTheme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -167,7 +162,7 @@ const SectionAllotmentContent = () => {
 
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={() => setIsDarkMode(!isDarkMode)}
+                        onClick={toggleTheme}
                         className={`p-2.5 rounded-[4px] border transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 text-yellow-400 hover:bg-white/10' : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'}`}
                         title="Toggle Local Theme"
                     >

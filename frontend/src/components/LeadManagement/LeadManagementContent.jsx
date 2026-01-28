@@ -13,17 +13,12 @@ import FollowUpHistoryModal from "./FollowUpHistoryModal";
 import FollowUpListModal from "./FollowUpListModal";
 import CustomMultiSelect from "../common/CustomMultiSelect";
 import { hasPermission } from "../../config/permissions";
+import { useTheme } from "../../context/ThemeContext";
 
 const LeadManagementContent = () => {
     const navigate = useNavigate();
-    const [isDarkMode, setIsDarkMode] = useState(() => {
-        const saved = localStorage.getItem('leadManagementThemePremium');
-        return saved === null ? true : saved === 'dark';
-    });
-
-    useEffect(() => {
-        localStorage.setItem('leadManagementThemePremium', isDarkMode ? 'dark' : 'light');
-    }, [isDarkMode]);
+    const { theme, toggleTheme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [leads, setLeads] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
@@ -357,7 +352,7 @@ const LeadManagementContent = () => {
                     </div>
                     <div className="flex flex-wrap items-center gap-4">
                         <button
-                            onClick={() => setIsDarkMode(!isDarkMode)}
+                            onClick={toggleTheme}
                             className={`p-3 rounded-[2px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
                         >
                             {isDarkMode ? <><FaSun /> Day Mode</> : <><FaMoon /> Night Mode</>}

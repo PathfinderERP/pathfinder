@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from "../../context/ThemeContext";
 import { FaSearch, FaEye, FaDownload, FaFilter, FaUserGraduate, FaSync, FaTimes, FaBook, FaCalendar, FaMoneyBillWave, FaFileInvoice, FaCheckCircle, FaExclamationCircle, FaUser, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaSchool, FaHistory, FaUsers, FaIdCard, FaBirthdayCake, FaVenusMars, FaPassport, FaBuilding, FaSun, FaMoon, FaPlus } from 'react-icons/fa';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
@@ -30,14 +31,8 @@ const EnrolledStudentsContent = () => {
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
-    const [isDarkMode, setIsDarkMode] = useState(() => {
-        const saved = localStorage.getItem("enrolledStudentsThemePremium");
-        return saved ? JSON.parse(saved) : false;
-    });
-
-    useEffect(() => {
-        localStorage.setItem("enrolledStudentsThemePremium", JSON.stringify(isDarkMode));
-    }, [isDarkMode]);
+    const { theme, toggleTheme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
     // Master Data States
     const [masterCentres, setMasterCentres] = useState([]);
@@ -736,7 +731,7 @@ const EnrolledStudentsContent = () => {
 
                 <div className="flex flex-wrap items-center gap-4">
                     <button
-                        onClick={() => setIsDarkMode(!isDarkMode)}
+                        onClick={toggleTheme}
                         className={`p-3 rounded-[4px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
                     >
                         {isDarkMode ? <><FaSun /> Day</> : <><FaMoon /> Night</>}

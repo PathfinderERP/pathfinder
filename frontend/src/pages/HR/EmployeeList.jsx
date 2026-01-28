@@ -12,6 +12,7 @@ import {
     XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import ExcelImportExport from "../../components/common/ExcelImportExport";
+import { useTheme } from "../../context/ThemeContext";
 
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -51,14 +52,8 @@ const EmployeeList = () => {
     const [jumpPage, setJumpPage] = useState("");
     const [analytics, setAnalytics] = useState(null);
     const [analyticsLoading, setAnalyticsLoading] = useState(true);
-    const [isDarkMode, setIsDarkMode] = useState(() => {
-        const saved = localStorage.getItem("employeeListThemePremium");
-        return saved ? saved === "dark" : true;
-    });
-
-    useEffect(() => {
-        localStorage.setItem("employeeListThemePremium", isDarkMode ? "dark" : "light");
-    }, [isDarkMode]);
+    const { theme, toggleTheme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
     // Permission checks
     const canCreate = usePermission('hrManpower', 'employees', 'create');
@@ -538,7 +533,7 @@ const EmployeeList = () => {
                         </div>
                         <div className="flex flex-wrap items-center gap-4">
                             <button
-                                onClick={() => setIsDarkMode(!isDarkMode)}
+                                onClick={toggleTheme}
                                 className={`p-3 rounded-[2px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
                             >
                                 {isDarkMode ? <><FaSun /> Day Mode</> : <><FaMoon /> Night Mode</>}
@@ -726,7 +721,7 @@ const EmployeeList = () => {
                                                         <stop offset="100%" stopColor="#059669" stopOpacity={0.6} />
                                                     </linearGradient>
                                                 </defs>
-                                                <CartesianGrid strokeDasharray="3 3" stroke={localTheme === 'dark' ? "#374151" : "#e5e7eb"} opacity={0.2} vertical={false} />
+                                                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#374151" : "#e5e7eb"} opacity={0.2} vertical={false} />
                                                 <XAxis
                                                     dataKey="name"
                                                     stroke="#9ca3af"
@@ -815,7 +810,7 @@ const EmployeeList = () => {
                                                         <stop offset="100%" stopColor="#d97706" stopOpacity={0.6} />
                                                     </linearGradient>
                                                 </defs>
-                                                <CartesianGrid strokeDasharray="3 3" stroke={localTheme === 'dark' ? "#374151" : "#e5e7eb"} opacity={0.2} vertical={false} />
+                                                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#374151" : "#e5e7eb"} opacity={0.2} vertical={false} />
                                                 <XAxis
                                                     dataKey="name"
                                                     stroke="#9ca3af"

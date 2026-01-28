@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { FaFilter, FaPlus, FaSearch, FaDownload, FaEye, FaEdit, FaTrash, FaSync, FaSun, FaMoon } from "react-icons/fa";
+import { useTheme } from "../../context/ThemeContext";
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -29,14 +30,8 @@ const AdmissionsContent = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
-    const [isDarkMode, setIsDarkMode] = useState(() => {
-        const saved = localStorage.getItem('admissionsThemePremium');
-        return saved ? JSON.parse(saved) : true;
-    });
-
-    useEffect(() => {
-        localStorage.setItem('admissionsThemePremium', JSON.stringify(isDarkMode));
-    }, [isDarkMode]);
+    const { theme, toggleTheme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
     const itemsPerPage = 10;
 
@@ -598,7 +593,7 @@ const AdmissionsContent = () => {
                     </div>
 
                     <button
-                        onClick={() => setIsDarkMode(!isDarkMode)}
+                        onClick={toggleTheme}
                         className={`p-3 rounded-[4px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
                     >
                         {isDarkMode ? <><FaSun /> Day</> : <><FaMoon /> Night</>}

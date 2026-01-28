@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { useTheme } from "../../context/ThemeContext";
 
 const LegendItem = ({ color, label, isDarkMode }) => (
     <div className="flex items-center gap-2">
@@ -488,7 +489,8 @@ const EmployeesAttendance = () => {
     const [showCautionModal, setShowCautionModal] = useState(false);
     const [showManualMarkModal, setShowManualMarkModal] = useState(false);
     const [activeCaution, setActiveCaution] = useState(null); // 'Overtime', 'Early Leave', 'Half Day', 'Short Leave'
-    const [isDarkMode, setIsDarkMode] = useState(true);
+    const { theme, toggleTheme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
     // Individual User Analysis State
     const [selectedUser, setSelectedUser] = useState(null);
@@ -871,7 +873,7 @@ const EmployeesAttendance = () => {
 
                         <div className="flex flex-wrap gap-4 items-center">
                             <button
-                                onClick={() => setIsDarkMode(!isDarkMode)}
+                                onClick={toggleTheme}
                                 className={`p-3 rounded-[2px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
                             >
                                 {isDarkMode ? <><FaSun /> Day Mode</> : <><FaMoon /> Night Mode</>}
