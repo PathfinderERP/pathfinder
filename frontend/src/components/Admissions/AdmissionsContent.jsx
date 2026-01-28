@@ -149,7 +149,7 @@ const AdmissionsContent = () => {
 
     const uniqueCentres = [...new Set(visibleStudents.map(s => s.studentsDetails?.[0]?.centre).filter(Boolean))];
     const uniqueBoards = [...new Set(students.map(s => s.studentsDetails?.[0]?.board).filter(Boolean))];
-    const uniqueExamTags = [...new Set(students.map(s => s.sessionExamCourse?.[0]?.examTag).filter(Boolean))];
+    const uniqueExamTags = [...new Set(visibleStudents.map(s => s.sessionExamCourse?.[0]?.examTag || s.examSchema?.[0]?.examName || s.studentsDetails?.[0]?.programme).filter(Boolean))];
 
     // Filter students based on search query and filters
     const filteredStudents = visibleStudents.filter(student => {
@@ -166,7 +166,7 @@ const AdmissionsContent = () => {
         const centre = details.centre || "";
         const school = details.schoolName || "";
         const board = details.board || "";
-        const examTag = sessionExam.examTag || "";
+        const examTag = sessionExam.examTag || exam.examName || details.programme || "";
 
         const query = searchQuery.toLowerCase();
         const matchesSearch =
@@ -542,7 +542,7 @@ const AdmissionsContent = () => {
                 <div className="flex items-center gap-8">
                     <div>
                         <h2 className={`text-4xl font-black tracking-tighter uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            Admissions
+                            Counselled Students
                         </h2>
                         <p className={`text-[10px] font-bold uppercase tracking-[0.3em] flex items-center gap-2 mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                             Student Lifecycle Management
@@ -752,6 +752,7 @@ const AdmissionsContent = () => {
                                 <th className="p-4">Reg. Date</th>
                                 <th className="p-4">Student Name</th>
                                 <th className="p-4">Programme</th>
+                                <th className="p-4">Exam Tag</th>
                                 <th className="p-4">Course</th>
                                 <th className="p-4">Batch</th>
                                 <th className="p-4">Centre</th>
@@ -766,7 +767,7 @@ const AdmissionsContent = () => {
                         <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                             {loading ? (
                                 <tr>
-                                    <td colSpan="12" className="p-12 text-center">
+                                    <td colSpan="13" className="p-12 text-center">
                                         <div className="flex flex-col items-center gap-4">
                                             <div className="w-10 h-10 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin"></div>
                                             <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Retrieving Enrollment Data...</span>
@@ -775,7 +776,7 @@ const AdmissionsContent = () => {
                                 </tr>
                             ) : filteredStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan="12" className="p-12 text-center">
+                                    <td colSpan="13" className="p-12 text-center">
                                         <div className="flex flex-col items-center gap-2 opacity-30">
                                             <FaSearch size={40} className="text-gray-500 mb-2" />
                                             <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">No matching student records found</span>
@@ -787,6 +788,7 @@ const AdmissionsContent = () => {
                                     .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                                     .map((student) => {
                                         const details = student.studentsDetails?.[0] || {};
+                                        const exam = student.examSchema?.[0] || {};
                                         const sessionExam = student.sessionExamCourse?.[0] || {};
                                         return (
                                             <tr key={student._id} className={`transition-all group ${isDarkMode ? 'hover:bg-cyan-500/[0.03]' : 'hover:bg-gray-50'}`}>
@@ -804,8 +806,13 @@ const AdmissionsContent = () => {
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
+                                                    <span className={`text-[10px] font-black uppercase ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                                        {details.programme || "N/A"}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
                                                     <span className={`text-[10px] font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                                        {sessionExam.examTag || "N/A"}
+                                                        {sessionExam.examTag || exam.examName || "N/A"}
                                                     </span>
                                                 </td>
                                                 <td className="p-4">
@@ -844,7 +851,7 @@ const AdmissionsContent = () => {
                                                 </td>
                                                 <td className="p-4">
                                                     <span className={`text-[10px] font-black ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
-                                                        {details.class || "N/A"}
+                                                        {exam.class || details.class || "N/A"}
                                                     </span>
                                                 </td>
                                                 <td className="p-4">

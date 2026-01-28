@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from "../../context/ThemeContext";
-import { FaSearch, FaEye, FaDownload, FaFilter, FaUserGraduate, FaSync, FaTimes, FaBook, FaCalendar, FaMoneyBillWave, FaFileInvoice, FaCheckCircle, FaExclamationCircle, FaUser, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaSchool, FaHistory, FaUsers, FaIdCard, FaBirthdayCake, FaVenusMars, FaPassport, FaBuilding, FaSun, FaMoon, FaPlus } from 'react-icons/fa';
+import { FaSearch, FaEye, FaEdit, FaDownload, FaFilter, FaUserGraduate, FaSync, FaTimes, FaBook, FaCalendar, FaMoneyBillWave, FaFileInvoice, FaCheckCircle, FaExclamationCircle, FaUser, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaSchool, FaHistory, FaUsers, FaIdCard, FaBirthdayCake, FaVenusMars, FaPassport, FaBuilding, FaSun, FaMoon, FaPlus } from 'react-icons/fa';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
@@ -44,6 +44,7 @@ const EnrolledStudentsContent = () => {
     const [studentAdmissions, setStudentAdmissions] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [editAdmission, setEditAdmission] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
     const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -417,6 +418,11 @@ const EnrolledStudentsContent = () => {
         setIsModalOpen(false);
         setSelectedStudent(null);
         setStudentAdmissions([]);
+    };
+
+    const handleEditProfile = (studentItem) => {
+        setEditAdmission(studentItem.latestAdmission);
+        setShowEditModal(true);
     };
 
     const openPaymentModal = (admission, installment) => {
@@ -805,19 +811,21 @@ const EnrolledStudentsContent = () => {
             {/* Search & Filter Area */}
             <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border mb-8`}>
                 <div className="flex flex-col gap-6">
-                    <div className="flex flex-col xl:flex-row gap-6">
-                        <div className="flex-1 relative group">
-                            <FaSearch className={`absolute left-4 top-1/2 transform -translate-y-1/2 transition-colors ${isDarkMode ? 'text-gray-600 group-focus-within:text-cyan-400' : 'text-gray-400 group-focus-within:text-gray-900'}`} />
-                            <input
-                                type="text"
-                                placeholder="SEARCH BY NAME, ID, CENTRE, COURSE, MOBILE..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className={`w-full pl-12 pr-4 py-4 rounded-[4px] border transition-all font-bold text-[10px] uppercase tracking-widest focus:outline-none ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400 shadow-inner'}`}
-                            />
-                        </div>
+                    {/* Search Row */}
+                    <div className="relative group">
+                        <FaSearch className={`absolute left-4 top-1/2 transform -translate-y-1/2 transition-colors ${isDarkMode ? 'text-gray-600 group-focus-within:text-cyan-400' : 'text-gray-400 group-focus-within:text-gray-900'}`} />
+                        <input
+                            type="text"
+                            placeholder="SEARCH BY NAME, ID, CENTRE, COURSE, MOBILE..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className={`w-full pl-12 pr-4 py-4 rounded-[4px] border transition-all font-bold text-[10px] uppercase tracking-widest focus:outline-none ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400 shadow-inner'}`}
+                        />
+                    </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    {/* Filters Grid */}
+                    <div className="flex flex-wrap gap-4">
+                        <div className="flex-1 min-w-[150px]">
                             <MultiSelectFilter
                                 label="Status"
                                 placeholder="ALL STATUS"
@@ -830,7 +838,9 @@ const EnrolledStudentsContent = () => {
                                 onChange={setFilterStatus}
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
+                        </div>
 
+                        <div className="flex-1 min-w-[150px]">
                             <MultiSelectFilter
                                 label="Centre"
                                 placeholder="ALL CENTRES"
@@ -839,7 +849,9 @@ const EnrolledStudentsContent = () => {
                                 onChange={setFilterCentre}
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
+                        </div>
 
+                        <div className="flex-1 min-w-[150px]">
                             <MultiSelectFilter
                                 label="Dept"
                                 placeholder="ALL DEPARTMENTS"
@@ -848,7 +860,9 @@ const EnrolledStudentsContent = () => {
                                 onChange={setFilterDepartment}
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
+                        </div>
 
+                        <div className="flex-1 min-w-[150px]">
                             <MultiSelectFilter
                                 label="Course"
                                 placeholder="ALL COURSES"
@@ -857,7 +871,9 @@ const EnrolledStudentsContent = () => {
                                 onChange={setFilterCourse}
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
+                        </div>
 
+                        <div className="flex-1 min-w-[150px]">
                             <MultiSelectFilter
                                 label="Class"
                                 placeholder="ALL CLASSES"
@@ -866,7 +882,9 @@ const EnrolledStudentsContent = () => {
                                 onChange={setFilterClass}
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
+                        </div>
 
+                        <div className="flex-1 min-w-[150px]">
                             <MultiSelectFilter
                                 label="Session"
                                 placeholder="ALL SESSIONS"
@@ -1033,6 +1051,19 @@ const EnrolledStudentsContent = () => {
                                                             <FaEye size={14} />
                                                         </button>
 
+                                                        {canEdit && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleEditProfile(studentItem);
+                                                                }}
+                                                                className={`p-2 rounded-[4px] transition-all ${isDarkMode ? 'bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500 hover:text-black' : 'bg-yellow-100 text-yellow-600 hover:bg-yellow-500 hover:text-white shadow-sm'}`}
+                                                                title="Edit Profile"
+                                                            >
+                                                                <FaEdit size={14} />
+                                                            </button>
+                                                        )}
+
                                                         {canDeactivate && (
                                                             <button
                                                                 onClick={(e) => {
@@ -1091,12 +1122,25 @@ const EnrolledStudentsContent = () => {
                                     )}
                                 </div>
                             </div>
-                            <button
-                                onClick={closeStudentModal}
-                                className={`p-2 rounded-[4px] transition-all ${isDarkMode ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'}`}
-                            >
-                                <FaTimes size={24} />
-                            </button>
+                            <div className="flex items-center gap-3">
+                                {canEdit && (
+                                    <button
+                                        onClick={() => {
+                                            const studentItem = students.find(s => s.student._id === selectedStudent._id);
+                                            if (studentItem) handleEditProfile(studentItem);
+                                        }}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500 hover:text-black border border-yellow-500/20' : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-500 hover:text-white border border-yellow-200'}`}
+                                    >
+                                        <FaEdit size={12} /> Edit Profile
+                                    </button>
+                                )}
+                                <button
+                                    onClick={closeStudentModal}
+                                    className={`p-2 rounded-[4px] transition-all ${isDarkMode ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'}`}
+                                >
+                                    <FaTimes size={24} />
+                                </button>
+                            </div>
                         </div>
 
                         <div className={`p-6 space-y-8 overflow-y-auto custom-scrollbar ${isDarkMode ? 'custom-scrollbar-dark' : 'custom-scrollbar-light'}`}>
@@ -1146,13 +1190,13 @@ const EnrolledStudentsContent = () => {
                                 </div>
 
                                 {/* Academic Information */}
-                                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'} rounded-[4px] border overflow-hidden`}>
+                                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'} rounded-[4px] border overflow-hidden`}>
                                     <div className={`px-4 py-3 border-b flex items-center gap-2 ${isDarkMode ? 'border-gray-800 bg-[#1a1f24]' : 'border-gray-100 bg-white'}`}>
                                         <FaSchool className="text-cyan-500" size={14} />
                                         <h4 className={`font-black uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Academic Profile</h4>
                                     </div>
-                                    <div className="p-4 flex flex-col h-full">
-                                        <div className="grid grid-cols-2 gap-6 mb-6">
+                                    <div className="p-4 space-y-6">
+                                        <div className="grid grid-cols-2 gap-6">
                                             <div>
                                                 <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5">Last School Attended</p>
                                                 <p className={`font-black uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{selectedStudent.studentsDetails?.[0]?.schoolName || "N/A"}</p>
@@ -1161,10 +1205,18 @@ const EnrolledStudentsContent = () => {
                                                 <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5">Affiliation Board</p>
                                                 <p className={`font-black uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{selectedStudent.studentsDetails?.[0]?.board || "N/A"}</p>
                                             </div>
+                                            <div>
+                                                <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5">Academic Programme</p>
+                                                <p className={`font-black uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{selectedStudent.studentsDetails?.[0]?.programme || "N/A"}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5">Exam Tag</p>
+                                                <p className={`font-black uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{selectedStudent.sessionExamCourse?.[0]?.examTag || "N/A"}</p>
+                                            </div>
                                         </div>
 
                                         {selectedStudent.examSchema && selectedStudent.examSchema.length > 0 && (
-                                            <div className="mt-auto">
+                                            <div>
                                                 <p className="text-cyan-500 font-black uppercase mb-3 text-[9px] tracking-widest border-b border-gray-800/10 pb-1">Historical Records</p>
                                                 <div className="space-y-2">
                                                     {selectedStudent.examSchema.map((exam, idx) => (
@@ -1525,7 +1577,7 @@ const EnrolledStudentsContent = () => {
                                                                                                         }`}
                                                                                                     title={selectedStudent.status === 'Deactivated' ? "LOCKED" : (!previousPaid ? "PRIOR DEBT" : "PROCESS")}
                                                                                                 >
-                                                                                                    LIQUIDATE
+                                                                                                    Pay Now
                                                                                                 </button>
                                                                                             ) : (
                                                                                                 <button
@@ -1816,6 +1868,21 @@ const EnrolledStudentsContent = () => {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {/* Edit Student Modal */}
+            {showEditModal && editAdmission && (
+                <EditEnrolledStudentModal
+                    admission={editAdmission}
+                    isDarkMode={isDarkMode}
+                    onClose={() => {
+                        setShowEditModal(false);
+                        setEditAdmission(null);
+                    }}
+                    onUpdate={() => {
+                        fetchAdmissions();
+                    }}
+                />
             )}
 
             {/* Bill Generator Modal */}

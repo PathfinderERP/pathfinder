@@ -120,7 +120,7 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
                                 <div>
                                     <p className={labelClass}>CURRENT CLASS</p>
                                     <span className={`px-3 py-1 rounded-[4px] text-[10px] font-black uppercase border inline-block ${isDarkMode ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>
-                                        {exam.class || "UNSET"}
+                                        {exam.class || details.class || "UNSET"}
                                     </span>
                                 </div>
                                 <div>
@@ -146,8 +146,12 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
                             </h3>
                             <div className="grid grid-cols-2 gap-y-6 gap-x-4">
                                 <div>
-                                    <p className={labelClass}>EXAM TAG</p>
-                                    <p className={valueClass}>{sessionExam.examTag || "NONE"}</p>
+                                    <p className={labelClass}>ACADEMIC PROGRAMME</p>
+                                    <p className={valueClass}>{details.programme || "N/A"}</p>
+                                </div>
+                                <div>
+                                    <p className={labelClass}>EXAM TAG (TARGET)</p>
+                                    <p className={valueClass}>{sessionExam.examTag || exam.examName || "NONE"}</p>
                                 </div>
                                 <div>
                                     <p className={labelClass}>TARGET MATRIX</p>

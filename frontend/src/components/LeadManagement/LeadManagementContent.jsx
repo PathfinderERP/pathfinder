@@ -508,7 +508,6 @@ const LeadManagementContent = () => {
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>S/N</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Name</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Contact Details</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Academic Info</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Operational Info</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Lead Status</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Responsibility</th>
@@ -518,13 +517,13 @@ const LeadManagementContent = () => {
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="8" className="px-6 py-20 text-center text-cyan-500 font-black uppercase text-[10px] tracking-widest animate-pulse">
+                                        <td colSpan="7" className="px-6 py-20 text-center text-cyan-500 font-black uppercase text-[10px] tracking-widest animate-pulse">
                                             Loading Leads...
                                         </td>
                                     </tr>
                                 ) : leads.length === 0 ? (
                                     <tr>
-                                        <td colSpan="8" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
+                                        <td colSpan="7" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
                                             No leads found
                                         </td>
                                     </tr>
@@ -538,10 +537,6 @@ const LeadManagementContent = () => {
                                             <td className="px-6 py-4">
                                                 <div className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lead.email}</div>
                                                 <div className="text-[10px] font-black text-cyan-500 mt-0.5">{lead.phoneNumber || "NO CONTACT"}</div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className={`text-[10px] font-black uppercase ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{lead.className?.name || "N/A"} • {lead.board?.boardName || "N/A"}</div>
-                                                <div className="text-[9px] font-bold text-gray-500 truncate max-w-[150px]">{lead.schoolName}</div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className={`text-[10px] font-black uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lead.centre?.centreName || "N/A"}</div>

@@ -404,7 +404,8 @@ const StudentRegistrationForm = () => {
                 ],
                 sessionExamCourse: [
                     {
-                        session: formData.session
+                        session: formData.session,
+                        examTag: formData.examName
                     }
                 ],
                 course: formData.course,
@@ -616,6 +617,14 @@ const StudentRegistrationForm = () => {
                                                     {departments.map((dept) => (
                                                         <option key={dept._id} value={dept._id}>{dept.departmentName.toUpperCase()}</option>
                                                     ))}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className={labelClass}>ACADEMIC PROGRAMME</label>
+                                                <select name="programme" value={formData.programme} onChange={handleChange} className={inputClass}>
+                                                    <option value="">SELECT PROGRAMME</option>
+                                                    <option value="CRP">CRP</option>
+                                                    <option value="NCRP">NCRP</option>
                                                 </select>
                                             </div>
 
