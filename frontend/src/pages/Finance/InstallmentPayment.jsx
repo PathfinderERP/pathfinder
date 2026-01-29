@@ -36,12 +36,37 @@ const InstallmentPayment = () => {
         departments: []
     });
 
+    const [allowedCentres, setAllowedCentres] = useState(null); // null means all allowed (SuperAdmin)
+
     useEffect(() => {
-        fetchMetadata();
-        fetchAdmissions();
+        const init = async () => {
+            const perms = await fetchUserPermissions();
+            setAllowedCentres(perms);
+            fetchMetadata(perms);
+            fetchAdmissions(perms);
+        };
+        init();
     }, []);
 
-    const fetchMetadata = async () => {
+    const fetchUserPermissions = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/profile/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                // Check role strictly from profile
+                if (data.user.role === 'superAdmin' || data.user.role === 'SuperAdmin') return null; // All access
+                return data.user.centres?.map(c => c.centreName) || [];
+            }
+        } catch (error) {
+            console.error(error);
+        }
+        return []; // Default no access if error or no centres
+    };
+
+    const fetchMetadata = async (allowedOverride) => {
         try {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
@@ -56,8 +81,16 @@ const InstallmentPayment = () => {
             const courses = await coursesRes.json();
             const depts = await deptsRes.json();
 
+            // Filter centres based on permissions
+            const perms = allowedOverride !== undefined ? allowedOverride : allowedCentres;
+            let filteredCentres = Array.isArray(centres) ? centres : [];
+
+            if (perms !== null) {
+                filteredCentres = filteredCentres.filter(c => perms.includes(c.centreName));
+            }
+
             setMetadata({
-                centres: Array.isArray(centres) ? centres : [],
+                centres: filteredCentres,
                 courses: Array.isArray(courses) ? courses : [],
                 departments: Array.isArray(depts) ? depts : []
             });
@@ -66,7 +99,7 @@ const InstallmentPayment = () => {
         }
     };
 
-    const fetchAdmissions = async () => {
+    const fetchAdmissions = async (allowedOverride) => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -81,7 +114,14 @@ const InstallmentPayment = () => {
             );
 
             if (response.ok) {
-                const data = await response.json();
+                let data = await response.json();
+
+                // Client-side permission filtering
+                const perms = allowedOverride !== undefined ? allowedOverride : allowedCentres;
+                if (perms !== null) {
+                    data = data.filter(adm => perms.includes(adm.centre));
+                }
+
                 setAdmissionsList(data);
             } else {
                 toast.error("Failed to load admissions");

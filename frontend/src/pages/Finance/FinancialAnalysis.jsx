@@ -11,6 +11,8 @@ import {
 const FinancialAnalysis = () => {
     const [loading, setLoading] = useState(true);
     const [selectedCentre, setSelectedCentre] = useState("");
+    const [allowedCentres, setAllowedCentres] = useState(null);
+    const [isReady, setIsReady] = useState(false);
     const [selectedPeriod, setSelectedPeriod] = useState("This Month");
     const [centres, setCentres] = useState([]);
     const [analytics, setAnalytics] = useState({
@@ -33,14 +35,45 @@ const FinancialAnalysis = () => {
     const COLORS = ['#00C49F', '#8884d8', '#FFBB28', '#FF8042', '#0088FE', '#FF3D67'];
 
     useEffect(() => {
-        fetchCentres();
+        const init = async () => {
+            const perms = await fetchUserPermissions();
+            setAllowedCentres(perms);
+
+            const loadedCentres = await fetchCentres(perms);
+
+            if (perms !== null && loadedCentres && loadedCentres.length > 0) {
+                setSelectedCentre(loadedCentres[0]._id);
+            }
+
+            setIsReady(true);
+        };
+        init();
     }, []);
 
     useEffect(() => {
-        fetchAnalytics();
-    }, [selectedCentre, selectedPeriod]);
+        if (isReady) {
+            fetchAnalytics();
+        }
+    }, [selectedCentre, selectedPeriod, isReady]);
 
-    const fetchCentres = async () => {
+    const fetchUserPermissions = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/profile/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data.user.role === 'superAdmin' || data.user.role === 'SuperAdmin') return null;
+                return data.user.centres?.map(c => c.centreName) || [];
+            }
+        } catch (error) {
+            console.error(error);
+        }
+        return [];
+    };
+
+    const fetchCentres = async (allowedOverride) => {
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/centre`, {
@@ -48,10 +81,19 @@ const FinancialAnalysis = () => {
             });
             const data = await response.json();
             if (response.ok) {
-                setCentres(data);
+                let filtered = data;
+                const perms = allowedOverride !== undefined ? allowedOverride : allowedCentres;
+
+                if (perms !== null) {
+                    filtered = data.filter(c => perms.includes(c.centreName));
+                }
+
+                setCentres(filtered);
+                return filtered;
             }
         } catch (error) {
             console.error("Error fetching centres:", error);
+            return [];
         }
     };
 
@@ -157,7 +199,7 @@ const FinancialAnalysis = () => {
                                 onChange={(e) => setSelectedCentre(e.target.value)}
                                 className="bg-transparent text-white text-xs focus:outline-none cursor-pointer font-black uppercase tracking-wider w-44"
                             >
-                                <option value="" className="bg-[#1a1f24]">All Global Centres</option>
+                                {allowedCentres === null && <option value="" className="bg-[#1a1f24]">All Global Centres</option>}
                                 {centres.map(c => (
                                     <option key={c._id} value={c._id} className="bg-[#1a1f24]">{c.centreName}</option>
                                 ))}
