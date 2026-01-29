@@ -73,13 +73,20 @@ const BirthdayList = () => {
         const currentMonth = getMonth(today);
 
         let filteredRefs = employees.filter(emp => {
+            // Skip employees without valid dateOfBirth
+            if (!emp.dateOfBirth) return false;
+
             const searchMatch = !searchTerm ||
                 emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 emp.employeeId?.toLowerCase().includes(searchTerm.toLowerCase());
             const deptMatch = !filterDept || (emp.department && emp.department._id === filterDept);
             const desigMatch = !filterDesig || (emp.designation && emp.designation._id === filterDesig);
             const centreMatch = !filterCentre || (emp.primaryCentre && emp.primaryCentre._id === filterCentre);
+
             const dobDate = new Date(emp.dateOfBirth);
+            // Validate the date is actually valid
+            if (isNaN(dobDate.getTime())) return false;
+
             const monthMatch = filterMonth === "" || getMonth(dobDate) === parseInt(filterMonth);
             return searchMatch && deptMatch && desigMatch && centreMatch && monthMatch;
         });
@@ -175,7 +182,9 @@ const BirthdayList = () => {
                     <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20 flex items-center gap-2 z-10">
                         <FaBirthdayCake className={`${isBdayToday ? 'text-pink-500' : 'text-gray-300'}`} />
                         <span className="text-white font-bold text-sm tracking-wide">
-                            {format(new Date(emp.dateOfBirth), "d MMMM")}
+                            {emp.dateOfBirth && !isNaN(new Date(emp.dateOfBirth).getTime())
+                                ? format(new Date(emp.dateOfBirth), "d MMMM")
+                                : "N/A"}
                         </span>
                         {isBdayToday && <span className="text-xs bg-pink-600 text-white px-2 py-0.5 rounded-full animate-pulse">TODAY</span>}
                     </div>

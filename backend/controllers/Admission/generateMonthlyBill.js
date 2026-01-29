@@ -161,6 +161,7 @@ export const generateMonthlyBill = async (req, res) => {
 
         // Propagation Logic: Update this month and ALL future UNPAID months
         const courseStartDate = new Date(admission.admissionDate || admission.createdAt);
+        courseStartDate.setDate(1); // Set to 1st to avoid month overflow (e.g. Jan 31 -> Mar)
         for (let i = 0; i < admission.courseDurationMonths; i++) {
             const mDate = new Date(courseStartDate);
             mDate.setMonth(mDate.getMonth() + i);
@@ -321,6 +322,7 @@ export const generateMonthlyBreakdown = async (admission) => {
 
     const breakdown = [];
     const startDate = new Date(admission.admissionDate || admission.createdAt);
+    startDate.setDate(1); // Set to 1st to avoid month overflow
 
     for (let i = 0; i < admission.courseDurationMonths; i++) {
         const monthDate = new Date(startDate);
@@ -441,6 +443,7 @@ export const updateBoardSubjects = async (req, res) => {
 
         // Propagation Logic for updateBoardSubjects: Update this month and ALL future UNPAID months
         const courseStartDate = new Date(admission.admissionDate || admission.createdAt);
+        courseStartDate.setDate(1); // Set to 1st to avoid month overflow
         for (let i = 0; i < admission.courseDurationMonths; i++) {
             const mDate = new Date(courseStartDate);
             mDate.setMonth(mDate.getMonth() + i);

@@ -244,12 +244,14 @@ export const deleteTeacher = async (req, res) => {
 // Get All Teachers
 export const getAllTeachers = async (req, res) => {
     try {
-        let query = { role: "teacher" };
+        let query = { role: { $in: ["teacher", "HOD"] } };
 
         if (req.user.role !== 'superAdmin') {
             const allowedCentreIds = req.user.centres || [];
             if (allowedCentreIds.length > 0) {
-                query.centres = { $in: allowedCentreIds };
+                // Ensure we are using IDs, in case something populated them upstream
+                const ids = allowedCentreIds.map(c => c._id || c);
+                query.centres = { $in: ids };
             } else {
                 // If not superAdmin and no centres assigned, return empty list
                 return res.status(200).json([]);

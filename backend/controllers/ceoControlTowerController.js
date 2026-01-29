@@ -16,23 +16,28 @@ export const getCEOAnalytics = async (req, res) => {
     try {
         const { startDate, endDate, centre } = req.query;
 
-        // Base filters
         let dateFilter = {};
         if (startDate && endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
             dateFilter = {
                 createdAt: {
                     $gte: new Date(startDate),
-                    $lte: new Date(endDate)
+                    $lte: end
                 }
             };
         }
 
-        const admissionDateFilter = startDate && endDate ? {
-            admissionDate: {
-                $gte: new Date(startDate),
-                $lte: new Date(endDate)
-            }
-        } : {};
+        const admissionDateFilter = startDate && endDate ? (() => {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            return {
+                admissionDate: {
+                    $gte: new Date(startDate),
+                    $lte: end
+                }
+            };
+        })() : {};
 
         let centreFilter = {};
         let employeeCentreFilter = {};
@@ -368,9 +373,11 @@ export const getCEOAttendanceAnalytics = async (req, res) => {
         // Date Filters
         const dateFilter = {};
         if (startDate && endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
             dateFilter.date = {
                 $gte: new Date(startDate),
-                $lte: new Date(endDate)
+                $lte: end
             };
         }
 
