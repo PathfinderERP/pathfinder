@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaFilter, FaPlus, FaSearch, FaDownload, FaEye, FaEdit, FaTrash, FaSync, FaSun, FaMoon } from "react-icons/fa";
+import { FaFilter, FaPlus, FaSearch, FaDownload, FaEye, FaEdit, FaTrash, FaSync, FaSun, FaMoon, FaUserGraduate } from "react-icons/fa";
 import { useTheme } from "../../context/ThemeContext";
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Link, useNavigate } from "react-router-dom";
@@ -868,6 +868,15 @@ const AdmissionsContent = () => {
                                                         >
                                                             <FaEye size={12} />
                                                         </button>
+                                                        {canCreate && (
+                                                            <button
+                                                                onClick={() => navigate(`/admission/${student._id}`)}
+                                                                className={`w-8 h-8 flex items-center justify-center rounded-[4px] border transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-400 hover:text-green-400 hover:border-green-500' : 'bg-white border-gray-200 text-gray-400 hover:text-green-600 hover:border-green-500 shadow-sm'}`}
+                                                                title="Admit Student"
+                                                            >
+                                                                <FaUserGraduate size={12} />
+                                                            </button>
+                                                        )}
                                                         {canEdit && (
                                                             <button
                                                                 onClick={() => handleEditStudent(student)}

@@ -206,6 +206,7 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
+        let success = false;
 
         try {
             const token = localStorage.getItem("token");
@@ -271,7 +272,7 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
 
             if (response.ok) {
                 toast.success('Student updated successfully!');
-                onUpdate();
+                success = true;
             } else {
                 toast.error(data.message || 'Failed to update student');
             }
@@ -280,6 +281,9 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
             toast.error('Error updating student');
         } finally {
             setLoading(false);
+            if (success) {
+                onUpdate();
+            }
         }
     };
 
@@ -478,7 +482,6 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
                                     name="board"
                                     value={formData.board}
                                     onChange={handleChange}
-                                    required
                                     className={inputClass}
                                 />
                             </div>
@@ -499,7 +502,6 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
                                     name="state"
                                     value={formData.state}
                                     onChange={handleChange}
-                                    required
                                     className={inputClass}
                                 />
                             </div>

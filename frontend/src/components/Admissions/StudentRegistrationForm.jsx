@@ -457,8 +457,8 @@ const StudentRegistrationForm = () => {
                     }
                 }
 
-                // Optional: Reset form or navigate
-                // navigate("/admissions");
+                // Navigate to Admissions (Counselled Students) page
+                navigate("/admissions");
             }
         } catch (err) {
             console.error("❌ Network or Server Error:", err);
@@ -790,9 +790,9 @@ const StudentRegistrationForm = () => {
                                             <div>
                                                 <label className={labelClass}>ENROLLING TARGET COURSE *</label>
                                                 <select name="course" value={formData.course} onChange={handleChange} className={`${inputClass} border-cyan-500/50 bg-cyan-500/5 text-cyan-500`}>
-                                                    <option value="">CHOOSE COURSE SYLLABUS</option>
+                                                    <option value="" className={isDarkMode ? "bg-[#131619] text-white" : "bg-white text-gray-900"}>CHOOSE COURSE SYLLABUS</option>
                                                     {filteredCourses.map((c) => (
-                                                        <option key={c._id} value={c._id}>
+                                                        <option key={c._id} value={c._id} className={isDarkMode ? "bg-[#131619] text-white" : "bg-white text-gray-900"}>
                                                             {c.courseName.toUpperCase()} [{c.mode} | {c.courseType}]
                                                         </option>
                                                     ))}
