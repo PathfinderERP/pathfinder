@@ -55,8 +55,9 @@ export const getLeadDashboardStats = async (req, res) => {
             query.leadResponsibility = { $regex: leadResponsibility, $options: "i" };
         }
 
-        // Exclude counseled leads from dashboard stats
-        query.isCounseled = { $ne: true };
+        // Exclude counseled leads from dashboard stats ? 
+        // Removing this to show ALL lead activity trend
+        // query.isCounseled = { $ne: true };
 
         // Access Control (Same as getLeads.js)
         if (req.user.role !== 'superAdmin') {
@@ -72,7 +73,8 @@ export const getLeadDashboardStats = async (req, res) => {
                 return res.status(200).json({
                     summary: { totalLeads: 0, hotLeads: 0, coldLeads: 0, negativeLeads: 0 },
                     telecallers: [],
-                    nextCalls: []
+                    nextCalls: [],
+                    dailyLeads: []
                 });
             }
 
@@ -80,6 +82,8 @@ export const getLeadDashboardStats = async (req, res) => {
                 if (!userCentreIds.map(c => c.toString()).includes(centre)) {
                     return res.status(403).json({ message: "Access denied to this centre" });
                 }
+                // Fix: Actually apply the centre filter!
+                query.centre = mongoose.Types.ObjectId.isValid(centre) ? new mongoose.Types.ObjectId(centre) : centre;
             } else {
                 query.centre = { $in: userCentreIds };
             }
@@ -124,10 +128,43 @@ export const getLeadDashboardStats = async (req, res) => {
             .sort({ nextFollowUpDate: 1 })
             .limit(20);
 
+        // Daily Leads Trend (Last 30 Days)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+        const dailyLeads = await LeadManagement.aggregate([
+            {
+                $match: {
+                    ...query,
+                    createdAt: { $gte: thirtyDaysAgo }
+                }
+            },
+            {
+                $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]);
+
+        // Fill in missing dates with 0
+        const filledDailyLeads = [];
+        for (let d = new Date(thirtyDaysAgo); d <= new Date(); d.setDate(d.getDate() + 1)) {
+            const dateStr = d.toISOString().split('T')[0];
+            const found = dailyLeads.find(item => item._id === dateStr);
+            filledDailyLeads.push({
+                date: dateStr,
+                count: found ? found.count : 0
+            });
+        }
+
         res.status(200).json({
             summary: summary[0] || { totalLeads: 0, hotLeads: 0, coldLeads: 0, negativeLeads: 0 },
             telecallers,
-            nextCalls
+            nextCalls,
+            dailyLeads: filledDailyLeads
         });
 
     } catch (err) {

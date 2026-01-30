@@ -4,14 +4,25 @@ import Admission from "../../models/Admission/Admission.js";
 import Payment from "../../models/Payment/Payment.js";
 import PettyCashRequest from "../../models/Finance/PettyCashRequest.js";
 import PettyCashExpenditure from "../../models/Finance/PettyCashExpenditure.js";
+import User from "../../models/User.js";
 
 // @desc    Get all centres with their budget info summary
 // @route   GET /api/finance/budget/centres
 // @access  Private
 export const getBudgetCentres = async (req, res) => {
     try {
-        const centres = await CentreSchema.find().sort({ centreName: 1 });
-        const budgets = await Budget.find();
+        let authorizedCentreIds = [];
+        if (req.user.role !== "superAdmin") {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            authorizedCentreIds = currentUser ? currentUser.centres.map(c => c._id || c) : [];
+        }
+
+        let centreQuery = {};
+        if (req.user.role !== "superAdmin") {
+            centreQuery._id = { $in: authorizedCentreIds };
+        }
+        const centres = await CentreSchema.find(centreQuery).sort({ centreName: 1 });
+        const budgets = await Budget.find(req.user.role !== "superAdmin" ? { centre: { $in: authorizedCentreIds } } : {});
 
         const now = new Date();
         const monthNames = [
@@ -93,6 +104,16 @@ export const getBudgetCentres = async (req, res) => {
 export const getBudgetsByCentre = async (req, res) => {
     try {
         const { centreId } = req.params;
+
+        // Center Visibility Restriction
+        if (req.user.role !== "superAdmin") {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentreIds = (currentUser ? currentUser.centres : []).map(c => (c._id || c).toString());
+            if (!userCentreIds.includes(centreId)) {
+                return res.status(403).json({ message: "Access denied to this centre's budget details" });
+            }
+        }
+
         const centre = await CentreSchema.findById(centreId);
         if (!centre) {
             return res.status(404).json({ message: "Centre not found" });
@@ -165,6 +186,14 @@ export const updateCentreBudget = async (req, res) => {
 
         if (!centreId || !year || !month || !financialYear) {
             return res.status(400).json({ message: "Centre, Year, Month, and Financial Year are required" });
+        }
+
+        // Center Visibility Restriction
+        if (req.user.role !== "superAdmin") {
+            const userCentres = (req.user.centres || []).map(c => c.toString());
+            if (!userCentres.includes(centreId)) {
+                return res.status(403).json({ message: "Access denied: You cannot manage budget for this centre" });
+            }
         }
 
         budgetAmount = Number(budgetAmount) || 0;

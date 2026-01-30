@@ -77,30 +77,19 @@ const AdmissionsContent = () => {
     const fetchAllowedCentres = async () => {
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/profile/me`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
 
-            if (response.ok) {
-                const data = await response.json();
-                const currentUser = data.user;
-
-                if (currentUser.role === 'superAdmin') {
-                    // If superAdmin, fetch all centres to populate allowed list
-                    // Or we can just leave it empty and handle "Access All" logic
-                    // But for consistency with filters, let's fetch all
-                    const centreRes = await fetch(`${import.meta.env.VITE_API_URL}/centre`, {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-                    if (centreRes.ok) {
-                        const allCentres = await centreRes.json();
-                        setAllowedCentres(allCentres.map(c => c.centreName));
-                    }
-                } else {
-                    const userCentres = currentUser.centres || [];
-                    const userCentreNames = userCentres.map(c => c.centreName || c.name); // Handle potential population differences
-                    setAllowedCentres(userCentreNames);
-                }
+            // If superAdmin, fetch all centres
+            if (user.role === 'superAdmin' || user.role === 'Super Admin') {
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/centre`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const centres = response.ok ? await response.json() : [];
+                setAllowedCentres(centres.map(c => c.centreName));
+            } else {
+                // For non-superAdmin, use centres from localStorage user object
+                const userCentres = user.centres || [];
+                const userCentreNames = userCentres.map(c => c.centreName || c).filter(Boolean);
+                setAllowedCentres(userCentreNames);
             }
         } catch (error) {
             console.error("Error fetching allowed centres:", error);
@@ -138,10 +127,8 @@ const AdmissionsContent = () => {
     // Extract unique values for filters based on visible students
     // First, filter students by allowed centres to ensure safety
     const visibleStudents = students.filter(s => {
-        if (allowedCentres.length === 0) return true; // Loading or issue, might want to block or allow pending check. For now assuming superadmin if empty or fetch pending.
-        // Actually best to rely on 'isSuperAdmin' flag or non-empty allowedCentres.
-        // If allowedCentres is populated, strict check.
         if (isSuperAdmin) return true;
+        if (allowedCentres.length === 0) return false;
 
         const studentCentre = s.studentsDetails?.[0]?.centre;
         return allowedCentres.includes(studentCentre);
@@ -153,6 +140,9 @@ const AdmissionsContent = () => {
 
     // Filter students based on search query and filters
     const filteredStudents = visibleStudents.filter(student => {
+        // Only show students who are NOT yet enrolled
+        if (student.isEnrolled) return false;
+
         const details = student.studentsDetails?.[0] || {};
         const exam = student.examSchema?.[0] || {};
         const studentStatusList = student.studentStatus || [];
@@ -874,7 +864,8 @@ const AdmissionsContent = () => {
                                                                 className={`w-8 h-8 flex items-center justify-center rounded-[4px] border transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-400 hover:text-green-400 hover:border-green-500' : 'bg-white border-gray-200 text-gray-400 hover:text-green-600 hover:border-green-500 shadow-sm'}`}
                                                                 title="Admit Student"
                                                             >
-                                                                <FaUserGraduate size={12} />
+                                                                {/* <FaUserGraduate size={12} /> */}
+                                                                Admit
                                                             </button>
                                                         )}
                                                         {canEdit && (

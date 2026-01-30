@@ -5,8 +5,11 @@ import {
     FaEye, FaDownload, FaInfoCircle, FaClock, FaTimes, FaExternalLinkAlt
 } from "react-icons/fa";
 import { toast } from "react-toastify";
+import { useTheme } from "../../context/ThemeContext";
 
 const TrainingCenter = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [trainings, setTrainings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
@@ -69,15 +72,15 @@ const TrainingCenter = () => {
 
     return (
         <Layout activePage="Employee Center">
-            <div className="p-4 md:p-6 max-w-[1600px] mx-auto">
+            <div className={`p-4 md:p-6 max-w-[1600px] mx-auto min-h-screen transition-colors duration-300 ${isDarkMode ? '' : 'text-gray-800'}`}>
                 {/* Header Banner */}
-                <div className="relative overflow-hidden bg-gradient-to-br from-[#1a1f24] to-[#131619] border border-gray-800 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 mb-8 md:mb-12 shadow-2xl">
+                <div className={`relative overflow-hidden rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 mb-8 md:mb-12 shadow-2xl border transition-all duration-500 ${isDarkMode ? 'bg-gradient-to-br from-[#1a1f24] to-[#131619] border-gray-800' : 'bg-gradient-to-br from-cyan-600 to-blue-700 border-cyan-500/20'}`}>
                     <div className="relative z-10 max-w-2xl">
                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-cyan-500/10 text-cyan-500 text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] rounded-full mb-4 md:mb-6 border border-cyan-500/20">
                             Learning Management
                         </div>
-                        <h1 className="text-3xl md:text-5xl font-black text-white mb-4 tracking-tight">KNOWLEDGE BASE</h1>
-                        <p className="text-gray-400 font-medium leading-relaxed max-w-lg text-sm md:text-base">
+                        <h1 className="text-3xl md:text-5xl font-black text-white mb-4 tracking-tight uppercase">KNOWLEDGE BASE</h1>
+                        <p className={`font-medium leading-relaxed max-w-lg text-sm md:text-base ${isDarkMode ? 'text-gray-400' : 'text-cyan-100'}`}>
                             Access our library of educational resources, guidelines, and training modules designed to empower your career growth.
                         </p>
                     </div>
@@ -89,11 +92,11 @@ const TrainingCenter = () => {
                 {/* Filters Row */}
                 <div className="flex flex-col lg:flex-row gap-6 mb-8 md:mb-12 items-center justify-between">
                     <div className="relative w-full lg:max-w-md group">
-                        <FaSearch className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-cyan-500 transition-colors" />
+                        <FaSearch className={`absolute left-5 top-1/2 -translate-y-1/2 group-focus-within:text-cyan-500 transition-colors ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`} />
                         <input
                             type="text"
                             placeholder="FIND A MODULE OR TOPIC..."
-                            className="w-full bg-[#131619] border border-gray-800 rounded-2xl py-4 pl-14 pr-6 text-gray-200 text-xs font-bold uppercase tracking-widest placeholder:text-gray-700 focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500/50 outline-none transition-all shadow-inner"
+                            className={`w-full border rounded-2xl py-4 pl-14 pr-6 text-xs font-bold uppercase tracking-widest outline-none transition-all shadow-inner ${isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-200 placeholder:text-gray-700 focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-2 focus:ring-cyan-100 focus:border-cyan-300'}`}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -104,8 +107,8 @@ const TrainingCenter = () => {
                                 key={cat}
                                 onClick={() => setSelectedCategory(cat)}
                                 className={`px-6 md:px-8 py-3 md:py-3.5 rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] transition-all whitespace-nowrap border ${selectedCategory === cat
-                                        ? "bg-cyan-500 text-[#1a1f24] border-cyan-500 shadow-xl shadow-cyan-500/20"
-                                        : "bg-[#131619] text-gray-500 border-gray-800 hover:border-gray-600 hover:text-gray-300 shadow-sm"
+                                    ? "bg-cyan-500 text-[#1a1f24] border-cyan-500 shadow-xl shadow-cyan-500/20"
+                                    : (isDarkMode ? "bg-[#131619] text-gray-500 border-gray-800 hover:border-gray-600 hover:text-gray-300 shadow-sm" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700 shadow-sm")
                                     }`}
                             >
                                 {cat}
@@ -126,51 +129,51 @@ const TrainingCenter = () => {
                         <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.3em] animate-pulse">Syncing Library...</p>
                     </div>
                 ) : filteredTrainings.length === 0 ? (
-                    <div className="bg-[#131619] border-2 border-dashed border-gray-800 rounded-[2rem] md:rounded-[3rem] p-12 md:p-24 text-center">
-                        <div className="w-16 md:w-20 h-16 md:h-20 bg-gray-800/30 rounded-full flex items-center justify-center mx-auto mb-6 border border-gray-800 shadow-inner">
-                            <FaInfoCircle className="text-gray-600" size={28} />
+                    <div className={`border-2 border-dashed rounded-[2rem] md:rounded-[3rem] p-12 md:p-24 text-center ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-100/50 border-gray-200'}`}>
+                        <div className={`w-16 md:w-20 h-16 md:h-20 rounded-full flex items-center justify-center mx-auto mb-6 border shadow-inner ${isDarkMode ? 'bg-gray-800/30 border-gray-800' : 'bg-white border-gray-100'}`}>
+                            <FaInfoCircle className={`${isDarkMode ? 'text-gray-600' : 'text-gray-300'}`} size={28} />
                         </div>
-                        <h3 className="text-white font-black text-xl md:text-2xl mb-3 tracking-tight">QUIET IN THE LIBRARY</h3>
-                        <p className="text-gray-600 text-sm max-w-sm mx-auto leading-relaxed">No modules match your current search or assignment list.</p>
+                        <h3 className={`font-black text-xl md:text-2xl mb-3 tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>QUIET IN THE LIBRARY</h3>
+                        <p className={`text-sm max-w-sm mx-auto leading-relaxed ${isDarkMode ? 'text-gray-600' : 'text-gray-500'}`}>No modules match your current search or assignment list.</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 md:gap-8">
                         {filteredTrainings.map(training => (
-                            <div key={training._id} className="bg-[#131619] border border-gray-800 rounded-[2rem] md:rounded-[2.5rem] flex flex-col hover:border-cyan-500/40 hover:-translate-y-2 transition-all duration-500 group overflow-hidden shadow-2xl relative h-full">
+                            <div key={training._id} className={`border rounded-[2rem] md:rounded-[2.5rem] flex flex-col hover:border-cyan-500/40 hover:-translate-y-2 transition-all duration-500 group overflow-hidden shadow-2xl relative h-full ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
                                 {/* Visual Accent */}
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-cyan-500/10 to-transparent rotate-45 translate-x-16 -translate-y-16 group-hover:bg-cyan-500/20 transition-all duration-500"></div>
 
                                 <div className="p-6 md:p-8 flex-1 flex flex-col relative z-10">
                                     <div className="flex justify-between items-center mb-6">
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-[#1a1f24] bg-cyan-500 px-4 py-1.5 rounded-full">
+                                        <span className={`text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full ${isDarkMode ? 'text-[#1a1f24] bg-cyan-500' : 'text-white bg-cyan-600'}`}>
                                             {training.category}
                                         </span>
-                                        <div className="flex items-center gap-2 text-[10px] text-gray-600 font-black uppercase tracking-widest">
+                                        <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
                                             <FaClock className="text-cyan-500/30" />
                                             {new Date(training.createdAt).toLocaleDateString()}
                                         </div>
                                     </div>
 
-                                    <h3 className="text-white font-black text-xl mb-3 group-hover:text-cyan-400 transition-colors tracking-tight leading-tight uppercase">
+                                    <h3 className={`font-black text-xl mb-3 group-hover:text-cyan-500 transition-colors tracking-tight leading-tight uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                         {training.title}
                                     </h3>
-                                    <p className="text-gray-500 text-xs mb-8 line-clamp-3 leading-relaxed font-medium">
+                                    <p className={`text-xs mb-8 line-clamp-3 leading-relaxed font-medium ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>
                                         {training.description || "Comprehensive module covering essential protocols and workflow procedures."}
                                     </p>
 
                                     {/* Files Section within Card */}
-                                    <div className="space-y-3 mt-auto pt-6 border-t border-gray-800/50">
-                                        <p className="text-[9px] font-black text-gray-600 uppercase tracking-[0.2em] mb-4">Module Content ({training.files?.length || 0})</p>
+                                    <div className={`space-y-3 mt-auto pt-6 border-t ${isDarkMode ? 'border-gray-800/50' : 'border-gray-100'}`}>
+                                        <p className={`text-[9px] font-black uppercase tracking-[0.2em] mb-4 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>Module Content ({training.files?.length || 0})</p>
                                         <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
                                             {training.files?.map((file, idx) => (
-                                                <div key={idx} className="group/file flex items-center justify-between p-3 bg-[#1a1f24]/50 hover:bg-[#1a1f24] border border-gray-800 rounded-xl transition-all">
+                                                <div key={idx} className={`group/file flex items-center justify-between p-3 border rounded-xl transition-all ${isDarkMode ? 'bg-[#1a1f24]/50 hover:bg-[#1a1f24] border-gray-800' : 'bg-gray-50 hover:bg-gray-100 border-gray-200'}`}>
                                                     <div className="flex items-center gap-3 overflow-hidden">
-                                                        <div className="shrink-0 p-2 bg-gray-800/50 rounded-lg">
+                                                        <div className={`shrink-0 p-2 rounded-lg ${isDarkMode ? 'bg-gray-800/50' : 'bg-white'}`}>
                                                             {getFileIcon(file.fileType)}
                                                         </div>
                                                         <div className="flex flex-col min-w-0">
-                                                            <span className="text-[10px] text-gray-300 font-bold truncate pr-4">{file.fileName}</span>
-                                                            <span className="text-[8px] text-gray-600 font-black uppercase tracking-widest">{(file.fileSize / (1024 * 1024)).toFixed(1)} MB</span>
+                                                            <span className={`text-[10px] font-bold truncate pr-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{file.fileName}</span>
+                                                            <span className={`text-[8px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>{(file.fileSize / (1024 * 1024)).toFixed(1)} MB</span>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2 shrink-0">
@@ -203,17 +206,17 @@ const TrainingCenter = () => {
 
             {/* Support Card */}
             <div className="p-4 md:p-6 max-w-[1600px] mx-auto">
-                <div className="mt-12 md:mt-20 p-6 md:p-10 bg-gradient-to-br from-[#131619] to-black border border-gray-800 rounded-[2rem] md:rounded-[3rem] flex flex-col md:flex-row items-center justify-between gap-8 shadow-3xl">
+                <div className={`mt-12 md:mt-20 p-6 md:p-10 border rounded-[2rem] md:rounded-[3rem] flex flex-col md:flex-row items-center justify-between gap-8 shadow-3xl transition-all duration-500 ${isDarkMode ? 'bg-gradient-to-br from-[#131619] to-black border-gray-800' : 'bg-white border-gray-200 shadow-xl'}`}>
                     <div className="flex items-center gap-6 md:gap-8 text-center md:text-left">
-                        <div className="w-14 md:w-16 h-14 md:h-16 bg-cyan-500/10 rounded-2xl md:rounded-3xl flex items-center justify-center text-cyan-500 border border-cyan-500/20 shadow-inner">
+                        <div className={`w-14 md:w-16 h-14 md:h-16 rounded-2xl md:rounded-3xl flex items-center justify-center text-cyan-500 border shadow-inner ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20' : 'bg-cyan-50 border-cyan-100'}`}>
                             <FaInfoCircle size={24} />
                         </div>
                         <div>
-                            <h4 className="text-white font-black text-base md:text-lg mb-2 tracking-tight uppercase">ENCOUNTERING ISSUES?</h4>
-                            <p className="text-gray-500 text-[10px] md:text-xs font-medium max-w-sm leading-relaxed">Our support team is available Mon-Fri to assist with any resource accessibility problems.</p>
+                            <h4 className={`font-black text-base md:text-lg mb-2 tracking-tight uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>ENCOUNTERING ISSUES?</h4>
+                            <p className={`text-[10px] md:text-xs font-medium max-w-sm leading-relaxed ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Our support team is available Mon-Fri to assist with any resource accessibility problems.</p>
                         </div>
                     </div>
-                    <button className="w-full md:w-auto px-10 py-4 bg-gray-800/50 text-gray-300 hover:text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl border border-gray-700 transition-all hover:bg-gray-800 shadow-lg">
+                    <button className={`w-full md:w-auto px-10 py-4 text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl border transition-all shadow-lg ${isDarkMode ? 'bg-gray-800/50 text-gray-300 hover:text-white border-gray-700 hover:bg-gray-800' : 'bg-gray-900 text-white border-gray-800 hover:bg-black'}`}>
                         Reach Support
                     </button>
                 </div>
@@ -222,17 +225,17 @@ const TrainingCenter = () => {
             {/* PREVIEW MODAL */}
             {previewFile && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 bg-black/95 backdrop-blur-md animate-fade-in">
-                    <div className="relative bg-[#131619] border border-gray-800 rounded-[2rem] md:rounded-[3rem] w-full max-w-6xl h-full max-h-[90vh] flex flex-col overflow-hidden shadow-[0_0_100px_rgba(6,182,212,0.15)]">
+                    <div className={`relative border rounded-[2rem] md:rounded-[3rem] w-full max-w-6xl h-full max-h-[90vh] flex flex-col overflow-hidden shadow-[0_0_100px_rgba(6,182,212,0.15)] ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
 
                         {/* Modal Header */}
-                        <div className="flex items-center justify-between p-6 md:p-8 border-b border-gray-800 bg-[#1a1f24]/50">
+                        <div className={`flex items-center justify-between p-6 md:p-8 border-b ${isDarkMode ? 'bg-[#1a1f24]/50 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                             <div className="flex items-center gap-4 min-w-0">
-                                <div className="p-3 bg-gray-800/50 rounded-2xl border border-gray-700">
+                                <div className={`p-3 rounded-2xl border ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-200'}`}>
                                     {getFileIcon(previewFile.fileType)}
                                 </div>
                                 <div className="min-w-0">
-                                    <h2 className="text-white font-black text-sm md:text-lg uppercase tracking-wider truncate pr-4">{previewFile.fileName}</h2>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{previewFile.fileType} • {(previewFile.fileSize / (1024 * 1024)).toFixed(2)} MB</p>
+                                    <h2 className={`font-black text-sm md:text-lg uppercase tracking-wider truncate pr-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{previewFile.fileName}</h2>
+                                    <p className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{previewFile.fileType} • {(previewFile.fileSize / (1024 * 1024)).toFixed(2)} MB</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
@@ -240,7 +243,7 @@ const TrainingCenter = () => {
                                     href={previewFile.fileUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="p-3 bg-gray-800 text-gray-400 hover:text-cyan-400 rounded-xl transition-all border border-gray-700 hidden md:block"
+                                    className={`p-3 rounded-xl transition-all border hidden md:block ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-cyan-400 border-gray-700' : 'bg-white text-gray-500 hover:text-cyan-600 border-gray-200 shadow-sm'}`}
                                     title="Open in new tab"
                                 >
                                     <FaExternalLinkAlt size={18} />

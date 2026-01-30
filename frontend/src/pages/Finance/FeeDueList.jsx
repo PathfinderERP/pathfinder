@@ -12,6 +12,8 @@ const FeeDueList = () => {
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({ critical: 0, overdue: 0, dueToday: 0 });
 
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+
     // Filters
     const [filters, setFilters] = useState({
         centre: "",
@@ -51,7 +53,13 @@ const FeeDueList = () => {
 
             if (centreRes.ok) {
                 const data = await centreRes.json();
-                setCentres(data || []);
+                const filteredCentres = Array.isArray(data)
+                    ? data.filter(c =>
+                        user.role === 'superAdmin' ||
+                        (user.centres && user.centres.some(uc => uc._id === c._id || uc.centreName === c.centreName))
+                    )
+                    : [];
+                setCentres(filteredCentres);
             }
             if (courseRes.ok) {
                 const data = await courseRes.json();

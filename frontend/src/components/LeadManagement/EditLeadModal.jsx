@@ -81,12 +81,9 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
             const centreData = await centreResponse.json();
             if (centreResponse.ok) {
                 let list = Array.isArray(centreData) ? centreData : [];
-                if (!isSuperAdmin) {
-                    const userCentreIds = currentUser.centres?.map(c => c._id || c) || [];
-                    list = list.filter(c => userCentreIds.includes(c._id));
-                    if (lead?.centre?._id && !list.find(c => c._id === lead.centre._id)) {
-                        list.push(lead.centre);
-                    }
+                // Support viewing the existing lead's centre even if not in the list (though backend-filtering should include it if they have access to the lead)
+                if (lead?.centre?._id && !list.find(c => c._id === lead.centre._id)) {
+                    list.push(lead.centre);
                 }
                 setCentres(list);
             }
@@ -108,13 +105,9 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
             });
             const userData = await userResponse.json();
             if (userResponse.ok) {
-                let telecallerUsers = (userData.users || []).filter(u => u.role === "telecaller");
-                if (currentUser.role === "telecaller") {
-                    telecallerUsers = telecallerUsers.filter(u => u.name === currentUser.name);
-                    if (telecallerUsers.length === 0) {
-                        telecallerUsers = [{ _id: currentUser._id, name: currentUser.name }];
-                    }
-                }
+                // Filter users to show only those with the "telecaller" role
+                const telecallerUsers = (userData.users || []).filter(u => u.role === "telecaller");
+
                 setTelecallers(telecallerUsers);
             }
 

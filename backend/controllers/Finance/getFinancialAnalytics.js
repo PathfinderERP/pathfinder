@@ -1,6 +1,7 @@
 import Payment from "../../models/Payment/Payment.js";
 import Admission from "../../models/Admission/Admission.js";
 import Centre from "../../models/Master_data/Centre.js";
+import User from "../../models/User.js";
 
 export const getFinancialAnalytics = async (req, res) => {
     try {
@@ -35,7 +36,24 @@ export const getFinancialAnalytics = async (req, res) => {
 
         // Base Filter for Centre
         const baseFilter = {};
-        if (centreId && centreId !== 'undefined' && centreId !== 'null' && centreId !== '') {
+        if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentres = (currentUser ? currentUser.centres : []).map(c => c._id?.toString() || c.toString());
+            if (centreId && centreId !== 'undefined' && centreId !== 'null' && centreId !== '') {
+                if (!userCentres.includes(centreId)) {
+                    return res.status(403).json({ message: "Access denied to this centre's analytics" });
+                }
+                const centreDoc = await Centre.findById(centreId);
+                if (centreDoc) {
+                    baseFilter.centre = centreDoc.centreName;
+                }
+            } else {
+                // If no centreId, filter by all allowed centres
+                const userCentreDocs = await Centre.find({ _id: { $in: userCentres } });
+                const userCentreNames = userCentreDocs.map(c => c.centreName);
+                baseFilter.centre = { $in: userCentreNames };
+            }
+        } else if (centreId && centreId !== 'undefined' && centreId !== 'null' && centreId !== '') {
             const centreDoc = await Centre.findById(centreId);
             if (centreDoc) {
                 baseFilter.centre = centreDoc.centreName;

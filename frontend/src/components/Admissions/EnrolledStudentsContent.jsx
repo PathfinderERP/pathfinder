@@ -112,38 +112,19 @@ const EnrolledStudentsContent = () => {
         try {
             const token = localStorage.getItem("token");
 
-            // Fetch current user data to get latest centre assignments
-            const userResponse = await fetch(`${apiUrl}/profile/me`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            if (!userResponse.ok) {
-                console.error("Failed to fetch user profile");
-                return;
-            }
-
-            const responseData = await userResponse.json();
-            const currentUser = responseData.user; // API returns { user: {...} }
-
             // If superAdmin, fetch all centres
-            if (currentUser.role === 'superAdmin') {
+            if (user.role === 'superAdmin' || user.role === 'Super Admin') {
                 const response = await fetch(`${apiUrl}/centre`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                const centres = await response.json();
+                const centres = response.ok ? await response.json() : [];
                 setAllowedCentres(centres.map(c => c.centreName));
             } else {
-                // For non-superAdmin, use populated centres from profile
-                // The profile API populates centres with full objects
-                const userCentres = currentUser.centres || [];
-
-                if (userCentres.length > 0) {
-                    // Centres are already populated with centreName
-                    const userCentreNames = userCentres.map(c => c.centreName);
-                    setAllowedCentres(userCentreNames);
-                } else {
-                    setAllowedCentres([]);
-                }
+                // For non-superAdmin, use centres from localStorage user object
+                // Standardize to matching by name as stored in Admission models
+                const userCentres = user.centres || [];
+                const userCentreNames = userCentres.map(c => c.centreName || c).filter(Boolean);
+                setAllowedCentres(userCentreNames);
             }
         } catch (error) {
             console.error("Error fetching allowed centres:", error);

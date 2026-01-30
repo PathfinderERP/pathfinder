@@ -9,6 +9,7 @@ const TransactionList = () => {
     // ---- State ----
     const [loading, setLoading] = useState(false);
     const [detailedReport, setDetailedReport] = useState([]);
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
 
     // Total Revenue only for the stats cards if needed, calculated from list or API
     const [totalRevenue, setTotalRevenue] = useState(0);
@@ -119,7 +120,16 @@ const TransactionList = () => {
                 fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
             ]);
 
-            if (cRes.ok) setCentres(await cRes.json());
+            if (cRes.ok) {
+                const data = await cRes.json();
+                const filteredCentres = Array.isArray(data)
+                    ? data.filter(c =>
+                        user.role === 'superAdmin' ||
+                        (user.centres && user.centres.some(uc => uc._id === c._id || uc.centreName === c.centreName))
+                    )
+                    : [];
+                setCentres(filteredCentres);
+            }
             if (coRes.ok) setCourses(await coRes.json());
             if (eRes.ok) setExamTags(await eRes.json());
             if (dRes.ok) setDepartments(await dRes.json());

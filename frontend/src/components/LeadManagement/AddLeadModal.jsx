@@ -65,13 +65,9 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             });
             const centreData = await centreResponse.json();
             if (centreResponse.ok) {
-                let list = Array.isArray(centreData) ? centreData : [];
-                if (!isSuperAdmin) {
-                    const userCentreIds = currentUser.centres?.map(c => c._id || c) || [];
-                    list = list.filter(c => userCentreIds.includes(c._id));
-                }
+                const list = Array.isArray(centreData) ? centreData : [];
                 setCentres(list);
-                if (!isSuperAdmin && list.length > 0 && !formData.centre) {
+                if (list.length > 0 && !formData.centre) {
                     setFormData(prev => ({ ...prev, centre: list[0]._id }));
                 }
             }
@@ -93,19 +89,17 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             });
             const userData = await userResponse.json();
             if (userResponse.ok) {
-                let telecallerUsers = (userData.users || []).filter(u => u.role === "telecaller");
-                if (currentUser.role === "telecaller") {
-                    telecallerUsers = telecallerUsers.filter(u => u.name === currentUser.name);
-                    if (telecallerUsers.length === 0) {
-                        telecallerUsers = [{ _id: currentUser._id, name: currentUser.name }];
-                    }
-                }
+                // Filter users to show only those with the "telecaller" role
+                const telecallerUsers = (userData.users || []).filter(u => u.role === "telecaller");
+
                 setTelecallers(telecallerUsers);
-                if (telecallerUsers.length === 1) {
+
+                // If current user is a telecaller, auto-select them
+                if (currentUser.role === "telecaller") {
+                    setFormData(prev => ({ ...prev, leadResponsibility: currentUser.name }));
+                } else if (telecallerUsers.length === 1) {
+                    // If only one telecaller available, auto-select them
                     setFormData(prev => ({ ...prev, leadResponsibility: telecallerUsers[0].name }));
-                } else if (currentUser.role === "telecaller") {
-                    const myName = telecallerUsers.find(u => u.name === currentUser.name)?.name;
-                    if (myName) setFormData(prev => ({ ...prev, leadResponsibility: myName }));
                 }
             }
 

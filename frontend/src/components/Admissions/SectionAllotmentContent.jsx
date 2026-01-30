@@ -66,8 +66,9 @@ const SectionAllotmentContent = () => {
                 if (isSuperAdmin) {
                     setCentres(allCentres);
                 } else {
-                    const userCentreIds = user.centres?.map(c => c._id || c) || [];
-                    const allowedCentres = allCentres.filter(c => userCentreIds.includes(c._id));
+                    const allowedCentres = allCentres.filter(c =>
+                        user.centres && user.centres.some(uc => uc._id === c._id || uc.centreName === c.centreName)
+                    );
                     setCentres(allowedCentres);
                 }
             }

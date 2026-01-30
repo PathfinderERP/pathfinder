@@ -3,8 +3,11 @@ import Layout from "../../../components/Layout";
 import { FaPlus, FaSpinner, FaCalendarAlt, FaFileUpload, FaEye, FaHistory } from "react-icons/fa";
 import { toast } from "react-toastify";
 import usePermission from "../../../hooks/usePermission";
+import { useTheme } from "../../../context/ThemeContext";
 
 const LeaveRequest = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [leaveTypes, setLeaveTypes] = useState([]);
     const [myRequests, setMyRequests] = useState([]);
     const [loading, setLoading] = useState(true);

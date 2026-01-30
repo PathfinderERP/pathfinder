@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaTimes, FaCalendarAlt, FaCommentAlt, FaSave, FaPhoneAlt, FaStopCircle, FaPlayCircle, FaClock } from "react-icons/fa";
+import { FaTimes, FaCalendarAlt, FaCommentAlt, FaSave, FaPhoneAlt, FaStopCircle, FaPlayCircle, FaClock, FaSync } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 const FEEDBACK_OPTIONS = [
@@ -237,6 +237,14 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                     </form>
                 </div>
             </div>
+
+            <style>{`
+                @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+                .scale-in { animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+                .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDarkMode ? '#333' : '#d1d5db'}; border-radius: 4px; }
+            `}</style>
         </div>
     );
 };

@@ -207,7 +207,24 @@ export const getFeeDueList = async (req, res) => {
             paymentStatus: { $in: ["PENDING", "PARTIAL"] }
         };
 
-        if (centre) filter.centre = centre;
+        // Center Visibility Restriction
+        if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentreNames = currentUser ? currentUser.centres.map(c => (c.centreName || "").trim()).filter(Boolean) : [];
+
+            if (centre) {
+                const trimmedCentre = (centre || "").trim();
+                if (!userCentreNames.includes(trimmedCentre)) {
+                    return res.status(403).json({ message: "Access denied to this centre" });
+                }
+                filter.centre = trimmedCentre;
+            } else {
+                filter.centre = { $in: userCentreNames };
+            }
+        } else if (centre) {
+            filter.centre = (centre || "").trim();
+        }
+
         if (course) filter.course = course;
         if (department) filter.department = department;
 
@@ -312,9 +329,37 @@ export const getAllAdmissions = async (req, res) => {
 
         const filter = { admissionStatus: "ACTIVE" };
 
-        if (centre) filter.centre = centre;
-        if (course) filter.course = course;
-        if (department) filter.department = department;
+        // Center Visibility Restriction
+        if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentreNames = currentUser ? currentUser.centres.map(c => (c.centreName || "").trim()).filter(Boolean) : [];
+
+            if (centre) {
+                // Handle both string and array input
+                const requestedCentres = Array.isArray(centre) ? centre : [centre];
+                // Validate all requested centres are allowed
+                const isAllowed = requestedCentres.every(c => userCentreNames.includes((c || "").trim()));
+
+                if (!isAllowed) {
+                    return res.status(403).json({ message: "Access denied to one or more selected centres" });
+                }
+                filter.centre = { $in: requestedCentres.map(c => (c || "").trim()) };
+            } else {
+                filter.centre = { $in: userCentreNames };
+            }
+        } else if (centre) {
+            const requestedCentres = Array.isArray(centre) ? centre : [centre];
+            filter.centre = { $in: requestedCentres.map(c => (c || "").trim()) };
+        }
+
+        if (course) {
+            const courses = Array.isArray(course) ? course : [course];
+            filter.course = { $in: courses };
+        }
+        if (department) {
+            const departments = Array.isArray(department) ? department : [department];
+            filter.department = { $in: departments };
+        }
 
         if (startDate || endDate) {
             const dateFilter = {};
@@ -360,7 +405,7 @@ export const getAllAdmissions = async (req, res) => {
                 mobile: student?.mobileNum || "N/A",
                 course: adm.course?.courseName || "N/A",
                 department: adm.department?.departmentName || "N/A",
-                centre: adm.centre || "N/A",
+                centre: adm.centre || student?.centre || "N/A",
                 admissionDate: adm.admissionDate,
                 totalFees: adm.totalFees,
                 totalPaid: adm.totalPaidAmount,

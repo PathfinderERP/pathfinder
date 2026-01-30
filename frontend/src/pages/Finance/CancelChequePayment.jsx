@@ -58,8 +58,16 @@ const CancelChequePayment = () => {
             const courses = await coursesRes.json();
             const depts = await deptsRes.json();
 
+            // Filter centres based on user's authorized centres
+            const filteredCentres = Array.isArray(centres)
+                ? centres.filter(c =>
+                    user.role === 'superAdmin' || user.role === 'Super Admin' ||
+                    (user.centres && user.centres.some(uc => uc._id === c._id || (uc.centreName && c.centreName && uc.centreName.trim() === c.centreName.trim())))
+                )
+                : [];
+
             setMetadata({
-                centres: Array.isArray(centres) ? centres : [],
+                centres: filteredCentres,
                 courses: Array.isArray(courses) ? courses : [],
                 departments: Array.isArray(depts) ? depts : []
             });
@@ -288,7 +296,7 @@ const CancelChequePayment = () => {
                                 <th className="p-6">Amount</th>
                                 <th className="p-6">Cheque Date</th>
                                 <th className="p-6">Status</th>
-                                <th className="p-6 text-right">Actions</th>
+                                {/* <th className="p-6 text-right">Actions</th> */}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800">
@@ -316,15 +324,15 @@ const CancelChequePayment = () => {
                                         <td className="p-6 text-gray-300">{new Date(cheque.chequeDate).toLocaleDateString('en-IN')}</td>
                                         <td className="p-6">
                                             <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${cheque.status === "Pending"
-                                                    ? "text-yellow-500 bg-yellow-500/10 border-yellow-500/20"
-                                                    : cheque.status === "Cleared"
-                                                        ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
-                                                        : "text-red-500 bg-red-500/10 border-red-500/20" // Default/Cancelled
+                                                ? "text-yellow-500 bg-yellow-500/10 border-yellow-500/20"
+                                                : cheque.status === "Cleared"
+                                                    ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
+                                                    : "text-red-500 bg-red-500/10 border-red-500/20" // Default/Cancelled
                                                 }`}>
                                                 {cheque.status}
                                             </span>
                                         </td>
-                                        <td className="p-6 text-right">
+                                        {/* <td className="p-6 text-right">
                                             {canCancelCheque && cheque.status !== "Cancelled" && (
                                                 <button
                                                     onClick={() => handleCancelClick(cheque)}
@@ -333,7 +341,7 @@ const CancelChequePayment = () => {
                                                     <FaBan /> Cancel
                                                 </button>
                                             )}
-                                        </td>
+                                        </td> */}
                                     </tr>
                                 ))
                             )}

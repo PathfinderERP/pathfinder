@@ -67,7 +67,7 @@ export const initiateCashTransfer = async (req, res) => {
             uniquePassword,
             referenceNumber,
             receiptFile: receiptFileKey,
-            transferredBy: req.user._id,
+            transferredBy: req.user.id || req.user._id,
             remarks,
             debitedDate: debitedDate ? new Date(debitedDate) : null
         });
@@ -95,7 +95,22 @@ export const getCashReceiveRequests = async (req, res) => {
             query.status = status;
         }
 
-        if (centreId) {
+        if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentres = currentUser ? currentUser.centres : [];
+            if (centreId) {
+                if (!userCentres.map(c => c.toString()).includes(centreId)) {
+                    return res.status(403).json({ message: "Access denied to this target centre" });
+                }
+                query.toCentre = centreId;
+            } else {
+                query.toCentre = { $in: userCentres };
+            }
+
+            // Optional: Also restrict fromCentre filtering to authorized centres if desired,
+            // but usually a user can see WHO sent them money even from other centres.
+            // However, the report might show more. Let's stick to toCentre restriction here.
+        } else if (centreId) {
             query.toCentre = centreId;
         }
 
@@ -209,7 +224,7 @@ export const getCashReport = async (req, res) => {
 
         // Filter centres based on user's authorized centres
         let centreQuery = {};
-        if (req.user.role !== "superAdmin") {
+        if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
             if (req.user.centres && req.user.centres.length > 0) {
                 centreQuery = { _id: { $in: req.user.centres } };
             } else {
@@ -303,7 +318,7 @@ export const getCashReport = async (req, res) => {
 
         // Fetch Recent Transfers with Filters
         let transferQuery = {};
-        if (req.user.role !== "superAdmin") {
+        if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
             transferQuery.$or = [
                 { fromCentre: { $in: centres.map(c => c._id) } },
                 { toCentre: { $in: centres.map(c => c._id) } }
@@ -351,7 +366,7 @@ export const getCashReport = async (req, res) => {
                 $match: {
                     status: "RECEIVED",
                     receivedDate: { $gte: startOfLastMonth, $lte: endOfLastMonth },
-                    ...(req.user.role !== "superAdmin" ? { fromCentre: { $in: report.map(r => r.centreId) } } : {})
+                    ...((req.user.role !== "superAdmin" && req.user.role !== "Super Admin") ? { fromCentre: { $in: report.map(r => r.centreId) } } : {})
                 }
             },
             {
@@ -389,6 +404,16 @@ export const getCentreTransferDetails = async (req, res) => {
                 { toCentre: centreId }
             ]
         };
+
+        // Center Visibility Restriction
+        if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentres = currentUser ? currentUser.centres : [];
+            const userCentreIds = userCentres.map(c => c._id.toString());
+            if (!userCentreIds.includes(centreId)) {
+                return res.status(403).json({ message: "Access denied to this centre's details" });
+            }
+        }
 
         if (type === "SENT") query = { fromCentre: centreId };
         if (type === "RECEIVED") query = { toCentre: centreId };

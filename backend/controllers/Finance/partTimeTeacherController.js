@@ -17,6 +17,12 @@ export const getPartTimeTeachers = async (req, res) => {
             teacherType: { $regex: /Part Time/i }
         };
 
+        if (req.user.role !== "superAdmin") {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentres = currentUser ? currentUser.centres.map(c => c._id || c) : [];
+            userQuery.centres = { $in: userCentres };
+        }
+
         if (search) {
             userQuery.$and = [
                 {
@@ -137,7 +143,7 @@ export const upsertFeeStructure = async (req, res) => {
                 teacherId,
                 feeType,
                 rate: Number(rate),
-                updatedBy: req.user._id,
+                updatedBy: req.user.id || req.user._id,
                 status: "ACTIVE"
             },
             { new: true, upsert: true, setDefaultsOnInsert: true }

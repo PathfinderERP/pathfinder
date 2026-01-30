@@ -124,9 +124,13 @@ export const updatePaymentInstallment = async (req, res) => {
             0
         ) + admission.downPayment;
 
+        // Recalculate remaining amount
+        admission.remainingAmount = Math.max(0, admission.totalFees - admission.totalPaidAmount);
+
         // Update payment status
         if (admission.totalPaidAmount >= admission.totalFees) {
             admission.paymentStatus = "COMPLETED";
+            admission.remainingAmount = 0; // Ensure it's exactly 0 when completed
         } else if (admission.totalPaidAmount > 0) {
             admission.paymentStatus = "PARTIAL";
         }
@@ -184,7 +188,8 @@ export const updatePaymentInstallment = async (req, res) => {
                     cgst: parseFloat(cgst.toFixed(2)),
                     sgst: parseFloat(sgst.toFixed(2)),
                     courseFee: parseFloat(courseFee.toFixed(2)),
-                    totalAmount: parseFloat(totalAmount.toFixed(2))
+                    totalAmount: parseFloat(totalAmount.toFixed(2)),
+                    isCarryForward: carryForward || false
                 });
                 await payment.save();
             } else {
@@ -202,6 +207,7 @@ export const updatePaymentInstallment = async (req, res) => {
                 payment.sgst = parseFloat(sgst.toFixed(2));
                 payment.courseFee = parseFloat(courseFee.toFixed(2));
                 payment.totalAmount = parseFloat(totalAmount.toFixed(2));
+                payment.isCarryForward = carryForward || false;
                 await payment.save();
             }
         }

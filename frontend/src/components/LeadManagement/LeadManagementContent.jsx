@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FaPlus, FaEdit, FaTrash, FaSearch, FaFilter, FaRedo, FaFileExcel, FaDownload, FaChevronLeft, FaChevronRight, FaHistory, FaChartLine, FaUserPlus, FaSun, FaMoon } from "react-icons/fa";
+import { FaPlus, FaEdit, FaTrash, FaSearch, FaFilter, FaRedo, FaFileExcel, FaDownload, FaChevronLeft, FaChevronRight, FaHistory, FaChartLine, FaSun, FaMoon } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
-import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import AddLeadModal from "./AddLeadModal";
 import EditLeadModal from "./EditLeadModal";
@@ -14,6 +13,7 @@ import FollowUpListModal from "./FollowUpListModal";
 import CustomMultiSelect from "../common/CustomMultiSelect";
 import { hasPermission } from "../../config/permissions";
 import { useTheme } from "../../context/ThemeContext";
+import LeadTrendChart from "./LeadTrendChart"; // Added Import
 
 const LeadManagementContent = () => {
     const navigate = useNavigate();
@@ -31,6 +31,7 @@ const LeadManagementContent = () => {
     const [selectedLead, setSelectedLead] = useState(null);
     const [selectedDetailLead, setSelectedDetailLead] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
+    const [dailyLeads, setDailyLeads] = useState([]); // Added state
 
     // Permission states
     const [user, setUser] = useState(null);
@@ -61,6 +62,25 @@ const LeadManagementContent = () => {
     const [telecallers, setTelecallers] = useState([]);
     const [allowedCentres, setAllowedCentres] = useState([]);
 
+    const fetchLeadStats = useCallback(async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/stats/dashboard?fromDate=${new Date(new Date().setDate(new Date().getDate() - 30)).toISOString()}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setDailyLeads(data.dailyLeads || []);
+            }
+        } catch (error) {
+            console.error("Error fetching lead stats:", error);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchLeadStats();
+    }, [fetchLeadStats]);
+
     const fetchLeads = useCallback(async () => {
         setLoading(true);
         try {
@@ -80,9 +100,6 @@ const LeadManagementContent = () => {
                 }
             });
 
-            // console.log("Lead Management - Fetching leads with params:", Object.fromEntries(params));
-            // console.log("Lead Management - Current filters:", filters);
-
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management?${params.toString()}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -90,7 +107,6 @@ const LeadManagementContent = () => {
             });
 
             const data = await response.json();
-            // console.log("Lead Management - Response:", data);
 
             if (response.ok) {
                 setLeads(data.leads);
@@ -128,20 +144,16 @@ const LeadManagementContent = () => {
             const responseData = await userResponse.json();
             const currentUser = responseData.user;
 
-            // console.log("Lead Management - Current user:", currentUser);
-
             // If superAdmin, fetch all centres
             if (currentUser.role === 'superAdmin') {
                 const response = await fetch(`${apiUrl}/centre`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const centres = await response.json();
-                // console.log("Lead Management - SuperAdmin, all centres:", centres);
                 setAllowedCentres(centres);
             } else {
                 // For non-superAdmin, use populated centres from profile
                 const userCentres = currentUser.centres || [];
-                // console.log("Lead Management - User centres from profile:", userCentres);
                 setAllowedCentres(userCentres);
             }
         } catch (error) {
@@ -161,8 +173,6 @@ const LeadManagementContent = () => {
             const sourceData = await sourceResponse.json();
             if (sourceResponse.ok) setSources(sourceData.sources || []);
 
-            // Note: Centres are now fetched in fetchAllowedCentres() based on user permissions
-
             // Fetch courses
             const courseResponse = await fetch(`${import.meta.env.VITE_API_URL}/course`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -177,26 +187,22 @@ const LeadManagementContent = () => {
             const boardData = await boardResponse.json();
             if (boardResponse.ok) setBoards(Array.isArray(boardData) ? boardData : []);
 
-            // Fetch telecallers
+            // Fetch telecallers (backend already filters by shared centers)
             const userResponse = await fetch(`${import.meta.env.VITE_API_URL}/superAdmin/getAllUsers`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const userData = await userResponse.json();
             if (userResponse.ok) {
+                // Filter users to show only those with the "telecaller" role
                 const telecallerUsers = (userData.users || []).filter(user => user.role === "telecaller");
+                setTelecallers(telecallerUsers);
 
-                // If current user is a telecaller, only show their own name
+                // If current user is a telecaller, auto-select them in filters
                 if (currentUser.role === "telecaller") {
-                    const currentTelecaller = telecallerUsers.find(t => t._id === currentUser._id);
-                    setTelecallers(currentTelecaller ? [currentTelecaller] : []);
-
-                    // Auto-select the telecaller's own name
+                    const currentTelecaller = telecallerUsers.find(t => t.name === currentUser.name);
                     if (currentTelecaller) {
                         setFilters(prev => ({ ...prev, leadResponsibility: [{ value: currentTelecaller.name, label: currentTelecaller.name }] }));
                     }
-                } else {
-                    // For other roles, show all telecallers
-                    setTelecallers(telecallerUsers);
                 }
             }
         } catch (error) {
@@ -287,13 +293,18 @@ const LeadManagementContent = () => {
 
     const handleExport = async () => {
         try {
+            // console.log("Export Filters:", filters);
             const token = localStorage.getItem("token");
             const params = new URLSearchParams();
             if (searchTerm) params.append("search", searchTerm);
 
             Object.entries(filters).forEach(([key, value]) => {
                 if (Array.isArray(value) && value.length > 0) {
-                    value.forEach(v => params.append(key, v.value || v));
+                    value.forEach(v => {
+                        // Handle both react-select objects {value, label} and direct values
+                        const paramValue = (v && typeof v === 'object' && 'value' in v) ? v.value : v;
+                        params.append(key, paramValue);
+                    });
                 } else if (value) {
                     params.append(key, value);
                 }
@@ -331,24 +342,22 @@ const LeadManagementContent = () => {
         }
     };
 
-    // Local theme logic removed in favor of global theme provider
-
-    // Local theme effects removed
-
-    // ... existing code ...
-
     return (
         <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
             <div className="p-6 md:p-8 max-w-[1800px] mx-auto space-y-8">
                 {/* Header */}
                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
-                    <div>
-                        <h1 className={`text-4xl font-black mb-2 tracking-tighter uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            Lead <span className="text-cyan-500">Management</span>
-                        </h1>
-                        <p className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} font-bold text-[10px] uppercase tracking-[0.3em] flex items-center gap-2`}>
-                            Lead Tracking & Management
-                        </p>
+                    <div className="flex items-center">
+                        <div>
+                            <h1 className={`text-4xl font-black mb-2 tracking-tighter uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                Lead <span className="text-cyan-500">Management</span>
+                            </h1>
+                            <p className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} font-bold text-[10px] uppercase tracking-[0.3em] flex items-center gap-2`}>
+                                Lead Tracking & Management
+                            </p>
+                        </div>
+                        {/* Daily Trend Chart */}
+                        <LeadTrendChart data={dailyLeads} isDarkMode={isDarkMode} />
                     </div>
                     <div className="flex flex-wrap items-center gap-4">
                         <button
@@ -397,8 +406,8 @@ const LeadManagementContent = () => {
                     </div>
                 </div>
 
-                {/* Search Bar */}
-                <div className={`border rounded-[2px] p-6 relative group transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 focus-within:border-cyan-500/30' : 'bg-white border-gray-200 focus-within:border-cyan-500/30 shadow-sm'}`}>
+                {/* Search Bar - Reduced Padding (p-4 instead of p-6) */}
+                <div className={`border rounded-[2px] p-4 relative group transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 focus-within:border-cyan-500/30' : 'bg-white border-gray-200 focus-within:border-cyan-500/30 shadow-sm'}`}>
                     <div className="relative">
                         <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 text-xs transition-colors group-focus-within:text-cyan-500" />
                         <input
@@ -629,113 +638,13 @@ const LeadManagementContent = () => {
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDarkMode ? '#1f2937' : '#e5e7eb'}; border-radius: 2px; }
             `}</style>
 
-            {/* Modals */}
-            {showAddModal && (
-                <AddLeadModal
-                    isDarkMode={isDarkMode}
-                    onClose={() => setShowAddModal(false)}
-                    onSuccess={() => {
-                        setShowAddModal(false);
-                        fetchLeads();
-                    }}
-                />
-            )}
-
-            {showEditModal && selectedLead && (
-                <EditLeadModal
-                    isDarkMode={isDarkMode}
-                    lead={selectedLead}
-                    onClose={() => {
-                        setShowEditModal(false);
-                        setSelectedLead(null);
-                    }}
-                    onSuccess={() => {
-                        setShowEditModal(false);
-                        setSelectedLead(null);
-                        fetchLeads();
-                    }}
-                />
-            )}
-
-            {showBulkModal && (
-                <BulkLeadModal
-                    isDarkMode={isDarkMode}
-                    onClose={() => setShowBulkModal(false)}
-                    onSuccess={() => {
-                        setShowBulkModal(false);
-                        fetchLeads();
-                    }}
-                />
-            )}
-
-            {showDetailModal && selectedDetailLead && (
-                <LeadDetailsModal
-                    isDarkMode={isDarkMode}
-                    lead={selectedDetailLead}
-                    canEdit={canEdit}
-                    canDelete={canDelete}
-                    onClose={() => {
-                        setShowDetailModal(false);
-                        setSelectedDetailLead(null);
-                    }}
-                    onEdit={(lead) => {
-                        setShowDetailModal(false);
-                        handleEdit(lead);
-                    }}
-                    onDelete={(id) => {
-                        handleDelete(id);
-                        setShowDetailModal(false);
-                        setSelectedDetailLead(null);
-                    }}
-                    onFollowUp={(lead) => {
-                        setShowDetailModal(false);
-                        setSelectedLead(lead);
-                        setShowFollowUpModal(true);
-                    }}
-                    onCounseling={(lead) => {
-                        handleCounseling(lead);
-                    }}
-                    onShowHistory={(lead) => {
-                        setSelectedDetailLead(lead);
-                        setShowHistoryModal(true);
-                    }}
-                />
-            )}
-
-            {showFollowUpModal && selectedLead && (
-                <AddFollowUpModal
-                    isDarkMode={isDarkMode}
-                    lead={selectedLead}
-                    onClose={() => {
-                        setShowFollowUpModal(false);
-                        setSelectedLead(null);
-                    }}
-                    onSuccess={() => {
-                        setShowFollowUpModal(false);
-                        setSelectedLead(null);
-                        fetchLeads();
-                    }}
-                />
-            )}
-
-            {showHistoryModal && selectedDetailLead && (
-                <FollowUpHistoryModal
-                    isDarkMode={isDarkMode}
-                    lead={selectedDetailLead}
-                    onClose={() => setShowHistoryModal(false)}
-                />
-            )}
-
-            {showFollowUpListModal && (
-                <FollowUpListModal
-                    isDarkMode={isDarkMode}
-                    onClose={() => setShowFollowUpListModal(false)}
-                    onShowHistory={(lead) => {
-                        setSelectedDetailLead(lead);
-                        setShowHistoryModal(true);
-                    }}
-                />
-            )}
+            {showAddModal && <AddLeadModal isDarkMode={isDarkMode} onClose={() => setShowAddModal(false)} onSuccess={() => { setShowAddModal(false); fetchLeads(); }} />}
+            {showEditModal && selectedLead && <EditLeadModal isDarkMode={isDarkMode} lead={selectedLead} onClose={() => { setShowEditModal(false); setSelectedLead(null); }} onSuccess={() => { setShowEditModal(false); setSelectedLead(null); fetchLeads(); }} />}
+            {showBulkModal && <BulkLeadModal isDarkMode={isDarkMode} onClose={() => setShowBulkModal(false)} onSuccess={() => { setShowBulkModal(false); fetchLeads(); }} />}
+            {showDetailModal && selectedDetailLead && <LeadDetailsModal isDarkMode={isDarkMode} lead={selectedDetailLead} canEdit={canEdit} canDelete={canDelete} onClose={() => { setShowDetailModal(false); setSelectedDetailLead(null); }} onEdit={(lead) => { setShowDetailModal(false); handleEdit(lead); }} onDelete={(id) => { handleDelete(id); setShowDetailModal(false); setSelectedDetailLead(null); }} onFollowUp={(lead) => { setShowDetailModal(false); setSelectedLead(lead); setShowFollowUpModal(true); }} onCounseling={(lead) => handleCounseling(lead)} onShowHistory={(lead) => { setSelectedDetailLead(lead); setShowHistoryModal(true); }} />}
+            {showFollowUpModal && selectedLead && <AddFollowUpModal isDarkMode={isDarkMode} lead={selectedLead} onClose={() => { setShowFollowUpModal(false); setSelectedLead(null); }} onSuccess={() => { setShowFollowUpModal(false); setSelectedLead(null); fetchLeads(); }} />}
+            {showHistoryModal && selectedDetailLead && <FollowUpHistoryModal isDarkMode={isDarkMode} lead={selectedDetailLead} onClose={() => setShowHistoryModal(false)} />}
+            {showFollowUpListModal && <FollowUpListModal isDarkMode={isDarkMode} onClose={() => setShowFollowUpListModal(false)} onShowHistory={(lead) => { setSelectedDetailLead(lead); setShowHistoryModal(true); }} />}
         </div>
     );
 };

@@ -101,17 +101,25 @@ export const getLeads = async (req, res) => {
             }
 
             // Filter by allowed centres
+            // Base filter: Only show leads from assigned centers
             query.centre = { $in: userCentreIds };
 
-            // If a specific centre is requested via query param, validate it
+            // If specific centre(s) requested, refine the filter
             if (centre) {
-                if (userCentreIds.map(c => c.toString()).includes(centre)) {
-                    query.centre = centre;
+                const requestedCentres = Array.isArray(centre) ? centre : [centre];
+
+                // Filter requested centres to only those allowed for the user
+                const validRequestedCentres = requestedCentres.filter(reqCentre =>
+                    userCentreIds.some(allowedCentre => allowedCentre.toString() === reqCentre.toString())
+                );
+
+                if (validRequestedCentres.length > 0) {
+                    query.centre = { $in: validRequestedCentres };
                 } else {
-                    // User trying to access unauthorized centre
-                    console.log(`Lead Management - User ${userDoc.name} tried to access unauthorized centre: ${centre}`);
+                    // All requested centres are unauthorized
+                    console.log(`Lead Management - User ${userDoc.name} tried to access unauthorized centre(s): ${requestedCentres}`);
                     return res.status(403).json({
-                        message: "Access denied. You don't have permission to view this centre's leads."
+                        message: "Access denied. You don't have permission to view these leads."
                     });
                 }
             }

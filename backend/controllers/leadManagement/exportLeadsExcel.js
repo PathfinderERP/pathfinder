@@ -29,16 +29,16 @@ export const exportLeadsExcel = async (req, res) => {
         }
 
         if (centre) {
-             const centreIds = Array.isArray(centre) ? centre : [centre];
-             query.centre = { $in: centreIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+            const centreIds = Array.isArray(centre) ? centre : [centre];
+            query.centre = { $in: centreIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
         }
         if (course) {
-             const courseIds = Array.isArray(course) ? course : [course];
-             query.course = { $in: courseIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+            const courseIds = Array.isArray(course) ? course : [course];
+            query.course = { $in: courseIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
         }
         if (leadResponsibility) {
-            query.leadResponsibility = Array.isArray(leadResponsibility) 
-                ? { $in: leadResponsibility } 
+            query.leadResponsibility = Array.isArray(leadResponsibility)
+                ? { $in: leadResponsibility }
                 : { $regex: leadResponsibility, $options: "i" };
         }
         if (leadType) {
@@ -65,7 +65,12 @@ export const exportLeadsExcel = async (req, res) => {
             }
 
             if (centre) {
-                if (!userCentreIds.map(c => c.toString()).includes(centre)) {
+                const requestedCentres = Array.isArray(centre) ? centre : [centre];
+                const allowedCentreStrings = userCentreIds.map(c => c.toString());
+
+                const isAllowed = requestedCentres.every(c => allowedCentreStrings.includes(c));
+
+                if (!isAllowed) {
                     return res.status(403).json({ message: "Access denied" });
                 }
             } else {

@@ -63,6 +63,7 @@ const MultiSelectDropdown = ({ label, options, selected, onChange }) => {
 
 const PayEmployee = () => {
     const navigate = useNavigate();
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
@@ -97,9 +98,9 @@ const PayEmployee = () => {
         try {
             const token = localStorage.getItem("token");
             const [deptRes, desigRes, centreRes] = await Promise.all([
-                fetch(`${import.meta.env.VITE_API_URL}/master-data/department`, { headers: { Authorization: `Bearer ${token}` } }),
-                fetch(`${import.meta.env.VITE_API_URL}/master-data/designation`, { headers: { Authorization: `Bearer ${token}` } }),
-                fetch(`${import.meta.env.VITE_API_URL}/master-data/centre`, { headers: { Authorization: `Bearer ${token}` } })
+                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers: { Authorization: `Bearer ${token}` } }),
+                fetch(`${import.meta.env.VITE_API_URL}/designation`, { headers: { Authorization: `Bearer ${token}` } }),
+                fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers: { Authorization: `Bearer ${token}` } })
             ]);
 
             const depts = deptRes.ok ? await deptRes.json() : [];
@@ -109,7 +110,12 @@ const PayEmployee = () => {
             setOptions({
                 departments: [...new Set(depts.map(d => d.departmentName))],
                 designations: [...new Set(desigs.map(d => d.name))],
-                centres: [...new Set(centres.map(c => c.centreName))]
+                centres: [...new Set(centres
+                    .filter(c =>
+                        user.role === 'superAdmin' ||
+                        (user.centres && user.centres.some(uc => uc._id === c._id || uc.centreName === c.centreName))
+                    )
+                    .map(c => c.centreName))]
             });
 
         } catch (error) {

@@ -2,8 +2,11 @@ import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../../components/Layout";
 import { FaCalendarAlt, FaHistory, FaCheck, FaTimes, FaSpinner, FaPlus, FaClock, FaBriefcase, FaHome, FaExclamationCircle, FaLaptopHouse, FaStopwatch, FaUserClock, FaCamera, FaMapMarkerAlt, FaVideoSlash } from "react-icons/fa";
 import { toast } from "react-toastify";
+import { useTheme } from "../../../context/ThemeContext";
 
 const MyRegularization = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -18,7 +21,7 @@ const MyRegularization = () => {
     });
 
     const [showForm, setShowForm] = useState(false);
-    
+
     // Camera and Location States
     const [stream, setStream] = useState(null);
     const [capturedPhoto, setCapturedPhoto] = useState(null);
@@ -100,11 +103,11 @@ const MyRegularization = () => {
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
+
             canvas.toBlob((blob) => {
                 setCapturedPhoto(blob);
             }, 'image/jpeg', 0.8);
-            
+
             stopCamera();
         }
     };
@@ -152,7 +155,7 @@ const MyRegularization = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         if (!capturedPhoto) {
             toast.error("Please take a geo-tagged photo for verification");
             return;
@@ -162,7 +165,7 @@ const MyRegularization = () => {
         try {
             const token = localStorage.getItem("token");
             const formDataPayload = new FormData();
-            
+
             if (employeeId && employeeId !== "null") {
                 formDataPayload.append('employeeId', employeeId);
             }
@@ -208,10 +211,10 @@ const MyRegularization = () => {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tight flex items-center gap-2">
+                        <h1 className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'} uppercase tracking-tight flex items-center gap-2`}>
                             <FaHistory className="text-blue-500" /> My Regularizations
                         </h1>
-                        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1">Correct your attendance records</p>
+                        <p className={`text-xs font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mt-1`}>Correct your attendance records</p>
                     </div>
                     <button
                         onClick={() => setShowForm(!showForm)}
@@ -224,39 +227,39 @@ const MyRegularization = () => {
 
                 {/* Submission Form */}
                 {showForm && (
-                    <div className="bg-white dark:bg-[#1a1f24] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-6 md:p-8 animate-slide-in-top">
-                        <h2 className="text-lg font-black text-gray-800 dark:text-white uppercase tracking-wider mb-6 border-b border-gray-100 dark:border-gray-800 pb-4">Submit Correction Request</h2>
+                    <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-xl'} rounded-2xl border p-6 md:p-8 animate-slide-in-top`}>
+                        <h2 className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-gray-900'} uppercase tracking-wider mb-6 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} pb-4`}>Submit Correction Request</h2>
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Select Date</label>
+                                    <label className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest`}>Select Date</label>
                                     <input
                                         type="date"
                                         required
                                         value={formData.date}
                                         onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                        className="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-gray-800 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                                        className={`w-full p-4 ${isDarkMode ? 'bg-gray-900 text-white border-gray-700' : 'bg-gray-50 text-gray-800 border-gray-200'} border rounded-xl font-bold outline-none focus:border-blue-500 transition-colors`}
                                     />
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">From Time</label>
+                                    <label className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest`}>From Time</label>
                                     <input
                                         type="time"
                                         value={formData.fromTime}
                                         onChange={(e) => setFormData({ ...formData, fromTime: e.target.value })}
-                                        className="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-gray-800 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                                        className={`w-full p-4 ${isDarkMode ? 'bg-gray-900 text-white border-gray-700' : 'bg-gray-50 text-gray-800 border-gray-200'} border rounded-xl font-bold outline-none focus:border-blue-500 transition-colors`}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">To Time</label>
+                                    <label className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest`}>To Time</label>
                                     <input
                                         type="time"
                                         value={formData.toTime}
                                         onChange={(e) => setFormData({ ...formData, toTime: e.target.value })}
-                                        className="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-gray-800 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                                        className={`w-full p-4 ${isDarkMode ? 'bg-gray-900 text-white border-gray-700' : 'bg-gray-50 text-gray-800 border-gray-200'} border rounded-xl font-bold outline-none focus:border-blue-500 transition-colors`}
                                     />
                                 </div>
                             </div>
@@ -326,10 +329,10 @@ const MyRegularization = () => {
                                                     <type.icon size={20} />
                                                 </div>
                                                 <div>
-                                                    <h3 className={`text-sm font-black uppercase tracking-tight ${formData.type === type.id ? 'text-gray-800 dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
+                                                    <h3 className={`text-sm font-black uppercase tracking-tight ${formData.type === type.id ? (isDarkMode ? 'text-white' : 'text-gray-900') : (isDarkMode ? 'text-gray-300' : 'text-gray-600')}`}>
                                                         {type.title}
                                                     </h3>
-                                                    <p className="text-[10px] font-bold text-gray-400 mt-0.5 uppercase tracking-wider">
+                                                    <p className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-0.5 uppercase tracking-wider`}>
                                                         {type.description}
                                                     </p>
                                                 </div>
@@ -361,14 +364,14 @@ const MyRegularization = () => {
                                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
                                     <FaCamera className="text-blue-500" /> Geo-tagged Photo Verification
                                 </label>
-                                
+
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Camera/Preview Area */}
                                     <div className="relative aspect-video bg-gray-100 dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 overflow-hidden flex items-center justify-center">
                                         {stream ? (
                                             <div className="relative w-full h-full">
                                                 <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-                                                <button 
+                                                <button
                                                     type="button"
                                                     onClick={takePhoto}
                                                     className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white text-blue-600 p-4 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-transform"
@@ -379,7 +382,7 @@ const MyRegularization = () => {
                                         ) : capturedPhoto ? (
                                             <div className="relative w-full h-full">
                                                 <img src={URL.createObjectURL(capturedPhoto)} className="w-full h-full object-cover" alt="Captured" />
-                                                <button 
+                                                <button
                                                     type="button"
                                                     onClick={() => { setCapturedPhoto(null); startCamera(); }}
                                                     className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl"
@@ -388,7 +391,7 @@ const MyRegularization = () => {
                                                 </button>
                                             </div>
                                         ) : (
-                                            <button 
+                                            <button
                                                 type="button"
                                                 onClick={startCamera}
                                                 className="flex flex-col items-center gap-2 text-gray-400 hover:text-blue-500 transition-colors"
@@ -398,12 +401,12 @@ const MyRegularization = () => {
                                             </button>
                                         )}
                                         <canvas ref={canvasRef} className="hidden" />
-                                        <input 
-                                            type="file" 
-                                            ref={fileInputRef} 
-                                            onChange={handleFileUpload} 
-                                            accept="image/*" 
-                                            className="hidden" 
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            onChange={handleFileUpload}
+                                            accept="image/*"
+                                            className="hidden"
                                         />
                                     </div>
 
@@ -440,17 +443,17 @@ const MyRegularization = () => {
                                                     <FaVideoSlash /> No Location Data Detected
                                                 </div>
                                             )}
-                                            
-                                            <button 
-                                                type="button" 
+
+                                            <button
+                                                type="button"
                                                 onClick={getLocation}
                                                 className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline"
                                             >
                                                 Refresh GPS
                                             </button>
-                                            
+
                                             <div className="pt-2 border-t border-blue-100 dark:border-blue-500/10">
-                                                <button 
+                                                <button
                                                     type="button"
                                                     onClick={() => fileInputRef.current?.click()}
                                                     className="w-full bg-white dark:bg-gray-800 text-blue-600 border border-blue-200 dark:border-blue-800 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
@@ -503,9 +506,9 @@ const MyRegularization = () => {
                                             }`}>
                                             {req.type === 'On Duty' ? <FaBriefcase /> : req.type === 'Missed Punch' ? <FaClock /> : <FaExclamationCircle />}
                                         </div>
-                                        <div>
+                                        <div className="flex-1">
                                             <div className="flex items-center gap-3 mb-1">
-                                                <span className="text-lg font-black text-gray-800 dark:text-white">{new Date(req.date).toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                                <span className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{new Date(req.date).toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</span>
                                                 <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border ${req.status === 'Approved' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20' :
                                                     req.status === 'Rejected' ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20' :
                                                         'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-400 dark:border-yellow-500/20'
@@ -513,18 +516,18 @@ const MyRegularization = () => {
                                                     {req.status}
                                                 </span>
                                             </div>
-                                            <p className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{req.type}</p>
-                                            <p className="text-sm text-gray-600 dark:text-gray-300 mt-2 bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg border border-gray-100 dark:border-gray-800">
+                                            <p className={`text-sm font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wide`}>{req.type}</p>
+                                            <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mt-2 ${isDarkMode ? 'bg-gray-800/50 border-gray-800' : 'bg-gray-50 border-gray-100'} p-2 rounded-lg border`}>
                                                 "{req.reason}"
                                             </p>
                                             {req.fromTime && req.toTime && (
-                                                <p className="mt-1 text-xs font-mono text-gray-500">
+                                                <p className={`mt-1 text-xs font-mono ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                                                     Requested Time: {req.fromTime} - {req.toTime}
                                                 </p>
                                             )}
                                             {req.reviewRemark && (
-                                                <div className="mt-2 text-xs text-gray-400">
-                                                    <span className="font-bold uppercase text-gray-500">Admin Remark:</span> {req.reviewRemark}
+                                                <div className={`mt-2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                    <span className={`font-bold uppercase ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Admin Remark:</span> {req.reviewRemark}
                                                 </div>
                                             )}
                                         </div>
