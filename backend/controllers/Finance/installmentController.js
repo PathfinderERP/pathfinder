@@ -333,23 +333,38 @@ export const getAllAdmissions = async (req, res) => {
         if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
             const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
             const userCentreNames = currentUser ? currentUser.centres.map(c => (c.centreName || "").trim()).filter(Boolean) : [];
+            // Normalize centre names for case-insensitive comparison
+            const normalizedUserCentres = userCentreNames.map(c => c.toLowerCase());
 
             if (centre) {
                 // Handle both string and array input
                 const requestedCentres = Array.isArray(centre) ? centre : [centre];
-                // Validate all requested centres are allowed
-                const isAllowed = requestedCentres.every(c => userCentreNames.includes((c || "").trim()));
+
+                // Validate all requested centres are allowed (case-insensitive)
+                const isAllowed = requestedCentres.every(c => {
+                    const normalizedRequested = (c || "").trim().toLowerCase();
+                    return normalizedUserCentres.includes(normalizedRequested);
+                });
 
                 if (!isAllowed) {
                     return res.status(403).json({ message: "Access denied to one or more selected centres" });
                 }
-                filter.centre = { $in: requestedCentres.map(c => (c || "").trim()) };
+                // Use case-insensitive regex for MongoDB query - allow surrounding whitespace
+                filter.centre = {
+                    $in: requestedCentres.map(c => new RegExp(`^\\s*${(c || "").trim()}\\s*$`, 'i'))
+                };
             } else {
-                filter.centre = { $in: userCentreNames };
+                // Use case-insensitive regex for MongoDB query - allow surrounding whitespace
+                filter.centre = {
+                    $in: userCentreNames.map(c => new RegExp(`^\\s*${c}\\s*$`, 'i'))
+                };
             }
         } else if (centre) {
             const requestedCentres = Array.isArray(centre) ? centre : [centre];
-            filter.centre = { $in: requestedCentres.map(c => (c || "").trim()) };
+            // Use case-insensitive regex for MongoDB query - allow surrounding whitespace
+            filter.centre = {
+                $in: requestedCentres.map(c => new RegExp(`^\\s*${(c || "").trim()}\\s*$`, 'i'))
+            };
         }
 
         if (course) {

@@ -1243,7 +1243,7 @@ import Select from "react-select";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import BillGenerator from "../../components/Finance/BillGenerator";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const InstallmentPayment = () => {
     const [loading, setLoading] = useState(false);
@@ -1319,12 +1319,18 @@ const InstallmentPayment = () => {
             const courses = await coursesRes.json();
             const depts = await deptsRes.json();
 
-            // Filter centres based on permissions
+            // Filter centres based on permissions with case-insensitive comparison
             const perms = allowedOverride !== undefined ? allowedOverride : allowedCentres;
             let filteredCentres = Array.isArray(centres) ? centres : [];
 
-            if (perms !== null) {
-                filteredCentres = filteredCentres.filter(c => perms.includes(c.centreName));
+            if (perms !== null && Array.isArray(perms)) {
+                // Normalize permission centre names (trim and lowercase)
+                const normalizedPerms = perms.map(c => (c || "").trim().toLowerCase());
+                // Filter centres by comparing normalized names
+                filteredCentres = filteredCentres.filter(c => {
+                    const centreName = (c.centreName || "").trim().toLowerCase();
+                    return normalizedPerms.includes(centreName);
+                });
             }
 
             setMetadata({
@@ -1356,14 +1362,7 @@ const InstallmentPayment = () => {
             );
 
             if (response.ok) {
-                let data = await response.json();
-
-                // Client-side permission filtering
-                const perms = allowedOverride !== undefined ? allowedOverride : allowedCentres;
-                if (perms !== null) {
-                    data = data.filter(adm => perms.includes(adm.centre));
-                }
-
+                const data = await response.json();
                 setAdmissionsList(data);
             } else {
                 toast.error("Failed to load admissions");
@@ -1715,43 +1714,44 @@ const InstallmentPayment = () => {
                         <div className="bg-[#131619] border border-gray-800 rounded-2xl p-4" style={{ width: '480px', height: '140px' }}>
                             <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Payment Analytics</div>
                             <ResponsiveContainer width="100%" height={90}>
-                                <AreaChart
+                                <BarChart
                                     data={[
                                         {
                                             name: 'Completed',
                                             value: admissionsList.filter(a => a.paymentStatus === "COMPLETED").length,
-                                            amount: admissionsList.filter(a => a.paymentStatus === "COMPLETED").reduce((sum, a) => sum + (a.totalPaid || 0), 0)
+                                            amount: admissionsList.filter(a => a.paymentStatus === "COMPLETED").reduce((sum, a) => sum + (a.totalPaid || 0), 0),
+                                            color: '#10b981'
                                         },
                                         {
                                             name: 'Partial',
                                             value: admissionsList.filter(a => a.paymentStatus === "PARTIAL").length,
-                                            amount: admissionsList.filter(a => a.paymentStatus === "PARTIAL").reduce((sum, a) => sum + (a.totalPaid || 0), 0)
+                                            amount: admissionsList.filter(a => a.paymentStatus === "PARTIAL").reduce((sum, a) => sum + (a.totalPaid || 0), 0),
+                                            color: '#f59e0b'
                                         },
                                         {
                                             name: 'Pending',
                                             value: admissionsList.filter(a => a.paymentStatus === "PENDING" || !a.paymentStatus).length,
-                                            amount: admissionsList.filter(a => a.paymentStatus === "PENDING" || !a.paymentStatus).reduce((sum, a) => sum + (a.totalPaid || 0), 0)
+                                            amount: admissionsList.filter(a => a.paymentStatus === "PENDING" || !a.paymentStatus).reduce((sum, a) => sum + (a.totalPaid || 0), 0),
+                                            color: '#ef4444'
                                         }
                                     ]}
                                     margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
                                 >
-                                    <defs>
-                                        <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.8} />
-                                            <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.1} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
                                     <XAxis
                                         dataKey="name"
                                         stroke="#6b7280"
                                         style={{ fontSize: '10px', fontWeight: 'bold' }}
                                         tick={{ fill: '#9ca3af' }}
+                                        axisLine={false}
+                                        tickLine={false}
                                     />
                                     <YAxis
                                         stroke="#6b7280"
                                         style={{ fontSize: '9px' }}
                                         tick={{ fill: '#9ca3af' }}
+                                        axisLine={false}
+                                        tickLine={false}
                                     />
                                     <Tooltip
                                         contentStyle={{
@@ -1761,21 +1761,26 @@ const InstallmentPayment = () => {
                                             fontSize: '11px',
                                             fontWeight: 'bold'
                                         }}
-                                        labelStyle={{ color: '#06b6d4', fontWeight: 'bold', fontSize: '10px' }}
+                                        labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '10px' }}
+                                        cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
                                         formatter={(value, name) => {
                                             if (name === 'value') return [value + ' Students', 'Count'];
                                             if (name === 'amount') return ['₹' + value.toLocaleString(), 'Amount'];
                                             return [value, name];
                                         }}
                                     />
-                                    <Area
-                                        type="monotone"
-                                        dataKey="value"
-                                        stroke="#06b6d4"
-                                        strokeWidth={2}
-                                        fill="url(#colorValue)"
-                                    />
-                                </AreaChart>
+                                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                        {
+                                            [
+                                                { name: 'Completed', color: '#10b981' },
+                                                { name: 'Partial', color: '#f59e0b' },
+                                                { name: 'Pending', color: '#ef4444' }
+                                            ].map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} />
+                                            ))
+                                        }
+                                    </Bar>
+                                </BarChart>
                             </ResponsiveContainer>
                         </div>
                     )}

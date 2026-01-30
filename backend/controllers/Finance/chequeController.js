@@ -320,15 +320,35 @@ export const getAllCheques = async (req, res) => {
 
         // Filter results based on query params (since some data is in populated fields)
         if (centre || course || department || search) {
+            const requestedCentres = centre ? (Array.isArray(centre) ? centre : [centre]) : [];
+            const requestedCourses = course ? (Array.isArray(course) ? course : [course]) : [];
+            const requestedDepts = department ? (Array.isArray(department) ? department : [department]) : [];
+
+            // Normalize centre names for robust matching (trim and lowercase)
+            const normalizedRequestedCentres = requestedCentres.map(c => (c || "").trim().toLowerCase()).filter(Boolean);
+
             cheques = cheques.filter(c => {
                 const adm = c.admission;
                 if (!adm) return false;
 
-                const matchesCentre = !centre || adm.centre === centre;
-                const matchesCourse = !course || adm.course?.courseName === course;
-                // Note: Department might be an ObjectId or populated object depending on schema. 
-                // Assuming populated based on getAllCheques population logic above.
-                const matchesDept = !department || adm.department?.departmentName === department;
+                // Robust centre matching (ignoring whitespace and case)
+                let matchesCentre = true;
+                if (normalizedRequestedCentres.length > 0) {
+                    const admCentre = (adm.centre || "").trim().toLowerCase();
+                    matchesCentre = normalizedRequestedCentres.includes(admCentre);
+                }
+
+                // Course multi-select matching
+                let matchesCourse = true;
+                if (requestedCourses.length > 0) {
+                    matchesCourse = requestedCourses.includes(adm.course?.courseName);
+                }
+
+                // Department multi-select matching
+                let matchesDept = true;
+                if (requestedDepts.length > 0) {
+                    matchesDept = requestedDepts.includes(adm.department?.departmentName);
+                }
 
                 let matchesSearch = true;
                 if (search) {
