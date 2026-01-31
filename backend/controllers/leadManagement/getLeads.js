@@ -93,7 +93,8 @@ export const getLeads = async (req, res) => {
 
             // Telecallers: Can only see their own assigned leads
             if (userDoc.role === 'telecaller') {
-                query.leadResponsibility = userDoc.name;
+                const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                query.leadResponsibility = { $regex: new RegExp(`^${escapedName}$`, "i") };
             }
 
             // For all non-superAdmin users: Filter by assigned centres

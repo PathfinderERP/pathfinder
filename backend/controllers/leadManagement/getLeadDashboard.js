@@ -63,7 +63,8 @@ export const getLeadDashboardStats = async (req, res) => {
             if (!userDoc) return res.status(401).json({ message: "User not found" });
 
             if (userDoc.role === 'telecaller') {
-                query.leadResponsibility = userDoc.name;
+                const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                query.leadResponsibility = { $regex: new RegExp(`^${escapedName}$`, "i") };
             }
 
             const userCentreIds = userDoc.centres || [];
