@@ -53,7 +53,9 @@ const LeadManagementContent = () => {
         course: [],
         board: [],
         className: [],
-        leadResponsibility: []
+        leadResponsibility: [],
+        fromDate: "",
+        toDate: ""
     });
 
     // Dropdown data for filters
@@ -95,8 +97,13 @@ const LeadManagementContent = () => {
             if (searchTerm) params.append("search", searchTerm);
 
             Object.entries(filters).forEach(([key, value]) => {
-                if (Array.isArray(value) && value.length > 0) {
-                    value.forEach(v => params.append(key, v.value || v)); // Handle object from react-select or raw value
+                if (Array.isArray(value)) {
+                    if (value.length > 0) {
+                        value.forEach(v => {
+                            const paramValue = (v && typeof v === 'object' && 'value' in v) ? v.value : v;
+                            params.append(key, paramValue);
+                        });
+                    }
                 } else if (value) {
                     params.append(key, value);
                 }
@@ -240,8 +247,8 @@ const LeadManagementContent = () => {
         return () => clearTimeout(timeout);
     }, [searchTerm, filters, currentPage, fetchLeads]);
 
-    const handleFilterChange = (name, selectedOptions) => {
-        setFilters(prev => ({ ...prev, [name]: selectedOptions || [] }));
+    const handleFilterChange = (name, value) => {
+        setFilters(prev => ({ ...prev, [name]: value }));
         setCurrentPage(1);
     };
 
@@ -253,7 +260,9 @@ const LeadManagementContent = () => {
             course: [],
             board: [],
             className: [],
-            leadResponsibility: []
+            leadResponsibility: [],
+            fromDate: "",
+            toDate: ""
         });
         setSearchTerm("");
         setCurrentPage(1);
@@ -309,12 +318,13 @@ const LeadManagementContent = () => {
             if (searchTerm) params.append("search", searchTerm);
 
             Object.entries(filters).forEach(([key, value]) => {
-                if (Array.isArray(value) && value.length > 0) {
-                    value.forEach(v => {
-                        // Handle both react-select objects {value, label} and direct values
-                        const paramValue = (v && typeof v === 'object' && 'value' in v) ? v.value : v;
-                        params.append(key, paramValue);
-                    });
+                if (Array.isArray(value)) {
+                    if (value.length > 0) {
+                        value.forEach(v => {
+                            const paramValue = (v && typeof v === 'object' && 'value' in v) ? v.value : v;
+                            params.append(key, paramValue);
+                        });
+                    }
                 } else if (value) {
                     params.append(key, value);
                 }
@@ -441,7 +451,7 @@ const LeadManagementContent = () => {
                         </span>
                         <h3 className={`text-[12px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Filter Leads</h3>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-9 gap-4">
                         <div className="space-y-2">
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Lead Type</label>
                             <CustomMultiSelect
@@ -515,6 +525,24 @@ const LeadManagementContent = () => {
                                 placeholder="Select Telecaller"
                                 isDisabled={user?.role === 'telecaller'}
                                 theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>From Date</label>
+                            <input
+                                type="date"
+                                value={filters.fromDate}
+                                onChange={(e) => handleFilterChange('fromDate', e.target.value)}
+                                className={`w-full px-4 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>To Date</label>
+                            <input
+                                type="date"
+                                value={filters.toDate}
+                                onChange={(e) => handleFilterChange('toDate', e.target.value)}
+                                className={`w-full px-4 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                             />
                         </div>
                     </div>

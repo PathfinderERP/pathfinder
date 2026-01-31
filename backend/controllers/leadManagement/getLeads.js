@@ -50,8 +50,19 @@ export const getLeads = async (req, res) => {
         const skip = (page - 1) * limit;
 
         // Build Filter
-        const { search, leadType, source, centre, course, leadResponsibility, board, className } = req.query;
+        const { search, leadType, source, centre, course, leadResponsibility, board, className, fromDate, toDate } = req.query;
         const query = {};
+
+        // Date range filter
+        if (fromDate || toDate) {
+            query.createdAt = {};
+            if (fromDate) query.createdAt.$gte = new Date(fromDate);
+            if (toDate) {
+                const end = new Date(toDate);
+                end.setHours(23, 59, 59, 999);
+                query.createdAt.$lte = end;
+            }
+        }
 
         if (leadType) query.leadType = Array.isArray(leadType) ? { $in: leadType } : leadType;
         if (source) query.source = Array.isArray(source) ? { $in: source } : source;
