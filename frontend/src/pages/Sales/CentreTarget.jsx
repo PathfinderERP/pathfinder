@@ -380,6 +380,7 @@ const CentreTarget = () => {
                         onClose={() => setShowAddModal(false)}
                         onSuccess={() => { setShowAddModal(false); fetchTargets(); }}
                         centres={centres}
+                        sessions={sessions}
                     />
                 )}
             </div>
