@@ -25,18 +25,22 @@ const LeadDashboard = () => {
     const [courses, setCourses] = useState([]);
     const [sources, setSources] = useState([]);
     const [feedbacks, setFeedbacks] = useState([]);
+    const [telecallerList, setTelecallerList] = useState([]);
     const [selectedTelecaller, setSelectedTelecaller] = useState(null);
     const [telecallerLeads, setTelecallerLeads] = useState([]);
+    const [sidebarTitle, setSidebarTitle] = useState("");
+    const [selectedLead, setSelectedLead] = useState(null);
     const [sidebarLoading, setSidebarLoading] = useState(false);
 
     const fetchMetadata = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
-            const [centresRes, coursesRes, sourcesRes, feedbackRes] = await Promise.all([
+            const [centresRes, coursesRes, sourcesRes, feedbackRes, usersRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers: { Authorization: `Bearer ${token}` } }),
                 fetch(`${import.meta.env.VITE_API_URL}/course`, { headers: { Authorization: `Bearer ${token}` } }),
                 fetch(`${import.meta.env.VITE_API_URL}/source`, { headers: { Authorization: `Bearer ${token}` } }),
-                fetch(`${import.meta.env.VITE_API_URL}/master-data/follow-up-feedback`, { headers: { Authorization: `Bearer ${token}` } })
+                fetch(`${import.meta.env.VITE_API_URL}/master-data/follow-up-feedback`, { headers: { Authorization: `Bearer ${token}` } }),
+                fetch(`${import.meta.env.VITE_API_URL}/superAdmin/getAllUsers`, { headers: { Authorization: `Bearer ${token}` } })
             ]);
 
             if (centresRes.ok) {
@@ -55,27 +59,30 @@ const LeadDashboard = () => {
                 const feedbackData = await feedbackRes.json();
                 setFeedbacks(feedbackData || []);
             }
+            if (usersRes.ok) {
+                const usersData = await usersRes.json();
+                const agents = (usersData.users || []).filter(u =>
+                    ['telecaller', 'centralizedTelecaller', 'counsellor'].includes(u.role)
+                );
+                setTelecallerList(agents);
+            }
         } catch (error) {
             console.error("Failed to fetch metadata:", error);
         }
     }, []);
 
-    const fetchTelecallerLeads = async (name) => {
-        if (!name) return;
+    const fetchLeadsForSidebar = async (title, extraParams = {}) => {
         try {
-            setSelectedTelecaller(name);
+            setSidebarTitle(title);
+            setSelectedTelecaller(null); // Clear telecaller-specific view if we're doing categorical
+            setSelectedLead(null);
             setSidebarLoading(true);
             const token = localStorage.getItem("token");
 
             const queryParams = new URLSearchParams({
-                leadResponsibility: name,
+                ...filters,
+                ...extraParams,
                 limit: "100",
-                ...(filters.centre && { centre: filters.centre }),
-                ...(filters.course && { course: filters.course }),
-                ...(filters.source && { source: filters.source }),
-                ...(filters.fromDate && { fromDate: filters.fromDate }),
-                ...(filters.toDate && { toDate: filters.toDate }),
-                ...(filters.leadType && { leadType: filters.leadType })
             }).toString();
 
             const res = await fetch(`${import.meta.env.VITE_API_URL}/lead-management?${queryParams}`, {
@@ -86,10 +93,16 @@ const LeadDashboard = () => {
                 setTelecallerLeads(data.leads || []);
             }
         } catch (error) {
-            toast.error("Failed to load telecaller leads");
+            toast.error("Failed to load leads");
         } finally {
             setSidebarLoading(false);
         }
+    };
+
+    const fetchTelecallerLeads = async (name) => {
+        if (!name) return;
+        setSidebarTitle(name);
+        fetchLeadsForSidebar(name, { leadResponsibility: name });
     };
 
     const fetchDashboardData = useCallback(async () => {
@@ -145,6 +158,11 @@ const LeadDashboard = () => {
         setFilters({ ...filters, [e.target.name]: e.target.value });
     };
 
+    const handleSelectLead = (lead) => {
+        setSelectedLead(lead);
+        if (!sidebarTitle) setSidebarTitle("Lead Details");
+    };
+
     return (
         <Layout activePage="Lead Management">
             <div className={`flex-1 min-h-screen p-6 space-y-6 overflow-x-hidden transition-all duration-500 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
@@ -194,7 +212,7 @@ const LeadDashboard = () => {
                             { label: "Origin Source", name: "source", type: "select", options: sources.map(s => ({ _id: s.sourceName, name: s.sourceName })), labelKey: "name" },
                             { label: "Feedback Status", name: "feedback", type: "select", options: feedbacks.map(f => ({ _id: f.name, name: f.name })), labelKey: "name" },
                             { label: "Lead Intensity", name: "leadType", type: "select", options: [{ _id: 'HOT LEAD', name: 'HOT LEAD' }, { _id: 'COLD LEAD', name: 'COLD LEAD' }, { _id: 'NEGATIVE', name: 'NEGATIVE' }], labelKey: "name" },
-                            { label: "Agent Identity", name: "leadResponsibility", type: "text", placeholder: "AGENT_ID..." },
+                            { label: "Agent Identity", name: "leadResponsibility", type: "select", options: telecallerList.map(t => ({ _id: t.name, name: t.name })), labelKey: "name" },
                             { label: "Student Cipher", name: "search", type: "text", placeholder: "SEARCH..." },
                             { label: "Window Start", name: "fromDate", type: "date" },
                             { label: "Window End", name: "toDate", type: "date" }
@@ -241,12 +259,16 @@ const LeadDashboard = () => {
                 {/* Summary Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                     {[
-                        { label: "Total Pooled leads", value: stats?.summary?.totalLeads, color: "from-blue-600 to-indigo-700", icon: FaUsers, shadow: "shadow-blue-500/20", tag: "Aggregate" },
-                        { label: "High Intent (Hot)", value: stats?.summary?.hotLeads, color: "from-emerald-600 to-teal-700", icon: FaChartLine, shadow: "shadow-emerald-500/20", tag: "Priority", pulse: true },
-                        { label: "Standard leads (Cold)", value: stats?.summary?.coldLeads, color: "from-orange-600 to-amber-700", icon: FaTasks, shadow: "shadow-orange-500/20", tag: "Queue" },
-                        { label: "Negative vectors", value: stats?.summary?.negativeLeads, color: "from-rose-600 to-pink-700", icon: FaTasks, shadow: "shadow-rose-500/20", tag: "Archived" }
+                        { label: "Total Pooled leads", value: stats?.summary?.totalLeads, color: "from-blue-600 to-indigo-700", icon: FaUsers, shadow: "shadow-blue-500/20", tag: "Aggregate", filter: {} },
+                        { label: "High Intent (Hot)", value: stats?.summary?.hotLeads, color: "from-emerald-600 to-teal-700", icon: FaChartLine, shadow: "shadow-emerald-500/20", tag: "Priority", pulse: true, filter: { leadType: 'HOT LEAD' } },
+                        { label: "Standard leads (Cold)", value: stats?.summary?.coldLeads, color: "from-orange-600 to-amber-700", icon: FaTasks, shadow: "shadow-orange-500/20", tag: "Queue", filter: { leadType: 'COLD LEAD' } },
+                        { label: "Negative vectors", value: stats?.summary?.negativeLeads, color: "from-rose-600 to-pink-700", icon: FaTasks, shadow: "shadow-rose-500/20", tag: "Archived", filter: { leadType: 'NEGATIVE' } }
                     ].map((card, i) => (
-                        <div key={i} className={`bg-gradient-to-br ${card.color} p-8 rounded-[4px] shadow-2xl ${card.shadow} relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300`}>
+                        <div
+                            key={i}
+                            onClick={() => fetchLeadsForSidebar(card.label, card.filter)}
+                            className={`bg-gradient-to-br ${card.color} p-8 rounded-[4px] shadow-2xl ${card.shadow} relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300 cursor-pointer`}
+                        >
                             <card.icon className="absolute -right-8 -bottom-8 text-white/10 group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500" size={160} />
                             {card.pulse && <div className="absolute top-6 right-6 w-2 h-2 rounded-full bg-white animate-pulse shadow-[0_0_15px_white]"></div>}
                             <p className="text-white/60 text-[10px] font-black uppercase tracking-[0.3em] mb-2">{card.label}</p>
@@ -358,7 +380,11 @@ const LeadDashboard = () => {
                                 <div className="py-24 text-center"><FaSpinner className="animate-spin mx-auto text-cyan-500" size={40} /></div>
                             ) : stats?.nextCalls?.length > 0 ? (
                                 stats.nextCalls.map((call, idx) => (
-                                    <div key={idx} className={`p-6 rounded-[4px] border transition-all group relative overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-cyan-500/50 shadow-lg' : 'bg-gray-50 border-gray-200 hover:border-cyan-500/30'}`}>
+                                    <div
+                                        key={idx}
+                                        onClick={() => handleSelectLead(call)}
+                                        className={`p-6 rounded-[4px] border transition-all group relative overflow-hidden cursor-pointer ${isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-cyan-500/50 shadow-lg' : 'bg-gray-50 border-gray-200 hover:border-cyan-500/30'}`}
+                                    >
                                         <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/[0.03] -mr-12 -mt-12 rounded-full pointer-events-none group-hover:bg-cyan-500/[0.08] transition-colors"></div>
                                         <div className="flex justify-between items-start relative z-10">
                                             <div>
@@ -393,42 +419,136 @@ const LeadDashboard = () => {
                 </div>
 
                 {/* Right Sidebar for Telecaller Leads */}
-                {selectedTelecaller && (
+                {(sidebarTitle || selectedLead) && (
                     <div className="fixed inset-0 z-[100] flex justify-end animate-in fade-in duration-300">
                         <div
                             className="absolute inset-0 bg-black/80 backdrop-blur-md"
-                            onClick={() => setSelectedTelecaller(null)}
+                            onClick={() => {
+                                setSidebarTitle("");
+                                setSelectedLead(null);
+                            }}
                         ></div>
-                        <div className={`relative w-full max-w-md h-full shadow-2xl border-l flex flex-col transform transition-all duration-500 animate-in slide-in-from-right ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-cyan-500/10' : 'bg-white border-gray-200 shadow-2xl'}`}>
+                        <div className={`relative w-full max-w-lg h-full shadow-2xl border-l flex flex-col transform transition-all duration-500 animate-in slide-in-from-right ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-cyan-500/10' : 'bg-white border-gray-200 shadow-2xl'}`}>
                             {/* Sidebar Header */}
                             <div className={`p-8 border-b flex items-center justify-between transition-all ${isDarkMode ? 'bg-[#1e2329]/50 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                 <div className="flex items-center gap-4">
+                                    {selectedLead && (
+                                        <button
+                                            onClick={() => setSelectedLead(null)}
+                                            className={`p-2 rounded-[4px] hover:bg-gray-500/10 transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                                            title="Back to List"
+                                        >
+                                            <FaChevronLeft />
+                                        </button>
+                                    )}
                                     <div className={`w-12 h-12 rounded-[4px] flex items-center justify-center border transition-all ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20' : 'bg-cyan-50 border-cyan-100'}`}>
                                         <FaIdBadge className="text-cyan-500" size={20} />
                                     </div>
                                     <div>
-                                        <h2 className={`text-xl font-black uppercase tracking-tighter italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedTelecaller}</h2>
-                                        <p className="text-[9px] font-black text-cyan-500 uppercase tracking-[0.3em] italic">Assigned Lead Protocol</p>
+                                        <h2 className={`text-xl font-black uppercase tracking-tighter italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                            {selectedLead ? selectedLead.name : sidebarTitle}
+                                        </h2>
+                                        <p className="text-[9px] font-black text-cyan-500 uppercase tracking-[0.3em] italic">
+                                            {selectedLead ? "DETAILED VECTOR SYNC" : "Assigned Lead Protocol"}
+                                        </p>
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => setSelectedTelecaller(null)}
+                                    onClick={() => {
+                                        setSidebarTitle("");
+                                        setSelectedLead(null);
+                                    }}
                                     className={`p-3 rounded-[4px] transition-all hover:rotate-90 active:scale-95 ${isDarkMode ? 'bg-white/5 text-gray-400 hover:text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                                 >
                                     <FaTimes size={22} />
                                 </button>
                             </div>
 
-                            {/* Sidebar Content */}
                             <div className={`flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar transition-all ${isDarkMode ? 'bg-[#131619]' : 'bg-white'}`}>
                                 {sidebarLoading ? (
                                     <div className="h-full flex flex-col items-center justify-center gap-6">
                                         <FaSpinner className="animate-spin text-cyan-500" size={40} />
                                         <span className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em] animate-pulse">Syncing Vector Records...</span>
                                     </div>
+                                ) : selectedLead ? (
+                                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                        <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-cyan-500/20 shadow-lg shadow-cyan-500/5' : 'bg-white border-cyan-100 shadow-xl'}`}>
+                                            <div className="grid grid-cols-2 gap-6 mb-6">
+                                                <div>
+                                                    <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Vector Code</p>
+                                                    <p className={`text-xs font-mono font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedLead._id?.slice(-8).toUpperCase()}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Current State</p>
+                                                    <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase border tracking-widest ${selectedLead.leadType === 'HOT LEAD' ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100') :
+                                                        selectedLead.leadType === 'COLD LEAD' ? (isDarkMode ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-orange-50 text-orange-600 border-orange-100') :
+                                                            (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700' : 'bg-gray-100 text-gray-400 border-gray-200')
+                                                        }`}>
+                                                        {selectedLead.leadType}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-500"><FaPhone size={12} /></div>
+                                                    <p className={`text-sm font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{selectedLead.phoneNumber}</p>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-500"><FaEnvelope size={12} /></div>
+                                                    <p className={`text-sm font-bold truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{selectedLead.email}</p>
+                                                </div>
+                                                <div className="flex items-center gap-3 pt-4 border-t border-gray-800/50">
+                                                    <div className="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-500"><FaCalendarAlt size={12} /></div>
+                                                    <div>
+                                                        <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Protocol Start</p>
+                                                        <p className={`text-xs font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{new Date(selectedLead.createdAt).toLocaleDateString()}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <h3 className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.3em] flex items-center gap-2">
+                                                <div className="w-4 h-[1px] bg-cyan-500/30"></div>
+                                                Interaction Sequence
+                                            </h3>
+                                            {selectedLead.followUps && selectedLead.followUps.length > 0 ? (
+                                                <div className="relative pl-6 space-y-6 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gray-800">
+                                                    {selectedLead.followUps.map((fu, idx) => (
+                                                        <div key={idx} className="relative group/step">
+                                                            <div className={`absolute -left-[19px] top-1 w-4 h-4 rounded-full border-2 border-gray-800 transition-all group-hover/step:border-cyan-500 ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`}></div>
+                                                            <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                                                <div className="flex justify-between items-start mb-2">
+                                                                    <span className="text-[9px] font-black text-cyan-500 uppercase tracking-widest">
+                                                                        {new Date(fu.date).toLocaleDateString()}
+                                                                    </span>
+                                                                    {fu.callDuration && (
+                                                                        <span className="text-[9px] font-mono font-bold text-gray-500">{fu.callDuration}</span>
+                                                                    )}
+                                                                </div>
+                                                                <p className={`text-[11px] font-medium leading-relaxed italic ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>"{fu.feedback}"</p>
+                                                                {fu.remarks && (
+                                                                    <p className="text-[10px] text-gray-500 mt-2 font-black uppercase tracking-widest">Remark: <span className="font-normal normal-case">{fu.remarks}</span></p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="p-8 text-center border border-dashed border-gray-800 rounded opacity-30">
+                                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 italic">No sequence recorded</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 ) : telecallerLeads.length > 0 ? (
                                     telecallerLeads.map((lead, i) => (
-                                        <div key={i} className={`p-6 rounded-[4px] border group shadow-xl transition-all duration-500 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 hover:border-cyan-500/30' : 'bg-gray-50 border-gray-200 hover:border-cyan-500/20'}`}>
+                                        <div
+                                            key={i}
+                                            onClick={() => handleSelectLead(lead)}
+                                            className={`p-6 rounded-[4px] border group shadow-xl transition-all duration-500 cursor-pointer ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 hover:border-cyan-500/30' : 'bg-gray-50 border-gray-200 hover:border-cyan-500/20'}`}
+                                        >
                                             <div className="flex justify-between items-start mb-4">
                                                 <div>
                                                     <h3 className={`text-[15px] font-black uppercase tracking-tight italic transition-colors ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>{lead.name}</h3>
@@ -444,16 +564,13 @@ const LeadDashboard = () => {
                                                         </span>
                                                     </div>
                                                 </div>
+                                                <FaChevronRight className="text-gray-700 group-hover:text-cyan-500 transition-colors" size={12} />
                                             </div>
 
                                             <div className={`grid grid-cols-1 gap-3 border-t pt-4 transition-all ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                                                 <div className="flex items-center gap-3 text-[11px] font-mono text-gray-500">
                                                     <FaPhone size={10} className="text-cyan-500/30" />
                                                     <span className={`tracking-tighter ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lead.phoneNumber}</span>
-                                                </div>
-                                                <div className="flex items-center gap-3 text-[11px] font-mono text-gray-500">
-                                                    <FaEnvelope size={10} className="text-cyan-500/30" />
-                                                    <span className={`truncate tracking-tighter ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lead.email}</span>
                                                 </div>
                                                 <div className="mt-2 flex items-center gap-3 border-t border-dashed border-gray-800/50 pt-2">
                                                     <span className="text-[9px] font-black uppercase tracking-widest text-gray-600">Protocol Course</span>
@@ -463,15 +580,10 @@ const LeadDashboard = () => {
 
                                             {lead.followUps && lead.followUps.length > 0 && (
                                                 <div className={`mt-5 p-4 rounded-[4px] border border-dashed transition-all ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-white border-gray-100'}`}>
-                                                    <p className="text-[9px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-2 italic">Intelligence Segment</p>
-                                                    <p className={`text-[11px] font-medium leading-relaxed uppercase italic ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                    <p className="text-[9px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-2 italic">Latest Stream</p>
+                                                    <p className={`text-[11px] font-medium leading-relaxed uppercase italic line-clamp-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                                         "{lead.followUps[lead.followUps.length - 1].feedback}"
                                                     </p>
-                                                    {lead.followUps[lead.followUps.length - 1].callDuration && (
-                                                        <p className="text-[9px] text-gray-500 mt-2 flex items-center gap-2 font-mono font-bold tracking-widest">
-                                                            ⏱ SYNC_LENGTH: {lead.followUps[lead.followUps.length - 1].callDuration}
-                                                        </p>
-                                                    )}
                                                 </div>
                                             )}
                                         </div>

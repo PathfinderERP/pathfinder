@@ -1244,6 +1244,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import BillGenerator from "../../components/Finance/BillGenerator";
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import Pagination from "../../components/common/Pagination";
 
 const InstallmentPayment = () => {
     const [loading, setLoading] = useState(false);
@@ -1273,6 +1274,18 @@ const InstallmentPayment = () => {
         courses: [],
         departments: []
     });
+
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    const itemsPerPageOptions = [
+        { value: 10, label: "10 per page" },
+        { value: 25, label: "25 per page" },
+        { value: 50, label: "50 per page" },
+        { value: 100, label: "100 per page" },
+        { value: 500, label: "500 per page" },
+    ];
 
     const [allowedCentres, setAllowedCentres] = useState(null); // null means all allowed (SuperAdmin)
 
@@ -1345,6 +1358,7 @@ const InstallmentPayment = () => {
 
     const fetchAdmissions = async (allowedOverride) => {
         setLoading(true);
+        setCurrentPage(1); // Reset to first page on new search
         try {
             const token = localStorage.getItem("token");
             const queryParams = new URLSearchParams();
@@ -1928,18 +1942,32 @@ const InstallmentPayment = () => {
                                 </div>
                             </div>
 
-                            {/* Text Search */}
-                            <div className="mt-8 relative group">
-                                <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-cyan-500 transition-colors" />
-                                <input
-                                    type="text"
-                                    name="searchTerm"
-                                    placeholder="SEARCH BY NAME, EMAIL, OR ADMISSION NUMBER..."
-                                    value={filters.searchTerm}
-                                    onChange={handleFilterChange}
-                                    onKeyPress={(e) => e.key === "Enter" && fetchAdmissions()}
-                                    className="w-full bg-black/20 border border-gray-800 rounded-2xl py-4 pl-12 pr-4 text-gray-200 font-bold text-sm uppercase tracking-wider outline-none focus:border-cyan-500/50 transition-all focus:bg-black/40"
-                                />
+                            {/* Text Search & Items Per Page */}
+                            <div className="mt-8 flex flex-col md:flex-row gap-4">
+                                <div className="relative group flex-1">
+                                    <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-cyan-500 transition-colors" />
+                                    <input
+                                        type="text"
+                                        name="searchTerm"
+                                        placeholder="SEARCH BY NAME, EMAIL, OR ADMISSION NUMBER..."
+                                        value={filters.searchTerm}
+                                        onChange={handleFilterChange}
+                                        onKeyPress={(e) => e.key === "Enter" && fetchAdmissions()}
+                                        className="w-full bg-black/20 border border-gray-800 rounded-2xl py-4 pl-12 pr-4 text-gray-200 font-bold text-sm uppercase tracking-wider outline-none focus:border-cyan-500/50 transition-all focus:bg-black/40"
+                                    />
+                                </div>
+                                <div className="w-full md:w-64">
+                                    <Select
+                                        options={itemsPerPageOptions}
+                                        value={itemsPerPageOptions.find(opt => opt.value === itemsPerPage)}
+                                        onChange={(opt) => {
+                                            setItemsPerPage(opt.value);
+                                            setCurrentPage(1);
+                                        }}
+                                        styles={selectStyles}
+                                        isSearchable={false}
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -1974,7 +2002,7 @@ const InstallmentPayment = () => {
                                                 <td colSpan="7" className="p-20 text-center italic text-gray-600 font-bold uppercase tracking-widest">No students found matching your criteria</td>
                                             </tr>
                                         ) : (
-                                            admissionsList.map((adm, idx) => (
+                                            admissionsList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((adm, idx) => (
                                                 <tr
                                                     key={idx}
                                                     className="hover:bg-cyan-500/5 transition-all cursor-pointer group"
@@ -2038,6 +2066,14 @@ const InstallmentPayment = () => {
                                     </tbody>
                                 </table>
                             </div>
+                            {!loading && admissionsList.length > 0 && (
+                                <Pagination
+                                    currentPage={currentPage}
+                                    totalItems={admissionsList.length}
+                                    itemsPerPage={itemsPerPage}
+                                    onPageChange={setCurrentPage}
+                                />
+                            )}
                         </div>
                     </>
                 ) : (

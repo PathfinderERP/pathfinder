@@ -1,17 +1,20 @@
 import LeadManagement from "../../models/LeadManagement.js";
 import User from "../../models/User.js";
+import Boards from "../../models/Master_data/Boards.js";
+import Course from "../../models/Master_data/Courses.js";
 import mongoose from "mongoose";
 
 export const getLeadDashboardStats = async (req, res) => {
     try {
-        const { search, centre, course, leadResponsibility, fromDate, toDate, leadType } = req.query;
+        const { search, centre, course, leadResponsibility, fromDate, toDate, leadType, board, className } = req.query;
 
         // Build base query
         const query = {};
 
-        if (leadType) {
-            query.leadType = leadType;
-        }
+        if (leadType) query.leadType = Array.isArray(leadType) ? { $in: leadType } : leadType;
+        if (course) query.course = mongoose.Types.ObjectId.isValid(course) ? new mongoose.Types.ObjectId(course) : course;
+        if (board) query.board = mongoose.Types.ObjectId.isValid(board) ? new mongoose.Types.ObjectId(board) : board;
+        if (className) query.className = mongoose.Types.ObjectId.isValid(className) ? new mongoose.Types.ObjectId(className) : className;
 
         // Date filter
         if (fromDate || toDate) {
@@ -45,19 +48,14 @@ export const getLeadDashboardStats = async (req, res) => {
             query.centre = mongoose.Types.ObjectId.isValid(centre) ? new mongoose.Types.ObjectId(centre) : centre;
         }
 
-        // Course filter
-        if (course) {
-            query.course = mongoose.Types.ObjectId.isValid(course) ? new mongoose.Types.ObjectId(course) : course;
-        }
 
         // Telecaller filter (leadResponsibility) - Using Regex as requested
         if (leadResponsibility) {
             query.leadResponsibility = { $regex: leadResponsibility, $options: "i" };
         }
 
-        // Exclude counseled leads from dashboard stats ? 
-        // Removing this to show ALL lead activity trend
-        // query.isCounseled = { $ne: true };
+        // Exclude counseled leads from dashboard stats to match lead list logic
+        query.isCounseled = { $ne: true };
 
         // Access Control (Same as getLeads.js)
         if (req.user.role !== 'superAdmin') {
@@ -124,7 +122,7 @@ export const getLeadDashboardStats = async (req, res) => {
             ...query,
             nextFollowUpDate: { $gte: new Date() }
         })
-            .select('name phoneNumber nextFollowUpDate leadType leadResponsibility')
+            .populate('course', 'courseName')
             .sort({ nextFollowUpDate: 1 })
             .limit(20);
 

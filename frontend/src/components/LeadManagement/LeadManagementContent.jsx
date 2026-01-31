@@ -52,6 +52,7 @@ const LeadManagementContent = () => {
         centre: [],
         course: [],
         board: [],
+        className: [],
         leadResponsibility: []
     });
 
@@ -59,6 +60,7 @@ const LeadManagementContent = () => {
     const [sources, setSources] = useState([]);
     const [courses, setCourses] = useState([]);
     const [boards, setBoards] = useState([]);
+    const [classes, setClasses] = useState([]);
     const [telecallers, setTelecallers] = useState([]);
     const [allowedCentres, setAllowedCentres] = useState([]);
 
@@ -185,7 +187,14 @@ const LeadManagementContent = () => {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const boardData = await boardResponse.json();
-            if (boardResponse.ok) setBoards(Array.isArray(boardData) ? boardData : []);
+            if (boardResponse.ok) setBoards(boardData || []);
+
+            // Fetch classes
+            const classResponse = await fetch(`${import.meta.env.VITE_API_URL}/class`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const classData = await classResponse.json();
+            if (classResponse.ok) setClasses(Array.isArray(classData) ? classData : []);
 
             // Fetch telecallers (backend already filters by shared centers)
             const userResponse = await fetch(`${import.meta.env.VITE_API_URL}/superAdmin/getAllUsers`, {
@@ -243,6 +252,7 @@ const LeadManagementContent = () => {
             centre: [],
             course: [],
             board: [],
+            className: [],
             leadResponsibility: []
         });
         setSearchTerm("");
@@ -431,7 +441,7 @@ const LeadManagementContent = () => {
                         </span>
                         <h3 className={`text-[12px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Filter Leads</h3>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
                         <div className="space-y-2">
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Lead Type</label>
                             <CustomMultiSelect
@@ -487,6 +497,16 @@ const LeadManagementContent = () => {
                             />
                         </div>
                         <div className="space-y-2">
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Class</label>
+                            <CustomMultiSelect
+                                options={classes.map(c => ({ value: c._id, label: c.name }))}
+                                value={filters.className}
+                                onChange={(selected) => handleFilterChange('className', selected)}
+                                placeholder="Select Class"
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+                        <div className="space-y-2">
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Telecaller</label>
                             <CustomMultiSelect
                                 options={telecallers.map(t => ({ value: t.name, label: t.name }))}
@@ -516,23 +536,26 @@ const LeadManagementContent = () => {
                                 <tr>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>S/N</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Name</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Contact Details</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Operational Info</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Lead Status</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Responsibility</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Contact</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Ops Info</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Class</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Board</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>School</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Status</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Owner</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="7" className="px-6 py-20 text-center text-cyan-500 font-black uppercase text-[10px] tracking-widest animate-pulse">
+                                        <td colSpan="10" className="px-6 py-20 text-center text-cyan-500 font-black uppercase text-[10px] tracking-widest animate-pulse">
                                             Loading Leads...
                                         </td>
                                     </tr>
                                 ) : leads.length === 0 ? (
                                     <tr>
-                                        <td colSpan="7" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
+                                        <td colSpan="10" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
                                             No leads found
                                         </td>
                                     </tr>
@@ -548,16 +571,25 @@ const LeadManagementContent = () => {
                                                 <div className="text-[10px] font-black text-cyan-500 mt-0.5">{lead.phoneNumber || "NO CONTACT"}</div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className={`text-[10px] font-black uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lead.centre?.centreName || "N/A"}</div>
-                                                <div className="text-[9px] font-bold text-cyan-500 mt-0.5">{lead.course?.courseName || "General Query"}</div>
+                                                <div className={`text-[10px] font-black uppercase group-hover:text-cyan-500 transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lead.centre?.centreName || "N/A"}</div>
+                                                <div className="text-[9px] font-bold text-cyan-500 mt-0.5 truncate max-w-[120px]">{lead.course?.courseName || "General Query"}</div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`px-3 py-1 rounded-[2px] text-[8px] font-black uppercase tracking-widest border ${getLeadTypeColor(lead.leadType)}`}>
-                                                    {lead.leadType || "UNASSIGNED"}
+                                                <div className={`text-[10px] font-black uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lead.className?.name || "N/A"}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[10px] font-black uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lead.board?.boardName || lead.board?.boardCourse || "N/A"}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[10px] font-medium italic truncate max-w-[150px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{lead.schoolName || "N/A"}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest border ${getLeadTypeColor(lead.leadType)}`}>
+                                                    {lead.leadType || "U/A"}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className={`text-[9px] font-black uppercase px-2 py-1 rounded-[2px] inline-block ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
+                                                <div className={`text-[9px] font-black uppercase px-2 py-1 rounded-[2px] inline-block truncate max-w-[100px] ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
                                                     {lead.leadResponsibility || "NO OWNER"}
                                                 </div>
                                             </td>

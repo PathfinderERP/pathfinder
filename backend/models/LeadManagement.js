@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import Class from "./Master_data/Class.js";
 import CentreSchema from "./Master_data/Centre.js";
+import Boards from "./Master_data/Boards.js";
+import Course from "./Master_data/Courses.js";
 
 const leadManagementSchema = new mongoose.Schema({
     name: {
@@ -28,11 +30,11 @@ const leadManagementSchema = new mongoose.Schema({
     },
     course: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Course",
+        ref: Course,
     },
     board: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Board",
+        ref: Boards,
     },
     source: {
         type: String,

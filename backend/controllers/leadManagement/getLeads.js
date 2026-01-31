@@ -1,5 +1,7 @@
 import LeadManagement from "../../models/LeadManagement.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
+import Boards from "../../models/Master_data/Boards.js";
+import Course from "../../models/Master_data/Courses.js";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import s3Client from "../../config/r2Config.js";
@@ -48,21 +50,22 @@ export const getLeads = async (req, res) => {
         const skip = (page - 1) * limit;
 
         // Build Filter
-        const { search, leadType, source, centre, course, leadResponsibility, board } = req.query;
+        const { search, leadType, source, centre, course, leadResponsibility, board, className } = req.query;
         const query = {};
 
         if (leadType) query.leadType = Array.isArray(leadType) ? { $in: leadType } : leadType;
         if (source) query.source = Array.isArray(source) ? { $in: source } : source;
         if (course) query.course = Array.isArray(course) ? { $in: course } : course;
         if (board) query.board = Array.isArray(board) ? { $in: board } : board;
+        if (className) query.className = Array.isArray(className) ? { $in: className } : className;
 
         if (leadResponsibility) {
             query.leadResponsibility = Array.isArray(leadResponsibility)
                 ? { $in: leadResponsibility }
-                : leadResponsibility;
+                : { $regex: leadResponsibility, $options: "i" };
         }
 
-        // Exclude counseled leads from the main list
+        // Exclude counseled leads from dashboard stats to match lead list logic
         query.isCounseled = { $ne: true };
 
         // Centre-based access control
@@ -147,7 +150,7 @@ export const getLeads = async (req, res) => {
             .populate('className', 'name')
             .populate('centre', 'centreName')
             .populate('course', 'courseName')
-            .populate('board', 'boardName')
+            .populate('board', 'boardCourse')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -180,7 +183,7 @@ export const getLeadById = async (req, res) => {
             .populate('className', 'name')
             .populate('centre', 'centreName')
             .populate('course', 'courseName')
-            .populate('board', 'boardName');
+            .populate('board', 'boardCourse');
 
         if (!lead) {
             return res.status(404).json({ message: "Lead not found" });

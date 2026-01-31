@@ -41,7 +41,7 @@ export const createLead = async (req, res) => {
         await newLead.save();
 
         // Populate references before sending response
-        await newLead.populate(['className', 'centre', 'course']);
+        await newLead.populate(['className', 'centre', 'course', 'board']);
 
         res.status(201).json({
             message: "Lead created successfully",

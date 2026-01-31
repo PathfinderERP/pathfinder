@@ -11,6 +11,7 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
         className: "",
         centre: "",
         course: "",
+        board: "",
         source: "",
         targetExam: "",
         leadType: "",
@@ -22,6 +23,7 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
     const [courses, setCourses] = useState([]);
     const [sources, setSources] = useState([]);
     const [telecallers, setTelecallers] = useState([]);
+    const [boards, setBoards] = useState([]);
     const [examTags, setExamTags] = useState([]);
     const [courseFilters, setCourseFilters] = useState({
         class: "",
@@ -49,6 +51,7 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                 className: lead.className?._id || "",
                 centre: lead.centre?._id || "",
                 course: lead.course?._id || "",
+                board: lead.board?._id || lead.board || "",
                 source: lead.source || "",
                 targetExam: lead.targetExam || "",
                 leadType: lead.leadType || "",
@@ -99,6 +102,12 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
             });
             const sourceData = await sourceResponse.json();
             if (sourceResponse.ok) setSources(sourceData.sources || []);
+
+            const boardResponse = await fetch(`${import.meta.env.VITE_API_URL}/board`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const boardData = await boardResponse.json();
+            if (boardResponse.ok) setBoards(Array.isArray(boardData) ? boardData : []);
 
             const userResponse = await fetch(`${import.meta.env.VITE_API_URL}/superAdmin/getAllUsers`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -223,6 +232,13 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                                     </select>
                                 </div>
                                 <div>
+                                    <label className={labelClasses}>Board *</label>
+                                    <select name="board" required value={formData.board} onChange={handleChange} className={selectClasses}>
+                                        <option value="">Select Board</option>
+                                        {boards.map(b => <option key={b._id} value={b._id}>{b.boardName || b.boardCourse}</option>)}
+                                    </select>
+                                </div>
+                                <div>
                                     <label className={labelClasses}>Target Exam</label>
                                     <input type="text" name="targetExam" value={formData.targetExam} onChange={handleChange} className={inputClasses} placeholder="Target Exam..." />
                                 </div>
@@ -335,7 +351,7 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                 </form>
             </div>
 
-            <style jsx>{`
+            <style>{`
                 @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
                 .scale-in { animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }

@@ -7,6 +7,7 @@ import { saveAs } from "file-saver";
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
+import Pagination from "../../components/common/Pagination";
 
 const DiscountReport = () => {
     // ---- State ----
@@ -18,6 +19,18 @@ const DiscountReport = () => {
     const [reportType, setReportType] = useState("monthly"); // monthly, daily
     const [trendIndex, setTrendIndex] = useState(0);
     const trendLimit = 15;
+
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    const itemsPerPageOptions = [
+        { value: 10, label: "10 per page" },
+        { value: 25, label: "25 per page" },
+        { value: 50, label: "50 per page" },
+        { value: 100, label: "100 per page" },
+        { value: 500, label: "500 per page" },
+    ];
 
     // Master Data
     const [centres, setCentres] = useState([]);
@@ -175,6 +188,7 @@ const DiscountReport = () => {
             setReportData([]);
         } finally {
             setLoading(false);
+            setCurrentPage(1); // Reset to first page when data is fetched
         }
     };
 
@@ -672,10 +686,27 @@ const DiscountReport = () => {
 
                                     {detailedReport.length > 0 && (
                                         <div className="mt-12 animate-fade-in">
-                                            <h4 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-                                                <div className="w-1.5 h-4 bg-blue-500 rounded-full"></div>
-                                                Detailed Student Breakdown
-                                            </h4>
+                                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                                                <h4 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                                    <div className="w-1.5 h-4 bg-blue-500 rounded-full"></div>
+                                                    Detailed Student Breakdown
+                                                </h4>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Items per page:</span>
+                                                    <select
+                                                        value={itemsPerPage}
+                                                        onChange={(e) => {
+                                                            setItemsPerPage(Number(e.target.value));
+                                                            setCurrentPage(1);
+                                                        }}
+                                                        className="h-8 px-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs font-bold text-gray-700 dark:text-gray-300"
+                                                    >
+                                                        {itemsPerPageOptions.map(opt => (
+                                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            </div>
                                             <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
                                                 <table className="w-full text-left border-collapse">
                                                     <thead>
@@ -689,7 +720,7 @@ const DiscountReport = () => {
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                                                        {detailedReport.slice(0, 50).map((stu, sIdx) => (
+                                                        {detailedReport.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((stu, sIdx) => (
                                                             <tr key={sIdx} className="hover:bg-blue-50/30 dark:hover:bg-white/5 transition-colors">
                                                                 <td className="p-4 text-xs font-bold text-gray-800 dark:text-gray-200">{stu.studentName}</td>
                                                                 <td className="p-4 text-xs text-center text-gray-500 italic">{stu.admissionNumber}</td>
@@ -702,7 +733,14 @@ const DiscountReport = () => {
                                                     </tbody>
                                                 </table>
                                             </div>
-                                            <p className="mt-4 text-[10px] text-gray-400 italic">*Showing first 50 records. Download Excel for full detailed report.</p>
+                                            <div className="mt-4">
+                                                <Pagination
+                                                    currentPage={currentPage}
+                                                    totalItems={detailedReport.length}
+                                                    itemsPerPage={itemsPerPage}
+                                                    onPageChange={setCurrentPage}
+                                                />
+                                            </div>
                                         </div>
                                     )}
                                 </>
@@ -757,9 +795,9 @@ const DiscountReport = () => {
                     )}
                 </div>
 
-                <div className="text-center text-gray-400 text-sm mt-8">
-                    ©ADS.All Rights Reserved.
-                </div>
+                {/* <div className="text-center text-gray-400 text-sm mt-8">
+                    ©IT TEAM(MALAY).All Rights Reserved.
+                </div> */}
             </div>
         </Layout>
     );
