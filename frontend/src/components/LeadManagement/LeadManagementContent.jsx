@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FaPlus, FaEdit, FaTrash, FaSearch, FaFilter, FaRedo, FaFileExcel, FaDownload, FaChevronLeft, FaChevronRight, FaHistory, FaChartLine, FaSun, FaMoon } from "react-icons/fa";
+import { FaDownload, FaFileUpload, FaFileExcel, FaPlus, FaFilter, FaSearch, FaChevronLeft, FaChevronRight, FaMoon, FaSun, FaHistory, FaChartLine, FaTrash, FaRedo, FaPhoneAlt, FaEnvelope, FaEdit } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { saveAs } from "file-saver";
@@ -14,7 +14,7 @@ import CustomMultiSelect from "../common/CustomMultiSelect";
 import { hasPermission } from "../../config/permissions";
 import { useTheme } from "../../context/ThemeContext";
 import LeadTrendChart from "./LeadTrendChart"; // Added Import
-
+import FollowUpActivityModal from "./FollowUpActivityModal";
 const LeadManagementContent = () => {
     const navigate = useNavigate();
     const { theme, toggleTheme } = useTheme();
@@ -32,6 +32,19 @@ const LeadManagementContent = () => {
     const [selectedDetailLead, setSelectedDetailLead] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [dailyLeads, setDailyLeads] = useState([]); // Added state
+    const [followUpStats, setFollowUpStats] = useState({
+        totalFollowUps: 0,
+        hotLeads: 0,
+        coldLeads: 0,
+        negativeLeads: 0,
+        recentActivity: []
+    });
+
+    const [activityModal, setActivityModal] = useState({
+        isOpen: false,
+        title: "",
+        data: []
+    });
 
     // Permission states
     const [user, setUser] = useState(null);
@@ -81,9 +94,41 @@ const LeadManagementContent = () => {
         }
     }, []);
 
+    const fetchFollowUpStats = useCallback(async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const params = new URLSearchParams();
+
+            // Pass relevant filters to the stats endpoint
+            if (filters.fromDate) params.append("fromDate", filters.fromDate);
+            if (filters.toDate) params.append("toDate", filters.toDate);
+
+            // Pass centre and telecaller filters if selected
+            if (filters.centre && filters.centre.length > 0) {
+                const c = filters.centre[0];
+                params.append("centre", (c && typeof c === 'object' && 'value' in c) ? c.value : c);
+            }
+            if (filters.leadResponsibility && filters.leadResponsibility.length > 0) {
+                const tr = filters.leadResponsibility[0];
+                params.append("leadResponsibility", (tr && typeof tr === 'object' && 'value' in tr) ? tr.value : tr);
+            }
+
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/stats/today-followups?${params.toString()}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setFollowUpStats(data);
+            }
+        } catch (error) {
+            console.error("Error fetching follow-up stats:", error);
+        }
+    }, [filters]);
+
     useEffect(() => {
         fetchLeadStats();
-    }, [fetchLeadStats]);
+        fetchFollowUpStats();
+    }, [fetchLeadStats, fetchFollowUpStats]);
 
     const fetchLeads = useCallback(async () => {
         setLoading(true);
@@ -362,6 +407,58 @@ const LeadManagementContent = () => {
         }
     };
 
+    const handleCardClick = (type) => {
+        let title = "";
+        let filteredData = [];
+
+        switch (type) {
+            case 'total':
+                title = "Total Follow-up Activity";
+                filteredData = followUpStats.recentActivity;
+                break;
+            case 'hot':
+                title = "Hot Interest Leads";
+                filteredData = followUpStats.recentActivity.filter(a => a.status?.toUpperCase() === 'HOT LEAD');
+                break;
+            case 'cold':
+                title = "Cold Lead Discussions";
+                filteredData = followUpStats.recentActivity.filter(a => a.status?.toUpperCase() === 'COLD LEAD');
+                break;
+            case 'negative':
+                title = "Negative Results History";
+                filteredData = followUpStats.recentActivity.filter(a => a.status?.toUpperCase() === 'NEGATIVE');
+                break;
+            default:
+                return;
+        }
+
+        setActivityModal({
+            isOpen: true,
+            title,
+            data: filteredData
+        });
+    };
+
+    const setDatePreset = (preset) => {
+        const today = new Date().toISOString().split('T')[0];
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        const last7Days = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+
+        switch (preset) {
+            case 'today':
+                setFilters(prev => ({ ...prev, fromDate: today, toDate: today }));
+                break;
+            case 'yesterday':
+                setFilters(prev => ({ ...prev, fromDate: yesterday, toDate: yesterday }));
+                break;
+            case '7days':
+                setFilters(prev => ({ ...prev, fromDate: last7Days, toDate: today }));
+                break;
+            default:
+                break;
+        }
+    };
+
     return (
         <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
             <div className="p-6 md:p-8 max-w-[1800px] mx-auto space-y-8">
@@ -423,6 +520,177 @@ const LeadManagementContent = () => {
                                 <FaPlus /> Add Lead
                             </button>
                         )}
+                    </div>
+                </div>
+
+                {/* Localized Analytics Filters */}
+                <div className={`p-4 rounded-[2px] border flex flex-col md:flex-row items-center justify-between gap-6 transition-all ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'}`}>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className={`text-[9px] font-black uppercase tracking-widest mr-2 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>Quick View</span>
+                        <button
+                            onClick={() => setDatePreset('today')}
+                            className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${filters.fromDate === new Date().toISOString().split('T')[0] && filters.toDate === new Date().toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
+                        >
+                            Today
+                        </button>
+                        <button
+                            onClick={() => setDatePreset('yesterday')}
+                            className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${filters.fromDate === new Date(Date.now() - 86400000).toISOString().split('T')[0] && filters.toDate === new Date(Date.now() - 86400000).toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
+                        >
+                            Yesterday
+                        </button>
+                        <button
+                            onClick={() => setDatePreset('7days')}
+                            className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${filters.fromDate === new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
+                        >
+                            Last 7 Days
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>From</span>
+                            <input
+                                type="date"
+                                value={filters.fromDate}
+                                onChange={(e) => handleFilterChange('fromDate', e.target.value)}
+                                className={`px-3 py-1.5 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>To</span>
+                            <input
+                                type="date"
+                                value={filters.toDate}
+                                onChange={(e) => handleFilterChange('toDate', e.target.value)}
+                                className={`px-3 py-1.5 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Activity Analysis */}
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                    <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                        {/* Total Follow-ups Card */}
+                        <div
+                            onClick={() => handleCardClick('total')}
+                            className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-cyan-500/10 hover:border-cyan-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
+                        >
+                            <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                <div>
+                                    <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                        {filters.fromDate || filters.toDate ? "Filtered Activity" : "Today's Activity"}
+                                    </p>
+                                    <h3 className={`text-3xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalFollowUps}</h3>
+                                    <p className="text-[9px] font-bold text-cyan-500 mt-1 uppercase tracking-widest">Follow-ups Recorded</p>
+                                </div>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); fetchFollowUpStats(); }}
+                                    className={`p-3 rounded-[2px] transition-all hover:rotate-180 duration-500 ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500' : 'bg-cyan-50 text-cyan-600'}`}
+                                >
+                                    <FaHistory size={20} />
+                                </button>
+                            </div>
+                            <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
+                                <FaHistory size={100} />
+                            </div>
+                        </div>
+
+                        {/* Hot Leads Card */}
+                        <div
+                            onClick={() => handleCardClick('hot')}
+                            className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-red-500/10 hover:border-red-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
+                        >
+                            <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                <div>
+                                    <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                        {filters.fromDate || filters.toDate ? "Filtered Interests" : "Hot Interests"}
+                                    </p>
+                                    <h3 className="text-3xl font-black italic tracking-tighter text-red-500">{followUpStats.hotLeads}</h3>
+                                    <p className="text-[9px] font-bold text-red-500/80 mt-1 uppercase tracking-widest">Positive Feedback</p>
+                                </div>
+                                <div className="p-3 bg-red-500/10 text-red-500 rounded-[2px]">
+                                    <FaChartLine size={20} />
+                                </div>
+                            </div>
+                            <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
+                                <FaChartLine size={100} />
+                            </div>
+                        </div>
+
+                        {/* Cold Leads Card */}
+                        <div
+                            onClick={() => handleCardClick('cold')}
+                            className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-blue-500/10 hover:border-blue-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
+                        >
+                            <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                <div>
+                                    <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                        {filters.fromDate || filters.toDate ? "Filtered Leads" : "Cold Leads"}
+                                    </p>
+                                    <h3 className="text-3xl font-black italic tracking-tighter text-blue-500">{followUpStats.coldLeads}</h3>
+                                    <p className="text-[9px] font-bold text-blue-500/80 mt-1 uppercase tracking-widest">Ongoing Discussions</p>
+                                </div>
+                                <div className="p-3 bg-blue-500/10 text-blue-500 rounded-[2px]">
+                                    <FaSearch size={20} />
+                                </div>
+                            </div>
+                            <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
+                                <FaSearch size={100} />
+                            </div>
+                        </div>
+
+                        {/* Negative Results Card */}
+                        <div
+                            onClick={() => handleCardClick('negative')}
+                            className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-gray-500/10 hover:border-gray-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
+                        >
+                            <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                <div>
+                                    <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                        {filters.fromDate || filters.toDate ? "Filtered Negative" : "Negative Results"}
+                                    </p>
+                                    <h3 className="text-3xl font-black italic tracking-tighter text-gray-500">{followUpStats.negativeLeads}</h3>
+                                    <p className="text-[9px] font-bold text-gray-500 mt-1 uppercase tracking-widest">No Interest Shown</p>
+                                </div>
+                                <div className="p-3 bg-gray-500/10 text-gray-500 rounded-[2px]">
+                                    <FaTrash size={20} />
+                                </div>
+                            </div>
+                            <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
+                                <FaTrash size={100} />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Activity Feed */}
+                    <div className={`rounded-[2px] border overflow-hidden flex flex-col ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <div className={`px-4 py-3 border-b flex items-center gap-2 ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></div>
+                            <h4 className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                {filters.fromDate || filters.toDate ? "History Feed" : "Live Feed"}
+                            </h4>
+                        </div>
+                        <div className="flex-1 overflow-y-auto max-h-[140px] custom-scrollbar p-1">
+                            {followUpStats.recentActivity.length === 0 ? (
+                                <p className="text-[8px] text-gray-500 uppercase font-black tracking-widest text-center py-8">No Activity Yet</p>
+                            ) : (
+                                followUpStats.recentActivity.map((act, idx) => (
+                                    <div key={idx} className={`p-3 border-b last:border-0 rounded-[2px] transition-all hover:bg-cyan-500/5 ${isDarkMode ? 'border-gray-800/50' : 'border-gray-100'}`}>
+                                        <div className="flex justify-between items-start mb-0.5">
+                                            <span className={`text-[10px] font-black uppercase tracking-tight truncate max-w-[120px] ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{act.leadName}</span>
+                                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-[2px] border ${getLeadTypeColor(act.status)}`}>{act.status?.charAt(0)}</span>
+                                        </div>
+                                        <p className={`text-[9px] font-medium italic truncate ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{act.feedback}</p>
+                                        <div className="flex justify-between items-center mt-1">
+                                            <span className="text-[7px] font-black text-cyan-500/60 uppercase">{act.updatedBy}</span>
+                                            <span className="text-[7px] text-gray-600">{new Date(act.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -656,36 +924,86 @@ const LeadManagementContent = () => {
                 </div>
 
                 {/* Pagination */}
-                <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 border-t border-gray-800">
-                    <div className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
-                        Showing: {leads.length === 0 ? 0 : (currentPage - 1) * limit + 1}-{Math.min(currentPage * limit, totalLeads)} / {totalLeads} Records
+                <div className="flex flex-col xl:flex-row justify-between items-center gap-6 pt-6 border-t border-gray-800">
+                    <div className="flex flex-col md:flex-row items-center gap-6">
+                        <div className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
+                            Showing: {leads.length === 0 ? 0 : (currentPage - 1) * limit + 1}-{Math.min(currentPage * limit, totalLeads)} / {totalLeads} Records
+                        </div>
+
+                        {/* Jump to Page */}
+                        <div className="flex items-center gap-3">
+                            <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-500'}`}>Go to Page:</span>
+                            <input
+                                type="number"
+                                min="1"
+                                max={totalPages}
+                                value={currentPage}
+                                onChange={(e) => {
+                                    const page = parseInt(e.target.value);
+                                    if (page >= 1 && page <= totalPages) {
+                                        setCurrentPage(page);
+                                    }
+                                }}
+                                className={`w-16 px-3 py-1.5 rounded-[2px] border text-[10px] font-black text-center outline-none transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700 text-cyan-500 focus:border-cyan-500/50' : 'bg-white border-gray-200 text-cyan-600 focus:border-cyan-500'}`}
+                            />
+                        </div>
                     </div>
-                    <div className="flex items-center gap-2">
+
+                    <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-2 md:pb-0">
                         <button
                             onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                             disabled={currentPage === 1}
-                            className={`p-2 rounded-[2px] transition-all disabled:opacity-30 ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-cyan-500' : 'bg-white border border-gray-200 text-gray-500'}`}
+                            className={`p-2.5 rounded-[2px] transition-all disabled:opacity-30 ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-cyan-500 hover:bg-gray-700' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                            title="Previous Page"
                         >
                             <FaChevronLeft size={10} />
                         </button>
 
-                        {[...Array(totalPages)].map((_, i) => (
-                            <button
-                                key={i}
-                                onClick={() => setCurrentPage(i + 1)}
-                                className={`w-8 h-8 rounded-[2px] text-[10px] font-black transition-all ${currentPage === i + 1
-                                    ? "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20"
-                                    : (isDarkMode ? "bg-gray-800 text-gray-500 hover:text-white" : "bg-white border border-gray-200 text-gray-400 hover:bg-gray-50")
-                                    }`}
-                            >
-                                {i + 1}
-                            </button>
-                        ))}
+                        {/* Paginated Buttons with compact logic */}
+                        {(() => {
+                            const buttons = [];
+                            const maxVisible = 5;
+
+                            if (totalPages <= 7) {
+                                for (let i = 1; i <= totalPages; i++) buttons.push(i);
+                            } else {
+                                buttons.push(1);
+                                if (currentPage > 3) buttons.push('...');
+
+                                const start = Math.max(2, currentPage - 1);
+                                const end = Math.min(totalPages - 1, currentPage + 1);
+
+                                for (let i = start; i <= end; i++) {
+                                    if (!buttons.includes(i)) buttons.push(i);
+                                }
+
+                                if (currentPage < totalPages - 2) buttons.push('...');
+                                if (!buttons.includes(totalPages)) buttons.push(totalPages);
+                            }
+
+                            return buttons.map((page, i) => (
+                                page === '...' ? (
+                                    <span key={`dots-${i}`} className={`px-2 text-[10px] font-black ${isDarkMode ? 'text-gray-700' : 'text-gray-400'}`}>...</span>
+                                ) : (
+                                    <button
+                                        key={page}
+                                        onClick={() => setCurrentPage(page)}
+                                        className={`w-9 h-9 rounded-[2px] text-[10px] font-black transition-all ${currentPage === page
+                                            ? "bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.3)] scale-110 z-10"
+                                            : (isDarkMode ? "bg-gray-800 text-gray-500 hover:text-white hover:bg-gray-700" : "bg-white border border-gray-200 text-gray-400 hover:bg-gray-50")
+                                            }`}
+                                    >
+                                        {page}
+                                    </button>
+                                )
+                            ));
+                        })()}
 
                         <button
                             onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                             disabled={currentPage === totalPages}
-                            className={`p-2 rounded-[2px] transition-all disabled:opacity-30 ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-cyan-500' : 'bg-white border border-gray-200 text-gray-500'}`}
+                            className={`p-2.5 rounded-[2px] transition-all disabled:opacity-30 ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-cyan-500 hover:bg-gray-700' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                            title="Next Page"
                         >
                             <FaChevronRight size={10} />
                         </button>
@@ -702,9 +1020,16 @@ const LeadManagementContent = () => {
             {showEditModal && selectedLead && <EditLeadModal isDarkMode={isDarkMode} lead={selectedLead} onClose={() => { setShowEditModal(false); setSelectedLead(null); }} onSuccess={() => { setShowEditModal(false); setSelectedLead(null); fetchLeads(); }} />}
             {showBulkModal && <BulkLeadModal isDarkMode={isDarkMode} onClose={() => setShowBulkModal(false)} onSuccess={() => { setShowBulkModal(false); fetchLeads(); }} />}
             {showDetailModal && selectedDetailLead && <LeadDetailsModal isDarkMode={isDarkMode} lead={selectedDetailLead} canEdit={canEdit} canDelete={canDelete} onClose={() => { setShowDetailModal(false); setSelectedDetailLead(null); }} onEdit={(lead) => { setShowDetailModal(false); handleEdit(lead); }} onDelete={(id) => { handleDelete(id); setShowDetailModal(false); setSelectedDetailLead(null); }} onFollowUp={(lead) => { setShowDetailModal(false); setSelectedLead(lead); setShowFollowUpModal(true); }} onCounseling={(lead) => handleCounseling(lead)} onShowHistory={(lead) => { setSelectedDetailLead(lead); setShowHistoryModal(true); }} />}
-            {showFollowUpModal && selectedLead && <AddFollowUpModal isDarkMode={isDarkMode} lead={selectedLead} onClose={() => { setShowFollowUpModal(false); setSelectedLead(null); }} onSuccess={() => { setShowFollowUpModal(false); setSelectedLead(null); fetchLeads(); }} />}
+            {showFollowUpModal && selectedLead && <AddFollowUpModal isDarkMode={isDarkMode} lead={selectedLead} onClose={() => { setShowFollowUpModal(false); setSelectedLead(null); }} onSuccess={() => { setShowFollowUpModal(false); setSelectedLead(null); fetchLeads(); fetchFollowUpStats(); }} />}
             {showHistoryModal && selectedDetailLead && <FollowUpHistoryModal isDarkMode={isDarkMode} lead={selectedDetailLead} onClose={() => setShowHistoryModal(false)} />}
             {showFollowUpListModal && <FollowUpListModal isDarkMode={isDarkMode} onClose={() => setShowFollowUpListModal(false)} onShowHistory={(lead) => { setSelectedDetailLead(lead); setShowHistoryModal(true); }} />}
+            <FollowUpActivityModal
+                isOpen={activityModal.isOpen}
+                onClose={() => setActivityModal({ ...activityModal, isOpen: false })}
+                title={activityModal.title}
+                data={activityModal.data}
+                isDarkMode={isDarkMode}
+            />
         </div>
     );
 };

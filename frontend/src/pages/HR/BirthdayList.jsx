@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { FaBirthdayCake, FaGift, FaCalendarAlt, FaBuilding, FaUserTie, FaMapMarkerAlt, FaSearch, FaFilter } from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight, FaBirthdayCake, FaGift, FaCalendarAlt, FaBuilding, FaUserTie, FaMapMarkerAlt, FaSearch, FaFilter } from "react-icons/fa";
 import { format, isSameDay, isSameWeek, isSameMonth, addYears, getYear, setYear, isPast, getMonth, isToday, getDate } from "date-fns";
 import Layout from "../../components/Layout";
 
@@ -127,6 +127,10 @@ const BirthdayList = () => {
         return list;
     };
 
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const limit = 10;
+
     const birthdayData = processBirthdays();
 
     let activeList = [];
@@ -134,6 +138,16 @@ const BirthdayList = () => {
     else if (filterCategory === "This Week") activeList = birthdayData.thisWeek;
     else if (filterCategory === "This Month") activeList = birthdayData.thisMonth;
     else activeList = birthdayData.upcoming;
+
+    // Paginate active list
+    const totalRecords = activeList.length;
+    const totalPages = Math.ceil(totalRecords / limit);
+    const paginatedList = activeList.slice((currentPage - 1) * limit, currentPage * limit);
+
+    // Reset page when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filterCategory, searchTerm, filterDept, filterCentre, filterDesig, filterMonth]);
 
 
     const renderCard = (emp) => {
@@ -293,15 +307,97 @@ const BirthdayList = () => {
                 {loading ? (
                     <div className="flex justify-center py-32"><div className="animate-spin rounded-full h-12 w-12 border-4 border-pink-500 border-t-transparent"></div></div>
                 ) : (
-                    <div className="min-h-[400px]">
-                        {activeList.length === 0 ? (
-                            <div className="text-center py-32 opacity-50">
-                                <FaBirthdayCake className="text-6xl mx-auto mb-4" />
-                                <p className="text-xl font-medium">No celebrations found.</p>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
-                                {activeList.map(emp => renderCard(emp))}
+                    <div className="min-h-[400px] flex flex-col justify-between">
+                        <div>
+                            {paginatedList.length === 0 ? (
+                                <div className="text-center py-32 opacity-50">
+                                    <FaBirthdayCake className="text-6xl mx-auto mb-4" />
+                                    <p className="text-xl font-medium">No celebrations found.</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
+                                    {paginatedList.map(emp => renderCard(emp))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Pagination Bar */}
+                        {totalPages > 1 && (
+                            <div className="mt-12 flex flex-col md:flex-row justify-between items-center gap-6 pt-8 border-t border-gray-800">
+                                <div className="flex flex-col md:flex-row items-center gap-6">
+                                    <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                        Showing: {totalRecords === 0 ? 0 : (currentPage - 1) * limit + 1}-{Math.min(currentPage * limit, totalRecords)} / {totalRecords} Birthdays
+                                    </div>
+
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Go to Page:</span>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max={totalPages}
+                                            value={currentPage}
+                                            onChange={(e) => {
+                                                const page = parseInt(e.target.value);
+                                                if (page >= 1 && page <= totalPages) {
+                                                    setCurrentPage(page);
+                                                }
+                                            }}
+                                            className="w-16 px-3 py-1.5 rounded-xl border border-gray-800 bg-gray-950 text-pink-500 text-[10px] font-black text-center outline-none focus:border-pink-500/50 transition-all"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                        disabled={currentPage === 1}
+                                        className="p-2.5 rounded-xl bg-gray-900 border border-gray-800 text-gray-400 hover:text-pink-500 hover:border-pink-500/30 transition-all disabled:opacity-30 disabled:hover:border-gray-800 disabled:hover:text-gray-400"
+                                    >
+                                        <FaChevronLeft size={12} />
+                                    </button>
+
+                                    {(() => {
+                                        const buttons = [];
+                                        if (totalPages <= 7) {
+                                            for (let i = 1; i <= totalPages; i++) buttons.push(i);
+                                        } else {
+                                            buttons.push(1);
+                                            if (currentPage > 3) buttons.push('...');
+                                            const start = Math.max(2, currentPage - 1);
+                                            const end = Math.min(totalPages - 1, currentPage + 1);
+                                            for (let i = start; i <= end; i++) {
+                                                if (!buttons.includes(i)) buttons.push(i);
+                                            }
+                                            if (currentPage < totalPages - 2) buttons.push('...');
+                                            if (!buttons.includes(totalPages)) buttons.push(totalPages);
+                                        }
+
+                                        return buttons.map((page, i) => (
+                                            page === '...' ? (
+                                                <span key={`dots-${i}`} className="px-2 text-[10px] font-black text-gray-700">...</span>
+                                            ) : (
+                                                <button
+                                                    key={page}
+                                                    onClick={() => setCurrentPage(page)}
+                                                    className={`w-10 h-10 rounded-xl text-[10px] font-black transition-all ${currentPage === page
+                                                        ? "bg-gradient-to-br from-pink-500 to-purple-600 text-white shadow-lg shadow-pink-500/20 scale-110"
+                                                        : "bg-gray-900 border border-gray-800 text-gray-500 hover:text-white hover:border-gray-700"
+                                                        }`}
+                                                >
+                                                    {page}
+                                                </button>
+                                            )
+                                        ));
+                                    })()}
+
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                        disabled={currentPage === totalPages}
+                                        className="p-2.5 rounded-xl bg-gray-900 border border-gray-800 text-gray-400 hover:text-pink-500 hover:border-pink-500/30 transition-all disabled:opacity-30 disabled:hover:border-gray-800 disabled:hover:text-gray-400"
+                                    >
+                                        <FaChevronRight size={12} />
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>

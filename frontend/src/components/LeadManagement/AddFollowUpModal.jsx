@@ -24,7 +24,8 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
         remarks: "",
         callStartTime: null,
         callEndTime: null,
-        callDuration: ""
+        callDuration: "",
+        leadType: ""
     });
 
     const [isCalling, setIsCalling] = useState(false);
@@ -91,6 +92,12 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
+
+        if (!formData.leadType) {
+            toast.warning("Please categorize the lead (Hot/Cold/Negative)");
+            setLoading(false);
+            return;
+        }
 
         try {
             const token = localStorage.getItem("token");
@@ -192,6 +199,21 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                                 {optionsToRender.map((option, index) => (
                                     <option key={index} value={option}>{option.toUpperCase()}</option>
                                 ))}
+                            </select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black uppercase text-gray-500 ml-1 tracking-widest">LEAD STATUS</label>
+                            <select
+                                required
+                                value={formData.leadType || ""}
+                                onChange={(e) => setFormData({ ...formData, leadType: e.target.value })}
+                                className={`w-full rounded-[4px] border px-4 py-3 text-[11px] font-black uppercase tracking-widest focus:outline-none transition-all appearance-none cursor-pointer ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                            >
+                                <option value="">CATEGORIZE LEAD</option>
+                                <option value="HOT LEAD">HOT LEAD</option>
+                                <option value="COLD LEAD">COLD LEAD</option>
+                                <option value="NEGATIVE">NEGATIVE</option>
                             </select>
                         </div>
 

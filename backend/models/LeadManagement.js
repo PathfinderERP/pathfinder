@@ -78,6 +78,10 @@ const leadManagementSchema = new mongoose.Schema({
         updatedBy: {
             type: String // Optional: store who added the follow-up
         },
+        status: {
+            type: String, // Tracking lead status at the time of follow-up
+            enum: ['HOT LEAD', 'COLD LEAD', 'NEGATIVE']
+        },
         callStartTime: {
             type: Date
         },

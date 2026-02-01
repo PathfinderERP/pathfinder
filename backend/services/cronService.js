@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import { sendOverdueReminders, checkOverduePayments } from "./paymentReminderService.js";
 import { performAutoCheckout } from "./attendanceAutoCheckout.js";
+import { checkAndSendBirthdayGreetings } from "./birthdayNotificationService.js";
 
 // Run every day at 9:00 AM to check overdue payments and send reminders
 export const startPaymentReminderCron = () => {
@@ -37,8 +38,20 @@ export const startPaymentReminderCron = () => {
         }
     });
 
+    // Send birthday greetings every day at 8:00 AM
+    cron.schedule('0 8 * * *', async () => {
+        console.log('🎂 Running daily birthday greeting check...');
+        try {
+            const results = await checkAndSendBirthdayGreetings();
+            console.log(`✅ Birthday greetings processed: ${results.success} sent, ${results.failed} failed`);
+        } catch (error) {
+            console.error('❌ Error in birthday greeting cron job:', error);
+        }
+    });
+
     console.log('✅ Cron jobs started');
     console.log('   - Daily reminders: 9:00 AM');
+    console.log('   - Birthday Greetings: 8:00 AM');
     console.log('   - Attendance Auto-Checkout: 11:59 PM');
     console.log('   - Status updates: Every hour');
 };
