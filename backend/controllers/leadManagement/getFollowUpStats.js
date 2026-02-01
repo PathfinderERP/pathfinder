@@ -4,28 +4,46 @@ import mongoose from "mongoose";
 
 export const getFollowUpStats = async (req, res) => {
     try {
-        const { fromDate, toDate, centre, leadResponsibility } = req.query;
+        const { fromDate, toDate, centre, leadResponsibility, scheduledDate } = req.query;
 
-        // Base match for the Lead entries
+        // Base match for the Lead entries (Access Control)
         const baseMatch = {};
 
-        // Date filter for the follow-up entries
-        const dateFilter = {};
+        // 1. Date filter for RECORDED ACTIVITY (followUps.date)
+        const activityDateFilter = {};
         if (fromDate || toDate) {
-            if (fromDate) dateFilter.$gte = new Date(fromDate);
+            if (fromDate) activityDateFilter.$gte = new Date(fromDate);
             if (toDate) {
                 const end = new Date(toDate);
                 end.setHours(23, 59, 59, 999);
-                dateFilter.$lte = end;
+                activityDateFilter.$lte = end;
             }
         } else {
-            // Default to today
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const tomorrow = new Date(today);
             tomorrow.setDate(tomorrow.getDate() + 1);
-            dateFilter.$gte = today;
-            dateFilter.$lt = tomorrow;
+            activityDateFilter.$gte = today;
+            activityDateFilter.$lt = tomorrow;
+        }
+
+        // 2. Date filter for SCHEDULED WORK (nextFollowUpDate)
+        const scheduledDateFilter = {};
+        if (scheduledDate) {
+            const start = new Date(scheduledDate);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(scheduledDate);
+            end.setHours(23, 59, 59, 999);
+            scheduledDateFilter.$gte = start;
+            scheduledDateFilter.$lte = end;
+        } else {
+            // Default scheduled to today
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            scheduledDateFilter.$gte = today;
+            scheduledDateFilter.$lt = tomorrow;
         }
 
         // Access Control
@@ -49,92 +67,127 @@ export const getFollowUpStats = async (req, res) => {
             if (leadResponsibility) baseMatch.leadResponsibility = { $regex: new RegExp(`^${leadResponsibility}$`, "i") };
         }
 
+        // REFINED AGGREGATION: Faceted approach for Recorded vs Scheduled
         const stats = await LeadManagement.aggregate([
             { $match: baseMatch },
-            { $unwind: "$followUps" },
             {
-                $project: {
-                    name: 1,
-                    followUp: "$followUps",
-                    leadType: 1,
-                    leadResponsibility: 1,
-                    phoneNumber: 1,
-                    email: 1
-                }
-            },
-            {
-                $match: {
-                    "followUp.date": dateFilter,
-                    ...(leadResponsibility ? { "leadResponsibility": { $regex: new RegExp(`^${leadResponsibility}$`, "i") } } : {})
-                }
-            },
-            {
-                $group: {
-                    _id: null,
-                    totalFollowUps: { $sum: 1 },
-                    hotLeads: {
-                        $sum: {
-                            $cond: [
-                                { $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "HOT LEAD"] },
-                                1,
-                                0
-                            ]
+                $facet: {
+                    // Branch A: Recorded Activity (Unwinding followUps)
+                    "activityStats": [
+                        { $unwind: "$followUps" },
+                        {
+                            $project: {
+                                name: 1,
+                                followUp: "$followUps",
+                                leadType: 1,
+                                leadResponsibility: 1,
+                                phoneNumber: 1,
+                                email: 1
+                            }
+                        },
+                        {
+                            $match: {
+                                "followUp.date": activityDateFilter,
+                                ...(leadResponsibility ? { "leadResponsibility": { $regex: new RegExp(`^${leadResponsibility}$`, "i") } } : {})
+                            }
+                        },
+                        {
+                            $group: {
+                                _id: null,
+                                totalFollowUps: { $sum: 1 },
+                                hotLeads: {
+                                    $sum: {
+                                        $cond: [
+                                            { $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "HOT LEAD"] },
+                                            1, 0
+                                        ]
+                                    }
+                                },
+                                coldLeads: {
+                                    $sum: {
+                                        $cond: [
+                                            { $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "COLD LEAD"] },
+                                            1, 0
+                                        ]
+                                    }
+                                },
+                                negativeLeads: {
+                                    $sum: {
+                                        $cond: [
+                                            { $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "NEGATIVE"] },
+                                            1, 0
+                                        ]
+                                    }
+                                },
+                                recentActivity: {
+                                    $push: {
+                                        leadName: "$name",
+                                        phoneNumber: "$phoneNumber",
+                                        email: "$email",
+                                        feedback: "$followUp.feedback",
+                                        remarks: "$followUp.remarks",
+                                        status: { $ifNull: ["$followUp.status", "$leadType"] },
+                                        time: "$followUp.date",
+                                        updatedBy: { $ifNull: ["$followUp.updatedBy", "Unknown"] },
+                                        callDuration: "$followUp.callDuration"
+                                    }
+                                }
+                            }
                         }
-                    },
-                    coldLeads: {
-                        $sum: {
-                            $cond: [
-                                { $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "COLD LEAD"] },
-                                1,
-                                0
-                            ]
+                    ],
+                    // Branch B: Scheduled Follow-ups (Matching nextFollowUpDate)
+                    "scheduledStats": [
+                        { $match: { nextFollowUpDate: scheduledDateFilter } },
+                        {
+                            $project: {
+                                name: 1,
+                                phoneNumber: 1,
+                                email: 1,
+                                leadType: 1,
+                                leadResponsibility: 1,
+                                nextFollowUpDate: 1,
+                                followUps: { $slice: ["$followUps", -1] } // Get last feedback for context
+                            }
+                        },
+                        {
+                            $group: {
+                                _id: null,
+                                totalScheduled: { $sum: 1 },
+                                scheduledList: {
+                                    $push: {
+                                        leadName: "$name",
+                                        phoneNumber: "$phoneNumber",
+                                        email: "$email",
+                                        status: "$leadType",
+                                        time: "$nextFollowUpDate",
+                                        feedback: { $arrayElemAt: ["$followUps.feedback", 0] },
+                                        updatedBy: "$leadResponsibility"
+                                    }
+                                }
+                            }
                         }
-                    },
-                    negativeLeads: {
-                        $sum: {
-                            $cond: [
-                                { $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "NEGATIVE"] },
-                                1,
-                                0
-                            ]
-                        }
-                    },
-                    recentActivity: {
-                        $push: {
-                            leadName: "$name",
-                            phoneNumber: "$phoneNumber",
-                            email: "$email",
-                            feedback: "$followUp.feedback",
-                            remarks: "$followUp.remarks",
-                            status: { $ifNull: ["$followUp.status", "$leadType"] },
-                            time: "$followUp.date",
-                            updatedBy: { $ifNull: ["$followUp.updatedBy", "Unknown"] },
-                            callDuration: "$followUp.callDuration"
-                        }
-                    }
-                }
-            },
-            {
-                $project: {
-                    _id: 0,
-                    totalFollowUps: 1,
-                    hotLeads: 1,
-                    coldLeads: 1,
-                    negativeLeads: 1,
-                    recentActivity: 1 // Full list for frontend filtering/modals
+                    ]
                 }
             }
         ]);
 
-        const result = stats[0] || {
-            totalFollowUps: 0,
-            hotLeads: 0,
-            coldLeads: 0,
-            negativeLeads: 0,
-            recentActivity: []
+        // Process faceted results
+        const rawActivity = stats[0].activityStats[0] || {};
+        const rawScheduled = stats[0].scheduledStats[0] || {};
+
+        const result = {
+            totalFollowUps: rawActivity.totalFollowUps || 0,
+            hotLeads: rawActivity.hotLeads || 0,
+            coldLeads: rawActivity.coldLeads || 0,
+            negativeLeads: rawActivity.negativeLeads || 0,
+            recentActivity: rawActivity.recentActivity || [],
+            totalScheduled: rawScheduled.totalScheduled || 0,
+            scheduledList: rawScheduled.scheduledList || []
         };
 
+        // Sort both lists by date/time
         result.recentActivity.sort((a, b) => new Date(b.time) - new Date(a.time));
+        result.scheduledList.sort((a, b) => new Date(a.time) - new Date(b.time));
 
         res.status(200).json(result);
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FaDownload, FaFileUpload, FaFileExcel, FaPlus, FaFilter, FaSearch, FaChevronLeft, FaChevronRight, FaMoon, FaSun, FaHistory, FaChartLine, FaTrash, FaRedo, FaPhoneAlt, FaEnvelope, FaEdit } from "react-icons/fa";
+import { FaCalendarAlt, FaDownload, FaFileUpload, FaFileExcel, FaPlus, FaFilter, FaSearch, FaChevronLeft, FaChevronRight, FaMoon, FaSun, FaHistory, FaChartLine, FaTrash, FaRedo, FaPhoneAlt, FaEnvelope, FaEdit } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { saveAs } from "file-saver";
@@ -37,7 +37,9 @@ const LeadManagementContent = () => {
         hotLeads: 0,
         coldLeads: 0,
         negativeLeads: 0,
-        recentActivity: []
+        totalScheduled: 0,
+        recentActivity: [],
+        scheduledList: []
     });
 
     const [activityModal, setActivityModal] = useState({
@@ -68,7 +70,8 @@ const LeadManagementContent = () => {
         className: [],
         leadResponsibility: [],
         fromDate: "",
-        toDate: ""
+        toDate: "",
+        scheduledDate: new Date().toISOString().split('T')[0]
     });
 
     // Dropdown data for filters
@@ -112,6 +115,7 @@ const LeadManagementContent = () => {
                 const tr = filters.leadResponsibility[0];
                 params.append("leadResponsibility", (tr && typeof tr === 'object' && 'value' in tr) ? tr.value : tr);
             }
+            if (filters.scheduledDate) params.append("scheduledDate", filters.scheduledDate);
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/stats/today-followups?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -428,6 +432,10 @@ const LeadManagementContent = () => {
                 title = "Negative Results History";
                 filteredData = followUpStats.recentActivity.filter(a => a.status?.toUpperCase() === 'NEGATIVE');
                 break;
+            case 'scheduled':
+                title = `Scheduled Follow-ups (${filters.scheduledDate})`;
+                filteredData = followUpStats.scheduledList;
+                break;
             default:
                 return;
         }
@@ -548,6 +556,17 @@ const LeadManagementContent = () => {
                     </div>
 
                     <div className="flex items-center gap-4">
+                        <div className={`h-8 w-[1px] mx-2 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}></div>
+                        <div className="flex items-center gap-2">
+                            <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Scheduled Call Date</span>
+                            <input
+                                type="date"
+                                value={filters.scheduledDate}
+                                onChange={(e) => handleFilterChange('scheduledDate', e.target.value)}
+                                className={`px-3 py-1.5 rounded-[2px] border text-[10px] font-black outline-none transition-all ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 focus:border-cyan-500' : 'bg-cyan-50 border-cyan-100 text-cyan-700 focus:border-cyan-500'}`}
+                            />
+                        </div>
+                        <div className={`h-8 w-[1px] mx-2 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}></div>
                         <div className="flex items-center gap-2">
                             <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>From</span>
                             <input
@@ -570,8 +589,28 @@ const LeadManagementContent = () => {
                 </div>
 
                 {/* Activity Analysis */}
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                    <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                    <div className="lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+                        {/* Scheduled Follow-ups Card (New Target Section) */}
+                        <div
+                            onClick={() => handleCardClick('scheduled')}
+                            className={`p-5 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-cyan-500/10 hover:border-cyan-500/30 ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-cyan-50 border-cyan-100 shadow-sm'}`}
+                        >
+                            <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                <div>
+                                    <p className={`text-[9px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Upcoming Tasks</p>
+                                    <h3 className={`text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalScheduled}</h3>
+                                    <p className="text-[8px] font-bold text-cyan-500 mt-1 uppercase tracking-widest">Scheduled Follow-ups</p>
+                                </div>
+                                <div className={`p-2.5 rounded-[20px] transition-all bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.4)]`}>
+                                    <FaCalendarAlt size={16} />
+                                </div>
+                            </div>
+                            <div className="absolute -right-4 -bottom-4 opacity-[0.03] transform group-hover:scale-110 transition-transform text-cyan-500">
+                                <FaCalendarAlt size={100} />
+                            </div>
+                        </div>
+
                         {/* Total Follow-ups Card */}
                         <div
                             onClick={() => handleCardClick('total')}
