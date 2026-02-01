@@ -311,10 +311,12 @@ const LeadManagementContent = () => {
             className: [],
             leadResponsibility: [],
             fromDate: "",
-            toDate: ""
+            toDate: "",
+            scheduledDate: new Date().toISOString().split('T')[0]
         });
         setSearchTerm("");
         setCurrentPage(1);
+        toast.info("All filters have been reset");
     };
 
     const handleRowClick = (lead) => {
@@ -552,6 +554,12 @@ const LeadManagementContent = () => {
                             className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${filters.fromDate === new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
                         >
                             Last 7 Days
+                        </button>
+                        <button
+                            onClick={resetFilters}
+                            className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border flex items-center gap-2 ${isDarkMode ? 'bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500 hover:text-white' : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-500 hover:text-white'}`}
+                        >
+                            <FaRedo size={10} /> Reset All
                         </button>
                     </div>
 
