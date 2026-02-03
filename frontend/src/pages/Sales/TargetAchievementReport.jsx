@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
-import { FaSync, FaDownload, FaChartBar, FaTable, FaTh } from "react-icons/fa";
+import { FaSync, FaDownload, FaChartBar, FaTable, FaTh, FaSun, FaMoon } from "react-icons/fa";
 import { toast } from "react-toastify";
+import { useTheme } from "../../context/ThemeContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -13,6 +14,8 @@ const TargetAchievementReport = () => {
     const [selectedCentres, setSelectedCentres] = useState([]); // Array of IDs
     const [displayMode, setDisplayMode] = useState("chart"); // chart, table, card
     const [sessions, setSessions] = useState([]);
+    const { theme, toggleTheme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
     // Filters
     const [viewMode, setViewMode] = useState("Monthly"); // Monthly, Quarterly, Yearly, Custom
@@ -212,8 +215,18 @@ const TargetAchievementReport = () => {
 
                     <div className="flex items-center gap-2 bg-gray-100 dark:bg-[#1a1f24] p-1.5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-inner">
                         <button
+                            onClick={toggleTheme}
+                            className={`p-2.5 rounded-lg border transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-widest ${isDarkMode
+                                ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black'
+                                : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'
+                                }`}
+                        >
+                            {isDarkMode ? <><FaSun /> Day Mode</> : <><FaMoon /> Night Mode</>}
+                        </button>
+
+                        <button
                             onClick={() => setDisplayMode("chart")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "chart" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "chart" ? "bg-blue-600 text-white shadow-lg scale-105" : isDarkMode ? "text-gray-500 hover:bg-gray-800 hover:text-gray-300" : "text-gray-500 hover:bg-gray-200 hover:text-gray-700"}`}
                             title="Chart View"
                         >
                             <FaChartBar size={18} />
@@ -221,7 +234,7 @@ const TargetAchievementReport = () => {
                         </button>
                         <button
                             onClick={() => setDisplayMode("table")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "table" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "table" ? "bg-blue-600 text-white shadow-lg scale-105" : isDarkMode ? "text-gray-500 hover:bg-gray-800 hover:text-gray-300" : "text-gray-500 hover:bg-gray-200 hover:text-gray-700"}`}
                             title="Table View"
                         >
                             <FaTable size={18} />
@@ -229,7 +242,7 @@ const TargetAchievementReport = () => {
                         </button>
                         <button
                             onClick={() => setDisplayMode("card")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "card" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "card" ? "bg-blue-600 text-white shadow-lg scale-105" : isDarkMode ? "text-gray-500 hover:bg-gray-800 hover:text-gray-300" : "text-gray-500 hover:bg-gray-200 hover:text-gray-700"}`}
                             title="Card View"
                         >
                             <FaTh size={18} />
@@ -239,16 +252,16 @@ const TargetAchievementReport = () => {
                 </div>
 
                 {/* Filters Section */}
-                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-4">
+                <div className={`p-5 rounded-xl border transition-colors shadow-sm flex flex-col gap-4 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <div className="flex flex-wrap items-center gap-3">
                             {/* View Mode Tabs */}
-                            <div className="bg-gray-800 rounded-lg p-1 flex">
+                            <div className={`rounded-lg p-1 flex transition-colors ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-100'}`}>
                                 {["Monthly", "Quarterly", "Yearly", "Custom"].map(mode => (
                                     <button
                                         key={mode}
                                         onClick={() => setViewMode(mode)}
-                                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === mode ? "bg-blue-600 text-white shadow-lg" : "text-gray-400 hover:text-white"}`}
+                                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === mode ? "bg-blue-600 text-white shadow-lg" : isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900"}`}
                                     >
                                         {mode}
                                     </button>
@@ -259,7 +272,10 @@ const TargetAchievementReport = () => {
                             <select
                                 value={filterFinancialYear}
                                 onChange={(e) => setFilterFinancialYear(e.target.value)}
-                                className="bg-white text-gray-800 text-sm rounded-md block px-3 py-2 outline-none font-medium w-32"
+                                className={`text-sm rounded-md block px-3 py-2 outline-none font-medium w-32 border transition-colors ${isDarkMode
+                                    ? 'bg-[#131619] border-gray-700 text-gray-300'
+                                    : 'bg-white border-gray-300 text-gray-800 shadow-sm'
+                                    }`}
                             >
                                 {sessions.length === 0 ? (
                                     <option value="">Loading...</option>
@@ -275,7 +291,10 @@ const TargetAchievementReport = () => {
                                     <select
                                         value={filterYear}
                                         onChange={(e) => setFilterYear(e.target.value)}
-                                        className="bg-white text-gray-800 text-sm rounded-md block px-3 py-2 outline-none font-medium w-24"
+                                        className={`text-sm rounded-md block px-3 py-2 outline-none font-medium w-24 border transition-colors ${isDarkMode
+                                            ? 'bg-[#131619] border-gray-700 text-gray-300'
+                                            : 'bg-white border-gray-300 text-gray-800 shadow-sm'
+                                            }`}
                                     >
                                         <option value="2024">2024</option>
                                         <option value="2025">2025</option>
@@ -290,12 +309,14 @@ const TargetAchievementReport = () => {
                                         <option value="2034">2034</option>
                                         <option value="2035">2035</option>
                                         <option value="2036">2036</option>
-
                                     </select>
                                     <select
                                         value={filterMonth}
                                         onChange={(e) => setFilterMonth(e.target.value)}
-                                        className="bg-white text-gray-800 text-sm rounded-md block px-3 py-2 outline-none font-medium w-32"
+                                        className={`text-sm rounded-md block px-3 py-2 outline-none font-medium w-32 border transition-colors ${isDarkMode
+                                            ? 'bg-[#131619] border-gray-700 text-gray-300'
+                                            : 'bg-white border-gray-300 text-gray-800 shadow-sm'
+                                            }`}
                                     >
                                         {months.map(m => <option key={m} value={m}>{m}</option>)}
                                     </select>
@@ -306,7 +327,10 @@ const TargetAchievementReport = () => {
                                 <select
                                     value={filterQuarter}
                                     onChange={(e) => setFilterQuarter(e.target.value)}
-                                    className="bg-white text-gray-800 text-sm rounded-md block px-3 py-2 outline-none font-medium w-24"
+                                    className={`text-sm rounded-md block px-3 py-2 outline-none font-medium w-24 border transition-colors ${isDarkMode
+                                        ? 'bg-[#131619] border-gray-700 text-gray-300'
+                                        : 'bg-white border-gray-300 text-gray-800 shadow-sm'
+                                        }`}
                                 >
                                     {quarters.map(q => <option key={q} value={q}>{q}</option>)}
                                 </select>
@@ -318,28 +342,34 @@ const TargetAchievementReport = () => {
                                         type="date"
                                         value={startDate}
                                         onChange={(e) => setStartDate(e.target.value)}
-                                        className="h-9 px-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none shadow-sm"
+                                        className={`h-9 px-2 border rounded-md text-sm outline-none transition-colors ${isDarkMode
+                                            ? 'bg-[#131619] border-gray-700 text-gray-300'
+                                            : 'bg-white border-gray-300 text-gray-700 shadow-sm'
+                                            }`}
                                     />
                                     <span className="text-gray-500 font-bold text-xs">to</span>
                                     <input
                                         type="date"
                                         value={endDate}
                                         onChange={(e) => setEndDate(e.target.value)}
-                                        className="h-9 px-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none shadow-sm"
+                                        className={`h-9 px-2 border rounded-md text-sm outline-none transition-colors ${isDarkMode
+                                            ? 'bg-[#131619] border-gray-700 text-gray-300'
+                                            : 'bg-white border-gray-300 text-gray-700 shadow-sm'
+                                            }`}
                                     />
                                 </div>
                             )}
 
                             {/* Centre Selector Dropdown (Simple Simulation) */}
                             <div className="relative group">
-                                <button className="px-4 py-2 bg-gray-700 text-white rounded-md text-sm flex items-center gap-2">
+                                <button className={`px-4 py-2 rounded-md text-sm flex items-center gap-2 transition-colors ${isDarkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 shadow-sm'}`}>
                                     {selectedCentres.length} Centres Selected ▼
                                 </button>
                                 {/* Dropdown Content */}
-                                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-md shadow-xl p-2 hidden group-hover:block z-50 max-h-60 overflow-y-auto">
+                                <div className={`absolute top-full left-0 mt-2 w-64 rounded-md shadow-xl p-2 hidden group-hover:block z-50 max-h-60 overflow-y-auto border transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                                     <div
                                         onClick={selectAllCentres}
-                                        className="p-2 hover:bg-gray-100 cursor-pointer text-sm font-bold border-b text-gray-800"
+                                        className={`p-2 cursor-pointer text-sm font-bold border-b transition-colors ${isDarkMode ? 'hover:bg-gray-800 border-gray-800 text-gray-300' : 'hover:bg-gray-100 border-gray-100 text-gray-800'}`}
                                     >
                                         {selectedCentres.length === centres.length ? "Unselect All" : "Select All"}
                                     </div>
@@ -347,12 +377,13 @@ const TargetAchievementReport = () => {
                                         <div
                                             key={c._id}
                                             onClick={() => toggleCentre(c._id)}
-                                            className="flex items-center gap-2 p-2 hover:bg-gray-100 cursor-pointer text-gray-800"
+                                            className={`flex items-center gap-2 p-2 cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-gray-800 text-gray-300' : 'hover:bg-gray-100 text-gray-800'}`}
                                         >
                                             <input
                                                 type="checkbox"
                                                 checked={selectedCentres.includes(c._id)}
                                                 readOnly
+                                                className={isDarkMode ? 'accent-blue-500' : ''}
                                             />
                                             <span className="text-sm truncate">{c.centreName}</span>
                                         </div>
@@ -399,19 +430,25 @@ const TargetAchievementReport = () => {
                                             data={data}
                                             margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
                                         >
-                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" opacity={0.5} />
-                                            <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={{ stroke: '#d1d5db' }} tickFormatter={(val) => `₹${(val / 100000).toFixed(1)}L`} />
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={isDarkMode ? '#374151' : '#E5E7EB'} opacity={0.5} />
+                                            <XAxis type="number" tick={{ fill: isDarkMode ? '#9CA3AF' : '#6b7280', fontSize: 12 }} axisLine={{ stroke: isDarkMode ? '#374151' : '#d1d5db' }} tickFormatter={(val) => `₹${(val / 100000).toFixed(1)}L`} />
                                             <YAxis
                                                 dataKey="centreName"
                                                 type="category"
                                                 width={120}
-                                                tick={{ fontSize: 11, fontWeight: 'bold', fill: '#4b5563' }}
-                                                axisLine={{ stroke: '#d1d5db' }}
+                                                tick={{ fontSize: 11, fontWeight: 'bold', fill: isDarkMode ? '#9CA3AF' : '#4b5563' }}
+                                                axisLine={{ stroke: isDarkMode ? '#374151' : '#d1d5db' }}
                                             />
                                             <Tooltip
-                                                contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', color: '#374151', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                                contentStyle={{
+                                                    backgroundColor: isDarkMode ? '#1a1f24' : '#ffffff',
+                                                    border: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb',
+                                                    color: isDarkMode ? '#ffffff' : '#374151',
+                                                    borderRadius: '12px',
+                                                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'
+                                                }}
                                                 formatter={(value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value)}
-                                                cursor={{ fill: '#f3f4f6', opacity: 0.4 }}
+                                                cursor={{ fill: isDarkMode ? 'white' : 'black', opacity: 0.05 }}
                                             />
                                             <Legend verticalAlign="top" align="right" height={36} iconType="circle" wrapperStyle={{ paddingBottom: '20px', fontSize: '12px', fontWeight: 'bold' }} />
                                             <Bar dataKey="target" name="Target" fill="#FF8BA7" barSize={20} radius={[0, 10, 10, 0]} />
@@ -446,7 +483,7 @@ const TargetAchievementReport = () => {
                                                                 <span className={`text-sm font-black ${pct >= 100 ? 'text-green-500' : pct >= 50 ? 'text-blue-500' : 'text-red-500'}`}>
                                                                     {pct.toFixed(1)}%
                                                                 </span>
-                                                                <div className="w-24 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                                <div className={`w-24 h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
                                                                     <div
                                                                         className={`h-full rounded-full ${pct >= 100 ? 'bg-green-500' : pct >= 50 ? 'bg-blue-500' : 'bg-red-500'}`}
                                                                         style={{ width: `${Math.min(pct, 100)}%` }}
@@ -474,7 +511,8 @@ const TargetAchievementReport = () => {
                                     {data.map((item, idx) => {
                                         const pct = item.target > 0 ? (item.achieved / item.target) * 100 : 0;
                                         return (
-                                            <div key={idx} className="bg-white dark:bg-[#131619] rounded-2xl border border-gray-200 dark:border-gray-800 p-5 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 group hover:-translate-y-1">
+                                            <div key={idx} className={`rounded-2xl border p-5 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 group hover:-translate-y-1 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'
+                                                }`}>
                                                 <div className="flex justify-between items-start mb-4">
                                                     <h4 className="font-black text-gray-800 dark:text-white uppercase text-xs tracking-widest flex-1">{item.centreName}</h4>
                                                     <div className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${pct >= 100 ? 'bg-green-500 text-white' : pct >= 50 ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'}`}>
@@ -493,7 +531,7 @@ const TargetAchievementReport = () => {
                                                     </div>
 
                                                     <div className="pt-2">
-                                                        <div className="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                        <div className={`w-full h-2 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
                                                             <div
                                                                 className={`h-full rounded-full transition-all duration-1000 ${pct >= 100 ? 'bg-gradient-to-r from-green-500 to-emerald-400' : pct >= 50 ? 'bg-gradient-to-r from-blue-600 to-indigo-500' : 'bg-gradient-to-r from-red-600 to-orange-500'}`}
                                                                 style={{ width: `${Math.min(pct, 100)}%` }}

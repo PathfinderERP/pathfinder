@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaPlus, FaFilter, FaSync, FaEdit, FaTrash, FaDownload, FaChevronDown } from "react-icons/fa";
+import { FaPlus, FaFilter, FaSync, FaEdit, FaTrash, FaDownload, FaChevronDown, FaSun, FaMoon } from "react-icons/fa";
 import { toast } from "react-toastify";
+import { useTheme } from "../../context/ThemeContext";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import AddTargetModal from "../../components/Sales/AddTargetModal";
 import { hasPermission } from "../../config/permissions";
 
 const CentreTarget = () => {
+    const { theme, toggleTheme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [targets, setTargets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -172,33 +175,47 @@ const CentreTarget = () => {
 
     return (
         <Layout activePage="Sales">
-            <div className="space-y-6">
+            <div className={`space-y-6 min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'} p-4 md:p-8`}>
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-white">Centre Target</h1>
-                        <p className="text-cyan-400">Manage monthly and yearly targets for centres</p>
+                        <h1 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Centre Target</h1>
+                        <p className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'} font-semibold`}>Manage monthly and yearly targets for centres</p>
                     </div>
-                    <button
-                        onClick={handleExport}
-                        className="flex items-center gap-2 bg-green-600/90 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-500 hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300"
-                    >
-                        <FaDownload size={14} /> Export Excel
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={toggleTheme}
+                            className={`p-2.5 rounded-lg border transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-widest ${isDarkMode
+                                ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black'
+                                : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'
+                                }`}
+                        >
+                            {isDarkMode ? <><FaSun /> Day Mode</> : <><FaMoon /> Night Mode</>}
+                        </button>
+                        <button
+                            onClick={handleExport}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all duration-300 ${isDarkMode
+                                ? 'bg-green-600/90 text-white hover:bg-green-500 hover:shadow-lg hover:shadow-green-500/20'
+                                : 'bg-green-600 text-white hover:bg-green-700 shadow-md'
+                                }`}
+                        >
+                            <FaDownload size={14} /> Export Excel
+                        </button>
+                    </div>
                 </div>
 
-                <div className="bg-[#1a1f24] p-4 rounded-xl border border-gray-800 flex flex-wrap items-center justify-between gap-4">
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-md'} p-4 rounded-xl border flex flex-wrap items-center justify-between gap-4`}>
                     <div className="flex items-center gap-4">
-                        <h3 className="text-white font-semibold flex items-center gap-2">
+                        <h3 className={`${isDarkMode ? 'text-white' : 'text-gray-900'} font-semibold flex items-center gap-2`}>
                             <FaFilter className="text-cyan-400" /> Filters
                         </h3>
-                        <div className="bg-gray-800 rounded-lg p-1 flex">
+                        <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} rounded-lg p-1 flex`}>
                             {["Monthly", "Quarterly", "Yearly", "Custom"].map(mode => (
                                 <button
                                     key={mode}
                                     onClick={() => setViewMode(mode)}
-                                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === mode
+                                    className={`px-4 py-1.5 rounded-md text-sm font-bold uppercase tracking-widest transition-all ${viewMode === mode
                                         ? "bg-blue-600 text-white shadow-lg"
-                                        : "text-gray-400 hover:text-white"
+                                        : `${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'}`
                                         }`}
                                 >
                                     {mode}
@@ -207,22 +224,22 @@ const CentreTarget = () => {
                         </div>
                         {viewMode === "Custom" && (
                             <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
-                                <div className="flex items-center gap-2 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1">
-                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">From</span>
+                                <div className={`flex items-center gap-2 border rounded-lg px-2 py-1 ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    <span className={`text-[10px] font-bold uppercase tracking-tight ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>From</span>
                                     <input
                                         type="date"
                                         value={startDate}
                                         onChange={(e) => setStartDate(e.target.value)}
-                                        className="bg-transparent text-gray-200 text-xs focus:outline-none w-28"
+                                        className={`bg-transparent text-xs focus:outline-none w-28 font-bold ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}
                                     />
                                 </div>
-                                <div className="flex items-center gap-2 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1">
-                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">To</span>
+                                <div className={`flex items-center gap-2 border rounded-lg px-2 py-1 ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    <span className={`text-[10px] font-bold uppercase tracking-tight ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>To</span>
                                     <input
                                         type="date"
                                         value={endDate}
                                         onChange={(e) => setEndDate(e.target.value)}
-                                        className="bg-transparent text-gray-200 text-xs focus:outline-none w-28"
+                                        className={`bg-transparent text-xs focus:outline-none w-28 font-bold ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}
                                     />
                                 </div>
                             </div>
@@ -233,39 +250,42 @@ const CentreTarget = () => {
                         <div className="relative" ref={dropdownRef}>
                             <button
                                 onClick={() => setIsCentreDropdownOpen(!isCentreDropdownOpen)}
-                                className="bg-[#131619] border border-gray-700 text-gray-300 text-sm rounded-lg px-4 py-2.5 outline-none focus:border-cyan-500 min-w-[200px] flex justify-between items-center hover:bg-gray-800 transition-colors"
+                                className={`border text-sm rounded-lg px-4 py-2 outline-none font-bold min-w-[200px] flex justify-between items-center transition-all ${isDarkMode
+                                    ? 'bg-[#1a1f24] border-gray-700 text-gray-300 hover:border-cyan-500'
+                                    : 'bg-white border-gray-300 text-gray-700 hover:border-cyan-500 shadow-sm'
+                                    }`}
                             >
-                                <span>
+                                <span className="uppercase text-xs tracking-widest font-black">
                                     {selectedCentres.length === 0
                                         ? "All Centres"
                                         : `${selectedCentres.length} Selected`}
                                 </span>
-                                <FaChevronDown size={12} className={`transition-transform duration-200 ${isCentreDropdownOpen ? 'rotate-180' : ''}`} />
+                                <FaChevronDown size={10} className={`transition-transform duration-200 ${isCentreDropdownOpen ? 'rotate-180' : ''}`} />
                             </button>
 
                             {isCentreDropdownOpen && (
-                                <div className="absolute top-full mt-2 left-0 w-60 z-20 bg-[#1a1f24] border border-gray-700 rounded-lg shadow-xl overflow-hidden">
+                                <div className={`absolute top-full mt-2 left-0 w-60 z-20 border rounded-lg shadow-xl overflow-hidden ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
                                     <div className="max-h-60 overflow-y-auto p-2 space-y-1">
                                         {centres.map(c => (
                                             <div
                                                 key={c._id}
-                                                className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-800 rounded cursor-pointer"
+                                                className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
                                                 onClick={() => toggleCentreSelection(c._id)}
                                             >
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedCentres.includes(c._id)}
                                                     readOnly
-                                                    className="rounded border-gray-600 bg-gray-700 text-cyan-500 focus:ring-offset-0 focus:ring-0"
+                                                    className={`rounded transition-colors ${isDarkMode ? 'bg-gray-700 border-gray-600 text-cyan-500' : 'bg-white border-gray-300 text-cyan-600'}`}
                                                 />
-                                                <span className="text-gray-300 text-sm truncate">{c.centreName}</span>
+                                                <span className={`text-sm font-bold uppercase tracking-tight truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{c.centreName}</span>
                                             </div>
                                         ))}
                                     </div>
-                                    <div className="p-2 border-t border-gray-700 bg-[#131619]">
+                                    <div className={`p-2 border-t transition-colors ${isDarkMode ? 'border-gray-700 bg-black/20' : 'border-gray-200 bg-gray-50'}`}>
                                         <button
                                             onClick={() => setSelectedCentres([])}
-                                            className="text-xs text-cyan-400 hover:text-cyan-300 w-full text-center"
+                                            className="text-[10px] text-cyan-500 hover:text-cyan-400 w-full text-center font-black uppercase tracking-widest"
                                         >
                                             Clear Selection
                                         </button>
@@ -278,7 +298,10 @@ const CentreTarget = () => {
                             <select
                                 value={filterFinancialYear}
                                 onChange={(e) => setFilterFinancialYear(e.target.value)}
-                                className="bg-[#131619] border border-gray-700 text-gray-300 text-sm rounded-lg block p-2.5 outline-none focus:border-cyan-500 w-28"
+                                className={`border text-sm rounded-lg block px-3 py-2 outline-none font-bold transition-all w-32 ${isDarkMode
+                                    ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-cyan-500'
+                                    : 'bg-white border-gray-300 text-gray-700 focus:border-cyan-500 shadow-sm'
+                                    }`}
                             >
                                 {sessions.length === 0 ? (
                                     <option value="">Loading...</option>
@@ -308,41 +331,41 @@ const CentreTarget = () => {
                     </div>
                 </div>
 
-                <div className="bg-[#1a1f24] rounded-xl border border-gray-800 overflow-hidden shadow-2xl">
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-xl'} rounded-xl border overflow-hidden`}>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-gray-400">
-                            <thead className="bg-[#131619] text-gray-200 uppercase font-semibold">
-                                <tr>
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className={`uppercase font-black text-xs border-b transition-colors ${isDarkMode ? 'bg-black/20 text-gray-400 border-gray-800' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
                                     <th className="px-6 py-4">Centre Name</th>
                                     <th className="px-6 py-4">Financial Year</th>
                                     <th className="px-6 py-4">Year</th>
                                     <th className="px-6 py-4">Month</th>
-                                    <th className="px-6 py-4">Target</th>
-                                    <th className="px-6 py-4">Target Achieved</th>
-                                    <th className="px-6 py-4">Achievement (%)</th>
+                                    <th className="px-6 py-4 text-center">Target</th>
+                                    <th className="px-6 py-4 text-center">Target Achieved</th>
+                                    <th className="px-6 py-4 text-center">Achievement (%)</th>
                                     <th className="px-6 py-4 text-right">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-800">
+                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="8" className="px-6 py-8 text-center text-cyan-400">Loading targets...</td>
+                                        <td colSpan="8" className="px-6 py-8 text-center text-cyan-400 font-bold">Loading targets...</td>
                                     </tr>
                                 ) : targets.length === 0 ? (
                                     <tr>
-                                        <td colSpan="8" className="px-6 py-8 text-center text-gray-500">No targets found. Add one to get started.</td>
+                                        <td colSpan="8" className="px-6 py-8 text-center text-gray-500 font-medium">No targets found. Add one to get started.</td>
                                     </tr>
                                 ) : (
                                     targets.map(target => (
-                                        <tr key={target._id} className="hover:bg-[#131619] transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/5 hover:scale-[1.002] border-l-4 border-transparent hover:border-cyan-500">
-                                            <td className="px-6 py-4 font-medium text-white">{target.centre?.centreName || "Unknown"}</td>
+                                        <tr key={target._id} className={`${isDarkMode ? 'hover:bg-[#131619] text-gray-400' : 'hover:bg-gray-50 text-gray-700'} transition-all duration-300`}>
+                                            <td className={`px-6 py-4 font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{target.centre?.centreName || "Unknown"}</td>
                                             <td className="px-6 py-4">{target.financialYear}</td>
                                             <td className="px-6 py-4">{target.year}</td>
-                                            <td className="px-6 py-4 text-cyan-100">{target.month}</td>
-                                            <td className="px-6 py-4 text-white font-bold tracking-wide">{target.targetAmount.toLocaleString()}</td>
-                                            <td className="px-6 py-4 text-blue-400 font-semibold">{target.achievedAmount.toLocaleString()}</td>
-                                            <td className={`px-6 py-4 font-bold ${parseFloat(target.achievementPercentage) > 50 ? "text-green-500" :
-                                                parseFloat(target.achievementPercentage) === 50 ? "text-yellow-400" : "text-red-500"
+                                            <td className={`px-6 py-4 font-semibold ${isDarkMode ? 'text-cyan-100' : 'text-cyan-700'}`}>{target.month}</td>
+                                            <td className={`px-6 py-4 font-bold tracking-wide text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{target.targetAmount.toLocaleString()}</td>
+                                            <td className="px-6 py-4 text-blue-500 font-bold text-center">{target.achievedAmount.toLocaleString()}</td>
+                                            <td className={`px-6 py-4 font-black text-center ${parseFloat(target.achievementPercentage) > 50 ? "text-green-500" :
+                                                parseFloat(target.achievementPercentage) === 50 ? "text-yellow-500" : "text-red-500"
                                                 }`}>
                                                 {target.achievementPercentage}%
                                             </td>
@@ -350,7 +373,7 @@ const CentreTarget = () => {
                                                 {canEdit && (
                                                     <button
                                                         onClick={() => { setSelectedTarget(target); setShowAddModal(true); }}
-                                                        className="text-gray-400 hover:text-blue-400 transition-colors"
+                                                        className={`transition-colors ${isDarkMode ? 'text-gray-400 hover:text-blue-400' : 'text-gray-500 hover:text-blue-600'}`}
                                                         title="Edit"
                                                     >
                                                         <FaEdit size={16} />
@@ -359,7 +382,7 @@ const CentreTarget = () => {
                                                 {canDelete && (
                                                     <button
                                                         onClick={() => handleDelete(target._id)}
-                                                        className="text-gray-400 hover:text-red-400 transition-colors"
+                                                        className={`transition-colors ${isDarkMode ? 'text-gray-400 hover:text-red-400' : 'text-gray-500 hover:text-red-600'}`}
                                                         title="Delete"
                                                     >
                                                         <FaTrash size={15} />

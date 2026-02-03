@@ -4,12 +4,13 @@ import { FaFilter, FaDownload, FaChevronDown, FaChevronLeft, FaChevronRight, FaE
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
-import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
-} from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import Pagination from "../../components/common/Pagination";
+import { useTheme } from "../../context/ThemeContext";
 
 const DiscountReport = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     // ---- State ----
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState([]);
@@ -303,10 +304,12 @@ const DiscountReport = () => {
 
     // ---- Charts Config ----
     const CustomTooltip = ({ active, payload, label, formatter }) => {
+        const { theme } = useTheme();
+        const isDarkMode = theme === 'dark';
         if (active && payload && payload.length) {
             return (
-                <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-                    <p className="font-bold text-gray-700 mb-1">{label}</p>
+                <div className={`p-3 border rounded-lg shadow-lg ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                    <p className={`font-bold mb-1 ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>{label}</p>
                     {payload.map((entry, index) => (
                         <p key={index} className="text-sm" style={{ color: entry.color }}>
                             {entry.name}: {formatter ? formatter(entry.value) : entry.value}
@@ -324,47 +327,45 @@ const DiscountReport = () => {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                            Discount Report Analysis
-                        </h1>
+                        <h1 className={`text-3xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Discount Analysis</h1>
                     </div>
-                    <div className="flex items-center gap-2 bg-gray-100 dark:bg-[#1a1f24] p-1.5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-inner">
+                    <div className={`flex items-center gap-2 p-1.5 rounded-xl border shadow-inner transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
                         <button
                             onClick={() => setDisplayMode("chart")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "chart" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "chart" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-white/10 dark:hover:bg-gray-800/50 hover:text-gray-700 dark:hover:text-gray-300"}`}
                             title="Chart View"
                         >
                             <FaChartBar size={18} />
-                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Chart</span>
+                            <span className="text-xs font-black uppercase tracking-widest hidden sm:block">Chart</span>
                         </button>
                         <button
                             onClick={() => setDisplayMode("table")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "table" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "table" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-white/10 dark:hover:bg-gray-800/50 hover:text-gray-700 dark:hover:text-gray-300"}`}
                             title="Table View"
                         >
                             <FaTable size={18} />
-                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Table</span>
+                            <span className="text-xs font-black uppercase tracking-widest hidden sm:block">Table</span>
                         </button>
                         <button
                             onClick={() => setDisplayMode("card")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "card" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "card" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-white/10 dark:hover:bg-gray-800/50 hover:text-gray-700 dark:hover:text-gray-300"}`}
                             title="Card View"
                         >
                             <FaTh size={18} />
-                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Cards</span>
+                            <span className="text-xs font-black uppercase tracking-widest hidden sm:block">Cards</span>
                         </button>
                     </div>
 
-                    <div className="flex items-center gap-2 bg-gray-100 dark:bg-[#1a1f24] p-1.5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-inner">
+                    <div className={`flex items-center gap-2 p-1.5 rounded-xl border shadow-inner transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
                         <button
                             onClick={() => setReportType("monthly")}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-300 ${reportType === "monthly" ? "bg-orange-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${reportType === "monthly" ? "bg-orange-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
                         >
                             Monthly
                         </button>
                         <button
                             onClick={() => setReportType("daily")}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-300 ${reportType === "daily" ? "bg-orange-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${reportType === "daily" ? "bg-orange-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
                         >
                             Day Wise
                         </button>
@@ -372,14 +373,14 @@ const DiscountReport = () => {
                 </div>
 
                 {/* Filters Section */}
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-4">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                        <h2 className="text-lg font-bold text-gray-800">Fee Discount Analytics</h2>
+                <div className={`p-4 rounded-xl shadow-sm border transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                    <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                        <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Fee Discount Analytics</h2>
                         <button
                             onClick={handleDownloadExcel}
-                            className="bg-[#22c55e] hover:bg-green-600 text-white px-4 py-2 rounded-md font-medium transition-colors shadow-sm flex items-center gap-2"
+                            className="bg-[#22c55e] hover:bg-green-600 text-white px-4 py-2 rounded-md font-bold uppercase text-xs tracking-widest transition-all shadow-lg flex items-center gap-2 active:scale-95"
                         >
-                            <FaDownload /> Download Excel
+                            <FaDownload /> Download
                         </button>
                     </div>
 
@@ -388,7 +389,10 @@ const DiscountReport = () => {
                         <div className="relative" ref={centreDropdownRef}>
                             <div
                                 onClick={() => setIsCentreDropdownOpen(!isCentreDropdownOpen)}
-                                className="min-w-[180px] h-10 px-3 py-2 bg-white border border-gray-300 rounded-md cursor-pointer flex justify-between items-center text-sm text-gray-700 hover:border-blue-500 transition-colors"
+                                className={`min-w-[180px] h-10 px-3 py-2 border rounded-md cursor-pointer flex justify-between items-center text-sm font-bold uppercase tracking-tighter transition-colors ${isDarkMode
+                                    ? 'bg-[#1a1f24] border-gray-700 text-gray-400 hover:border-blue-500'
+                                    : 'bg-white border-gray-300 text-gray-600 hover:border-blue-500 shadow-sm'
+                                    }`}
                             >
                                 <span className="truncate">
                                     {selectedCentres.length === 0 ? "Select Centres" : `${selectedCentres.length} Selected`}
@@ -397,20 +401,22 @@ const DiscountReport = () => {
                             </div>
 
                             {isCentreDropdownOpen && (
-                                <div className="absolute top-full left-0 mt-1 w-60 z-50 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                                <div className={`absolute top-full left-0 mt-1 w-64 z-50 border rounded-lg shadow-xl max-h-60 overflow-y-auto ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'
+                                    }`}>
                                     {centres.map(c => (
                                         <div
                                             key={c._id}
-                                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
+                                            className={`px-3 py-2 cursor-pointer flex items-center gap-2 transition-colors ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-50'
+                                                }`}
                                             onClick={() => toggleCentreSelection(c._id)}
                                         >
                                             <input
                                                 type="checkbox"
                                                 checked={selectedCentres.includes(c._id)}
                                                 readOnly
-                                                className="rounded text-blue-600 focus:ring-blue-500"
+                                                className={`rounded ${isDarkMode ? 'bg-gray-700 border-gray-600 text-blue-500' : 'text-blue-600 border-gray-300'}`}
                                             />
-                                            <span className="text-sm text-gray-700 truncate">{c.centreName}</span>
+                                            <span className={`text-sm font-bold uppercase tracking-tight truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{c.centreName}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -421,28 +427,33 @@ const DiscountReport = () => {
                         <div className="relative" ref={courseDropdownRef}>
                             <div
                                 onClick={() => setIsCourseDropdownOpen(!isCourseDropdownOpen)}
-                                className="min-w-[180px] h-10 px-3 py-2 bg-white border border-gray-300 rounded-md cursor-pointer flex justify-between items-center text-sm text-gray-700 hover:border-blue-500 transition-colors"
+                                className={`min-w-[180px] h-10 px-3 py-2 border rounded-md cursor-pointer flex justify-between items-center text-sm font-bold uppercase tracking-tighter transition-colors ${isDarkMode
+                                    ? 'bg-[#1a1f24] border-gray-700 text-gray-400 hover:border-blue-500'
+                                    : 'bg-white border-gray-300 text-gray-600 hover:border-blue-500 shadow-sm'
+                                    }`}
                             >
                                 <span className="truncate">
-                                    {selectedCourses.length === 0 ? "-----Set Course-----" : `${selectedCourses.length} Selected`}
+                                    {selectedCourses.length === 0 ? "Set Course" : `${selectedCourses.length} Selected`}
                                 </span>
                                 <FaChevronDown size={10} className={`transform transition-transform ${isCourseDropdownOpen ? 'rotate-180' : ''}`} />
                             </div>
                             {isCourseDropdownOpen && (
-                                <div className="absolute top-full left-0 mt-1 w-64 z-50 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                                <div className={`absolute top-full left-0 mt-1 w-72 z-50 border rounded-lg shadow-xl max-h-60 overflow-y-auto ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'
+                                    }`}>
                                     {courses.map(c => (
                                         <div
                                             key={c._id}
-                                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
+                                            className={`px-3 py-2 cursor-pointer flex items-center gap-2 transition-colors ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-50'
+                                                }`}
                                             onClick={() => toggleCourseSelection(c._id)}
                                         >
                                             <input
                                                 type="checkbox"
                                                 checked={selectedCourses.includes(c._id)}
                                                 readOnly
-                                                className="rounded text-blue-600 focus:ring-blue-500"
+                                                className={`rounded ${isDarkMode ? 'bg-gray-700 border-gray-600 text-blue-500' : 'text-blue-600 border-gray-300'}`}
                                             />
-                                            <span className="text-sm text-gray-700 truncate">{c.courseName}</span>
+                                            <span className={`text-sm font-bold uppercase tracking-tight truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{c.courseName}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -453,7 +464,8 @@ const DiscountReport = () => {
                         <select
                             value={selectedSession}
                             onChange={(e) => setSelectedSession(e.target.value)}
-                            className="h-10 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none focus:border-blue-500 min-w-[150px]"
+                            className={`h-10 px-3 py-2 border rounded-md text-sm font-bold uppercase tracking-tighter outline-none transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-400' : 'bg-white border-gray-300 text-gray-600 shadow-sm'
+                                }`}
                         >
                             <option value="">Select Session</option>
                             {sessions.length === 0 ? (
@@ -467,7 +479,8 @@ const DiscountReport = () => {
                         <select
                             value={selectedExamTag}
                             onChange={(e) => setSelectedExamTag(e.target.value)}
-                            className="h-10 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none focus:border-blue-500 min-w-[150px]"
+                            className={`h-10 px-3 py-2 border rounded-md text-sm font-bold uppercase tracking-tighter outline-none transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-400' : 'bg-white border-gray-300 text-gray-600 shadow-sm'
+                                }`}
                         >
                             <option value="">Exam Tag</option>
                             {examTags.map(tag => (
@@ -486,11 +499,12 @@ const DiscountReport = () => {
                     </div>
 
                     {/* Time Period Filter Center */}
-                    <div className="flex justify-center mt-2 items-center gap-4">
+                    <div className="flex justify-center items-center gap-4">
                         <select
                             value={timePeriod}
                             onChange={(e) => setTimePeriod(e.target.value)}
-                            className="h-9 px-4 bg-white border border-gray-300 rounded-md text-sm font-semibold text-gray-700 outline-none shadow-sm cursor-pointer"
+                            className={`h-9 px-4 border rounded-md text-sm font-black uppercase tracking-widest outline-none transition-colors ${isDarkMode ? 'bg-black/20 border-gray-700 text-orange-400' : 'bg-orange-50 border-orange-100 text-orange-700 shadow-sm'
+                                }`}
                         >
                             <option value="This Year">This Year</option>
                             <option value="Last Year">Last Year</option>
@@ -499,19 +513,21 @@ const DiscountReport = () => {
                             <option value="Custom">Custom</option>
                         </select>
                         {timePeriod === "Custom" && (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
                                 <input
                                     type="date"
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
-                                    className="h-9 px-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none shadow-sm"
+                                    className={`h-9 px-2 border rounded-md text-xs font-bold outline-none shadow-sm transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-700'
+                                        }`}
                                 />
-                                <span className="text-gray-500">to</span>
+                                <span className="text-gray-500 font-black text-[10px] uppercase">to</span>
                                 <input
                                     type="date"
                                     value={endDate}
                                     onChange={(e) => setEndDate(e.target.value)}
-                                    className="h-9 px-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none shadow-sm"
+                                    className={`h-9 px-2 border rounded-md text-xs font-bold outline-none shadow-sm transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-700'
+                                        }`}
                                 />
                             </div>
                         )}
@@ -519,18 +535,18 @@ const DiscountReport = () => {
                 </div>
 
                 {/* View Content Area */}
-                <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 min-h-[500px]">
-                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-8 flex items-center gap-3">
+                <div className={`p-6 rounded-2xl shadow-xl border min-h-[500px] transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                    <h3 className={`text-xl font-bold mb-8 flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
                         <div className="w-2 h-8 bg-orange-500 rounded-full"></div>
                         Fee Discount Analysis ({reportType === 'monthly' ? 'Monthly' : 'Daily'} Trend)
                     </h3>
 
                     {displayMode === "chart" && trendData.length > 0 && (
-                        <div className="mb-12 animate-fade-in bg-gray-50 dark:bg-[#131619] p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                        <div className={`mb-12 animate-fade-in p-6 rounded-2xl border transition-colors ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                             <div className="flex items-center justify-between mb-6">
                                 <div className="flex flex-col">
                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Discount Timeline</span>
-                                    <span className="text-sm font-black text-gray-700 dark:text-gray-300">
+                                    <span className={`text-sm font-black transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                         {reportType === 'daily'
                                             ? `${trendData[trendIndex]?.date} — ${trendData[Math.min(trendIndex + trendLimit - 1, trendData.length - 1)]?.date}`
                                             : `Fiscal Year Breakdown`
@@ -542,14 +558,14 @@ const DiscountReport = () => {
                                         <button
                                             onClick={() => setTrendIndex(Math.max(0, trendIndex - trendLimit))}
                                             disabled={trendIndex === 0}
-                                            className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 disabled:opacity-30 hover:bg-gray-50 transition-all shadow-sm"
+                                            className={`p-2 border rounded-lg disabled:opacity-30 transition-all shadow-sm ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-400 hover:bg-gray-800' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
                                         >
                                             <FaChevronLeft size={12} />
                                         </button>
                                         <button
                                             onClick={() => setTrendIndex(Math.min(trendData.length - trendLimit, trendIndex + trendLimit))}
                                             disabled={trendIndex + trendLimit >= trendData.length}
-                                            className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 disabled:opacity-30 hover:bg-gray-50 transition-all shadow-sm"
+                                            className={`p-2 border rounded-lg disabled:opacity-30 transition-all shadow-sm ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-400 hover:bg-gray-800' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
                                         >
                                             <FaChevronRight size={12} />
                                         </button>
@@ -563,10 +579,19 @@ const DiscountReport = () => {
                                         data={reportType === 'daily' ? trendData.slice(trendIndex, trendIndex + trendLimit) : trendData}
                                         margin={{ top: 20, right: 30, left: 20, bottom: 0 }}
                                     >
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                                        <XAxis dataKey={reportType === 'monthly' ? "month" : "date"} stroke="#6B7280" fontSize={10} tickLine={false} />
-                                        <YAxis stroke="#6B7280" fontSize={10} tickLine={false} tickFormatter={(val) => `₹${(val / 1000).toFixed(0)}k`} />
-                                        <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} formatter={(val) => `₹${val.toLocaleString()}`} />
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#374151' : '#E5E7EB'} />
+                                        <XAxis dataKey={reportType === 'monthly' ? "month" : "date"} stroke={isDarkMode ? '#9CA3AF' : '#6B7280'} fontSize={10} tickLine={false} />
+                                        <YAxis stroke={isDarkMode ? '#9CA3AF' : '#6B7280'} fontSize={10} tickLine={false} tickFormatter={(val) => `₹${(val / 1000).toFixed(0)}k`} />
+                                        <Tooltip
+                                            contentStyle={{
+                                                borderRadius: '12px',
+                                                border: 'none',
+                                                boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+                                                backgroundColor: isDarkMode ? '#1a1f24' : '#fff',
+                                                color: isDarkMode ? '#fff' : '#1f2937'
+                                            }}
+                                            formatter={(val) => `₹${val.toLocaleString()}`}
+                                        />
                                         <Bar dataKey="discountGiven" fill="#f97316" radius={[4, 4, 0, 0]} barSize={reportType === 'monthly' ? 40 : 25} />
                                     </BarChart>
                                 </ResponsiveContainer>
@@ -578,34 +603,34 @@ const DiscountReport = () => {
                         <div className="flex h-96 items-center justify-center">
                             <div className="flex flex-col items-center gap-4">
                                 <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                                <p className="text-gray-500 dark:text-gray-400 font-medium animate-pulse tracking-[0.2em] text-xs">CALCULATING DISCOUNTS...</p>
+                                <p className="text-gray-500 font-black animate-pulse tracking-[0.2em] text-xs">CALCULATING DISCOUNTS...</p>
                             </div>
                         </div>
                     ) : reportData.length === 0 ? (
-                        <div className="flex h-96 items-center justify-center text-gray-400 flex-col gap-4 bg-gray-50 dark:bg-[#131619] rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
+                        <div className={`flex h-96 items-center justify-center flex-col gap-4 rounded-2xl border border-dashed transition-colors ${isDarkMode ? 'bg-[#131619] border-gray-700 text-gray-500' : 'bg-gray-50 border-gray-300 text-gray-400'}`}>
                             <FaPercentage size={48} className="opacity-20" />
-                            <p className="uppercase tracking-[0.2em] text-sm font-bold opacity-50">No discount data available</p>
+                            <p className="uppercase tracking-[0.2em] text-sm font-black opacity-50">No discount data available</p>
                         </div>
                     ) : (
                         <>
                             {displayMode === "chart" && (
                                 <div className="space-y-12 animate-fade-in">
                                     {/* 1. Original vs Discounted Fees */}
-                                    <div className="bg-gray-50 dark:bg-[#131619] p-6 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                                    <div className={`p-6 rounded-xl border shadow-sm transition-colors ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                         <div className="text-center mb-6">
-                                            <h3 className="text-lg font-bold text-gray-800 dark:text-white uppercase tracking-wider">Original vs Discounted Fees (₹)</h3>
+                                            <h3 className={`text-lg font-black uppercase tracking-wider transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Original vs Discounted Fees (₹)</h3>
                                             <div className="flex justify-center gap-6 mt-4">
-                                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#ff4d4f] rounded-full"></div><span className="text-[10px] font-bold text-gray-500 uppercase">Original</span></div>
-                                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#00e396] rounded-full"></div><span className="text-[10px] font-bold text-gray-500 uppercase">Discounted</span></div>
+                                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#ff4d4f] rounded-full shadow-sm"></div><span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Original</span></div>
+                                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#00e396] rounded-full shadow-sm"></div><span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Discounted</span></div>
                                             </div>
                                         </div>
                                         <div className="h-[400px] w-full">
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <BarChart data={reportData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" opacity={0.5} />
-                                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} interval={0} tick={{ fontSize: 10, fill: '#6b7280', fontWeight: 'bold' }} />
-                                                    <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} />
-                                                    <Tooltip cursor={{ fill: '#f3f4f6', opacity: 0.4 }} content={<CustomTooltip formatter={(val) => `₹${val.toLocaleString()}`} />} />
+                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#374151' : '#E5E7EB'} opacity={0.5} />
+                                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} interval={0} tick={{ fontSize: 10, fill: isDarkMode ? '#9CA3AF' : '#6b7280', fontWeight: 'bold' }} />
+                                                    <YAxis tick={{ fontSize: 10, fill: isDarkMode ? '#9CA3AF' : '#6b7280' }} />
+                                                    <Tooltip cursor={{ fill: isDarkMode ? 'white' : 'black', opacity: 0.05 }} content={<CustomTooltip formatter={(val) => `₹${val.toLocaleString()}`} />} />
                                                     <Bar dataKey="originalFees" name="Original" fill="#ff4d4f" barSize={15} radius={[4, 4, 0, 0]} />
                                                     <Bar dataKey="committedFees" name="Discounted" fill="#00e396" barSize={15} radius={[4, 4, 0, 0]} />
                                                 </BarChart>
@@ -614,20 +639,20 @@ const DiscountReport = () => {
                                     </div>
 
                                     {/* 2. Total Discount Given */}
-                                    <div className="bg-gray-50 dark:bg-[#131619] p-6 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                                    <div className={`p-6 rounded-xl border shadow-sm transition-colors ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                         <div className="text-center mb-6">
-                                            <h3 className="text-lg font-bold text-gray-800 dark:text-white uppercase tracking-wider">Total Discount Given (₹)</h3>
+                                            <h3 className={`text-lg font-black uppercase tracking-wider transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Total Discount Given (₹)</h3>
                                             <div className="flex justify-center gap-4 mt-2">
-                                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#feb019] rounded-full"></div><span className="text-[10px] font-bold text-gray-500 uppercase">Discount Amount</span></div>
+                                                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#feb019] rounded-full shadow-sm"></div><span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Discount Amount</span></div>
                                             </div>
                                         </div>
                                         <div className="h-[400px] w-full">
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <BarChart data={reportData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" opacity={0.5} />
-                                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} interval={0} tick={{ fontSize: 10, fill: '#6b7280', fontWeight: 'bold' }} />
-                                                    <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} />
-                                                    <Tooltip cursor={{ fill: '#f3f4f6', opacity: 0.4 }} content={<CustomTooltip formatter={(val) => `₹${val.toLocaleString()}`} />} />
+                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#374151' : '#E5E7EB'} opacity={0.5} />
+                                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} interval={0} tick={{ fontSize: 10, fill: isDarkMode ? '#9CA3AF' : '#6b7280', fontWeight: 'bold' }} />
+                                                    <YAxis tick={{ fontSize: 10, fill: isDarkMode ? '#9CA3AF' : '#6b7280' }} />
+                                                    <Tooltip cursor={{ fill: isDarkMode ? 'white' : 'black', opacity: 0.05 }} content={<CustomTooltip formatter={(val) => `₹${val.toLocaleString()}`} />} />
                                                     <Bar dataKey="discountGiven" name="Discount" fill="#feb019" barSize={20} radius={[4, 4, 0, 0]} />
                                                 </BarChart>
                                             </ResponsiveContainer>
@@ -638,28 +663,28 @@ const DiscountReport = () => {
 
                             {displayMode === "table" && (
                                 <>
-                                    <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                                    <div className={`overflow-x-auto animate-fade-in rounded-xl border transition-colors ${isDarkMode ? 'border-gray-800 shadow-xl' : 'border-gray-200 shadow-sm'}`}>
                                         <table className="w-full text-left border-collapse">
                                             <thead>
-                                                <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
-                                                    <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Centre Name</th>
-                                                    <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Original Fees</th>
-                                                    <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Discounted</th>
-                                                    <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right text-orange-500">Discount Given</th>
-                                                    <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Efficiency %</th>
+                                                <tr className={`border-b transition-colors ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                                    <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider">Centre Name</th>
+                                                    <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider text-right">Original Fees</th>
+                                                    <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider text-right">Discounted</th>
+                                                    <th className="p-5 text-orange-500 font-bold text-xs uppercase tracking-wider text-right">Discount Given</th>
+                                                    <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider text-center">Efficiency %</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            <tbody className={`divide-y transition-colors ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                                 {reportData.map((item, idx) => (
-                                                    <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
-                                                        <td className="p-5 font-bold text-gray-800 dark:text-white uppercase text-sm group-hover:text-orange-500 transition-colors">{item.name}</td>
-                                                        <td className="p-5 text-right font-medium text-gray-500 dark:text-gray-400 text-xs">₹{item.originalFees.toLocaleString('en-IN')}</td>
-                                                        <td className="p-5 text-right font-bold text-gray-900 dark:text-white">₹{item.committedFees.toLocaleString('en-IN')}</td>
+                                                    <tr key={idx} className={`transition-colors group ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
+                                                        <td className={`p-5 font-black uppercase text-sm transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800 group-hover:text-orange-500'}`}>{item.name}</td>
+                                                        <td className={`p-5 text-right font-medium text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>₹{item.originalFees.toLocaleString('en-IN')}</td>
+                                                        <td className={`p-5 text-right font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{item.committedFees.toLocaleString('en-IN')}</td>
                                                         <td className="p-5 text-right font-black text-orange-600">₹{item.discountGiven.toLocaleString('en-IN')}</td>
                                                         <td className="p-5 text-center">
                                                             <div className="flex flex-col items-center gap-1">
                                                                 <span className="text-xs font-black text-blue-600">{item.efficiency}%</span>
-                                                                <div className="w-24 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                                <div className={`w-24 h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
                                                                     <div
                                                                         className={`h-full rounded-full transition-all duration-1000 ${item.efficiency > 20 ? 'bg-red-500' : item.efficiency > 10 ? 'bg-orange-500' : 'bg-green-500'}`}
                                                                         style={{ width: `${Math.min(item.efficiency, 100)}%` }}
@@ -670,8 +695,8 @@ const DiscountReport = () => {
                                                     </tr>
                                                 ))}
                                             </tbody>
-                                            <tfoot className="bg-gray-50 dark:bg-[#131619] font-black italic border-t-2 border-gray-200 dark:border-gray-800">
-                                                <tr>
+                                            <tfoot className={`font-black italic border-t-2 transition-colors ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                                <tr className={isDarkMode ? 'text-gray-300' : 'text-gray-800'}>
                                                     <td className="p-5 uppercase text-xs">Grand Total</td>
                                                     <td className="p-5 text-right text-xs">₹{reportData.reduce((a, b) => a + b.originalFees, 0).toLocaleString('en-IN')}</td>
                                                     <td className="p-5 text-right text-sm">₹{reportData.reduce((a, b) => a + b.committedFees, 0).toLocaleString('en-IN')}</td>
@@ -699,7 +724,8 @@ const DiscountReport = () => {
                                                             setItemsPerPage(Number(e.target.value));
                                                             setCurrentPage(1);
                                                         }}
-                                                        className="h-8 px-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs font-bold text-gray-700 dark:text-gray-300"
+                                                        className={`h-8 px-2 border rounded text-xs font-bold transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-300' : 'bg-white border-gray-300 text-gray-700 shadow-sm'
+                                                            }`}
                                                     >
                                                         {itemsPerPageOptions.map(opt => (
                                                             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -707,27 +733,27 @@ const DiscountReport = () => {
                                                     </select>
                                                 </div>
                                             </div>
-                                            <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                                            <div className={`overflow-x-auto rounded-xl border transition-colors ${isDarkMode ? 'border-gray-800 shadow-xl' : 'border-gray-200 shadow-sm'}`}>
                                                 <table className="w-full text-left border-collapse">
                                                     <thead>
-                                                        <tr className="bg-gray-100 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
-                                                            <th className="p-4 text-[10px] font-bold text-gray-500 uppercase">Student Name</th>
-                                                            <th className="p-4 text-[10px] font-bold text-gray-500 uppercase text-center">Adm No.</th>
-                                                            <th className="p-4 text-[10px] font-bold text-gray-500 uppercase">Course</th>
-                                                            <th className="p-4 text-[10px] font-bold text-gray-500 uppercase text-right">Orig. Fees</th>
-                                                            <th className="p-4 text-[10px] font-bold text-gray-500 uppercase text-right text-orange-500">Discount</th>
-                                                            <th className="p-4 text-[10px] font-bold text-gray-500 uppercase text-right">Payable</th>
+                                                        <tr className={`transition-colors ${isDarkMode ? 'bg-black/20 border-b border-gray-800' : 'bg-gray-100 border-b border-gray-200'}`}>
+                                                            <th className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Student Name</th>
+                                                            <th className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Adm No.</th>
+                                                            <th className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Course</th>
+                                                            <th className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Orig. Fees</th>
+                                                            <th className="p-4 text-[10px] font-black text-orange-500 uppercase tracking-widest text-right">Discount</th>
+                                                            <th className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Payable</th>
                                                         </tr>
                                                     </thead>
-                                                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                                    <tbody className={`divide-y transition-colors ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                                         {detailedReport.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((stu, sIdx) => (
-                                                            <tr key={sIdx} className="hover:bg-blue-50/30 dark:hover:bg-white/5 transition-colors">
-                                                                <td className="p-4 text-xs font-bold text-gray-800 dark:text-gray-200">{stu.studentName}</td>
+                                                            <tr key={sIdx} className={`transition-colors ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-blue-50/30'}`}>
+                                                                <td className={`p-4 text-xs font-black transition-colors ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>{stu.studentName}</td>
                                                                 <td className="p-4 text-xs text-center text-gray-500 italic">{stu.admissionNumber}</td>
-                                                                <td className="p-4 text-[10px] text-gray-500 uppercase font-medium">{stu.course}</td>
-                                                                <td className="p-4 text-right text-xs">₹{stu.originalFees.toLocaleString()}</td>
+                                                                <td className="p-4 text-[10px] text-gray-500 uppercase font-bold">{stu.course}</td>
+                                                                <td className={`p-4 text-right text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>₹{stu.originalFees.toLocaleString()}</td>
                                                                 <td className="p-4 text-right text-xs font-black text-orange-600">₹{stu.discountGiven.toLocaleString()}</td>
-                                                                <td className="p-4 text-right text-xs font-bold">₹{stu.committedFees.toLocaleString()}</td>
+                                                                <td className={`p-4 text-right text-xs font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{stu.committedFees.toLocaleString()}</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
@@ -749,10 +775,11 @@ const DiscountReport = () => {
                             {displayMode === "card" && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
                                     {reportData.map((item, idx) => (
-                                        <div key={idx} className="bg-white dark:bg-[#131619] rounded-2xl border border-gray-200 dark:border-gray-800 p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group relative">
+                                        <div key={idx} className={`rounded-2xl border p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'
+                                            }`}>
                                             <div className="flex justify-between items-start mb-6">
-                                                <h4 className="font-black text-gray-800 dark:text-white uppercase text-xs tracking-tight line-clamp-1 flex-1">{item.name}</h4>
-                                                <div className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${item.efficiency > 20 ? 'bg-red-500 text-white' : item.efficiency > 10 ? 'bg-orange-600 text-white' : 'bg-green-600 text-white'}`}>
+                                                <h4 className={`font-black uppercase text-xs tracking-tight line-clamp-1 flex-1 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{item.name}</h4>
+                                                <div className={`text-[10px] font-black px-2 py-0.5 rounded uppercase shadow-sm ${item.efficiency > 20 ? 'bg-red-500 text-white' : item.efficiency > 10 ? 'bg-orange-600 text-white' : 'bg-green-600 text-white'}`}>
                                                     {item.efficiency}% AVG
                                                 </div>
                                             </div>
@@ -765,10 +792,10 @@ const DiscountReport = () => {
 
                                                 <div className="pt-2">
                                                     <div className="flex justify-between text-[9px] font-black uppercase mb-1.5 opacity-50">
-                                                        <span>Revenue Retained</span>
-                                                        <span>{(100 - item.efficiency).toFixed(1)}%</span>
+                                                        <span className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>Revenue Retained</span>
+                                                        <span className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>{(100 - item.efficiency).toFixed(1)}%</span>
                                                     </div>
-                                                    <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                    <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
                                                         <div
                                                             className="h-full bg-gradient-to-r from-orange-400 to-orange-600 rounded-full transition-all duration-1000"
                                                             style={{ width: `${item.efficiency}%` }}
@@ -776,14 +803,14 @@ const DiscountReport = () => {
                                                     </div>
                                                 </div>
 
-                                                <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                                                <div className={`grid grid-cols-2 gap-4 mt-4 pt-4 border-t transition-colors ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                                                     <div>
                                                         <div className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter mb-1">Students</div>
-                                                        <div className="text-sm font-black text-gray-900 dark:text-white">{item.count}</div>
+                                                        <div className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.count}</div>
                                                     </div>
                                                     <div className="text-right">
                                                         <div className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter mb-1">Avg/Student</div>
-                                                        <div className="text-sm font-black text-gray-900 dark:text-white">₹{(item.discountGiven / (item.count || 1)).toFixed(0)}</div>
+                                                        <div className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{(item.discountGiven / (item.count || 1)).toFixed(0)}</div>
                                                     </div>
                                                 </div>
                                             </div>
