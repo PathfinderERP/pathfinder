@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useTheme } from "../../context/ThemeContext";
+
 import {
     FaUsers, FaChartLine, FaMoneyBillWave, FaUserCheck,
     FaMoon, FaSun, FaArrowUp, FaArrowDown, FaBuilding, FaUserFriends, FaBullseye,
-    FaSyncAlt, FaChartBar, FaUserClock, FaStopwatch, FaMapMarkerAlt
+    FaSyncAlt, FaChartBar, FaUserClock, FaStopwatch, FaMapMarkerAlt, FaChevronDown
 } from "react-icons/fa";
+
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     BarChart, Bar, Cell, AreaChart, Area, PieChart, Pie, Legend
@@ -12,6 +14,7 @@ import {
 
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+
 import EmployeeAttendanceAnalytics from './EmployeeAttendanceAnalytics';
 
 // Reusable Components matching Attendance Management Styling
@@ -75,6 +78,8 @@ const CEOControlTowerContent = () => {
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
     const [centres, setCentres] = useState([]);
+    const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
+    const centreDropdownRef = useRef(null);
 
     // Filter States
     const [filters, setFilters] = useState({
@@ -85,6 +90,13 @@ const CEOControlTowerContent = () => {
 
     useEffect(() => {
         fetchCentres();
+        const handleClickOutside = (event) => {
+            if (centreDropdownRef.current && !centreDropdownRef.current.contains(event.target)) {
+                setIsCentreDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
     useEffect(() => {
@@ -98,7 +110,9 @@ const CEOControlTowerContent = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const result = await response.json();
-            if (response.ok) setCentres(result);
+            if (response.ok) {
+                setCentres(Array.isArray(result) ? result : result.centres || []);
+            }
         } catch (error) {
             console.error("Error fetching centres:", error);
         }
@@ -108,7 +122,12 @@ const CEOControlTowerContent = () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const queryParams = new URLSearchParams(filters).toString();
+            const fetchFilters = { ...filters };
+            // If centre is an array, join it with commas for the API
+            if (Array.isArray(fetchFilters.centre)) {
+                fetchFilters.centre = fetchFilters.centre.join(',');
+            }
+            const queryParams = new URLSearchParams(fetchFilters).toString();
             const response = await fetch(`${import.meta.env.VITE_API_URL}/ceo/analytics?${queryParams}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -132,6 +151,40 @@ const CEOControlTowerContent = () => {
         saveAs(data, `${fileName}_${new Date().toLocaleDateString()}.xlsx`);
     };
 
+    const { workforce, sales } = data || {};
+
+    // Aggregated Stats to prevent duplicates by name
+    const aggregatedCounselorStats = useMemo(() => {
+        if (!sales?.counselorStats) return [];
+        const map = new Map();
+        sales.counselorStats.forEach(item => {
+            const name = item.name?.toUpperCase().trim();
+            if (map.has(name)) {
+                const existing = map.get(name);
+                existing.count += item.count || 0;
+                existing.revenue += item.revenue || 0;
+            } else {
+                map.set(name, { ...item, name });
+            }
+        });
+        return Array.from(map.values()).sort((a, b) => b.count - a.count);
+    }, [sales?.counselorStats]);
+
+    const aggregatedTelecallerStats = useMemo(() => {
+        if (!sales?.telecallerStats) return [];
+        const map = new Map();
+        sales.telecallerStats.forEach(item => {
+            const name = item.name?.toUpperCase().trim();
+            if (map.has(name)) {
+                const existing = map.get(name);
+                existing.count += item.count || 0;
+            } else {
+                map.set(name, { ...item, name });
+            }
+        });
+        return Array.from(map.values()).sort((a, b) => b.count - a.count);
+    }, [sales?.telecallerStats]);
+
     if (loading && !data) {
         return (
             <div className={`flex h-full items-center justify-center ${isDarkMode ? 'bg-[#0a0a0b]' : 'bg-gray-50'}`}>
@@ -145,8 +198,6 @@ const CEOControlTowerContent = () => {
             </div>
         );
     }
-
-    const { workforce, sales } = data || {};
 
     const chartTooltipStyle = {
         backgroundColor: isDarkMode ? '#131619' : '#fff',
@@ -193,14 +244,56 @@ const CEOControlTowerContent = () => {
             <div className={`mb-8 p-4 border rounded-[2px] flex flex-wrap items-center gap-6 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                 <div className="flex flex-col gap-1.5">
                     <label className={`text-[9px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Operational Centre</label>
-                    <select
-                        value={filters.centre}
-                        onChange={(e) => setFilters({ ...filters, centre: e.target.value })}
-                        className={`text-[10px] font-black uppercase tracking-widest p-2 rounded-[2px] border outline-none min-w-[200px] ${isDarkMode ? 'bg-black border-gray-800 text-white' : 'bg-white border-gray-200 text-black'}`}
-                    >
-                        <option value="ALL">Global Operations (All)</option>
-                        {centres.map(c => <option key={c._id} value={c.centreName}>{c.centreName}</option>)}
-                    </select>
+                    <div className="relative" ref={centreDropdownRef}>
+                        <div
+                            onClick={() => setIsCentreDropdownOpen(!isCentreDropdownOpen)}
+                            className={`text-[10px] font-black uppercase tracking-widest p-2 rounded-[2px] border outline-none min-w-[220px] cursor-pointer flex justify-between items-center transition-all ${isDarkMode ? 'bg-black border-gray-800 text-white hover:border-cyan-500/50' : 'bg-white border-gray-200 text-black hover:border-cyan-500/50'}`}
+                        >
+                            <span className="truncate max-w-[170px]">
+                                {!filters.centre || filters.centre === 'ALL' || (Array.isArray(filters.centre) && filters.centre.length === 0)
+                                    ? "Global Operations (All)"
+                                    : (Array.isArray(filters.centre) ? `${filters.centre.length} Units Selected` : filters.centre)}
+                            </span>
+                            <FaChevronDown size={8} className={`transition-transform duration-300 ${isCentreDropdownOpen ? 'rotate-180' : ''}`} />
+                        </div>
+
+                        {isCentreDropdownOpen && (
+                            <div className={`absolute top-full left-0 mt-1 w-64 z-50 border rounded-[2px] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
+                                <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                                    <div
+                                        className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors border-b border-gray-800/10 ${(!filters.centre || filters.centre === 'ALL') ? 'text-cyan-500 bg-cyan-500/5' : (isDarkMode ? 'text-gray-400 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-50')}`}
+                                        onClick={() => {
+                                            setFilters({ ...filters, centre: 'ALL' });
+                                            setIsCentreDropdownOpen(false);
+                                        }}
+                                    >
+                                        Global Operations (All)
+                                    </div>
+                                    {centres.map(c => {
+                                        const isSelected = Array.isArray(filters.centre) && filters.centre.includes(c.centreName);
+                                        return (
+                                            <div
+                                                key={c._id}
+                                                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center justify-between ${isSelected ? 'text-cyan-500 bg-cyan-500/5' : (isDarkMode ? 'text-gray-400 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-50')}`}
+                                                onClick={() => {
+                                                    let newCentres = Array.isArray(filters.centre) ? [...filters.centre] : (filters.centre === 'ALL' ? [] : [filters.centre]);
+                                                    if (newCentres.includes(c.centreName)) {
+                                                        newCentres = newCentres.filter(name => name !== c.centreName);
+                                                    } else {
+                                                        newCentres.push(c.centreName);
+                                                    }
+                                                    setFilters({ ...filters, centre: newCentres.length === 0 ? 'ALL' : newCentres });
+                                                }}
+                                            >
+                                                <span>{c.centreName}</span>
+                                                {isSelected && <div className="w-1 h-1 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.8)]" />}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -333,7 +426,7 @@ const CEOControlTowerContent = () => {
                                 </tr>
                             </thead>
                             <tbody className="text-[10px] font-black tracking-widest">
-                                {(sales?.counselorStats || []).map((row, i) => (
+                                {aggregatedCounselorStats.map((row, i) => (
                                     <tr key={i} className={`border-b ${isDarkMode ? 'border-gray-800/30' : 'border-gray-100'} hover:bg-cyan-500/[0.02]`}>
                                         <td className="px-6 py-4 text-white uppercase italic">{row.name}</td>
                                         <td className="px-6 py-4 text-center">
@@ -363,9 +456,9 @@ const CEOControlTowerContent = () => {
                                 </tr>
                             </thead>
                             <tbody className="text-[10px] font-black tracking-widest">
-                                {(sales?.telecallerStats || []).map((row, i) => {
-                                    const total = sales.telecallerStats.reduce((a, b) => a + b.count, 0);
-                                    const share = ((row.count / total) * 100).toFixed(1);
+                                {aggregatedTelecallerStats.map((row, i) => {
+                                    const total = aggregatedTelecallerStats.reduce((a, b) => a + b.count, 0);
+                                    const share = total > 0 ? ((row.count / total) * 100).toFixed(1) : "0.0";
                                     return (
                                         <tr key={i} className={`border-b ${isDarkMode ? 'border-gray-800/30' : 'border-gray-100'} hover:bg-purple-500/[0.02]`}>
                                             <td className="px-6 py-4 text-white uppercase italic">{row.name}</td>
@@ -468,21 +561,23 @@ const CEOControlTowerContent = () => {
                 </ChartContainer>
 
                 {/* Normal Course Wise Analysis - Bar Graph */}
-                <ChartContainer title="Standard Course Distribution" isDarkMode={isDarkMode} color="purple">
-                    <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
-                        <BarChart data={data?.academics?.normalCourse || []} layout="vertical">
-                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
-                            <XAxis type="number" stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} axisLine={false} tickLine={false} />
-                            <YAxis dataKey="name" type="category" stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} axisLine={false} tickLine={false} width={100} />
-                            <Tooltip contentStyle={chartTooltipStyle} cursor={{ fill: isDarkMode ? '#ffffff05' : '#00000005' }} />
-                            <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
-                                {(data?.academics?.normalCourse || []).map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={["#a855f7", "#8b5cf6", "#7c3aed", "#6d28d9"][index % 4]} />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </ChartContainer>
+                <ScrollableChartContainer title="Standard Course Distribution" isDarkMode={isDarkMode} color="purple" height={300}>
+                    <div style={{ height: Math.max(300, (data?.academics?.normalCourse?.length || 0) * 45) }}>
+                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
+                            <BarChart data={data?.academics?.normalCourse || []} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
+                                <XAxis type="number" stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} axisLine={false} tickLine={false} />
+                                <YAxis dataKey="name" type="category" stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} fontWeight={700} axisLine={false} tickLine={false} width={140} />
+                                <Tooltip contentStyle={chartTooltipStyle} cursor={{ fill: isDarkMode ? '#ffffff05' : '#00000005' }} />
+                                <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
+                                    {(data?.academics?.normalCourse || []).map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={["#a855f7", "#8b5cf6", "#7c3aed", "#6d28d9"][index % 4]} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </ScrollableChartContainer>
             </div>
 
             {/* Subject Analysis for Board Students */}

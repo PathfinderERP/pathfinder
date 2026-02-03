@@ -393,7 +393,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             {/* Logo + Close */}
             <div className="p-6 flex items-center justify-between text-white">
                 <div className="flex items-center gap-3">
-                    <div className="bg-gray-700 p-2 rounded-lg">
+                    <div className="bg-gray-700 p-2 rounded">
                         <FaChartBar className="text-cyan-400" />
                     </div>
                     <div>
@@ -415,7 +415,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                             onClick={() =>
                                 item.subItems ? toggleMenu(item.name) : navigate(item.path)
                             }
-                            className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${item.name === activePage
+                            className={`flex items-center justify-between p-3 rounded cursor-pointer transition-colors ${item.name === activePage
                                 ? "bg-cyan-500 text-white dark:text-black font-semibold shadow-lg shadow-cyan-500/20"
                                 : "hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
                                 }`}
@@ -439,7 +439,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                             <div>
                                                 <div
                                                     onClick={() => toggleMenu(sub.name)}
-                                                    className="p-2 rounded-lg cursor-pointer text-sm transition-colors hover:text-white hover:bg-gray-800/50 flex justify-between items-center"
+                                                    className="p-2 rounded cursor-pointer text-sm transition-colors hover:text-white hover:bg-gray-800/50 flex justify-between items-center"
                                                 >
                                                     <div className="flex items-center gap-2">
                                                         {sub.icon && <span className="opacity-70">{sub.icon}</span>}
@@ -455,7 +455,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                                             <div
                                                                 key={nestedIdx}
                                                                 onClick={() => navigate(nestedSub.path)}
-                                                                className={`p-2 rounded-lg cursor-pointer text-sm transition-colors ${location.pathname === nestedSub.path
+                                                                className={`p-2 rounded cursor-pointer text-sm transition-colors ${location.pathname === nestedSub.path
                                                                     ? "text-cyan-400 font-semibold bg-gray-800"
                                                                     : "hover:text-white hover:bg-gray-800/50"
                                                                     }`}
@@ -469,7 +469,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                         ) : (
                                             <div
                                                 onClick={() => navigate(sub.path)}
-                                                className={`p-2 rounded-lg cursor-pointer text-sm transition-colors flex items-center gap-2 ${location.pathname === sub.path
+                                                className={`p-2 rounded cursor-pointer text-sm transition-colors flex items-center gap-2 ${location.pathname === sub.path
                                                     ? "text-cyan-400 font-semibold bg-gray-800"
                                                     : "hover:text-white hover:bg-gray-800/50"
                                                     }`}

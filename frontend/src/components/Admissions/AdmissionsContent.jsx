@@ -654,7 +654,7 @@ const AdmissionsContent = () => {
                             placeholder="SEARCH STUDENTS..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className={`w-full pl-12 pr-4 py-3 rounded-[4px] border text-[10px] font-black tracking-widest uppercase outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                            className={`w-full pl-12 pr-4 py-3 rounded-[4px] border text-[10px] font-black tracking-widest uppercase outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                         />
                     </div>
 
@@ -694,7 +694,7 @@ const AdmissionsContent = () => {
                         theme={isDarkMode ? 'dark' : 'light'}
                     />
 
-                    <div className={`flex border rounded-[4px] overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                    <div className={`flex border rounded-[4px] overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
                         <div className={`px-4 py-3 border-r text-[10px] font-black uppercase tracking-widest flex items-center ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-gray-500' : 'bg-white border-gray-200 text-gray-400'}`}>
                             Period
                         </div>
@@ -702,20 +702,20 @@ const AdmissionsContent = () => {
                             type="date"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className={`px-4 py-3 focus:outline-none text-[10px] font-bold ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-gray-50 text-gray-900'}`}
+                            className={`px-4 py-3 focus:outline-none text-[10px] font-bold ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
                         />
                         <div className={`px-2 py-3 flex items-center ${isDarkMode ? 'text-gray-700' : 'text-gray-300'}`}>-</div>
                         <input
                             type="date"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className={`px-4 py-3 focus:outline-none text-[10px] font-bold ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-gray-50 text-gray-900'}`}
+                            className={`px-4 py-3 focus:outline-none text-[10px] font-bold ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
                         />
                     </div>
 
                     <button
                         onClick={handleRefresh}
-                        className={`p-3 rounded-[4px] border transition-all flex items-center gap-2 group ${isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-500 hover:text-cyan-400' : 'bg-gray-50 border-gray-200 text-gray-400 hover:text-gray-900'}`}
+                        className={`p-3 rounded-[4px] border transition-all flex items-center gap-2 group ${isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-500 hover:text-cyan-400' : 'bg-white border-gray-200 text-gray-400 hover:text-gray-900'}`}
                     >
                         <FaSync className={`text-[10px] ${loading ? "animate-spin" : ""}`} />
                         <span className="text-[10px] font-black uppercase tracking-widest">Reset</span>
@@ -861,11 +861,11 @@ const AdmissionsContent = () => {
                                                         {canCreate && (
                                                             <button
                                                                 onClick={() => navigate(`/admission/${student._id}`)}
-                                                                className={`w-8 h-8 flex items-center justify-center rounded-[4px] border transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-400 hover:text-green-400 hover:border-green-500' : 'bg-white border-gray-200 text-gray-400 hover:text-green-600 hover:border-green-500 shadow-sm'}`}
+                                                                className={`px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border transition-all ${isDarkMode ? 'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500 hover:text-black' : 'bg-green-50 border-green-200 text-green-600 hover:bg-green-500 hover:text-white shadow-sm'} text-[9px] font-black uppercase tracking-widest`}
                                                                 title="Admit Student"
                                                             >
-                                                                {/* <FaUserGraduate size={12} /> */}
-                                                                Admit
+                                                                <FaUserGraduate size={10} />
+                                                                <span>Admit</span>
                                                             </button>
                                                         )}
                                                         {canEdit && (
