@@ -471,12 +471,12 @@ const LeadManagementContent = () => {
 
     return (
         <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
-            <div className="p-6 md:p-8 max-w-[1800px] mx-auto space-y-8">
+            <div className="p-4 sm:p-6 md:p-8 max-w-[1800px] mx-auto space-y-8">
                 {/* Header */}
                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
                     <div className="flex items-center">
                         <div>
-                            <h1 className={`text-4xl font-black mb-2 tracking-tighter uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            <h1 className={`text-2xl sm:text-4xl font-black mb-2 tracking-tighter uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                 Lead <span className="text-cyan-500">Management</span>
                             </h1>
                             <p className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} font-bold text-[10px] uppercase tracking-[0.3em] flex items-center gap-2`}>
@@ -486,7 +486,7 @@ const LeadManagementContent = () => {
                         {/* Daily Trend Chart */}
                         <LeadTrendChart data={dailyLeads} isDarkMode={isDarkMode} />
                     </div>
-                    <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 sm:gap-4">
                         <button
                             onClick={toggleTheme}
                             className={`p-3 rounded-[2px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
@@ -535,7 +535,7 @@ const LeadManagementContent = () => {
 
                 {/* Localized Analytics Filters */}
                 <div className={`p-4 rounded-[2px] border flex flex-col md:flex-row items-center justify-between gap-6 transition-all ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'}`}>
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-center gap-2">
                         <span className={`text-[9px] font-black uppercase tracking-widest mr-2 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>Quick View</span>
                         <button
                             onClick={() => setDatePreset('today')}
@@ -563,34 +563,34 @@ const LeadManagementContent = () => {
                         </button>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        <div className={`h-8 w-[1px] mx-2 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}></div>
-                        <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-center gap-4">
+                        <div className={`h-8 w-[1px] mx-2 hidden sm:block ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}></div>
+                        <div className="flex flex-col sm:flex-row items-center gap-2">
                             <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Scheduled Call Date</span>
                             <input
                                 type="date"
                                 value={filters.scheduledDate}
                                 onChange={(e) => handleFilterChange('scheduledDate', e.target.value)}
-                                className={`px-3 py-1.5 rounded-[2px] border text-[10px] font-black outline-none transition-all ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 focus:border-cyan-500' : 'bg-cyan-50 border-cyan-100 text-cyan-700 focus:border-cyan-500'}`}
+                                className={`px-3 py-1.5 rounded-[2px] border text-[10px] font-black outline-none transition-all w-full sm:w-auto ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 focus:border-cyan-500' : 'bg-cyan-50 border-cyan-100 text-cyan-700 focus:border-cyan-500'}`}
                             />
                         </div>
-                        <div className={`h-8 w-[1px] mx-2 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}></div>
-                        <div className="flex items-center gap-2">
+                        <div className={`h-8 w-[1px] mx-2 hidden sm:block ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}></div>
+                        <div className="flex flex-col sm:flex-row items-center gap-2">
                             <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>From</span>
                             <input
                                 type="date"
                                 value={filters.fromDate}
                                 onChange={(e) => handleFilterChange('fromDate', e.target.value)}
-                                className={`px-3 py-1.5 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                className={`px-3 py-1.5 rounded-[2px] border text-[10px] font-bold outline-none transition-all w-full sm:w-auto ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                             />
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col sm:flex-row items-center gap-2">
                             <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>To</span>
                             <input
                                 type="date"
                                 value={filters.toDate}
                                 onChange={(e) => handleFilterChange('toDate', e.target.value)}
-                                className={`px-3 py-1.5 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                className={`px-3 py-1.5 rounded-[2px] border text-[10px] font-bold outline-none transition-all w-full sm:w-auto ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                             />
                         </div>
                     </div>
