@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../../components/Layout";
-import { FaChartLine, FaFilter, FaFileExcel, FaUsers, FaTasks, FaChevronRight, FaSpinner, FaTimes, FaPhone, FaEnvelope, FaCalendarAlt, FaIdBadge, FaSun, FaMoon, FaChevronLeft } from "react-icons/fa";
+import { FaChartLine, FaFilter, FaFileExcel, FaUsers, FaTasks, FaChevronRight, FaSpinner, FaTimes, FaPhone, FaEnvelope, FaCalendarAlt, FaIdBadge, FaSun, FaMoon, FaChevronLeft, FaRedo } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
+import CustomMultiSelect from "../../components/common/CustomMultiSelect";
 
 const LeadDashboard = () => {
     const { theme, toggleTheme } = useTheme();
@@ -11,22 +12,21 @@ const LeadDashboard = () => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({
-        centre: "",
-        course: "",
-        source: "",
-        leadResponsibility: "",
+        centre: [],
+        course: [],
+        source: [],
+        leadResponsibility: [],
         search: "",
         fromDate: "",
         toDate: "",
-        feedback: "",
-        leadType: ""
+        feedback: [],
+        leadType: []
     });
     const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
     const [sources, setSources] = useState([]);
     const [feedbacks, setFeedbacks] = useState([]);
     const [telecallerList, setTelecallerList] = useState([]);
-    const [selectedTelecaller, setSelectedTelecaller] = useState(null);
     const [telecallerLeads, setTelecallerLeads] = useState([]);
     const [sidebarTitle, setSidebarTitle] = useState("");
     const [selectedLead, setSelectedLead] = useState(null);
@@ -74,18 +74,34 @@ const LeadDashboard = () => {
     const fetchLeadsForSidebar = async (title, extraParams = {}) => {
         try {
             setSidebarTitle(title);
-            setSelectedTelecaller(null); // Clear telecaller-specific view if we're doing categorical
             setSelectedLead(null);
             setSidebarLoading(true);
             const token = localStorage.getItem("token");
 
-            const queryParams = new URLSearchParams({
-                ...filters,
-                ...extraParams,
-                limit: "100",
-            }).toString();
+            const params = new URLSearchParams();
+            params.append("limit", "100");
 
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/lead-management?${queryParams}`, {
+            // Add base filters
+            Object.entries(filters).forEach(([key, value]) => {
+                if (Array.isArray(value)) {
+                    value.forEach(v => {
+                        params.append(key, v.value || v);
+                    });
+                } else if (value) {
+                    params.append(key, value);
+                }
+            });
+
+            // Add extra params (category filters)
+            Object.entries(extraParams).forEach(([key, value]) => {
+                if (Array.isArray(value)) {
+                    value.forEach(v => params.append(key, v.value || v));
+                } else if (value) {
+                    params.append(key, value);
+                }
+            });
+
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/lead-management?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -93,6 +109,7 @@ const LeadDashboard = () => {
                 setTelecallerLeads(data.leads || []);
             }
         } catch (error) {
+            console.error(error);
             toast.error("Failed to load leads");
         } finally {
             setSidebarLoading(false);
@@ -109,8 +126,16 @@ const LeadDashboard = () => {
         try {
             setLoading(true);
             const token = localStorage.getItem("token");
-            const queryParams = new URLSearchParams(filters).toString();
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/stats/dashboard?${queryParams}`, {
+            const params = new URLSearchParams();
+            Object.entries(filters).forEach(([key, value]) => {
+                if (Array.isArray(value)) {
+                    value.forEach(v => params.append(key, v.value || v));
+                } else if (value) {
+                    params.append(key, value);
+                }
+            });
+
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/stats/dashboard?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -119,6 +144,7 @@ const LeadDashboard = () => {
                 setStats(data);
             }
         } catch (error) {
+            console.error(error);
             toast.error("Failed to load dashboard data");
         } finally {
             setLoading(false);
@@ -133,8 +159,16 @@ const LeadDashboard = () => {
     const handleExportExcel = async () => {
         try {
             const token = localStorage.getItem("token");
-            const queryParams = new URLSearchParams(filters).toString();
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/export/excel?${queryParams}`, {
+            const params = new URLSearchParams();
+            Object.entries(filters).forEach(([key, value]) => {
+                if (Array.isArray(value)) {
+                    value.forEach(v => params.append(key, v.value || v));
+                } else if (value) {
+                    params.append(key, value);
+                }
+            });
+
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/export/excel?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -150,12 +184,28 @@ const LeadDashboard = () => {
                 toast.success("Excel report downloaded");
             }
         } catch (error) {
+            console.error(error);
             toast.error("Failed to export Excel");
         }
     };
 
-    const handleFilterChange = (e) => {
-        setFilters({ ...filters, [e.target.name]: e.target.value });
+    const handleFilterChange = (name, value) => {
+        setFilters(prev => ({ ...prev, [name]: value }));
+    };
+
+    const resetFilters = () => {
+        setFilters({
+            centre: [],
+            course: [],
+            source: [],
+            leadResponsibility: [],
+            search: "",
+            fromDate: "",
+            toDate: "",
+            feedback: [],
+            leadType: []
+        });
+        toast.info("Filter configurations reset to baseline");
     };
 
     const handleSelectLead = (lead) => {
@@ -207,50 +257,50 @@ const LeadDashboard = () => {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                         {[
-                            { label: "Centre Vector", name: "centre", type: "select", options: centres, labelKey: "centreName" },
-                            { label: "Target Course", name: "course", type: "select", options: courses, labelKey: "courseName" },
-                            { label: "Origin Source", name: "source", type: "select", options: sources.map(s => ({ _id: s.sourceName, name: s.sourceName })), labelKey: "name" },
-                            { label: "Feedback Status", name: "feedback", type: "select", options: feedbacks.map(f => ({ _id: f.name, name: f.name })), labelKey: "name" },
-                            { label: "Lead Intensity", name: "leadType", type: "select", options: [{ _id: 'HOT LEAD', name: 'HOT LEAD' }, { _id: 'COLD LEAD', name: 'COLD LEAD' }, { _id: 'NEGATIVE', name: 'NEGATIVE' }], labelKey: "name" },
-                            { label: "Agent Identity", name: "leadResponsibility", type: "select", options: telecallerList.map(t => ({ _id: t.name, name: t.name })), labelKey: "name" },
+                            { label: "Centre Vector", name: "centre", type: "multi-select", options: centres.map(c => ({ value: c._id, label: c.centreName })) },
+                            { label: "Target Course", name: "course", type: "multi-select", options: courses.map(c => ({ value: c._id, label: c.courseName })) },
+                            { label: "Origin Source", name: "source", type: "multi-select", options: sources.map(s => ({ value: s.sourceName, label: s.sourceName })) },
+                            { label: "Feedback Status", name: "feedback", type: "multi-select", options: feedbacks.map(f => ({ value: f.name, label: f.name })) },
+                            { label: "Lead Intensity", name: "leadType", type: "multi-select", options: [{ value: 'HOT LEAD', label: 'HOT LEAD' }, { value: 'COLD LEAD', label: 'COLD LEAD' }, { value: 'NEGATIVE', label: 'NEGATIVE' }] },
+                            { label: "Agent Identity", name: "leadResponsibility", type: "multi-select", options: telecallerList.map(t => ({ value: t.name, label: t.name })) },
                             { label: "Student Cipher", name: "search", type: "text", placeholder: "SEARCH..." },
                             { label: "Window Start", name: "fromDate", type: "date" },
                             { label: "Window End", name: "toDate", type: "date" }
                         ].map((field) => (
                             <div key={field.name} className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-gray-500 ml-1 tracking-widest">{field.label}</label>
-                                {field.type === "select" ? (
-                                    <div className="relative group/select">
-                                        <select
-                                            name={field.name}
-                                            value={filters[field.name]}
-                                            onChange={handleFilterChange}
-                                            className={`w-full px-4 py-3 border rounded-[4px] text-[11px] font-black uppercase tracking-widest outline-none transition-all cursor-pointer appearance-none ${isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-300 focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-700 focus:border-cyan-500'}`}
-                                        >
-                                            <option value="">ALL {field.label.split(' ')[0]}S</option>
-                                            {field.options.map(opt => (
-                                                <option key={opt._id} value={opt._id}>{opt[field.labelKey]}</option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                {field.type === "multi-select" ? (
+                                    <CustomMultiSelect
+                                        options={field.options}
+                                        value={filters[field.name]}
+                                        onChange={(selected) => handleFilterChange(field.name, selected)}
+                                        placeholder={`ALL ${field.label.split(' ')[0]}S`}
+                                        theme={isDarkMode ? 'dark' : 'light'}
+                                    />
                                 ) : (
                                     <input
                                         type={field.type}
                                         name={field.name}
                                         value={filters[field.name]}
-                                        onChange={handleFilterChange}
+                                        onChange={(e) => handleFilterChange(field.name, e.target.value)}
                                         placeholder={field.placeholder}
                                         className={`w-full px-4 py-3 border rounded-[4px] text-[11px] font-black uppercase tracking-widest outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-300 focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-700 focus:border-cyan-500'}`}
                                     />
                                 )}
                             </div>
                         ))}
-                        <div className="flex items-end">
+                        <div className="flex flex-col gap-2">
                             <button
                                 onClick={fetchDashboardData}
                                 className={`w-full py-3 rounded-[4px] text-[11px] font-black uppercase tracking-[0.2em] transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 shadow-lg ${isDarkMode ? 'bg-cyan-500 text-black shadow-cyan-500/10 hover:bg-cyan-400' : 'bg-cyan-600 text-white shadow-cyan-500/20 hover:bg-cyan-700'}`}
                             >
                                 <FaFilter size={10} /> RECALIBRATE
+                            </button>
+                            <button
+                                onClick={resetFilters}
+                                className={`w-full py-2 rounded-[4px] text-[9px] font-black uppercase tracking-widest transition-all border flex items-center justify-center gap-2 ${isDarkMode ? 'bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500 hover:text-white' : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-500 hover:text-white'}`}
+                            >
+                                <FaRedo size={10} /> Reset Filters
                             </button>
                         </div>
                     </div>

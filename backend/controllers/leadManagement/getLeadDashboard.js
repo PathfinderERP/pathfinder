@@ -12,9 +12,19 @@ export const getLeadDashboardStats = async (req, res) => {
         const query = {};
 
         if (leadType) query.leadType = Array.isArray(leadType) ? { $in: leadType } : leadType;
-        if (course) query.course = mongoose.Types.ObjectId.isValid(course) ? new mongoose.Types.ObjectId(course) : course;
-        if (board) query.board = mongoose.Types.ObjectId.isValid(board) ? new mongoose.Types.ObjectId(board) : board;
-        if (className) query.className = mongoose.Types.ObjectId.isValid(className) ? new mongoose.Types.ObjectId(className) : className;
+
+        if (course) {
+            const courseIds = Array.isArray(course) ? course : [course];
+            query.course = { $in: courseIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+        }
+        if (board) {
+            const boardIds = Array.isArray(board) ? board : [board];
+            query.board = { $in: boardIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+        }
+        if (className) {
+            const classIds = Array.isArray(className) ? className : [className];
+            query.className = { $in: classIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+        }
 
         // Date filter
         if (fromDate || toDate) {
@@ -38,20 +48,24 @@ export const getLeadDashboardStats = async (req, res) => {
 
         // Feedback filter - Check if the latest follow-up's feedback matches
         if (req.query.feedback) {
+            const feedbackArr = Array.isArray(req.query.feedback) ? req.query.feedback : [req.query.feedback];
             query.followUps = {
-                $elemMatch: { feedback: { $regex: req.query.feedback, $options: "i" } }
+                $elemMatch: { feedback: { $in: feedbackArr } }
             };
         }
 
         // Centre filter
         if (centre) {
-            query.centre = mongoose.Types.ObjectId.isValid(centre) ? new mongoose.Types.ObjectId(centre) : centre;
+            const centreIds = Array.isArray(centre) ? centre : [centre];
+            query.centre = { $in: centreIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
         }
 
 
-        // Telecaller filter (leadResponsibility) - Using Regex as requested
+        // Telecaller filter (leadResponsibility)
         if (leadResponsibility) {
-            query.leadResponsibility = { $regex: leadResponsibility, $options: "i" };
+            query.leadResponsibility = Array.isArray(leadResponsibility)
+                ? { $in: leadResponsibility }
+                : { $regex: leadResponsibility, $options: "i" };
         }
 
         // Exclude counseled leads from dashboard stats to match lead list logic
@@ -78,11 +92,16 @@ export const getLeadDashboardStats = async (req, res) => {
             }
 
             if (centre) {
-                if (!userCentreIds.map(c => c.toString()).includes(centre)) {
-                    return res.status(403).json({ message: "Access denied to this centre" });
+                const requestedCentres = Array.isArray(centre) ? centre : [centre];
+                const allowedCentreStrings = userCentreIds.map(c => c.toString());
+
+                const isAllowed = requestedCentres.every(id => allowedCentreStrings.includes(id.toString()));
+
+                if (!isAllowed) {
+                    return res.status(403).json({ message: "Access denied to one or more requested centres" });
                 }
-                // Fix: Actually apply the centre filter!
-                query.centre = mongoose.Types.ObjectId.isValid(centre) ? new mongoose.Types.ObjectId(centre) : centre;
+
+                query.centre = { $in: requestedCentres.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
             } else {
                 query.centre = { $in: userCentreIds };
             }
