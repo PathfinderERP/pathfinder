@@ -49,9 +49,9 @@ export const startPaymentReminderCron = () => {
         }
     });
 
-    console.log('✅ Cron jobs started');
-    console.log('   - Daily reminders: 9:00 AM');
-    console.log('   - Birthday Greetings: 8:00 AM');
-    console.log('   - Attendance Auto-Checkout: 11:59 PM');
-    console.log('   - Status updates: Every hour');
+    console.log('✅ Cron jobs initialized and scheduled:');
+    console.log('   - 📧 Daily Birthday Greetings: 8:00 AM IST matched');
+    console.log('   - 🔔 Payment Reminders: 9:00 AM');
+    console.log('   - 🕒 Attendance Auto-Checkout: 11:59 PM');
+    console.log('   - 🔄 Status updates: Every hour');
 };

@@ -7,11 +7,18 @@ import emailService from "../utils/emailService.js";
 export const checkAndSendBirthdayGreetings = async () => {
     console.log("🎂 Checking for birthdays today...");
     try {
-        const today = new Date();
-        const currentMonth = today.getMonth() + 1; // JS months are 0-indexed
-        const currentDate = today.getDate();
+        // Get current date in IST (UTC+5:30)
+        const now = new Date();
+        const istOffset = 5.5 * 60 * 60 * 1000;
+        const istTime = new Date(now.getTime() + istOffset);
+
+        const currentMonth = istTime.getUTCMonth() + 1; // JS months are 0-indexed
+        const currentDate = istTime.getUTCDate();
+
+        console.log(`📅 Today (IST): ${istTime.toISOString()} | Month: ${currentMonth}, Day: ${currentDate}`);
 
         // MongoDB aggregation to match day and month of birthday
+        // Note: dateOfBirth is stored in UTC. We match day/month from the stored Date object.
         const birthdayEmployees = await Employee.aggregate([
             {
                 $match: {
@@ -44,6 +51,7 @@ export const checkAndSendBirthdayGreetings = async () => {
         };
 
         for (const emp of birthdayEmployees) {
+            console.log(`🎈 Processing birthday for: ${emp.name}`);
             if (!emp.email) {
                 console.warn(`⚠️ Skipping ${emp.name} - No email found.`);
                 results.failed++;

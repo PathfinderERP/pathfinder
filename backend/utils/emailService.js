@@ -2,16 +2,22 @@ import nodemailer from 'nodemailer';
 
 class EmailService {
     constructor() {
-        // Demo credentials - user will add real ones later
-        this.transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || 'smtp.gmail.com',
-            port: process.env.SMTP_PORT || 587,
-            secure: false,
-            auth: {
-                user: process.env.SMTP_USER || 'demo@example.com',
-                pass: process.env.SMTP_PASS || 'demo_password'
-            }
-        });
+        this.transporter = null;
+    }
+
+    getTransporter() {
+        if (!this.transporter) {
+            this.transporter = nodemailer.createTransport({
+                host: (process.env.SMTP_HOST || 'smtp.gmail.com').trim(),
+                port: parseInt(process.env.SMTP_PORT || '587'),
+                secure: false,
+                auth: {
+                    user: (process.env.SMTP_USER || 'demo@example.com').trim(),
+                    pass: (process.env.SMTP_PASS || 'demo_password').trim()
+                }
+            });
+        }
+        return this.transporter;
     }
 
     async sendOfferLetter(employee, pdfPath) {
@@ -38,7 +44,7 @@ class EmailService {
             ]
         };
 
-        return await this.transporter.sendMail(mailOptions);
+        return await this.getTransporter().sendMail(mailOptions);
     }
 
     async sendAppointmentLetter(employee, pdfPath) {
@@ -65,7 +71,7 @@ class EmailService {
             ]
         };
 
-        return await this.transporter.sendMail(mailOptions);
+        return await this.getTransporter().sendMail(mailOptions);
     }
 
     async sendContractLetter(employee, pdfPath) {
@@ -92,7 +98,7 @@ class EmailService {
             ]
         };
 
-        return await this.transporter.sendMail(mailOptions);
+        return await this.getTransporter().sendMail(mailOptions);
     }
 
     async sendExperienceLetter(employee, pdfPath) {
@@ -119,7 +125,7 @@ class EmailService {
             ]
         };
 
-        return await this.transporter.sendMail(mailOptions);
+        return await this.getTransporter().sendMail(mailOptions);
     }
 
     async sendReleaseLetter(employee, pdfPath) {
@@ -146,7 +152,7 @@ class EmailService {
             ]
         };
 
-        return await this.transporter.sendMail(mailOptions);
+        return await this.getTransporter().sendMail(mailOptions);
     }
 
     async sendVirtualId(employee, pdfPath) {
@@ -173,7 +179,7 @@ class EmailService {
             ]
         };
 
-        return await this.transporter.sendMail(mailOptions);
+        return await this.getTransporter().sendMail(mailOptions);
     }
     async sendBirthdayWish(employee) {
         const mailOptions = {
@@ -211,21 +217,21 @@ class EmailService {
                             <div>
                                 <p style="margin: 0; font-size: 15px; color: #6b7280;">With much appreciation, ❤️</p>
                                 <p style="margin: 5px 0 0 0; font-size: 18px; font-weight: 800; background: linear-gradient(to right, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Human Resources Team</p>
-                                <p style="margin: 0; font-size: 14px; font-weight: 600; color: #9ca3af;">Pathfinder ERP</p>
+                                <p style="margin: 0; font-size: 14px; font-weight: 600; color: #9ca3af;">Pathfinder</p>
                             </div>
                         </div>
                     </div>
 
                     <!-- Footer -->
                     <div style="background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9;">
-                        <p style="margin: 0;">Sent with ❤️ from Pathfinder ERP</p>
+                        <p style="margin: 0;">Sent with ❤️ from Pathfinder</p>
                         <p style="margin: 5px 0 0 0;">&copy; ${new Date().getFullYear()} Pathfinder. All rights reserved.</p>
                     </div>
                 </div>
             `
         };
 
-        return await this.transporter.sendMail(mailOptions);
+        return await this.getTransporter().sendMail(mailOptions);
     }
 }
 

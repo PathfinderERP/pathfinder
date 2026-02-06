@@ -9,7 +9,7 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 const { default: emailService } = await import("../utils/emailService.js");
 
 async function sendTestEmails() {
-    const testEmails = ["debmalya@pathfinder.edu.in"];
+    const testEmails = ["malay@pathfinder.edu.in"];
 
     console.log("🚀 Sending test birthday emails...");
 
