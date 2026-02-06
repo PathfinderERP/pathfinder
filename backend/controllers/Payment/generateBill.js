@@ -157,8 +157,19 @@ export const generateBill = async (req, res) => {
             installmentNumber: installmentNum
         };
 
-        if (admission.admissionType === 'BOARD' && billingMonth) {
-            query.billingMonth = billingMonth;
+        if (admission.admissionType === 'BOARD') {
+            if (installmentNum === 0) {
+                // For down payments, ensure we don't pick up a monthly payment record
+                // Down payments usually don't have billingMonth set, or it's the first month
+                query.$or = [
+                    { billingMonth: { $exists: false } },
+                    { billingMonth: null },
+                    { billingMonth: "" }
+                ];
+            } else if (billingMonth) {
+                // For monthly payments, billingMonth is the primary identifier
+                query.billingMonth = billingMonth;
+            }
         }
 
         let payment = await Payment.findOne(query);

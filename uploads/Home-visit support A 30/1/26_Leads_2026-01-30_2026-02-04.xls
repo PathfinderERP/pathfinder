@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?>
+                      <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+                       xmlns:x="urn:schemas-microsoft-com:office:excel"
+                       xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+                       xmlns:html="http://www.w3.org/TR/REC-html40">
+                      <Styles>
+                        <Style ss:ID="s17">
+                          <NumberFormat ss:Format="m/d/yy"/>
+                          <Font ss:FontName="Verdana"/>
+                        </Style>
+                        <Style ss:ID="s18">
+                          <NumberFormat ss:Format="m/d/yy"/>
+                          <Font ss:FontName="Verdana" ss:Bold="1"/>
+                        </Style>
+                        <Style ss:ID="s19">
+                          <NumberFormat ss:Format="m/yy"/>
+                          <Font ss:FontName="Verdana"/>
+                        </Style>
+                        <Style ss:ID="s20">
+                          <NumberFormat ss:Format="m/yy"/>
+                          <Font ss:FontName="Verdana" ss:Bold="1"/>
+                        </Style>
+                        <Style ss:ID="s21">
+                          <NumberFormat ss:Format="m/d/yy h:mm AM/PM"/>
+                          <Font ss:FontName="Verdana"/>
+                        </Style>
+                        <Style ss:ID="s22">
+                          <NumberFormat ss:Format="m/d/yy h:mm AM/PM"/>
+                          <Font ss:FontName="Verdana" ss:Bold="1"/>
+                        </Style>
+                        <Style ss:ID="s23">
+                         <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana"/>
+                        </Style>
+                        <Style ss:ID="s24">
+                         <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana" ss:Bold="1"/>
+                        </Style>
+                        <Style ss:ID="s25">
+                         <Alignment ss:Horizontal="Left" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana"/>
+                        </Style>
+                        <Style ss:ID="s26">
+                         <Alignment ss:Horizontal="Left" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana" ss:Bold="1"/>
+                        </Style>
+                        <Style ss:ID="s27">
+                         <NumberFormat ss:Format="0"/>
+                         <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana"/>
+                        </Style>
+                        <Style ss:ID="s28">
+                         <NumberFormat ss:Format="0"/>
+                         <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana" ss:Bold="1"/>
+                        </Style>
+                        <Style ss:ID="s29">
+                         <NumberFormat ss:Format="_(&quot;$&quot;* #,##0.00_);_(&quot;$&quot;* (#,##0.00);_(&quot;$&quot;* &quot;-&quot;??_);_(@_)"/>
+                         <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana"/>
+                        </Style>
+                        <Style ss:ID="s30">
+                         <NumberFormat ss:Format="_(&quot;$&quot;* #,##0.00_);_(&quot;$&quot;* (#,##0.00);_(&quot;$&quot;* &quot;-&quot;??_);_(@_)"/>
+                         <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana" ss:Bold="1"/>
+                        </Style>
+                        <Style ss:ID="s31">
+                         <NumberFormat ss:Format="Percent"/>
+                         <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana"/>
+                        </Style>
+                        <Style ss:ID="s32">
+                         <NumberFormat ss:Format="Percent"/>
+                         <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana" ss:Bold="1"/>
+                        </Style>
+                        <Style ss:ID="s33">
+                         <NumberFormat ss:Format="YYYY-mm-dd"/>
+                         <Alignment ss:Horizontal="Left" ss:Vertical="Bottom"/>
+                        </Style>
+                        <Style ss:ID="s34">
+                         <Alignment ss:Horizontal="Left" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana" ss:Bold="1"/>
+                        </Style>
+                        <Style ss:ID="s35">
+                         <Alignment ss:Horizontal="Left" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana"/>
+                        </Style>
+                        <Style ss:ID="s36">
+                         <Alignment ss:Horizontal="Left" ss:Vertical="Top" ss:WrapText="1"/>
+                         <Font ss:FontName="Verdana"/>
+                        </Style>
+                      </Styles>
+<Worksheet ss:Name="Sheet1">
+<Table>
+<Column ss:Index="1" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="2" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="3" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="4" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="5" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="6" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="7" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="8" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="9" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="10" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="11" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="12" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="13" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="14" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="15" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="16" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="17" ss:AutoFitWidth="0" ss:Width="150"/>
+<Row>
+<Cell ss:StyleID="s24"><Data ss:Type="String">id</Data></Cell>
+<Cell ss:StyleID="s24"><Data ss:Type="String">created_time</Data></Cell>
+<Cell ss:StyleID="s24"><Data ss:Type="String">ad_id</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">ad_name</Data></Cell>
+<Cell ss:StyleID="s24"><Data ss:Type="String">adset_id</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">adset_name</Data></Cell>
+<Cell ss:StyleID="s24"><Data ss:Type="String">campaign_id</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">campaign_name</Data></Cell>
+<Cell ss:StyleID="s24"><Data ss:Type="String">form_id</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">form_name</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">is_organic</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">platform</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">choose_nearby__center_</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">choose_board</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">full_name</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">phone</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">city</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1615471549482672</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-05T03:26:42.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241910218020700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support A 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241910218010700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support A 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241909270620700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1794624434435120</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">home-visit support 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">fb</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">chandannagar</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">wbbse</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Mitali Bhattacharya</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+918336038949</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Kanchrapara</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">865819062938697</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-04T20:11:21.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241910218020700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support A 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241910218010700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support A 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241909270620700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1794624434435120</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">home-visit support 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">fb</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">howrah</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">wbbse</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Rajashree Ghosal</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+919830567226</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Howrah</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1452462949877105</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-04T12:37:30.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241910218020700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support A 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241910218010700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support A 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241909270620700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1794624434435120</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">home-visit support 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">fb</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">dumdum__(kolkata)</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">wbbse</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Aparna maity</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+918420745222</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Kolkata</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s25"><Data ss:Type="String">2338862296539055</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-04T10:49:43.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241910218020700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support A 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241910218010700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support A 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241909270620700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1794624434435120</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">home-visit support 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">ig</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">siliguri</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">cbse</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Amit Alex</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+918927982976</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Siliguri</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1287178696648340</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-03T20:43:51.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241910218020700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support A 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241910218010700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support A 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241909270620700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1794624434435120</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">home-visit support 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">fb</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">chandannagar</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">wbbse</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">ARKAPROVO GHOSH</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+919093947013</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">pandua</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1257906516200807</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-01-31T14:29:22.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241910218020700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support A 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241910218010700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support A 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241909270620700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1794624434435120</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">home-visit support 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">fb</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">ktpp_township_</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">cbse</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Pradip Manna</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+919775001256</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">kolaghat</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s25"><Data ss:Type="String">25739493989038474</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-01-31T02:45:49.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241910218020700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support A 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241910218010700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support A 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241909270620700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1794624434435120</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">home-visit support 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">fb</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">berhampur</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">icse</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">SaktiPada Mondal</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+919734419788</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">diamondharbour</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1900947360555912</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-01-30T11:43:38.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241910218020700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support A 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241910218010700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support A 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120241909270620700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Home-visit support 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1794624434435120</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">home-visit support 30/1/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">fb</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">jodhpur_park_(kolkata)</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">cbse</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Adeline Runa Gomes</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+918100452225</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">kolkata</Data></Cell>
+</Row>
+</Table>
+</Worksheet>
+</Workbook>

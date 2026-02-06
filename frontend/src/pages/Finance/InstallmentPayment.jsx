@@ -2207,91 +2207,172 @@ const InstallmentPayment = () => {
                                             </div>
                                         </div>
 
-                                        {/* Installment Details */}
-                                        <div className="mb-10">
-                                            <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
-                                                <div className="h-1 w-8 bg-cyan-500 rounded-full"></div>
-                                                Installment Schedule
-                                            </h4>
-                                            <div className="bg-black/20 border border-gray-800 rounded-[2rem] overflow-hidden">
-                                                <table className="w-full text-left border-collapse">
-                                                    <thead>
-                                                        <tr className="bg-gray-900/50 border-b border-gray-800">
-                                                            <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Installment</th>
-                                                            <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Due Date</th>
-                                                            <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Amount</th>
-                                                            <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Paid</th>
-                                                            <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Method</th>
-                                                            <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Status</th>
-                                                            <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Due Status</th>
-                                                            <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest text-right">Action</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-gray-800/50">
-                                                        {admission.paymentBreakdown && admission.paymentBreakdown.map((installment, idx) => {
-                                                            const today = new Date();
-                                                            today.setHours(0, 0, 0, 0);
-                                                            const dueDate = new Date(installment.dueDate);
-                                                            dueDate.setHours(0, 0, 0, 0);
-                                                            const isOverdue = (installment.status !== "PAID" && installment.status !== "PENDING_CLEARANCE" && dueDate < today);
+                                        {/* Board Monthly Subject History */}
+                                        {admission.admissionType === "BOARD" && admission.monthlySubjectHistory && admission.monthlySubjectHistory.length > 0 && (
+                                            <div className="mb-10">
+                                                <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+                                                    <div className="h-1 w-8 bg-purple-500 rounded-full"></div>
+                                                    Monthly Payment History
+                                                </h4>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                    {admission.monthlySubjectHistory.map((history, hIdx) => {
+                                                        const monthDate = new Date(history.month + "-01");
+                                                        const monthName = monthDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 
-                                                            return (
-                                                                <tr key={idx} className="hover:bg-cyan-500/[0.03] transition-colors">
-                                                                    <td className="p-5 font-black text-cyan-500 text-sm italic">#{installment.installmentNumber}</td>
-                                                                    <td className="p-5 text-gray-300 text-xs font-bold uppercase tracking-tighter">{new Date(installment.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                                                                    <td className="p-5 text-white font-black">₹{installment.amount.toLocaleString()}</td>
-                                                                    <td className="p-5 text-emerald-400 font-black">₹{installment.paidAmount?.toLocaleString() || 0}</td>
-                                                                    <td className="p-5 text-gray-500 text-[10px] font-bold uppercase tracking-widest">{installment.paymentMethod || "-"}</td>
-                                                                    <td className="p-5">{getStatusBadge(installment.status)}</td>
-                                                                    <td className="p-5">
-                                                                        {installment.status === "PAID" ? (
-                                                                            <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-emerald-500 bg-emerald-500/10 border-emerald-500/20">PAID</span>
-                                                                        ) : isOverdue ? (
-                                                                            <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-red-500 bg-red-500/10 border-red-500/20">OVERDUE</span>
-                                                                        ) : (
-                                                                            <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-cyan-500 bg-cyan-500/10 border-cyan-500/20">UPCOMING</span>
-                                                                        )}
-                                                                    </td>
-                                                                    <td className="p-5 text-right flex items-center justify-end gap-2">
-                                                                        {(installment.status === "PENDING" || installment.status === "OVERDUE") && canCreatePayment && (
-                                                                            <button
-                                                                                onClick={() => handleOpenPayModal(admission.admissionId, installment)}
-                                                                                className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 text-black font-black text-[10px] uppercase rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-cyan-500/20"
-                                                                            >
-                                                                                Pay Now
-                                                                            </button>
-                                                                        )}
-                                                                        {(installment.status === "PAID" || installment.status === "COMPLETED" || installment.status === "PENDING_CLEARANCE" || (installment.paidAmount > 0)) && (
-                                                                            <button
-                                                                                onClick={() => setBillModal({
+                                                        return (
+                                                            <div key={hIdx} className="bg-black/20 border border-gray-800 rounded-[2rem] p-6 hover:border-purple-500/30 transition-all group/month">
+                                                                <div className="flex justify-between items-start mb-6">
+                                                                    <div>
+                                                                        <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Month {hIdx + 1} / {admission.courseDurationMonths || 0}</div>
+                                                                        <h5 className="text-xl font-black text-white italic tracking-tight">{monthName}</h5>
+                                                                    </div>
+                                                                    {history.isPaid ? (
+                                                                        <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-emerald-500 bg-emerald-500/10 border-emerald-500/20">PAID</span>
+                                                                    ) : (
+                                                                        <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-orange-500 bg-orange-500/10 border-orange-500/20">PENDING</span>
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="space-y-3 mb-6">
+                                                                    {history.subjects.map((sub, sIdx) => (
+                                                                        <div key={sIdx} className="flex justify-between items-center text-[11px]">
+                                                                            <span className="text-gray-400 font-bold uppercase tracking-tight">{sub.name}</span>
+                                                                            <span className="text-white font-black">₹{sub.price.toLocaleString()}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+
+                                                                <div className="pt-4 border-t border-gray-800/50 flex justify-between items-center">
+                                                                    <div>
+                                                                        <div className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Aggregate</div>
+                                                                        <div className="text-lg font-black text-cyan-500">₹{history.totalAmount.toLocaleString()}</div>
+                                                                    </div>
+                                                                    {history.isPaid && (
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                const monthDate = new Date(history.month + "-01");
+                                                                                const monthName = monthDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+                                                                                // Try both YYYY-MM and formatted Month Name for lookup
+                                                                                const actualPayment = admission.paymentHistory?.find(p =>
+                                                                                    p.billingMonth === history.month ||
+                                                                                    p.billingMonth === monthName
+                                                                                );
+
+                                                                                setBillModal({
                                                                                     show: true,
                                                                                     admission: { ...admission, _id: admission.admissionId },
                                                                                     installment: {
-                                                                                        installmentNumber: installment.installmentNumber,
-                                                                                        amount: installment.amount,
-                                                                                        paidAmount: installment.paidAmount,
-                                                                                        paidDate: installment.paidDate || new Date(),
-                                                                                        paymentMethod: installment.paymentMethod,
-                                                                                        status: installment.status
+                                                                                        installmentNumber: hIdx + 1,
+                                                                                        billingMonth: monthName,
+                                                                                        amount: history.totalAmount,
+                                                                                        paidAmount: actualPayment ? actualPayment.paidAmount : history.totalAmount,
+                                                                                        paidDate: actualPayment ? actualPayment.createdAt : new Date(),
+                                                                                        paymentMethod: actualPayment ? actualPayment.paymentMethod : "Monthly Fee",
+                                                                                        status: actualPayment ? actualPayment.status : "PAID"
                                                                                     }
-                                                                                })}
-                                                                                className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-lg border border-emerald-500/20 transition-all group/btn"
-                                                                                title="View Bill"
-                                                                            >
-                                                                                <FaFileInvoice className="group-hover/btn:scale-110 transition-transform" />
-                                                                            </button>
-                                                                        )}
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </tbody>
-                                                </table>
+                                                                                });
+                                                                            }}
+                                                                            className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 text-black font-black text-[10px] uppercase rounded-xl hover:scale-105 transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2"
+                                                                        >
+                                                                            <FaFileInvoice className="text-xs" />
+                                                                            Extract Bill
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
-                                        </div>
+                                        )}
 
-                                        {/* Payment History */}
-                                        {admission.paymentHistory && admission.paymentHistory.length > 0 && (
+                                        {/* Installment Details - Only for Normal Admissions */}
+                                        {admission.admissionType !== "BOARD" && (
+                                            <div className="mb-10">
+                                                <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+                                                    <div className="h-1 w-8 bg-cyan-500 rounded-full"></div>
+                                                    Installment Schedule
+                                                </h4>
+                                                <div className="bg-black/20 border border-gray-800 rounded-[2rem] overflow-hidden">
+                                                    <table className="w-full text-left border-collapse">
+                                                        <thead>
+                                                            <tr className="bg-gray-900/50 border-b border-gray-800">
+                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Installment</th>
+                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Due Date</th>
+                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Amount</th>
+                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Paid</th>
+                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Method</th>
+                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Status</th>
+                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Due Status</th>
+                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest text-right">Action</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-gray-800/50">
+                                                            {admission.paymentBreakdown && admission.paymentBreakdown.map((installment, idx) => {
+                                                                const today = new Date();
+                                                                today.setHours(0, 0, 0, 0);
+                                                                const dueDate = new Date(installment.dueDate);
+                                                                dueDate.setHours(0, 0, 0, 0);
+                                                                const isOverdue = (installment.status !== "PAID" && installment.status !== "PENDING_CLEARANCE" && dueDate < today);
+
+                                                                return (
+                                                                    <tr key={idx} className="hover:bg-cyan-500/[0.03] transition-colors">
+                                                                        <td className="p-5 font-black text-cyan-500 text-sm italic">#{installment.installmentNumber}</td>
+                                                                        <td className="p-5 text-gray-300 text-xs font-bold uppercase tracking-tighter">{new Date(installment.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                                                                        <td className="p-5 text-white font-black">₹{installment.amount.toLocaleString()}</td>
+                                                                        <td className="p-5 text-emerald-400 font-black">₹{installment.paidAmount?.toLocaleString() || 0}</td>
+                                                                        <td className="p-5 text-gray-500 text-[10px] font-bold uppercase tracking-widest">{installment.paymentMethod || "-"}</td>
+                                                                        <td className="p-5">{getStatusBadge(installment.status)}</td>
+                                                                        <td className="p-5">
+                                                                            {installment.status === "PAID" ? (
+                                                                                <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-emerald-500 bg-emerald-500/10 border-emerald-500/20">PAID</span>
+                                                                            ) : isOverdue ? (
+                                                                                <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-red-500 bg-red-500/10 border-red-500/20">OVERDUE</span>
+                                                                            ) : (
+                                                                                <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-cyan-500 bg-cyan-500/10 border-cyan-500/20">UPCOMING</span>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="p-5 text-right flex items-center justify-end gap-2">
+                                                                            {(installment.status === "PENDING" || installment.status === "OVERDUE") && canCreatePayment && (
+                                                                                <button
+                                                                                    onClick={() => handleOpenPayModal(admission.admissionId, installment)}
+                                                                                    className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 text-black font-black text-[10px] uppercase rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-cyan-500/20"
+                                                                                >
+                                                                                    Pay Now
+                                                                                </button>
+                                                                            )}
+                                                                            {(installment.status === "PAID" || installment.status === "COMPLETED" || installment.status === "PENDING_CLEARANCE" || (installment.paidAmount > 0)) && (
+                                                                                <button
+                                                                                    onClick={() => setBillModal({
+                                                                                        show: true,
+                                                                                        admission: { ...admission, _id: admission.admissionId },
+                                                                                        installment: {
+                                                                                            installmentNumber: installment.installmentNumber,
+                                                                                            amount: installment.amount,
+                                                                                            paidAmount: installment.paidAmount,
+                                                                                            paidDate: installment.paidDate || new Date(),
+                                                                                            paymentMethod: installment.paymentMethod,
+                                                                                            status: installment.status
+                                                                                        }
+                                                                                    })}
+                                                                                    className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-lg border border-emerald-500/20 transition-all group/btn"
+                                                                                    title="View Bill"
+                                                                                >
+                                                                                    <FaFileInvoice className="group-hover/btn:scale-110 transition-transform" />
+                                                                                </button>
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Payment History - Only for Normal Admissions (Board students use the card view above) */}
+                                        {admission.admissionType !== "BOARD" && admission.paymentHistory && admission.paymentHistory.length > 0 && (
                                             <div>
                                                 <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
                                                     <div className="h-1 w-8 bg-emerald-500 rounded-full"></div>
@@ -2303,6 +2384,7 @@ const InstallmentPayment = () => {
                                                             <tr className="bg-gray-900/50 border-b border-gray-800 text-[9px] font-black text-gray-500 uppercase tracking-widest">
                                                                 <th className="p-5">Date</th>
                                                                 <th className="p-5">Inst #</th>
+                                                                <th className="p-5">Details</th>
                                                                 <th className="p-5">Amount</th>
                                                                 <th className="p-5">Method</th>
                                                                 <th className="p-5">Status</th>
@@ -2314,6 +2396,15 @@ const InstallmentPayment = () => {
                                                                 <tr key={idx} className="hover:bg-emerald-500/[0.03] transition-colors">
                                                                     <td className="p-5 text-gray-300 text-[10px] font-bold">{new Date(payment.createdAt).toLocaleDateString('en-GB')}</td>
                                                                     <td className="p-5 text-cyan-500 font-black italic text-xs">#{payment.installmentNumber}</td>
+                                                                    <td className="p-5 text-gray-400 text-[10px] font-bold uppercase tracking-tighter">
+                                                                        {payment.installmentNumber === 0 ? (
+                                                                            <span className="text-emerald-500 font-black">Down Payment</span>
+                                                                        ) : payment.billingMonth ? (
+                                                                            <span>Monthly Fee: <span className="text-white">{payment.billingMonth}</span></span>
+                                                                        ) : (
+                                                                            `Installment #${payment.installmentNumber}`
+                                                                        )}
+                                                                    </td>
                                                                     <td className="p-5 text-white font-black">₹{payment.paidAmount.toLocaleString()}</td>
                                                                     <td className="p-5 text-gray-500 text-[10px] font-bold uppercase tracking-widest">{payment.paymentMethod}</td>
                                                                     <td className="p-5">{getStatusBadge(payment.status)}</td>
@@ -2324,6 +2415,7 @@ const InstallmentPayment = () => {
                                                                                 admission: { ...admission, _id: admission.admissionId },
                                                                                 installment: {
                                                                                     installmentNumber: payment.installmentNumber,
+                                                                                    billingMonth: payment.billingMonth,
                                                                                     amount: payment.amount,
                                                                                     paidAmount: payment.paidAmount,
                                                                                     paidDate: payment.createdAt,

@@ -228,8 +228,13 @@ export const generateMonthlyBill = async (req, res) => {
             const boardName = board.boardCourse || 'Board Course';
             const specificBoardCourseName = `${boardName} ${sessionStr} ${subNames}`.trim();
 
+            // Find the index of the billing month in history to use as installment number
+            const monthIdx = admission.monthlySubjectHistory.findIndex(h => h.month === billingMonth);
+            const calculatedInstNum = monthIdx >= 0 ? monthIdx + 1 : 99; // Fallback to 99 if not found
+
             if (existingPayment) {
                 // Update existing record
+                existingPayment.installmentNumber = calculatedInstNum;
                 existingPayment.amount = totalAmount;
                 existingPayment.paidAmount = (existingPayment.paidAmount || 0) + Number(paymentAmount);
                 existingPayment.status = (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID";
@@ -256,7 +261,7 @@ export const generateMonthlyBill = async (req, res) => {
 
                 const paymentData = {
                     admission: admission._id,
-                    installmentNumber: 0,
+                    installmentNumber: calculatedInstNum,
                     amount: totalAmount,
                     paidAmount: paymentAmount,
                     dueDate: new Date(),

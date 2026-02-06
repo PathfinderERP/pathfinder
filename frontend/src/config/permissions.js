@@ -192,6 +192,10 @@ export const PERMISSION_MODULES = {
             budgetAnalysis: {
                 label: "Budget Analysis",
                 operations: ["create", "edit", "delete"]
+            },
+            transactionReport: {
+                label: "Transaction List",
+                operations: ["view", "create", "edit", "delete"]
             }
         }
     },

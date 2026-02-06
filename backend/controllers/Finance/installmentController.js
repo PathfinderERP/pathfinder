@@ -130,11 +130,12 @@ export const getStudentFinancialDetails = async (req, res) => {
                     admissionId: admission._id,
                     admissionNumber: admission.admissionNumber || "N/A",
                     admissionDate: admission.admissionDate,
-                    course: admission.course?.courseName || "N/A",
+                    course: admission.admissionType === "BOARD" ? (admission.boardCourseName || "Board Course") : (admission.course?.courseName || "N/A"),
                     class: admission.class?.className || "N/A",
                     examTag: admission.examTag?.examTagName || "N/A",
                     academicSession: admission.academicSession || "N/A",
                     centre: admission.centre || "N/A",
+                    admissionType: admission.admissionType || "NORMAL",
 
                     // Fee Details
                     baseFees: admission.baseFees || 0,
@@ -154,8 +155,10 @@ export const getStudentFinancialDetails = async (req, res) => {
                     paymentStatus: admission.paymentStatus || "PENDING",
                     admissionStatus: admission.admissionStatus || "ACTIVE",
 
-                    // Payment Breakdown from Admission
+                    // Payment Breakdown and History
                     paymentBreakdown: admission.paymentBreakdown || [],
+                    monthlySubjectHistory: admission.monthlySubjectHistory || [],
+                    courseDurationMonths: admission.courseDurationMonths || 0,
 
                     // Actual Payment Records
                     paymentHistory: admissionPayments.map(payment => ({
@@ -170,6 +173,7 @@ export const getStudentFinancialDetails = async (req, res) => {
                         transactionId: payment.transactionId || null,
                         accountHolderName: payment.accountHolderName || null,
                         chequeDate: payment.chequeDate,
+                        billingMonth: payment.billingMonth || null,
                         remarks: payment.remarks || null,
                         billId: payment.billId || null,
                         recordedBy: payment.recordedBy?.name || "N/A",
@@ -418,14 +422,15 @@ export const getAllAdmissions = async (req, res) => {
                 studentName: student?.studentName || "N/A",
                 email: student?.studentEmail || "N/A",
                 mobile: student?.mobileNum || "N/A",
-                course: adm.course?.courseName || "N/A",
-                department: adm.department?.departmentName || "N/A",
+                course: adm.admissionType === "BOARD" ? (adm.boardCourseName || "Board Course") : (adm.course?.courseName || "N/A"),
+                department: adm.admissionType === "BOARD" ? "BOARD" : (adm.department?.departmentName || "N/A"),
                 centre: adm.centre || student?.centre || "N/A",
                 admissionDate: adm.admissionDate,
                 totalFees: adm.totalFees,
                 totalPaid: adm.totalPaidAmount,
                 remainingAmount: adm.remainingAmount,
                 paymentStatus: adm.paymentStatus,
+                admissionType: adm.admissionType || "NORMAL",
                 paymentBreakdown: adm.paymentBreakdown || []
             };
         });
