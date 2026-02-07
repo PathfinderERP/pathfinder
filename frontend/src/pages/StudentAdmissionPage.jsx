@@ -4,10 +4,14 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { FaArrowLeft, FaCalculator, FaMoneyBillWave, FaFileInvoice } from 'react-icons/fa';
 import BillGenerator from '../components/Finance/BillGenerator';
+import { useTheme } from '../context/ThemeContext';
 
 const StudentAdmissionPage = () => {
     const { studentId } = useParams();
     const navigate = useNavigate();
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
+
     const [loading, setLoading] = useState(false);
     const [student, setStudent] = useState(null);
     const [courses, setCourses] = useState([]);
@@ -16,7 +20,6 @@ const StudentAdmissionPage = () => {
     const [sessions, setSessions] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [boards, setBoards] = useState([]);
-    const [subjects, setSubjects] = useState([]);
     const [admissionType, setAdmissionType] = useState("NORMAL"); // "NORMAL" | "BOARD"
     const [selectedBoard, setSelectedBoard] = useState("");
     const [selectedSubjectIds, setSelectedSubjectIds] = useState([]);
@@ -62,17 +65,20 @@ const StudentAdmissionPage = () => {
 
     useEffect(() => {
         fetchData();
+        // eslint-disable-next-line
     }, []);
 
     useEffect(() => {
         // Trigger calculation when inputs change
         calculateFees();
+        // eslint-disable-next-line
     }, [formData.courseId, formData.downPayment, formData.numberOfInstallments, formData.feeWaiver, admissionType, selectedSubjectIds, selectedBoard, boards]);
 
     // Pre-select all matching fields when student and master data are loaded
     useEffect(() => {
         if (student && courses.length > 0) {
-            const details = student.studentsDetails?.[0] || {};
+            // Using localized matching logic instead of unused vars
+
             const registeredCourseName = student.sessionExamCourse?.[0]?.targetExams?.trim();
             const registeredClassName = student.examSchema?.[0]?.class?.trim();
             const registeredExamTagName = student.sessionExamCourse?.[0]?.examTag?.trim();
@@ -159,9 +165,10 @@ const StudentAdmissionPage = () => {
             if (sessionsRes.ok) setSessions(await sessionsRes.json());
             if (deptsRes.ok) setDepartments(await deptsRes.json());
             if (boardsRes.ok) setBoards(await boardsRes.json());
-            if (subjectsRes.ok) setSubjects(await subjectsRes.json());
+            if (subjectsRes.ok) await subjectsRes.json();
 
-        } catch (err) {
+        } catch (error) {
+            console.error(error);
             toast.error("Failed to fetch data");
         } finally {
             setLoading(false);
@@ -373,7 +380,8 @@ const StudentAdmissionPage = () => {
             } else {
                 toast.error(data.message || "Failed to create admission");
             }
-        } catch (err) {
+        } catch (error) {
+            console.error(error);
             toast.error("Server error");
         } finally {
             setLoading(false);
@@ -382,41 +390,41 @@ const StudentAdmissionPage = () => {
 
     if (loading && !student) {
         return (
-            <div className="flex-1 bg-[#131619] p-6 flex items-center justify-center">
-                <p className="text-white">Loading...</p>
+            <div className={`flex-1 p-6 flex items-center justify-center ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
+                <p className={`${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Loading...</p>
             </div>
         );
     }
 
     return (
-        <div className="flex-1 bg-[#131619] p-6 overflow-y-auto text-white">
-            <ToastContainer position="top-right" theme="dark" />
+        <div className={`flex-1 p-6 overflow-y-auto ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-gray-50 text-gray-900'}`}>
+            <ToastContainer position="top-right" theme={isDarkMode ? "dark" : "colored"} />
 
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
                     <button
                         onClick={() => navigate("/admissions")}
-                        className="p-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
+                        className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-white' : 'bg-white border border-gray-200 hover:bg-gray-100 text-gray-700'}`}
                     >
                         <FaArrowLeft />
                     </button>
-                    <h2 className="text-2xl font-bold text-cyan-400">Student Admission</h2>
+                    <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Student Admission</h2>
                 </div>
 
                 {/* Admission Type Toggle */}
-                <div className="bg-gray-800 p-1 rounded-lg flex items-center gap-1">
+                <div className={`p-1 rounded-lg flex items-center gap-1 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
                     <button
                         type="button"
                         onClick={() => { setAdmissionType("NORMAL"); setFormData(prev => ({ ...prev, courseId: "", examTagId: "", departmentId: "" })); }}
-                        className={`px-4 py-2 rounded-md transition-all text-sm font-bold ${admissionType === "NORMAL" ? "bg-cyan-500 text-black shadow-lg" : "text-gray-400 hover:text-white"}`}
+                        className={`px-4 py-2 rounded-md transition-all text-sm font-bold ${admissionType === "NORMAL" ? "bg-cyan-500 text-black shadow-lg" : (isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-black")}`}
                     >
                         Standard Course
                     </button>
                     <button
                         type="button"
                         onClick={() => { setAdmissionType("BOARD"); setSelectedBoard(""); setSelectedSubjectIds([]); setFormData(prev => ({ ...prev, courseId: "", examTagId: "", departmentId: "" })); }}
-                        className={`px-4 py-2 rounded-md transition-all text-sm font-bold ${admissionType === "BOARD" ? "bg-cyan-500 text-black shadow-lg" : "text-gray-400 hover:text-white"}`}
+                        className={`px-4 py-2 rounded-md transition-all text-sm font-bold ${admissionType === "BOARD" ? "bg-cyan-500 text-black shadow-lg" : (isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-black")}`}
                     >
                         Board Course
                     </button>
@@ -425,20 +433,20 @@ const StudentAdmissionPage = () => {
 
             {/* Student Info Card */}
             {student && (
-                <div className="bg-[#1a1f24] p-4 rounded-lg border border-gray-800 mb-6">
-                    <h3 className="text-lg font-semibold text-white mb-3">Student Information</h3>
+                <div className={`p-4 rounded-lg border mb-6 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                    <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Student Information</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label className="text-gray-400 text-sm">Name</label>
-                            <p className="text-white font-medium">{student.studentsDetails?.[0]?.studentName}</p>
+                            <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Name</label>
+                            <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{student.studentsDetails?.[0]?.studentName}</p>
                         </div>
                         <div>
-                            <label className="text-gray-400 text-sm">Email</label>
-                            <p className="text-white font-medium">{student.studentsDetails?.[0]?.studentEmail}</p>
+                            <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Email</label>
+                            <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{student.studentsDetails?.[0]?.studentEmail}</p>
                         </div>
                         <div>
-                            <label className="text-gray-400 text-sm">Mobile</label>
-                            <p className="text-white font-medium">{student.studentsDetails?.[0]?.mobileNum}</p>
+                            <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Mobile</label>
+                            <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{student.studentsDetails?.[0]?.mobileNum}</p>
                         </div>
                     </div>
                 </div>
@@ -447,28 +455,28 @@ const StudentAdmissionPage = () => {
             <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Column - Admission Form */}
                 <div className="lg:col-span-2 space-y-6">
-                    <div className="bg-[#1a1f24] p-6 rounded-lg border border-gray-800">
-                        <h3 className="text-lg font-semibold text-white mb-4">Admission Details ({admissionType === "NORMAL" ? "Standard" : "Board"})</h3>
+                    <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                        <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Admission Details ({admissionType === "NORMAL" ? "Standard" : "Board"})</h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-gray-400 mb-2 text-sm">Centre</label>
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Centre</label>
                                 <input
                                     type="text"
                                     name="centre"
                                     value={formData.centre}
                                     readOnly
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-gray-400 cursor-not-allowed focus:outline-none"
+                                    className={`w-full border rounded-lg p-2 cursor-not-allowed focus:outline-none ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-gray-100 border-gray-300 text-gray-500'}`}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-gray-400 mb-2 text-sm">Class</label>
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class</label>
                                 <select
                                     name="classId"
                                     value={formData.classId}
                                     onChange={handleInputChange}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                 >
                                     <option value="">Select Class</option>
                                     {classes.map(cls => (
@@ -481,12 +489,12 @@ const StudentAdmissionPage = () => {
                             {admissionType === "NORMAL" && (
                                 <>
                                     <div>
-                                        <label className="block text-gray-400 mb-2 text-sm">Exam Tag *</label>
+                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Exam Tag *</label>
                                         <select
                                             name="examTagId"
                                             value={formData.examTagId}
                                             onChange={handleInputChange}
-                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                             required={admissionType === "NORMAL"}
                                         >
                                             <option value="">Select Exam Tag</option>
@@ -497,12 +505,12 @@ const StudentAdmissionPage = () => {
                                     </div>
 
                                     <div>
-                                        <label className="block text-gray-400 mb-2 text-sm">Department *</label>
+                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Department *</label>
                                         <select
                                             name="departmentId"
                                             value={formData.departmentId}
                                             onChange={handleInputChange}
-                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                             required={admissionType === "NORMAL"}
                                         >
                                             <option value="">Select Department</option>
@@ -513,12 +521,12 @@ const StudentAdmissionPage = () => {
                                     </div>
 
                                     <div>
-                                        <label className="block text-gray-400 mb-2 text-sm">Course *</label>
+                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course *</label>
                                         <select
                                             name="courseId"
                                             value={formData.courseId}
                                             onChange={handleInputChange}
-                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                             required={admissionType === "NORMAL"}
                                         >
                                             <option value="">Select Course</option>
@@ -534,11 +542,11 @@ const StudentAdmissionPage = () => {
                             {admissionType === "BOARD" && (
                                 <>
                                     <div>
-                                        <label className="block text-gray-400 mb-2 text-sm">Board *</label>
+                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Board *</label>
                                         <select
                                             value={selectedBoard}
                                             onChange={(e) => setSelectedBoard(e.target.value)}
-                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                             required={admissionType === "BOARD"}
                                         >
                                             <option value="">Select Board / Course ...</option>
@@ -549,28 +557,26 @@ const StudentAdmissionPage = () => {
                                     </div>
 
                                     <div>
-                                        <label className="block text-gray-400 mb-2 text-sm">Billing Month *</label>
+                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Billing Month *</label>
                                         <input
                                             type="month"
                                             value={billingMonth}
                                             onChange={(e) => setBillingMonth(e.target.value)}
-                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                             required={admissionType === "BOARD"}
                                         />
                                         <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">Select the month for billing</p>
                                     </div>
-
-                                    {/* Department can be optional or required for Board too, user didn't specify. Keeping generic.*/}
                                 </>
                             )}
 
                             <div>
-                                <label className="block text-gray-400 mb-2 text-sm">Academic Session *</label>
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Academic Session *</label>
                                 <select
                                     name="academicSession"
                                     value={formData.academicSession}
                                     onChange={handleInputChange}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                     required
                                 >
                                     <option value="">Select Session</option>
@@ -581,13 +587,13 @@ const StudentAdmissionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-gray-400 mb-2 text-sm">Student Image URL</label>
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Student Image URL</label>
                                 <input
                                     type="text"
                                     name="studentImage"
                                     value={formData.studentImage}
                                     onChange={handleInputChange}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                     placeholder="Optional"
                                 />
                             </div>
@@ -595,24 +601,24 @@ const StudentAdmissionPage = () => {
 
                         {/* Subject Selection for Board */}
                         {admissionType === "BOARD" && selectedBoard && (
-                            <div className="mt-4 border-t border-gray-700 pt-4">
-                                <label className="block text-gray-300 font-semibold mb-3">Select Subjects for {boards.find(b => b._id === selectedBoard)?.boardCourse}</label>
+                            <div className={`mt-4 border-t pt-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                                <label className={`block font-semibold mb-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Select Subjects for {boards.find(b => b._id === selectedBoard)?.boardCourse}</label>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    {boards.find(b => b._id === selectedBoard)?.subjects?.map((item, idx) => {
+                                    {boards.find(b => b._id === selectedBoard)?.subjects?.map((item) => {
                                         // item is { subjectId: { _id, subName }, price, duration }
                                         const subject = item.subjectId;
                                         if (!subject) return null; // safety check
 
                                         return (
-                                            <label key={subject._id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${selectedSubjectIds.includes(subject._id) ? "bg-cyan-500/10 border-cyan-500" : "bg-gray-800 border-gray-700 hover:border-gray-600"}`}>
+                                            <label key={subject._id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${selectedSubjectIds.includes(subject._id) ? "bg-cyan-500/10 border-cyan-500" : (isDarkMode ? "bg-gray-800 border-gray-700 hover:border-gray-600" : "bg-gray-50 border-gray-200 hover:border-gray-300")}`}>
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedSubjectIds.includes(subject._id)}
                                                     onChange={() => handleSubjectChange(subject._id)}
-                                                    className="w-4 h-4 text-cyan-500 rounded focus:ring-cyan-500 bg-gray-700 border-gray-600"
+                                                    className="w-4 h-4 text-cyan-500 rounded focus:ring-cyan-500"
                                                 />
                                                 <div className="flex-1">
-                                                    <span className="block text-white text-sm font-medium">{subject.subName}</span>
+                                                    <span className={`block text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{subject.subName}</span>
                                                     <span className="block text-cyan-400 text-xs font-bold">₹{item.price?.toLocaleString() || 0}</span>
                                                 </div>
                                             </label>
@@ -626,12 +632,12 @@ const StudentAdmissionPage = () => {
                         )}
 
                         <div className="mt-4">
-                            <label className="block text-gray-400 mb-2 text-sm">Remarks</label>
+                            <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Remarks</label>
                             <textarea
                                 name="remarks"
                                 value={formData.remarks}
                                 onChange={handleInputChange}
-                                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                 rows="3"
                                 placeholder="Additional notes..."
                             />
@@ -639,46 +645,46 @@ const StudentAdmissionPage = () => {
                     </div>
 
                     {/* Payment Configuration */}
-                    <div className="bg-[#1a1f24] p-6 rounded-lg border border-gray-800">
-                        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                        <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
                             <FaMoneyBillWave className="text-cyan-400" />
                             Payment Configuration
                         </h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-gray-400 mb-2 text-sm">Fee Waiver (Discount) ₹</label>
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Fee Waiver (Discount) ₹</label>
                                 <input
                                     type="number"
                                     name="feeWaiver"
                                     value={formData.feeWaiver}
                                     onChange={handleInputChange}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                     min="0"
                                     placeholder="0"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-gray-400 mb-2 text-sm">Down Payment (₹) *</label>
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Down Payment (₹) *</label>
                                 <input
                                     type="number"
                                     name="downPayment"
                                     value={formData.downPayment}
                                     onChange={handleInputChange}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                     min="0"
                                     required
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-gray-400 mb-2 text-sm">Payment Method *</label>
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Payment Method *</label>
                                 <select
                                     name="paymentMethod"
                                     value={formData.paymentMethod}
                                     onChange={handleInputChange}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                     required
                                 >
                                     <option value="CASH">CASH</option>
@@ -690,13 +696,13 @@ const StudentAdmissionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-gray-400 mb-2 text-sm">Received Date *</label>
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Received Date *</label>
                                 <input
                                     type="date"
                                     name="receivedDate"
                                     value={formData.receivedDate}
                                     onChange={handleInputChange}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                     required
                                 />
                                 <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">The actual date money was received</p>
@@ -705,47 +711,47 @@ const StudentAdmissionPage = () => {
                             {formData.paymentMethod === "CHEQUE" ? (
                                 <>
                                     <div>
-                                        <label className="block text-gray-400 mb-2 text-sm">Cheque Number</label>
+                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Cheque Number</label>
                                         <input
                                             type="text"
                                             name="transactionId"
                                             value={formData.transactionId}
                                             onChange={handleInputChange}
-                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                             placeholder="CHQXXXXXX"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-gray-400 mb-2 text-sm">Cheque Date</label>
+                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Cheque Date</label>
                                         <input
                                             type="date"
                                             name="chequeDate"
                                             value={formData.chequeDate}
                                             onChange={handleInputChange}
-                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                         />
                                     </div>
                                     <div className="md:col-span-2">
-                                        <label className="block text-gray-400 mb-2 text-sm">Bank Name</label>
+                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Bank Name</label>
                                         <input
                                             type="text"
                                             name="accountHolderName"
                                             value={formData.accountHolderName}
                                             onChange={handleInputChange}
-                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                             placeholder="e.g. HDFC, ICICI..."
                                         />
                                     </div>
                                 </>
                             ) : (
                                 <div>
-                                    <label className="block text-gray-400 mb-2 text-sm">Transaction ID / Ref</label>
+                                    <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Transaction ID / Ref</label>
                                     <input
                                         type="text"
                                         name="transactionId"
                                         value={formData.transactionId}
                                         onChange={handleInputChange}
-                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                        className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                         placeholder="Optional"
                                     />
                                 </div>
@@ -753,13 +759,13 @@ const StudentAdmissionPage = () => {
 
                             {admissionType === "NORMAL" && (
                                 <div>
-                                    <label className="block text-gray-400 mb-2 text-sm">Number of Installments *</label>
+                                    <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Number of Installments *</label>
                                     <input
                                         type="number"
                                         name="numberOfInstallments"
                                         value={formData.numberOfInstallments}
                                         onChange={handleInputChange}
-                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                        className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                         min="1"
                                         max="24"
                                         required
@@ -769,8 +775,8 @@ const StudentAdmissionPage = () => {
 
                             {admissionType === "BOARD" && feeBreakdown.courseDurationMonths && (
                                 <div>
-                                    <label className="block text-gray-400 mb-2 text-sm">Course Duration</label>
-                                    <div className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-cyan-400 font-bold">
+                                    <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course Duration</label>
+                                    <div className={`w-full border rounded-lg p-2 font-bold ${isDarkMode ? 'bg-gray-800 border-gray-700 text-cyan-400' : 'bg-gray-100 border-gray-300 text-cyan-600'}`}>
                                         {feeBreakdown.courseDurationMonths} Months
                                     </div>
                                     <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">Monthly billing for entire duration</p>
@@ -785,18 +791,18 @@ const StudentAdmissionPage = () => {
                     {selectedCourse && (
                         <>
                             {/* Course Fee Structure */}
-                            <div className="bg-[#1a1f24] p-6 rounded-lg border border-gray-800">
-                                <h3 className="text-lg font-semibold text-white mb-4">Course Fee Structure</h3>
+                            <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                                <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Course Fee Structure</h3>
                                 <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                                     {selectedCourse.feesStructure.map((fee, index) => (
-                                        <div key={index} className="flex justify-between items-center p-2 bg-gray-800 rounded">
-                                            <span className="text-gray-300">{fee.feesType}</span>
-                                            <span className="text-white font-medium">₹{fee.value.toLocaleString()}</span>
+                                        <div key={index} className={`flex justify-between items-center p-2 rounded ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                                            <span className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{fee.feesType}</span>
+                                            <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fee.value.toLocaleString()}</span>
                                         </div>
                                     ))}
                                 </div>
 
-                                <div className="border-t border-gray-700 my-2 pt-2 space-y-2">
+                                <div className={`border-t my-2 pt-2 space-y-2 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
                                     {admissionType === "BOARD" && feeBreakdown.monthlyFees && (
                                         <div className="flex justify-between items-center bg-cyan-900/20 p-2 rounded">
                                             <span className="text-cyan-400 font-semibold">Monthly Fees (Per Month)</span>
@@ -835,54 +841,54 @@ const StudentAdmissionPage = () => {
                                     )}
                                 </div>
 
-                                <div className="flex justify-between items-center p-3 bg-cyan-500/20 rounded border border-cyan-500/50 mt-3">
-                                    <span className="text-cyan-400 font-semibold">Total Fees (with GST)</span>
-                                    <span className="text-cyan-400 font-bold text-lg">₹{feeBreakdown.totalFees.toLocaleString()}</span>
+                                <div className={`flex justify-between items-center p-3 rounded border mt-3 ${isDarkMode ? 'bg-cyan-500/20 border-cyan-500/50' : 'bg-cyan-50 border-cyan-200'}`}>
+                                    <span className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'} font-semibold`}>Total Fees (with GST)</span>
+                                    <span className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'} font-bold text-lg`}>₹{feeBreakdown.totalFees.toLocaleString()}</span>
                                 </div>
                             </div>
 
                             {/* Payment Breakdown */}
-                            <div className="bg-[#1a1f24] p-6 rounded-lg border border-gray-800">
-                                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                            <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                                <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
                                     <FaCalculator className="text-cyan-400" />
                                     Payment Breakdown
                                 </h3>
 
                                 <div className="space-y-3">
                                     <div className="flex justify-between">
-                                        <span className="text-gray-400">Total Fees</span>
-                                        <span className="text-white font-medium">₹{feeBreakdown.totalFees.toLocaleString()}</span>
+                                        <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Fees</span>
+                                        <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{feeBreakdown.totalFees.toLocaleString()}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-gray-400">Down Payment</span>
-                                        <span className="text-green-400 font-medium">-₹{feeBreakdown.downPayment.toLocaleString()}</span>
+                                        <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Down Payment</span>
+                                        <span className="text-green-500 font-medium">-₹{feeBreakdown.downPayment.toLocaleString()}</span>
                                     </div>
-                                    <div className="border-t border-gray-700 pt-2 flex justify-between">
-                                        <span className="text-gray-400">Remaining Amount</span>
-                                        <span className="text-white font-semibold">₹{feeBreakdown.remainingAmount.toLocaleString()}</span>
+                                    <div className={`border-t pt-2 flex justify-between ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                                        <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Remaining Amount</span>
+                                        <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{feeBreakdown.remainingAmount.toLocaleString()}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-gray-400">{admissionType === "BOARD" ? "Per Month" : "Per Installment"}</span>
-                                        <span className="text-cyan-400 font-medium">₹{feeBreakdown.installmentAmount.toLocaleString()}</span>
+                                        <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{admissionType === "BOARD" ? "Per Month" : "Per Installment"}</span>
+                                        <span className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'} font-medium`}>₹{feeBreakdown.installmentAmount.toLocaleString()}</span>
                                     </div>
                                 </div>
 
                                 {/* Payment Schedule / Monthly Breakdown */}
                                 {feeBreakdown.paymentSchedule.length > 0 && (
                                     <div className="mt-4">
-                                        <h4 className="text-sm font-semibold text-gray-300 mb-2">
+                                        <h4 className={`text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                             {admissionType === "BOARD" ? "Monthly Breakdown" : "Payment Schedule"}
                                         </h4>
-                                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                                        <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
                                             {feeBreakdown.paymentSchedule.map((payment, index) => (
-                                                <div key={index} className="flex justify-between items-center p-2 bg-gray-800 rounded text-sm">
+                                                <div key={index} className={`flex justify-between items-center p-2 rounded text-sm ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
                                                     <div>
-                                                        <span className="text-gray-400">
+                                                        <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-700'}`}>
                                                             {admissionType === "BOARD" ? `Month ${payment.installmentNumber}` : `Installment ${payment.installmentNumber}`}
                                                         </span>
                                                         <p className="text-xs text-gray-500">{payment.dueDate}</p>
                                                     </div>
-                                                    <span className="text-white font-medium">₹{payment.amount.toLocaleString()}</span>
+                                                    <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{payment.amount.toLocaleString()}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -906,12 +912,12 @@ const StudentAdmissionPage = () => {
             {/* Success/Bill Generation Modal */}
             {createdAdmission && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                    <div className="bg-[#1a1f24] rounded-xl border border-gray-700 p-6 max-w-md w-full text-center">
+                    <div className={`rounded-xl border p-6 max-w-md w-full text-center ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200 shadow-xl'}`}>
                         <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                             <FaMoneyBillWave className="text-3xl text-green-500" />
                         </div>
-                        <h3 className="text-xl font-bold text-white mb-2">Admission Successful!</h3>
-                        <p className="text-gray-400 mb-6">
+                        <h3 className={`text-xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Admission Successful!</h3>
+                        <p className={`mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                             Student has been successfully admitted to {createdAdmission.course?.courseName}.
                         </p>
 
@@ -930,7 +936,7 @@ const StudentAdmissionPage = () => {
                                             status: formData.paymentMethod === "CHEQUE" ? "PENDING_CLEARANCE" : "PAID"
                                         }
                                     })}
-                                    className="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg flex items-center justify-center gap-2"
+                                    className="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg flex items-center justify-center gap-2 shadow-md"
                                 >
                                     <FaFileInvoice /> {formData.paymentMethod === "CHEQUE" ? "Generate Acknowledgement (Cheque)" : "Generate Bill (Down Payment)"}
                                 </button>
@@ -938,7 +944,7 @@ const StudentAdmissionPage = () => {
 
                             <button
                                 onClick={() => navigate("/admissions")}
-                                className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg"
+                                className={`w-full py-3 font-semibold rounded-lg ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
                             >
                                 {formData.paymentMethod === "CHEQUE" ? "Close & View Admissions" : "Go to Admissions List"}
                             </button>

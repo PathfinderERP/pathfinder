@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 
 export const getFollowUpStats = async (req, res) => {
     try {
-        const { fromDate, toDate, centre, leadResponsibility, scheduledDate } = req.query;
+        const { fromDate, toDate, centre, leadResponsibility, scheduledDate, startTime, endTime } = req.query;
 
         // Base match for the Lead entries (Access Control)
         const baseMatch = {};
@@ -26,6 +26,35 @@ export const getFollowUpStats = async (req, res) => {
             activityDateFilter.$gte = today;
             activityDateFilter.$lt = tomorrow;
         }
+
+        const buildTimeMatch = () => {
+            if (!startTime && !endTime) return {};
+
+            const match = { $and: [] };
+            if (startTime) {
+                const [h, m] = startTime.split(':').map(Number);
+                const startMinutes = h * 60 + (m || 0);
+                match.$and.push({
+                    $gte: [
+                        { $add: [{ $multiply: [{ $hour: "$followUp.date" }, 60] }, { $minute: "$followUp.date" }] },
+                        startMinutes - 330 // Adjusting for IST (UTC+5:30) if stored in UTC
+                    ]
+                });
+            }
+            if (endTime) {
+                const [h, m] = endTime.split(':').map(Number);
+                const endMinutes = h * 60 + (m || 0);
+                match.$and.push({
+                    $lte: [
+                        { $add: [{ $multiply: [{ $hour: "$followUp.date" }, 60] }, { $minute: "$followUp.date" }] },
+                        endMinutes - 330
+                    ]
+                });
+            }
+            return { $expr: match };
+        };
+
+        const timeMatch = buildTimeMatch();
 
         // 2. Date filter for SCHEDULED WORK (nextFollowUpDate)
         const scheduledDateFilter = {};
@@ -88,6 +117,7 @@ export const getFollowUpStats = async (req, res) => {
                         {
                             $match: {
                                 "followUp.date": activityDateFilter,
+                                ...timeMatch,
                                 ...(leadResponsibility ? { "leadResponsibility": { $regex: new RegExp(`^${leadResponsibility}$`, "i") } } : {})
                             }
                         },

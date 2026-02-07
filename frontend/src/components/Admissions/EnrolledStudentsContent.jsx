@@ -1403,7 +1403,7 @@ const EnrolledStudentsContent = () => {
 
                                                 {/* Payment Breakdown / Monthly Breakdown */}
                                                 <div>
-                                                    <h6 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
+                                                    <h6 className={`text-sm font-semibold mb-2 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                         <FaCalendar /> {admission.admissionType === 'BOARD' ? 'Monthly Payment History' : 'Payment Schedule'}
                                                     </h6>
                                                     <div className="overflow-x-auto max-h-[300px] overflow-y-auto custom-scrollbar">
@@ -1422,11 +1422,16 @@ const EnrolledStudentsContent = () => {
                                                                         };
 
                                                                         return (
-                                                                            <div key={hIdx} className={`p-4 rounded-lg border flex flex-col h-full transition-all group ${displayPaid ? 'bg-green-500/5 border-green-500/20' : 'bg-gray-800 border-gray-700 hover:border-cyan-500/30'}`}>
+                                                                            <div key={hIdx} className={`p-4 rounded-lg border flex flex-col h-full transition-all group ${displayPaid
+                                                                                ? 'bg-green-500/5 border-green-500/20'
+                                                                                : isDarkMode
+                                                                                    ? 'bg-gray-800 border-gray-700 hover:border-cyan-500/30'
+                                                                                    : 'bg-white border-gray-200 hover:border-cyan-500/30 shadow-sm'
+                                                                                }`}>
                                                                                 <div className="flex justify-between items-center mb-3">
                                                                                     <div>
                                                                                         <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Month {hIdx + 1} / {admission.courseDurationMonths}</span>
-                                                                                        <span className="text-white font-bold">{getMonthName(history.month)}</span>
+                                                                                        <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{getMonthName(history.month)}</span>
                                                                                     </div>
                                                                                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${displayPaid ? 'bg-green-500 text-white' : 'bg-yellow-500 text-black'}`}>
                                                                                         {displayPaid ? 'PAID' : 'PENDING'}

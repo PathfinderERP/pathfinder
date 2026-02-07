@@ -9,7 +9,9 @@ import uploadRecording from "../../controllers/leadManagement/uploadRecording.js
 import { getLeadDashboardStats } from "../../controllers/leadManagement/getLeadDashboard.js";
 import { getFollowUpStats } from "../../controllers/leadManagement/getFollowUpStats.js";
 import { exportLeadsExcel } from "../../controllers/leadManagement/exportLeadsExcel.js";
+import { exportTelecallerLogs } from "../../controllers/leadManagement/exportTelecallerLogs.js";
 import { requireAuth } from "../../middleware/permissionMiddleware.js";
+import { getTelecallerAnalytics } from "../../controllers/leadManagement/getTelecallerAnalytics.js";
 import multer from "multer";
 
 const router = express.Router();
@@ -22,6 +24,8 @@ router.get("/:id", requireAuth, getLeadById);
 router.get("/stats/dashboard", requireAuth, getLeadDashboardStats);
 router.get("/stats/today-followups", requireAuth, getFollowUpStats);
 router.get("/export/excel", requireAuth, exportLeadsExcel);
+router.get("/export/telecaller-logs", requireAuth, exportTelecallerLogs);
+router.get("/analytics/:telecallerId", requireAuth, getTelecallerAnalytics);
 router.post("/create", requireAuth, createLead);
 router.put("/:id", requireAuth, updateLead);
 router.put("/:id/follow-up", requireAuth, addFollowUp);

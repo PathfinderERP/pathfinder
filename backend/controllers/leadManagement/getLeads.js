@@ -76,6 +76,14 @@ export const getLeads = async (req, res) => {
                 : { $regex: leadResponsibility, $options: "i" };
         }
 
+        // Filter by Follow-up Status (Contacted vs Remaining)
+        const { followUpStatus } = req.query;
+        if (followUpStatus === 'contacted') {
+            query.followUps = { $exists: true, $not: { $size: 0 } };
+        } else if (followUpStatus === 'remaining') {
+            query.followUps = { $size: 0 };
+        }
+
         // Exclude counseled leads from dashboard stats to match lead list logic
         query.isCounseled = { $ne: true };
 

@@ -1,5 +1,5 @@
 import express from "express";
-import { searchStudent, getStudentFinancialDetails, getFeeDueList, getAllAdmissions } from "../../controllers/Finance/installmentController.js";
+import { searchStudent, getStudentFinancialDetails, getFeeDueList, getAllAdmissions, updateInstallmentSchedule } from "../../controllers/Finance/installmentController.js";
 import { getPendingCheques, clearCheque, rejectCheque } from "../../controllers/Finance/chequeController.js";
 import { getFinancialAnalytics } from "../../controllers/Finance/getFinancialAnalytics.js";
 import authMiddleware from "../../middleware/authMiddleware.js";
@@ -25,6 +25,9 @@ router.get("/analytics", getFinancialAnalytics);
 router.get("/pending-cheques", getPendingCheques);
 router.post("/clear-cheque/:paymentId", clearCheque);
 router.post("/reject-cheque/:paymentId", rejectCheque);
+
+// Update installment schedule
+router.put("/update-schedule/:admissionId", updateInstallmentSchedule);
 
 // Get complete financial details for a student
 router.get("/student/:studentId", getStudentFinancialDetails);

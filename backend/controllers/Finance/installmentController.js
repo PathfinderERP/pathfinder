@@ -441,3 +441,83 @@ export const getAllAdmissions = async (req, res) => {
         res.status(500).json({ message: "Error fetching admissions", error: error.message });
     }
 };
+
+// Update installment schedule for an admission
+export const updateInstallmentSchedule = async (req, res) => {
+    try {
+        const { admissionId } = req.params;
+        const { newSchedule } = req.body; // Array of { installmentNumber, dueDate, amount }
+
+        if (!Array.isArray(newSchedule) || newSchedule.length === 0) {
+            return res.status(400).json({ message: "Invalid schedule provided" });
+        }
+
+        const admission = await Admission.findById(admissionId);
+        if (!admission) {
+            return res.status(404).json({ message: "Admission record not found" });
+        }
+
+        // Check if user has permission (handled by route middleware but good to be safe)
+        if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
+            // Additional check for centre access if needed
+        }
+
+        // 1. Identify existing installments that cannot be changed (PAID or PENDING_CLEARANCE)
+        const lockedInstallments = admission.paymentBreakdown.filter(inst =>
+            inst.status === "PAID" || inst.status === "PENDING_CLEARANCE"
+        );
+
+        // 2. Validate that the new schedule doesn't conflict with installment numbers of locked ones
+        const lockedNumbers = lockedInstallments.map(i => i.installmentNumber);
+        const hasConflict = newSchedule.some(i => lockedNumbers.includes(i.installmentNumber));
+
+        if (hasConflict) {
+            return res.status(400).json({
+                message: "New schedule contains installment numbers that are already paid or in process."
+            });
+        }
+
+        // 3. Calculate total of the new schedule
+        const newTotal = newSchedule.reduce((sum, i) => sum + parseFloat(i.amount || 0), 0);
+
+        // Calculate current unpaid amount (excluding locked ones)
+        // Actually, we should check against remainingAmount
+        if (Math.abs(newTotal - admission.remainingAmount) > 0.01) {
+            return res.status(400).json({
+                message: `The total of new installments (₹${newTotal}) must match the remaining balance (₹${admission.remainingAmount}).`
+            });
+        }
+
+        // 4. Transform new schedule into schema format
+        const formattedNewSchedule = newSchedule.map(item => ({
+            installmentNumber: item.installmentNumber,
+            dueDate: new Date(item.dueDate),
+            amount: parseFloat(item.amount),
+            status: "PENDING",
+            paidAmount: 0
+        }));
+
+        // 5. Combine and sort
+        const updatedBreakdown = [...lockedInstallments, ...formattedNewSchedule].sort(
+            (a, b) => a.installmentNumber - b.installmentNumber
+        );
+
+        // 6. Update Admission record
+        admission.paymentBreakdown = updatedBreakdown;
+        admission.numberOfInstallments = updatedBreakdown.length;
+        admission.installmentAmount = updatedBreakdown.length > 0
+            ? (admission.totalFees - admission.downPayment) / updatedBreakdown.length
+            : 0;
+
+        await admission.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Installment schedule updated successfully",
+            admission
+        });
+    } catch (error) {
+        console.error("Update Schedule Error:", error);
+        res.status(500).json({ message: "Error updating installment schedule", error: error.message });
+    }
+};
