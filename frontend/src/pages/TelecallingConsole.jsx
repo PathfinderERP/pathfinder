@@ -13,6 +13,7 @@ import {
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import LeadListModal from "./LeadListModal";
+import FollowUpActivityModal from "../components/LeadManagement/FollowUpActivityModal";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -190,11 +191,57 @@ const TelecallingConsole = () => {
         endTime: ""
     });
 
-    // Modal State
+    const [activityModal, setActivityModal] = useState({
+        isOpen: false,
+        title: "",
+        data: []
+    });
+
     const [showLeadModal, setShowLeadModal] = useState(false);
     const [modalTitle, setModalTitle] = useState("");
     const [modalLeads, setModalLeads] = useState([]);
-    const [modalLoading, setModalLoading] = useState(false);
+
+    const handleActivityCardClick = (type) => {
+        let title = "";
+        let data = [];
+
+        switch (type) {
+            case 'UPCOMING':
+                title = "Upcoming Scheduled Follow-ups";
+                data = followUpStats.scheduledList || [];
+                break;
+            case 'TODAY':
+                title = "Today's Follow-up Activity";
+                data = followUpStats.recentActivity || [];
+                break;
+            case 'HOT':
+                title = "Hot Interest Leads Details";
+                data = (followUpStats.recentActivity || []).filter(item =>
+                    item.status?.toUpperCase() === 'HOT LEAD'
+                );
+                break;
+            case 'COLD':
+                title = "Cold Leads Discussions";
+                data = (followUpStats.recentActivity || []).filter(item =>
+                    item.status?.toUpperCase() === 'COLD LEAD'
+                );
+                break;
+            case 'NEGATIVE':
+                title = "Negative Results Records";
+                data = (followUpStats.recentActivity || []).filter(item =>
+                    item.status?.toUpperCase() === 'NEGATIVE'
+                );
+                break;
+            default:
+                return;
+        }
+
+        setActivityModal({
+            isOpen: true,
+            title: title.toUpperCase(),
+            data
+        });
+    };
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -381,17 +428,9 @@ const TelecallingConsole = () => {
         navigate(`/admissions/telecalling-console?telecaller=${encodeURIComponent(telecaller.name)}`);
     };
 
-    const formatDateTime = (dateString) => {
-        if (!dateString) return { date: '-', time: '-' };
-        const date = new Date(dateString);
-        return {
-            date: date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-            time: date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
-        };
-    };
+
 
     const fetchLeadsByStatus = async (status) => {
-        setModalLoading(true);
         try {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams({
@@ -408,8 +447,6 @@ const TelecallingConsole = () => {
         } catch (error) {
             console.error("Error fetching modal leads:", error);
             return [];
-        } finally {
-            setModalLoading(false);
         }
     };
 
@@ -595,7 +632,9 @@ const TelecallingConsole = () => {
                                     {/* Detailed Stats Cards Section */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                                         {/* Scheduled Follow-ups Card */}
-                                        <div className={`p-5 rounded-[2px] border relative overflow-hidden group transition-all ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-cyan-50 border-cyan-100 shadow-sm'}`}>
+                                        <div
+                                            onClick={() => handleActivityCardClick('UPCOMING')}
+                                            className={`p-5 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20 hover:border-cyan-500/50' : 'bg-cyan-50 border-cyan-100 shadow-sm hover:border-cyan-500/50'}`}>
                                             <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
                                                 <div>
                                                     <p className={`text-[9px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Upcoming Tasks</p>
@@ -612,7 +651,9 @@ const TelecallingConsole = () => {
                                         </div>
 
                                         {/* Total Follow-ups Card */}
-                                        <div className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                        <div
+                                            onClick={() => handleActivityCardClick('TODAY')}
+                                            className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-cyan-500/50' : 'bg-white border-gray-100 shadow-sm hover:border-cyan-500/50'}`}>
                                             <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
                                                 <div>
                                                     <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Today's Activity</p>
@@ -620,7 +661,10 @@ const TelecallingConsole = () => {
                                                     <p className="text-[9px] font-bold text-cyan-500 mt-1 uppercase tracking-widest">Follow-ups Recorded</p>
                                                 </div>
                                                 <button
-                                                    onClick={() => fetchFollowUpStats(telecallerNameFromUrl)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        fetchFollowUpStats(telecallerNameFromUrl);
+                                                    }}
                                                     className={`p-3 rounded-[2px] transition-all hover:rotate-180 duration-500 ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500' : 'bg-cyan-50 text-cyan-600'}`}
                                                 >
                                                     <FaHistory size={20} />
@@ -632,7 +676,9 @@ const TelecallingConsole = () => {
                                         </div>
 
                                         {/* Hot Leads Card */}
-                                        <div className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                        <div
+                                            onClick={() => handleActivityCardClick('HOT')}
+                                            className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-red-500/50' : 'bg-white border-gray-100 shadow-sm hover:border-red-500/50'}`}>
                                             <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
                                                 <div>
                                                     <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Hot Interests</p>
@@ -649,7 +695,9 @@ const TelecallingConsole = () => {
                                         </div>
 
                                         {/* Cold Leads Card */}
-                                        <div className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                        <div
+                                            onClick={() => handleActivityCardClick('COLD')}
+                                            className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-blue-500/50' : 'bg-white border-gray-100 shadow-sm hover:border-blue-500/50'}`}>
                                             <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
                                                 <div>
                                                     <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Cold Leads</p>
@@ -666,7 +714,9 @@ const TelecallingConsole = () => {
                                         </div>
 
                                         {/* Negative Results Card */}
-                                        <div className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                        <div
+                                            onClick={() => handleActivityCardClick('NEGATIVE')}
+                                            className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-gray-500/50' : 'bg-white border-gray-100 shadow-sm hover:border-gray-500/50'}`}>
                                             <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
                                                 <div>
                                                     <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Negative Results</p>
@@ -820,9 +870,16 @@ const TelecallingConsole = () => {
                             leads={modalLeads}
                             onClose={() => setShowLeadModal(false)}
                             isDarkMode={isDarkMode}
-                            formatDateTime={formatDateTime}
                         />
                     )}
+
+                    <FollowUpActivityModal
+                        isOpen={activityModal.isOpen}
+                        onClose={() => setActivityModal(prev => ({ ...prev, isOpen: false }))}
+                        title={activityModal.title}
+                        data={activityModal.data}
+                        isDarkMode={isDarkMode}
+                    />
                 </div>
             </div>
 
