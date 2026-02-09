@@ -474,7 +474,7 @@ const LeadManagementContent = () => {
             <div className="p-4 sm:p-6 md:p-8 max-w-[1800px] mx-auto space-y-8">
                 {/* Header */}
                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
-                    <div className="flex items-center">
+                    <div className="flex flex-col sm:flex-row sm:items-center">
                         <div>
                             <h1 className={`text-2xl sm:text-4xl font-black mb-2 tracking-tighter uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                 Lead <span className="text-cyan-500">Management</span>
@@ -747,8 +747,8 @@ const LeadManagementContent = () => {
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                             <div className="flex items-center gap-3">
                                 <div className={`p-2 rounded-[2px] ${(followUpStats.totalFollowUps / 50 * 100) >= 70 ? 'bg-green-500/10 text-green-500' :
-                                        (followUpStats.totalFollowUps / 50 * 100) >= 30 ? 'bg-yellow-500/10 text-yellow-500' :
-                                            'bg-red-500/10 text-red-500'
+                                    (followUpStats.totalFollowUps / 50 * 100) >= 30 ? 'bg-yellow-500/10 text-yellow-500' :
+                                        'bg-red-500/10 text-red-500'
                                     }`}>
                                     <FaChartLine size={14} />
                                 </div>
@@ -779,8 +779,8 @@ const LeadManagementContent = () => {
                         <div className="relative h-4 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
                             <div
                                 className={`absolute inset-y-0 left-0 transition-all duration-1000 ease-out flex items-center justify-end pr-2 overflow-visible ${(followUpStats.totalFollowUps / 50 * 100) >= 70 ? 'bg-gradient-to-r from-green-600 to-green-400' :
-                                        (followUpStats.totalFollowUps / 50 * 100) >= 30 ? 'bg-gradient-to-r from-yellow-600 to-yellow-400' :
-                                            'bg-gradient-to-r from-red-600 to-red-400'
+                                    (followUpStats.totalFollowUps / 50 * 100) >= 30 ? 'bg-gradient-to-r from-yellow-600 to-yellow-400' :
+                                        'bg-gradient-to-r from-red-600 to-red-400'
                                     }`}
                                 style={{ width: `${Math.min((followUpStats.totalFollowUps / 50) * 100, 100)}%` }}
                             >
