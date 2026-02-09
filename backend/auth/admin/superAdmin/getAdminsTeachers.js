@@ -1,4 +1,6 @@
 import User from "../../../models/User.js";
+import Employee from "../../../models/HR/Employee.js";
+import { getSignedFileUrl } from "../../../utils/r2Upload.js";
 
 export const getAllAdminsBySuperAdmin = async (req, res) => {
   try {
@@ -52,12 +54,28 @@ export const getAllUsersBySuperAdmin = async (req, res) => {
     const users = await User.find(query)
       .populate("centres", "centreName enterCode")
       .populate("assignedScript", "scriptName scriptContent")
-      .select("-password"); // Security: Never return passwords
+      .select("-password")
+      .lean(); // Use lean for performance since we'll modify the objects
+
+    // Enrich users with employee data (profile image)
+    const enrichedUsers = await Promise.all(users.map(async (user) => {
+      const employee = await Employee.findOne({ user: user._id });
+      let profileImageUrl = null;
+      if (employee?.profileImage) {
+        profileImageUrl = await getSignedFileUrl(employee.profileImage);
+      }
+
+      return {
+        ...user,
+        profileImage: profileImageUrl,
+        mobNum: user.mobNum || employee?.phoneNumber // Prefer user.mobNum if available
+      };
+    }));
 
     res.status(200).json({
       message: "List of all users based on access permissions",
-      count: users.length,
-      users,
+      count: enrichedUsers.length,
+      users: enrichedUsers,
     });
   } catch (error) {
     console.error("Error fetching users:", error);

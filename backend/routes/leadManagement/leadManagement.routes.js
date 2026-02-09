@@ -21,13 +21,16 @@ const upload = multer({ storage: multer.memoryStorage() });
 // All lead management routes require authentication
 router.get("/", requireAuth, getLeads);
 router.get("/follow-ups", requireAuth, getFollowUpLeads);
-router.get("/:id", requireAuth, getLeadById);
 router.get("/stats/dashboard", requireAuth, getLeadDashboardStats);
 router.get("/stats/today-followups", requireAuth, getFollowUpStats);
 router.get("/export/excel", requireAuth, exportLeadsExcel);
 router.get("/export/telecaller-logs", requireAuth, exportTelecallerLogs);
 router.get("/analytics-all", requireAuth, getAllTelecallerAnalytics);
 router.get("/analytics/:telecallerId", requireAuth, getTelecallerAnalytics);
+
+// Generic ID route must come AFTER specific routes
+router.get("/:id", requireAuth, getLeadById);
+
 router.post("/create", requireAuth, createLead);
 router.put("/:id", requireAuth, updateLead);
 router.put("/:id/follow-up", requireAuth, addFollowUp);

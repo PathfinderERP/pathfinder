@@ -1,10 +1,16 @@
-
 import XLSX from 'xlsx';
 
-const file = 'c:/Users/USER/erp_1/uploads/students/student_data3.xlsx';
+const file = 'c:/Users/USER/erp_1/uploads/leads/CI_ZM_Migrated.xlsx';
 const workbook = XLSX.readFile(file);
 const sheet = workbook.Sheets[workbook.SheetNames[0]];
-const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }); // Get header row
+const data = XLSX.utils.sheet_to_json(sheet);
 
-console.log('Headers:', rows[0]);
-console.log('First Row Data:', rows[1]);
+const uniqueCenters = [...new Set(data.map(row => row['Center Name']))];
+console.log('Unique Center Names in Excel:', uniqueCenters);
+
+const usersWithCenters = data.filter(row => row['Center Name'] && row['Center Name'].trim() !== '');
+console.log('Users with Center Name specified in Excel:', usersWithCenters.length);
+
+if (usersWithCenters.length > 0) {
+    console.log('First 3 users with centers:', usersWithCenters.slice(0, 3));
+}
