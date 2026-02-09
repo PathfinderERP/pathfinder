@@ -283,6 +283,12 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                         <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Assigned To</span>
                         <span className={`text-[11px] font-black italic uppercase ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{lead.leadResponsibility || "NONE"}</span>
                     </div>
+                    <div className="flex flex-col items-end">
+                        <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Assigned At</span>
+                        <span className={`text-[10px] font-black uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            {new Date(lead.assignedAt || lead.createdAt).toLocaleDateString('en-GB')} {new Date(lead.assignedAt || lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                    </div>
                 </div>
 
                 {/* Actions Footer */}

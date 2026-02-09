@@ -28,7 +28,8 @@ export const createLead = async (req, res) => {
             source,
             targetExam,
             leadType,
-            leadResponsibility
+            leadResponsibility,
+            assignedAt: leadResponsibility ? new Date() : null
         };
 
         if (className) leadData.className = className;

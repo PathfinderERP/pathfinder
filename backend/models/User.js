@@ -101,6 +101,15 @@ const userSchema = new mongoose.Schema({
     assignedScript: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Script'
+    },
+    redFlags: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 5
+    },
+    lastPenaltyDate: {
+        type: Date
     }
 
 }, { timestamps: true });

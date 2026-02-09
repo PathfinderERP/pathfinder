@@ -11,6 +11,11 @@ export const updateLead = async (req, res) => {
         if (!updateData.course) delete updateData.course;
         if (!updateData.board) delete updateData.board;
 
+        // If leadResponsibility is being updated, set assignedAt
+        if (updateData.leadResponsibility) {
+            updateData.assignedAt = new Date();
+        }
+
         const updatedLead = await LeadManagement.findByIdAndUpdate(
             id,
             updateData,

@@ -53,6 +53,9 @@ const leadManagementSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    assignedAt: {
+        type: Date
+    },
     // New fields for easier querying
     lastFollowUpDate: {
         type: Date

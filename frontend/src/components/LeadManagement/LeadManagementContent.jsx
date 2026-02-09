@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FaCalendarAlt, FaDownload, FaFileUpload, FaFileExcel, FaPlus, FaFilter, FaSearch, FaChevronLeft, FaChevronRight, FaMoon, FaSun, FaHistory, FaChartLine, FaTrash, FaRedo, FaPhoneAlt, FaEnvelope, FaEdit } from "react-icons/fa";
+import { FaCalendarAlt, FaDownload, FaFileUpload, FaFileExcel, FaPlus, FaFilter, FaSearch, FaChevronLeft, FaChevronRight, FaMoon, FaSun, FaHistory, FaChartLine, FaTrash, FaRedo, FaPhoneAlt, FaEnvelope, FaEdit, FaStar, FaExclamationTriangle, FaCheckCircle } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { saveAs } from "file-saver";
@@ -741,6 +741,79 @@ const LeadManagementContent = () => {
                     </div>
                 </div>
 
+                {/* Daily Goal Progress Bar for Telecallers */}
+                {user?.role === 'telecaller' && (
+                    <div className={`mb-8 border rounded-[2px] p-6 transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-[2px] ${(followUpStats.totalFollowUps / 50 * 100) >= 70 ? 'bg-green-500/10 text-green-500' :
+                                        (followUpStats.totalFollowUps / 50 * 100) >= 30 ? 'bg-yellow-500/10 text-yellow-500' :
+                                            'bg-red-500/10 text-red-500'
+                                    }`}>
+                                    <FaChartLine size={14} />
+                                </div>
+                                <div>
+                                    <h3 className={`text-[12px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Daily Call Progress</h3>
+                                    <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mt-0.5">Start from 0 every day • Goal: 50 Calls</p>
+                                </div>
+                            </div>
+
+                            {/* Red Flags Display */}
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1">
+                                    {[...Array(5)].map((_, i) => (
+                                        <FaStar
+                                            key={i}
+                                            size={14}
+                                            className={`${i < (followUpStats.userMetaData?.redFlags || 0) ? 'text-red-500 animate-pulse' : 'text-gray-700'}`}
+                                        />
+                                    ))}
+                                </div>
+                                <div className={`px-3 py-1 rounded-[2px] border text-[9px] font-black uppercase tracking-widest ${(followUpStats.userMetaData?.redFlags || 0) > 0 ? 'bg-red-500/10 text-red-500 border-red-500/30' : 'bg-green-500/10 text-green-500 border-green-500/30'
+                                    }`}>
+                                    {(followUpStats.userMetaData?.redFlags || 0)} / 5 Flags
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="relative h-4 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
+                            <div
+                                className={`absolute inset-y-0 left-0 transition-all duration-1000 ease-out flex items-center justify-end pr-2 overflow-visible ${(followUpStats.totalFollowUps / 50 * 100) >= 70 ? 'bg-gradient-to-r from-green-600 to-green-400' :
+                                        (followUpStats.totalFollowUps / 50 * 100) >= 30 ? 'bg-gradient-to-r from-yellow-600 to-yellow-400' :
+                                            'bg-gradient-to-r from-red-600 to-red-400'
+                                    }`}
+                                style={{ width: `${Math.min((followUpStats.totalFollowUps / 50) * 100, 100)}%` }}
+                            >
+                                <span className="text-[8px] font-black text-white whitespace-nowrap drop-shadow-md">
+                                    {Math.min(Math.round((followUpStats.totalFollowUps / 50) * 100), 100)}%
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-between items-center mt-2 px-1">
+                            <div className="flex items-center gap-2">
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    Completed: <span className="text-cyan-500">{followUpStats.totalFollowUps}</span> / 50
+                                </span>
+                                {followUpStats.totalFollowUps >= 50 && (
+                                    <div className="flex items-center gap-1 text-green-500 animate-bounce">
+                                        <FaCheckCircle size={10} />
+                                        <span className="text-[8px] font-black uppercase tracking-widest">Goal Met!</span>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-1.5 overflow-hidden">
+                                {followUpStats.totalFollowUps < 15 && (
+                                    <div className="flex items-center gap-1 text-red-500 animate-pulse">
+                                        <FaExclamationTriangle size={10} />
+                                        <span className="text-[8px] font-black uppercase tracking-widest">Low Activity</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Search Bar - Reduced Padding (p-4 instead of p-6) */}
                 <div className={`border rounded-[2px] p-4 relative group transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 focus-within:border-cyan-500/30' : 'bg-white border-gray-200 focus-within:border-cyan-500/30 shadow-sm'}`}>
                     <div className="relative">
@@ -886,19 +959,20 @@ const LeadManagementContent = () => {
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>School</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Status</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Owner</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Assigned At</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="10" className="px-6 py-20 text-center text-cyan-500 font-black uppercase text-[10px] tracking-widest animate-pulse">
+                                        <td colSpan="11" className="px-6 py-20 text-center text-cyan-500 font-black uppercase text-[10px] tracking-widest animate-pulse">
                                             Loading Leads...
                                         </td>
                                     </tr>
                                 ) : leads.length === 0 ? (
                                     <tr>
-                                        <td colSpan="10" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
+                                        <td colSpan="11" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
                                             No leads found
                                         </td>
                                     </tr>
@@ -934,6 +1008,14 @@ const LeadManagementContent = () => {
                                             <td className="px-6 py-4">
                                                 <div className={`text-[9px] font-black uppercase px-2 py-1 rounded-[2px] inline-block truncate max-w-[100px] ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
                                                     {lead.leadResponsibility || "NO OWNER"}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                    {new Date(lead.assignedAt || lead.createdAt).toLocaleDateString('en-GB')}
+                                                </div>
+                                                <div className="text-[9px] font-black text-cyan-500 mt-0.5">
+                                                    {new Date(lead.assignedAt || lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
@@ -1009,7 +1091,6 @@ const LeadManagementContent = () => {
                         {/* Paginated Buttons with compact logic */}
                         {(() => {
                             const buttons = [];
-                            const maxVisible = 5;
 
                             if (totalPages <= 7) {
                                 for (let i = 1; i <= totalPages; i++) buttons.push(i);

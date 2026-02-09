@@ -3,17 +3,21 @@ import Layout from "../components/Layout";
 import {
     FaUserTie, FaUsers, FaPhoneAlt, FaCalendarAlt,
     FaSearch, FaArrowLeft, FaChartPie, FaChartBar, FaSun, FaMoon, FaSync, FaChartLine, FaHistory, FaCheckCircle, FaTimesCircle,
-    FaFileExcel, FaRedo, FaClock
+    FaFileExcel, FaRedo, FaClock, FaDownload, FaArrowDown, FaStar, FaExclamationTriangle
 } from "react-icons/fa";
 import { saveAs } from 'file-saver';
 import { ToastContainer } from "react-toastify";
+import * as XLSX from 'xlsx';
 import {
-    PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend
+    PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, LabelList
 } from 'recharts';
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import LeadListModal from "./LeadListModal";
 import FollowUpActivityModal from "../components/LeadManagement/FollowUpActivityModal";
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -167,6 +171,110 @@ const AnalyticsDashboard = ({ data, isDarkMode }) => {
     );
 };
 
+// Custom Label Component for Bar Chart - Shows profile image or initials above each bar
+const CustomBarLabel = (props) => {
+    const { x, y, width, index, payload } = props;
+
+    // Safety check for undefined payload
+    if (!payload || !payload.name) return null;
+
+    const centerX = x + width / 2;
+
+    // Get initials from name
+    const getInitials = (name) => {
+        if (!name) return '?';
+        return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
+    };
+
+    const initials = getInitials(payload.name);
+    const profileImage = payload.profileImage;
+    const centerCount = payload.centerCount || 0;
+    const safeNameId = payload.name.replace(/[^a-zA-Z0-9]/g, '_');
+
+    return (
+        <g>
+            {/* Profile Image Circle or Initials */}
+            {profileImage ? (
+                <>
+                    <defs>
+                        <clipPath id={`clip-${safeNameId}-${index}`}>
+                            <circle cx={centerX} cy={y - 35} r="18" />
+                        </clipPath>
+                    </defs>
+                    <image
+                        href={profileImage}
+                        x={centerX - 18}
+                        y={y - 53}
+                        width="36"
+                        height="36"
+                        clipPath={`url(#clip-${safeNameId}-${index})`}
+                        preserveAspectRatio="xMidYMid slice"
+                    />
+                    <circle
+                        cx={centerX}
+                        cy={y - 35}
+                        r="18"
+                        fill="none"
+                        stroke="#06b6d4"
+                        strokeWidth="2"
+                    />
+                </>
+            ) : (
+                <>
+                    <circle
+                        cx={centerX}
+                        cy={y - 35}
+                        r="18"
+                        fill="#1a1f24"
+                        stroke="#06b6d4"
+                        strokeWidth="2"
+                    />
+                    <text
+                        x={centerX}
+                        y={y - 30}
+                        textAnchor="middle"
+                        fill="#06b6d4"
+                        fontSize="11"
+                        fontWeight="bold"
+                    >
+                        {initials}
+                    </text>
+                </>
+            )}
+
+            {/* Down Arrow */}
+            <path
+                d={`M ${centerX} ${y - 15} L ${centerX - 4} ${y - 20} L ${centerX + 4} ${y - 20} Z`}
+                fill="#06b6d4"
+            />
+
+            {/* Center Count Badge */}
+            {centerCount > 0 && (
+                <>
+                    <circle
+                        cx={centerX + 15}
+                        cy={y - 45}
+                        r="8"
+                        fill="#f59e0b"
+                        stroke="#1a1f24"
+                        strokeWidth="1.5"
+                    />
+                    <text
+                        x={centerX + 15}
+                        y={y - 42}
+                        textAnchor="middle"
+                        fill="#000"
+                        fontSize="9"
+                        fontWeight="bold"
+                    >
+                        {centerCount}
+                    </text>
+                </>
+            )}
+        </g>
+    );
+};
+
 const TelecallingConsole = () => {
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
@@ -211,6 +319,30 @@ const TelecallingConsole = () => {
     const [availableCenters, setAvailableCenters] = useState([]);
     const [allPerformance, setAllPerformance] = useState([]);
     const [summaryLoading, setSummaryLoading] = useState(false);
+    const [timePeriod, setTimePeriod] = useState('daily'); // 'daily', 'weekly', 'monthly'
+
+    // Excel Export Function
+    const exportToExcel = () => {
+        if (!allPerformance || allPerformance.length === 0) {
+            alert('No data to export');
+            return;
+        }
+
+        const exportData = allPerformance.map(item => ({
+            'Telecaller Name': item.name,
+            'Current Period Calls': item.currentCalls,
+            'Previous Period Calls': item.previousCalls,
+            'Centers': item.centerCount || 0,
+            'Time Period': timePeriod.charAt(0).toUpperCase() + timePeriod.slice(1)
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Performance');
+
+        const fileName = `Telecalling_Performance_${timePeriod}_${new Date().toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(workbook, fileName);
+    };
 
     const handleActivityCardClick = (type) => {
         let title = "";
@@ -405,11 +537,11 @@ const TelecallingConsole = () => {
         });
     };
 
-    const fetchAllPerformance = async () => {
+    const fetchAllPerformance = async (period = 'daily') => {
         setSummaryLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/analytics-all`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/analytics-all?period=${period}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const data = await response.json();
@@ -424,7 +556,7 @@ const TelecallingConsole = () => {
     const fetchCentres = async () => {
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/superAdmin/centres`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/masterData/centres`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (response.ok) {
@@ -523,10 +655,22 @@ const TelecallingConsole = () => {
         }
     };
 
-    // Update Stats to use Analytics Data
-    const totalAssignedRef = analyticsData?.performance?.totalAssigned || 0;
-    const totalFollowUpsRef = analyticsData?.performance?.totalFollowUps || 0;
-    const conversionRateRef = analyticsData?.performance?.conversionRate || 0;
+
+    const handleResetRedFlags = async (userId, e) => {
+        e.stopPropagation();
+        if (!window.confirm("Are you sure you want to reset red flags for this telecaller?")) return;
+
+        try {
+            const response = await axios.post(`/api/lead-management/red-flags/reset/${userId}`);
+            if (response.status === 200) {
+                toast.success("Red flags reset successfully");
+                fetchTelecallers(); // Correct function name
+            }
+        } catch (error) {
+            console.error("Error resetting red flags:", error);
+            toast.error("Failed to reset red flags");
+        }
+    };
 
     // Modal Handler
     const openLeadModal = async (type) => {
@@ -880,15 +1024,54 @@ const TelecallingConsole = () => {
                                 <div className="space-y-8 animate-fadeIn">
                                     {/* Overall Performance Bar Chart */}
                                     <div className={`p-8 rounded-[4px] border animate-fadeIn ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
-                                        <h5 className={`text-sm font-black uppercase tracking-widest mb-8 flex items-center justify-between ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                            <div className="flex items-center gap-3">
+                                        <div className="flex items-center justify-between mb-6">
+                                            <h5 className={`text-sm font-black uppercase tracking-widest flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                 <FaChartBar className="text-cyan-500" /> CALL PERFORMANCE COMPARISON
+                                                {summaryLoading && <FaSync className="animate-spin text-cyan-500" size={12} />}
+                                            </h5>
+
+                                            {/* Time Period Filters and Export */}
+                                            <div className="flex items-center gap-3">
+                                                {/* Time Period Buttons */}
+                                                <div className="flex items-center gap-2">
+                                                    {['daily', 'weekly', 'monthly'].map((period) => (
+                                                        <button
+                                                            key={period}
+                                                            onClick={() => {
+                                                                setTimePeriod(period);
+                                                                fetchAllPerformance(period);
+                                                            }}
+                                                            className={`px-4 py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all border ${timePeriod === period
+                                                                ? (isDarkMode ? 'bg-cyan-500 text-black border-cyan-500' : 'bg-cyan-600 text-white border-cyan-600')
+                                                                : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:border-cyan-500' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')
+                                                                }`}
+                                                        >
+                                                            {period}
+                                                        </button>
+                                                    ))}
+                                                </div>
+
+                                                {/* Export Button */}
+                                                <button
+                                                    onClick={exportToExcel}
+                                                    className={`px-4 py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all border flex items-center gap-2 ${isDarkMode
+                                                        ? 'bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500 hover:text-black'
+                                                        : 'bg-green-50 text-green-600 border-green-200 hover:bg-green-600 hover:text-white'
+                                                        }`}
+                                                >
+                                                    <FaDownload size={10} />
+                                                    EXPORT
+                                                </button>
                                             </div>
-                                            {summaryLoading && <FaSync className="animate-spin text-cyan-500" size={12} />}
-                                        </h5>
-                                        <div className="h-[300px] w-full">
+                                        </div>
+
+                                        <div className="h-[400px] w-full">
                                             <ResponsiveContainer width="100%" height="100%">
-                                                <BarChart data={allPerformance.length > 0 ? allPerformance : [{ name: 'No Data', calls: 0 }]}>
+                                                <BarChart
+                                                    data={allPerformance.length > 0 ? allPerformance : [{ name: 'No Data', currentCalls: 0, previousCalls: 0 }]}
+                                                    margin={{ top: 60, right: 20, left: 20, bottom: 5 }}
+                                                    barGap={0}
+                                                >
                                                     <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#e5e7eb'} vertical={false} />
                                                     <XAxis
                                                         dataKey="name"
@@ -908,7 +1091,15 @@ const TelecallingConsole = () => {
                                                         }}
                                                         itemStyle={{ color: isDarkMode ? '#fff' : '#000' }}
                                                     />
-                                                    <Bar dataKey="calls" fill="#06b6d4" radius={[4, 4, 0, 0]} barSize={40} />
+                                                    <Legend
+                                                        verticalAlign="top"
+                                                        align="right"
+                                                        wrapperStyle={{ paddingBottom: '20px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}
+                                                    />
+                                                    <Bar name="Previous Period" dataKey="previousCalls" fill={isDarkMode ? '#374151' : '#d1d5db'} radius={[4, 4, 0, 0]} barSize={25} />
+                                                    <Bar name="Current Period" dataKey="currentCalls" fill="#06b6d4" radius={[4, 4, 0, 0]} barSize={25}>
+                                                        <LabelList content={<CustomBarLabel />} position="top" />
+                                                    </Bar>
                                                 </BarChart>
                                             </ResponsiveContainer>
                                         </div>
@@ -931,38 +1122,49 @@ const TelecallingConsole = () => {
 
                                             {/* Multi-select Centers */}
                                             <div className="flex flex-wrap items-center gap-2">
-                                                <span className={`text-[9px] font-black uppercase tracking-widest mr-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>CENTERS:</span>
-                                                {availableCenters.map(center => (
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className={`text-[9px] font-black uppercase tracking-widest mr-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>CENTERS:</span>
                                                     <button
-                                                        key={center._id}
-                                                        onClick={() => {
-                                                            setSelectedCenters(prev =>
-                                                                prev.includes(center.centreName)
-                                                                    ? prev.filter(c => c !== center.centreName)
-                                                                    : [...prev, center.centreName]
-                                                            );
-                                                        }}
-                                                        className={`px-3 py-1.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest transition-all border ${selectedCenters.includes(center.centreName)
+                                                        onClick={() => setSelectedCenters(availableCenters.map(c => c.centreName))}
+                                                        className={`px-3 py-1.5 rounded-[20px] text-[8px] font-black uppercase tracking-widest transition-all border ${selectedCenters.length === availableCenters.length && availableCenters.length > 0
                                                             ? (isDarkMode ? 'bg-cyan-500 text-black border-cyan-500' : 'bg-cyan-600 text-white border-cyan-600')
                                                             : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')
                                                             }`}
                                                     >
-                                                        {center.centreName}
+                                                        SELECT ALL
                                                     </button>
-                                                ))}
-                                                {selectedCenters.length > 0 && (
-                                                    <button
-                                                        onClick={() => setSelectedCenters([])}
-                                                        className="text-[8px] font-black text-red-500 uppercase tracking-widest ml-2 hover:underline"
-                                                    >
-                                                        CLEAR ALL
-                                                    </button>
-                                                )}
+                                                    {availableCenters.map(center => (
+                                                        <button
+                                                            key={center._id}
+                                                            onClick={() => {
+                                                                setSelectedCenters(prev =>
+                                                                    prev.includes(center.centreName)
+                                                                        ? prev.filter(c => c !== center.centreName)
+                                                                        : [...prev, center.centreName]
+                                                                );
+                                                            }}
+                                                            className={`px-3 py-1.5 rounded-[20px] text-[8px] font-black uppercase tracking-widest transition-all border ${selectedCenters.includes(center.centreName)
+                                                                ? (isDarkMode ? 'bg-cyan-500 text-black border-cyan-500' : 'bg-cyan-600 text-white border-cyan-600')
+                                                                : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')
+                                                                }`}
+                                                        >
+                                                            {center.centreName}
+                                                        </button>
+                                                    ))}
+                                                    {selectedCenters.length > 0 && (
+                                                        <button
+                                                            onClick={() => setSelectedCenters([])}
+                                                            className="text-[8px] font-black text-red-500 uppercase tracking-widest ml-2 hover:underline p-1"
+                                                        >
+                                                            CLEAR ALL
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fadeIn">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fadeIn pb-20">
                                         {telecallers
                                             .filter(caller => {
                                                 const matchesSearch = caller.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -974,19 +1176,106 @@ const TelecallingConsole = () => {
                                                 <div
                                                     key={caller._id}
                                                     onClick={() => handleTelecallerClick(caller)}
-                                                    className={`p-8 rounded-[4px] border transition-all cursor-pointer group flex flex-col items-center relative overflow-hidden ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 hover:border-cyan-500/50 hover:bg-[#1e242a]' : 'bg-white border-gray-200 hover:border-cyan-500/50 hover:bg-gray-50 shadow-sm'}`}
+                                                    className={`p-6 rounded-[8px] border transition-all cursor-pointer group flex flex-col relative overflow-hidden ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 hover:border-cyan-500/50 hover:bg-[#1e242a] shadow-xl hover:shadow-cyan-500/5' : 'bg-white border-gray-200 hover:border-cyan-500/50 hover:bg-gray-50 shadow-sm'}`}
                                                 >
-                                                    <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
-                                                    <div className={`w-24 h-24 rounded-[4px] flex items-center justify-center text-4xl mb-6 shadow-xl transition-all group-hover:scale-110 ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border border-cyan-100 shadow-sm'}`}>
-                                                        <FaUserTie />
+                                                    <div className="absolute top-0 left-0 w-1.5 h-full bg-cyan-500 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
+
+                                                    <div className="flex items-start gap-5 mb-6">
+                                                        <div className={`w-20 h-20 rounded-[8px] flex-shrink-0 flex items-center justify-center text-3xl shadow-lg transition-all group-hover:scale-105 overflow-hidden border-2 ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border-cyan-100'}`}>
+                                                            {caller.profileImage ? (
+                                                                <img
+                                                                    src={caller.profileImage}
+                                                                    alt={caller.name}
+                                                                    className="w-full h-full object-cover"
+                                                                />
+                                                            ) : (
+                                                                <FaUserTie />
+                                                            )}
+                                                            {caller.taskProgress?.percent === 100 && (
+                                                                <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center backdrop-blur-[1px] animate-pulse">
+                                                                    <FaCheckCircle className="text-green-500 bg-white rounded-full shadow-lg" size={24} />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex justify-between items-start">
+                                                                <h3 className={`text-lg font-black uppercase tracking-tight truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{caller.name}</h3>
+                                                                {caller.redFlags > 0 && (
+                                                                    <div className="flex gap-0.5 ml-2 shrink-0">
+                                                                        {[...Array(caller.redFlags)].map((_, i) => (
+                                                                            <FaStar key={i} size={10} className="text-red-500 animate-bounce" style={{ animationDelay: `${i * 100}ms` }} />
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${isDarkMode ? 'text-cyan-500' : 'text-cyan-600'}`}>{caller.role}</p>
+                                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3">
+                                                                {caller.mobNum && (
+                                                                    <div className="flex items-center gap-2 text-gray-400">
+                                                                        <FaPhoneAlt size={10} className="text-cyan-500" />
+                                                                        <span className="text-[10px] font-bold tracking-wider">{caller.mobNum}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <h3 className={`text-xl font-black uppercase tracking-tight text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{caller.name}</h3>
-                                                    <div className="flex flex-col items-center mt-4">
-                                                        <p className="text-[9px] text-gray-500 uppercase tracking-[0.2em] font-black">ASSIGNED ROLE</p>
-                                                        <p className={`text-[11px] font-black uppercase mt-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{caller.role}</p>
+
+                                                    {/* Task Progress Section */}
+                                                    <div className="mb-6 space-y-2">
+                                                        <div className="flex justify-between items-end mb-1">
+                                                            <p className="text-[8px] text-gray-500 uppercase tracking-[0.2em] font-black">Daily Progress</p>
+                                                            <p className={`text-[10px] font-black ${caller.taskProgress?.percent > 70 ? 'text-green-500' : caller.taskProgress?.percent > 30 ? 'text-yellow-500' : 'text-red-500'}`}>
+                                                                {caller.taskProgress?.completed || 0}/{caller.taskProgress?.total || 0}
+                                                            </p>
+                                                        </div>
+                                                        <div className={`w-full h-2 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100 shadow-inner'}`}>
+                                                            <div
+                                                                className={`h-full transition-all duration-1000 ease-out rounded-full shadow-[0_0_10px_rgba(0,0,0,0.1)] ${caller.taskProgress?.percent > 70 ? 'bg-gradient-to-r from-green-600 to-green-400' :
+                                                                    caller.taskProgress?.percent > 30 ? 'bg-gradient-to-r from-yellow-600 to-yellow-400' :
+                                                                        'bg-gradient-to-r from-red-600 to-red-400'
+                                                                    }`}
+                                                                style={{ width: `${caller.taskProgress?.percent || 0}%` }}
+                                                            />
+                                                        </div>
+                                                        {caller.taskProgress?.percent === 100 && (
+                                                            <p className="text-[9px] font-black text-green-500 uppercase tracking-widest text-center mt-1 animate-bounce">
+                                                                ✨ Task Completed ✨
+                                                            </p>
+                                                        )}
                                                     </div>
-                                                    <div className={`mt-6 w-full pt-6 border-t flex justify-center ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-                                                        <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-cyan-500/40 group-hover:text-cyan-400' : 'text-cyan-600/40 group-hover:text-cyan-600'}`}>VIEW METRICS →</span>
+
+                                                    <div className={`space-y-3 pt-5 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                                        <div className="flex justify-between items-start">
+                                                            <div className="flex-1">
+                                                                <p className="text-[8px] text-gray-500 uppercase tracking-[0.2em] font-black mb-2">Assigned Centers</p>
+                                                                <div className="flex flex-wrap gap-1.5">
+                                                                    {(caller.centres || []).length > 0 ? (
+                                                                        caller.centres.map((c, i) => (
+                                                                            <span key={i} className={`px-2 py-1 rounded-[2px] text-[8px] font-black uppercase tracking-widest border ${isDarkMode ? 'bg-black/20 border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+                                                                                {c.centreName || c}
+                                                                            </span>
+                                                                        ))
+                                                                    ) : (
+                                                                        <span className="text-[9px] font-bold italic text-gray-600">No centers assigned</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            {JSON.parse(localStorage.getItem('user') || '{}').role?.toLowerCase() === 'superadmin' && caller.redFlags > 0 && (
+                                                                <button
+                                                                    onClick={(e) => handleResetRedFlags(caller.userId, e)}
+                                                                    className="ml-2 p-1.5 rounded bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                                                                    title="Reset Red Flags"
+                                                                >
+                                                                    <FaExclamationTriangle size={12} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className={`mt-6 pt-4 border-t flex justify-center ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                                        <span className={`text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${isDarkMode ? 'text-cyan-500/40 group-hover:text-cyan-400' : 'text-cyan-600/40 group-hover:text-cyan-600'}`}>
+                                                            ANALYZE METRICS <FaArrowLeft className="rotate-180" size={8} />
+                                                        </span>
                                                     </div>
                                                 </div>
                                             ))}

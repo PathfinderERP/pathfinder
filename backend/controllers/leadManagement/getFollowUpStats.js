@@ -212,7 +212,11 @@ export const getFollowUpStats = async (req, res) => {
             negativeLeads: rawActivity.negativeLeads || 0,
             recentActivity: rawActivity.recentActivity || [],
             totalScheduled: rawScheduled.totalScheduled || 0,
-            scheduledList: rawScheduled.scheduledList || []
+            scheduledList: rawScheduled.scheduledList || [],
+            userMetaData: req.user.role === 'telecaller' ? {
+                name: req.user.name,
+                redFlags: (await User.findById(req.user.id).select('redFlags'))?.redFlags || 0
+            } : null
         };
 
         // Sort both lists by date/time
