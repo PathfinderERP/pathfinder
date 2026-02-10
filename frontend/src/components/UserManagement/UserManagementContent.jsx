@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { FaPlus, FaSearch, FaEdit, FaTrash, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaTable, FaTh, FaFileExcel, FaUndo } from "react-icons/fa";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { toast, ToastContainer } from "react-toastify";
@@ -45,12 +45,8 @@ const UserManagementContent = () => {
     const canDeleteUsers = isSuperAdmin || hasPermission(currentUser.granularPermissions, 'userManagement', 'users', 'delete');
     const canAddUsers = isSuperAdmin || hasPermission(currentUser.granularPermissions, 'userManagement', 'users', 'create');
 
-    useEffect(() => {
-        fetchUsers();
-        fetchAuxiliaryData();
-    }, []);
 
-    const fetchAuxiliaryData = async () => {
+    const fetchAuxiliaryData = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
             const [centresRes, scriptsRes] = await Promise.all([
@@ -63,9 +59,9 @@ const UserManagementContent = () => {
         } catch (error) {
             console.error("Error fetching auxiliary data:", error);
         }
-    };
+    }, [apiUrl]);
 
-    const fetchUsers = async () => {
+    const fetchUsers = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${apiUrl}/superAdmin/getAllUsers`, {
@@ -85,7 +81,12 @@ const UserManagementContent = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [apiUrl]);
+
+    useEffect(() => {
+        fetchUsers();
+        fetchAuxiliaryData();
+    }, [fetchUsers, fetchAuxiliaryData]);
 
     const handleDelete = async (id) => {
         if (!window.confirm("Are you sure you want to delete this user?")) return;
@@ -136,24 +137,6 @@ const UserManagementContent = () => {
         toast.info("Filters reset to default");
     };
 
-    const handleExport = () => {
-        if (!isSuperAdmin) return;
-
-        const exportData = filteredUsers.map(user => ({
-            "Name": user.name,
-            "Role": getRoleDisplayName(user.role),
-            "Employee ID": user.employeeId,
-            "Email": user.email,
-            "Mobile": user.mobNum,
-            "Centres": getCentresDisplay(user),
-            "Permissions": user.permissions ? user.permissions.join(", ") : ""
-        }));
-
-        const worksheet = XLSX.utils.json_to_sheet(exportData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Users");
-        XLSX.writeFile(workbook, "User_List.xlsx");
-    };
 
     const filteredUsers = users.filter(user => {
         const matchesSearch =
@@ -543,8 +526,12 @@ const UserManagementContent = () => {
                         <div key={user._id} className="user-card-wave-dramatic bg-[#1a1f24] p-6 rounded-xl border border-gray-800 transition-all group">
                             <div className="flex justify-between items-start mb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-full bg-cyan-900 flex items-center justify-center text-cyan-400 font-bold text-lg">
-                                        {user.name.charAt(0).toUpperCase()}
+                                    <div className="w-16 h-16 rounded-full bg-cyan-900 flex items-center justify-center overflow-hidden border-2 border-cyan-500/30 shadow-lg shadow-cyan-500/10">
+                                        {user.profileImage ? (
+                                            <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <span className="text-cyan-400 font-bold text-xl">{user.name.charAt(0).toUpperCase()}</span>
+                                        )}
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-bold text-white">{user.name}</h3>
@@ -662,8 +649,12 @@ const UserManagementContent = () => {
                                     <tr key={user._id} className="user-table-row-wave transition-colors">
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-cyan-900 flex items-center justify-center text-cyan-400 font-bold text-xs">
-                                                    {user.name.charAt(0).toUpperCase()}
+                                                <div className="w-10 h-10 rounded-full bg-cyan-900 flex items-center justify-center overflow-hidden border border-cyan-500/30">
+                                                    {user.profileImage ? (
+                                                        <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <span className="text-cyan-400 font-bold text-sm">{user.name.charAt(0).toUpperCase()}</span>
+                                                    )}
                                                 </div>
                                                 <span className="text-white font-medium">{user.name}</span>
                                             </div>

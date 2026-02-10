@@ -15,12 +15,14 @@ import { hasPermission } from "../../config/permissions";
 import { useTheme } from "../../context/ThemeContext";
 import LeadTrendChart from "./LeadTrendChart"; // Added Import
 import FollowUpActivityModal from "./FollowUpActivityModal";
+import { CardSkeleton, TableRowSkeleton, FeedItemSkeleton } from "../common/Skeleton";
 const LeadManagementContent = () => {
     const navigate = useNavigate();
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
     const [leads, setLeads] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [statsLoading, setStatsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
@@ -98,6 +100,7 @@ const LeadManagementContent = () => {
     }, []);
 
     const fetchFollowUpStats = useCallback(async () => {
+        setStatsLoading(true);
         try {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams();
@@ -126,6 +129,8 @@ const LeadManagementContent = () => {
             }
         } catch (error) {
             console.error("Error fetching follow-up stats:", error);
+        } finally {
+            setStatsLoading(false);
         }
     }, [filters]);
 
@@ -484,7 +489,7 @@ const LeadManagementContent = () => {
                             </p>
                         </div>
                         {/* Daily Trend Chart */}
-                        <LeadTrendChart data={dailyLeads} isDarkMode={isDarkMode} />
+                        <LeadTrendChart data={dailyLeads} isDarkMode={isDarkMode} loading={statsLoading} />
                     </div>
                     <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 sm:gap-4">
                         <button
@@ -599,116 +604,128 @@ const LeadManagementContent = () => {
                 {/* Activity Analysis */}
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
                     <div className="lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-                        {/* Scheduled Follow-ups Card (New Target Section) */}
-                        <div
-                            onClick={() => handleCardClick('scheduled')}
-                            className={`p-5 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-cyan-500/10 hover:border-cyan-500/30 ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-cyan-50 border-cyan-100 shadow-sm'}`}
-                        >
-                            <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                <div>
-                                    <p className={`text-[9px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Upcoming Tasks</p>
-                                    <h3 className={`text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalScheduled}</h3>
-                                    <p className="text-[8px] font-bold text-cyan-500 mt-1 uppercase tracking-widest">Scheduled Follow-ups</p>
-                                </div>
-                                <div className={`p-2.5 rounded-[20px] transition-all bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.4)]`}>
-                                    <FaCalendarAlt size={16} />
-                                </div>
-                            </div>
-                            <div className="absolute -right-4 -bottom-4 opacity-[0.03] transform group-hover:scale-110 transition-transform text-cyan-500">
-                                <FaCalendarAlt size={100} />
-                            </div>
-                        </div>
-
-                        {/* Total Follow-ups Card */}
-                        <div
-                            onClick={() => handleCardClick('total')}
-                            className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-cyan-500/10 hover:border-cyan-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                        >
-                            <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                <div>
-                                    <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                        {filters.fromDate || filters.toDate ? "Filtered Activity" : "Today's Activity"}
-                                    </p>
-                                    <h3 className={`text-3xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalFollowUps}</h3>
-                                    <p className="text-[9px] font-bold text-cyan-500 mt-1 uppercase tracking-widest">Follow-ups Recorded</p>
-                                </div>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); fetchFollowUpStats(); }}
-                                    className={`p-3 rounded-[2px] transition-all hover:rotate-180 duration-500 ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500' : 'bg-cyan-50 text-cyan-600'}`}
+                        {statsLoading ? (
+                            <>
+                                <CardSkeleton isDarkMode={isDarkMode} />
+                                <CardSkeleton isDarkMode={isDarkMode} />
+                                <CardSkeleton isDarkMode={isDarkMode} />
+                                <CardSkeleton isDarkMode={isDarkMode} />
+                                <CardSkeleton isDarkMode={isDarkMode} />
+                            </>
+                        ) : (
+                            <>
+                                {/* Scheduled Follow-ups Card (New Target Section) */}
+                                <div
+                                    onClick={() => handleCardClick('scheduled')}
+                                    className={`p-5 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-cyan-500/10 hover:border-cyan-500/30 ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-cyan-50 border-cyan-100 shadow-sm'}`}
                                 >
-                                    <FaHistory size={20} />
-                                </button>
-                            </div>
-                            <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
-                                <FaHistory size={100} />
-                            </div>
-                        </div>
+                                    <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                        <div>
+                                            <p className={`text-[9px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Upcoming Tasks</p>
+                                            <h3 className={`text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalScheduled}</h3>
+                                            <p className="text-[8px] font-bold text-cyan-500 mt-1 uppercase tracking-widest">Scheduled Follow-ups</p>
+                                        </div>
+                                        <div className={`p-2.5 rounded-[20px] transition-all bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.4)]`}>
+                                            <FaCalendarAlt size={16} />
+                                        </div>
+                                    </div>
+                                    <div className="absolute -right-4 -bottom-4 opacity-[0.03] transform group-hover:scale-110 transition-transform text-cyan-500">
+                                        <FaCalendarAlt size={100} />
+                                    </div>
+                                </div>
 
-                        {/* Hot Leads Card */}
-                        <div
-                            onClick={() => handleCardClick('hot')}
-                            className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-red-500/10 hover:border-red-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                        >
-                            <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                <div>
-                                    <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                        {filters.fromDate || filters.toDate ? "Filtered Interests" : "Hot Interests"}
-                                    </p>
-                                    <h3 className="text-3xl font-black italic tracking-tighter text-red-500">{followUpStats.hotLeads}</h3>
-                                    <p className="text-[9px] font-bold text-red-500/80 mt-1 uppercase tracking-widest">Positive Feedback</p>
+                                {/* Total Follow-ups Card */}
+                                <div
+                                    onClick={() => handleCardClick('total')}
+                                    className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-cyan-500/10 hover:border-cyan-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
+                                >
+                                    <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                        <div>
+                                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                {filters.fromDate || filters.toDate ? "Filtered Activity" : "Today's Activity"}
+                                            </p>
+                                            <h3 className={`text-3xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalFollowUps}</h3>
+                                            <p className="text-[9px] font-bold text-cyan-500 mt-1 uppercase tracking-widest">Follow-ups Recorded</p>
+                                        </div>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); fetchFollowUpStats(); }}
+                                            className={`p-3 rounded-[2px] transition-all hover:rotate-180 duration-500 ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500' : 'bg-cyan-50 text-cyan-600'}`}
+                                        >
+                                            <FaHistory size={20} />
+                                        </button>
+                                    </div>
+                                    <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
+                                        <FaHistory size={100} />
+                                    </div>
                                 </div>
-                                <div className="p-3 bg-red-500/10 text-red-500 rounded-[2px]">
-                                    <FaChartLine size={20} />
-                                </div>
-                            </div>
-                            <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
-                                <FaChartLine size={100} />
-                            </div>
-                        </div>
 
-                        {/* Cold Leads Card */}
-                        <div
-                            onClick={() => handleCardClick('cold')}
-                            className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-blue-500/10 hover:border-blue-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                        >
-                            <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                <div>
-                                    <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                        {filters.fromDate || filters.toDate ? "Filtered Leads" : "Cold Leads"}
-                                    </p>
-                                    <h3 className="text-3xl font-black italic tracking-tighter text-blue-500">{followUpStats.coldLeads}</h3>
-                                    <p className="text-[9px] font-bold text-blue-500/80 mt-1 uppercase tracking-widest">Ongoing Discussions</p>
+                                {/* Hot Leads Card */}
+                                <div
+                                    onClick={() => handleCardClick('hot')}
+                                    className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-red-500/10 hover:border-red-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
+                                >
+                                    <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                        <div>
+                                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                {filters.fromDate || filters.toDate ? "Filtered Interests" : "Hot Interests"}
+                                            </p>
+                                            <h3 className="text-3xl font-black italic tracking-tighter text-red-500">{followUpStats.hotLeads}</h3>
+                                            <p className="text-[9px] font-bold text-red-500/80 mt-1 uppercase tracking-widest">Positive Feedback</p>
+                                        </div>
+                                        <div className="p-3 bg-red-500/10 text-red-500 rounded-[2px]">
+                                            <FaChartLine size={20} />
+                                        </div>
+                                    </div>
+                                    <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
+                                        <FaChartLine size={100} />
+                                    </div>
                                 </div>
-                                <div className="p-3 bg-blue-500/10 text-blue-500 rounded-[2px]">
-                                    <FaSearch size={20} />
-                                </div>
-                            </div>
-                            <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
-                                <FaSearch size={100} />
-                            </div>
-                        </div>
 
-                        {/* Negative Results Card */}
-                        <div
-                            onClick={() => handleCardClick('negative')}
-                            className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-gray-500/10 hover:border-gray-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                        >
-                            <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                <div>
-                                    <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                        {filters.fromDate || filters.toDate ? "Filtered Negative" : "Negative Results"}
-                                    </p>
-                                    <h3 className="text-3xl font-black italic tracking-tighter text-gray-500">{followUpStats.negativeLeads}</h3>
-                                    <p className="text-[9px] font-bold text-gray-500 mt-1 uppercase tracking-widest">No Interest Shown</p>
+                                {/* Cold Leads Card */}
+                                <div
+                                    onClick={() => handleCardClick('cold')}
+                                    className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-blue-500/10 hover:border-blue-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
+                                >
+                                    <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                        <div>
+                                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                {filters.fromDate || filters.toDate ? "Filtered Leads" : "Cold Leads"}
+                                            </p>
+                                            <h3 className="text-3xl font-black italic tracking-tighter text-blue-500">{followUpStats.coldLeads}</h3>
+                                            <p className="text-[9px] font-bold text-blue-500/80 mt-1 uppercase tracking-widest">Ongoing Discussions</p>
+                                        </div>
+                                        <div className="p-3 bg-blue-500/10 text-blue-500 rounded-[2px]">
+                                            <FaSearch size={20} />
+                                        </div>
+                                    </div>
+                                    <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
+                                        <FaSearch size={100} />
+                                    </div>
                                 </div>
-                                <div className="p-3 bg-gray-500/10 text-gray-500 rounded-[2px]">
-                                    <FaTrash size={20} />
+
+                                {/* Negative Results Card */}
+                                <div
+                                    onClick={() => handleCardClick('negative')}
+                                    className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-gray-500/10 hover:border-gray-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
+                                >
+                                    <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                        <div>
+                                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                {filters.fromDate || filters.toDate ? "Filtered Negative" : "Negative Results"}
+                                            </p>
+                                            <h3 className="text-3xl font-black italic tracking-tighter text-gray-500">{followUpStats.negativeLeads}</h3>
+                                            <p className="text-[9px] font-bold text-gray-500 mt-1 uppercase tracking-widest">No Interest Shown</p>
+                                        </div>
+                                        <div className="p-3 bg-gray-500/10 text-gray-500 rounded-[2px]">
+                                            <FaTrash size={20} />
+                                        </div>
+                                    </div>
+                                    <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
+                                        <FaTrash size={100} />
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
-                                <FaTrash size={100} />
-                            </div>
-                        </div>
+                            </>
+                        )}
                     </div>
 
                     {/* Activity Feed */}
@@ -720,7 +737,13 @@ const LeadManagementContent = () => {
                             </h4>
                         </div>
                         <div className="flex-1 overflow-y-auto max-h-[140px] custom-scrollbar p-1">
-                            {followUpStats.recentActivity.length === 0 ? (
+                            {statsLoading ? (
+                                <>
+                                    <FeedItemSkeleton isDarkMode={isDarkMode} />
+                                    <FeedItemSkeleton isDarkMode={isDarkMode} />
+                                    <FeedItemSkeleton isDarkMode={isDarkMode} />
+                                </>
+                            ) : followUpStats.recentActivity.length === 0 ? (
                                 <p className="text-[8px] text-gray-500 uppercase font-black tracking-widest text-center py-8">No Activity Yet</p>
                             ) : (
                                 followUpStats.recentActivity.map((act, idx) => (
@@ -965,11 +988,18 @@ const LeadManagementContent = () => {
                             </thead>
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
                                 {loading ? (
-                                    <tr>
-                                        <td colSpan="11" className="px-6 py-20 text-center text-cyan-500 font-black uppercase text-[10px] tracking-widest animate-pulse">
-                                            Loading Leads...
-                                        </td>
-                                    </tr>
+                                    <>
+                                        <TableRowSkeleton isDarkMode={isDarkMode} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} />
+                                    </>
                                 ) : leads.length === 0 ? (
                                     <tr>
                                         <td colSpan="11" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">

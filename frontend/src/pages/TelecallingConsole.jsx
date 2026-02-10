@@ -556,12 +556,12 @@ const TelecallingConsole = () => {
     const fetchCentres = async () => {
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/masterData/centres`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/centre`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (response.ok) {
                 const data = await response.json();
-                setAvailableCenters(data.centres || []);
+                setAvailableCenters(data || []);
             }
         } catch (error) {
             console.error("Error fetching centres:", error);

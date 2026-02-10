@@ -1,7 +1,9 @@
 import React from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { ChartSkeleton } from '../common/Skeleton';
 
-const LeadTrendChart = ({ data, isDarkMode }) => {
+const LeadTrendChart = ({ data, isDarkMode, loading }) => {
+    if (loading) return <ChartSkeleton />;
     if (!data || data.length === 0) return null;
 
     return (

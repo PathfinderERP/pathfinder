@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { BoxSkeleton, BaseSkeleton, CardSkeleton } from '../common/Skeleton';
 import { FaDownload, FaSearch, FaUser, FaClock, FaCalendar, FaExclamationTriangle, FaSync } from 'react-icons/fa';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -28,22 +29,7 @@ const EmployeeAttendanceAnalytics = ({ masterData, isDarkMode }) => {
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
-    useEffect(() => {
-        fetchAnalytics();
-    }, [period, dateRange, filters]);
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (searchQuery) fetchEmployeeSearch();
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [searchQuery]);
-
-    useEffect(() => {
-        if (selectedEmployee) fetchEmployeePerformance();
-    }, [selectedEmployee, dateRange]);
-
-    const fetchAnalytics = async () => {
+    const fetchAnalytics = useCallback(async () => {
         try {
             setLoading(true);
             const token = localStorage.getItem("token");
@@ -68,9 +54,9 @@ const EmployeeAttendanceAnalytics = ({ masterData, isDarkMode }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [period, dateRange, filters, apiUrl]);
 
-    const fetchEmployeeSearch = async () => {
+    const fetchEmployeeSearch = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
             const res = await fetch(`${apiUrl}/ceo/employee-search?query=${searchQuery}`, {
@@ -81,9 +67,9 @@ const EmployeeAttendanceAnalytics = ({ masterData, isDarkMode }) => {
         } catch (error) {
             console.error("Search error", error);
         }
-    };
+    }, [searchQuery, apiUrl]);
 
-    const fetchEmployeePerformance = async () => {
+    const fetchEmployeePerformance = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
             const query = new URLSearchParams({
@@ -100,7 +86,23 @@ const EmployeeAttendanceAnalytics = ({ masterData, isDarkMode }) => {
         } catch (error) {
             console.error("Employee stats error", error);
         }
-    };
+    }, [selectedEmployee, dateRange, apiUrl]);
+
+    useEffect(() => {
+        fetchAnalytics();
+    }, [period, dateRange, filters, fetchAnalytics]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (searchQuery) fetchEmployeeSearch();
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery, fetchEmployeeSearch]);
+
+    useEffect(() => {
+        if (selectedEmployee) fetchEmployeePerformance();
+    }, [selectedEmployee, dateRange, fetchEmployeePerformance]);
+
 
     const handleExport = () => {
         if (!analyticsData.length) return;
@@ -237,8 +239,8 @@ const EmployeeAttendanceAnalytics = ({ masterData, isDarkMode }) => {
                     </div>
                 )}
                 {loading && (
-                    <div className="absolute inset-0 flex items-center justify-center z-10">
-                        <FaSync className="animate-spin text-cyan-500 text-2xl" />
+                    <div className="absolute inset-0 flex items-center justify-center z-10 bg-transparent">
+                        <BoxSkeleton className="h-full w-full" />
                     </div>
                 )}
                 <ResponsiveContainer width="100%" height="100%">
@@ -326,7 +328,13 @@ const EmployeeAttendanceAnalytics = ({ masterData, isDarkMode }) => {
 
                     {/* Stats Column */}
                     <div className="lg:col-span-3">
-                        {!employeeStats ? (
+                        {loading && !selectedEmployee ? (
+                            <div className="space-y-4">
+                                <CardSkeleton isDarkMode={isDarkMode} />
+                                <CardSkeleton isDarkMode={isDarkMode} />
+                                <CardSkeleton isDarkMode={isDarkMode} />
+                            </div>
+                        ) : !employeeStats ? (
                             <div className={`h-full flex flex-col items-center justify-center text-center opacity-30`}>
                                 <FaUser className="text-4xl mb-4" />
                                 <span className="text-[10px] font-black uppercase tracking-[0.3em]">Awaiting Identity Selection</span>
