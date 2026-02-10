@@ -5,16 +5,9 @@ export const getCentres = async (req, res) => {
         const user = req.user;
         const isSuperAdmin = user.role === "superAdmin" || user.role === "Super Admin";
 
-        let query = {};
-        if (!isSuperAdmin) {
-            const userCentreIds = user.centres || [];
-            if (userCentreIds.length > 0) {
-                query._id = { $in: userCentreIds };
-            } else {
-                // If user has no centres assigned, return empty list
-                return res.status(200).json([]);
-            }
-        }
+        // Note: Global centre filtering reverted to avoid breaking cross-centre features like Cash Transfer.
+        // Data isolation is enforced at the record level (employees, leads, students etc).
+        const query = {};
 
         const centres = await CentreSchema.find(query);
         res.status(200).json(centres);

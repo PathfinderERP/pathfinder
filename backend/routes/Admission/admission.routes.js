@@ -12,6 +12,7 @@ import { searchAdmission, transferCourse } from "../../controllers/Admission/cou
 import { generateMonthlyBill, getMonthlyBreakdown, updateBoardSubjects } from "../../controllers/Admission/generateMonthlyBill.js";
 
 import { getStudentSections, allotSection } from "../../controllers/Admission/sectionAllotmentController.js";
+import { divideRemainingInstallments } from "../../controllers/Admission/divideRemainingInstallments.js";
 
 const router = express.Router();
 
@@ -38,5 +39,6 @@ router.post("/:admissionId/monthly-bill", requireGranularPermission("admissions"
 router.get("/:admissionId/monthly-breakdown", requireAuth, getMonthlyBreakdown);
 
 router.put("/student/:studentId/status", requireGranularPermission("admissions", "enrolledStudents", "deactivate"), toggleStudentStatus);
+router.put("/:admissionId/divide-installments", requireGranularPermission("admissions", "enrolledStudents", "edit"), divideRemainingInstallments);
 
 export default router;

@@ -6,15 +6,35 @@ import Centre from "../../models/Master_data/Centre.js";
 // Get employee analytics for dashboard
 export const getEmployeeAnalytics = async (req, res) => {
     try {
-        // Total employees count
-        const totalEmployees = await Employee.countDocuments();
+        const userRole = (req.user.role || "").toLowerCase();
+        const isSuperAdmin = userRole === 'superadmin' || userRole === 'super admin';
+        const userCentres = req.user.centres || [];
 
-        // Total Master Data counts
+        // Data Isolation Match Stage
+        const matchStage = !isSuperAdmin ? {
+            $match: {
+                $or: [
+                    { primaryCentre: { $in: userCentres } },
+                    { centres: { $in: userCentres } }
+                ]
+            }
+        } : { $match: {} };
+
+        // Handle case where user has no centres assigned and is not superAdmin
+        if (!isSuperAdmin && userCentres.length === 0) {
+            matchStage.$match = { _id: null }; // Force no results
+        }
+
+        // Total employees count (filtered)
+        const totalEmployees = await Employee.countDocuments(matchStage.$match);
+
+        // Total Master Data counts (global)
         const totalDepartments = await Department.countDocuments();
         const totalCentres = await Centre.countDocuments();
 
         // Active vs Inactive breakdown
         const statusBreakdown = await Employee.aggregate([
+            matchStage,
             {
                 $group: {
                     _id: "$status",
@@ -25,6 +45,7 @@ export const getEmployeeAnalytics = async (req, res) => {
 
         // Department-wise distribution
         const departmentDistribution = await Employee.aggregate([
+            matchStage,
             {
                 $lookup: {
                     from: "departments",
@@ -45,6 +66,7 @@ export const getEmployeeAnalytics = async (req, res) => {
 
         // Designation-wise distribution
         const designationDistribution = await Employee.aggregate([
+            matchStage,
             {
                 $lookup: {
                     from: "designations",
@@ -65,6 +87,7 @@ export const getEmployeeAnalytics = async (req, res) => {
 
         // Centre-wise distribution
         const centreDistribution = await Employee.aggregate([
+            matchStage,
             {
                 $lookup: {
                     from: "centreschemas",
@@ -85,6 +108,7 @@ export const getEmployeeAnalytics = async (req, res) => {
 
         // Employment type distribution
         const employmentTypeDistribution = await Employee.aggregate([
+            matchStage,
             {
                 $group: {
                     _id: "$typeOfEmployment",
@@ -100,7 +124,8 @@ export const getEmployeeAnalytics = async (req, res) => {
         const monthlyJoiningTrend = await Employee.aggregate([
             {
                 $match: {
-                    dateOfJoining: { $gte: twelveMonthsAgo }
+                    dateOfJoining: { $gte: twelveMonthsAgo },
+                    ...matchStage.$match
                 }
             },
             {
@@ -118,6 +143,7 @@ export const getEmployeeAnalytics = async (req, res) => {
 
         // Gender distribution - Case Insensitive
         const genderDistribution = await Employee.aggregate([
+            matchStage,
             {
                 $group: {
                     _id: { $toLower: "$gender" },
@@ -140,6 +166,7 @@ export const getEmployeeAnalytics = async (req, res) => {
 
         // Average salary by department
         const avgSalaryByDept = await Employee.aggregate([
+            matchStage,
             {
                 $lookup: {
                     from: "departments",
@@ -162,6 +189,7 @@ export const getEmployeeAnalytics = async (req, res) => {
 
         // City distribution - Case Insensitive & No Limit
         const cityDistribution = await Employee.aggregate([
+            matchStage,
             {
                 $group: {
                     _id: { $toLower: "$city" },
@@ -178,6 +206,7 @@ export const getEmployeeAnalytics = async (req, res) => {
 
         // State distribution - Case Insensitive
         const stateDistribution = await Employee.aggregate([
+            matchStage,
             {
                 $group: {
                     _id: { $toLower: "$state" },
@@ -193,6 +222,7 @@ export const getEmployeeAnalytics = async (req, res) => {
 
         // teacher vs staff breakdown logic
         const teacherStaffEmployment = await Employee.aggregate([
+            matchStage,
             {
                 $project: {
                     isTeacher: { $regexMatch: { input: "$employeeId", regex: /^TCH/i } },
@@ -207,8 +237,14 @@ export const getEmployeeAnalytics = async (req, res) => {
             }
         ]);
 
-        const teachersCount = await Employee.countDocuments({ employeeId: { $regex: /^TCH/i } });
-        const staffCount = await Employee.countDocuments({ employeeId: { $not: /^TCH/i } });
+        const teachersCount = await Employee.countDocuments({
+            employeeId: { $regex: /^TCH/i },
+            ...matchStage.$match
+        });
+        const staffCount = await Employee.countDocuments({
+            employeeId: { $not: /^TCH/i },
+            ...matchStage.$match
+        });
 
         res.status(200).json({
             totalEmployees,

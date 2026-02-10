@@ -13,7 +13,7 @@ import {
     bulkImportEmployees
 } from "../../controllers/HR/employeeController.js";
 import { getEmployeeAnalytics } from "../../controllers/HR/employeeAnalyticsController.js";
-import authMiddleware from "../../middleware/authMiddleware.js";
+import { requireAuth } from "../../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
@@ -32,7 +32,7 @@ const uploadFields = upload.fields([
 ]);
 
 // All routes require authentication
-router.use(authMiddleware);
+router.use(requireAuth);
 
 // Analytics endpoint
 router.get("/analytics", getEmployeeAnalytics);

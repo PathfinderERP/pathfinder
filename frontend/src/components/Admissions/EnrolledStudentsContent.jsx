@@ -63,6 +63,8 @@ const EnrolledStudentsContent = () => {
     const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
     const [allowedCentres, setAllowedCentres] = useState([]);
     const [viewMode, setViewMode] = useState('Active'); // 'Active' or 'Deactivated'
+    const [newInstallmentCount, setNewInstallmentCount] = useState("");
+    const [isDividing, setIsDividing] = useState(false);
 
     // Permission checks
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -183,6 +185,48 @@ const EnrolledStudentsContent = () => {
 
         setStudents(studentsArray);
         setFilteredStudents(studentsArray);
+    };
+
+    const handleDivideInstallments = async (admissionId) => {
+        if (!newInstallmentCount || parseInt(newInstallmentCount) < 1) {
+            toast.error("Please enter a valid number of installments.");
+            return;
+        }
+
+        setIsDividing(true);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${apiUrl}/admission/${admissionId}/divide-installments`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ numberOfNewInstallments: parseInt(newInstallmentCount) })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(data.message);
+                setNewInstallmentCount("");
+                // Refresh data
+                fetchAdmissions();
+                // Also update the selected student modal data if it's open
+                if (data.admission) {
+                    const updatedAdmissions = studentAdmissions.map(ad =>
+                        ad._id === data.admission._id ? data.admission : ad
+                    );
+                    setStudentAdmissions(updatedAdmissions);
+                }
+            } else {
+                toast.error(data.message || "Failed to re-divide installments");
+            }
+        } catch (error) {
+            console.error("Error dividing installments:", error);
+            toast.error("Network error. Please try again.");
+        } finally {
+            setIsDividing(false);
+        }
     };
 
     useEffect(() => {
@@ -1401,6 +1445,37 @@ const EnrolledStudentsContent = () => {
                                                     </div>
                                                 </div>
 
+                                                {/* Installment Division Tool */}
+                                                {!["COMPLETED"].includes(admission.paymentStatus) && admission.admissionType !== 'BOARD' && (
+                                                    <div className={`p-4 rounded-[4px] border border-dashed flex flex-col md:flex-row items-center justify-between gap-4 ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-cyan-50 border-cyan-200'}`}>
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="p-2 bg-cyan-500/10 text-cyan-500 rounded">
+                                                                <FaPlus size={12} />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[10px] font-black uppercase text-cyan-500">Recalibrate Payment Schedule</p>
+                                                                <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">Split remaining balance into new installments</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 w-full md:w-auto">
+                                                            <input
+                                                                type="number"
+                                                                placeholder="COUNT"
+                                                                value={newInstallmentCount}
+                                                                onChange={(e) => setNewInstallmentCount(e.target.value)}
+                                                                className={`w-20 p-2 rounded-[4px] border text-[10px] font-black uppercase tracking-widest focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                                            />
+                                                            <button
+                                                                onClick={() => handleDivideInstallments(admission._id)}
+                                                                disabled={isDividing || selectedStudent?.status === 'Deactivated'}
+                                                                className={`px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center gap-2 shadow-sm ${isDividing || selectedStudent?.status === 'Deactivated' ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}`}
+                                                            >
+                                                                {isDividing ? <FaSync size={10} className="animate-spin" /> : <FaPlus size={10} />} DIVIDE NOW
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                                 {/* Payment Breakdown / Monthly Breakdown */}
                                                 <div>
                                                     <h6 className={`text-sm font-semibold mb-2 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -1503,7 +1578,7 @@ const EnrolledStudentsContent = () => {
                                                                                 .slice(0, paymentIndex)
                                                                                 .every(p => ["PAID", "COMPLETED"].includes(p.status));
 
-                                                                            const baseInstallmentAmount = Math.ceil(admission.remainingAmount / admission.numberOfInstallments);
+                                                                            const baseInstallmentAmount = admission.installmentAmount || Math.ceil((admission.totalFees - admission.downPayment) / (admission.numberOfInstallments || 1));
                                                                             const remarks = payment.remarks || "";
                                                                             const arrearsMatch = remarks.match(/Includes ₹([\d,]+) arrears from Inst #(\d+)/);
                                                                             const creditMatch = remarks.match(/Credit of ₹([\d,]+) from Inst #(\d+)/);

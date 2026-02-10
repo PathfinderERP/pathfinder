@@ -100,6 +100,55 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
         onChange(newPermissions);
     };
 
+    const handleBulkOperationToggle = (moduleKey, operation) => {
+        const newPermissions = { ...granularPermissions };
+        const moduleData = PERMISSION_MODULES[moduleKey];
+        if (!moduleData) return;
+
+        if (!newPermissions[moduleKey]) {
+            newPermissions[moduleKey] = {};
+        }
+
+        const sections = Object.entries(moduleData.sections);
+
+        let allEnabled = true;
+        let supportedAtLeastOnce = false;
+
+        sections.forEach(([sectionKey, sectionData]) => {
+            const ops = sectionData.operations;
+            if (operation === 'all') {
+                supportedAtLeastOnce = true;
+                ops.forEach(op => {
+                    if (!newPermissions[moduleKey][sectionKey]?.[op]) allEnabled = false;
+                });
+            } else if (ops.includes(operation)) {
+                supportedAtLeastOnce = true;
+                if (!newPermissions[moduleKey][sectionKey]?.[operation]) allEnabled = false;
+            }
+        });
+
+        if (!supportedAtLeastOnce) return;
+
+        const targetValue = !allEnabled;
+
+        sections.forEach(([sectionKey, sectionData]) => {
+            if (!newPermissions[moduleKey][sectionKey]) {
+                newPermissions[moduleKey][sectionKey] = {};
+            }
+
+            const ops = sectionData.operations;
+            if (operation === 'all') {
+                ops.forEach(op => {
+                    newPermissions[moduleKey][sectionKey][op] = targetValue;
+                });
+            } else if (ops.includes(operation)) {
+                newPermissions[moduleKey][sectionKey][operation] = targetValue;
+            }
+        });
+
+        onChange(newPermissions);
+    };
+
     const isModuleEnabled = (moduleKey) => {
         // Module is enabled if it exists in granularPermissions, even if empty
         return granularPermissions[moduleKey] !== undefined;
@@ -163,9 +212,42 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
                                 </div>
 
                                 {moduleEnabled && (
-                                    <span className="text-xs text-cyan-400 font-semibold">
-                                        {Object.keys(granularPermissions[moduleKey] || {}).length} sections
-                                    </span>
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-1 border-r border-gray-700 pr-3 mr-1">
+                                            <span className="text-[10px] text-gray-500 font-bold mr-1">BULK:</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleBulkOperationToggle(moduleKey, 'all')}
+                                                className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 text-[9px] font-black hover:bg-cyan-500/20 transition-all uppercase"
+                                            >
+                                                ALL
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleBulkOperationToggle(moduleKey, 'create')}
+                                                className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 border border-green-500/30 text-[9px] font-black hover:bg-green-500/20 transition-all uppercase"
+                                            >
+                                                C
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleBulkOperationToggle(moduleKey, 'edit')}
+                                                className="px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/30 text-[9px] font-black hover:bg-orange-500/20 transition-all uppercase"
+                                            >
+                                                E
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleBulkOperationToggle(moduleKey, 'delete')}
+                                                className="px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/30 text-[9px] font-black hover:bg-red-500/20 transition-all uppercase"
+                                            >
+                                                D
+                                            </button>
+                                        </div>
+                                        <span className="text-xs text-cyan-400 font-semibold whitespace-nowrap">
+                                            {Object.keys(granularPermissions[moduleKey] || {}).length} sections
+                                        </span>
+                                    </div>
                                 )}
                             </div>
                         </div>

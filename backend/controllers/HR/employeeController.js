@@ -213,6 +213,25 @@ export const getEmployees = async (req, res) => {
         }
         if (status) query.status = status;
 
+        // Data Isolation: If not superAdmin, restrict to assigned centers
+        const userRole = (req.user.role || "").toLowerCase();
+        if (userRole !== 'superadmin' && userRole !== 'super admin') {
+            const userCentres = req.user.centres || [];
+            if (userCentres.length > 0) {
+                query.$and = query.$and || [];
+                query.$and.push({
+                    $or: [
+                        { primaryCentre: { $in: userCentres } },
+                        { centres: { $in: userCentres } }
+                    ]
+                });
+            } else {
+                // If no centres assigned, they shouldn't see anyone (or maybe just themselves? 
+                // but usually it means they have no access).
+                query._id = null; // Forces empty result
+            }
+        }
+
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
         const employees = await Employee.find(query)
@@ -470,7 +489,23 @@ export const addSalaryStructure = async (req, res) => {
 // Get employees for dropdown (managers)
 export const getEmployeesForDropdown = async (req, res) => {
     try {
-        const employees = await Employee.find({ status: "Active" })
+        const userRole = (req.user.role || "").toLowerCase();
+        const isSuperAdmin = userRole === 'superadmin' || userRole === 'super admin';
+        const userCentres = req.user.centres || [];
+
+        const query = { status: "Active" };
+        if (!isSuperAdmin) {
+            if (userCentres.length > 0) {
+                query.$or = [
+                    { primaryCentre: { $in: userCentres } },
+                    { centres: { $in: userCentres } }
+                ];
+            } else {
+                return res.status(200).json([]); // No centres, no managers
+            }
+        }
+
+        const employees = await Employee.find(query)
             .select("employeeId name designation profileImage")
             .populate("designation", "name")
             .sort({ name: 1 });
