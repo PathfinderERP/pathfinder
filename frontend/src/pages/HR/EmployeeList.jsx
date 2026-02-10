@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { FaPlus, FaEdit, FaEye, FaSearch, FaFileExcel, FaFilePdf, FaTrash, FaChevronLeft, FaChevronRight, FaFileUpload, FaFilter, FaFileAlt, FaIdCard, FaBuilding, FaMapMarkerAlt, FaEnvelope, FaUsers, FaChartPie, FaSun, FaMoon } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
 import usePermission from "../../hooks/usePermission";
 import {
     CartesianGrid,
@@ -13,6 +12,8 @@ import {
 } from 'recharts';
 import ExcelImportExport from "../../components/common/ExcelImportExport";
 import { useTheme } from "../../context/ThemeContext";
+import CustomMultiSelect from '../../components/common/CustomMultiSelect';
+import { TableRowSkeleton, CardSkeleton } from '../../components/common/Skeleton';
 
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -39,10 +40,10 @@ const EmployeeList = () => {
     const [search, setSearch] = useState("");
     const [showImportModal, setShowImportModal] = useState(false);
     const [filters, setFilters] = useState({
-        department: "",
-        designation: "",
-        centre: "",
-        status: ""
+        department: [],
+        designation: [],
+        centre: [],
+        status: []
     });
     const [pagination, setPagination] = useState({
         currentPage: 1,
@@ -66,16 +67,8 @@ const EmployeeList = () => {
     const [centres, setCentres] = useState([]);
     const [allEmployeesDropdown, setAllEmployeesDropdown] = useState([]);
 
-    useEffect(() => {
-        fetchMasterData();
-        fetchAnalytics();
-    }, []);
 
-    useEffect(() => {
-        fetchEmployees();
-    }, [search, filters, pagination.currentPage]);
-
-    const fetchAnalytics = async () => {
+    const fetchAnalytics = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee/analytics`, {
@@ -90,9 +83,9 @@ const EmployeeList = () => {
         } finally {
             setAnalyticsLoading(false);
         }
-    };
+    }, []);
 
-    const fetchMasterData = async () => {
+    const fetchMasterData = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
@@ -111,9 +104,9 @@ const EmployeeList = () => {
         } catch (error) {
             console.error("Error fetching master data:", error);
         }
-    };
+    }, []);
 
-    const fetchEmployees = async () => {
+    const fetchEmployees = useCallback(async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -121,10 +114,10 @@ const EmployeeList = () => {
                 page: pagination.currentPage,
                 limit: 10,
                 ...(search && { search }),
-                ...(filters.department && { department: filters.department }),
-                ...(filters.designation && { designation: filters.designation }),
-                ...(filters.centre && { centre: filters.centre }),
-                ...(filters.status && { status: filters.status })
+                ...(filters.department?.length > 0 && { department: filters.department.map(d => d.value).join(",") }),
+                ...(filters.designation?.length > 0 && { designation: filters.designation.map(d => d.value).join(",") }),
+                ...(filters.centre?.length > 0 && { centre: filters.centre.map(c => c.value).join(",") }),
+                ...(filters.status?.length > 0 && { status: filters.status.map(s => s.value).join(",") })
             });
 
             const response = await fetch(
@@ -151,20 +144,29 @@ const EmployeeList = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [search, filters, pagination.currentPage]);
+
+    useEffect(() => {
+        fetchMasterData();
+        fetchAnalytics();
+    }, [fetchMasterData, fetchAnalytics]);
+
+    useEffect(() => {
+        fetchEmployees();
+    }, [fetchEmployees]);
 
     const handleFilterChange = (key, value) => {
-        setFilters(prev => ({ ...prev, [key]: value }));
+        setFilters(prev => ({ ...prev, [key]: value || [] }));
         setPagination(prev => ({ ...prev, currentPage: 1 }));
     };
 
     const handleClearFilters = () => {
         setSearch("");
         setFilters({
-            department: "",
-            designation: "",
-            centre: "",
-            status: ""
+            department: [],
+            designation: [],
+            centre: [],
+            status: []
         });
         setPagination(prev => ({ ...prev, currentPage: 1 }));
         toast.info("Filters cleared");
@@ -252,10 +254,10 @@ const EmployeeList = () => {
             const params = new URLSearchParams({
                 limit: 100000, // Large limit to get all filtered records
                 ...(search && { search }),
-                ...(filters.department && { department: filters.department }),
-                ...(filters.designation && { designation: filters.designation }),
-                ...(filters.centre && { centre: filters.centre }),
-                ...(filters.status && { status: filters.status })
+                ...(filters.department?.length > 0 && { department: filters.department.map(d => d.value).join(",") }),
+                ...(filters.designation?.length > 0 && { designation: filters.designation.map(d => d.value).join(",") }),
+                ...(filters.centre?.length > 0 && { centre: filters.centre.map(c => c.value).join(",") }),
+                ...(filters.status?.length > 0 && { status: filters.status.map(s => s.value).join(",") })
             });
 
             const response = await fetch(
@@ -503,7 +505,7 @@ const EmployeeList = () => {
                             </button>
                             <label className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 text-black font-bold rounded-[2px] cursor-pointer transition-all shadow-lg shadow-cyan-600/20">
                                 Select File
-                                <input type="file" className="hidden" accept=".xlsx, .xls" onChange={(e) => {
+                                <input type="file" className="hidden" accept=".xlsx, .xls" onChange={() => {
                                     toast.info("Importing processing feature coming soon...");
                                     setShowImportModal(false);
                                 }} />
@@ -549,12 +551,20 @@ const EmployeeList = () => {
                                 fileName="Employee_List"
                                 templateName="Employee_Import_Template"
                                 extraButtons={
-                                    <button
-                                        onClick={handleExportPDF}
-                                        className={`px-5 py-3 rounded-[2px] font-black uppercase text-[10px] tracking-widest transition-all border flex items-center gap-2 shadow-sm ${isDarkMode ? 'bg-[#1a1f24] text-gray-400 border-gray-800 hover:text-white dark:hover:bg-[#252a30]' : 'bg-white text-gray-600 border-gray-200 hover:text-gray-900 hover:bg-gray-100'}`}
-                                    >
-                                        <FaFilePdf className="text-red-500" /> PDF
-                                    </button>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            onClick={handleExportPDF}
+                                            className={`px-5 py-3 rounded-[2px] font-black uppercase text-[10px] tracking-widest transition-all border flex items-center gap-2 shadow-sm ${isDarkMode ? 'bg-[#1a1f24] text-gray-400 border-gray-800 hover:text-white dark:hover:bg-[#252a30]' : 'bg-white text-gray-600 border-gray-200 hover:text-gray-900 hover:bg-gray-100'}`}
+                                        >
+                                            <FaFilePdf className="text-red-500" /> PDF
+                                        </button>
+                                        <button
+                                            onClick={() => setShowImportModal(true)}
+                                            className={`px-5 py-3 rounded-[2px] font-black uppercase text-[10px] tracking-widest transition-all border flex items-center gap-2 shadow-sm ${isDarkMode ? 'bg-[#1a1f24] text-gray-400 border-gray-800 hover:text-white dark:hover:bg-[#252a30]' : 'bg-white text-gray-600 border-gray-200 hover:text-gray-900 hover:bg-gray-100'}`}
+                                        >
+                                            <FaPlus className="text-cyan-500 rotate-45" /> Import
+                                        </button>
+                                    </div>
                                 }
                             />
                             {canCreate && (
@@ -1043,38 +1053,34 @@ const EmployeeList = () => {
                             </div>
 
                             {[
-                                { label: "Department", value: filters.department, key: "department", options: departments, optKey: "departmentName" },
-                                { label: "Designation", value: filters.designation, key: "designation", options: designations, optKey: "name" },
-                                { label: "Centre", value: filters.centre, key: "centre", options: centres, optKey: "centreName" }
+                                { label: "Department", value: filters.department, key: "department", options: departments.map(d => ({ value: d._id, label: d.departmentName?.toUpperCase() || "" })) },
+                                { label: "Designation", value: filters.designation, key: "designation", options: designations.map(d => ({ value: d._id, label: d.name?.toUpperCase() || "" })) },
+                                { label: "Centre", value: filters.centre, key: "centre", options: centres.map(c => ({ value: c._id, label: c.centreName?.toUpperCase() || "" })) }
                             ].map((filter, idx) => (
                                 <div key={idx} className="space-y-2">
                                     <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{filter.label}</label>
-                                    <select
+                                    <CustomMultiSelect
+                                        placeholder={`ALL ${filter.label.toUpperCase()}S`}
+                                        options={filter.options}
                                         value={filter.value}
-                                        onChange={(e) => handleFilterChange(filter.key, e.target.value)}
-                                        className={`w-full px-4 py-3 bg-transparent border rounded-[2px] transition-all text-[10px] font-black uppercase tracking-widest outline-none cursor-pointer ${isDarkMode ? 'text-gray-400 border-gray-800 focus:border-cyan-500/50' : 'text-gray-600 border-gray-200 focus:border-cyan-500/50'}`}
-                                    >
-                                        <option value="" className={isDarkMode ? 'bg-[#131619]' : 'bg-white'}>ALL {filter.label.toUpperCase()}S</option>
-                                        {filter.options.map(opt => (
-                                            <option key={opt._id} value={opt._id} className={isDarkMode ? 'bg-[#131619]' : 'bg-white'}>{opt[filter.optKey].toUpperCase()}</option>
-                                        ))}
-                                    </select>
+                                        onChange={(val) => handleFilterChange(filter.key, val)}
+                                    />
                                 </div>
                             ))}
 
                             <div className="space-y-2">
                                 <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Status</label>
-                                <select
+                                <CustomMultiSelect
+                                    placeholder="ALL STATUS"
+                                    options={[
+                                        { value: "Active", label: "ACTIVE" },
+                                        { value: "Inactive", label: "INACTIVE" },
+                                        { value: "Resigned", label: "RESIGNED" },
+                                        { value: "Terminated", label: "TERMINATED" }
+                                    ]}
                                     value={filters.status}
-                                    onChange={(e) => handleFilterChange("status", e.target.value)}
-                                    className={`w-full px-4 py-3 bg-transparent border rounded-[2px] transition-all text-[10px] font-black uppercase tracking-widest outline-none cursor-pointer ${isDarkMode ? 'text-gray-400 border-gray-800 focus:border-cyan-500/50' : 'text-gray-600 border-gray-200 focus:border-cyan-500/50'}`}
-                                >
-                                    <option value="" className={isDarkMode ? 'bg-[#131619]' : 'bg-white'}>ALL STATUS</option>
-                                    <option value="Active" className={isDarkMode ? 'bg-[#131619]' : 'bg-white'}>ACTIVE</option>
-                                    <option value="Inactive" className={isDarkMode ? 'bg-[#131619]' : 'bg-white'}>INACTIVE</option>
-                                    <option value="Resigned" className={isDarkMode ? 'bg-[#131619]' : 'bg-white'}>RESIGNED</option>
-                                    <option value="Terminated" className={isDarkMode ? 'bg-[#131619]' : 'bg-white'}>TERMINATED</option>
-                                </select>
+                                    onChange={(val) => handleFilterChange("status", val)}
+                                />
                             </div>
 
                             <div className="flex items-end">
@@ -1091,11 +1097,24 @@ const EmployeeList = () => {
                     {/* Desktop Table View */}
                     <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} border rounded-[2px] overflow-hidden transition-all`}>
                         {loading ? (
-                            <div className="flex items-center justify-center h-64">
-                                <div className="flex flex-col items-center gap-4">
-                                    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-cyan-500"></div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-cyan-500 animate-pulse">Synchronizing Workforce Data...</p>
-                                </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className={`${isDarkMode ? 'bg-[#0a0a0b] border-gray-800' : 'bg-gray-50 border-gray-200'} border-b`}>
+                                            <th className={`px-6 py-5 text-left text-[9px] font-black uppercase tracking-widest w-16 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>S/N</th>
+                                            {["Employee Structure", "Contact Vector", "Operational Unit", "Designation", "Centre Unit", "Status", "Manual Overrides"].map((head, i) => (
+                                                <th key={i} className={`px-6 py-5 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                    {head}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
+                                        {[...Array(10)].map((_, i) => (
+                                            <TableRowSkeleton key={i} isDarkMode={isDarkMode} columns={8} />
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         ) : employees.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-64 text-gray-500 space-y-4">
@@ -1215,8 +1234,10 @@ const EmployeeList = () => {
                     {/* Mobile Card View (md:hidden) */}
                     <div className="md:hidden grid grid-cols-1 gap-4">
                         {loading ? (
-                            <div className="flex items-center justify-center h-32">
-                                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-cyan-500"></div>
+                            <div className="grid grid-cols-1 gap-4">
+                                {[...Array(6)].map((_, i) => (
+                                    <CardSkeleton key={i} isDarkMode={isDarkMode} />
+                                ))}
                             </div>
                         ) : employees.length === 0 ? (
                             <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-[#131619] rounded-[2px] border border-gray-200 dark:border-gray-800 border-dashed">
@@ -1318,6 +1339,7 @@ const EmployeeList = () => {
                             </div>
                         </div>
                     )}
+                    {showImportModal && <ImportOverviewModal />}
                 </div>
             </Layout>
         </div>

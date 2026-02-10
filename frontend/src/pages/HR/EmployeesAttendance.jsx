@@ -1082,10 +1082,10 @@ const EmployeesAttendance = () => {
                                                 contentStyle={{ backgroundColor: isDarkMode ? '#111827' : '#fff', borderColor: isDarkMode ? '#374151' : '#e5e7eb', borderRadius: '4px', fontSize: '10px', color: isDarkMode ? '#fff' : '#111827' }}
                                                 itemStyle={{ fontWeight: '900', textTransform: 'uppercase' }}
                                             />
-                                            <Area type="monotone" dataKey="overtime" stroke="#8b5cf6" fillOpacity={1} fill="url(#multiOvertime)" strokeWidth={3} stackId="1" />
-                                            <Area type="monotone" dataKey="earlyLeave" stroke="#ec4899" fillOpacity={1} fill="url(#multiEarly)" strokeWidth={3} stackId="1" />
-                                            <Area type="monotone" dataKey="halfDay" stroke="#f59e0b" fillOpacity={1} fill="url(#multiHalf)" strokeWidth={3} stackId="1" />
-                                            <Area type="monotone" dataKey="shortLeave" stroke="#84cc16" fillOpacity={1} fill="url(#multiShort)" strokeWidth={3} stackId="1" />
+                                            <Area type="monotone" dataKey="overtime" stroke="#8b5cf6" fillOpacity={1} fill="url(#multiOvertime)" strokeWidth={3} />
+                                            <Area type="monotone" dataKey="earlyLeave" stroke="#ec4899" fillOpacity={1} fill="url(#multiEarly)" strokeWidth={3} />
+                                            <Area type="monotone" dataKey="halfDay" stroke="#f59e0b" fillOpacity={1} fill="url(#multiHalf)" strokeWidth={3} />
+                                            <Area type="monotone" dataKey="shortLeave" stroke="#84cc16" fillOpacity={1} fill="url(#multiShort)" strokeWidth={3} />
                                         </AreaChart>
                                     </ResponsiveContainer>
                                 </div>

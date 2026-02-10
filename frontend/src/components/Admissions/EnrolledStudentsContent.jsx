@@ -10,6 +10,7 @@ import EditEnrolledStudentModal from './EditEnrolledStudentModal';
 import ExportButton from '../common/ExportButton';
 import MultiSelectFilter from '../common/MultiSelectFilter';
 import Pagination from '../common/Pagination';
+import { TableRowSkeleton } from '../common/Skeleton';
 import { downloadCSV, downloadExcel } from '../../utils/exportUtils';
 import './AdmissionsWave.css';
 import { hasPermission } from '../../config/permissions';
@@ -17,7 +18,6 @@ import BillGenerator from '../Finance/BillGenerator';
 
 const EnrolledStudentsContent = () => {
     const navigate = useNavigate();
-    const [admissions, setAdmissions] = useState([]);
     const [students, setStudents] = useState([]);
     const [filteredStudents, setFilteredStudents] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -35,7 +35,6 @@ const EnrolledStudentsContent = () => {
     const isDarkMode = theme === 'dark';
 
     // Master Data States
-    const [masterCentres, setMasterCentres] = useState([]);
     const [masterDepartments, setMasterDepartments] = useState([]);
     const [masterCourses, setMasterCourses] = useState([]);
     const [masterClasses, setMasterClasses] = useState([]);
@@ -69,9 +68,7 @@ const EnrolledStudentsContent = () => {
     // Permission checks
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const isSuperAdmin = user.role === "superAdmin";
-    const canCreate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'create');
     const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'edit');
-    const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'delete');
     const canDeactivate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'deactivate');
 
     const apiUrl = import.meta.env.VITE_API_URL;
@@ -83,13 +80,7 @@ const EnrolledStudentsContent = () => {
         return isNaN(date.getTime()) ? "N/A" : date.toLocaleDateString('en-GB');
     };
 
-    useEffect(() => {
-        fetchAllowedCentres();
-        fetchAdmissions();
-        fetchMasterData();
-    }, []);
-
-    const fetchMasterData = async () => {
+    const fetchMasterData = React.useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
@@ -108,9 +99,9 @@ const EnrolledStudentsContent = () => {
         } catch (error) {
             console.error("Error fetching master data:", error);
         }
-    };
+    }, [apiUrl]);
 
-    const fetchAllowedCentres = async () => {
+    const fetchAllowedCentres = React.useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
 
@@ -131,32 +122,9 @@ const EnrolledStudentsContent = () => {
         } catch (error) {
             console.error("Error fetching allowed centres:", error);
         }
-    };
+    }, [apiUrl, user.role, user.centres]);
 
-    const fetchAdmissions = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const response = await fetch(`${apiUrl}/admission`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-            const data = await response.json();
-            if (response.ok) {
-                setAdmissions(data);
-                groupStudents(data);
-            } else {
-                toast.error("Failed to fetch admissions");
-            }
-        } catch (error) {
-            toast.error("Error fetching admissions");
-            console.error("Error:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const groupStudents = (admissionsData) => {
+    const groupStudents = React.useCallback((admissionsData) => {
         // Group admissions by student
         const studentMap = {};
         admissionsData.forEach(admission => {
@@ -185,7 +153,35 @@ const EnrolledStudentsContent = () => {
 
         setStudents(studentsArray);
         setFilteredStudents(studentsArray);
-    };
+    }, []);
+
+    const fetchAdmissions = React.useCallback(async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${apiUrl}/admission`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (response.ok) {
+                groupStudents(data);
+            } else {
+                toast.error("Failed to fetch admissions");
+            }
+        } catch (error) {
+            toast.error("Error fetching admissions");
+            console.error("Error:", error);
+        } finally {
+            setLoading(false);
+        }
+    }, [apiUrl, groupStudents]);
+
+    useEffect(() => {
+        fetchAllowedCentres();
+        fetchAdmissions();
+        fetchMasterData();
+    }, [fetchAllowedCentres, fetchAdmissions, fetchMasterData]);
 
     const handleDivideInstallments = async (admissionId) => {
         if (!newInstallmentCount || parseInt(newInstallmentCount) < 1) {
@@ -381,14 +377,6 @@ const EnrolledStudentsContent = () => {
     };
 
     const uniqueCentres = allowedCentres;
-
-    const uniqueDepartments = [...new Set(admissions
-        .map(a => a.department?.departmentName)
-        .filter(Boolean))].sort();
-
-    const uniqueCourses = [...new Set(admissions
-        .map(a => a.course?.courseName || a.boardCourseName)
-        .filter(Boolean))].sort();
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -967,9 +955,9 @@ const EnrolledStudentsContent = () => {
                         </thead>
                         <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                             {loading ? (
-                                <tr className="animate-pulse">
-                                    <td colSpan="9" className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">Loading Records...</td>
-                                </tr>
+                                [...Array(10)].map((_, i) => (
+                                    <TableRowSkeleton key={i} isDarkMode={isDarkMode} columns={9} />
+                                ))
                             ) : filteredStudents.length === 0 ? (
                                 <tr>
                                     <td colSpan="9" className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
@@ -1493,7 +1481,7 @@ const EnrolledStudentsContent = () => {
                                                                             try {
                                                                                 const [year, month] = mKey.split('-').map(Number);
                                                                                 return new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                                                                            } catch (e) { return mKey; }
+                                                                            } catch { return mKey; }
                                                                         };
 
                                                                         return (

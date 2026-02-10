@@ -141,6 +141,14 @@ export const getFollowUpStats = async (req, res) => {
                                         ]
                                     }
                                 },
+                                positiveLeads: {
+                                    $sum: {
+                                        $cond: [
+                                            { $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "HOT LEAD"] },
+                                            1, 0
+                                        ]
+                                    }
+                                },
                                 negativeLeads: {
                                     $sum: {
                                         $cond: [
@@ -209,6 +217,7 @@ export const getFollowUpStats = async (req, res) => {
             totalFollowUps: rawActivity.totalFollowUps || 0,
             hotLeads: rawActivity.hotLeads || 0,
             coldLeads: rawActivity.coldLeads || 0,
+            positiveLeads: rawActivity.positiveLeads || 0,
             negativeLeads: rawActivity.negativeLeads || 0,
             recentActivity: rawActivity.recentActivity || [],
             totalScheduled: rawScheduled.totalScheduled || 0,

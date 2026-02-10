@@ -203,15 +203,25 @@ export const getEmployees = async (req, res) => {
             ];
         }
 
-        if (department) query.department = department;
-        if (designation) query.designation = designation;
+        if (department) {
+            const deptIds = department.split(',').filter(Boolean);
+            query.department = { $in: deptIds };
+        }
+        if (designation) {
+            const desigIds = designation.split(',').filter(Boolean);
+            query.designation = { $in: desigIds };
+        }
         if (centre) {
+            const centreIds = centre.split(',').filter(Boolean);
             query.$or = [
-                { primaryCentre: centre },
-                { centres: centre }
+                { primaryCentre: { $in: centreIds } },
+                { centres: { $in: centreIds } }
             ];
         }
-        if (status) query.status = status;
+        if (status) {
+            const statusValues = status.split(',').filter(Boolean);
+            query.status = { $in: statusValues };
+        }
 
         // Data Isolation: If not superAdmin, restrict to assigned centers
         const userRole = (req.user.role || "").toLowerCase();

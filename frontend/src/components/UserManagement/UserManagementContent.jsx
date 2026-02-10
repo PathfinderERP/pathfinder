@@ -10,6 +10,9 @@ import PermissionsDetailModal from "./PermissionsDetailModal";
 import "./UserCardWave.css";
 import { hasPermission, getAccessibleModules, PERMISSION_MODULES } from "../../config/permissions";
 import ExcelImportExport from "../common/ExcelImportExport";
+import { useTheme } from "../../context/ThemeContext";
+import { TableRowSkeleton, CardSkeleton } from "../common/Skeleton";
+import CustomMultiSelect from "../common/CustomMultiSelect";
 
 
 const UserManagementContent = () => {
@@ -19,16 +22,20 @@ const UserManagementContent = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
-    const [filterRole, setFilterRole] = useState("all");
     const [selectedPermUser, setSelectedPermUser] = useState(null);
     const [showPermModal, setShowPermModal] = useState(false);
     const [viewMode, setViewMode] = useState("grid"); // "grid" or "table"
-    const [filterCentre, setFilterCentre] = useState("all");
-    const [filterTeacherType, setFilterTeacherType] = useState("all");
-    const [filterDepartment, setFilterDepartment] = useState("all");
-    const [filterBoardType, setFilterBoardType] = useState("all");
+    const [filterRole, setFilterRole] = useState([]);
+    const [filterCentre, setFilterCentre] = useState([]);
+    const [filterTeacherType, setFilterTeacherType] = useState([]);
+    const [filterDepartment, setFilterDepartment] = useState([]);
+    const [filterBoardType, setFilterBoardType] = useState([]);
     const [allCentres, setAllCentres] = useState([]);
     const [allScripts, setAllScripts] = useState([]);
+    const [allDepartments, setAllDepartments] = useState([]);
+    const [allBoards, setAllBoards] = useState([]);
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
 
     const apiUrl = import.meta.env.VITE_API_URL;
@@ -49,13 +56,17 @@ const UserManagementContent = () => {
     const fetchAuxiliaryData = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
-            const [centresRes, scriptsRes] = await Promise.all([
+            const [centresRes, scriptsRes, departmentsRes, boardsRes] = await Promise.all([
                 fetch(`${apiUrl}/centre`, { headers: { Authorization: `Bearer ${token}` } }),
-                fetch(`${apiUrl}/script/list`, { headers: { Authorization: `Bearer ${token}` } })
+                fetch(`${apiUrl}/script/list`, { headers: { Authorization: `Bearer ${token}` } }),
+                fetch(`${apiUrl}/department`, { headers: { Authorization: `Bearer ${token}` } }),
+                fetch(`${apiUrl}/board`, { headers: { Authorization: `Bearer ${token}` } })
             ]);
 
             if (centresRes.ok) setAllCentres(await centresRes.json());
             if (scriptsRes.ok) setAllScripts(await scriptsRes.json());
+            if (departmentsRes.ok) setAllDepartments(await departmentsRes.json());
+            if (boardsRes.ok) setAllBoards(await boardsRes.json());
         } catch (error) {
             console.error("Error fetching auxiliary data:", error);
         }
@@ -129,11 +140,11 @@ const UserManagementContent = () => {
 
     const handleResetFilters = () => {
         setSearchQuery("");
-        setFilterRole("all");
-        setFilterCentre("all");
-        setFilterTeacherType("all");
-        setFilterDepartment("all");
-        setFilterBoardType("all");
+        setFilterRole([]);
+        setFilterCentre([]);
+        setFilterTeacherType([]);
+        setFilterDepartment([]);
+        setFilterBoardType([]);
         toast.info("Filters reset to default");
     };
 
@@ -144,17 +155,18 @@ const UserManagementContent = () => {
             user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
             user.employeeId.toLowerCase().includes(searchQuery.toLowerCase());
 
-        const matchesRole = filterRole === "all" || user.role === filterRole;
+        const matchesRole = filterRole.length === 0 || filterRole.some(f => f.value === user.role);
 
-        const matchesCentre = filterCentre === "all" ||
-            (user.centres && user.centres.some(c => c._id === filterCentre)) ||
-            (user.centre && (user.centre._id === filterCentre || user.centre === filterCentre));
+        const matchesCentre = filterCentre.length === 0 || filterCentre.some(f =>
+            (user.centres && user.centres.some(c => c._id === f.value)) ||
+            (user.centre && (user.centre._id === f.value || user.centre === f.value))
+        );
 
-        const matchesTeacherType = filterTeacherType === "all" || user.teacherType === filterTeacherType;
+        const matchesTeacherType = filterTeacherType.length === 0 || filterTeacherType.some(f => f.value === user.teacherType);
 
-        const matchesDepartment = filterDepartment === "all" || user.teacherDepartment === filterDepartment;
+        const matchesDepartment = filterDepartment.length === 0 || filterDepartment.some(f => f.value === user.teacherDepartment || (f.label === user.teacherDepartment));
 
-        const matchesBoardType = filterBoardType === "all" || user.boardType === filterBoardType;
+        const matchesBoardType = filterBoardType.length === 0 || filterBoardType.some(f => f.value === user.boardType || (f.label === user.boardType));
 
         return matchesSearch && matchesRole && matchesCentre && matchesTeacherType && matchesDepartment && matchesBoardType;
     });
@@ -332,25 +344,25 @@ const UserManagementContent = () => {
     };
 
     return (
-        <div className="flex-1 p-6 overflow-y-auto bg-[#131619]">
-            <ToastContainer position="top-right" theme="dark" />
+        <div className={`flex-1 p-6 overflow-y-auto ${isDarkMode ? 'bg-[#131619]' : 'bg-[#f8fafc]'}`}>
+            <ToastContainer position="top-right" theme={isDarkMode ? "dark" : "light"} />
 
             <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
-                <h2 className="text-2xl font-bold text-white">User Management</h2>
+                <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>User Management</h2>
 
                 <div className="flex items-center gap-3">
                     {/* View Toggle */}
-                    <div className="bg-[#1a1f24] p-1 rounded-lg border border-gray-800 flex">
+                    <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-1 rounded-lg border flex`}>
                         <button
                             onClick={() => setViewMode("grid")}
-                            className={`p-2 rounded ${viewMode === "grid" ? "bg-cyan-500/20 text-cyan-400" : "text-gray-400 hover:text-white"}`}
+                            className={`p-2 rounded ${viewMode === "grid" ? "bg-cyan-500/20 text-cyan-400" : isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900"}`}
                             title="Grid View"
                         >
                             <FaTh />
                         </button>
                         <button
                             onClick={() => setViewMode("table")}
-                            className={`p-2 rounded ${viewMode === "table" ? "bg-cyan-500/20 text-cyan-400" : "text-gray-400 hover:text-white"}`}
+                            className={`p-2 rounded ${viewMode === "table" ? "bg-cyan-500/20 text-cyan-400" : isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900"}`}
                             title="Table View"
                         >
                             <FaTable />
@@ -393,10 +405,10 @@ const UserManagementContent = () => {
                     { label: "Counsellor", count: stats.counsellor, color: "from-orange-500/20 to-yellow-500/20", border: "border-orange-500/30" },
                     { label: "Telecaller", count: stats.telecaller, color: "from-purple-500/20 to-pink-500/20", border: "border-purple-500/30" }
                 ].map((item, idx) => (
-                    <div key={idx} className={`bg-gradient-to-br ${item.color} ${item.border} border p-4 rounded-xl backdrop-blur-sm relative overflow-hidden flex items-center justify-between`}>
+                    <div key={idx} className={`bg-gradient-to-br ${item.count > 0 ? item.color : isDarkMode ? 'from-gray-800/20 to-gray-900/20' : 'from-gray-100 to-gray-200'} ${item.count > 0 ? item.border : isDarkMode ? 'border-gray-800' : 'border-gray-200'} border p-4 rounded-xl backdrop-blur-sm relative overflow-hidden flex items-center justify-between`}>
                         <div className="z-10">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">{item.label}</p>
-                            <p className="text-2xl font-black text-white">{item.count}</p>
+                            <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>{item.label}</p>
+                            <p className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.count}</p>
                         </div>
 
                         {/* Small Pie Chart Overlay */}
@@ -424,7 +436,7 @@ const UserManagementContent = () => {
                 ))}
             </div>
 
-            <div className="bg-[#1a1f24] p-4 rounded-xl border border-gray-800 mb-6">
+            <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-4 rounded-xl border mb-6`}>
                 <div className="flex flex-col md:flex-row gap-4">
                     <div className="relative flex-1">
                         <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
@@ -433,81 +445,82 @@ const UserManagementContent = () => {
                             placeholder="Search by name, email, or employee ID..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-[#131619] text-white pl-10 pr-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500 font-medium"
+                            className={`w-full ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-200'} pl-10 pr-4 py-2 rounded-lg border focus:outline-none focus:border-cyan-500 font-medium transition-all`}
                         />
                     </div>
 
                     {/* Multi Filters Row */}
-                    <div className="flex flex-wrap gap-3">
+                    <div className="flex flex-wrap gap-3 items-center flex-1">
                         {/* Centre Filter */}
-                        <select
-                            value={filterCentre}
-                            onChange={(e) => setFilterCentre(e.target.value)}
-                            className="bg-[#131619] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500 text-sm font-medium"
-                        >
-                            <option value="all">All Centres</option>
-                            {allCentres.map(c => (
-                                <option key={c._id} value={c._id}>{c.centreName}</option>
-                            ))}
-                        </select>
+                        <div className="min-w-[180px]">
+                            <CustomMultiSelect
+                                options={allCentres.map(c => ({ value: c._id, label: c.centreName }))}
+                                value={filterCentre}
+                                onChange={setFilterCentre}
+                                placeholder="All Centres"
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
 
                         {/* Role filter - Only show for SuperAdmin and Admin */}
                         {isSuperAdminOrAdmin && (
-                            <select
-                                value={filterRole}
-                                onChange={(e) => setFilterRole(e.target.value)}
-                                className="bg-[#131619] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500 text-sm font-medium"
-                            >
-                                <option value="all">All Roles</option>
-                                <option value="superAdmin">SuperAdmin</option>
-                                <option value="admin">Admin</option>
-                                <option value="teacher">Teacher</option>
-                                <option value="telecaller">Telecaller</option>
-                                <option value="counsellor">Counsellor</option>
-                            </select>
+                            <div className="min-w-[180px]">
+                                <CustomMultiSelect
+                                    options={[
+                                        { value: 'superAdmin', label: 'SuperAdmin' },
+                                        { value: 'admin', label: 'Admin' },
+                                        { value: 'teacher', label: 'Teacher' },
+                                        { value: 'telecaller', label: 'Telecaller' },
+                                        { value: 'counsellor', label: 'Counsellor' }
+                                    ]}
+                                    value={filterRole}
+                                    onChange={setFilterRole}
+                                    placeholder="All Roles"
+                                    isDarkMode={isDarkMode}
+                                />
+                            </div>
                         )}
 
                         {/* Teacher Type Filter */}
-                        <select
-                            value={filterTeacherType}
-                            onChange={(e) => setFilterTeacherType(e.target.value)}
-                            className="bg-[#131619] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500 text-sm font-medium"
-                        >
-                            <option value="all">All Types (FT/PT)</option>
-                            <option value="Full Time">Full Time</option>
-                            <option value="Part Time">Part Time</option>
-                        </select>
+                        <div className="min-w-[180px]">
+                            <CustomMultiSelect
+                                options={[
+                                    { value: 'Full Time', label: 'Full Time' },
+                                    { value: 'Part Time', label: 'Part Time' }
+                                ]}
+                                value={filterTeacherType}
+                                onChange={setFilterTeacherType}
+                                placeholder="All Types (FT/PT)"
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
 
                         {/* Department Filter */}
-                        <select
-                            value={filterDepartment}
-                            onChange={(e) => setFilterDepartment(e.target.value)}
-                            className="bg-[#131619] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500 text-sm font-medium"
-                        >
-                            <option value="all">All Departments</option>
-                            <option value="Foundation">Foundation</option>
-                            <option value="All India">All India</option>
-                            <option value="Board">Board</option>
-                        </select>
+                        <div className="min-w-[180px]">
+                            <CustomMultiSelect
+                                options={allDepartments.map(d => ({ value: d._id, label: d.name }))}
+                                value={filterDepartment}
+                                onChange={setFilterDepartment}
+                                placeholder="All Departments"
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
 
                         {/* Board Type Filter */}
-                        <select
-                            value={filterBoardType}
-                            onChange={(e) => setFilterBoardType(e.target.value)}
-                            className="bg-[#131619] text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500 text-sm font-medium"
-                        >
-                            <option value="all">All Boards</option>
-                            <option value="JEE">JEE</option>
-                            <option value="NEET">NEET</option>
-                            <option value="CBSE">CBSE</option>
-                            <option value="ICSE">ICSE</option>
-                            <option value="WBBSE">WBBSE</option>
-                        </select>
+                        <div className="min-w-[180px]">
+                            <CustomMultiSelect
+                                options={allBoards.map(b => ({ value: b._id, label: b.boardName }))}
+                                value={filterBoardType}
+                                onChange={setFilterBoardType}
+                                placeholder="All Boards"
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
 
                         {/* Reset Filters Button */}
                         <button
                             onClick={handleResetFilters}
-                            className="bg-gray-800 text-gray-400 p-2 rounded-lg border border-gray-700 hover:text-white hover:bg-gray-700 transition-all"
+                            className={`p-2.5 rounded-lg border transition-all h-[38px] flex items-center justify-center ${isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-gray-100 text-gray-500 border-gray-200 hover:text-gray-900 hover:bg-gray-200'}`}
                             title="Reset all filters"
                         >
                             <FaUndo />
@@ -517,16 +530,45 @@ const UserManagementContent = () => {
             </div>
 
             {loading ? (
-                <p className="text-gray-400">Loading users...</p>
+                viewMode === "grid" ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {[...Array(6)].map((_, i) => (
+                            <CardSkeleton key={i} isDarkMode={isDarkMode} />
+                        ))}
+                    </div>
+                ) : (
+                    <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-xl border overflow-hidden`}>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className={`${isDarkMode ? 'bg-gray-800/50 text-gray-400' : 'bg-gray-50 text-gray-500'} text-sm uppercase`}>
+                                        <th className="p-4 border-b border-gray-800">Name</th>
+                                        <th className="p-4 border-b border-gray-800">Role</th>
+                                        <th className="p-4 border-b border-gray-800">Employee ID</th>
+                                        <th className="p-4 border-b border-gray-800">Contact</th>
+                                        <th className="p-4 border-b border-gray-800 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {[...Array(10)].map((_, i) => (
+                                        <TableRowSkeleton key={i} isDarkMode={isDarkMode} columns={5} />
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )
             ) : filteredUsers.length === 0 ? (
-                <p className="text-gray-400">No users found.</p>
+                <div className={`p-12 text-center rounded-xl border border-dashed ${isDarkMode ? 'bg-gray-800/20 border-gray-700 text-gray-500' : 'bg-gray-50 border-gray-300 text-gray-400'}`}>
+                    <p className="font-bold uppercase tracking-[0.2em] text-sm">No user vectors found</p>
+                </div>
             ) : viewMode === "grid" ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredUsers.map((user) => (
-                        <div key={user._id} className="user-card-wave-dramatic bg-[#1a1f24] p-6 rounded-xl border border-gray-800 transition-all group">
+                        <div key={user._id} className={`user-card-wave-dramatic ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-xl border transition-all group relative overflow-hidden`}>
                             <div className="flex justify-between items-start mb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-16 h-16 rounded-full bg-cyan-900 flex items-center justify-center overflow-hidden border-2 border-cyan-500/30 shadow-lg shadow-cyan-500/10">
+                                    <div className={`w-16 h-16 rounded-full ${isDarkMode ? 'bg-cyan-900 border-cyan-500/30' : 'bg-cyan-100 border-cyan-200'} flex items-center justify-center overflow-hidden border-2 shadow-lg`}>
                                         {user.profileImage ? (
                                             <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" />
                                         ) : (
@@ -534,7 +576,7 @@ const UserManagementContent = () => {
                                         )}
                                     </div>
                                     <div>
-                                        <h3 className="text-lg font-bold text-white">{user.name}</h3>
+                                        <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{user.name}</h3>
                                         <span className={`inline-block px-2 py-1 text-xs font-semibold rounded border ${getRoleBadgeColor(user.role)}`}>
                                             {getRoleDisplayName(user.role)}
                                         </span>
@@ -544,7 +586,7 @@ const UserManagementContent = () => {
                                     {canEditUsers && (
                                         <button
                                             onClick={() => handleEdit(user)}
-                                            className="p-2 bg-gray-800 text-yellow-400 rounded hover:bg-gray-700"
+                                            className={`p-2 rounded transition-all ${isDarkMode ? 'bg-gray-800 text-yellow-400 hover:bg-gray-700' : 'bg-gray-100 text-yellow-600 hover:bg-yellow-500 hover:text-white'}`}
                                             title="Edit"
                                         >
                                             <FaEdit />
@@ -553,7 +595,7 @@ const UserManagementContent = () => {
                                     {canDeleteUsers && (
                                         <button
                                             onClick={() => handleDelete(user._id)}
-                                            className="p-2 bg-gray-800 text-red-400 rounded hover:bg-gray-700"
+                                            className={`p-2 rounded transition-all ${isDarkMode ? 'bg-gray-800 text-red-400 hover:bg-gray-700' : 'bg-gray-100 text-red-600 hover:bg-red-500 hover:text-white'}`}
                                             title="Delete"
                                         >
                                             <FaTrash />
@@ -562,27 +604,27 @@ const UserManagementContent = () => {
                                 </div>
                             </div>
 
-                            <div className="space-y-2 text-gray-400 text-sm">
+                            <div className={`space-y-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-sm`}>
                                 <div className="flex items-center gap-2">
-                                    <FaUser className="text-gray-500" />
-                                    <span>ID: {user.employeeId}</span>
+                                    <FaUser className={isDarkMode ? 'text-gray-500' : 'text-gray-400'} />
+                                    <span className="font-mono">{user.employeeId}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <FaEnvelope className="text-gray-500" />
+                                    <FaEnvelope className={isDarkMode ? 'text-gray-500' : 'text-gray-400'} />
                                     <span className="truncate">{user.email}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <FaPhone className="text-gray-500" />
+                                    <FaPhone className={isDarkMode ? 'text-gray-500' : 'text-gray-400'} />
                                     <span>{user.mobNum}</span>
                                 </div>
                                 <div className="flex items-start gap-2">
-                                    <FaMapMarkerAlt className="text-gray-500 mt-1" />
+                                    <FaMapMarkerAlt className={isDarkMode ? 'text-gray-500' : 'text-gray-400'} mt-1 />
                                     <span className="break-words">{getCentresDisplay(user)}</span>
                                 </div>
                                 {user.role === "telecaller" && (
-                                    <div className="flex items-center gap-2 mt-3 pt-2 border-t border-gray-800/50">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-500"></div>
-                                        <span className="text-xs font-bold text-cyan-400">
+                                    <div className={`flex items-center gap-2 mt-3 pt-2 border-t ${isDarkMode ? 'border-gray-800/50' : 'border-gray-100'}`}>
+                                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></div>
+                                        <span className="text-xs font-black uppercase tracking-widest text-cyan-500">
                                             Script: {user.assignedScript?.scriptName || "Unassigned"}
                                         </span>
                                     </div>
@@ -590,20 +632,20 @@ const UserManagementContent = () => {
                             </div>
 
                             {/* Granular Permissions Display */}
-                            <div className="mt-4 pt-4 border-t border-gray-800">
-                                <p className="text-xs text-gray-500 mb-2">Permissions:</p>
+                            <div className={`mt-4 pt-4 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} mb-2`}>Access Level:</p>
                                 <div
-                                    className="flex flex-wrap gap-1 cursor-pointer hover:bg-gray-800/50 p-1 rounded transition-colors -ml-1 border border-transparent hover:border-gray-700"
+                                    className={`flex flex-wrap gap-1 cursor-pointer p-1 rounded transition-all -ml-1 border border-transparent ${isDarkMode ? 'hover:bg-gray-800/50 hover:border-gray-700' : 'hover:bg-gray-50 hover:border-gray-200'}`}
                                     onClick={() => { setSelectedPermUser(user); setShowPermModal(true); }}
                                 >
                                     {user.role === 'superAdmin' ? (
-                                        <span className="text-xs bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-1 rounded">
-                                            Super Admin (All Access)
+                                        <span className="text-[9px] font-black uppercase tracking-widest bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-1 rounded-[2px]">
+                                            Full System Access
                                         </span>
                                     ) : (
                                         (() => {
                                             const modules = getAccessibleModules(user);
-                                            if (modules.length === 0) return <span className="text-xs text-gray-500 italic">No permissions</span>;
+                                            if (modules.length === 0) return <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 italic">No modules assigned</span>;
 
                                             const displayModules = modules.slice(0, 3);
                                             const remaining = modules.length - 3;
@@ -611,13 +653,13 @@ const UserManagementContent = () => {
                                             return (
                                                 <>
                                                     {displayModules.map(modKey => (
-                                                        <span key={modKey} className="text-xs bg-gray-800 text-cyan-400 px-2 py-1 rounded">
+                                                        <span key={modKey} className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-[2px] ${isDarkMode ? 'bg-gray-800 text-cyan-400' : 'bg-cyan-50 text-cyan-600'}`}>
                                                             {PERMISSION_MODULES[modKey]?.label || modKey}
                                                         </span>
                                                     ))}
                                                     {remaining > 0 && (
-                                                        <span className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded">
-                                                            +{remaining} more
+                                                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-[2px] ${isDarkMode ? 'bg-gray-800 text-gray-500' : 'bg-gray-100 text-gray-400'}`}>
+                                                            +{remaining} MORE
                                                         </span>
                                                     )}
                                                 </>
@@ -630,73 +672,73 @@ const UserManagementContent = () => {
                     ))}
                 </div>
             ) : (
-                <div className="bg-[#1a1f24] rounded-xl border border-gray-800 overflow-hidden">
-                    <div className="overflow-x-auto">
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} rounded-xl border overflow-hidden transition-all`}>
+                    <div className="overflow-x-auto custom-scrollbar">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-gray-800/50 text-gray-400 text-sm uppercase">
-                                    <th className="p-4 border-b border-gray-800">Name</th>
-                                    <th className="p-4 border-b border-gray-800">Role</th>
-                                    <th className="p-4 border-b border-gray-800">Employee ID</th>
-                                    <th className="p-4 border-b border-gray-800">Contact</th>
-                                    <th className="p-4 border-b border-gray-800">Centres</th>
-                                    <th className="p-4 border-b border-gray-800">Assigned Script</th>
-                                    <th className="p-4 border-b border-gray-800 text-right">Actions</th>
+                                <tr className={`${isDarkMode ? 'bg-gray-800/50 text-gray-400' : 'bg-gray-50 text-gray-500'} text-sm uppercase`}>
+                                    <th className={`p-4 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} font-black tracking-widest text-[10px]`}>Structure</th>
+                                    <th className={`p-4 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} font-black tracking-widest text-[10px]`}>Role</th>
+                                    <th className={`p-4 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} font-black tracking-widest text-[10px]`}>Employee ID</th>
+                                    <th className={`p-4 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} font-black tracking-widest text-[10px]`}>Communication</th>
+                                    <th className={`p-4 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} font-black tracking-widest text-[10px]`}>Assigned Units</th>
+                                    <th className={`p-4 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} font-black tracking-widest text-[10px]`}>Operational Script</th>
+                                    <th className={`p-4 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} font-black tracking-widest text-[10px] text-right`}>Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-800">
+                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                 {filteredUsers.map((user) => (
-                                    <tr key={user._id} className="user-table-row-wave transition-colors">
+                                    <tr key={user._id} className={`${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'} transition-all group`}>
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-cyan-900 flex items-center justify-center overflow-hidden border border-cyan-500/30">
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center overflow-hidden border ${isDarkMode ? 'bg-cyan-900 border-cyan-500/30' : 'bg-cyan-100 border-cyan-200'}`}>
                                                     {user.profileImage ? (
                                                         <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" />
                                                     ) : (
                                                         <span className="text-cyan-400 font-bold text-sm">{user.name.charAt(0).toUpperCase()}</span>
                                                     )}
                                                 </div>
-                                                <span className="text-white font-medium">{user.name}</span>
+                                                <span className={`font-black uppercase tracking-tight ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>{user.name}</span>
                                             </div>
                                         </td>
                                         <td className="p-4">
-                                            <span className={`inline-block px-2 py-1 text-xs font-semibold rounded border ${getRoleBadgeColor(user.role)}`}>
+                                            <span className={`inline-block px-2 py-1 text-[9px] font-black uppercase tracking-widest rounded border ${getRoleBadgeColor(user.role)}`}>
                                                 {getRoleDisplayName(user.role)}
                                             </span>
                                         </td>
-                                        <td className="p-4 text-gray-400 text-sm">{user.employeeId}</td>
-                                        <td className="p-4 text-gray-400 text-sm">
-                                            <div className="flex flex-col">
-                                                <span>{user.email}</span>
-                                                <span className="text-xs text-gray-500">{user.mobNum}</span>
+                                        <td className={`p-4 font-mono text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{user.employeeId}</td>
+                                        <td className="p-4">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className={`text-[11px] font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-800'}`}>{user.email}</span>
+                                                <span className="text-[10px] text-gray-500 font-bold">{user.mobNum}</span>
                                             </div>
                                         </td>
-                                        <td className="p-4 text-gray-400 text-sm">
-                                            <span className="text-gray-400">{getCentresDisplay(user)}</span>
+                                        <td className="p-4">
+                                            <span className={`text-[11px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{getCentresDisplay(user)}</span>
                                         </td>
                                         <td className="p-4 text-gray-400 text-sm">
-                                            <span className={user.role === 'telecaller' ? "text-cyan-400 font-bold" : ""}>
-                                                {user.assignedScript?.scriptName || (user.role === 'telecaller' ? "Unassigned" : "N/A")}
+                                            <span className={`text-[10px] font-black uppercase tracking-widest ${user.role === 'telecaller' ? "text-cyan-500" : isDarkMode ? "text-gray-600" : "text-gray-400"}`}>
+                                                {user.assignedScript?.scriptName || (user.role === 'telecaller' ? "UNASSIGNED" : "N/A")}
                                             </span>
                                         </td>
-                                        <td className="p-4 text-right">
+                                        <td className="p-4">
                                             <div className="flex items-center justify-end gap-2">
                                                 {canEditUsers && (
                                                     <button
                                                         onClick={() => handleEdit(user)}
-                                                        className="p-2 text-yellow-400 hover:bg-gray-700 rounded transition-colors"
+                                                        className={`p-2 rounded transition-all ${isDarkMode ? 'text-yellow-400 hover:bg-yellow-500/10' : 'text-yellow-600 hover:bg-yellow-100'}`}
                                                         title="Edit"
                                                     >
-                                                        <FaEdit />
+                                                        <FaEdit size={14} />
                                                     </button>
                                                 )}
                                                 {canDeleteUsers && (
                                                     <button
                                                         onClick={() => handleDelete(user._id)}
-                                                        className="p-2 text-red-400 hover:bg-gray-700 rounded transition-colors"
+                                                        className={`p-2 rounded transition-all ${isDarkMode ? 'text-red-400 hover:bg-red-500/10' : 'text-red-600 hover:bg-red-100'}`}
                                                         title="Delete"
                                                     >
-                                                        <FaTrash />
+                                                        <FaTrash size={14} />
                                                     </button>
                                                 )}
                                             </div>

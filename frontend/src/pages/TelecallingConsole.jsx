@@ -911,6 +911,25 @@ const TelecallingConsole = () => {
                                             </div>
                                         </div>
 
+                                        {/* Cold Leads Card */}
+                                        <div
+                                            onClick={() => handleActivityCardClick('COLD')}
+                                            className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${isDarkMode ? 'bg-blue-500/5 border-blue-500/20 hover:border-blue-500/50' : 'bg-blue-50 border-blue-100 shadow-sm hover:border-blue-500/50'}`}>
+                                            <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                                <div>
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 text-blue-500">Cold</p>
+                                                    <h3 className={`text-3xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.coldLeads}</h3>
+                                                    <p className="text-[9px] font-bold text-blue-500 mt-1 uppercase tracking-widest">Low Interest</p>
+                                                </div>
+                                                <div className={`p-2.5 rounded-[20px] transition-all bg-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.4)]`}>
+                                                    <FaClock size={16} />
+                                                </div>
+                                            </div>
+                                            <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform text-blue-500">
+                                                <FaClock size={100} />
+                                            </div>
+                                        </div>
+
                                         {/* Negative Results Card */}
                                         <div
                                             onClick={() => handleActivityCardClick('NEGATIVE')}
