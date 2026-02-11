@@ -37,8 +37,8 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
     const isSuperAdmin = currentUser.role === "superAdmin";
 
     const roles = isSuperAdmin
-        ? ["admin", "teacher", "telecaller", "counsellor", "superAdmin"]
-        : ["admin", "teacher", "telecaller", "counsellor"];
+        ? ["admin", "teacher", "telecaller", "counsellor", "marketing", "superAdmin"]
+        : ["admin", "teacher", "telecaller", "counsellor", "marketing"];
 
     useEffect(() => {
         fetchCentres();
@@ -141,7 +141,50 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                 });
                 newData.granularPermissions = allPerms;
             }
-            // If switching TO a regular role, ensure Employee Center is at least present
+            // Default access for Marketing and Counsellor when switching role
+            else if (name === "role" && (value === "marketing" || value === "counsellor") && permissionsConfig) {
+                const defaultPerms = {};
+                // Employee Center
+                if (permissionsConfig.employeeCenter) {
+                    defaultPerms.employeeCenter = {};
+                    Object.keys(permissionsConfig.employeeCenter.sections).forEach(sectionKey => {
+                        defaultPerms.employeeCenter[sectionKey] = {
+                            create: true,
+                            edit: true,
+                            delete: true
+                        };
+                    });
+                }
+                // Lead Management
+                if (permissionsConfig.leadManagement) {
+                    defaultPerms.leadManagement = {};
+                    Object.keys(permissionsConfig.leadManagement.sections).forEach(sectionKey => {
+                        defaultPerms.leadManagement[sectionKey] = {
+                            view: true,
+                            create: true,
+                            edit: true,
+                            delete: true
+                        };
+                    });
+                }
+                // Admissions
+                if (permissionsConfig.admissions) {
+                    const admissionPerms = {};
+                    Object.keys(permissionsConfig.admissions.sections).forEach(sectionKey => {
+                        if (['allLeads', 'enrolledStudents'].includes(sectionKey)) {
+                            admissionPerms[sectionKey] = {
+                                view: true,
+                                create: true,
+                                edit: true,
+                                delete: false
+                            };
+                        }
+                    });
+                    defaultPerms.admissions = admissionPerms;
+                }
+                newData.granularPermissions = defaultPerms;
+            }
+            // If switching TO a regular role (not superAdmin and not marketing/counsellor)
             else if (name === "role" && value !== "superAdmin" && permissionsConfig) {
                 if (!newData.granularPermissions.employeeCenter) {
                     const empCenterPerms = {};

@@ -53,6 +53,7 @@ import MasterDataSubject from "./pages/MasterDataSubject";
 import MasterDataFollowUpFeedback from "./pages/MasterDataFollowUpFeedback";
 import ZoneManagement from "./pages/ZoneManagement";
 import EditBoardSubjects from "./pages/EditBoardSubjects";
+import MarketingCRM from "./pages/MarketingCRM";
 
 // ... [existing imports]
 
@@ -157,6 +158,7 @@ function App() {
         <Route path="/lead-management/dashboard" element={<ProtectedRoute><LeadDashboard /></ProtectedRoute>} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/ceo-control-tower" element={<ProtectedRoute><CEOControlTower /></ProtectedRoute>} />
+        <Route path="/marketing-crm" element={<ProtectedRoute><MarketingCRM /></ProtectedRoute>} />
         <Route path="/admissions" element={<ProtectedRoute><Admissions /></ProtectedRoute>} />
 
         <Route path="/admissions/telecalling-console" element={<ProtectedRoute><TelecallingConsole /></ProtectedRoute>} />

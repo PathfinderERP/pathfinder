@@ -195,6 +195,7 @@ export const clearCheque = async (req, res) => {
             const historyEntry = admission.monthlySubjectHistory.find(h => h.month === payment.billingMonth);
             if (historyEntry) {
                 historyEntry.isPaid = true;
+                historyEntry.status = "PAID";
             }
         }
 
@@ -284,6 +285,7 @@ export const rejectCheque = async (req, res) => {
             const historyEntry = admission.monthlySubjectHistory.find(h => h.month === payment.billingMonth);
             if (historyEntry) {
                 historyEntry.isPaid = false;
+                historyEntry.status = "REJECTED";
             }
         }
 
@@ -494,6 +496,7 @@ export const cancelCheque = async (req, res) => {
             const historyEntry = admission.monthlySubjectHistory.find(h => h.month === payment.billingMonth);
             if (historyEntry) {
                 historyEntry.isPaid = false;
+                historyEntry.status = "PENDING";
             }
         }
 

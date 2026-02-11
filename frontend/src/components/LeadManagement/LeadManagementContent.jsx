@@ -263,15 +263,17 @@ const LeadManagementContent = () => {
             });
             const userData = await userResponse.json();
             if (userResponse.ok) {
-                // Filter users to show only those with the "telecaller" role
-                const telecallerUsers = (userData.users || []).filter(user => user.role === "telecaller");
-                setTelecallers(telecallerUsers);
+                // Filter users to show only those with the relevant roles for lead management
+                const leadUsers = (userData.users || []).filter(user =>
+                    ["telecaller", "counsellor", "marketing"].includes(user.role)
+                );
+                setTelecallers(leadUsers);
 
-                // If current user is a telecaller, auto-select them in filters
-                if (currentUser.role === "telecaller") {
-                    const currentTelecaller = telecallerUsers.find(t => t.name === currentUser.name);
-                    if (currentTelecaller) {
-                        setFilters(prev => ({ ...prev, leadResponsibility: [{ value: currentTelecaller.name, label: currentTelecaller.name }] }));
+                // If current user has one of these roles, auto-select them in filters
+                if (["telecaller", "counsellor", "marketing"].includes(currentUser.role)) {
+                    const currentLeadUser = leadUsers.find(t => t.name === currentUser.name);
+                    if (currentLeadUser) {
+                        setFilters(prev => ({ ...prev, leadResponsibility: [{ value: currentLeadUser.name, label: currentLeadUser.name }] }));
                     }
                 }
             }

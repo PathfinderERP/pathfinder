@@ -75,6 +75,13 @@ export const getFollowUpStats = async (req, res) => {
             scheduledDateFilter.$lt = tomorrow;
         }
 
+        // Resolve potential duplicate counselor names
+        let userNames = [];
+        if (leadResponsibility) {
+            const users = await User.find({ name: { $regex: new RegExp(`^${leadResponsibility}$`, "i") } });
+            userNames = users.length > 0 ? users.map(u => u.name) : [leadResponsibility];
+        }
+
         // Access Control
         if (req.user.role !== 'superAdmin') {
             const userDoc = await User.findById(req.user.id).select('centres role name');
@@ -93,7 +100,7 @@ export const getFollowUpStats = async (req, res) => {
             }
         } else {
             if (centre) baseMatch.centre = new mongoose.Types.ObjectId(centre);
-            if (leadResponsibility) baseMatch.leadResponsibility = { $regex: new RegExp(`^${leadResponsibility}$`, "i") };
+            if (leadResponsibility) baseMatch.leadResponsibility = { $in: userNames };
         }
 
         // REFINED AGGREGATION: Faceted approach for Recorded vs Scheduled
@@ -118,7 +125,7 @@ export const getFollowUpStats = async (req, res) => {
                             $match: {
                                 "followUp.date": activityDateFilter,
                                 ...timeMatch,
-                                ...(leadResponsibility ? { "leadResponsibility": { $regex: new RegExp(`^${leadResponsibility}$`, "i") } } : {})
+                                ...(userNames.length > 0 ? { "followUp.updatedBy": { $in: userNames } } : {})
                             }
                         },
                         {
@@ -128,7 +135,7 @@ export const getFollowUpStats = async (req, res) => {
                                 hotLeads: {
                                     $sum: {
                                         $cond: [
-                                            { $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "HOT LEAD"] },
+                                            { $in: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, ["HOT LEAD", "ADMISSION TAKEN"]] },
                                             1, 0
                                         ]
                                     }
@@ -144,7 +151,7 @@ export const getFollowUpStats = async (req, res) => {
                                 positiveLeads: {
                                     $sum: {
                                         $cond: [
-                                            { $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "HOT LEAD"] },
+                                            { $in: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, ["HOT LEAD", "ADMISSION TAKEN"]] },
                                             1, 0
                                         ]
                                     }

@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller', 'counsellor', 'RM', 'Class_Coordinator', 'HOD'],
+        enum: ['teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller', 'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing'],
         default: 'admin',
         required: true,
     },
@@ -113,6 +113,38 @@ const userSchema = new mongoose.Schema({
     }
 
 }, { timestamps: true });
+
+// Pre-save hook to set default permissions for specific roles
+userSchema.pre('save', async function () {
+    if (this.isNew || !this.granularPermissions || Object.keys(this.granularPermissions).length === 0) {
+        if (this.role === 'counsellor' || this.role === 'marketing') {
+            this.granularPermissions = {
+                employeeCenter: {
+                    holidayList: { create: true, edit: true, delete: true },
+                    holidayCalendar: { create: true, edit: true, delete: true },
+                    markAttendance: { create: true, edit: true, delete: true },
+                    leaveManagement: { create: true, edit: true, delete: true },
+                    regularization: { create: true, edit: true, delete: true },
+                    profile: { create: true, edit: true, delete: true },
+                    documents: { create: true, edit: true, delete: true },
+                    training: { create: true, edit: true, delete: true },
+                    feedback: { create: true, edit: true, delete: true },
+                    posh: { create: true, edit: true, delete: true },
+                    reimbursement: { create: true, edit: true, delete: true },
+                    resign: { create: true, edit: true, delete: true }
+                },
+                leadManagement: {
+                    leads: { view: true, create: true, edit: true, delete: true },
+                    dashboard: { view: true }
+                },
+                admissions: {
+                    allLeads: { view: true, create: true, edit: true, delete: false },
+                    enrolledStudents: { view: true, create: true, edit: true, delete: false }
+                }
+            };
+        }
+    }
+});
 
 const User = mongoose.model("User", userSchema);
 export default User;

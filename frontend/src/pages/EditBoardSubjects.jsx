@@ -523,9 +523,9 @@ const EditBoardSubjects = () => {
                                 >
                                     <div className="flex justify-between items-center mb-2">
                                         <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{month.monthName}</span>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${month.isPaid ? 'bg-green-500 text-white' : 'bg-yellow-500 text-black'
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${month.isPaid ? 'bg-green-500 text-white' : (month.paymentStatus === 'PENDING_CLEARANCE' ? 'bg-cyan-500 text-white' : 'bg-yellow-500 text-black')
                                             }`}>
-                                            {month.isPaid ? 'PAID' : 'PENDING'}
+                                            {month.paymentStatus === 'PENDING_CLEARANCE' ? 'IN PROCESS' : (month.isPaid ? 'PAID' : 'PENDING')}
                                         </span>
                                     </div>
 

@@ -1,168 +1,225 @@
 import LeadManagement from "../../models/LeadManagement.js";
 import User from "../../models/User.js";
+import Admission from "../../models/Admission/Admission.js";
+import CentreSchema from "../../models/Master_data/Centre.js";
+import mongoose from "mongoose";
 
 export const getAllTelecallerAnalytics = async (req, res) => {
     try {
-        const { fromDate, toDate, period = 'daily' } = req.query;
+        const { fromDate, toDate, period = 'daily', centre, leadResponsibility } = req.query;
 
         // Calculate date range based on period
         let startDate, endDate;
         const now = new Date();
 
         if (period === 'daily') {
-            // Today's data
-            startDate = new Date(now.setHours(0, 0, 0, 0));
-            endDate = new Date(now.setHours(23, 59, 59, 999));
+            startDate = new Date(new Date().setHours(0, 0, 0, 0));
+            endDate = new Date(new Date().setHours(23, 59, 59, 999));
         } else if (period === 'weekly') {
-            // Last 7 days
             startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
             startDate.setHours(0, 0, 0, 0);
             endDate = new Date();
             endDate.setHours(23, 59, 59, 999);
         } else if (period === 'monthly') {
-            // Last 30 days
-            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-            startDate.setHours(0, 0, 0, 0);
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
             endDate = new Date();
             endDate.setHours(23, 59, 59, 999);
         }
 
         // Override with custom dates if provided
-        if (fromDate) startDate = new Date(fromDate);
+        if (fromDate) {
+            startDate = new Date(fromDate);
+            startDate.setHours(0, 0, 0, 0);
+        }
         if (toDate) {
             endDate = new Date(toDate);
             endDate.setHours(23, 59, 59, 999);
         }
 
-        // Calculate previous period range
-        let prevStartDate, prevEndDate;
-        if (period === 'daily') {
-            prevStartDate = new Date(startDate.getTime() - 24 * 60 * 60 * 1000);
-            prevEndDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
-        } else if (period === 'weekly') {
-            prevStartDate = new Date(startDate.getTime() - 7 * 24 * 60 * 60 * 1000);
-            prevEndDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
-        } else if (period === 'monthly') {
-            prevStartDate = new Date(startDate.getTime() - 30 * 24 * 60 * 60 * 1000);
-            prevEndDate = new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+        // Base filters for LeadManagement
+        const leadFilters = {};
+        if (leadResponsibility) {
+            leadFilters.leadResponsibility = { $regex: new RegExp(`^${leadResponsibility}$`, "i") };
+        }
+        if (centre) {
+            const requestedCentres = Array.isArray(centre) ? centre : [centre];
+            leadFilters.centre = { $in: requestedCentres.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
         }
 
-        // Aggregate to get calls count per telecaller
-        const performanceData = await LeadManagement.aggregate([
-            { $unwind: "$followUps" },
-            {
-                $match: {
-                    $or: [
-                        { "followUps.date": { $gte: startDate, $lte: endDate } },
-                        { "followUps.date": { $gte: prevStartDate, $lte: prevEndDate } }
-                    ]
+        // Map Center IDs to Names for filtering the Admission collection
+        let centreNames = [];
+        if (centre) {
+            const requestedCentres = Array.isArray(centre) ? centre : [centre];
+            const centreDocs = await CentreSchema.find({ _id: { $in: requestedCentres } });
+            centreNames = centreDocs.map(c => c.centreName);
+        }
+
+        // 1. Fetch all counselors/telecallers
+        const telecallers = await User.find({
+            role: { $in: ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing'] }
+        });
+
+        // Group telecallers by name to handle duplicates
+        const nameGroups = {};
+        telecallers.forEach(u => {
+            const lowerName = u.name.trim().toLowerCase();
+            if (!nameGroups[lowerName]) nameGroups[lowerName] = { ids: [], names: [], docs: [] };
+            nameGroups[lowerName].ids.push(u._id);
+            nameGroups[lowerName].names.push(u.name);
+            nameGroups[lowerName].docs.push(u);
+        });
+
+        // 2. Fetch performance data for each unique counselor name
+        const finalTelecallers = await Promise.all(Object.entries(nameGroups).map(async ([lowerName, group]) => {
+            const user = group.docs[0]; // Representative doc
+
+            // Performance aggregation
+            const stats = await LeadManagement.aggregate([
+                { $unwind: "$followUps" },
+                {
+                    $facet: {
+                        calls: [
+                            { $match: { "followUps.updatedBy": { $in: group.names }, "followUps.date": { $gte: startDate, $lte: endDate } } },
+                            { $count: "count" }
+                        ],
+                        prevCalls: [
+                            { $match: { "followUps.updatedBy": { $in: group.names }, "followUps.date": { $lt: startDate } } },
+                            { $count: "count" }
+                        ],
+                        conversions: [
+                            {
+                                $match: {
+                                    "followUps.updatedBy": { $in: group.names },
+                                    "followUps.date": { $gte: startDate, $lte: endDate },
+                                    "followUps.status": { $in: ["HOT LEAD", "ADMISSION TAKEN"] }
+                                }
+                            },
+                            { $group: { _id: "$_id" } }, // Unique leads
+                            { $count: "count" }
+                        ],
+                        hotLeads: [
+                            {
+                                $match: {
+                                    "followUps.updatedBy": { $in: group.names },
+                                    "followUps.status": { $in: ["HOT LEAD", "ADMISSION TAKEN"] }
+                                }
+                            },
+                            { $group: { _id: "$_id" } }, // Unique leads
+                            { $count: "count" }
+                        ]
+                    }
                 }
-            },
-            {
-                $group: {
-                    _id: "$leadResponsibility",
-                    currentCalls: {
-                        $sum: {
-                            $cond: [
-                                { $and: [{ $gte: ["$followUps.date", startDate] }, { $lte: ["$followUps.date", endDate] }] },
-                                1,
-                                0
-                            ]
-                        }
-                    },
-                    previousCalls: {
-                        $sum: {
-                            $cond: [
-                                { $and: [{ $gte: ["$followUps.date", prevStartDate] }, { $lte: ["$followUps.date", prevEndDate] }] },
-                                1,
-                                0
-                            ]
-                        }
-                    },
-                    hotLeads: {
-                        $sum: {
-                            $cond: [
-                                {
-                                    $and: [
-                                        { $and: [{ $gte: ["$followUps.date", startDate] }, { $lte: ["$followUps.date", endDate] }] },
-                                        { $in: ["$leadType", ["HOT LEAD", "ADMISSION TAKEN"]] }
-                                    ]
-                                },
-                                1,
-                                0
-                            ]
+            ]);
+
+            const s = stats[0] || {};
+
+            // Count actual admissions across all accounts for this name
+            const actualAdmissionsCount = await Admission.countDocuments({
+                createdBy: { $in: group.ids },
+                createdAt: { $gte: startDate, $lte: endDate }
+            });
+
+            const currentCalls = s.calls[0]?.count || 0;
+            const admissions = (s.conversions[0]?.count || 0) + actualAdmissionsCount;
+
+            return {
+                _id: user._id,
+                name: user.name,
+                role: user.role,
+                profileImage: user.profileImage || null,
+                centers: (await CentreSchema.find({ _id: { $in: user.centres } })).map(c => c.centreName),
+                currentCalls,
+                previousCalls: s.prevCalls[0]?.count || 0,
+                hotLeads: (s.hotLeads[0]?.count || 0) + actualAdmissionsCount, // Sum of lead markers and actual admissions
+                conversions: admissions,
+                admissions: admissions,
+                taskProgress: {
+                    completed: currentCalls,
+                    total: 50, // Mock target
+                    percent: Math.min(100, Math.round((currentCalls / 50) * 100))
+                }
+            };
+        }));
+
+        // 3. Overall Trends & Analysis
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const startOfYear = new Date(new Date().getFullYear(), 0, 1);
+
+        const [marketingTrends, admissionTrends, counsellingTrends] = await Promise.all([
+            LeadManagement.aggregate([
+                { $match: { ...leadFilters, createdAt: { $gte: startOfYear } } },
+                {
+                    $group: {
+                        _id: { $month: "$createdAt" },
+                        leads: { $sum: 1 },
+                        leadConversions: {
+                            $sum: { $cond: [{ $in: ["$leadType", ["ADMISSION TAKEN", "HOT LEAD"]] }, 1, 0] }
                         }
                     }
                 }
-            },
-            {
-                $project: {
-                    name: "$_id",
-                    calls: "$currentCalls",
-                    currentCalls: 1,
-                    previousCalls: 1,
-                    hotLeads: 1,
-                    _id: 0
-                }
-            },
-            { $sort: { currentCalls: -1 } }
+            ]),
+            Admission.aggregate([
+                { $match: { ...(centreNames.length > 0 ? { centre: { $in: centreNames } } : {}), createdAt: { $gte: startOfYear } } },
+                { $group: { _id: { $month: "$createdAt" }, count: { $sum: 1 } } }
+            ]),
+            LeadManagement.aggregate([
+                { $unwind: "$followUps" },
+                { $match: { "followUps.date": { $gte: startOfYear } } },
+                { $group: { _id: { $month: "$followUps.date" }, calls: { $sum: 1 } } }
+            ])
         ]);
 
-        // Fetch all telecallers to ensure everyone is included, even with 0 activity
-        const telecallers = await User.find({ role: { $regex: /telecaller/i } })
-            .select('name profileImage centres redFlags mobNum role')
-            .populate('centres', 'centreName');
+        const allMonthsTrends = months.map((month, index) => {
+            const mTrend = marketingTrends.find(t => t._id === (index + 1)) || { leads: 0, leadConversions: 0 };
+            const aTrend = admissionTrends.find(t => t._id === (index + 1)) || { count: 0 };
+            const cTrend = counsellingTrends.find(t => t._id === (index + 1)) || { calls: 0 };
+            return {
+                month,
+                leads: mTrend.leads,
+                conversions: mTrend.leadConversions + aTrend.count,
+                calls: cTrend.calls,
+                admissions: mTrend.leadConversions + aTrend.count
+            };
+        });
 
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
+        // 4. Source & Center Breakdown for Admissions
+        const [leadAdmissions, directAdmissions] = await Promise.all([
+            LeadManagement.find({ ...leadFilters, $or: [{ leadType: "ADMISSION TAKEN" }, { "followUps.status": "ADMISSION TAKEN" }], updatedAt: { $gte: startDate, $lte: endDate } }).select('source centre'),
+            Admission.find({ ...(centreNames.length > 0 ? { centre: { $in: centreNames } } : {}), createdAt: { $gte: startDate, $lte: endDate } }).select('centre')
+        ]);
 
-        const enrichedData = await Promise.all(
-            telecallers.map(async (user) => {
-                // Find matching aggregation data
-                const stats = performanceData.find(item => item.name === user.name) || {
-                    calls: 0,
-                    currentCalls: 0,
-                    previousCalls: 0,
-                    hotLeads: 0
-                };
+        const sourceMap = {};
+        const centerMap = {};
 
-                // Task Progress Logic (Daily Goal: 50 Calls)
-                const completedToday = await LeadManagement.countDocuments({
-                    "followUps.updatedBy": user.name,
-                    "followUps.date": { $gte: todayStart }
-                });
+        leadAdmissions.forEach(l => {
+            sourceMap[l.source || "Unknown"] = (sourceMap[l.source || "Unknown"] || 0) + 1;
+        });
+        [...leadAdmissions, ...directAdmissions].forEach(item => {
+            centerMap[item.centre] = (centerMap[item.centre] || 0) + 1;
+        });
 
-                const targetGoal = 50;
-                const progress = Math.min(Math.round((completedToday / targetGoal) * 100), 100);
+        const bySource = Object.entries(sourceMap).map(([name, value]) => ({ name, value }));
+        if (directAdmissions.length > 0) bySource.push({ name: "Direct Admission", value: directAdmissions.length });
 
-                return {
-                    name: user.name,
-                    calls: stats.calls,
-                    currentCalls: stats.currentCalls,
-                    previousCalls: stats.previousCalls,
-                    hotLeads: stats.hotLeads,
-                    profileImage: user.profileImage || null,
-                    centerCount: user.centres?.length || 0,
-                    centers: user.centres?.map(c => c.centreName) || [],
-                    redFlags: user.redFlags || 0,
-                    mobNum: user.mobNum || null,
-                    role: user.role || 'Telecaller',
-                    taskProgress: {
-                        total: targetGoal,
-                        completed: completedToday,
-                        percent: progress
-                    },
-                    userId: user._id || null
-                };
-            })
-        );
+        const finalByCenter = await Promise.all(Object.entries(centerMap).map(async ([key, value]) => {
+            if (mongoose.Types.ObjectId.isValid(key)) {
+                const c = await CentreSchema.findById(key);
+                return { name: c?.centreName || "Unknown", value };
+            }
+            return { name: key, value };
+        }));
 
-        // Sort by current calls descending
-        enrichedData.sort((a, b) => b.currentCalls - a.currentCalls);
+        res.json({
+            performance: finalTelecallers,
+            trends: allMonthsTrends,
+            admissionDetail: {
+                bySource,
+                byCenter: finalByCenter
+            }
+        });
 
-        res.status(200).json(enrichedData);
     } catch (error) {
-        console.error("Error fetching all telecaller analytics:", error);
-        res.status(500).json({ message: "Server error fetching summary analytics" });
+        console.error("Error in getAllTelecallerAnalytics:", error);
+        res.status(500).json({ error: "Internal Server Error" });
     }
 };

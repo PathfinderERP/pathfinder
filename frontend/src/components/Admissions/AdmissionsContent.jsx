@@ -36,23 +36,15 @@ const AdmissionsContent = () => {
     const itemsPerPage = 10;
 
     // Permission checks
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const isSuperAdmin = user.role === "superAdmin";
+    // Memoize user to prevent issues if used in dependencies
+    const user = React.useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
+    const isSuperAdmin = user.role === "superAdmin" || user.role === "Super Admin";
     const canCreate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'allLeads', 'create');
     const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'allLeads', 'edit');
     const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'allLeads', 'delete');
 
-    useEffect(() => {
-        fetchAllowedCentres();
-        fetchStudents();
-        fetchDepartments();
-    }, []);
 
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchQuery, filterCentre, filterBoard, filterExamTag, filterDepartment, startDate, endDate]);
-
-    const fetchStudents = async () => {
+    const fetchStudents = React.useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/normalAdmin/getAllStudents`, {
@@ -72,31 +64,44 @@ const AdmissionsContent = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const fetchAllowedCentres = async () => {
+    const fetchAllowedCentres = React.useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
+            const apiUrl = import.meta.env.VITE_API_URL;
+
+            // Fetch current user data to get latest centre assignments
+            const profileResponse = await fetch(`${apiUrl}/profile/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            let currentUser = user;
+            if (profileResponse.ok) {
+                const profileData = await profileResponse.json();
+                currentUser = profileData.user;
+            }
 
             // If superAdmin, fetch all centres
-            if (user.role === 'superAdmin' || user.role === 'Super Admin') {
-                const response = await fetch(`${import.meta.env.VITE_API_URL}/centre`, {
+            if (currentUser.role === 'superAdmin' || currentUser.role === 'Super Admin') {
+                const response = await fetch(`${apiUrl}/centre`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const centres = response.ok ? await response.json() : [];
                 setAllowedCentres(centres.map(c => c.centreName));
             } else {
-                // For non-superAdmin, use centres from localStorage user object
-                const userCentres = user.centres || [];
-                const userCentreNames = userCentres.map(c => c.centreName || c).filter(Boolean);
+                // For non-superAdmin, use centres from profile
+                const userCentres = currentUser.centres || [];
+                const userCentreNames = userCentres.map(c => c.centreName || c.name || c).filter(Boolean);
                 setAllowedCentres(userCentreNames);
             }
         } catch (error) {
             console.error("Error fetching allowed centres:", error);
         }
-    };
+    }, [user]);
 
-    const fetchDepartments = async () => {
+
+    const fetchDepartments = React.useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/department`, {
@@ -107,7 +112,8 @@ const AdmissionsContent = () => {
         } catch (error) {
             console.error("Error fetching departments:", error);
         }
-    };
+    }, []);
+
 
     const handleRefresh = () => {
         setSearchQuery("");
@@ -123,6 +129,16 @@ const AdmissionsContent = () => {
         fetchDepartments();
         toast.info("Refreshed data and filters");
     };
+
+    useEffect(() => {
+        fetchAllowedCentres();
+        fetchStudents();
+        fetchDepartments();
+    }, [fetchAllowedCentres, fetchStudents, fetchDepartments]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, filterCentre, filterBoard, filterExamTag, filterDepartment, startDate, endDate]);
 
     // Extract unique values for filters based on visible students
     // First, filter students by allowed centres to ensure safety
@@ -145,9 +161,6 @@ const AdmissionsContent = () => {
 
         const details = student.studentsDetails?.[0] || {};
         const exam = student.examSchema?.[0] || {};
-        const studentStatusList = student.studentStatus || [];
-        const currentStatusObj = studentStatusList.length > 0 ? studentStatusList[studentStatusList.length - 1] : {};
-        const leadStatus = currentStatusObj.status || "";
         const sessionExam = student.sessionExamCourse?.[0] || {};
 
         const studentName = details.studentName || "";
@@ -224,9 +237,8 @@ const AdmissionsContent = () => {
 
         // Convert to array and sort by date (approximation by creation order would be better but simple string sort might fail for '01 Jan' vs '02 Feb', 
         // essentially we rely on the filteredStudents being sorted by date already or we sort by raw date)
-        // Better: Process sorted students
+        // process sorted students
         const data = [];
-        const processedDates = new Set();
 
         // filteredStudents is sorted desc in fetch, but we need asc for chart usually? 
         // Re-sorting filteredStudents asc for chart generation

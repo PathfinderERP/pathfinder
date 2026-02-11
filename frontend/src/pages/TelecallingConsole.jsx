@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../components/Layout";
 import {
-    FaUserTie, FaUsers, FaPhoneAlt, FaCalendarAlt,
+    FaFilter, FaUserTie, FaUsers, FaPhoneAlt, FaCalendarAlt,
     FaSearch, FaArrowLeft, FaChartPie, FaChartBar, FaSun, FaMoon, FaSync, FaChartLine, FaHistory, FaCheckCircle, FaTimesCircle,
     FaFileExcel, FaRedo, FaClock, FaDownload, FaArrowDown, FaStar, FaExclamationTriangle
 } from "react-icons/fa";
@@ -18,6 +18,8 @@ import FollowUpActivityModal from "../components/LeadManagement/FollowUpActivity
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import CounsellingConsole from "../components/PerformanceConsoles/CounsellingConsole";
+import MarketingConsole from "../components/PerformanceConsoles/MarketingConsole";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -167,6 +169,89 @@ const AnalyticsDashboard = ({ data, isDarkMode }) => {
                     </div>
                 </div>
             </div>
+            {/* Admission Analysis Section (Conditional for Counsellors) */}
+            {data.admissionDetail && (data.admissionDetail.bySource.length > 0 || data.admissionDetail.byCenter.length > 0) && (
+                <div className="space-y-6 pt-10 border-t border-gray-800/50">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h4 className={`text-lg font-black uppercase tracking-widest flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                <FaChartLine className="text-cyan-500" /> Admission Analysis Report
+                            </h4>
+                            <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                Comprehensive breakdown of admission conversions
+                            </p>
+                        </div>
+
+                        <button
+                            onClick={() => {
+                                const exportData = [
+                                    ...data.admissionDetail.bySource.map(s => ({ Type: 'Source', Name: s.name, Count: s.value })),
+                                    ...data.admissionDetail.byCenter.map(c => ({ Type: 'Center', Name: c.name, Count: c.value }))
+                                ];
+                                if (exportData.length === 0) return alert("No data to export");
+                                const worksheet = XLSX.utils.json_to_sheet(exportData);
+                                const workbook = XLSX.utils.book_new();
+                                XLSX.utils.book_append_sheet(workbook, worksheet, "Admissions");
+                                XLSX.writeFile(workbook, `Admission_Analysis_${new Date().toLocaleDateString()}.xlsx`);
+                            }}
+                            className={`px-6 py-2 rounded-[2px] transition-all font-black text-[9px] uppercase tracking-widest flex items-center gap-3 ${isDarkMode ? 'bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-green-500 hover:text-black' : 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-500 hover:text-white'}`}
+                        >
+                            <FaFileExcel /> Export Admission Report
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* Admissions Trend */}
+                        <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                            <h5 className={`text-[10px] font-black uppercase tracking-widest mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Admission Growth</h5>
+                            <div className="h-[200px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={data.admissionDetail.trend}>
+                                        <defs>
+                                            <linearGradient id="colorAdmissionsDetailed" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <XAxis dataKey="date" hide />
+                                        <Tooltip labelStyle={{ color: '#000' }} />
+                                        <Area type="monotone" dataKey="admissions" stroke="#10b981" fill="url(#colorAdmissionsDetailed)" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* Admissions by Center */}
+                        <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                            <h5 className={`text-[10px] font-black uppercase tracking-widest mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Admissions by Center</h5>
+                            <div className="h-[200px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={data.admissionDetail.byCenter}>
+                                        <XAxis dataKey="name" hide />
+                                        <Tooltip labelStyle={{ color: '#000' }} />
+                                        <Bar dataKey="value" fill="#3b82f6" radius={[2, 2, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* Admissions by Source */}
+                        <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                            <h5 className={`text-[10px] font-black uppercase tracking-widest mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Lead Source Mix</h5>
+                            <div className="h-[200px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie data={data.admissionDetail.bySource} innerRadius={40} outerRadius={60} dataKey="value" nameKey="name" paddingAngle={5}>
+                                            {data.admissionDetail.bySource.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                        </Pie>
+                                        <Tooltip />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -279,6 +364,7 @@ const TelecallingConsole = () => {
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
 
+    const [activeConsole, setActiveConsole] = useState('telecalling');
     const [telecallers, setTelecallers] = useState([]);
     const [assignedLeads, setAssignedLeads] = useState([]); // This might still be useful for "limit 100" partial view if we want to show a list somewhere, but we removed the list. It's now just for... checking length?
     const [loading, setLoading] = useState(true);
@@ -318,6 +404,8 @@ const TelecallingConsole = () => {
     const [selectedCenters, setSelectedCenters] = useState([]);
     const [availableCenters, setAvailableCenters] = useState([]);
     const [allPerformance, setAllPerformance] = useState([]);
+    const [globalTrends, setGlobalTrends] = useState([]);
+    const [globalAdmissionDetail, setGlobalAdmissionDetail] = useState({ bySource: [], byCenter: [] });
     const [summaryLoading, setSummaryLoading] = useState(false);
     const [timePeriod, setTimePeriod] = useState('daily'); // 'daily', 'weekly', 'monthly'
 
@@ -399,7 +487,7 @@ const TelecallingConsole = () => {
     useEffect(() => {
         if (!telecallerNameFromUrl) {
             fetchTelecallers();
-            fetchAllPerformance();
+            fetchAllPerformance(timePeriod, filters);
             fetchCentres();
             setAssignedLeads([]);
             setAnalyticsData(null);
@@ -416,7 +504,7 @@ const TelecallingConsole = () => {
             loadData();
         }
         // eslint-disable-next-line
-    }, [telecallerNameFromUrl, filters]);
+    }, [telecallerNameFromUrl, filters, selectedCenters, timePeriod]);
 
     const fetchAnalytics = async (telecallerName, currentFilters = {}) => {
         try {
@@ -537,15 +625,31 @@ const TelecallingConsole = () => {
         });
     };
 
-    const fetchAllPerformance = async (period = 'daily') => {
+    const fetchAllPerformance = async (period = 'daily', customFilters = {}) => {
         setSummaryLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/analytics-all?period=${period}`, {
+            // Map centre names to IDs for backend if needed, or just send names if backend handles them.
+            // Our backend 'getAllTelecallerAnalytics' expects centre IDs or matching logic.
+            // Let's find consistent IDs for the selected centres.
+            const centreIds = availableCenters
+                .filter(c => selectedCenters.includes(c.centreName))
+                .map(c => c._id);
+
+            const params = new URLSearchParams({
+                period,
+                ...customFilters,
+                ...(centreIds.length > 0 ? { centre: centreIds } : {})
+            });
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/analytics-all?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const data = await response.json();
-            if (response.ok) setAllPerformance(data);
+            if (response.ok) {
+                setAllPerformance(data.performance || []);
+                setGlobalTrends(data.trends || []);
+                setGlobalAdmissionDetail(data.admissionDetail || { bySource: [], byCenter: [] });
+            }
         } catch (error) {
             console.error("Error fetching performance summary:", error);
         } finally {
@@ -582,7 +686,9 @@ const TelecallingConsole = () => {
             });
             const data = await response.json();
             if (response.ok) {
-                let telecallersList = (data.users || []).filter(u => u.role === "telecaller");
+                let telecallersList = (data.users || []).filter(u =>
+                    ["telecaller", "counsellor", "marketing"].includes(u.role)
+                );
 
                 if (!isSuperAdmin && userCentres.length > 0) {
                     telecallersList = telecallersList.filter(telecaller => {
@@ -705,8 +811,8 @@ const TelecallingConsole = () => {
                 <ToastContainer theme={isDarkMode ? 'dark' : 'light'} />
 
                 {/* Tactical Header */}
-                <div className={`p-6 border-b flex items-center justify-between sticky top-0 z-30 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-2xl' : 'bg-white border-gray-200 shadow-md'}`}>
-                    <div className="flex items-center gap-5">
+                <div className={`p-6 border-b flex flex-col md:flex-row items-center justify-between gap-4 sticky top-0 z-30 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-2xl' : 'bg-white border-gray-200 shadow-md'}`}>
+                    <div className="flex items-center gap-5 w-full md:w-auto">
                         <button
                             onClick={() => navigate(-1)}
                             className={`p-2.5 rounded-[4px] border transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 text-gray-400 hover:text-white' : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'}`}
@@ -715,29 +821,45 @@ const TelecallingConsole = () => {
                         </button>
                         <div>
                             <h2 className={`text-2xl font-black italic tracking-tighter uppercase leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                Telecalling Performance Console
+                                Performance Console
                             </h2>
                             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] mt-2 italic">
-                                {!telecallerNameFromUrl ? "ANALYZE PERFORMANCE AND METRICS" : `PERFORMANCE LOGS FOR AGENT: ${telecallerNameFromUrl.toUpperCase()}`}
+                                {activeConsole === 'telecalling' ? (!telecallerNameFromUrl ? "ANALYZE PERFORMANCE AND METRICS" : `PERFORMANCE LOGS FOR AGENT: ${telecallerNameFromUrl.toUpperCase()}`) :
+                                    activeConsole === 'counselling' ? "COUNSELLING PERFORMANCE & ADMISSIONS" : "MARKETING CAMPAIGNS & LEADS"}
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={toggleTheme}
-                            className={`p-2.5 rounded-[4px] border transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 text-yellow-400 hover:bg-white/10' : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'}`}
-                            title="Toggle Mode"
-                        >
-                            {isDarkMode ? <FaSun /> : <FaMoon />}
-                        </button>
-                        <button
-                            onClick={() => telecallerNameFromUrl ? fetchAssignedLeads(telecallerNameFromUrl) : fetchTelecallers()}
-                            className={`p-2.5 rounded-[4px] border transition-all active:scale-95 ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500 hover:text-black' : 'bg-cyan-50 border-cyan-200 text-cyan-600 hover:bg-cyan-100 shadow-sm'}`}
-                            title="Refresh Data"
-                        >
-                            <FaSync className={loading ? 'animate-spin' : ''} />
-                        </button>
+                    <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto justify-end">
+                        {/* Console Switcher */}
+                        <div className={`flex items-center p-1 rounded-[4px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
+                            {['telecalling', 'counselling', 'marketing'].map(consoleType => (
+                                <button
+                                    key={consoleType}
+                                    onClick={() => setActiveConsole(consoleType)}
+                                    className={`px-4 py-2 rounded-[2px] text-[10px] font-black uppercase tracking-widest transition-all ${activeConsole === consoleType ? (isDarkMode ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'bg-white text-black shadow-sm') : (isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700')}`}
+                                >
+                                    {consoleType}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={toggleTheme}
+                                className={`p-2.5 rounded-[4px] border transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 text-yellow-400 hover:bg-white/10' : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'}`}
+                                title="Toggle Mode"
+                            >
+                                {isDarkMode ? <FaSun /> : <FaMoon />}
+                            </button>
+                            <button
+                                onClick={() => telecallerNameFromUrl ? fetchAssignedLeads(telecallerNameFromUrl) : fetchTelecallers()}
+                                className={`p-2.5 rounded-[4px] border transition-all active:scale-95 ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500 hover:text-black' : 'bg-cyan-50 border-cyan-200 text-cyan-600 hover:bg-cyan-100 shadow-sm'}`}
+                                title="Refresh Data"
+                            >
+                                <FaSync className={loading ? 'animate-spin' : ''} />
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -1038,31 +1160,150 @@ const TelecallingConsole = () => {
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Admission Analysis for Counsellors (Individual View) */}
+                                    {telecallers.find(c => c.name === telecallerNameFromUrl)?.role === 'counsellor' && analyticsData?.admissionDetail && (
+                                        <div className="space-y-6 pt-10 border-t border-gray-800/50">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <h4 className={`text-lg font-black uppercase tracking-widest flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                        <FaChartLine className="text-cyan-500" /> ADMISSION PERFORMANCE REPORT
+                                                    </h4>
+                                                    <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                        Individual Conversion Velocity & Metrics
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                <div className={`p-8 rounded-[4px] border md:col-span-2 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
+                                                    <h5 className={`text-[10px] font-black uppercase tracking-widest mb-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Conversion Growth (Last 30 Days)</h5>
+                                                    <div className="h-[300px]">
+                                                        <ResponsiveContainer width="100%" height="100%">
+                                                            <AreaChart data={analyticsData.admissionDetail.trend}>
+                                                                <defs>
+                                                                    <linearGradient id="colorPersonalAdmissionTrend" x1="0" y1="0" x2="0" y2="1">
+                                                                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4} />
+                                                                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                                                                    </linearGradient>
+                                                                </defs>
+                                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#333' : '#eee'} />
+                                                                <XAxis
+                                                                    dataKey="date"
+                                                                    tick={{ fontSize: 9, fontWeight: 900, fill: isDarkMode ? '#666' : '#999' }}
+                                                                    tickFormatter={(val) => new Date(val).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+                                                                />
+                                                                <YAxis tick={{ fontSize: 9, fontWeight: 900, fill: isDarkMode ? '#666' : '#999' }} />
+                                                                <Tooltip
+                                                                    contentStyle={{ fontSize: '11px', fontWeight: 'bold', backgroundColor: isDarkMode ? '#1f2937' : '#fff', borderColor: isDarkMode ? '#374151' : '#e5e7eb' }}
+                                                                    labelStyle={{ color: isDarkMode ? '#9ca3af' : '#4b5563' }}
+                                                                />
+                                                                <Area
+                                                                    type="monotone"
+                                                                    dataKey="admissions"
+                                                                    stroke="#06b6d4"
+                                                                    fillOpacity={1}
+                                                                    fill="url(#colorPersonalAdmissionTrend)"
+                                                                    strokeWidth={4}
+                                                                    animationDuration={2000}
+                                                                />
+                                                            </AreaChart>
+                                                        </ResponsiveContainer>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-6">
+                                                    <div className={`p-8 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
+                                                        <h5 className={`text-[10px] font-black uppercase tracking-widest mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Conversion Accuracy</h5>
+                                                        <div className="flex flex-col items-center justify-center">
+                                                            <div className="relative w-40 h-40">
+                                                                <ResponsiveContainer width="100%" height="100%">
+                                                                    <PieChart>
+                                                                        <Pie
+                                                                            data={[
+                                                                                { name: 'Admissions', value: analyticsData.admissionDetail.trend?.reduce((acc, curr) => acc + (curr.admissions || 0), 0) || 0 },
+                                                                                { name: 'Remaining Leads', value: Math.max(0, (analyticsData.performance?.totalAssigned || 0) - (analyticsData.admissionDetail.trend?.reduce((acc, curr) => acc + (curr.admissions || 0), 0) || 0)) }
+                                                                            ]}
+                                                                            innerRadius={50}
+                                                                            outerRadius={70}
+                                                                            startAngle={90}
+                                                                            endAngle={450}
+                                                                            dataKey="value"
+                                                                        >
+                                                                            <Cell fill="#06b6d4" />
+                                                                            <Cell fill={isDarkMode ? '#131619' : '#f3f4f6'} />
+                                                                        </Pie>
+                                                                    </PieChart>
+                                                                </ResponsiveContainer>
+                                                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                                                    <span className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{analyticsData.performance?.conversionRate || 0}%</span>
+                                                                    <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Efficiency</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className={`p-8 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
+                                                        <h5 className={`text-[10px] font-black uppercase tracking-widest mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Source Breakdown</h5>
+                                                        <div className="h-[150px]">
+                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                <PieChart>
+                                                                    <Pie
+                                                                        data={analyticsData.admissionDetail.bySource || []}
+                                                                        innerRadius={40}
+                                                                        outerRadius={60}
+                                                                        paddingAngle={5}
+                                                                        dataKey="value"
+                                                                    >
+                                                                        {(analyticsData.admissionDetail.bySource || []).map((entry, index) => (
+                                                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                                        ))}
+                                                                    </Pie>
+                                                                    <Tooltip contentStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
+                                                                </PieChart>
+                                                            </ResponsiveContainer>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="space-y-8 animate-fadeIn">
-                                    {/* Overall Performance Bar Chart */}
-                                    <div className={`p-8 rounded-[4px] border animate-fadeIn ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
-                                        <div className="flex items-center justify-between mb-6">
-                                            <h5 className={`text-sm font-black uppercase tracking-widest flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                <FaChartBar className="text-cyan-500" /> CALL PERFORMANCE COMPARISON
-                                                {summaryLoading && <FaSync className="animate-spin text-cyan-500" size={12} />}
-                                            </h5>
+                                    {/* COMMAND CENTER: ADVANCED FILTERS */}
+                                    <div className={`p-8 rounded-[4px] border space-y-8 transition-all animate-fadeIn ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-2xl' : 'bg-white border-gray-200 shadow-md'}`}>
+                                        <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
+                                            {/* Search & Metadata */}
+                                            <div className="flex flex-1 items-center gap-6 w-full lg:w-auto">
+                                                <div className={`p-4 rounded-[4px] border hidden md:block ${isDarkMode ? 'bg-[#131619] border-gray-800 text-cyan-500' : 'bg-gray-50 border-gray-200 text-cyan-600'}`}>
+                                                    <FaFilter size={18} />
+                                                </div>
+                                                <div className="flex-1 max-w-md relative group">
+                                                    <FaSearch className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-gray-600 group-focus-within:text-cyan-500' : 'text-gray-400 group-focus-within:text-cyan-500'}`} />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="SEARCH SQUAD MEMBERS..."
+                                                        value={searchQuery}
+                                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                                        className={`w-full pl-12 pr-4 py-3 rounded-[2px] border text-[10px] font-black uppercase tracking-widest outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`}
+                                                    />
+                                                </div>
+                                            </div>
 
-                                            {/* Time Period Filters and Export */}
-                                            <div className="flex items-center gap-3">
-                                                {/* Time Period Buttons */}
-                                                <div className="flex items-center gap-2">
+                                            {/* Period Selector & Date Range */}
+                                            <div className="flex flex-wrap items-center gap-6 justify-end w-full lg:w-auto">
+                                                <div className="flex items-center gap-1 p-1 bg-black/10 rounded-[6px]">
                                                     {['daily', 'weekly', 'monthly'].map((period) => (
                                                         <button
                                                             key={period}
                                                             onClick={() => {
                                                                 setTimePeriod(period);
-                                                                fetchAllPerformance(period);
+                                                                fetchAllPerformance(period, filters);
                                                             }}
-                                                            className={`px-4 py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all border ${timePeriod === period
-                                                                ? (isDarkMode ? 'bg-cyan-500 text-black border-cyan-500' : 'bg-cyan-600 text-white border-cyan-600')
-                                                                : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:border-cyan-500' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')
+                                                            className={`px-6 py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${timePeriod === period
+                                                                ? (isDarkMode ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'bg-cyan-600 text-white shadow-sm')
+                                                                : (isDarkMode ? 'text-gray-500 hover:text-white' : 'text-gray-500 hover:text-gray-700')
                                                                 }`}
                                                         >
                                                             {period}
@@ -1070,126 +1311,163 @@ const TelecallingConsole = () => {
                                                     ))}
                                                 </div>
 
-                                                {/* Export Button */}
-                                                <button
-                                                    onClick={exportToExcel}
-                                                    className={`px-4 py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all border flex items-center gap-2 ${isDarkMode
-                                                        ? 'bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500 hover:text-black'
-                                                        : 'bg-green-50 text-green-600 border-green-200 hover:bg-green-600 hover:text-white'
-                                                        }`}
-                                                >
-                                                    <FaDownload size={10} />
-                                                    EXPORT
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <div className="h-[400px] w-full">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <BarChart
-                                                    data={allPerformance.length > 0 ? allPerformance : [{ name: 'No Data', currentCalls: 0, previousCalls: 0 }]}
-                                                    margin={{ top: 60, right: 20, left: 20, bottom: 5 }}
-                                                    barGap={0}
-                                                >
-                                                    <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#e5e7eb'} vertical={false} />
-                                                    <XAxis
-                                                        dataKey="name"
-                                                        stroke={isDarkMode ? '#9ca3af' : '#4b5563'}
-                                                        fontSize={10}
-                                                        fontWeight="bold"
-                                                        tickFormatter={(val) => val.split(' ')[0]} // Show only first name if long
-                                                    />
-                                                    <YAxis stroke={isDarkMode ? '#9ca3af' : '#4b5563'} fontSize={10} fontWeight="bold" />
-                                                    <Tooltip
-                                                        contentStyle={{
-                                                            backgroundColor: isDarkMode ? '#1f2937' : '#fff',
-                                                            borderColor: isDarkMode ? '#374151' : '#e5e7eb',
-                                                            borderRadius: '4px',
-                                                            fontSize: '11px',
-                                                            fontWeight: 'bold'
+                                                <div className="flex items-center gap-3 border-l border-gray-700/50 pl-6 h-10">
+                                                    <input
+                                                        type="date"
+                                                        value={filters.fromDate}
+                                                        onChange={(e) => {
+                                                            const nf = { ...filters, fromDate: e.target.value };
+                                                            setFilters(nf);
+                                                            fetchAllPerformance(timePeriod, nf);
                                                         }}
-                                                        itemStyle={{ color: isDarkMode ? '#fff' : '#000' }}
+                                                        className={`px-3 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`}
                                                     />
-                                                    <Legend
-                                                        verticalAlign="top"
-                                                        align="right"
-                                                        wrapperStyle={{ paddingBottom: '20px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}
+                                                    <span className="text-gray-500">→</span>
+                                                    <input
+                                                        type="date"
+                                                        value={filters.toDate}
+                                                        onChange={(e) => {
+                                                            const nf = { ...filters, toDate: e.target.value };
+                                                            setFilters(nf);
+                                                            fetchAllPerformance(timePeriod, nf);
+                                                        }}
+                                                        className={`px-3 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`}
                                                     />
-                                                    <Bar name="Previous Period" dataKey="previousCalls" fill={isDarkMode ? '#374151' : '#d1d5db'} radius={[4, 4, 0, 0]} barSize={25} />
-                                                    <Bar name="Current Period" dataKey="currentCalls" fill="#06b6d4" radius={[4, 4, 0, 0]} barSize={25}>
-                                                        <LabelList content={<CustomBarLabel />} position="top" />
-                                                    </Bar>
-                                                </BarChart>
-                                            </ResponsiveContainer>
-                                        </div>
-                                    </div>
-
-                                    {/* Main Filter Bar */}
-                                    <div className={`p-6 rounded-[4px] border flex flex-col lg:flex-row items-center justify-between gap-6 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
-                                        <div className="flex flex-1 items-center gap-6 w-full lg:w-auto">
-                                            {/* Search */}
-                                            <div className="relative flex-1 lg:max-w-md group">
-                                                <FaSearch className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-gray-600 group-focus-within:text-cyan-500' : 'text-gray-400 group-focus-within:text-cyan-500'}`} />
-                                                <input
-                                                    type="text"
-                                                    placeholder="SEARCH BY TELECALLER NAME..."
-                                                    value={searchQuery}
-                                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                                    className={`w-full pl-12 pr-4 py-3 rounded-[2px] border text-[10px] font-black uppercase tracking-widest outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`}
-                                                />
-                                            </div>
-
-                                            {/* Multi-select Centers */}
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <span className={`text-[9px] font-black uppercase tracking-widest mr-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>CENTERS:</span>
                                                     <button
-                                                        onClick={() => setSelectedCenters(availableCenters.map(c => c.centreName))}
-                                                        className={`px-3 py-1.5 rounded-[20px] text-[8px] font-black uppercase tracking-widest transition-all border ${selectedCenters.length === availableCenters.length && availableCenters.length > 0
-                                                            ? (isDarkMode ? 'bg-cyan-500 text-black border-cyan-500' : 'bg-cyan-600 text-white border-cyan-600')
-                                                            : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')
-                                                            }`}
+                                                        onClick={() => {
+                                                            resetFilters();
+                                                            fetchAllPerformance('daily', { fromDate: "", toDate: "" });
+                                                        }}
+                                                        className={`p-2.5 rounded-[4px] border transition-all ${isDarkMode ? 'bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white' : 'bg-red-50 border-red-100 text-red-600 hover:bg-red-600 hover:text-white'}`}
+                                                        title="Reset Date Filters"
                                                     >
-                                                        SELECT ALL
+                                                        <FaRedo size={12} />
                                                     </button>
-                                                    {availableCenters.map(center => (
-                                                        <button
-                                                            key={center._id}
-                                                            onClick={() => {
-                                                                setSelectedCenters(prev =>
-                                                                    prev.includes(center.centreName)
-                                                                        ? prev.filter(c => c !== center.centreName)
-                                                                        : [...prev, center.centreName]
-                                                                );
-                                                            }}
-                                                            className={`px-3 py-1.5 rounded-[20px] text-[8px] font-black uppercase tracking-widest transition-all border ${selectedCenters.includes(center.centreName)
-                                                                ? (isDarkMode ? 'bg-cyan-500 text-black border-cyan-500' : 'bg-cyan-600 text-white border-cyan-600')
-                                                                : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')
-                                                                }`}
-                                                        >
-                                                            {center.centreName}
-                                                        </button>
-                                                    ))}
-                                                    {selectedCenters.length > 0 && (
-                                                        <button
-                                                            onClick={() => setSelectedCenters([])}
-                                                            className="text-[8px] font-black text-red-500 uppercase tracking-widest ml-2 hover:underline p-1"
-                                                        >
-                                                            CLEAR ALL
-                                                        </button>
-                                                    )}
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {/* Center Multi-Selector */}
+                                        <div className="flex flex-wrap items-center gap-3 pt-6 border-t border-dashed border-gray-800/50">
+                                            <span className={`text-[10px] font-black uppercase tracking-[0.2em] mr-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Region Filtering:</span>
+                                            <button
+                                                onClick={() => setSelectedCenters([])}
+                                                className={`px-4 py-1.5 rounded-[20px] text-[9px] font-black uppercase tracking-widest transition-all border ${selectedCenters.length === 0 ? (isDarkMode ? 'bg-cyan-500 text-black border-cyan-500' : 'bg-cyan-600 text-white') : (isDarkMode ? 'bg-gray-800 text-gray-500 border-gray-700 hover:text-white' : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-500')}`}
+                                            >
+                                                ALL REGIONS
+                                            </button>
+                                            {availableCenters.map(center => (
+                                                <button
+                                                    key={center._id}
+                                                    onClick={() => {
+                                                        setSelectedCenters(prev =>
+                                                            prev.includes(center.centreName)
+                                                                ? prev.filter(c => c !== center.centreName)
+                                                                : [...prev, center.centreName]
+                                                        );
+                                                    }}
+                                                    className={`px-4 py-1.5 rounded-[20px] text-[9px] font-black uppercase tracking-widest transition-all border ${selectedCenters.includes(center.centreName) ? (isDarkMode ? 'bg-cyan-500 text-black border-cyan-500 shadow-lg shadow-cyan-500/20' : 'bg-cyan-600 text-white shadow-sm') : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white' : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-500')}`}
+                                                >
+                                                    {center.centreName.toUpperCase()}
+                                                </button>
+                                            ))}
+                                            {selectedCenters.length > 0 && (
+                                                <button
+                                                    onClick={() => setSelectedCenters([])}
+                                                    className="text-[9px] font-black text-red-500 uppercase tracking-widest ml-4 hover:underline"
+                                                >
+                                                    CLEAR ALL
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
 
+                                    {/* CONSOLE VIEW RENDERING */}
+                                    {activeConsole === 'telecalling' ? (
+                                        <div className={`p-8 rounded-[4px] border animate-fadeIn ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
+                                            <div className="flex items-center justify-between mb-8">
+                                                <h5 className={`text-sm font-black uppercase tracking-widest flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                    <FaChartBar className="text-cyan-500" /> COMPARATIVE PERFORMANCE MATRIX
+                                                    {summaryLoading && <FaSync className="animate-spin text-cyan-500" size={12} />}
+                                                </h5>
+                                                <button
+                                                    onClick={exportToExcel}
+                                                    className={`px-6 py-2 rounded-[2px] transition-all font-black text-[9px] uppercase tracking-widest flex items-center gap-3 ${isDarkMode ? 'bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-green-500 hover:text-black' : 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-500 hover:text-white shadow-sm'}`}
+                                                >
+                                                    <FaDownload /> EXPORT SQUAD DATA
+                                                </button>
+                                            </div>
+
+                                            <div className="h-[400px] w-full">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart
+                                                        data={allPerformance
+                                                            .filter(u => {
+                                                                const matchesRole = u.role === 'telecaller' || u.role === 'centralizedTelecaller';
+                                                                const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
+                                                                const matchesCenter = selectedCenters.length === 0 || (u.centers && u.centers.some(c => selectedCenters.includes(c)));
+                                                                return matchesRole && matchesSearch && matchesCenter;
+                                                            }).length > 0 ? allPerformance.filter(u => {
+                                                                const matchesRole = u.role === 'telecaller' || u.role === 'centralizedTelecaller';
+                                                                const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
+                                                                const matchesCenter = selectedCenters.length === 0 || (u.centers && u.centers.some(c => selectedCenters.includes(c)));
+                                                                return matchesRole && matchesSearch && matchesCenter;
+                                                            }) : [{ name: 'No Data', currentCalls: 0, previousCalls: 0 }]}
+                                                        margin={{ top: 20, right: 20, left: 20, bottom: 5 }}
+                                                        barGap={0}
+                                                    >
+                                                        <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#333' : '#eee'} vertical={false} />
+                                                        <XAxis dataKey="name" stroke={isDarkMode ? '#666' : '#999'} fontSize={10} fontWeight="bold" tickFormatter={(val) => val.split(' ')[0]} />
+                                                        <YAxis stroke={isDarkMode ? '#666' : '#999'} fontSize={10} fontWeight="bold" />
+                                                        <Tooltip contentStyle={{ backgroundColor: isDarkMode ? '#1f2937' : '#fff', borderColor: isDarkMode ? '#374151' : '#e5e7eb', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }} />
+                                                        <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: '20px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
+                                                        <Bar name="PREVIOUS PERIOD" dataKey="previousCalls" fill={isDarkMode ? '#2d333b' : '#cbd5e1'} radius={[4, 4, 0, 0]} barSize={30} />
+                                                        <Bar name="CURRENT PERIOD" dataKey="currentCalls" fill="#06b6d4" radius={[4, 4, 0, 0]} barSize={30}>
+                                                            <LabelList content={<CustomBarLabel />} position="top" />
+                                                        </Bar>
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+                                    ) : activeConsole === 'counselling' ? (
+                                        <CounsellingConsole
+                                            mainTheme={theme}
+                                            performanceData={allPerformance.filter(u => {
+                                                const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
+                                                const matchesCenter = selectedCenters.length === 0 || (u.centers && u.centers.some(c => selectedCenters.includes(c)));
+                                                return u.role === 'counsellor' && matchesSearch && matchesCenter;
+                                            })}
+                                            monthlyTrends={globalTrends}
+                                            admissionDetail={globalAdmissionDetail}
+                                        />
+                                    ) : (
+                                        <MarketingConsole
+                                            mainTheme={theme}
+                                            performanceData={allPerformance.filter(u => {
+                                                const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
+                                                const matchesCenter = selectedCenters.length === 0 || (u.centers && u.centers.some(c => selectedCenters.includes(c)));
+                                                return u.role === 'marketing' && matchesSearch && matchesCenter;
+                                            })}
+                                            monthlyTrends={globalTrends}
+                                            admissionDetail={globalAdmissionDetail}
+                                        />
+                                    )}
+
+                                    {/* AGENT GRID CARDS */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fadeIn pb-20">
                                         {telecallers
                                             .filter(caller => {
+                                                const roleMap = {
+                                                    'telecalling': 'telecaller',
+                                                    'counselling': 'counsellor',
+                                                    'marketing': 'marketing'
+                                                };
+                                                const targetRole = roleMap[activeConsole];
+                                                const matchesRole = caller.role === targetRole;
                                                 const matchesSearch = caller.name.toLowerCase().includes(searchQuery.toLowerCase());
                                                 const telecallerCentres = caller.centres?.map(c => c.centreName || c) || [];
                                                 const matchesCenter = selectedCenters.length === 0 || selectedCenters.some(sc => telecallerCentres.includes(sc));
-                                                return matchesSearch && matchesCenter;
+                                                return matchesRole && matchesSearch && matchesCenter;
                                             })
                                             .map(caller => (
                                                 <div
@@ -1301,121 +1579,121 @@ const TelecallingConsole = () => {
                                     </div>
                                 </div>
                             )}
-                        </>
-                    )}
 
-                    {showLeadModal && (
-                        <LeadListModal
-                            title={modalTitle}
-                            leads={modalLeads}
-                            onClose={() => setShowLeadModal(false)}
-                            isDarkMode={isDarkMode}
-                        />
-                    )}
+                            {showLeadModal && (
+                                <LeadListModal
+                                    title={modalTitle}
+                                    leads={modalLeads}
+                                    onClose={() => setShowLeadModal(false)}
+                                    isDarkMode={isDarkMode}
+                                />
+                            )}
 
-                    <FollowUpActivityModal
-                        isOpen={activityModal.isOpen}
-                        onClose={() => setActivityModal(prev => ({ ...prev, isOpen: false }))}
-                        title={activityModal.title}
-                        data={activityModal.data}
-                        isDarkMode={isDarkMode}
-                    />
+                            <FollowUpActivityModal
+                                isOpen={activityModal.isOpen}
+                                onClose={() => setActivityModal(prev => ({ ...prev, isOpen: false }))}
+                                title={activityModal.title}
+                                data={activityModal.data}
+                                isDarkMode={isDarkMode}
+                            />
 
-                    {/* Performance Logs Table Modal */}
-                    {showPerformanceTable && (
-                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-                            <div className={`w-full max-w-[95vw] max-h-[90vh] rounded-[4px] border overflow-hidden flex flex-col ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-2xl'}`}>
-                                <div className={`p-6 border-b flex items-center justify-between ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-                                    <h3 className={`text-sm font-black uppercase tracking-widest flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                        <FaFileExcel className="text-green-500" />
-                                        Performance Logs: {telecallerNameFromUrl}
-                                        {filters.fromDate && <span className="text-gray-500 ml-2">({filters.fromDate} to {filters.toDate || 'Present'})</span>}
-                                    </h3>
-                                    <button
-                                        onClick={() => setShowPerformanceTable(false)}
-                                        className={`p-2 rounded-[2px] transition-all ${isDarkMode ? 'text-gray-500 hover:text-white' : 'text-gray-400 hover:text-black'}`}
-                                    >
-                                        <FaTimesCircle size={24} />
-                                    </button>
-                                </div>
-
-                                <div className="flex-1 overflow-auto p-6 custom-scrollbar">
-                                    {viewTableLoading ? (
-                                        <div className="flex flex-col items-center justify-center py-20 gap-4">
-                                            <FaSync className="animate-spin text-cyan-500" size={32} />
-                                            <p className="text-[10px] font-black uppercase tracking-widest animate-pulse">Loading Logs...</p>
+                            {/* Performance Logs Table Modal */}
+                            {showPerformanceTable && (
+                                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+                                    <div className={`w-full max-w-[95vw] max-h-[90vh] rounded-[4px] border overflow-hidden flex flex-col ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-2xl'}`}>
+                                        <div className={`p-6 border-b flex items-center justify-between ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                            <h3 className={`text-sm font-black uppercase tracking-widest flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                <FaFileExcel className="text-green-500" />
+                                                Performance Logs: {telecallerNameFromUrl}
+                                                {filters.fromDate && <span className="text-gray-500 ml-2">({filters.fromDate} to {filters.toDate || 'Present'})</span>}
+                                            </h3>
+                                            <button
+                                                onClick={() => setShowPerformanceTable(false)}
+                                                className={`p-2 rounded-[2px] transition-all ${isDarkMode ? 'text-gray-500 hover:text-white' : 'text-gray-400 hover:text-black'}`}
+                                            >
+                                                <FaTimesCircle size={24} />
+                                            </button>
                                         </div>
-                                    ) : performanceLogs.length > 0 ? (
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-left border-collapse min-w-[1200px]">
-                                                <thead>
-                                                    <tr className={`${isDarkMode ? 'bg-black/20' : 'bg-gray-50'}`}>
-                                                        {Object.keys(performanceLogs[0]).map((key) => (
-                                                            <th key={key} className={`p-4 text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'border-gray-800 text-gray-400' : 'border-gray-200 text-gray-500'}`}>
-                                                                {key}
-                                                            </th>
-                                                        ))}
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {performanceLogs.map((row, idx) => (
-                                                        <tr
-                                                            key={idx}
-                                                            className={`border-b transition-colors ${isDarkMode ? 'border-gray-800/50 hover:bg-white/5' : 'border-gray-100 hover:bg-gray-50/50'}`}
-                                                        >
-                                                            {Object.entries(row).map(([key, value], i) => (
-                                                                <td key={i} className={`p-4 text-[11px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                                                    {key === 'Status' ? (
-                                                                        <span className={`px-2 py-1 rounded-[2px] text-[9px] uppercase font-black ${value.toUpperCase().includes('HOT') ? 'bg-red-500/10 text-red-500' :
-                                                                            value.toUpperCase().includes('COLD') ? 'bg-blue-500/10 text-blue-500' :
-                                                                                value.toUpperCase().includes('NEGATIVE') ? 'bg-gray-500/10 text-gray-500' :
-                                                                                    'bg-cyan-500/10 text-cyan-500'
-                                                                            }`}>
-                                                                            {value}
-                                                                        </span>
-                                                                    ) : value}
-                                                                </td>
+
+                                        <div className="flex-1 overflow-auto p-6 custom-scrollbar">
+                                            {viewTableLoading ? (
+                                                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                                    <FaSync className="animate-spin text-cyan-500" size={32} />
+                                                    <p className="text-[10px] font-black uppercase tracking-widest animate-pulse">Loading Logs...</p>
+                                                </div>
+                                            ) : performanceLogs.length > 0 ? (
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-left border-collapse min-w-[1200px]">
+                                                        <thead>
+                                                            <tr className={`${isDarkMode ? 'bg-black/20' : 'bg-gray-50'}`}>
+                                                                {Object.keys(performanceLogs[0]).map((key) => (
+                                                                    <th key={key} className={`p-4 text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'border-gray-800 text-gray-400' : 'border-gray-200 text-gray-500'}`}>
+                                                                        {key}
+                                                                    </th>
+                                                                ))}
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {performanceLogs.map((row, idx) => (
+                                                                <tr
+                                                                    key={idx}
+                                                                    className={`border-b transition-colors ${isDarkMode ? 'border-gray-800/50 hover:bg-white/5' : 'border-gray-100 hover:bg-gray-50/50'}`}
+                                                                >
+                                                                    {Object.entries(row).map(([key, value], i) => (
+                                                                        <td key={i} className={`p-4 text-[11px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                                            {key === 'Status' ? (
+                                                                                <span className={`px-2 py-1 rounded-[2px] text-[9px] uppercase font-black ${value.toUpperCase().includes('HOT') ? 'bg-red-500/10 text-red-500' :
+                                                                                    value.toUpperCase().includes('COLD') ? 'bg-blue-500/10 text-blue-500' :
+                                                                                        value.toUpperCase().includes('NEGATIVE') ? 'bg-gray-500/10 text-gray-500' :
+                                                                                            'bg-cyan-500/10 text-cyan-500'
+                                                                                    }`}>
+                                                                                    {value}
+                                                                                </span>
+                                                                            ) : value}
+                                                                        </td>
+                                                                    ))}
+                                                                </tr>
                                                             ))}
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                                    <FaSearch className="text-gray-600" size={32} />
+                                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">No logs found for selected period</p>
+                                                </div>
+                                            )}
                                         </div>
-                                    ) : (
-                                        <div className="flex flex-col items-center justify-center py-20 gap-4">
-                                            <FaSearch className="text-gray-600" size={32} />
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">No logs found for selected period</p>
-                                        </div>
-                                    )}
-                                </div>
 
-                                <div className={`p-6 border-t flex justify-end gap-4 ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-                                    <button
-                                        onClick={handleExportExcel}
-                                        className="px-6 py-2.5 rounded-[2px] bg-green-600 text-black hover:bg-green-500 transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-3 shadow-lg shadow-green-500/20"
-                                    >
-                                        <FaFileExcel size={14} /> Export to Excel
-                                    </button>
-                                    <button
-                                        onClick={() => setShowPerformanceTable(false)}
-                                        className={`px-6 py-2.5 rounded-[2px] border transition-all font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white hover:bg-gray-700' : 'bg-white border-gray-200 text-black hover:bg-gray-50'}`}
-                                    >
-                                        Close
-                                    </button>
+                                        <div className={`p-6 border-t flex justify-end gap-4 ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                            <button
+                                                onClick={handleExportExcel}
+                                                className="px-6 py-2.5 rounded-[2px] bg-green-600 text-black hover:bg-green-500 transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-3 shadow-lg shadow-green-500/20"
+                                            >
+                                                <FaFileExcel size={14} /> Export to Excel
+                                            </button>
+                                            <button
+                                                onClick={() => setShowPerformanceTable(false)}
+                                                className={`px-6 py-2.5 rounded-[2px] border transition-all font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white hover:bg-gray-700' : 'bg-white border-gray-200 text-black hover:bg-gray-50'}`}
+                                            >
+                                                Close
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
+                            )}
+                        </>
                     )}
                 </div>
 
                 <style>{`
-                .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-                .custom-scrollbar::-webkit-scrollbar-track { background: ${isDarkMode ? '#0f1215' : '#f3f4f6'}; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDarkMode ? '#1f2937' : '#d1d5db'}; border-radius: 4px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: ${isDarkMode ? '#374151' : '#9ca3af'}; }
-                .animate-fadeIn { animation: fadeIn 0.5s ease-out; }
-                @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-            `}</style>
+            .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+            .custom-scrollbar::-webkit-scrollbar-track { background: ${isDarkMode ? '#0f1215' : '#f3f4f6'}; }
+            .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDarkMode ? '#1f2937' : '#d1d5db'}; border-radius: 4px; }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: ${isDarkMode ? '#374151' : '#9ca3af'}; }
+            .animate-fadeIn { animation: fadeIn 0.5s ease-out; }
+            @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        `}</style>
             </div>
         </Layout>
     );

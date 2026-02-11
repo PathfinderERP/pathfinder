@@ -66,8 +66,9 @@ const EnrolledStudentsContent = () => {
     const [isDividing, setIsDividing] = useState(false);
 
     // Permission checks
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const isSuperAdmin = user.role === "superAdmin";
+    // Memoize user to prevent infinite re-renders when used in dependency arrays
+    const user = React.useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
+    const isSuperAdmin = user.role === "superAdmin" || user.role === "Super Admin";
     const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'edit');
     const canDeactivate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'deactivate');
 
@@ -105,24 +106,34 @@ const EnrolledStudentsContent = () => {
         try {
             const token = localStorage.getItem("token");
 
+            // Fetch current user data to get latest centre assignments
+            const profileResponse = await fetch(`${apiUrl}/profile/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            let currentUser = user;
+            if (profileResponse.ok) {
+                const profileData = await profileResponse.json();
+                currentUser = profileData.user;
+            }
+
             // If superAdmin, fetch all centres
-            if (user.role === 'superAdmin' || user.role === 'Super Admin') {
+            if (currentUser.role === 'superAdmin' || currentUser.role === 'Super Admin') {
                 const response = await fetch(`${apiUrl}/centre`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const centres = response.ok ? await response.json() : [];
                 setAllowedCentres(centres.map(c => c.centreName));
             } else {
-                // For non-superAdmin, use centres from localStorage user object
-                // Standardize to matching by name as stored in Admission models
-                const userCentres = user.centres || [];
-                const userCentreNames = userCentres.map(c => c.centreName || c).filter(Boolean);
+                // For non-superAdmin, use centres from profile
+                const userCentres = currentUser.centres || [];
+                const userCentreNames = userCentres.map(c => c.centreName || c.name || c).filter(Boolean);
                 setAllowedCentres(userCentreNames);
             }
         } catch (error) {
             console.error("Error fetching allowed centres:", error);
         }
-    }, [apiUrl, user.role, user.centres]);
+    }, [apiUrl, user]);
 
     const groupStudents = React.useCallback((admissionsData) => {
         // Group admissions by student
@@ -233,6 +244,14 @@ const EnrolledStudentsContent = () => {
     useEffect(() => {
         let result = students;
 
+        // Restriction: Only show students from allowed centres for non-superAdmins
+        if (!isSuperAdmin && allowedCentres.length > 0) {
+            result = result.filter(item => {
+                const studentCentre = item.student?.studentsDetails?.[0]?.centre;
+                return allowedCentres.includes(studentCentre);
+            });
+        }
+
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
             result = result.filter(item => {
@@ -342,7 +361,7 @@ const EnrolledStudentsContent = () => {
         });
 
         setFilteredStudents(result);
-    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, startDate, endDate, students, viewMode]);
+    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, startDate, endDate, students, viewMode, allowedCentres, isSuperAdmin]);
 
     const filteredAdmissions = filteredStudents.flatMap(s =>
         s.admissions.filter(a => {
@@ -1496,8 +1515,8 @@ const EnrolledStudentsContent = () => {
                                                                                         <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Month {hIdx + 1} / {admission.courseDurationMonths}</span>
                                                                                         <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{getMonthName(history.month)}</span>
                                                                                     </div>
-                                                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${displayPaid ? 'bg-green-500 text-white' : 'bg-yellow-500 text-black'}`}>
-                                                                                        {displayPaid ? 'PAID' : 'PENDING'}
+                                                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${displayPaid ? 'bg-green-500 text-white' : (history.status === "PENDING_CLEARANCE" ? 'bg-cyan-500 text-white' : 'bg-yellow-500 text-black')}`}>
+                                                                                        {history.status === "PENDING_CLEARANCE" ? "IN PROCESS" : (displayPaid ? 'PAID' : 'PENDING')}
                                                                                     </span>
                                                                                 </div>
                                                                                 <div className="space-y-1 mb-4 flex-grow">
@@ -1607,7 +1626,7 @@ const EnrolledStudentsContent = () => {
                                                                                     <td className="p-4">
                                                                                         <div className="flex flex-col gap-1">
                                                                                             <span className={`px-2 py-0.5 rounded-[4px] text-[9px] font-black uppercase tracking-tighter border text-center ${getInstallmentStatusColor(payment.status)}`}>
-                                                                                                {payment.status === "PENDING_CLEARANCE" ? "PROCESS" : payment.status}
+                                                                                                {payment.status === "PENDING_CLEARANCE" ? "IN PROCESS" : payment.status}
                                                                                             </span>
                                                                                             {carryForwardMatch && (
                                                                                                 <span className="px-2 py-0.5 bg-yellow-500 text-white rounded-[4px] text-[8px] font-black uppercase tracking-tighter text-center">

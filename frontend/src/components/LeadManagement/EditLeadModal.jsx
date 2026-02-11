@@ -114,10 +114,12 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
             });
             const userData = await userResponse.json();
             if (userResponse.ok) {
-                // Filter users to show only those with the "telecaller" role
-                const telecallerUsers = (userData.users || []).filter(u => u.role === "telecaller");
+                // Filter users to show only those with the relevant roles for lead management
+                const leadUsers = (userData.users || []).filter(u =>
+                    ["telecaller", "counsellor", "marketing"].includes(u.role)
+                );
 
-                setTelecallers(telecallerUsers);
+                setTelecallers(leadUsers);
             }
 
             const examTagResponse = await fetch(`${import.meta.env.VITE_API_URL}/examTag`, {

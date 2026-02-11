@@ -90,7 +90,12 @@ const admissionSchema = new mongoose.Schema({
             price: Number
         }],
         totalAmount: Number,
-        isPaid: { type: Boolean, default: false }
+        isPaid: { type: Boolean, default: false },
+        status: {
+            type: String,
+            enum: ["PENDING", "PAID", "PENDING_CLEARANCE", "REJECTED"],
+            default: "PENDING"
+        }
     }],
     courseDurationMonths: { // For Board courses - total duration in months
         type: Number

@@ -177,9 +177,11 @@ export const generateMonthlyBill = async (req, res) => {
                         admission.monthlySubjectHistory[histologicalIndex].subjects = selectedSubjectsData;
                         admission.monthlySubjectHistory[histologicalIndex].totalAmount = totalAmount;
 
-                        // If it's the CURRENT month being paid, set isPaid
+                        // If it's the CURRENT month being paid, set status
                         if (mKey === billingMonth && Number(paymentAmount) >= totalAmount) {
-                            admission.monthlySubjectHistory[histologicalIndex].isPaid = true;
+                            const isCheque = (paymentMethod === "CHEQUE");
+                            admission.monthlySubjectHistory[histologicalIndex].isPaid = !isCheque;
+                            admission.monthlySubjectHistory[histologicalIndex].status = isCheque ? "PENDING_CLEARANCE" : "PAID";
                         }
                     }
                 } else {
@@ -188,7 +190,10 @@ export const generateMonthlyBill = async (req, res) => {
                         month: mKey,
                         subjects: selectedSubjectsData,
                         totalAmount: totalAmount,
-                        isPaid: (mKey === billingMonth && Number(paymentAmount) >= totalAmount)
+                        isPaid: (mKey === billingMonth && Number(paymentAmount) >= totalAmount && paymentMethod !== "CHEQUE"),
+                        status: (mKey === billingMonth && Number(paymentAmount) >= totalAmount)
+                            ? (paymentMethod === "CHEQUE" ? "PENDING_CLEARANCE" : "PAID")
+                            : "PENDING"
                     });
                 }
             }
@@ -368,7 +373,7 @@ export const generateMonthlyBreakdown = async (admission) => {
             subjects: displayHistory ? displayHistory.subjects : [],
             totalAmount: displayHistory ? displayHistory.totalAmount : 0,
             isPaid: isPaidStatus,
-            paymentStatus: isPaidStatus ? "PAID" : (paymentEntry?.status || "PENDING"),
+            paymentStatus: isPaidStatus ? "PAID" : (paymentEntry?.status || actualHistoryEntry?.status || "PENDING"),
             billId: paymentEntry?.billId || null,
             receivedDate: paymentEntry?.receivedDate || paymentEntry?.paidDate,
             dueDate: monthDate

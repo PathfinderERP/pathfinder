@@ -141,8 +141,10 @@ export const updateBoardSubjects = async (req, res) => {
                     h.totalAmount = histologicalTotal;
 
                     // Mark as paid if it's the target month and payment is successful
-                    if (h.month === billingMonth && isPaidStatus) {
-                        h.isPaid = true;
+                    if (h.month === billingMonth) {
+                        const isCheque = (paymentMethod.toUpperCase() === "CHEQUE");
+                        h.isPaid = !isCheque;
+                        h.status = isCheque ? "PENDING_CLEARANCE" : "PAID";
                     }
                 }
             });

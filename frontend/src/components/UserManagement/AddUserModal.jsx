@@ -53,8 +53,8 @@ const AddUserModal = ({ onClose, onSuccess }) => {
     const isSuperAdmin = currentUser.role === "superAdmin";
 
     const roles = isSuperAdmin
-        ? ["admin", "teacher", "telecaller", "counsellor", "Class_Coordinator", "superAdmin"]
-        : ["admin", "teacher", "telecaller", "counsellor", "Class_Coordinator"];
+        ? ["admin", "teacher", "telecaller", "counsellor", "marketing", "Class_Coordinator", "superAdmin"]
+        : ["admin", "teacher", "telecaller", "counsellor", "marketing", "Class_Coordinator"];
 
     useEffect(() => {
         fetchCentres();
@@ -115,9 +115,51 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                 });
                 newData.granularPermissions = allPerms;
             }
-            // If changing FROM superAdmin TO something else, maybe reset or keep Employee Center?
-            // User said "for the super admin their all checkbok... be marked"
-            // So if they switch back, we should probably keep employee center at least.
+            // Default access for Marketing and Counsellor
+            else if (name === "role" && (value === "marketing" || value === "counsellor") && permissionsConfig) {
+                const defaultPerms = {};
+                // Employee Center
+                if (permissionsConfig.employeeCenter) {
+                    defaultPerms.employeeCenter = {};
+                    Object.keys(permissionsConfig.employeeCenter.sections).forEach(sectionKey => {
+                        defaultPerms.employeeCenter[sectionKey] = {
+                            create: true,
+                            edit: true,
+                            delete: true
+                        };
+                    });
+                }
+                // Lead Management
+                if (permissionsConfig.leadManagement) {
+                    defaultPerms.leadManagement = {};
+                    Object.keys(permissionsConfig.leadManagement.sections).forEach(sectionKey => {
+                        defaultPerms.leadManagement[sectionKey] = {
+                            view: true,
+                            create: true,
+                            edit: true,
+                            delete: true
+                        };
+                    });
+                }
+                // Admissions
+                if (permissionsConfig.admissions) {
+                    const admissionPerms = {};
+                    Object.keys(permissionsConfig.admissions.sections).forEach(sectionKey => {
+                        // Core admission tasks for counsellor
+                        if (['allLeads', 'enrolledStudents'].includes(sectionKey)) {
+                            admissionPerms[sectionKey] = {
+                                view: true,
+                                create: true,
+                                edit: true,
+                                delete: false
+                            };
+                        }
+                    });
+                    defaultPerms.admissions = admissionPerms;
+                }
+                newData.granularPermissions = defaultPerms;
+            }
+            // If changing FROM superAdmin TO something else, reset to Employee Center
             else if (name === "role" && prev.role === "superAdmin" && permissionsConfig) {
                 const defaultPerms = {};
                 if (permissionsConfig.employeeCenter) {
@@ -143,10 +185,6 @@ const AddUserModal = ({ onClose, onSuccess }) => {
             : [...formData.centres, centreId];
         setFormData({ ...formData, centres: updatedCentres });
     };
-
-
-
-
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -257,45 +295,6 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                                     </label>
                                 ))}
                             </div>
-                            {/* {formData.role !== "superAdmin" && (
-                                <label className="flex items-start gap-3 p-3 border border-orange-500/30 bg-orange-500/10 rounded-lg cursor-pointer group hover:bg-orange-500/20 transition-all mt-4">
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.canEditUsers}
-                                        onChange={(e) => setFormData({ ...formData, canEditUsers: e.target.checked })}
-                                        className="w-5 h-5 mt-0.5 rounded border-gray-600 bg-[#131619] text-orange-500 focus:ring-offset-[#1a1f24] focus:ring-orange-500"
-                                    />
-                                    <div>
-                                        <span className="text-sm font-semibold text-orange-300 group-hover:text-orange-200 transition-colors">
-                                            Can Edit Other Users
-                                        </span>
-                                        <p className="text-xs text-gray-400 mt-1">
-                                            Grant this user permission to edit other users of the same or lower role.
-                                            Without this permission, they will not see edit buttons for other users.
-                                        </p>
-                                    </div>
-                                </label>
-                            )} */}
-
-                            {/* {formData.role !== "superAdmin" && (
-                                <label className="flex items-start gap-3 cursor-pointer group">
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.canDeleteUsers}
-                                        onChange={(e) => setFormData({ ...formData, canDeleteUsers: e.target.checked })}
-                                        className="w-5 h-5 mt-0.5 rounded border-gray-600 bg-[#131619] text-red-500 focus:ring-offset-[#1a1f24] focus:ring-red-500"
-                                    />
-                                    <div>
-                                        <span className="text-sm font-semibold text-red-300 group-hover:text-red-200 transition-colors">
-                                            Can Delete Other Users
-                                        </span>
-                                        <p className="text-xs text-gray-400 mt-1">
-                                            Grant this user permission to delete other users of the same or lower role. 
-                                            Without this permission, they will not see delete buttons for other users.
-                                        </p>
-                                    </div>
-                                </label>
-                            )} */}
                         </div>
                     </div>
 

@@ -25,13 +25,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
     const apiUrl = import.meta.env.VITE_API_URL;
     const navigate = useNavigate();
 
-    useEffect(() => {
-        if (admission && admission.admissionType === 'BOARD') {
-            fetchBreakdown();
-        }
-    }, [admission]);
-
-    const fetchBreakdown = async () => {
+    const fetchBreakdown = React.useCallback(async () => {
         setLoadingBreakdown(true);
         try {
             const token = localStorage.getItem('token');
@@ -40,14 +34,20 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
             });
             const data = await response.json();
             if (response.ok) {
-                setMonthlyBreakdown(data.monthlyBreakdown);
+                setMonthlyBreakdown(data.monthlyBreakdown || []);
             }
         } catch (error) {
             console.error('Error fetching breakdown:', error);
         } finally {
             setLoadingBreakdown(false);
         }
-    };
+    }, [admission?._id, apiUrl]);
+
+    useEffect(() => {
+        if (admission && admission.admissionType === 'BOARD') {
+            fetchBreakdown();
+        }
+    }, [admission, fetchBreakdown]);
 
     if (!admission) return null;
 
@@ -442,8 +442,8 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                                         <span className="text-[9px] text-gray-500 uppercase font-black tracking-widest block mb-1">CYCLE {idx + 1} / {admission.courseDurationMonths}</span>
                                                         <h4 className={`text-[13px] font-black uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.monthName}</h4>
                                                     </div>
-                                                    <span className={`px-2 py-0.5 rounded-[2px] text-[9px] font-black tracking-widest ${item.isPaid ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-black'}`}>
-                                                        {item.isPaid ? 'CONFIRMED' : 'REMAINING'}
+                                                    <span className={`px-2 py-0.5 rounded-[2px] text-[9px] font-black tracking-widest ${item.isPaid ? 'bg-emerald-500 text-white' : (item.paymentStatus === 'PENDING_CLEARANCE' ? 'bg-cyan-500 text-white' : 'bg-amber-500 text-black')}`}>
+                                                        {item.paymentStatus === 'PENDING_CLEARANCE' ? 'IN PROCESS' : (item.isPaid ? 'PAID' : 'PENDING')}
                                                     </span>
                                                 </div>
                                                 <div className="space-y-2 mb-6 flex-grow">
@@ -533,7 +533,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                                         <td className={`p-4 text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{payment.paymentMethod || "---"}</td>
                                                         <td className="p-4">
                                                             <span className={`px-2 py-1 rounded-[2px] text-[9px] font-black uppercase tracking-widest ${getInstallmentStatusColor(payment.status)}`}>
-                                                                {payment.status === "PENDING_CLEARANCE" ? "VERIFYING" : payment.status}
+                                                                {payment.status === "PENDING_CLEARANCE" ? "IN PROCESS" : payment.status}
                                                             </span>
                                                         </td>
                                                         <td className="p-4 text-right">

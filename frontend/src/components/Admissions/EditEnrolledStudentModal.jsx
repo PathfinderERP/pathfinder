@@ -32,7 +32,6 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
 
     const [loading, setLoading] = useState(false);
     const [centres, setCentres] = useState([]);
-    const [examTags, setExamTags] = useState([]);
 
     // Indian States
     const indianStates = [
@@ -48,7 +47,6 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
 
     useEffect(() => {
         fetchCentres();
-        fetchExamTags();
     }, []);
 
     const fetchCentres = async () => {
@@ -68,22 +66,6 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
         }
     };
 
-    const fetchExamTags = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/examTag/`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            const data = await response.json();
-            if (response.ok) {
-                setExamTags(data);
-            }
-        } catch (error) {
-            console.error('Error fetching exam tags:', error);
-        }
-    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -141,7 +123,22 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
             const data = await response.json();
 
             if (response.ok) {
-                toast.success('Student details updated successfully!');
+                // Update the Admission record too to ensure consistency
+                await fetch(
+                    `${import.meta.env.VITE_API_URL}/admission/${admission._id}`,
+                    {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            centre: formData.centre
+                        })
+                    }
+                );
+
+                toast.success('Student details and centre updated successfully!');
                 onUpdate();
                 onClose();
             } else {
@@ -198,14 +195,13 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                     />
                                 </div>
                                 <div>
-                                    <label className={labelClass}>EMAIL ADDRESS *</label>
+                                    <label className={labelClass}>EMAIL ADDRESS</label>
                                     <input
                                         type="email"
                                         name="studentEmail"
                                         value={formData.studentEmail}
                                         onChange={(e) => setFormData({ ...formData, studentEmail: e.target.value })}
                                         className={inputClass}
-                                        required
                                     />
                                 </div>
                                 <div>
@@ -220,23 +216,23 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                     />
                                 </div>
                                 <div>
-                                    <label className={labelClass}>SECURE CHANNEL (WHATSAPP)</label>
+                                    <label className={labelClass}>SECURE CHANNEL (WHATSAPP) *</label>
                                     <input
                                         type="tel"
                                         name="whatsappNumber"
                                         value={formData.whatsappNumber}
                                         onChange={(e) => setFormData({ ...formData, whatsappNumber: e.target.value })}
                                         className={inputClass}
+                                        required
                                     />
                                 </div>
                                 <div>
-                                    <label className={labelClass}>DATE OF BIRTH *</label>
+                                    <label className={labelClass}>DATE OF BIRTH</label>
                                     <input
                                         type="date"
                                         value={formData.dateOfBirth}
                                         onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
                                         className={inputClass}
-                                        required
                                     />
                                 </div>
                                 <div className="md:col-span-1">
@@ -250,6 +246,23 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                         <option value="Male">MALE</option>
                                         <option value="Female">FEMALE</option>
                                         <option value="Other">OTHER</option>
+                                    </select>
+                                </div>
+                                <div className="md:col-span-1">
+                                    <label className={labelClass}>REGISTERED CENTRE *</label>
+                                    <select
+                                        name="centre"
+                                        value={formData.centre}
+                                        onChange={handleChange}
+                                        className={inputClass}
+                                        required
+                                    >
+                                        <option value="">SELECT CENTRE</option>
+                                        {Array.isArray(centres) && centres.map((c) => (
+                                            <option key={c._id} value={c.centreName}>
+                                                {c.centreName?.toUpperCase()}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
                             </div>
@@ -268,17 +281,15 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                         value={formData.address}
                                         onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                                         className={`${inputClass} min-h-[80px]`}
-                                        required
                                     />
                                 </div>
                                 <div>
-                                    <label className={labelClass}>STATE OF ORIGIN *</label>
+                                    <label className={labelClass}>STATE OF ORIGIN</label>
                                     <select
                                         name="state"
                                         value={formData.state}
                                         onChange={handleChange}
                                         className={inputClass}
-                                        required
                                     >
                                         <option value="">SELECT STATE</option>
                                         {indianStates.map((state) => (
@@ -309,7 +320,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                     />
                                 </div>
                                 <div>
-                                    <label className={labelClass}>POSTAL CODE *</label>
+                                    <label className={labelClass}>POSTAL CODE</label>
                                     <input
                                         type="text"
                                         name="pincode"
@@ -317,7 +328,6 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                         onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
                                         pattern="[0-9]{6}"
                                         className={inputClass}
-                                        required
                                     />
                                 </div>
                             </div>
@@ -330,24 +340,22 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label className={labelClass}>GUARDIAN NAME *</label>
+                                    <label className={labelClass}>GUARDIAN NAME</label>
                                     <input
                                         type="text"
                                         name="guardianName"
                                         value={formData.guardianName}
                                         onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })}
                                         className={inputClass}
-                                        required
                                     />
                                 </div>
                                 <div>
-                                    <label className={labelClass}>GUARDIAN CONTACT (MOBILE) *</label>
+                                    <label className={labelClass}>GUARDIAN CONTACT (MOBILE)</label>
                                     <input
                                         type="tel"
                                         value={formData.guardianMobile}
                                         onChange={(e) => setFormData({ ...formData, guardianMobile: e.target.value })}
                                         className={inputClass}
-                                        required
                                     />
                                 </div>
                                 <div>
@@ -485,9 +493,10 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                             </button>
                             <button
                                 type="submit"
-                                className="flex-1 py-3 px-6 bg-cyan-600 hover:bg-cyan-500 text-white rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-cyan-500/20 flex justify-center items-center gap-2"
+                                disabled={loading}
+                                className={`flex-1 py-3 px-6 bg-cyan-600 hover:bg-cyan-500 text-white rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-cyan-500/20 flex justify-center items-center gap-2 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
-                                COMMENCE UPDATE <FaSave />
+                                {loading ? 'UPDATING...' : 'COMMENCE UPDATE'} <FaSave />
                             </button>
                         </div>
                     </form>

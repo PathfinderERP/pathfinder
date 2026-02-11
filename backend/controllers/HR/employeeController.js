@@ -121,16 +121,34 @@ export const createEmployee = async (req, res) => {
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(employeeData.employeeId, salt); // Password = Employee ID
 
+            // Try to determine role based on designation
+            let role = 'admin';
+            if (employeeData.designation) {
+                const designation = await Designation.findById(employeeData.designation);
+                if (designation) {
+                    const desigName = designation.name.toLowerCase();
+                    if (desigName.includes('counsellor')) {
+                        role = 'counsellor';
+                    } else if (desigName.includes('telecaller')) {
+                        role = 'telecaller';
+                    } else if (desigName.includes('teacher') || desigName.includes('faculty')) {
+                        role = 'teacher';
+                    } else if (desigName.includes('marketing')) {
+                        role = 'marketing';
+                    }
+                }
+            }
+
             user = new User({
                 name: employeeData.name,
                 email: employeeData.email,
                 employeeId: employeeData.employeeId,
                 mobNum: employeeData.phoneNumber || "0000000000",
                 password: hashedPassword,
-                role: 'admin', // Default generic role
+                role: role, // Dynamically determined role
                 centres: employeeData.primaryCentre ? [employeeData.primaryCentre] : [],
                 permissions: [],
-                granularPermissions: {}
+                granularPermissions: {} // Default perms handled by model pre-save hook
             });
             await user.save();
         } else {
@@ -734,16 +752,39 @@ export const bulkImportEmployees = async (req, res) => {
                     const salt = await bcrypt.genSalt(10);
                     // Password matches Employee ID as requested
                     const hashedPassword = await bcrypt.hash(data.employeeId, salt);
+
+                    // Try to determine role based on designation
+                    let role = 'admin';
+                    if (data.designation) {
+                        try {
+                            const designation = await Designation.findById(data.designation);
+                            if (designation) {
+                                const desigName = designation.name.toLowerCase();
+                                if (desigName.includes('counsellor')) {
+                                    role = 'counsellor';
+                                } else if (desigName.includes('telecaller')) {
+                                    role = 'telecaller';
+                                } else if (desigName.includes('teacher') || desigName.includes('faculty')) {
+                                    role = 'teacher';
+                                } else if (desigName.includes('marketing')) {
+                                    role = 'marketing';
+                                }
+                            }
+                        } catch (desigErr) {
+                            console.error("Error fetching designation for bulk user role:", desigErr);
+                        }
+                    }
+
                     user = new User({
                         name: data.name,
                         email: data.email,
                         employeeId: data.employeeId,
                         mobNum: data.phoneNumber || "0000000000",
                         password: hashedPassword,
-                        role: 'admin',
+                        role: role,
                         centres: data.primaryCentre ? [data.primaryCentre] : [],
                         permissions: [],
-                        granularPermissions: {}
+                        granularPermissions: {} // Default perms handled by model pre-save hook
                     });
                     await user.save();
                 }

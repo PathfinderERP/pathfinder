@@ -97,17 +97,19 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             });
             const userData = await userResponse.json();
             if (userResponse.ok) {
-                // Filter users to show only those with the "telecaller" role
-                const telecallerUsers = (userData.users || []).filter(u => u.role === "telecaller");
+                // Filter users to show only those with the relevant roles for lead management
+                const leadUsers = (userData.users || []).filter(u =>
+                    ["telecaller", "counsellor", "marketing"].includes(u.role)
+                );
 
-                setTelecallers(telecallerUsers);
+                setTelecallers(leadUsers);
 
-                // If current user is a telecaller, auto-select them
-                if (currentUser.role === "telecaller") {
+                // If current user has one of these roles, auto-select them
+                if (["telecaller", "counsellor", "marketing"].includes(currentUser.role)) {
                     setFormData(prev => ({ ...prev, leadResponsibility: currentUser.name }));
-                } else if (telecallerUsers.length === 1) {
-                    // If only one telecaller available, auto-select them
-                    setFormData(prev => ({ ...prev, leadResponsibility: telecallerUsers[0].name }));
+                } else if (leadUsers.length === 1) {
+                    // If only one lead agent available, auto-select them
+                    setFormData(prev => ({ ...prev, leadResponsibility: leadUsers[0].name }));
                 }
             }
 

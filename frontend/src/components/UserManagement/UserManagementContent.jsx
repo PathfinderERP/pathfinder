@@ -179,6 +179,7 @@ const UserManagementContent = () => {
         teacher: filteredUsers.filter(u => u.role === "teacher").length,
         counsellor: filteredUsers.filter(u => u.role === "counsellor").length,
         telecaller: filteredUsers.filter(u => u.role === "telecaller").length,
+        marketing: filteredUsers.filter(u => u.role === "marketing").length,
         deptHod: filteredUsers.filter(u => u.isDeptHod).length
     };
 
@@ -190,7 +191,8 @@ const UserManagementContent = () => {
                 { name: 'Admin', value: stats.admin, color: '#3b82f6' },
                 { name: 'Teacher', value: stats.teacher, color: '#22c55e' },
                 { name: 'Counsellor', value: stats.counsellor, color: '#f97316' },
-                { name: 'Telecaller', value: stats.telecaller, color: '#a855f7' }
+                { name: 'Telecaller', value: stats.telecaller, color: '#a855f7' },
+                { name: 'Marketing', value: stats.marketing, color: '#ec4899' }
             ].filter(d => d.value > 0);
         }
         if (label === "Teacher") {
@@ -199,7 +201,7 @@ const UserManagementContent = () => {
                 { name: 'Part Time', value: filteredUsers.filter(u => u.role === 'teacher' && u.teacherType === 'Part Time').length, color: '#10b981' }
             ].filter(d => d.value > 0);
         }
-        if (label === "Admin" || label === "SuperAdmin" || label === "Counsellor" || label === "Telecaller") {
+        if (label === "Admin" || label === "SuperAdmin" || label === "Counsellor" || label === "Telecaller" || label === "Marketing") {
             const roleKey = label.toLowerCase();
             // Just show a simple distribution of something else, e.g., location or just a solid color proportion
             return [
@@ -217,6 +219,7 @@ const UserManagementContent = () => {
             teacher: "bg-green-500/20 text-green-400 border-green-500/50",
             telecaller: "bg-purple-500/20 text-purple-400 border-purple-500/50",
             counsellor: "bg-orange-500/20 text-orange-400 border-orange-500/50",
+            marketing: "bg-pink-500/20 text-pink-400 border-pink-500/50",
         };
         return colors[role] || "bg-gray-500/20 text-gray-400 border-gray-500/50";
     };
@@ -403,7 +406,8 @@ const UserManagementContent = () => {
                     { label: "Admin", count: stats.admin, color: "from-blue-500/20 to-indigo-500/20", border: "border-blue-500/30" },
                     { label: "Teacher", count: stats.teacher, color: "from-green-500/20 to-emerald-500/20", border: "border-green-500/30" },
                     { label: "Counsellor", count: stats.counsellor, color: "from-orange-500/20 to-yellow-500/20", border: "border-orange-500/30" },
-                    { label: "Telecaller", count: stats.telecaller, color: "from-purple-500/20 to-pink-500/20", border: "border-purple-500/30" }
+                    { label: "Telecaller", count: stats.telecaller, color: "from-purple-500/20 to-pink-500/20", border: "border-purple-500/30" },
+                    { label: "Marketing", count: stats.marketing, color: "from-pink-500/20 to-rose-500/20", border: "border-pink-500/30" }
                 ].map((item, idx) => (
                     <div key={idx} className={`bg-gradient-to-br ${item.count > 0 ? item.color : isDarkMode ? 'from-gray-800/20 to-gray-900/20' : 'from-gray-100 to-gray-200'} ${item.count > 0 ? item.border : isDarkMode ? 'border-gray-800' : 'border-gray-200'} border p-4 rounded-xl backdrop-blur-sm relative overflow-hidden flex items-center justify-between`}>
                         <div className="z-10">
@@ -471,7 +475,8 @@ const UserManagementContent = () => {
                                         { value: 'admin', label: 'Admin' },
                                         { value: 'teacher', label: 'Teacher' },
                                         { value: 'telecaller', label: 'Telecaller' },
-                                        { value: 'counsellor', label: 'Counsellor' }
+                                        { value: 'counsellor', label: 'Counsellor' },
+                                        { value: 'marketing', label: 'Marketing' }
                                     ]}
                                     value={filterRole}
                                     onChange={setFilterRole}

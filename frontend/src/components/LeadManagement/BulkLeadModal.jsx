@@ -50,7 +50,9 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             setSources(sourceData.sources || []);
 
             if (userRes.ok && userData.users) {
-                setTelecallers(userData.users.filter(u => u.role === "telecaller"));
+                setTelecallers(userData.users.filter(u =>
+                    ["telecaller", "counsellor", "marketing"].includes(u.role)
+                ));
             }
         } catch (error) {
             console.error("Error fetching validation data:", error);
@@ -119,6 +121,10 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                 const validLeads = [];
                 const errors = [];
 
+                const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+                const userAllottedCentres = currentUser.centres?.map(c => (typeof c === 'object' ? c._id : c)) || [];
+                const isSuperAdmin = currentUser.role === "superAdmin" || currentUser.role === "Super Admin";
+
                 for (let i = 0; i < jsonData.length; i++) {
                     const row = jsonData[i];
                     const rowNum = i + 2;
@@ -147,7 +153,17 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                     let centreId = null;
                     if (row.Centre) {
                         const ctr = centres.find(c => c.centreName.toLowerCase() === row.Centre.toLowerCase());
-                        if (ctr) centreId = ctr._id;
+                        if (ctr) {
+                            centreId = ctr._id;
+                            // Check if centre is allotted to user
+                            if (!isSuperAdmin && !userAllottedCentres.includes(centreId)) {
+                                errors.push(`Row ${rowNum}: Centre '${row.Centre}' is not your allotted centre. You cannot upload other centres' data.`);
+                                continue;
+                            }
+                        } else {
+                            errors.push(`Row ${rowNum}: Centre '${row.Centre}' not found in system`);
+                            continue;
+                        }
                     }
 
                     let courseId = null;
