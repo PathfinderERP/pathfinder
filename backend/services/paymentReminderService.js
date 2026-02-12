@@ -9,10 +9,10 @@ export const calculateDaysOverdue = (dueDate) => {
     today.setHours(0, 0, 0, 0);
     const due = new Date(dueDate);
     due.setHours(0, 0, 0, 0);
-    
+
     const diffTime = today - due;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     return diffDays;
 };
 
@@ -22,24 +22,39 @@ export const checkOverduePayments = async () => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // Find all active admissions with pending payments
+        // Find admissions that have payments that are either PENDING or already marked OVERDUE
         const admissions = await Admission.find({
             admissionStatus: "ACTIVE",
-            paymentStatus: { $in: ["PENDING", "PARTIAL"] }
+            paymentStatus: { $in: ["PENDING", "PARTIAL"] },
+            "paymentBreakdown": {
+                $elemMatch: {
+                    status: { $in: ["PENDING", "OVERDUE"] },
+                    dueDate: { $lt: today }
+                }
+            }
         }).populate("student");
 
         const overduePayments = [];
 
         for (const admission of admissions) {
+            let modified = false;
             for (const payment of admission.paymentBreakdown) {
-                if (payment.status === "PENDING" || payment.status === "OVERDUE") {
+                // Check for PENDING payments that have become overdue
+                if (payment.status === "PENDING") {
                     const daysOverdue = calculateDaysOverdue(payment.dueDate);
-                    
+
                     if (daysOverdue > 0) {
                         // Update payment status to OVERDUE
                         payment.status = "OVERDUE";
-                        await admission.save();
+                        modified = true;
+                    }
+                }
 
+                // If it's OVERDUE (either just updated or already was OVERDUE), include in report
+                if (payment.status === "OVERDUE") {
+                    const daysOverdue = calculateDaysOverdue(payment.dueDate);
+                    // Only include if actually overdue by today's date
+                    if (daysOverdue > 0) {
                         overduePayments.push({
                             admission: admission._id,
                             student: admission.student,
@@ -51,7 +66,15 @@ export const checkOverduePayments = async () => {
                     }
                 }
             }
+            if (modified) {
+                await admission.save();
+            }
         }
+
+        // Also need to handle already OVERDUE payments that might not have been caught by the $elemMatch
+        // because $elemMatch was looking for PENDING specifically to mark them as OVERDUE.
+        // If we want a full report of ALL overdue payments, we should probably fetch them too.
+        // Actually, the report is used for reminders.
 
         return overduePayments;
     } catch (error) {
@@ -67,10 +90,13 @@ export const sendOverdueReminders = async () => {
         const remindersSent = [];
 
         for (const payment of overduePayments) {
-            const student = await Student.findById(payment.student);
+            // student is already populated in checkOverduePayments
+            const student = payment.student;
             if (!student) continue;
 
-            const studentDetails = student.studentsDetails[0];
+            const studentDetails = student.studentsDetails?.[0];
+            if (!studentDetails) continue;
+
             const phoneNumber = studentDetails.mobileNum;
             const studentName = studentDetails.studentName;
 
@@ -144,9 +170,18 @@ export const sendOverdueReminders = async () => {
 // Get overdue payment summary
 export const getOverduePaymentsSummary = async () => {
     try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
         const admissions = await Admission.find({
             admissionStatus: "ACTIVE",
-            paymentStatus: { $in: ["PENDING", "PARTIAL"] }
+            paymentStatus: { $in: ["PENDING", "PARTIAL"] },
+            "paymentBreakdown": {
+                $elemMatch: {
+                    status: { $in: ["PENDING", "OVERDUE"] },
+                    dueDate: { $lt: today }
+                }
+            }
         }).populate("student course");
 
         const overdueList = [];
@@ -155,7 +190,7 @@ export const getOverduePaymentsSummary = async () => {
             for (const payment of admission.paymentBreakdown) {
                 if (payment.status === "PENDING" || payment.status === "OVERDUE") {
                     const daysOverdue = calculateDaysOverdue(payment.dueDate);
-                    
+
                     if (daysOverdue >= 0) {
                         const student = admission.student;
                         const studentDetails = student.studentsDetails[0];
@@ -193,7 +228,12 @@ export const sendAllPendingReminders = async () => {
     try {
         const admissions = await Admission.find({
             admissionStatus: "ACTIVE",
-            paymentStatus: { $in: ["PENDING", "PARTIAL"] }
+            paymentStatus: { $in: ["PENDING", "PARTIAL"] },
+            "paymentBreakdown": {
+                $elemMatch: {
+                    status: { $in: ["PENDING", "OVERDUE"] }
+                }
+            }
         }).populate("student course");
 
         const remindersSent = [];
@@ -253,8 +293,8 @@ export const sendAllPendingReminders = async () => {
                     reminder.remindersSent.push({
                         method: "SMS",
                         status: smsResult.success ? "SENT" : "FAILED",
-                        message: daysOverdue > 0 ? `Overdue by ${daysOverdue} days` : 
-                                daysOverdue === 0 ? "Due today" : 
+                        message: daysOverdue > 0 ? `Overdue by ${daysOverdue} days` :
+                            daysOverdue === 0 ? "Due today" :
                                 `Due in ${daysUntilDue} days`
                     });
 
@@ -294,12 +334,12 @@ export const getAllStudentFeeDetails = async () => {
         const feeDetails = admissions.map(admission => {
             const student = admission.student;
             const studentDetails = student?.studentsDetails?.[0] || {};
-            
+
             // Calculate totals
             const totalPaidInstallments = admission.paymentBreakdown
                 .filter(p => p.status === "PAID")
                 .reduce((sum, p) => sum + p.amount, 0);
-            
+
             const totalPaid = (admission.downPayment || 0) + totalPaidInstallments;
             const totalDue = admission.totalFees - totalPaid;
 

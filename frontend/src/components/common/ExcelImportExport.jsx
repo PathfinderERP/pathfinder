@@ -11,7 +11,8 @@ const ExcelImportExport = ({
     fileName = "export_data",
     templateHeaders = [],
     mapping = null, // Format: { excelHeader: schemaField }
-    prepareExportData = null // Function to format data before export
+    prepareExportData = null, // Function to format data before export
+    isDarkMode = true
 }) => {
     const [previewData, setPreviewData] = useState(null);
     const [showPreview, setShowPreview] = useState(false);
@@ -64,6 +65,7 @@ const ExcelImportExport = ({
             XLSX.utils.book_append_sheet(wb, ws, "Template");
             XLSX.writeFile(wb, `${fileName}_template.xlsx`);
         } catch (error) {
+            console.error("Template Download Error:", error);
             toast.error("Failed to download template");
         }
     };
@@ -90,6 +92,7 @@ const ExcelImportExport = ({
                 setPreviewData(jsonData);
                 setShowPreview(true);
             } catch (error) {
+                console.error("Excel Read Error:", error);
                 toast.error("Error reading Excel file");
             }
         };
@@ -130,7 +133,7 @@ const ExcelImportExport = ({
             {/* Action Buttons */}
             <button
                 onClick={handleExport}
-                className="flex items-center gap-2 px-3 py-2 bg-green-600/20 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-600/30 transition-all text-sm font-medium"
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-sm font-medium ${isDarkMode ? 'bg-green-600/20 text-green-400 border border-green-500/30 hover:bg-green-600/30' : 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100 shadow-sm'}`}
                 title="Export current data to Excel"
             >
                 <FaDownload /> Export
@@ -138,7 +141,7 @@ const ExcelImportExport = ({
 
             <button
                 onClick={() => fileInputRef.current.click()}
-                className="flex items-center gap-2 px-3 py-2 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-all text-sm font-medium"
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-sm font-medium ${isDarkMode ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600/30' : 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 shadow-sm'}`}
                 title="Import data from Excel"
             >
                 <FaUpload /> Import
@@ -146,7 +149,7 @@ const ExcelImportExport = ({
 
             <button
                 onClick={handleDownloadTemplate}
-                className="flex items-center gap-2 px-3 py-2 bg-gray-600/20 text-gray-400 border border-gray-500/30 rounded-lg hover:bg-gray-600/30 transition-all text-sm font-medium"
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-sm font-medium ${isDarkMode ? 'bg-gray-600/20 text-gray-400 border border-gray-500/30 hover:bg-gray-600/30' : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100 shadow-sm'}`}
                 title="Download Excel template"
             >
                 <FaFileExcel /> Template
@@ -163,19 +166,19 @@ const ExcelImportExport = ({
             {/* Preview Modal */}
             {showPreview && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-                    <div className="bg-[#1a1f24] rounded-xl border border-gray-800 w-full max-w-5xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+                    <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-xl border w-full max-w-5xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden`}>
                         {/* Modal Header */}
-                        <div className="p-6 border-b border-gray-800 flex items-center justify-between bg-[#1f2529]">
+                        <div className={`p-6 border-b flex items-center justify-between ${isDarkMode ? 'bg-[#1f2529] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                             <div>
-                                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <h3 className={`text-xl font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                     <FaFileExcel className="text-green-500" />
                                     Import Preview
                                 </h3>
-                                <p className="text-gray-400 text-sm mt-1">Review the data before final submission ({previewData.length} records found)</p>
+                                <p className={`text-sm mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Review the data before final submission ({previewData.length} records found)</p>
                             </div>
                             <button
                                 onClick={() => setShowPreview(false)}
-                                className="p-2 hover:bg-red-500/10 hover:text-red-500 text-gray-400 rounded-lg transition-all"
+                                className={`p-2 rounded-lg transition-all ${isDarkMode ? 'hover:bg-red-500/10 hover:text-red-500 text-gray-400' : 'hover:bg-red-50 hover:text-red-600 text-gray-500'}`}
                             >
                                 <FaTimes />
                             </button>
@@ -184,20 +187,20 @@ const ExcelImportExport = ({
                         {/* Modal Body - Scrollable Table */}
                         <div className="flex-1 overflow-auto p-0">
                             <table className="w-full text-left border-collapse min-w-max">
-                                <thead className="sticky top-0 bg-[#252b32] z-10 shadow-sm">
+                                <thead className={`sticky top-0 z-10 shadow-sm ${isDarkMode ? 'bg-[#252b32]' : 'bg-gray-100'}`}>
                                     <tr>
                                         {Object.keys(previewData[0] || {}).map((header, idx) => (
-                                            <th key={idx} className="px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-800">
+                                            <th key={idx} className={`px-4 py-3 text-xs font-bold uppercase tracking-wider border-b ${isDarkMode ? 'text-gray-400 border-gray-800' : 'text-gray-600 border-gray-200'}`}>
                                                 {header}
                                             </th>
                                         ))}
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-800/50">
+                                <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800/50' : 'divide-gray-100'}`}>
                                     {previewData.slice(0, 100).map((row, idx) => (
-                                        <tr key={idx} className="hover:bg-white/5 transition-colors">
+                                        <tr key={idx} className={`${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'} transition-colors`}>
                                             {Object.values(row).map((val, vIdx) => (
-                                                <td key={vIdx} className="px-4 py-3 text-sm text-gray-300">
+                                                <td key={vIdx} className={`px-4 py-3 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                                     {val?.toString() || '-'}
                                                 </td>
                                             ))}
@@ -206,17 +209,17 @@ const ExcelImportExport = ({
                                 </tbody>
                             </table>
                             {previewData.length > 100 && (
-                                <div className="p-4 bg-gray-900/50 text-center text-xs text-gray-500 italic">
+                                <div className={`p-4 text-center text-xs italic ${isDarkMode ? 'bg-gray-900/50 text-gray-500' : 'bg-gray-50 text-gray-400'}`}>
                                     Showing first 100 records for preview...
                                 </div>
                             )}
                         </div>
 
                         {/* Modal Footer */}
-                        <div className="p-6 border-t border-gray-800 flex justify-end gap-3 bg-[#1f2529]">
+                        <div className={`p-6 border-t flex justify-end gap-3 ${isDarkMode ? 'bg-[#1f2529] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                             <button
                                 onClick={() => setShowPreview(false)}
-                                className="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-semibold"
+                                className={`px-6 py-2 rounded-lg transition-colors text-sm font-semibold ${isDarkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
                             >
                                 Cancel
                             </button>

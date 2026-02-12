@@ -4,10 +4,13 @@ import { FaEdit, FaTrash, FaPlus, FaSearch, FaLayerGroup } from "react-icons/fa"
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { hasPermission } from "../../../config/permissions";
+import { useTheme } from "../../../context/ThemeContext";
 import ExcelImportExport from "../../../components/common/ExcelImportExport";
 import * as XLSX from "xlsx";
 
 const ClassList = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     // ... [existing state]
 
     const classColumns = ["Name"];
@@ -166,17 +169,17 @@ const ClassList = () => {
 
     return (
         <Layout activePage="Academics">
-            <div className="p-6 text-gray-100 min-h-screen font-sans">
-                <ToastContainer theme="dark" position="top-right" />
+            <div className={`p-6 min-h-screen font-sans transition-colors duration-300 ${isDarkMode ? 'text-gray-100 bg-[#131619]' : 'text-gray-900 bg-[#f8fafc]'}`}>
+                <ToastContainer theme={theme} position="top-right" />
 
                 <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-                        <FaLayerGroup /> Class Management
+                    <h1 className={`text-3xl font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                        <FaLayerGroup className="text-cyan-500" /> Class Management
                     </h1>
                 </div>
 
                 {/* Controls */}
-                <div className="bg-[#1e2530] p-4 rounded-xl border border-gray-700 shadow-lg mb-6 flex justify-between items-center">
+                <div className={`p-4 rounded-xl border shadow-lg mb-6 flex flex-wrap gap-4 justify-between items-center transition-colors ${isDarkMode ? 'bg-[#1e2530] border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
                     <div className="relative w-64">
                         <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
                         <input
@@ -184,7 +187,7 @@ const ClassList = () => {
                             placeholder="Search by name..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-[#131619] text-white pl-10 pr-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500 transition-colors"
+                            className={`w-full pl-10 pr-4 py-2 rounded-lg border transition-all focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-200 shadow-sm'}`}
                         />
                     </div>
 
@@ -195,11 +198,12 @@ const ClassList = () => {
                             onImport={handleBulkImport}
                             onExport={prepareExportData}
                             filename="Class_List"
+                            isDarkMode={isDarkMode}
                         />
                         {canCreate && (
                             <button
                                 onClick={openAddModal}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-semibold transition shadow-md"
+                                className="bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-2 rounded-lg flex items-center gap-2 font-bold transition shadow-md shadow-cyan-600/20"
                             >
                                 <FaPlus /> Add Class
                             </button>
@@ -208,13 +212,13 @@ const ClassList = () => {
                 </div>
 
                 {/* Table */}
-                <div className="bg-[#1e2530] rounded-xl border border-gray-700 shadow-2xl overflow-hidden">
+                <div className={`rounded-xl border shadow-2xl overflow-hidden transition-colors ${isDarkMode ? 'bg-[#1e2530] border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-[#131619] text-gray-400 text-xs uppercase border-b border-gray-700">
-                                <th className="p-4 font-semibold w-24">SL NO.</th>
-                                <th className="p-4 font-semibold">NAME</th>
-                                <th className="p-4 font-semibold text-right">ACTIONS</th>
+                            <tr className={`text-xs uppercase border-b transition-colors ${isDarkMode ? 'bg-[#131619] text-gray-400 border-gray-700' : 'bg-gray-50 text-gray-600 border-gray-100'}`}>
+                                <th className="p-4 font-bold tracking-wider w-24">SL NO.</th>
+                                <th className="p-4 font-bold tracking-wider">Name</th>
+                                <th className="p-4 font-bold tracking-wider text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -224,9 +228,9 @@ const ClassList = () => {
                                 <tr><td colSpan="3" className="p-8 text-center text-gray-500">No classes found.</td></tr>
                             ) : (
                                 filteredClasses.map((cls, index) => (
-                                    <tr key={cls._id} className="border-b border-gray-800 hover:bg-[#2a323c] transition-all duration-200">
-                                        <td className="p-4 text-gray-300">{index + 1}</td>
-                                        <td className="p-4 font-bold text-white">{cls.className}</td>
+                                    <tr key={cls._id} className={`border-b transition-all duration-200 ${isDarkMode ? 'border-gray-800 hover:bg-[#2a323c]' : 'border-gray-50 hover:bg-gray-50/80'}`}>
+                                        <td className={`p-4 font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{index + 1}</td>
+                                        <td className={`p-4 font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{cls.className}</td>
                                         <td className="p-4 flex gap-4 justify-end">
                                             {canEdit && (
                                                 <button
@@ -250,7 +254,7 @@ const ClassList = () => {
                             )}
                         </tbody>
                     </table>
-                    <div className="p-4 border-t border-gray-700 text-gray-400 text-sm flex justify-between">
+                    <div className={`p-4 border-t text-sm flex justify-between transition-colors ${isDarkMode ? 'border-gray-700 text-gray-400' : 'border-gray-100 text-gray-500 font-medium'}`}>
                         <span>Showing {filteredClasses.length} entries</span>
                     </div>
                 </div>
@@ -258,18 +262,18 @@ const ClassList = () => {
                 {/* Modal */}
                 {showModal && (
                     <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 backdrop-blur-sm p-4">
-                        <div className="bg-[#1e2530] w-full max-w-md rounded-xl border border-gray-700 shadow-2xl animate-fade-in">
-                            <div className="p-6 border-b border-gray-700 flex justify-between items-center">
-                                <h2 className="text-xl font-bold text-white">{editId ? "Edit Class" : "Add Class"}</h2>
-                                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white text-2xl">&times;</button>
+                        <div className={`w-full max-w-md rounded-xl border shadow-2xl animate-fade-in transition-colors ${isDarkMode ? 'bg-[#1e2530] border-gray-700' : 'bg-white border-gray-200'}`}>
+                            <div className={`p-6 border-b flex justify-between items-center ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                                <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{editId ? "Edit Class" : "Add Class"}</h2>
+                                <button onClick={() => setShowModal(false)} className={`text-2xl transition-colors ${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}>&times;</button>
                             </div>
                             <form onSubmit={handleSubmit} className="p-6 space-y-4">
                                 <div>
-                                    <label className="block text-gray-400 text-sm font-semibold mb-2">Class Name</label>
+                                    <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class Name</label>
                                     <input
                                         type="text"
                                         required
-                                        className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none"
+                                        className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
                                         value={formData.className}
                                         onChange={(e) => setFormData({ ...formData, className: e.target.value })}
                                         placeholder="Enter class name (e.g. Class 11)"
@@ -279,13 +283,13 @@ const ClassList = () => {
                                     <button
                                         type="button"
                                         onClick={() => setShowModal(false)}
-                                        className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition"
+                                        className={`px-4 py-2 rounded-lg transition font-bold ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
-                                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition shadow-lg"
+                                        className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold rounded-lg transition shadow-lg shadow-cyan-600/20"
                                     >
                                         {editId ? "Update" : "Add"}
                                     </button>

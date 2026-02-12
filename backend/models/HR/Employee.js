@@ -230,8 +230,8 @@ const employeeSchema = new mongoose.Schema({
     // Letters History
     letters: [{
         letterType: { type: String, required: true },
-        fileName: { type: String, required: true },
-        fileUrl: { type: String, required: true },
+        fileName: { type: String, required: false },
+        fileUrl: { type: String, required: false },
         generatedAt: { type: Date, default: Date.now }
     }],
 

@@ -7,17 +7,36 @@ class EmailService {
 
     getTransporter() {
         if (!this.transporter) {
+            const host = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
+            const user = (process.env.SMTP_USER || 'demo@example.com').trim();
+            console.log(`EmailService: Initializing transporter for host: ${host}, user: ${user}`);
+
             this.transporter = nodemailer.createTransport({
-                host: (process.env.SMTP_HOST || 'smtp.gmail.com').trim(),
+                host: host,
                 port: parseInt(process.env.SMTP_PORT || '587'),
-                secure: false,
+                secure: false, // true for 465, false for other ports
                 auth: {
-                    user: (process.env.SMTP_USER || 'demo@example.com').trim(),
+                    user: user,
                     pass: (process.env.SMTP_PASS || 'demo_password').trim()
                 }
             });
         }
         return this.transporter;
+    }
+
+    async sendEmail(mailOptions) {
+        try {
+            console.log(`EmailService: Sending email to ${mailOptions.to} with subject "${mailOptions.subject}"`);
+            if (mailOptions.attachments) {
+                console.log(`EmailService: Accessing attachment at: ${mailOptions.attachments[0].path}`);
+            }
+            const info = await this.getTransporter().sendMail(mailOptions);
+            console.log(`EmailService: Email sent: ${info.messageId}`);
+            return info;
+        } catch (error) {
+            console.error("EmailService: Error sending email:", error);
+            throw error;
+        }
     }
 
     async sendOfferLetter(employee, pdfPath) {
@@ -44,7 +63,7 @@ class EmailService {
             ]
         };
 
-        return await this.getTransporter().sendMail(mailOptions);
+        return await this.sendEmail(mailOptions);
     }
 
     async sendAppointmentLetter(employee, pdfPath) {
@@ -71,7 +90,7 @@ class EmailService {
             ]
         };
 
-        return await this.getTransporter().sendMail(mailOptions);
+        return await this.sendEmail(mailOptions);
     }
 
     async sendContractLetter(employee, pdfPath) {
@@ -98,7 +117,7 @@ class EmailService {
             ]
         };
 
-        return await this.getTransporter().sendMail(mailOptions);
+        return await this.sendEmail(mailOptions);
     }
 
     async sendExperienceLetter(employee, pdfPath) {
@@ -125,7 +144,7 @@ class EmailService {
             ]
         };
 
-        return await this.getTransporter().sendMail(mailOptions);
+        return await this.sendEmail(mailOptions);
     }
 
     async sendReleaseLetter(employee, pdfPath) {
@@ -152,7 +171,7 @@ class EmailService {
             ]
         };
 
-        return await this.getTransporter().sendMail(mailOptions);
+        return await this.sendEmail(mailOptions);
     }
 
     async sendVirtualId(employee, pdfPath) {
@@ -179,7 +198,7 @@ class EmailService {
             ]
         };
 
-        return await this.getTransporter().sendMail(mailOptions);
+        return await this.sendEmail(mailOptions);
     }
     async sendBirthdayWish(employee) {
         const mailOptions = {
@@ -231,7 +250,7 @@ class EmailService {
             `
         };
 
-        return await this.getTransporter().sendMail(mailOptions);
+        return await this.sendEmail(mailOptions);
     }
 }
 

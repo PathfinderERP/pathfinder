@@ -92,8 +92,14 @@ export const getClassSchedules = async (req, res) => {
             query.teacherId = userId;
         } else {
             // Admins
-            if (teacherId) query.teacherId = teacherId;
-            if (coordinatorId) query.coordinatorId = coordinatorId;
+            if (teacherId) {
+                const teacherIds = teacherId.split(',').filter(id => id.trim());
+                if (teacherIds.length > 0) query.teacherId = { $in: teacherIds };
+            }
+            if (coordinatorId) {
+                const coordinatorIds = coordinatorId.split(',').filter(id => id.trim());
+                if (coordinatorIds.length > 0) query.coordinatorId = { $in: coordinatorIds };
+            }
         }
 
         // Center-based filtering for Non-SuperAdmins
@@ -105,10 +111,14 @@ export const getClassSchedules = async (req, res) => {
             if (req.user.role === 'admin') {
                 if (userCentres.length > 0) {
                     if (centreId) {
-                        if (!userCentres.map(c => c.toString()).includes(centreId.toString())) {
-                            query.centreId = { $in: userCentres };
+                        const selectedCentres = centreId.split(',').filter(id => id.trim());
+                        const authorizedCentres = selectedCentres.filter(id => userCentres.map(c => c.toString()).includes(id.toString()));
+
+                        if (authorizedCentres.length > 0) {
+                            query.centreId = { $in: authorizedCentres };
                         } else {
-                            query.centreId = centreId;
+                            // If none of the selected centers are authorized, restrict to userCentres
+                            query.centreId = { $in: userCentres };
                         }
                     } else {
                         query.centreId = { $in: userCentres };
@@ -121,17 +131,26 @@ export const getClassSchedules = async (req, res) => {
                 // For other roles (teachers, coordinators), they only see their assigned data.
                 // Optionally allow them to filter by centre if they HAVE centres assigned.
                 if (centreId) {
-                    query.centreId = centreId;
+                    const selectedCentres = centreId.split(',').filter(id => id.trim());
+                    query.centreId = { $in: selectedCentres };
                 } else if (userCentres.length > 0 && (req.user.role !== 'teacher' && req.user.role !== 'Class_Coordinator')) {
                     // Restrict by centre for roles that are not teacher/coordinator (like RM/HOD if they don't have ID assignments)
                     query.centreId = { $in: userCentres };
                 }
             }
         } else if (centreId) {
-            query.centreId = centreId;
+            const selectedCentres = centreId.split(',').filter(id => id.trim());
+            if (selectedCentres.length > 0) query.centreId = { $in: selectedCentres };
         }
-        if (batchId) query.batchIds = batchId; // Search in array
-        if (subjectId) query.subjectId = subjectId;
+
+        if (batchId) {
+            const batchIds = batchId.split(',').filter(id => id.trim());
+            if (batchIds.length > 0) query.batchIds = { $in: batchIds };
+        }
+        if (subjectId) {
+            const subjectIds = subjectId.split(',').filter(id => id.trim());
+            if (subjectIds.length > 0) query.subjectId = { $in: subjectIds };
+        }
         if (status) query.status = status;
 
         if (fromDate || toDate) {
@@ -406,7 +425,7 @@ export const getClassDropdownData = async (req, res) => {
             centres = await Centre.find({ _id: { $in: userCentres } });
             // Fetch batches for these centres
             batches = await Batch.find({ centreId: { $in: userCentres } });
-            
+
             // Fallback: If no batches found for assigned centres, return all batches
             // (This handles the case where batches are not yet linked to centres in the DB)
             if (!batches || batches.length === 0) {

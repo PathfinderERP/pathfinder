@@ -145,10 +145,42 @@ export const createTopic = async (req, res) => {
     }
 };
 
-// Get All Topics
+// Get All Topics with Pagination, Search and Filters
 export const getAllTopics = async (req, res) => {
     try {
-        const topics = await AcademicsTopic.find().populate({
+        const { page, limit, search = "", classId = "", subjectId = "", chapterId = "" } = req.query;
+
+        const query = {};
+        if (search) {
+            query.topicName = { $regex: search, $options: "i" };
+        }
+        if (chapterId) {
+            query.chapterId = chapterId;
+        } else if (subjectId) {
+            const chapters = await AcademicsChapter.find({ subjectId }).select('_id');
+            query.chapterId = { $in: chapters.map(c => c._id) };
+        } else if (classId) {
+            const subjects = await AcademicsSubject.find({ classId }).select('_id');
+            const chapters = await AcademicsChapter.find({ subjectId: { $in: subjects.map(s => s._id) } }).select('_id');
+            query.chapterId = { $in: chapters.map(c => c._id) };
+        }
+
+        // Backward compatibility: If no pagination, return plain array
+        if (!page && !limit) {
+            const topics = await AcademicsTopic.find(query).populate({
+                path: 'chapterId',
+                select: 'chapterName subjectId',
+                populate: {
+                    path: 'subjectId',
+                    select: 'subjectName classId',
+                    populate: { path: 'classId', select: 'className' }
+                }
+            }).sort({ createdAt: -1 });
+            return res.status(200).json(topics);
+        }
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const topics = await AcademicsTopic.find(query).populate({
             path: 'chapterId',
             select: 'chapterName subjectId',
             populate: {
@@ -156,8 +188,37 @@ export const getAllTopics = async (req, res) => {
                 select: 'subjectName classId',
                 populate: { path: 'classId', select: 'className' }
             }
-        }).sort({ createdAt: -1 });
-        res.status(200).json(topics);
+        })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parseInt(limit));
+
+        const total = await AcademicsTopic.countDocuments(query);
+
+        res.status(200).json({
+            topics,
+            total,
+            currentPage: parseInt(page),
+            totalPages: Math.ceil(total / parseInt(limit))
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
+
+// Delete Multiple Topics
+export const deleteMultipleTopics = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: "No IDs provided" });
+        }
+
+        const result = await AcademicsTopic.deleteMany({ _id: { $in: ids } });
+        res.status(200).json({
+            message: `${result.deletedCount} topics deleted successfully`,
+            deletedCount: result.deletedCount
+        });
     } catch (error) {
         res.status(500).json({ message: "Server Error", error: error.message });
     }

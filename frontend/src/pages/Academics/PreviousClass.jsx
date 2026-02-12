@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
-import { FaSearch, FaCheckCircle, FaTimes } from "react-icons/fa";
+import { FaSearch, FaCheckCircle, FaTimes, FaCheck, FaClipboardList } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import StudentAttendanceModal from "../../components/Academics/StudentAttendanceModal";
 
 import { hasPermission } from "../../config/permissions";
+import { useTheme } from "../../context/ThemeContext";
 
 const PreviousClass = () => {
     const [classes, setClasses] = useState([]);
     const [loading, setLoading] = useState(false);
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
     // Permission States
     const [canEdit, setCanEdit] = useState(false);
@@ -28,6 +32,10 @@ const PreviousClass = () => {
     const isAdmin = user.role === "admin" || user.role === "superAdmin";
     const isCoordinator = user.role === "Class_Coordinator";
     const isTeacher = user.role === "teacher";
+
+    // Student Attendance State
+    const [showStudentAttendance, setShowStudentAttendance] = useState(false);
+    const [selectedClassId, setSelectedClassId] = useState(null);
 
     // Feedback State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -118,14 +126,14 @@ const PreviousClass = () => {
 
     return (
         <Layout activePage="Academics">
-            <div className="p-6 text-gray-100 min-h-screen font-sans">
-                <ToastContainer theme="dark" position="top-right" />
+            <div className={`p-6 min-h-screen font-sans transition-colors duration-300 ${isDarkMode ? 'text-gray-100' : 'text-gray-900 bg-[#f8fafc]'}`}>
+                <ToastContainer theme={theme} position="top-right" />
 
                 <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-3xl font-bold text-white uppercase italic tracking-wider">Previous Class</h1>
+                    <h1 className={`text-3xl font-bold uppercase italic tracking-wider ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Previous Class</h1>
                 </div>
 
-                <div className="bg-[#1e2530] rounded-xl border border-gray-700 shadow-2xl overflow-hidden p-6">
+                <div className={`${isDarkMode ? 'bg-[#1e2530] border-gray-700 shadow-2xl' : 'bg-white border-gray-200 shadow-md'} rounded-xl border overflow-hidden p-6 transition-colors`}>
                     <div className="flex justify-between items-center mb-6">
                         <div className="relative w-64">
                             <input
@@ -133,14 +141,14 @@ const PreviousClass = () => {
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 placeholder="Search..."
-                                className="bg-[#131619] text-white px-4 py-2 pl-10 rounded-lg border border-gray-700 focus:border-blue-500 outline-none w-full"
+                                className={`px-4 py-2 pl-10 rounded-lg border focus:border-blue-500 outline-none w-full transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                             />
-                            <FaSearch className="absolute left-3 top-3 text-gray-500" />
+                            <FaSearch className={`absolute left-3 top-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
                         </div>
                         <select
                             value={limit}
                             onChange={(e) => setLimit(Number(e.target.value))}
-                            className="bg-[#131619] text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-blue-500 outline-none"
+                            className={`px-4 py-2 rounded-lg border focus:border-blue-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                         >
                             <option value="10">10 per page</option>
                             <option value="20">20 per page</option>
@@ -159,6 +167,8 @@ const PreviousClass = () => {
                                     <th className="p-4">Allocated Time</th>
                                     <th className="p-4">Actual Time</th>
                                     <th className="p-4">Subject</th>
+                                    <th className="p-4 text-center">Teacher Attendance</th>
+                                    <th className="p-4 text-center">Student Attendance</th>
                                     <th className="p-4 text-center">Study Started</th>
                                     <th className="p-4 text-center">Status</th>
                                     <th className="p-4 text-center">Actions</th>
@@ -189,6 +199,40 @@ const PreviousClass = () => {
                                                 {cls.actualEndTime ? new Date(cls.actualEndTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
                                             </td>
                                             <td className="p-4">{cls.subjectId?.subjectName || cls.subjectId?.name || "-"}</td>
+                                            <td className="p-4 text-center">
+                                                {cls.teacherAttendance ? (
+                                                    <span className="bg-green-600/20 text-green-400 px-3 py-1 rounded-full text-[10px] font-bold border border-green-600/50 flex items-center justify-center gap-1 mx-auto w-fit">
+                                                        <FaCheck size={8} /> Present
+                                                    </span>
+                                                ) : (
+                                                    <span className="bg-red-600/20 text-red-400 px-3 py-1 rounded-full text-[10px] font-bold border border-red-600/50 flex items-center justify-center gap-1 mx-auto w-fit">
+                                                        Absent
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="p-4 text-center">
+                                                <div className="flex flex-col gap-2 scale-90">
+                                                    {(isAdmin || isCoordinator) ? (
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedClassId(cls._id);
+                                                                setShowStudentAttendance(true);
+                                                            }}
+                                                            className={`px-3 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-[10px] uppercase transition shadow-lg ${cls.isStudentAttendanceSaved
+                                                                ? 'bg-green-600 text-white shadow-green-900/20'
+                                                                : 'bg-yellow-600 hover:bg-yellow-700 text-white shadow-yellow-900/20'
+                                                                }`}
+                                                        >
+                                                            <FaClipboardList />
+                                                            {cls.isStudentAttendanceSaved ? 'Students ✓' : 'Students'}
+                                                        </button>
+                                                    ) : (
+                                                        <span className={`text-[10px] font-bold uppercase ${cls.isStudentAttendanceSaved ? 'text-green-400' : 'text-gray-500 italic'}`}>
+                                                            {cls.isStudentAttendanceSaved ? 'Marked ✓' : 'Pending'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
                                             <td className="p-4 text-center font-mono text-xs text-cyan-400">
                                                 {cls.studyStartTime ? new Date(cls.studyStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : "-"}
                                             </td>
@@ -227,19 +271,35 @@ const PreviousClass = () => {
                         <div>
                             Showing {totalRecords === 0 ? 0 : ((page - 1) * limit) + 1} to {Math.min(page * limit, totalRecords)} of {totalRecords} entries
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 items-center">
                             <button
                                 onClick={() => setPage(prev => Math.max(prev - 1, 1))}
                                 disabled={page === 1}
-                                className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 disabled:opacity-50 transition"
+                                className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 disabled:opacity-50 transition font-bold"
                             >
                                 Previous
                             </button>
-                            <span> Page {page} </span>
+                            <div className="flex items-center gap-2 px-3 py-1 bg-gray-800/50 rounded-lg border border-gray-700">
+                                <span className="text-xs uppercase tracking-widest font-bold text-gray-500">Page</span>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max={totalPages}
+                                    value={page}
+                                    onChange={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                                            setPage(val);
+                                        }
+                                    }}
+                                    className="w-12 bg-transparent text-center font-bold text-cyan-400 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                                <span className="text-xs uppercase tracking-widest font-bold text-gray-500">of {totalPages || 1}</span>
+                            </div>
                             <button
                                 onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
                                 disabled={page === totalPages || totalPages === 0}
-                                className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 disabled:opacity-50 transition"
+                                className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 disabled:opacity-50 transition font-bold"
                             >
                                 Next
                             </button>
@@ -316,6 +376,17 @@ const PreviousClass = () => {
                             </form>
                         </div>
                     </div>
+                )}
+
+                {showStudentAttendance && selectedClassId && (
+                    <StudentAttendanceModal
+                        classScheduleId={selectedClassId}
+                        onClose={() => {
+                            setShowStudentAttendance(false);
+                            setSelectedClassId(null);
+                        }}
+                        onSaveSuccess={fetchClasses}
+                    />
                 )}
             </div>
         </Layout>
