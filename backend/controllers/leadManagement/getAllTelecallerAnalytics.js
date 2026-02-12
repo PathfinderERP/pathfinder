@@ -38,19 +38,76 @@ export const getAllTelecallerAnalytics = async (req, res) => {
 
         // Base filters for LeadManagement
         const leadFilters = {};
+
+        // Centre-based access control
+        const user = req.user;
+        const isSuperAdmin = user.role === "superAdmin" || user.role === "Super Admin";
+        let allowedCentreIds = [];
+
+        if (!isSuperAdmin) {
+            // Non-superadmins can only see data from their assigned centres
+            allowedCentreIds = (user.centres || []).map(id => id.toString());
+
+            if (allowedCentreIds.length === 0) {
+                // User has no centres assigned, return empty data
+                return res.json({
+                    performance: [],
+                    trends: [],
+                    admissionDetail: { bySource: [], byCenter: [] }
+                });
+            }
+
+            // Apply centre filter
+            if (centre) {
+                // If specific centres requested, ensure they're in user's allowed list
+                const requestedCentres = Array.isArray(centre) ? centre : [centre];
+                const validCentres = requestedCentres.filter(id =>
+                    allowedCentreIds.includes(id.toString())
+                );
+
+                if (validCentres.length > 0) {
+                    leadFilters.centre = {
+                        $in: validCentres.map(id =>
+                            mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
+                        )
+                    };
+                } else {
+                    // Requested centres not in user's allowed list, use all allowed centres
+                    leadFilters.centre = {
+                        $in: allowedCentreIds.map(id =>
+                            mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
+                        )
+                    };
+                }
+            } else {
+                // No specific centre requested, use all allowed centres
+                leadFilters.centre = {
+                    $in: allowedCentreIds.map(id =>
+                        mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
+                    )
+                };
+            }
+        } else {
+            // SuperAdmin - apply centre filter only if specified
+            if (centre) {
+                const requestedCentres = Array.isArray(centre) ? centre : [centre];
+                leadFilters.centre = {
+                    $in: requestedCentres.map(id =>
+                        mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
+                    )
+                };
+            }
+        }
+
         if (leadResponsibility) {
             leadFilters.leadResponsibility = { $regex: new RegExp(`^${leadResponsibility}$`, "i") };
-        }
-        if (centre) {
-            const requestedCentres = Array.isArray(centre) ? centre : [centre];
-            leadFilters.centre = { $in: requestedCentres.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
         }
 
         // Map Center IDs to Names for filtering the Admission collection
         let centreNames = [];
-        if (centre) {
-            const requestedCentres = Array.isArray(centre) ? centre : [centre];
-            const centreDocs = await CentreSchema.find({ _id: { $in: requestedCentres } });
+        if (leadFilters.centre) {
+            const centreIdsToFetch = leadFilters.centre.$in;
+            const centreDocs = await CentreSchema.find({ _id: { $in: centreIdsToFetch } });
             centreNames = centreDocs.map(c => c.centreName);
         }
 
