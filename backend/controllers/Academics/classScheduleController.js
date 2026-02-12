@@ -82,16 +82,8 @@ export const getClassSchedules = async (req, res) => {
         // Role-based filtering
         const userId = req.user._id;
 
-        if (req.user && req.user.role === 'Class_Coordinator') {
-            query.coordinatorId = userId;
-        } else if (req.user && req.user.role === 'teacher') {
-            query.teacherId = userId;
-        } else if (req.user && req.user.role !== 'superAdmin' && req.user.role !== 'admin') {
-            // Other non-admin roles (HOD, RM, etc.) - for now restrict to their own ID if they have a field
-            // but usually they see by centre. Let's keep it restricted to teacherId if they are viewed as such.
-            query.teacherId = userId;
-        } else {
-            // Admins
+        if (req.user && (req.user.role === 'admin' || req.user.role === 'superAdmin')) {
+            // Admins can filter by specific teacher/coordinator if provided
             if (teacherId) {
                 const teacherIds = teacherId.split(',').filter(id => id.trim());
                 if (teacherIds.length > 0) query.teacherId = { $in: teacherIds };
@@ -99,6 +91,13 @@ export const getClassSchedules = async (req, res) => {
             if (coordinatorId) {
                 const coordinatorIds = coordinatorId.split(',').filter(id => id.trim());
                 if (coordinatorIds.length > 0) query.coordinatorId = { $in: coordinatorIds };
+            }
+        } else {
+            // Non-admins can also filter if needed, but base scope is controlled by centres below.
+            // If the frontend sends teacherId filter (e.g. "My Classes"), respect it.
+            if (teacherId) {
+                const teacherIds = teacherId.split(',').filter(id => id.trim());
+                if (teacherIds.length > 0) query.teacherId = { $in: teacherIds };
             }
         }
 
@@ -128,14 +127,26 @@ export const getClassSchedules = async (req, res) => {
                     return res.status(200).json({ classes: [], total: 0, currentPage: parseInt(page), totalPages: 0 });
                 }
             } else {
-                // For other roles (teachers, coordinators), they only see their assigned data.
-                // Optionally allow them to filter by centre if they HAVE centres assigned.
+                // For other roles (teachers, coordinators, etc.), restrict to their assigned centres.
+                // Allow filtering within assigned centres.
                 if (centreId) {
                     const selectedCentres = centreId.split(',').filter(id => id.trim());
-                    query.centreId = { $in: selectedCentres };
-                } else if (userCentres.length > 0 && (req.user.role !== 'teacher' && req.user.role !== 'Class_Coordinator')) {
-                    // Restrict by centre for roles that are not teacher/coordinator (like RM/HOD if they don't have ID assignments)
-                    query.centreId = { $in: userCentres };
+                    // Ensure requested centres are in user's assigned list
+                    const authorized = selectedCentres.filter(id => userCentres.map(c => c.toString()).includes(id.toString()));
+                    if (authorized.length > 0) {
+                        query.centreId = { $in: authorized };
+                    } else {
+                        // If none authorized, default to all assigned centres
+                        query.centreId = { $in: userCentres };
+                    }
+                } else {
+                    // Default to all assigned centres if no specific filter
+                    if (userCentres.length > 0) {
+                        query.centreId = { $in: userCentres };
+                    } else {
+                        // User has no centres assigned -> sees nothing
+                        return res.status(200).json({ classes: [], total: 0, currentPage: -1, totalPages: 0 }); // Return empty
+                    }
                 }
             }
         } else if (centreId) {

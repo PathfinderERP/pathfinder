@@ -97,7 +97,7 @@ const OfferLetter = () => {
                 toast.success(`Offer letter sent to ${employee.email}`);
             } else {
                 const error = await response.json();
-                toast.error(error.message || "Failed to send email");
+                toast.error(error.error || error.message || "Failed to send email");
             }
         } catch (error) {
             console.error("Error sending email:", error);

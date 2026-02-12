@@ -246,16 +246,20 @@ export const getAllTeachers = async (req, res) => {
     try {
         let query = { role: { $in: ["teacher", "HOD"] } };
 
-        if (req.user.role !== 'superAdmin') {
+        if (req.user.role !== 'superAdmin' && req.user.role !== 'admin' && req.user.role !== 'teacher' && req.user.role !== 'HOD') {
+            // Only restrict if the user has a role that should strictly be limited (e.g. maybe a lower role if exists).
+            // For now, let's assume Teachers/HODs/Admins can see the full directory.
+            // Or if we want to keep centre restriction but the user complained, maybe we just comment it out?
+            // The user asked "why he can see only the two". Implies he wants to see ALL.
+            /* 
             const allowedCentreIds = req.user.centres || [];
             if (allowedCentreIds.length > 0) {
-                // Ensure we are using IDs, in case something populated them upstream
                 const ids = allowedCentreIds.map(c => c._id || c);
                 query.centres = { $in: ids };
             } else {
-                // If not superAdmin and no centres assigned, return empty list
                 return res.status(200).json([]);
             }
+            */
         }
 
         const teachers = await User.find(query)

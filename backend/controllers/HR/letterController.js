@@ -150,8 +150,13 @@ const handleSendLetter = async (req, res, mailFunc) => {
     try {
         const { id } = req.params;
         const { fileName } = req.body;
+        console.log(`Sending letter for Employee ID: ${id}, FileName: ${fileName}`);
+
         const employee = await Employee.findById(id);
-        if (!employee) return res.status(404).json({ message: "Employee not found" });
+        if (!employee) {
+            console.error(`Employee not found: ${id}`);
+            return res.status(404).json({ message: "Employee not found" });
+        }
 
         const r2Key = `letters/${fileName}`;
         const publicUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
@@ -160,10 +165,18 @@ const handleSendLetter = async (req, res, mailFunc) => {
         const finalUrl = publicUrl ? `${publicUrl}/${r2Key}` : `${r2Key}`;
         const attachmentPath = await getSignedFileUrl(finalUrl);
 
+        console.log(`Attachment URL resolved to: ${attachmentPath}`);
+
+        if (!attachmentPath || (!attachmentPath.startsWith("http") && !fs.existsSync(attachmentPath))) {
+            console.error(`Invalid attachment path: ${attachmentPath}`);
+            // If local file missing and not a URL, we can't send.
+        }
+
         await mailFunc(employee, attachmentPath);
         res.json({ message: "Sent successfully" });
     } catch (error) {
-        res.status(500).json({ message: "Error sending email" });
+        console.error("Error in handleSendLetter:", error);
+        res.status(500).json({ message: "Error sending email", error: error.message });
     }
 };
 

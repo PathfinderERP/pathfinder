@@ -22,8 +22,35 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
     const [scripts, setScripts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [permissionsConfig, setPermissionsConfig] = useState(null);
+    const [searchTerm, setSearchTerm] = useState("");
     const { theme } = useTheme();
+
     const isDarkMode = theme === 'dark';
+
+    // Filter centres based on search
+    const filteredCentres = centres.filter(centre =>
+        centre.centreName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const isAllSelected = filteredCentres.length > 0 && filteredCentres.every(c => formData.centres.includes(c._id));
+
+    const handleSelectAll = () => {
+        if (isAllSelected) {
+            // Deselect all filtered
+            const filteredIds = filteredCentres.map(c => c._id);
+            setFormData(prev => ({
+                ...prev,
+                centres: prev.centres.filter(id => !filteredIds.includes(id))
+            }));
+        } else {
+            // Select all filtered
+            const filteredIds = filteredCentres.map(c => c._id);
+            setFormData(prev => ({
+                ...prev,
+                centres: [...new Set([...prev.centres, ...filteredIds])]
+            }));
+        }
+    };
 
     // Load permissions config
     useEffect(() => {
@@ -332,21 +359,48 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                         )}
                         <div className="md:col-span-2">
                             <label className={`block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-black uppercase tracking-widest mb-1`}>Assigned Centres {formData.role !== "superAdmin" && "*"}</label>
+
+                            <div className="flex gap-2 mb-2">
+                                <input
+                                    type="text"
+                                    placeholder="Search centres..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className={`flex-1 text-sm border rounded-lg px-3 py-1.5 outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleSelectAll}
+                                    disabled={filteredCentres.length === 0 || formData.role === "superAdmin"}
+                                    className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${isDarkMode
+                                        ? 'bg-[#131619] border-gray-700 text-cyan-400 hover:bg-gray-800'
+                                        : 'bg-white border-gray-200 text-cyan-600 hover:bg-gray-50'}`}
+                                >
+                                    {isAllSelected ? "Deselect All" : "Select All"}
+                                </button>
+                            </div>
+
                             <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 border rounded-lg p-4 max-h-48 overflow-y-auto transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200 shadow-inner'}`}>
-                                {centres.map(centre => (
-                                    <label key={centre._id} className="flex items-center gap-2 cursor-pointer group p-1 hover:bg-cyan-500/10 rounded transition-all">
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.centres.includes(centre._id)}
-                                            onChange={() => handleCentreChange(centre._id)}
-                                            disabled={formData.role === "superAdmin"}
-                                            className="w-4 h-4 rounded border-gray-400 bg-transparent text-cyan-500 focus:ring-cyan-500"
-                                        />
-                                        <span className={`text-[11px] font-bold uppercase tracking-tight ${formData.role === "superAdmin" ? "text-gray-600 opacity-50" : isDarkMode ? "text-gray-400 group-hover:text-cyan-400" : "text-gray-600 group-hover:text-cyan-600"} transition-colors`}>
-                                            {centre.centreName}
-                                        </span>
-                                    </label>
-                                ))}
+                                {filteredCentres.length > 0 ? (
+                                    filteredCentres.map(centre => (
+                                        <label key={centre._id} className="flex items-center gap-2 cursor-pointer group p-1 hover:bg-cyan-500/10 rounded transition-all">
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.centres.includes(centre._id)}
+                                                onChange={() => handleCentreChange(centre._id)}
+                                                disabled={formData.role === "superAdmin"}
+                                                className="w-4 h-4 rounded border-gray-400 bg-transparent text-cyan-500 focus:ring-cyan-500"
+                                            />
+                                            <span className={`text-[11px] font-bold uppercase tracking-tight ${formData.role === "superAdmin" ? "text-gray-600 opacity-50" : isDarkMode ? "text-gray-400 group-hover:text-cyan-400" : "text-gray-600 group-hover:text-cyan-600"} transition-colors`}>
+                                                {centre.centreName}
+                                            </span>
+                                        </label>
+                                    ))
+                                ) : (
+                                    <div className="col-span-full text-center py-4 text-xs text-gray-500">
+                                        No centres found matching "{searchTerm}"
+                                    </div>
+                                )}
                             </div>
                             {formData.role === "superAdmin" && (
                                 <p className="text-xs text-gray-500 mt-1">SuperAdmin is not assigned to any centre</p>

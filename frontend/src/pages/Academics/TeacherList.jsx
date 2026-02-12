@@ -1,17 +1,19 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { FaEye, FaPlus, FaSearch, FaEdit, FaTrash, FaFilter, FaSync } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import MultiSelectFilter from "../../components/common/MultiSelectFilter";
-import { hasPermission } from "../../config/permissions";
+import usePermission from "../../hooks/usePermission";
 import ExcelImportExport from "../../components/common/ExcelImportExport";
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, Legend
 } from "recharts";
 import { useTheme } from "../../context/ThemeContext";
+
+const API_URL = import.meta.env.VITE_API_URL;
 
 const TeacherList = () => {
     const navigate = useNavigate();
@@ -22,9 +24,9 @@ const TeacherList = () => {
     const [itemsPerPage, setItemsPerPage] = useState(15);
 
     // Permissions
-    const [canCreate, setCanCreate] = useState(false);
-    const [canEdit, setCanEdit] = useState(false);
-    const [canDelete, setCanDelete] = useState(false);
+    const canCreate = usePermission('academics', 'teachers', 'create');
+    const canEdit = usePermission('academics', 'teachers', 'edit');
+    const canDelete = usePermission('academics', 'teachers', 'delete');
 
     // Filter States
     const [filterNames, setFilterNames] = useState([]);
@@ -60,10 +62,8 @@ const TeacherList = () => {
         isSubjectHod: false
     });
 
-    const API_URL = import.meta.env.VITE_API_URL;
-
     // Fetch Teachers
-    const fetchTeachers = React.useCallback(async () => {
+    const fetchTeachers = useCallback(async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -82,10 +82,10 @@ const TeacherList = () => {
         } finally {
             setLoading(false);
         }
-    }, [API_URL]);
+    }, []);
 
     // Fetch Centres
-    const fetchCentres = React.useCallback(async () => {
+    const fetchCentres = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${API_URL}/centre`, {
@@ -104,16 +104,9 @@ const TeacherList = () => {
         } catch (err) {
             console.error("Fetch Centres Error:", err);
         }
-    }, [API_URL]);
+    }, []);
 
     useEffect(() => {
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-            const parsedUser = JSON.parse(storedUser);
-            setCanCreate(hasPermission(parsedUser, 'academics', 'teachers', 'create'));
-            setCanEdit(hasPermission(parsedUser, 'academics', 'teachers', 'edit'));
-            setCanDelete(hasPermission(parsedUser, 'academics', 'teachers', 'delete'));
-        }
         fetchTeachers();
         fetchCentres();
     }, [fetchTeachers, fetchCentres]);
@@ -145,7 +138,7 @@ const TeacherList = () => {
             mobNum: teacher.mobNum,
             employeeId: teacher.employeeId,
             subject: teacher.subject,
-            centre: teacher.centres?.[0] || "",
+            centre: teacher.centres?.[0]?._id || teacher.centres?.[0] || teacher.centre || "",
             teacherDepartment: teacher.teacherDepartment,
             boardType: teacher.boardType,
             teacherType: teacher.teacherType,
@@ -156,6 +149,7 @@ const TeacherList = () => {
         });
         setEditId(teacher._id);
         setShowModal(true);
+        setViewOnly(false);
     };
 
     const handleDelete = async (id) => {
@@ -329,7 +323,7 @@ const TeacherList = () => {
 
     const teacherMapping = {
         name: "name", email: "email", employeeId: "employeeId", mobNum: "phoneNumber",
-        centre: "center", teacherDepartment: "depertment", boardType: "examArea",
+        centre: "center", teacherDepartment: "department", boardType: "examArea",
         teacherType: "type", subject: "subject", designation: "designation",
         isDeptHod: "deptTypeHod", isBoardHod: "boardTypeHod", isSubjectHod: "subjectWiseHod"
     };
@@ -718,11 +712,10 @@ const TeacherList = () => {
                                         <select name="centre" required disabled={viewOnly} value={formData.centre} onChange={handleChange}
                                             className={`w-full border rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none disabled:opacity-70 ${isDarkMode ? 'bg-[#13171c] border-gray-700 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}>
                                             <option value="">Select a Center</option>
-                                            {centres.map((c, idx) => (
-                                                <option key={idx} value={c._id}>{c.centreName}</option>
+                                            {centres.map((c) => (
+                                                <option key={c._id} value={c._id}>{c.centreName}</option>
                                             ))}
-                                            {/* Fallback if no centres fetched */}
-                                            {centres.length === 0 && <option value="Kharagpur">Kharagpur (Default)</option>}
+
                                         </select>
                                     </div>
 
@@ -797,6 +790,13 @@ const TeacherList = () => {
                                     <div className="mt-8 flex gap-4">
                                         <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition shadow-lg">
                                             {editId ? "Update" : "Add"}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowModal(false)}
+                                            className={`w-full border font-bold py-3 rounded-lg transition ${isDarkMode ? 'border-gray-700 text-gray-300 hover:bg-[#131619]' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                                        >
+                                            Cancel
                                         </button>
                                     </div>
                                 )}
