@@ -4,14 +4,16 @@ import ClassSchedule from "../models/Academics/ClassSchedule.js";
 import StudentAttendance from "../models/Academics/StudentAttendance.js";
 import jwt from "jsonwebtoken";
 
-// Login: Email (Username) + Admission Number (Password)
+// Login: Username (Email) + Password (Admission Number)
 export const login = async (req, res) => {
     try {
-        const { email, password } = req.body; // password is admissionNumber
+        const { username, password } = req.body; // username is email, password is admissionNumber
 
-        if (!email || !password) {
-            return res.status(400).json({ message: "Email and Enrollment Number are required" });
+        if (!username || !password) {
+            return res.status(400).json({ message: "Username (Email) and Password (Enrollment Number) are required" });
         }
+
+        const email = username; // Map username to email for existing logic
 
         // 1. Find the admission by Enrollment Number (Password)
         // Admission number is unique enough for login credential
