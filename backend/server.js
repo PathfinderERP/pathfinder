@@ -61,6 +61,8 @@ import dashboardRoutes from "./routes/dashboard.routes.js";
 import ceoRoutes from "./routes/ceoControlTower.js";
 
 
+import studentPortalRoutes from "./routes/studentPortal.routes.js";
+
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -159,6 +161,7 @@ app.use("/api/subject", subjectRoutes);
 app.use("/api/zone", zoneRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/ceo", ceoRoutes);
+app.use("/api/student-portal", studentPortalRoutes);
 
 
 
