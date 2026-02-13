@@ -127,11 +127,11 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
     };
 
     return (
-        <div className={`fixed inset-0 flex items-center justify-center z-[70] p-4 backdrop-blur-md transition-all ${isDarkMode ? 'bg-black/70' : 'bg-white/60'}`}>
-            <div className={`w-full max-w-md rounded-[4px] border shadow-2xl overflow-hidden transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-cyan-500/10' : 'bg-white border-gray-200'}`}>
+        <div className={`fixed inset-0 flex items-center justify-center z-[70] p-0 sm:p-4 backdrop-blur-md transition-all ${isDarkMode ? 'bg-black/70' : 'bg-white/60'}`}>
+            <div className={`w-full h-full sm:h-auto sm:max-h-[90vh] max-w-md rounded-none sm:rounded-[4px] border shadow-2xl overflow-hidden transition-all flex flex-col ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-cyan-500/10' : 'bg-white border-gray-200'}`}>
 
                 {/* Header */}
-                <div className={`px-6 py-4 border-b flex justify-between items-center transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                <div className={`px-6 py-4 border-b flex justify-between items-center shrink-0 transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                     <div>
                         <h3 className={`text-lg font-black uppercase tracking-tighter italic flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             <FaCommentAlt className="text-cyan-500" />
@@ -147,7 +147,7 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                     </button>
                 </div>
 
-                <div className={`p-6 space-y-6 ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`}>
+                <div className={`p-6 space-y-6 flex-1 overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`}>
                     {/* Call Timing Section */}
                     <div className={`p-6 rounded-[4px] border border-dashed flex flex-col items-center gap-4 transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                         <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-500">

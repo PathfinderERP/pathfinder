@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaTimes, FaUserEdit, FaSync, FaSave, FaFilter } from "react-icons/fa";
+import { FaTimes, FaUserEdit, FaSync, FaSave, FaFilter, FaSearch } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
@@ -31,13 +31,15 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
         examTag: "",
         type: ""
     });
+    const [courseSearch, setCourseSearch] = useState("");
 
     const filteredCourses = courses.filter(course => {
         return (
             (!courseFilters.class || (course.class?._id || course.class) === courseFilters.class) &&
             (!courseFilters.mode || course.mode === courseFilters.mode) &&
             (!courseFilters.examTag || (course.examTag?._id || course.examTag) === courseFilters.examTag) &&
-            (!courseFilters.type || course.courseType === courseFilters.type)
+            (!courseFilters.type || course.courseType === courseFilters.type) &&
+            (!courseSearch || course.courseName.toLowerCase().includes(courseSearch.toLowerCase()))
         );
     });
 
@@ -311,6 +313,18 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
 
                         <div className="space-y-1.5">
                             <label className={labelClasses}>Select Course ({filteredCourses.length}) *</label>
+
+                            <div className="relative">
+                                <FaSearch className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`} size={10} />
+                                <input
+                                    type="text"
+                                    placeholder="SEARCH COURSE..."
+                                    value={courseSearch}
+                                    onChange={(e) => setCourseSearch(e.target.value)}
+                                    className={`w-full pl-9 pr-4 py-2 mb-1.5 rounded-[4px] border text-[10px] font-black uppercase tracking-widest outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                />
+                            </div>
+
                             <select name="course" required value={formData.course} onChange={handleChange} className={selectClasses}>
                                 <option value="">Select Course</option>
                                 {filteredCourses.map(c => <option key={c._id} value={c._id}>{c.courseName.toUpperCase()}</option>)}
