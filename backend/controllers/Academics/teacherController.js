@@ -264,6 +264,7 @@ export const getAllTeachers = async (req, res) => {
 
         const teachers = await User.find(query)
             .select("-password")
+            .populate("centres", "centreName")
             .sort({ createdAt: -1 });
 
         // Fetch profile images for each teacher from Employee model

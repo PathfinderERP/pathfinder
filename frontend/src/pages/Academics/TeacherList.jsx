@@ -38,6 +38,7 @@ const TeacherList = () => {
     const [filterDesignations, setFilterDesignations] = useState([]);
     const [filterSubjects, setFilterSubjects] = useState([]);
     const [filterTypes, setFilterTypes] = useState([]);
+    const [filterCentres, setFilterCentres] = useState([]);
 
     const [showModal, setShowModal] = useState(false);
     const [viewOnly, setViewOnly] = useState(false);
@@ -240,6 +241,22 @@ const TeacherList = () => {
         return unique.map(val => ({ value: val, label: val }));
     };
 
+    // Get centre options from all teachers' centres arrays
+    const getCentreOptions = () => {
+        const allCentres = [];
+        teachers.forEach(t => {
+            if (Array.isArray(t.centres)) {
+                t.centres.forEach(c => {
+                    const centreName = c?.centreName || c;
+                    if (centreName && !allCentres.includes(centreName)) {
+                        allCentres.push(centreName);
+                    }
+                });
+            }
+        });
+        return allCentres.sort().map(val => ({ value: val, label: val }));
+    };
+
     const nameOptions = getOptions('name');
     const emailOptions = getOptions('email');
     const empIdOptions = getOptions('employeeId');
@@ -249,6 +266,7 @@ const TeacherList = () => {
     const desigOptions = getOptions('designation');
     const subjectOptions = getOptions('subject');
     const typeOptions = getOptions('teacherType');
+    const centreOptions = getCentreOptions();
 
     const filteredTeachers = teachers.filter(t => {
         const matchesSearch =
@@ -264,8 +282,17 @@ const TeacherList = () => {
         const matchesDesig = filterDesignations.length === 0 || filterDesignations.includes(t.designation);
         const matchesSubject = filterSubjects.length === 0 || filterSubjects.includes(t.subject);
         const matchesType = filterTypes.length === 0 || filterTypes.includes(t.teacherType);
+
+        // Centre filter - check if teacher has any of the selected centres
+        const matchesCentre = filterCentres.length === 0 || (
+            Array.isArray(t.centres) && t.centres.some(c => {
+                const centreName = c?.centreName || c;
+                return filterCentres.includes(centreName);
+            })
+        );
+
         return matchesSearch && matchesName && matchesEmail && matchesEmpId && matchesMobile &&
-            matchesDept && matchesBoard && matchesDesig && matchesSubject && matchesType;
+            matchesDept && matchesBoard && matchesDesig && matchesSubject && matchesType && matchesCentre;
     });
 
     const indexOfLastItem = currentPage * itemsPerPage;
@@ -303,6 +330,7 @@ const TeacherList = () => {
         setFilterDesignations([]);
         setFilterSubjects([]);
         setFilterTypes([]);
+        setFilterCentres([]);
     };
 
     const teacherColumns = [
@@ -508,6 +536,7 @@ const TeacherList = () => {
                         <MultiSelectFilter label="Desig" placeholder="All Desigs" options={desigOptions} selectedValues={filterDesignations} onChange={setFilterDesignations} theme={theme} />
                         <MultiSelectFilter label="Subject" placeholder="All Subjects" options={subjectOptions} selectedValues={filterSubjects} onChange={setFilterSubjects} theme={theme} />
                         <MultiSelectFilter label="Type" placeholder="All Types" options={typeOptions} selectedValues={filterTypes} onChange={setFilterTypes} theme={theme} />
+                        <MultiSelectFilter label="Centre" placeholder="All Centres" options={centreOptions} selectedValues={filterCentres} onChange={setFilterCentres} theme={theme} />
                     </div>
                 </div>
 
@@ -520,6 +549,7 @@ const TeacherList = () => {
                                 <th className="p-4 font-semibold">Emp ID</th>
                                 <th className="p-4 font-semibold">Email</th>
                                 <th className="p-4 font-semibold">Mobile</th>
+                                <th className="p-4 font-semibold">Centres</th>
                                 <th className="p-4 font-semibold">Subject</th>
                                 <th className="p-4 font-semibold">Designation</th>
                                 <th className="p-4 font-semibold">Dept</th>
@@ -530,10 +560,10 @@ const TeacherList = () => {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan="10" className="p-8 text-center text-gray-500">Loading...</td></tr>
+                                <tr><td colSpan="11" className="p-8 text-center text-gray-500">Loading...</td></tr>
                             ) : currentItems.length === 0 ? (
                                 <tr>
-                                    <td colSpan="10" className="p-8 text-center text-gray-500">
+                                    <td colSpan="11" className="p-8 text-center text-gray-500">
                                         No teachers found matching criteria.
                                     </td>
                                 </tr>
@@ -573,6 +603,20 @@ const TeacherList = () => {
                                         </td>
                                         <td className={`p-4 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{teacher.email}</td>
                                         <td className={`p-4 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{teacher.mobNum}</td>
+                                        <td className={`p-4 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                            {Array.isArray(teacher.centres) && teacher.centres.length > 0 ? (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {teacher.centres.map((c, idx) => (
+                                                        <span
+                                                            key={idx}
+                                                            className={`px-2 py-0.5 rounded text-[10px] font-semibold ${isDarkMode ? 'bg-blue-900/50 text-blue-400 border border-blue-800' : 'bg-blue-100 text-blue-700 border border-blue-200'}`}
+                                                        >
+                                                            {c?.centreName || c}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : "-"}
+                                        </td>
                                         <td className={`p-4 text-sm ${isDarkMode ? 'text-white' : 'text-gray-800 font-medium'}`}>{teacher.subject || "-"}</td>
                                         <td className={`p-4 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{teacher.designation || "-"}</td>
                                         <td className={`p-4 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{teacher.teacherDepartment || "-"}</td>
