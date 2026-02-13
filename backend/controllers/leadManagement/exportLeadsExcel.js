@@ -55,8 +55,9 @@ export const exportLeadsExcel = async (req, res) => {
             query.leadType = Array.isArray(leadType) ? { $in: leadType } : leadType;
         }
         if (req.query.feedback) {
+            const feedbackArray = Array.isArray(req.query.feedback) ? req.query.feedback : [req.query.feedback];
             query.followUps = {
-                $elemMatch: { feedback: { $regex: req.query.feedback, $options: "i" } }
+                $elemMatch: { feedback: { $in: feedbackArray } }
             };
         }
 
@@ -111,7 +112,7 @@ export const exportLeadsExcel = async (req, res) => {
             "Source": lead.source || "N/A",
             "Telecaller": lead.leadResponsibility || "N/A",
             "Assigned At": `${new Date(lead.assignedAt || lead.createdAt).toLocaleDateString('en-GB')} ${new Date(lead.assignedAt || lead.createdAt).toLocaleTimeString('en-GB')}`,
-            "Last Feedback": lead.followUps && lead.followUps.length > 0 ? lead.followUps[lead.followUps.length - 1].feedback : "N/A",
+            "Last Feedback": lead.followUps && lead.followUps.length > 0 ? lead.followUps[lead.followUps.length - 1].feedback : "Not Contacted",
             "Remarks": lead.followUps && lead.followUps.length > 0 ? lead.followUps[lead.followUps.length - 1].remarks || "N/A" : "N/A",
             "Last Call Start Time": lead.followUps && lead.followUps.length > 0 && lead.followUps[lead.followUps.length - 1].callStartTime ? new Date(lead.followUps[lead.followUps.length - 1].callStartTime).toLocaleTimeString('en-GB') : "N/A",
             "Last Call End Time": lead.followUps && lead.followUps.length > 0 && lead.followUps[lead.followUps.length - 1].callEndTime ? new Date(lead.followUps[lead.followUps.length - 1].callEndTime).toLocaleTimeString('en-GB') : "N/A",

@@ -59,7 +59,7 @@ import payrollRoutes from "./routes/Finance/payroll.routes.js";
 import zoneRoutes from "./routes/masterData/zone.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
 import ceoRoutes from "./routes/ceoControlTower.js";
-
+import postRoutes from "./routes/post.routes.js";
 
 import studentPortalRoutes from "./routes/studentPortal.routes.js";
 
@@ -161,6 +161,7 @@ app.use("/api/subject", subjectRoutes);
 app.use("/api/zone", zoneRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/ceo", ceoRoutes);
+app.use("/api/posts", postRoutes);
 app.use("/api/student-portal", studentPortalRoutes);
 
 

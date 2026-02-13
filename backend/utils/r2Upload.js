@@ -21,12 +21,14 @@ export const uploadToR2 = async (file, folder = "general") => {
     let publicUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
 
     if (!publicUrl) {
-        console.warn("WARNING: R2_PUBLIC_URL is missing. Using fallback URL construction.");
-        if (process.env.S3API) {
-            publicUrl = process.env.S3API.replace(/\/$/, "");
+        if (process.env.AccountID) {
+            publicUrl = `https://pub-${process.env.AccountID}.r2.dev`;
+        } else if (process.env.S3API) {
+            publicUrl = `${process.env.S3API.replace(/\/$/, "")}/${process.env.R2_BUCKET_NAME}`;
         } else {
             publicUrl = "https://pub-3c9d12dd00618b00795184bc5ff0c333.r2.dev";
         }
+        console.warn(`R2_PUBLIC_URL missing. Using fallback: ${publicUrl}`);
     }
 
     const fileName = `${folder}/${Date.now()}_${file.originalname.replace(/\s+/g, "_")}`;
@@ -64,7 +66,7 @@ export const deleteFromR2 = async (fileUrl) => {
             key = fileUrl.replace(`${publicUrl}/`, "");
         } else {
             // Fallback: search for common prefixes to find the key
-            const prefixes = ["employees/", "letters/", "regularization/"];
+            const prefixes = ["employees/", "letters/", "regularization/", "posts/"];
             for (const prefix of prefixes) {
                 const index = fileUrl.indexOf(prefix);
                 if (index !== -1) {
@@ -106,7 +108,7 @@ export const getSignedFileUrl = async (fileUrl) => {
         if (publicUrl && fileUrl.startsWith(publicUrl)) {
             key = fileUrl.replace(`${publicUrl}/`, "");
         } else {
-            const prefixes = ["employees/", "letters/", "regularization/"];
+            const prefixes = ["employees/", "letters/", "regularization/", "posts/"];
             for (const prefix of prefixes) {
                 const index = fileUrl.indexOf(prefix);
                 if (index !== -1) {

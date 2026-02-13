@@ -50,8 +50,15 @@ export const getLeads = async (req, res) => {
         const skip = (page - 1) * limit;
 
         // Build Filter
-        const { search, leadType, source, centre, course, leadResponsibility, board, className, fromDate, toDate } = req.query;
+        const { search, leadType, source, centre, course, leadResponsibility, board, className, fromDate, toDate, feedback } = req.query;
         const query = {};
+
+        if (feedback) {
+            const feedbackArray = Array.isArray(feedback) ? feedback : [feedback];
+            query.followUps = {
+                $elemMatch: { feedback: { $in: feedbackArray.map(f => f) } }
+            };
+        }
 
         // Date range filter
         if (fromDate || toDate) {

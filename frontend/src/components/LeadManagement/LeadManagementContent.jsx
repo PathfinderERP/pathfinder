@@ -73,7 +73,8 @@ const LeadManagementContent = () => {
         leadResponsibility: [],
         fromDate: "",
         toDate: "",
-        scheduledDate: new Date().toISOString().split('T')[0]
+        scheduledDate: new Date().toISOString().split('T')[0],
+        feedback: []
     });
 
     // Dropdown data for filters
@@ -319,7 +320,8 @@ const LeadManagementContent = () => {
             leadResponsibility: [],
             fromDate: "",
             toDate: "",
-            scheduledDate: new Date().toISOString().split('T')[0]
+            scheduledDate: new Date().toISOString().split('T')[0],
+            feedback: []
         });
         setSearchTerm("");
         setCurrentPage(1);
@@ -950,6 +952,27 @@ const LeadManagementContent = () => {
                             />
                         </div>
                         <div className="space-y-2">
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Feedback</label>
+                            <CustomMultiSelect
+                                options={[
+                                    { value: "Interested", label: "Interested" },
+                                    { value: "Not Interested", label: "Not Interested" },
+                                    { value: "Call back later", label: "Call back later" },
+                                    { value: "Wrong Number", label: "Wrong Number" },
+                                    { value: "Busy", label: "Busy" },
+                                    { value: "Asked for details", label: "Asked for details" },
+                                    { value: "Price Issue", label: "Price Issue" },
+                                    { value: "Will visit centre", label: "Will visit centre" },
+                                    { value: "Enrolled elsewhere", label: "Enrolled elsewhere" },
+                                    { value: "Others", label: "Others" }
+                                ]}
+                                value={filters.feedback}
+                                onChange={(selected) => handleFilterChange('feedback', selected)}
+                                placeholder="Select Feedback"
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+                        <div className="space-y-2">
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>To Date</label>
                             <input
                                 type="date"
@@ -976,6 +999,7 @@ const LeadManagementContent = () => {
                             <thead className={`border-b ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                 <tr>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>S/N</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Follow Up</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Name</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Contact</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Ops Info</th>
@@ -985,6 +1009,7 @@ const LeadManagementContent = () => {
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Status</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Owner</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Assigned At</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Last Feedback</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actions</th>
                                 </tr>
                             </thead>
@@ -1004,7 +1029,7 @@ const LeadManagementContent = () => {
                                     </>
                                 ) : leads.length === 0 ? (
                                     <tr>
-                                        <td colSpan="11" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
+                                        <td colSpan="13" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
                                             No leads found
                                         </td>
                                     </tr>
@@ -1012,6 +1037,20 @@ const LeadManagementContent = () => {
                                     leads.map((lead, index) => (
                                         <tr key={lead._id} onClick={() => handleRowClick(lead)} className={`transition-all group cursor-pointer ${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'}`}>
                                             <td className={`px-6 py-4 text-[10px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{(currentPage - 1) * limit + index + 1}</td>
+                                            <td className="px-6 py-4">
+                                                {lead.followUps?.length > 0 ? (
+                                                    <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-[2px] border transition-all ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
+                                                        <FaCheckCircle size={10} className="animate-pulse" />
+                                                        <span className="text-[9px] font-black uppercase tracking-widest">Contacted</span>
+                                                        <span className={`ml-1 text-[8px] font-black px-1.5 py-0.5 rounded-full ${isDarkMode ? 'bg-emerald-500/20' : 'bg-emerald-100'}`}>{lead.followUps.length}</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-[2px] border transition-all ${isDarkMode ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400' : 'bg-yellow-50 border-yellow-100 text-yellow-600'}`}>
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></div>
+                                                        <span className="text-[9px] font-black uppercase tracking-widest">Pending</span>
+                                                    </div>
+                                                )}
+                                            </td>
                                             <td className="px-6 py-4">
                                                 <div className={`text-[11px] font-black uppercase tracking-tight ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>{lead.name}</div>
                                             </td>
@@ -1049,6 +1088,18 @@ const LeadManagementContent = () => {
                                                 <div className="text-[9px] font-black text-cyan-500 mt-0.5">
                                                     {new Date(lead.assignedAt || lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[10px] font-black uppercase tracking-widest ${lead.followUps?.length > 0 ? (isDarkMode ? 'text-emerald-400' : 'text-emerald-600') : (isDarkMode ? 'text-gray-600' : 'text-gray-400')}`}>
+                                                    {lead.followUps?.length > 0
+                                                        ? lead.followUps[lead.followUps.length - 1].feedback
+                                                        : "Not Contacted"}
+                                                </div>
+                                                {lead.followUps?.length > 0 && lead.followUps[lead.followUps.length - 1].remarks && (
+                                                    <div className="text-[8px] font-medium italic text-gray-500 mt-0.5 truncate max-w-[120px]">
+                                                        {lead.followUps[lead.followUps.length - 1].remarks}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">

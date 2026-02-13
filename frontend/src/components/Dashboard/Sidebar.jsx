@@ -63,6 +63,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     const isSuperAdmin = user.role === "superAdmin";
 
     const menuItems = useMemo(() => [
+        { name: "Dashboard", icon: <FaThLarge />, path: "/dashboard" },
         { name: "Lead Management", icon: <FaBullseye />, path: "/lead-management", permissionModule: "leadManagement" },
         { name: "Marketing & CRM", icon: <FaBullhorn />, path: "/marketing-crm", permissionModule: "marketingCRM" },
         { name: "CEO Control Tower", icon: <FaChartBar />, path: "/ceo-control-tower", permissionModule: "ceoControlTower" },
@@ -492,10 +493,19 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-cyan-100 dark:bg-cyan-900 border border-cyan-200 dark:border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-bold overflow-hidden shadow-lg shadow-cyan-500/10">
                         {user.profileImage && !user.profileImage.startsWith('undefined/') ? (
-                            <img src={user.profileImage} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                            <span>{user.name ? user.name.charAt(0).toUpperCase() : "U"}</span>
-                        )}
+                            <img
+                                src={user.profileImage.startsWith('http') ? user.profileImage : `${import.meta.env.VITE_API_URL}${user.profileImage}`}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                }}
+                            />
+                        ) : null}
+                        <span className={user.profileImage && !user.profileImage.startsWith('undefined/') ? 'hidden' : ''}>
+                            {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                        </span>
                     </div>
                     <div className="flex-1 min-w-0">
                         <p className="text-gray-900 dark:text-white text-sm font-semibold truncate">{user.name || "User"}</p>

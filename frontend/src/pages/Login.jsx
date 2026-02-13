@@ -12,6 +12,13 @@ export default function Login() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
+  React.useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      navigate("/dashboard");
+    }
+  }, [navigate]);
+
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
   };
@@ -78,7 +85,7 @@ export default function Login() {
         <div className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-2xl p-10 rounded-[40px] shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/40 dark:border-white/10 relative overflow-hidden group hover:shadow-cyan-500/10 transition-shadow duration-700">
           {/* Top accent glow */}
           <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-40"></div>
-          
+
           <div className="relative z-10">
             <h1 className="text-4xl font-black text-center text-gray-900 dark:text-white mb-2 tracking-tight">
               Pathfinder
@@ -173,7 +180,7 @@ export default function Login() {
           </div>
         </div>
       </div>
-      
+
       {/* Visual background details */}
       <div className="absolute top-10 right-10 w-32 h-32 bg-cyan-500/5 rounded-full blur-2xl"></div>
       <div className="absolute bottom-10 left-10 w-40 h-40 bg-blue-500/5 rounded-full blur-2xl"></div>
