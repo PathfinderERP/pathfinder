@@ -143,7 +143,8 @@ export const createEmployee = async (req, res) => {
                 role: role, // Dynamically determined role
                 centres: employeeData.primaryCentre ? [employeeData.primaryCentre] : [],
                 permissions: [],
-                granularPermissions: {} // Default perms handled by model pre-save hook
+                granularPermissions: {}, // Default perms handled by model pre-save hook
+                isActive: employeeData.status ? (employeeData.status === "Active") : true
             });
             await user.save();
         } else {
@@ -416,6 +417,14 @@ export const updateEmployee = async (req, res) => {
 
         // Update the employee document with new data
         Object.assign(employee, updateData);
+
+        // Sync with User status if status changed
+        if (updateData.status) {
+            await User.findByIdAndUpdate(
+                employee.user,
+                { isActive: updateData.status === "Active" }
+            );
+        }
 
         // Save the employee - this will trigger the pre('save') hook to update currentSalary
         await employee.save();
@@ -744,6 +753,14 @@ export const bulkImportEmployees = async (req, res) => {
                     user.password = hashedPassword;
                     isDirty = true;
 
+                    if (data.status) {
+                        const newActiveStatus = data.status === "Active";
+                        if (user.isActive !== newActiveStatus) {
+                            user.isActive = newActiveStatus;
+                            isDirty = true;
+                        }
+                    }
+
                     if (isDirty) {
                         await user.save();
                     }
@@ -783,7 +800,8 @@ export const bulkImportEmployees = async (req, res) => {
                         role: role,
                         centres: data.primaryCentre ? [data.primaryCentre] : [],
                         permissions: [],
-                        granularPermissions: {} // Default perms handled by model pre-save hook
+                        granularPermissions: {}, // Default perms handled by model pre-save hook
+                        isActive: data.status ? (data.status === "Active") : true
                     });
                     await user.save();
                 }

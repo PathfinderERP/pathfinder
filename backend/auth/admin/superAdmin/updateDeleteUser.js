@@ -1,4 +1,5 @@
 import User from "../../../models/User.js";
+import Employee from "../../../models/HR/Employee.js";
 import bcrypt from "bcryptjs";
 
 export const updateUserBySuperAdmin = async (req, res) => {
@@ -39,7 +40,14 @@ export const updateUserBySuperAdmin = async (req, res) => {
         if (granularPermissions !== undefined) user.granularPermissions = granularPermissions;
         if (canEditUsers !== undefined) user.canEditUsers = canEditUsers;
         if (canDeleteUsers !== undefined) user.canDeleteUsers = canDeleteUsers;
-        if (isActive !== undefined) user.isActive = isActive;
+        if (isActive !== undefined) {
+            user.isActive = isActive;
+            // Sync with Employee status
+            await Employee.findOneAndUpdate(
+                { user: user._id },
+                { status: isActive ? "Active" : "Inactive" }
+            );
+        }
         if (assignedScript !== undefined) {
             user.assignedScript = assignedScript === "" ? null : assignedScript;
         }
@@ -98,6 +106,12 @@ export const toggleUserStatus = async (req, res) => {
 
         user.isActive = !user.isActive;
         await user.save();
+
+        // Sync with Employee status
+        await Employee.findOneAndUpdate(
+            { user: user._id },
+            { status: user.isActive ? "Active" : "Inactive" }
+        );
 
         res.status(200).json({
             message: `User ${user.isActive ? 'activated' : 'deactivated'} successfully`,
