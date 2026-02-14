@@ -22,6 +22,10 @@ export const requireAuth = async (req, res, next) => {
             return res.status(401).json({ message: "User not found" });
         }
 
+        if (user.isActive === false) {
+            return res.status(403).json({ message: "Account is deactivated. Please contact administrator." });
+        }
+
         req.user = user;
         next();
     } catch (error) {
@@ -49,6 +53,10 @@ export const requirePermission = (requiredPermission) => {
             const user = await User.findById(decoded.id);
             if (!user) {
                 return res.status(401).json({ message: "User not found" });
+            }
+
+            if (user.isActive === false) {
+                return res.status(403).json({ message: "Account is deactivated. Please contact administrator." });
             }
 
             // SuperAdmin has access to everything
@@ -91,6 +99,10 @@ export const requireAnyPermission = (requiredPermissions) => {
             const user = await User.findById(decoded.id);
             if (!user) {
                 return res.status(401).json({ message: "User not found" });
+            }
+
+            if (user.isActive === false) {
+                return res.status(403).json({ message: "Account is deactivated. Please contact administrator." });
             }
 
             // SuperAdmin has access to everything
@@ -137,6 +149,10 @@ export const requireGranularPermission = (module, section, action) => {
             const user = await User.findById(decoded.id);
             if (!user) {
                 return res.status(401).json({ message: "User not found" });
+            }
+
+            if (user.isActive === false) {
+                return res.status(403).json({ message: "Account is deactivated. Please contact administrator." });
             }
 
             // SuperAdmin has access to everything
@@ -190,6 +206,10 @@ export const requireAnyGranularPermission = (requiredPermissions) => {
             const user = await User.findById(decoded.id);
             if (!user) {
                 return res.status(401).json({ message: "User not found" });
+            }
+
+            if (user.isActive === false) {
+                return res.status(403).json({ message: "Account is deactivated. Please contact administrator." });
             }
 
             // SuperAdmin has access to everything

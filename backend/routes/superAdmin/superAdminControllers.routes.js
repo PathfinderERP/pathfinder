@@ -1,7 +1,7 @@
 import express from "express";
 import { createAccountBySuperAdmin, bulkImportUsers } from "../../auth/admin/superAdmin/createAccount.js";
 import { getAllAdminsBySuperAdmin, getAllTeachersBySuperAdmin, getAllUsersBySuperAdmin } from "../../auth/admin/superAdmin/getAdminsTeachers.js";
-import { updateUserBySuperAdmin, deleteUserBySuperAdmin } from "../../auth/admin/superAdmin/updateDeleteUser.js";
+import { updateUserBySuperAdmin, deleteUserBySuperAdmin, toggleUserStatus } from "../../auth/admin/superAdmin/updateDeleteUser.js";
 import adminTeacherLogin from "../../auth/admin/normalAdmin/adminTeacherLogin.js";
 import { requireAuth, requireGranularPermission } from "../../middleware/permissionMiddleware.js";
 import { createStudentByAdmin } from "../../auth/admin/normalAdmin/createStudentByAdmin.js";
@@ -15,6 +15,7 @@ router.get("/getAllAdminsBySuperAdmin", requireAuth, getAllAdminsBySuperAdmin);
 router.get("/getAllTeachersBySuperAdmin", requireAuth, getAllTeachersBySuperAdmin);
 router.get("/getAllUsers", requireAuth, getAllUsersBySuperAdmin);
 router.put("/updateUser/:userId", requireGranularPermission("userManagement", "users", "edit"), updateUserBySuperAdmin);
+router.patch("/toggleStatus/:userId", requireGranularPermission("userManagement", "users", "edit"), toggleUserStatus);
 router.delete("/deleteUser/:userId", requireGranularPermission("userManagement", "users", "delete"), deleteUserBySuperAdmin);
 
 // Login route - no auth required

@@ -782,18 +782,51 @@ const TelecallingConsole = () => {
 
 
     const handleResetRedFlags = async (userId, e) => {
-        e.stopPropagation();
+        if (e) e.stopPropagation();
         if (!window.confirm("Are you sure you want to reset red flags for this telecaller?")) return;
 
         try {
-            const response = await axios.post(`/api/lead-management/red-flags/reset/${userId}`);
-            if (response.status === 200) {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/red-flags/reset/${userId}`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) {
                 toast.success("Red flags reset successfully");
-                fetchTelecallers(); // Correct function name
+                fetchTelecallers();
+                fetchAllPerformance();
+            } else {
+                toast.error(data.message || "Failed to reset red flags");
             }
         } catch (error) {
             console.error("Error resetting red flags:", error);
-            toast.error("Failed to reset red flags");
+            toast.error("An error occurred while resetting red flags");
+        }
+    };
+
+    const handleResetPerformance = async (userId, e) => {
+        if (e) e.stopPropagation();
+        if (!window.confirm("Are you sure you want to reset this telecaller's 5-day history? This will start their record from day one.")) return;
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/performance/reset/${userId}`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                toast.success("Performance history reset successfully");
+                // Refresh data
+                fetchTelecallers();
+                fetchAllPerformance();
+            } else {
+                toast.error(data.message || "Failed to reset performance");
+            }
+        } catch (error) {
+            console.error("Error resetting performance:", error);
+            toast.error("An error occurred while resetting performance");
         }
     };
 
@@ -1559,11 +1592,16 @@ const TelecallingConsole = () => {
                                                                                 caller.taskProgress?.percent > 20 ? 'Active' :
                                                                                     'Low Activity'}
                                                                     </span>
+                                                                    {caller.taskProgress?.history5Days?.[4]?.met && (
+                                                                        <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-[2px] bg-green-500 text-white animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.4)]">
+                                                                            Goal Met
+                                                                        </span>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                             <div className="text-right">
                                                                 <p className="text-[7.5px] text-gray-500 font-black uppercase tracking-widest mb-0.5">Goal</p>
-                                                                <p className={`text-[9px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>50 CALLS/DAY</p>
+                                                                <p className={`text-[9px] font-black ${caller.taskProgress?.history5Days?.[4]?.met ? 'text-green-500' : isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>50 CALLS/DAY</p>
                                                             </div>
                                                         </div>
 
@@ -1626,14 +1664,25 @@ const TelecallingConsole = () => {
                                                                     )}
                                                                 </div>
                                                             </div>
-                                                            {JSON.parse(localStorage.getItem('user') || '{}').role?.toLowerCase() === 'superadmin' && caller.redFlags > 0 && (
-                                                                <button
-                                                                    onClick={(e) => handleResetRedFlags(caller.userId, e)}
-                                                                    className="ml-2 p-1.5 rounded bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm"
-                                                                    title="Reset Red Flags"
-                                                                >
-                                                                    <FaExclamationTriangle size={12} />
-                                                                </button>
+                                                            {JSON.parse(localStorage.getItem('user') || '{}').role?.toLowerCase() === 'superadmin' && (
+                                                                <div className="flex gap-2 ml-2">
+                                                                    {caller.redFlags > 0 && (
+                                                                        <button
+                                                                            onClick={(e) => handleResetRedFlags(caller.userId, e)}
+                                                                            className="p-1.5 rounded bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                                                                            title="Reset Red Flags"
+                                                                        >
+                                                                            <FaExclamationTriangle size={12} />
+                                                                        </button>
+                                                                    )}
+                                                                    <button
+                                                                        onClick={(e) => handleResetPerformance(caller.userId, e)}
+                                                                        className="p-1.5 rounded bg-cyan-500/10 text-cyan-500 hover:bg-cyan-500 hover:text-white transition-all shadow-sm"
+                                                                        title="Reset 5-Day Performance"
+                                                                    >
+                                                                        <FaSync size={12} />
+                                                                    </button>
+                                                                </div>
                                                             )}
                                                         </div>
                                                     </div>

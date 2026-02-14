@@ -161,8 +161,20 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             const admissions = admissionCounts[u._id.toString()] || 0;
 
             let totalPoints = 0;
+            const resetDate = u.performanceResetDate ? new Date(u.performanceResetDate) : null;
+
             const history5Days = last5DaysList.map(dateStr => {
-                const count = combinedHistory[dateStr] || 0;
+                const dayDate = new Date(dateStr);
+                // If resetDate is set and the day is before the reset, count is 0
+                let count = combinedHistory[dateStr] || 0;
+                if (resetDate) {
+                    const normalizedResetDate = new Date(resetDate);
+                    normalizedResetDate.setHours(0, 0, 0, 0);
+                    if (dayDate < normalizedResetDate) {
+                        count = 0;
+                    }
+                }
+
                 const points = Math.min(12, Number(((count / 50) * 12).toFixed(2)));
                 totalPoints += points;
                 return { date: dateStr, count, met: count >= 50, points };

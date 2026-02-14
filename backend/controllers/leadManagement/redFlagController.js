@@ -60,3 +60,26 @@ export const processDailyPenalty = async (req, res) => {
         res.status(500).json({ message: "Server error processing penalties" });
     }
 };
+
+export const resetPerformance = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const user = await User.findByIdAndUpdate(
+            userId,
+            { performanceResetDate: new Date() },
+            { new: true }
+        );
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        res.status(200).json({
+            message: "Performance reset successfully",
+            performanceResetDate: user.performanceResetDate
+        });
+    } catch (error) {
+        console.error("Error resetting performance:", error);
+        res.status(500).json({ message: "Server error resetting performance" });
+    }
+};

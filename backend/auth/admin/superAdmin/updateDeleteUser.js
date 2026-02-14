@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 export const updateUserBySuperAdmin = async (req, res) => {
     try {
         const { userId } = req.params;
-        const { name, employeeId, email, mobNum, password, role, centres, permissions, canEditUsers, canDeleteUsers, granularPermissions, assignedScript } = req.body;
+        const { name, employeeId, email, mobNum, password, role, centres, permissions, canEditUsers, canDeleteUsers, granularPermissions, assignedScript, isActive } = req.body;
 
         // Find the user to update
         const user = await User.findById(userId);
@@ -39,6 +39,7 @@ export const updateUserBySuperAdmin = async (req, res) => {
         if (granularPermissions !== undefined) user.granularPermissions = granularPermissions;
         if (canEditUsers !== undefined) user.canEditUsers = canEditUsers;
         if (canDeleteUsers !== undefined) user.canDeleteUsers = canDeleteUsers;
+        if (isActive !== undefined) user.isActive = isActive;
         if (assignedScript !== undefined) {
             user.assignedScript = assignedScript === "" ? null : assignedScript;
         }
@@ -67,12 +68,44 @@ export const updateUserBySuperAdmin = async (req, res) => {
                 permissions: user.permissions,
                 granularPermissions: user.granularPermissions,
                 canEditUsers: user.canEditUsers,
-                canDeleteUsers: user.canDeleteUsers
+                canDeleteUsers: user.canDeleteUsers,
+                isActive: user.isActive
             }
         });
 
     } catch (error) {
         console.error("Error updating user:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+export const toggleUserStatus = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Prevent deactivating the last SuperAdmin
+        if (user.role === "superAdmin" && user.isActive) {
+            const activeSuperAdminCount = await User.countDocuments({ role: "superAdmin", isActive: true });
+            if (activeSuperAdminCount <= 1) {
+                return res.status(400).json({ message: "Cannot deactivate the last active SuperAdmin" });
+            }
+        }
+
+        user.isActive = !user.isActive;
+        await user.save();
+
+        res.status(200).json({
+            message: `User ${user.isActive ? 'activated' : 'deactivated'} successfully`,
+            isActive: user.isActive
+        });
+
+    } catch (error) {
+        console.error("Error toggling user status:", error);
         res.status(500).json({ message: "Internal server error" });
     }
 };

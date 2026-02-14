@@ -30,6 +30,7 @@ const UserManagementContent = () => {
     const [filterTeacherType, setFilterTeacherType] = useState([]);
     const [filterDepartment, setFilterDepartment] = useState([]);
     const [filterBoardType, setFilterBoardType] = useState([]);
+    const [filterStatus, setFilterStatus] = useState([]); // [{value: 'active', label: 'Active'}, {value: 'deactivated', label: 'Deactivated'}]
     const [allCentres, setAllCentres] = useState([]);
     const [allScripts, setAllScripts] = useState([]);
     const [allDepartments, setAllDepartments] = useState([]);
@@ -145,7 +146,36 @@ const UserManagementContent = () => {
         setFilterTeacherType([]);
         setFilterDepartment([]);
         setFilterBoardType([]);
+        setFilterStatus([]);
         toast.info("Filters reset to default");
+    };
+
+    const handleToggleStatus = async (id, currentStatus, e) => {
+        if (e) e.stopPropagation();
+        const action = currentStatus ? "deactivate" : "activate";
+        if (!window.confirm(`Are you sure you want to ${action} this user?`)) return;
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${apiUrl}/superAdmin/toggleStatus/${id}`, {
+                method: "PATCH",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                toast.success(data.message);
+                fetchUsers();
+            } else {
+                const error = await response.json();
+                toast.error(error.message || `Failed to ${action} user`);
+            }
+        } catch (error) {
+            console.error(`Error ${action}ing user:`, error);
+            toast.error(`Error ${action}ing user`);
+        }
     };
 
 
@@ -168,7 +198,13 @@ const UserManagementContent = () => {
 
         const matchesBoardType = filterBoardType.length === 0 || filterBoardType.some(f => f.value === user.boardType || (f.label === user.boardType));
 
-        return matchesSearch && matchesRole && matchesCentre && matchesTeacherType && matchesDepartment && matchesBoardType;
+        const matchesStatus = filterStatus.length === 0 || filterStatus.some(f => {
+            if (f.value === 'active') return user.isActive !== false;
+            if (f.value === 'deactivated') return user.isActive === false;
+            return true;
+        });
+
+        return matchesSearch && matchesRole && matchesCentre && matchesTeacherType && matchesDepartment && matchesBoardType && matchesStatus;
     });
 
     // Analytics Summary
@@ -522,6 +558,20 @@ const UserManagementContent = () => {
                             />
                         </div>
 
+                        {/* Status Filter */}
+                        <div className="min-w-[180px]">
+                            <CustomMultiSelect
+                                options={[
+                                    { value: 'active', label: 'Active' },
+                                    { value: 'deactivated', label: 'Deactivated' }
+                                ]}
+                                value={filterStatus}
+                                onChange={setFilterStatus}
+                                placeholder="All Status"
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
+
                         {/* Reset Filters Button */}
                         <button
                             onClick={handleResetFilters}
@@ -573,11 +623,16 @@ const UserManagementContent = () => {
                         <div key={user._id} className={`user-card-wave-dramatic ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-xl border transition-all group relative overflow-hidden`}>
                             <div className="flex justify-between items-start mb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className={`w-16 h-16 rounded-full ${isDarkMode ? 'bg-cyan-900 border-cyan-500/30' : 'bg-cyan-100 border-cyan-200'} flex items-center justify-center overflow-hidden border-2 shadow-lg`}>
+                                    <div className={`w-16 h-16 rounded-full ${user.isActive === false ? 'bg-red-900/20 border-red-500/30' : isDarkMode ? 'bg-cyan-900 border-cyan-500/30' : 'bg-cyan-100 border-cyan-200'} flex items-center justify-center overflow-hidden border-2 shadow-lg relative`}>
                                         {user.profileImage ? (
-                                            <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" />
+                                            <img src={user.profileImage} alt={user.name} className={`w-full h-full object-cover ${user.isActive === false ? 'grayscale opacity-50' : ''}`} />
                                         ) : (
-                                            <span className="text-cyan-400 font-bold text-xl">{user.name.charAt(0).toUpperCase()}</span>
+                                            <span className={`${user.isActive === false ? 'text-red-400' : 'text-cyan-400'} font-bold text-xl`}>{user.name.charAt(0).toUpperCase()}</span>
+                                        )}
+                                        {user.isActive === false && (
+                                            <div className="absolute inset-0 flex items-center justify-center bg-red-500/20 backdrop-blur-[1px]">
+                                                <span className="text-[8px] font-black uppercase tracking-tighter text-white bg-red-600 px-1 rounded-[1px] shadow-lg">OFF</span>
+                                            </div>
                                         )}
                                     </div>
                                     <div>
@@ -589,13 +644,24 @@ const UserManagementContent = () => {
                                 </div>
                                 <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                     {canEditUsers && (
-                                        <button
-                                            onClick={() => handleEdit(user)}
-                                            className={`p-2 rounded transition-all ${isDarkMode ? 'bg-gray-800 text-yellow-400 hover:bg-gray-700' : 'bg-gray-100 text-yellow-600 hover:bg-yellow-500 hover:text-white'}`}
-                                            title="Edit"
-                                        >
-                                            <FaEdit />
-                                        </button>
+                                        <div className="flex flex-col gap-1">
+                                            <button
+                                                onClick={() => handleEdit(user)}
+                                                className={`p-2 rounded transition-all ${isDarkMode ? 'bg-gray-800 text-yellow-400 hover:bg-gray-700' : 'bg-gray-100 text-yellow-600 hover:bg-yellow-500 hover:text-white'}`}
+                                                title="Edit"
+                                            >
+                                                <FaEdit />
+                                            </button>
+                                            {isSuperAdmin && (
+                                                <button
+                                                    onClick={(e) => handleToggleStatus(user._id, user.isActive !== false, e)}
+                                                    className={`p-2 rounded transition-all ${user.isActive === false ? (isDarkMode ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : 'bg-green-100 text-green-600 hover:bg-green-500 hover:text-white') : (isDarkMode ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-red-100 text-red-600 hover:bg-red-500 hover:text-white')}`}
+                                                    title={user.isActive === false ? "Activate" : "Deactivate"}
+                                                >
+                                                    <FaUndo className={user.isActive === false ? "" : "rotate-180"} />
+                                                </button>
+                                            )}
+                                        </div>
                                     )}
                                     {canDeleteUsers && (
                                         <button
@@ -626,6 +692,21 @@ const UserManagementContent = () => {
                                     <FaMapMarkerAlt className={isDarkMode ? 'text-gray-500' : 'text-gray-400'} mt-1 />
                                     <span className="break-words">{getCentresDisplay(user)}</span>
                                 </div>
+
+                                {user.isActive === false && (
+                                    <div className="mt-4 p-2.5 bg-red-500/10 border-2 border-red-500/20 rounded-xl relative overflow-hidden">
+                                        <div className="absolute inset-0 bg-red-500/5 animate-pulse"></div>
+                                        <div className="relative flex flex-col items-center justify-center text-center">
+                                            <span className="text-red-500 text-[12px] font-black uppercase tracking-[0.2em] leading-none mb-1">
+                                                DEACTIVATED
+                                            </span>
+                                            <span className="text-red-400 text-[8px] font-black uppercase tracking-widest opacity-80">
+                                                NO ACCESS OF ERP
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {user.role === "telecaller" && (
                                     <div className={`flex items-center gap-2 mt-3 pt-2 border-t ${isDarkMode ? 'border-gray-800/50' : 'border-gray-100'}`}>
                                         <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></div>
@@ -703,7 +784,14 @@ const UserManagementContent = () => {
                                                         <span className="text-cyan-400 font-bold text-sm">{user.name.charAt(0).toUpperCase()}</span>
                                                     )}
                                                 </div>
-                                                <span className={`font-black uppercase tracking-tight ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>{user.name}</span>
+                                                <div className="flex flex-col">
+                                                    <span className={`font-black uppercase tracking-tight ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>{user.name}</span>
+                                                    {user.isActive === false && (
+                                                        <span className="text-[8px] font-black uppercase tracking-[0.15em] bg-red-600 text-white px-1.5 py-0.5 rounded-[2px] w-fit mt-0.5 animate-pulse shadow-sm">
+                                                            DEACTIVATED
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="p-4">
@@ -729,13 +817,24 @@ const UserManagementContent = () => {
                                         <td className="p-4">
                                             <div className="flex items-center justify-end gap-2">
                                                 {canEditUsers && (
-                                                    <button
-                                                        onClick={() => handleEdit(user)}
-                                                        className={`p-2 rounded transition-all ${isDarkMode ? 'text-yellow-400 hover:bg-yellow-500/10' : 'text-yellow-600 hover:bg-yellow-100'}`}
-                                                        title="Edit"
-                                                    >
-                                                        <FaEdit size={14} />
-                                                    </button>
+                                                    <div className="flex items-center gap-1">
+                                                        <button
+                                                            onClick={() => handleEdit(user)}
+                                                            className={`p-2 rounded transition-all ${isDarkMode ? 'text-yellow-400 hover:bg-yellow-500/10' : 'text-yellow-600 hover:bg-yellow-100'}`}
+                                                            title="Edit"
+                                                        >
+                                                            <FaEdit size={14} />
+                                                        </button>
+                                                        {isSuperAdmin && (
+                                                            <button
+                                                                onClick={(e) => handleToggleStatus(user._id, user.isActive !== false, e)}
+                                                                className={`p-2 rounded transition-all ${user.isActive === false ? 'text-green-500 hover:bg-green-500/10' : 'text-red-500 hover:bg-red-500/10'}`}
+                                                                title={user.isActive === false ? "Activate" : "Deactivate"}
+                                                            >
+                                                                <FaUndo size={14} className={user.isActive === false ? "" : "rotate-180"} />
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 )}
                                                 {canDeleteUsers && (
                                                     <button

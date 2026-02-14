@@ -110,6 +110,14 @@ const userSchema = new mongoose.Schema({
     },
     lastPenaltyDate: {
         type: Date
+    },
+    performanceResetDate: {
+        type: Date,
+        default: null
+    },
+    isActive: {
+        type: Boolean,
+        default: true
     }
 
 }, { timestamps: true });

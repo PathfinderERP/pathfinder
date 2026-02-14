@@ -13,7 +13,7 @@ import { exportTelecallerLogs } from "../../controllers/leadManagement/exportTel
 import { requireAuth } from "../../middleware/permissionMiddleware.js";
 import { getTelecallerAnalytics } from "../../controllers/leadManagement/getTelecallerAnalytics.js";
 import { getAllTelecallerAnalytics } from "../../controllers/leadManagement/getAllTelecallerAnalytics.js";
-import { resetRedFlags, processDailyPenalty } from "../../controllers/leadManagement/redFlagController.js";
+import { resetRedFlags, processDailyPenalty, resetPerformance } from "../../controllers/leadManagement/redFlagController.js";
 import multer from "multer";
 
 const router = express.Router();
@@ -30,6 +30,7 @@ router.get("/analytics-all", requireAuth, getAllTelecallerAnalytics);
 router.get("/analytics/:telecallerId", requireAuth, getTelecallerAnalytics);
 router.post("/red-flags/reset/:userId", requireAuth, resetRedFlags);
 router.post("/red-flags/process-daily", requireAuth, processDailyPenalty);
+router.post("/performance/reset/:userId", requireAuth, resetPerformance);
 
 // Generic ID route must come AFTER specific routes
 router.get("/:id", requireAuth, getLeadById);
