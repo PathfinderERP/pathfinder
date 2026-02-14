@@ -150,14 +150,14 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Root is now Dashboard */}
-        <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        {/* Root is now Login */}
+        <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
 
         {/* Protected Routes */}
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/lead-management" element={<ProtectedRoute><LeadManagement /></ProtectedRoute>} />
         <Route path="/lead-management/dashboard" element={<ProtectedRoute><LeadDashboard /></ProtectedRoute>} />
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/ceo-control-tower" element={<ProtectedRoute><CEOControlTower /></ProtectedRoute>} />
         <Route path="/marketing-crm" element={<ProtectedRoute><MarketingCRM /></ProtectedRoute>} />
         <Route path="/admissions" element={<ProtectedRoute><Admissions /></ProtectedRoute>} />

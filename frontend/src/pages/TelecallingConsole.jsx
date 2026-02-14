@@ -26,7 +26,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 const AnalyticsDashboard = ({ data, isDarkMode }) => {
     if (!data) return null;
 
-    const { leadStatus, feedbackAnalysis, calls } = data;
+    const { leadStatus = [], feedbackAnalysis = [], calls = {} } = data;
 
     return (
         <div className="space-y-6 animate-fadeIn">
@@ -273,7 +273,7 @@ const CustomBarLabel = (props) => {
 
     const initials = getInitials(payload.name);
     const profileImage = payload.profileImage;
-    const centerCount = payload.centerCount || 0;
+    const centerCount = (payload.centres || payload.centers || []).length;
     const safeNameId = payload.name.replace(/[^a-zA-Z0-9]/g, '_');
 
     return (
@@ -408,6 +408,19 @@ const TelecallingConsole = () => {
     const [globalAdmissionDetail, setGlobalAdmissionDetail] = useState({ bySource: [], byCenter: [] });
     const [summaryLoading, setSummaryLoading] = useState(false);
     const [timePeriod, setTimePeriod] = useState('daily'); // 'daily', 'weekly', 'monthly'
+
+    useEffect(() => {
+        if (allPerformance.length > 0 && telecallers.length > 0) {
+            setTelecallers(prev => prev.map(tc => {
+                const perf = allPerformance.find(p => p.name.toLowerCase() === tc.name.toLowerCase());
+                // Merge everything from perf into tc
+                return perf ? { ...tc, ...perf, taskProgress: perf.taskProgress } : tc;
+            }));
+        }
+        // eslint-disable-next-line
+    }, [allPerformance, telecallers.length]);
+
+    const [historyDetail, setHistoryDetail] = useState(null);
 
     // Excel Export Function
     const exportToExcel = () => {
@@ -1405,12 +1418,14 @@ const TelecallingConsole = () => {
                                                             .filter(u => {
                                                                 const matchesRole = u.role === 'telecaller' || u.role === 'centralizedTelecaller';
                                                                 const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
-                                                                const matchesCenter = selectedCenters.length === 0 || (u.centers && u.centers.some(c => selectedCenters.includes(c)));
+                                                                const uCentres = u.centres || u.centers || [];
+                                                                const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
                                                                 return matchesRole && matchesSearch && matchesCenter;
                                                             }).length > 0 ? allPerformance.filter(u => {
                                                                 const matchesRole = u.role === 'telecaller' || u.role === 'centralizedTelecaller';
                                                                 const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
-                                                                const matchesCenter = selectedCenters.length === 0 || (u.centers && u.centers.some(c => selectedCenters.includes(c)));
+                                                                const uCentres = u.centres || u.centers || [];
+                                                                const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
                                                                 return matchesRole && matchesSearch && matchesCenter;
                                                             }) : [{ name: 'No Data', currentCalls: 0, previousCalls: 0 }]}
                                                         margin={{ top: 20, right: 20, left: 20, bottom: 5 }}
@@ -1434,7 +1449,8 @@ const TelecallingConsole = () => {
                                             mainTheme={theme}
                                             performanceData={allPerformance.filter(u => {
                                                 const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
-                                                const matchesCenter = selectedCenters.length === 0 || (u.centers && u.centers.some(c => selectedCenters.includes(c)));
+                                                const uCentres = u.centres || u.centers || [];
+                                                const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
                                                 return u.role === 'counsellor' && matchesSearch && matchesCenter;
                                             })}
                                             monthlyTrends={globalTrends}
@@ -1445,7 +1461,8 @@ const TelecallingConsole = () => {
                                             mainTheme={theme}
                                             performanceData={allPerformance.filter(u => {
                                                 const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
-                                                const matchesCenter = selectedCenters.length === 0 || (u.centers && u.centers.some(c => selectedCenters.includes(c)));
+                                                const uCentres = u.centres || u.centers || [];
+                                                const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
                                                 return u.role === 'marketing' && matchesSearch && matchesCenter;
                                             })}
                                             monthlyTrends={globalTrends}
@@ -1518,13 +1535,39 @@ const TelecallingConsole = () => {
                                                     </div>
 
                                                     {/* Task Progress Section */}
-                                                    <div className="mb-6 space-y-2">
+                                                    <div className="mb-6 space-y-3">
                                                         <div className="flex justify-between items-end mb-1">
-                                                            <p className="text-[8px] text-gray-500 uppercase tracking-[0.2em] font-black">Daily Progress</p>
-                                                            <p className={`text-[10px] font-black ${caller.taskProgress?.percent > 70 ? 'text-green-500' : caller.taskProgress?.percent > 30 ? 'text-yellow-500' : 'text-red-500'}`}>
-                                                                {caller.taskProgress?.completed || 0}/{caller.taskProgress?.total || 0}
-                                                            </p>
+                                                            <p className="text-[8px] text-gray-500 uppercase tracking-[0.2em] font-black">Performance Points (Last 5 Days)</p>
+                                                            <div className="text-right">
+                                                                <p className={`text-[10px] font-black ${caller.taskProgress?.percent > 70 ? 'text-green-500' : caller.taskProgress?.percent > 30 ? 'text-yellow-500' : 'text-red-500'}`}>
+                                                                    {caller.taskProgress?.completed || 0}/{caller.taskProgress?.total || 60} PTS
+                                                                </p>
+                                                                <p className="text-[7px] text-gray-500 font-bold uppercase">Goal: 50 calls/day</p>
+                                                            </div>
                                                         </div>
+
+                                                        {/* 5-Day History Dots */}
+                                                        <div className="grid grid-cols-5 gap-1 pt-1 pb-2">
+                                                            {caller.taskProgress?.history5Days ? (
+                                                                caller.taskProgress.history5Days.map((day, idx) => (
+                                                                    <div
+                                                                        key={idx}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setHistoryDetail({ name: caller.name, history: caller.taskProgress.history5Days });
+                                                                        }}
+                                                                        className={`h-1.5 rounded-full transition-all cursor-help ${day.met ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' :
+                                                                            day.count > 0 ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]' :
+                                                                                'bg-red-500/20'
+                                                                            }`}
+                                                                        title={`${day.date}: ${day.count} calls (${day.points} pts)`}
+                                                                    ></div>
+                                                                ))
+                                                            ) : (
+                                                                [...Array(5)].map((_, i) => <div key={i} className="h-1.5 rounded-full bg-gray-800/50"></div>)
+                                                            )}
+                                                        </div>
+
                                                         <div className={`w-full h-2 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100 shadow-inner'}`}>
                                                             <div
                                                                 className={`h-full transition-all duration-1000 ease-out rounded-full shadow-[0_0_10px_rgba(0,0,0,0.1)] ${caller.taskProgress?.percent > 70 ? 'bg-gradient-to-r from-green-600 to-green-400' :
@@ -1534,11 +1577,16 @@ const TelecallingConsole = () => {
                                                                 style={{ width: `${caller.taskProgress?.percent || 0}%` }}
                                                             />
                                                         </div>
-                                                        {caller.taskProgress?.percent === 100 && (
-                                                            <p className="text-[9px] font-black text-green-500 uppercase tracking-widest text-center mt-1 animate-bounce">
-                                                                ✨ Task Completed ✨
-                                                            </p>
-                                                        )}
+
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setHistoryDetail({ name: caller.name, history: caller.taskProgress?.history5Days || [] });
+                                                            }}
+                                                            className={`w-full py-1.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
+                                                        >
+                                                            VIEW 5-DAY HISTORY
+                                                        </button>
                                                     </div>
 
                                                     <div className={`space-y-3 pt-5 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
@@ -1678,6 +1726,65 @@ const TelecallingConsole = () => {
                                             >
                                                 Close
                                             </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 5-DAY HISTORY DETAIL MODAL */}
+                            {historyDetail && (
+                                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+                                    <div className={`w-full max-w-lg rounded-2xl border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#0f1215] border-gray-800' : 'bg-white border-gray-200'}`}>
+                                        <div className="p-8 border-b border-gray-800 flex items-center justify-between bg-gradient-to-r from-transparent to-cyan-500/5">
+                                            <div>
+                                                <h3 className={`text-lg font-black uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{historyDetail.name}</h3>
+                                                <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest mt-1">5-Day Performance Breakdown</p>
+                                            </div>
+                                            <button onClick={() => setHistoryDetail(null)} className="p-2 hover:bg-white/5 rounded-full transition-all">
+                                                <FaTimesCircle className="text-gray-500 hover:text-white" size={24} />
+                                            </button>
+                                        </div>
+                                        <div className="p-8 space-y-4">
+                                            {historyDetail.history.map((day, idx) => (
+                                                <div key={idx} className={`flex items-center justify-between p-4 rounded-xl border transition-all ${day.met ? (isDarkMode ? 'bg-green-500/5 border-green-500/20' : 'bg-green-50 border-green-200') : (isDarkMode ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-200')}`}>
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black ${day.met ? 'bg-green-500 text-black' : 'bg-red-500 text-white'}`}>
+                                                            {day.met ? <FaCheckCircle /> : <FaHistory />}
+                                                        </div>
+                                                        <div>
+                                                            <p className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                                {new Date(day.date).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' })}
+                                                            </p>
+                                                            <p className={`text-[10px] font-bold ${day.met ? 'text-green-500' : 'text-red-500'}`}>
+                                                                {day.count} / 50 FOLLOW-UPS
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className={`text-xl font-black italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{day.points} PTS</p>
+                                                        <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Weight: 12 MAX</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            <div className="mt-8 p-6 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-between">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="p-3 bg-cyan-500 text-black rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.4)]">
+                                                        <FaChartBar size={20} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.2em]">Aggregate Score</p>
+                                                        <p className={`text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                            {Math.round(historyDetail.history.reduce((acc, curr) => acc + curr.points, 0))} / 60
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                        {Math.round((historyDetail.history.reduce((acc, curr) => acc + curr.points, 0) / 60) * 100)}%
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

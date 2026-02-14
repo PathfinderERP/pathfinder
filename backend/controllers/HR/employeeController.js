@@ -5,16 +5,11 @@ import Designation from "../../models/Master_data/Designation.js";
 import User from "../../models/User.js";
 import bcrypt from "bcryptjs";
 import s3Client from "../../config/r2Config.js";
-import { uploadToR2, deleteFromR2, getSignedFileUrl } from "../../utils/r2Upload.js";
+import { uploadToR2, deleteFromR2, getSignedFileUrl, upload } from "../../utils/r2Upload.js";
+export { upload };
 import multer from "multer";
-// import dotenv from "dotenv"; // dotenv loaded in server.js
-// dotenv.config();
-// Configure multer for file uploads
-const storage = multer.memoryStorage();
-export const upload = multer({
-    storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
-});
+
+// Multer and R2 helpers are now centralized in r2Upload.js and used below.
 
 // Multer and R2 helpers are now centralized in r2Upload.js and used below.
 
@@ -611,11 +606,15 @@ export const updateMyProfile = async (req, res) => {
         ];
 
         // Apply updates only for allowed fields
-        // Apply updates only for allowed fields
+        const fileFieldsList = [
+            "profileImage", "aadharProof", "panProof", "bankStatement",
+            "educationalQualification1", "educationalQualification2", "educationalQualification3"
+        ];
+
         Object.keys(updates).forEach(key => {
             // Exclude file fields from direct text update if they are in allowedUpdates list
             // (We handle them separately via req.files)
-            if (allowedUpdates.includes(key) && !["profileImage", "aadharProof", "panProof", "bankStatement"].includes(key)) {
+            if (allowedUpdates.includes(key) && !fileFieldsList.includes(key)) {
                 if (updates[key] !== undefined && updates[key] !== "undefined" && updates[key] !== null && updates[key] !== "null") {
                     employee[key] = updates[key];
                 }

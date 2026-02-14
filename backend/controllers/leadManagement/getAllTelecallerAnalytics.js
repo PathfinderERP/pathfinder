@@ -116,6 +116,44 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             role: { $in: ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing'] }
         });
 
+        // Pre-calculate the last 5 days dates for aggregation
+        const last5Days = [];
+        for (let i = 0; i < 5; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            d.setHours(0, 0, 0, 0);
+            last5Days.push({
+                dateStr: d.toISOString().split('T')[0],
+                start: new Date(d),
+                end: new Date(new Date(d).setHours(23, 59, 59, 999))
+            });
+        }
+        const oldestDate = last5Days[4].start;
+
+        // Aggregate follow-ups for the last 5 days for all relevant users in one go
+        const historyAgg = await LeadManagement.aggregate([
+            { $unwind: "$followUps" },
+            { $match: { "followUps.date": { $gte: oldestDate } } },
+            {
+                $group: {
+                    _id: {
+                        name: "$followUps.updatedBy",
+                        date: { $dateToString: { format: "%Y-%m-%d", date: "$followUps.date" } }
+                    },
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        // Helper to get count for a specific user and date from the aggregation result
+        const getHistoryCount = (userName, dateStr) => {
+            const entry = historyAgg.find(h =>
+                h._id.name.toLowerCase() === userName.toLowerCase() &&
+                h._id.date === dateStr
+            );
+            return entry ? entry.count : 0;
+        };
+
         // Group telecallers by name to handle duplicates
         const nameGroups = {};
         telecallers.forEach(u => {
@@ -179,21 +217,41 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             const currentCalls = s.calls[0]?.count || 0;
             const admissions = (s.conversions[0]?.count || 0) + actualAdmissionsCount;
 
+            // Calculate 5-day history and points
+            let totalPoints = 0;
+            const history5Days = last5Days.map(day => {
+                const count = getHistoryCount(user.name, day.dateStr);
+                // 12 points if goal (50) met, else proportional
+                const points = Math.min(12, Number(((count / 50) * 12).toFixed(2)));
+                totalPoints += points;
+                return {
+                    date: day.dateStr,
+                    count: count,
+                    met: count >= 50,
+                    points: points
+                };
+            }).reverse(); // Show oldest to newest (last 5 days)
+
             return {
                 _id: user._id,
+                userId: user._id, // Add userId for frontend reference
                 name: user.name,
                 role: user.role,
+                mobNum: user.mobNum,
+                redFlags: user.redFlags || 0,
                 profileImage: user.profileImage || null,
-                centers: (await CentreSchema.find({ _id: { $in: user.centres } })).map(c => c.centreName),
+                centres: (await CentreSchema.find({ _id: { $in: user.centres || [] } })).map(c => ({ _id: c._id, centreName: c.centreName })),
                 currentCalls,
                 previousCalls: s.prevCalls[0]?.count || 0,
-                hotLeads: (s.hotLeads[0]?.count || 0) + actualAdmissionsCount, // Sum of lead markers and actual admissions
+                hotLeads: (s.hotLeads[0]?.count || 0) + actualAdmissionsCount,
                 conversions: admissions,
                 admissions: admissions,
                 taskProgress: {
-                    completed: currentCalls,
-                    total: 50, // Mock target
-                    percent: Math.min(100, Math.round((currentCalls / 50) * 100))
+                    completed: Math.round(totalPoints),
+                    total: 60, // 12 points * 5 days = 60 points max
+                    percent: Math.min(100, Math.round((totalPoints / 60) * 100)),
+                    history5Days: history5Days,
+                    dailyCalls: currentCalls
                 }
             };
         }));

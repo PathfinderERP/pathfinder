@@ -6,7 +6,7 @@ import multer from "multer";
 const storage = multer.memoryStorage();
 export const upload = multer({
     storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+    limits: { fileSize: 25 * 1024 * 1024 } // Increased to 25MB limit for high-res mobile photos
 });
 
 /**
@@ -28,15 +28,24 @@ export const uploadToR2 = async (file, folder = "general") => {
         } else {
             publicUrl = "https://pub-3c9d12dd00618b00795184bc5ff0c333.r2.dev";
         }
-        console.warn(`R2_PUBLIC_URL missing. Using fallback: ${publicUrl}`);
+        console.warn(`R2 Upload: R2_PUBLIC_URL missing. Using fallback: ${publicUrl}`);
     }
 
-    const fileName = `${folder}/${Date.now()}_${file.originalname.replace(/\s+/g, "_")}`;
+    // Sanitize filename more aggressively for mobile uploads
+    const originalName = file.originalname || "image.jpg";
+    const extension = originalName.split('.').pop();
+    const cleanBaseName = originalName
+        .split('.')[0]
+        .replace(/[^a-zA-Z0-9]/g, '_') // Remove any non-alphanumeric chars
+        .substring(0, 50); // Limit length
+
+    const fileName = `${folder}/${Date.now()}_${cleanBaseName}.${extension}`;
+
     const uploadParams = {
         Bucket: process.env.R2_BUCKET_NAME,
         Key: fileName,
         Body: file.buffer,
-        ContentType: file.mimetype,
+        ContentType: file.mimetype || 'application/octet-stream',
     };
 
     try {
