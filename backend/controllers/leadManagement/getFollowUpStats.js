@@ -5,9 +5,10 @@ import mongoose from "mongoose";
 export const getFollowUpStats = async (req, res) => {
     try {
         const { fromDate, toDate, centre, leadResponsibility, scheduledDate, startTime, endTime } = req.query;
+        const curUserRole = req.user.role?.toLowerCase();
 
         // Base match for the Lead entries (Access Control)
-        const baseMatch = {};
+        const baseMatch = { isCounseled: { $ne: true } };
 
         // 1. Date filter for RECORDED ACTIVITY (followUps.date)
         const activityDateFilter = {};

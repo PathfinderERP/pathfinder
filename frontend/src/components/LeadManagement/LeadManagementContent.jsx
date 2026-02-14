@@ -293,13 +293,16 @@ const LeadManagementContent = () => {
             });
             const userData = await userResponse.json();
             if (userResponse.ok) {
-                // Return all users as requested
-                const leadUsers = userData.users || [];
+                // Return only relevant roles as requested (Telecallers, Counsellors, Admins, etc.)
+                const leadUsers = (userData.users || []).filter(u => 
+                    ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'admin', 'RM'].includes(u.role)
+                );
                 setTelecallers(leadUsers);
 
-                // If current user exists, auto-select them in filters (if not already selected)
+                // If current user exists and is NOT a superAdmin, auto-select them in filters
+                const isSuperAdmin = currentUser.role?.toLowerCase() === 'superadmin' || currentUser.role?.toLowerCase() === 'super admin';
                 const currentLeadUser = leadUsers.find(t => t.name === currentUser.name);
-                if (currentLeadUser) {
+                if (currentLeadUser && !isSuperAdmin) {
                     setFilters(prev => ({
                         ...prev,
                         leadResponsibility: prev.leadResponsibility.length > 0
