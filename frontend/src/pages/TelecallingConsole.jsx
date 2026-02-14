@@ -409,16 +409,17 @@ const TelecallingConsole = () => {
     const [summaryLoading, setSummaryLoading] = useState(false);
     const [timePeriod, setTimePeriod] = useState('daily'); // 'daily', 'weekly', 'monthly'
 
-    useEffect(() => {
-        if (allPerformance.length > 0 && telecallers.length > 0) {
-            setTelecallers(prev => prev.map(tc => {
-                const perf = allPerformance.find(p => p.name.toLowerCase() === tc.name.toLowerCase());
-                // Merge everything from perf into tc
-                return perf ? { ...tc, ...perf, taskProgress: perf.taskProgress } : tc;
-            }));
-        }
-        // eslint-disable-next-line
-    }, [allPerformance, telecallers.length]);
+    // Memoized computation of enriched telecallers (base info + performance stats)
+    const enrichedTelecallers = React.useMemo(() => {
+        if (!telecallers || telecallers.length === 0) return [];
+        return telecallers.map(tc => {
+            const perf = allPerformance.find(p =>
+                (p.name?.trim().toLowerCase() === tc.name?.trim().toLowerCase()) ||
+                (p.userId === tc._id || p._id === tc._id)
+            );
+            return perf ? { ...tc, ...perf, taskProgress: perf.taskProgress } : tc;
+        });
+    }, [telecallers, allPerformance]);
 
     const [historyDetail, setHistoryDetail] = useState(null);
 
@@ -659,7 +660,10 @@ const TelecallingConsole = () => {
             });
             const data = await response.json();
             if (response.ok) {
-                setAllPerformance(data.performance || []);
+                // De-duplicate performance data by ID to prevent merge issues
+                const perfData = data.performance || [];
+                const uniquePerf = Array.from(new Map(perfData.map(p => [p._id || p.userId, p])).values());
+                setAllPerformance(uniquePerf);
                 setGlobalTrends(data.trends || []);
                 setGlobalAdmissionDetail(data.admissionDetail || { bySource: [], byCenter: [] });
             }
@@ -690,7 +694,7 @@ const TelecallingConsole = () => {
         try {
             const token = localStorage.getItem("token");
             const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-            const isSuperAdmin = currentUser.role === "superAdmin" || currentUser.role === "Super Admin";
+            const isSuperAdmin = currentUser.role?.toLowerCase() === "superadmin" || currentUser.role?.toLowerCase() === "super admin";
 
             const userCentres = currentUser.centres?.map(c => c._id || c) || [];
 
@@ -709,7 +713,9 @@ const TelecallingConsole = () => {
                         return telecallerCentres.some(tc => userCentres.includes(tc));
                     });
                 }
-                setTelecallers(telecallersList);
+                // De-duplicate the list by ID to prevent React key warnings
+                const uniqueTelecallers = Array.from(new Map(telecallersList.map(u => [u._id, u])).values());
+                setTelecallers(uniqueTelecallers);
             }
         } catch (error) {
             console.error("Error fetching telecallers:", error);
@@ -723,7 +729,7 @@ const TelecallingConsole = () => {
         try {
             const token = localStorage.getItem("token");
             const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-            const isSuperAdmin = currentUser.role === "superAdmin" || currentUser.role === "Super Admin";
+            const isSuperAdmin = currentUser.role?.toLowerCase() === "superadmin" || currentUser.role?.toLowerCase() === "super admin";
 
             const userCentres = currentUser.centres?.map(c => c.centreName || c) || [];
 
@@ -1411,8 +1417,8 @@ const TelecallingConsole = () => {
                                                 </button>
                                             </div>
 
-                                            <div className="h-[400px] w-full">
-                                                <ResponsiveContainer width="100%" height="100%">
+                                            <div className="h-[400px] w-full mt-10">
+                                                <ResponsiveContainer width="100%" height="100%" minHeight={400}>
                                                     <BarChart
                                                         data={allPerformance
                                                             .filter(u => {
@@ -1471,18 +1477,18 @@ const TelecallingConsole = () => {
                                     )}
 
                                     {/* AGENT GRID CARDS */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fadeIn pb-20">
-                                        {telecallers
-                                            .filter(caller => {
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fadeIn pb-20">
+                                        {enrichedTelecallers
+                                            .filter(tc => {
                                                 const roleMap = {
                                                     'telecalling': 'telecaller',
                                                     'counselling': 'counsellor',
                                                     'marketing': 'marketing'
                                                 };
                                                 const targetRole = roleMap[activeConsole];
-                                                const matchesRole = caller.role === targetRole;
-                                                const matchesSearch = caller.name.toLowerCase().includes(searchQuery.toLowerCase());
-                                                const telecallerCentres = caller.centres?.map(c => c.centreName || c) || [];
+                                                const matchesRole = tc.role === targetRole;
+                                                const matchesSearch = tc.name.toLowerCase().includes(searchQuery.toLowerCase());
+                                                const telecallerCentres = tc.centres?.map(c => c.centreName || c) || [];
                                                 const matchesCenter = selectedCenters.length === 0 || selectedCenters.some(sc => telecallerCentres.includes(sc));
                                                 return matchesRole && matchesSearch && matchesCenter;
                                             })
@@ -1537,12 +1543,27 @@ const TelecallingConsole = () => {
                                                     {/* Task Progress Section */}
                                                     <div className="mb-6 space-y-3">
                                                         <div className="flex justify-between items-end mb-1">
-                                                            <p className="text-[8px] text-gray-500 uppercase tracking-[0.2em] font-black">Performance Points (Last 5 Days)</p>
+                                                            <div>
+                                                                <p className="text-[7.5px] text-gray-500 font-bold uppercase tracking-widest mb-0.5">Performance Points (Last 5 Days)</p>
+                                                                <div className="flex items-center gap-2">
+                                                                    <h4 className={`text-xs font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                                        <span className="text-cyan-500">{Math.round(caller.taskProgress?.completed || 0)}</span>/60 PTS
+                                                                    </h4>
+                                                                    <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-[2px] ${caller.taskProgress?.percent > 80 ? 'bg-green-500/10 text-green-500' :
+                                                                        caller.taskProgress?.percent > 50 ? 'bg-blue-500/10 text-blue-500' :
+                                                                            caller.taskProgress?.percent > 20 ? 'bg-yellow-500/10 text-yellow-500' :
+                                                                                'bg-red-500/10 text-red-500'
+                                                                        }`}>
+                                                                        {caller.taskProgress?.percent > 80 ? 'Elite' :
+                                                                            caller.taskProgress?.percent > 50 ? 'Stable' :
+                                                                                caller.taskProgress?.percent > 20 ? 'Active' :
+                                                                                    'Low Activity'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
                                                             <div className="text-right">
-                                                                <p className={`text-[10px] font-black ${caller.taskProgress?.percent > 70 ? 'text-green-500' : caller.taskProgress?.percent > 30 ? 'text-yellow-500' : 'text-red-500'}`}>
-                                                                    {caller.taskProgress?.completed || 0}/{caller.taskProgress?.total || 60} PTS
-                                                                </p>
-                                                                <p className="text-[7px] text-gray-500 font-bold uppercase">Goal: 50 calls/day</p>
+                                                                <p className="text-[7.5px] text-gray-500 font-black uppercase tracking-widest mb-0.5">Goal</p>
+                                                                <p className={`text-[9px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>50 CALLS/DAY</p>
                                                             </div>
                                                         </div>
 

@@ -52,7 +52,7 @@ export const requirePermission = (requiredPermission) => {
             }
 
             // SuperAdmin has access to everything
-            if (user.role === "superAdmin") {
+            if (user.role?.toLowerCase() === "superadmin" || user.role?.toLowerCase() === "super admin") {
                 req.user = user;
                 return next();
             }
@@ -94,7 +94,7 @@ export const requireAnyPermission = (requiredPermissions) => {
             }
 
             // SuperAdmin has access to everything
-            if (user.role === "superAdmin") {
+            if (user.role?.toLowerCase() === "superadmin" || user.role?.toLowerCase() === "super admin") {
                 req.user = user;
                 return next();
             }
@@ -140,7 +140,7 @@ export const requireGranularPermission = (module, section, action) => {
             }
 
             // SuperAdmin has access to everything
-            if (user.role === "superAdmin") {
+            if (user.role?.toLowerCase() === "superadmin" || user.role?.toLowerCase() === "super admin") {
                 req.user = user;
                 return next();
             }
@@ -193,7 +193,7 @@ export const requireAnyGranularPermission = (requiredPermissions) => {
             }
 
             // SuperAdmin has access to everything
-            if (user.role === "superAdmin") {
+            if (user.role?.toLowerCase() === "superadmin" || user.role?.toLowerCase() === "super admin") {
                 req.user = user;
                 return next();
             }

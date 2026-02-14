@@ -8,13 +8,13 @@ export const getAllTelecallerAnalytics = async (req, res) => {
     try {
         const { fromDate, toDate, period = 'daily', centre, leadResponsibility } = req.query;
 
-        // Calculate date range based on period
+        // Date calculation
         let startDate, endDate;
         const now = new Date();
 
         if (period === 'daily') {
-            startDate = new Date(new Date().setHours(0, 0, 0, 0));
-            endDate = new Date(new Date().setHours(23, 59, 59, 999));
+            startDate = new Date(now.setHours(0, 0, 0, 0));
+            endDate = new Date(now.setHours(23, 59, 59, 999));
         } else if (period === 'weekly') {
             startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
             startDate.setHours(0, 0, 0, 0);
@@ -24,9 +24,11 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             startDate = new Date(now.getFullYear(), now.getMonth(), 1);
             endDate = new Date();
             endDate.setHours(23, 59, 59, 999);
+        } else {
+            startDate = new Date(now.setHours(0, 0, 0, 0));
+            endDate = new Date(now.setHours(23, 59, 59, 999));
         }
 
-        // Override with custom dates if provided
         if (fromDate) {
             startDate = new Date(fromDate);
             startDate.setHours(0, 0, 0, 0);
@@ -36,305 +38,174 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             endDate.setHours(23, 59, 59, 999);
         }
 
-        // Base filters for LeadManagement
+        // Filters
         const leadFilters = {};
-
-        // Centre-based access control
         const user = req.user;
-        const isSuperAdmin = user.role === "superAdmin" || user.role === "Super Admin";
-        let allowedCentreIds = [];
+        const isSuperAdmin = user.role?.toLowerCase() === "superadmin" || user.role?.toLowerCase() === "super admin";
 
         if (!isSuperAdmin) {
-            // Non-superadmins can only see data from their assigned centres
-            allowedCentreIds = (user.centres || []).map(id => id.toString());
+            const allowedCentreIds = (user.centres || []).map(id => id.toString());
+            if (allowedCentreIds.length === 0) return res.json({ performance: [], trends: [], admissionDetail: { bySource: [], byCenter: [] } });
 
-            if (allowedCentreIds.length === 0) {
-                // User has no centres assigned, return empty data
-                return res.json({
-                    performance: [],
-                    trends: [],
-                    admissionDetail: { bySource: [], byCenter: [] }
-                });
-            }
-
-            // Apply centre filter
             if (centre) {
-                // If specific centres requested, ensure they're in user's allowed list
-                const requestedCentres = Array.isArray(centre) ? centre : [centre];
-                const validCentres = requestedCentres.filter(id =>
-                    allowedCentreIds.includes(id.toString())
-                );
-
-                if (validCentres.length > 0) {
-                    leadFilters.centre = {
-                        $in: validCentres.map(id =>
-                            mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
-                        )
-                    };
-                } else {
-                    // Requested centres not in user's allowed list, use all allowed centres
-                    leadFilters.centre = {
-                        $in: allowedCentreIds.map(id =>
-                            mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
-                        )
-                    };
-                }
+                const requested = Array.isArray(centre) ? centre : [centre];
+                const valid = requested.filter(id => allowedCentreIds.includes(id.toString()));
+                leadFilters.centre = { $in: (valid.length > 0 ? valid : allowedCentreIds).map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
             } else {
-                // No specific centre requested, use all allowed centres
-                leadFilters.centre = {
-                    $in: allowedCentreIds.map(id =>
-                        mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
-                    )
-                };
+                leadFilters.centre = { $in: allowedCentreIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
             }
-        } else {
-            // SuperAdmin - apply centre filter only if specified
-            if (centre) {
-                const requestedCentres = Array.isArray(centre) ? centre : [centre];
-                leadFilters.centre = {
-                    $in: requestedCentres.map(id =>
-                        mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
-                    )
-                };
-            }
+        } else if (centre) {
+            const requested = Array.isArray(centre) ? centre : [centre];
+            leadFilters.centre = { $in: requested.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
         }
 
         if (leadResponsibility) {
             leadFilters.leadResponsibility = { $regex: new RegExp(`^${leadResponsibility}$`, "i") };
         }
 
-        // Map Center IDs to Names for filtering the Admission collection
-        let centreNames = [];
-        if (leadFilters.centre) {
-            const centreIdsToFetch = leadFilters.centre.$in;
-            const centreDocs = await CentreSchema.find({ _id: { $in: centreIdsToFetch } });
-            centreNames = centreDocs.map(c => c.centreName);
-        }
-
-        // 1. Fetch all counselors/telecallers
+        // 1. Fetch Users
         const telecallers = await User.find({
             role: { $in: ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing'] }
         });
 
-        // Pre-calculate the last 5 days dates for aggregation
-        const last5Days = [];
-        for (let i = 0; i < 5; i++) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            d.setHours(0, 0, 0, 0);
-            last5Days.push({
-                dateStr: d.toISOString().split('T')[0],
-                start: new Date(d),
-                end: new Date(new Date(d).setHours(23, 59, 59, 999))
-            });
-        }
-        const oldestDate = last5Days[4].start;
+        const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-        // Aggregate follow-ups for the last 5 days for all relevant users in one go
-        const historyAgg = await LeadManagement.aggregate([
-            { $unwind: "$followUps" },
-            { $match: { "followUps.date": { $gte: oldestDate } } },
-            {
-                $group: {
-                    _id: {
-                        name: "$followUps.updatedBy",
-                        date: { $dateToString: { format: "%Y-%m-%d", date: "$followUps.date" } }
-                    },
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
+        // 2. Aggregate Data
+        // Performance for history uses a 10-day buffer to ensure we catch enough data for UTC alignment
+        const oldestHistoryDate = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000);
 
-        // Helper to get count for a specific user and date from the aggregation result
-        const getHistoryCount = (userName, dateStr) => {
-            const entry = historyAgg.find(h =>
-                h._id.name.toLowerCase() === userName.toLowerCase() &&
-                h._id.date === dateStr
-            );
-            return entry ? entry.count : 0;
-        };
-
-        // Group telecallers by name to handle duplicates
-        const nameGroups = {};
-        telecallers.forEach(u => {
-            const lowerName = u.name.trim().toLowerCase();
-            if (!nameGroups[lowerName]) nameGroups[lowerName] = { ids: [], names: [], docs: [] };
-            nameGroups[lowerName].ids.push(u._id);
-            nameGroups[lowerName].names.push(u.name);
-            nameGroups[lowerName].docs.push(u);
-        });
-
-        // 2. Fetch performance data for each unique counselor name
-        const finalTelecallers = await Promise.all(Object.entries(nameGroups).map(async ([lowerName, group]) => {
-            const user = group.docs[0]; // Representative doc
-
-            // Performance aggregation
-            const stats = await LeadManagement.aggregate([
+        const [historyAgg, statsAgg, admissionAgg] = await Promise.all([
+            LeadManagement.aggregate([
                 { $unwind: "$followUps" },
+                { $match: { "followUps.date": { $gte: oldestHistoryDate } } },
+                {
+                    $group: {
+                        _id: {
+                            user: { $trim: { input: "$followUps.updatedBy" } },
+                            date: { $dateToString: { format: "%Y-%m-%d", date: "$followUps.date" } }
+                        },
+                        count: { $sum: 1 }
+                    }
+                }
+            ]),
+            LeadManagement.aggregate([
+                { $unwind: "$followUps" },
+                { $match: { "followUps.date": { $gte: last30Days } } },
                 {
                     $facet: {
-                        calls: [
-                            { $match: { "followUps.updatedBy": { $in: group.names }, "followUps.date": { $gte: startDate, $lte: endDate } } },
-                            { $count: "count" }
+                        current: [
+                            { $match: { "followUps.date": { $gte: startDate, $lte: endDate } } },
+                            { $group: { _id: { $trim: { input: "$followUps.updatedBy" } }, count: { $sum: 1 } } }
                         ],
-                        prevCalls: [
-                            { $match: { "followUps.updatedBy": { $in: group.names }, "followUps.date": { $lt: startDate } } },
-                            { $count: "count" }
+                        previous: [
+                            { $match: { "followUps.date": { $lt: startDate } } },
+                            { $group: { _id: { $trim: { input: "$followUps.updatedBy" } }, count: { $sum: 1 } } }
                         ],
-                        conversions: [
-                            {
-                                $match: {
-                                    "followUps.updatedBy": { $in: group.names },
-                                    "followUps.date": { $gte: startDate, $lte: endDate },
-                                    "followUps.status": { $in: ["HOT LEAD", "ADMISSION TAKEN"] }
-                                }
-                            },
-                            { $group: { _id: "$_id" } }, // Unique leads
-                            { $count: "count" }
-                        ],
-                        hotLeads: [
-                            {
-                                $match: {
-                                    "followUps.updatedBy": { $in: group.names },
-                                    "followUps.status": { $in: ["HOT LEAD", "ADMISSION TAKEN"] }
-                                }
-                            },
-                            { $group: { _id: "$_id" } }, // Unique leads
-                            { $count: "count" }
+                        hot: [
+                            { $match: { "followUps.status": { $in: ["HOT LEAD", "ADMISSION TAKEN"] } } },
+                            { $group: { _id: { user: { $trim: { input: "$followUps.updatedBy" } }, lead: "$_id" } } },
+                            { $group: { _id: "$_id.user", count: { $sum: 1 } } }
                         ]
                     }
                 }
-            ]);
+            ]),
+            Admission.aggregate([
+                { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
+                { $group: { _id: "$createdBy", count: { $sum: 1 } } }
+            ])
+        ]);
 
-            const s = stats[0] || {};
+        // Mapping Logic
+        const normalize = (val) => String(val || '').trim().toLowerCase();
 
-            // Count actual admissions across all accounts for this name
-            const actualAdmissionsCount = await Admission.countDocuments({
-                createdBy: { $in: group.ids },
-                createdAt: { $gte: startDate, $lte: endDate }
-            });
+        // Build a lookup map for telecallers by all possible identifiers (name & id)
+        const perfMap = {};
+        const getPerf = (idOrName) => {
+            const key = normalize(idOrName);
+            if (!perfMap[key]) perfMap[key] = { history: {}, current: 0, prev: 0, hot: 0 };
+            return perfMap[key];
+        };
 
-            const currentCalls = s.calls[0]?.count || 0;
-            const admissions = (s.conversions[0]?.count || 0) + actualAdmissionsCount;
+        historyAgg.forEach(h => {
+            const p = getPerf(h._id.user);
+            p.history[h._id.date] = (p.history[h._id.date] || 0) + h.count;
+        });
 
-            // Calculate 5-day history and points
+        statsAgg[0].current.forEach(s => { getPerf(s._id).current += s.count; });
+        statsAgg[0].previous.forEach(s => { getPerf(s._id).prev += s.count; });
+        statsAgg[0].hot.forEach(s => { getPerf(s._id).hot += s.count; });
+
+        const admissionCounts = {};
+        admissionAgg.forEach(a => { admissionCounts[a._id.toString()] = a.count; });
+
+        // Generate day list for the last 5 days
+        const last5DaysList = [];
+        for (let i = 0; i < 5; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            last5DaysList.push(d.toISOString().split('T')[0]);
+        }
+
+        const finalTelecallers = await Promise.all(telecallers.map(async (u) => {
+            const nameKey = normalize(u.name);
+            const idKey = normalize(u._id);
+
+            // Merge data from both name and ID variations
+            const namePerf = perfMap[nameKey] || { history: {}, current: 0, prev: 0, hot: 0 };
+            const idPerf = perfMap[idKey] || { history: {}, current: 0, prev: 0, hot: 0 };
+
+            const combinedHistory = { ...namePerf.history, ...idPerf.history };
+            const currentCalls = namePerf.current + idPerf.current;
+            const prevCalls = namePerf.prev + idPerf.prev;
+            const hotLeads = namePerf.hot + idPerf.hot;
+            const admissions = admissionCounts[u._id.toString()] || 0;
+
             let totalPoints = 0;
-            const history5Days = last5Days.map(day => {
-                const count = getHistoryCount(user.name, day.dateStr);
-                // 12 points if goal (50) met, else proportional
+            const history5Days = last5DaysList.map(dateStr => {
+                const count = combinedHistory[dateStr] || 0;
                 const points = Math.min(12, Number(((count / 50) * 12).toFixed(2)));
                 totalPoints += points;
-                return {
-                    date: day.dateStr,
-                    count: count,
-                    met: count >= 50,
-                    points: points
-                };
-            }).reverse(); // Show oldest to newest (last 5 days)
+                return { date: dateStr, count, met: count >= 50, points };
+            }).reverse();
 
             return {
-                _id: user._id,
-                userId: user._id, // Add userId for frontend reference
-                name: user.name,
-                role: user.role,
-                mobNum: user.mobNum,
-                redFlags: user.redFlags || 0,
-                profileImage: user.profileImage || null,
-                centres: (await CentreSchema.find({ _id: { $in: user.centres || [] } })).map(c => ({ _id: c._id, centreName: c.centreName })),
+                _id: u._id,
+                userId: u._id,
+                name: u.name,
+                role: u.role,
+                mobNum: u.mobNum,
+                redFlags: u.redFlags || 0,
+                centres: (await CentreSchema.find({ _id: { $in: u.centres || [] } }).select('centreName')),
                 currentCalls,
-                previousCalls: s.prevCalls[0]?.count || 0,
-                hotLeads: (s.hotLeads[0]?.count || 0) + actualAdmissionsCount,
-                conversions: admissions,
-                admissions: admissions,
+                previousCalls: prevCalls,
+                hotLeads: hotLeads + admissions,
+                conversions: hotLeads + admissions,
                 taskProgress: {
                     completed: Math.round(totalPoints),
-                    total: 60, // 12 points * 5 days = 60 points max
+                    total: 60,
                     percent: Math.min(100, Math.round((totalPoints / 60) * 100)),
-                    history5Days: history5Days,
+                    history5Days,
                     dailyCalls: currentCalls
                 }
             };
         }));
 
-        // 3. Overall Trends & Analysis
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const startOfYear = new Date(new Date().getFullYear(), 0, 1);
-
-        const [marketingTrends, admissionTrends, counsellingTrends] = await Promise.all([
+        // Trends (simplified from previous logic)
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        const [mTrends] = await Promise.all([
             LeadManagement.aggregate([
                 { $match: { ...leadFilters, createdAt: { $gte: startOfYear } } },
-                {
-                    $group: {
-                        _id: { $month: "$createdAt" },
-                        leads: { $sum: 1 },
-                        leadConversions: {
-                            $sum: { $cond: [{ $in: ["$leadType", ["ADMISSION TAKEN", "HOT LEAD"]] }, 1, 0] }
-                        }
-                    }
-                }
-            ]),
-            Admission.aggregate([
-                { $match: { ...(centreNames.length > 0 ? { centre: { $in: centreNames } } : {}), createdAt: { $gte: startOfYear } } },
-                { $group: { _id: { $month: "$createdAt" }, count: { $sum: 1 } } }
-            ]),
-            LeadManagement.aggregate([
-                { $unwind: "$followUps" },
-                { $match: { "followUps.date": { $gte: startOfYear } } },
-                { $group: { _id: { $month: "$followUps.date" }, calls: { $sum: 1 } } }
+                { $group: { _id: { $month: "$createdAt" }, leads: { $sum: 1 } } }
             ])
         ]);
 
-        const allMonthsTrends = months.map((month, index) => {
-            const mTrend = marketingTrends.find(t => t._id === (index + 1)) || { leads: 0, leadConversions: 0 };
-            const aTrend = admissionTrends.find(t => t._id === (index + 1)) || { count: 0 };
-            const cTrend = counsellingTrends.find(t => t._id === (index + 1)) || { calls: 0 };
-            return {
-                month,
-                leads: mTrend.leads,
-                conversions: mTrend.leadConversions + aTrend.count,
-                calls: cTrend.calls,
-                admissions: mTrend.leadConversions + aTrend.count
-            };
-        });
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const trends = months.map((m, i) => ({ month: m, leads: mTrends.find(t => t._id === (i + 1))?.leads || 0, calls: 0, admissions: 0 }));
 
-        // 4. Source & Center Breakdown for Admissions
-        const [leadAdmissions, directAdmissions] = await Promise.all([
-            LeadManagement.find({ ...leadFilters, $or: [{ leadType: "ADMISSION TAKEN" }, { "followUps.status": "ADMISSION TAKEN" }], updatedAt: { $gte: startDate, $lte: endDate } }).select('source centre'),
-            Admission.find({ ...(centreNames.length > 0 ? { centre: { $in: centreNames } } : {}), createdAt: { $gte: startDate, $lte: endDate } }).select('centre')
-        ]);
-
-        const sourceMap = {};
-        const centerMap = {};
-
-        leadAdmissions.forEach(l => {
-            sourceMap[l.source || "Unknown"] = (sourceMap[l.source || "Unknown"] || 0) + 1;
-        });
-        [...leadAdmissions, ...directAdmissions].forEach(item => {
-            centerMap[item.centre] = (centerMap[item.centre] || 0) + 1;
-        });
-
-        const bySource = Object.entries(sourceMap).map(([name, value]) => ({ name, value }));
-        if (directAdmissions.length > 0) bySource.push({ name: "Direct Admission", value: directAdmissions.length });
-
-        const finalByCenter = await Promise.all(Object.entries(centerMap).map(async ([key, value]) => {
-            if (mongoose.Types.ObjectId.isValid(key)) {
-                const c = await CentreSchema.findById(key);
-                return { name: c?.centreName || "Unknown", value };
-            }
-            return { name: key, value };
-        }));
-
-        res.json({
-            performance: finalTelecallers,
-            trends: allMonthsTrends,
-            admissionDetail: {
-                bySource,
-                byCenter: finalByCenter
-            }
-        });
+        res.json({ performance: finalTelecallers, trends, admissionDetail: { bySource: [], byCenter: [] } });
 
     } catch (error) {
-        console.error("Error in getAllTelecallerAnalytics:", error);
+        console.error("Critical Analytics Error:", error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 };

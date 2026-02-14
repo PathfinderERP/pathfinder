@@ -95,7 +95,8 @@ export const getLeads = async (req, res) => {
         query.isCounseled = { $ne: true };
 
         // Centre-based access control
-        if (req.user.role !== 'superAdmin') {
+        const userRole = req.user.role?.toLowerCase();
+        if (userRole !== 'superadmin' && userRole !== 'super admin') {
             // Fetch user's centres from database since JWT doesn't include them
             const User = (await import('../../models/User.js')).default;
             const userDoc = await User.findById(req.user.id).select('centres role name');

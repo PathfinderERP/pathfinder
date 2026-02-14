@@ -83,7 +83,8 @@ export const getFollowUpStats = async (req, res) => {
         }
 
         // Access Control
-        if (req.user.role !== 'superAdmin') {
+        const curUserRole = req.user.role?.toLowerCase();
+        if (curUserRole !== 'superadmin' && curUserRole !== 'super admin') {
             const userDoc = await User.findById(req.user.id).select('centres role name');
             if (!userDoc) return res.status(401).json({ message: "User not found" });
 
@@ -229,7 +230,7 @@ export const getFollowUpStats = async (req, res) => {
             recentActivity: rawActivity.recentActivity || [],
             totalScheduled: rawScheduled.totalScheduled || 0,
             scheduledList: rawScheduled.scheduledList || [],
-            userMetaData: req.user.role === 'telecaller' ? {
+            userMetaData: req.user.role?.toLowerCase() === 'telecaller' ? {
                 name: req.user.name,
                 redFlags: (await User.findById(req.user.id).select('redFlags'))?.redFlags || 0
             } : null
