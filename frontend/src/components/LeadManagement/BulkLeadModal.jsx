@@ -50,9 +50,8 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             setSources(sourceData.sources || []);
 
             if (userRes.ok && userData.users) {
-                setTelecallers(userData.users.filter(u =>
-                    ["telecaller", "counsellor", "marketing"].includes(u.role)
-                ));
+                // Return all users as requested ("everyone can add/see leads")
+                setTelecallers(userData.users);
             }
         } catch (error) {
             console.error("Error fetching validation data:", error);
@@ -136,7 +135,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                     if (row.LeadResponsibility) {
                         const telecallerExists = telecallers.some(
-                            t => t.name.toLowerCase() === row.LeadResponsibility.toLowerCase()
+                            t => t.name.toLowerCase().trim() === row.LeadResponsibility.toString().toLowerCase().trim()
                         );
                         if (!telecallerExists) {
                             errors.push(`Row ${rowNum}: Agent '${row.LeadResponsibility}' not found`);
@@ -155,11 +154,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         const ctr = centres.find(c => c.centreName.toLowerCase() === row.Centre.toLowerCase());
                         if (ctr) {
                             centreId = ctr._id;
-                            // Check if centre is allotted to user
-                            if (!isSuperAdmin && !userAllottedCentres.includes(centreId)) {
-                                errors.push(`Row ${rowNum}: Centre '${row.Centre}' is not your allotted centre. You cannot upload other centres' data.`);
-                                continue;
-                            }
+                            // Relaxed centre restriction to allow 'everyone' to add leads as requested
                         } else {
                             errors.push(`Row ${rowNum}: Centre '${row.Centre}' not found in system`);
                             continue;

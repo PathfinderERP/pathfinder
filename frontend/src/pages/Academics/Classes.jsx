@@ -27,13 +27,19 @@ const Classes = () => {
         setCanDelete(hasPermission(userObj, "academics", "classes", "delete"));
     }, []);
 
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const isAdmin = user.role === "admin" || user.role === "superAdmin";
+    const isSuperAdmin = user.role === "superAdmin";
+    const isCoordinator = user.role === "Class_Coordinator";
+    const isTeacher = user.role === "teacher";
+
     // Filters State
     const [filters, setFilters] = useState({
         centreId: "",
         batchId: "",
         subjectId: "",
-        teacherId: "",
-        coordinatorId: "",
+        teacherId: isTeacher ? user._id : "",
+        coordinatorId: isCoordinator ? user._id : "",
         fromDate: "",
         toDate: "",
         search: ""
@@ -44,12 +50,6 @@ const Classes = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalRecords, setTotalRecords] = useState(0);
     const [jumpPage, setJumpPage] = useState("");
-
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const isAdmin = user.role === "admin" || user.role === "superAdmin";
-    const isSuperAdmin = user.role === "superAdmin";
-    const isCoordinator = user.role === "Class_Coordinator";
-    const isTeacher = user.role === "teacher";
 
     // Dropdown Data State
     const [dropdownData, setDropdownData] = useState({
@@ -245,8 +245,8 @@ const Classes = () => {
             centreId: "",
             batchId: "",
             subjectId: "",
-            teacherId: "",
-            coordinatorId: "",
+            teacherId: isTeacher ? user._id : "",
+            coordinatorId: isCoordinator ? user._id : "",
             fromDate: "",
             toDate: "",
             search: ""

@@ -10,10 +10,12 @@ import LeadDetailsModal from "./LeadDetailsModal";
 import AddFollowUpModal from "./AddFollowUpModal";
 import FollowUpHistoryModal from "./FollowUpHistoryModal";
 import FollowUpListModal from "./FollowUpListModal";
+import CentreAnalysisModal from "./CentreAnalysisModal";
 import CustomMultiSelect from "../common/CustomMultiSelect";
 import { hasPermission } from "../../config/permissions";
 import { useTheme } from "../../context/ThemeContext";
 import LeadTrendChart from "./LeadTrendChart"; // Added Import
+import CentreCallBarChart from "./CentreCallBarChart";
 import FollowUpActivityModal from "./FollowUpActivityModal";
 import { CardSkeleton, TableRowSkeleton, FeedItemSkeleton } from "../common/Skeleton";
 const LeadManagementContent = () => {
@@ -49,6 +51,10 @@ const LeadManagementContent = () => {
         title: "",
         data: []
     });
+
+    const [centreAnalysis, setCentreAnalysis] = useState([]);
+    const [showCentreAnalysisModal, setShowCentreAnalysisModal] = useState(false);
+    const [analysisLoading, setAnalysisLoading] = useState(false);
 
     // Permission states
     const [user, setUser] = useState(null);
@@ -135,10 +141,33 @@ const LeadManagementContent = () => {
         }
     }, [filters]);
 
+    const fetchCentreAnalysis = useCallback(async () => {
+        setAnalysisLoading(true);
+        try {
+            const token = localStorage.getItem("token");
+            const params = new URLSearchParams();
+            if (filters.fromDate) params.append("fromDate", filters.fromDate);
+            if (filters.toDate) params.append("toDate", filters.toDate);
+
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/stats/centre-analysis?${params.toString()}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setCentreAnalysis(data);
+            }
+        } catch (error) {
+            console.error("Error fetching centre analysis:", error);
+        } finally {
+            setAnalysisLoading(false);
+        }
+    }, [filters.fromDate, filters.toDate]);
+
     useEffect(() => {
         fetchLeadStats();
         fetchFollowUpStats();
-    }, [fetchLeadStats, fetchFollowUpStats]);
+        fetchCentreAnalysis();
+    }, [fetchLeadStats, fetchFollowUpStats, fetchCentreAnalysis]);
 
     const fetchLeads = useCallback(async () => {
         setLoading(true);
@@ -264,18 +293,19 @@ const LeadManagementContent = () => {
             });
             const userData = await userResponse.json();
             if (userResponse.ok) {
-                // Filter users to show only those with the relevant roles for lead management
-                const leadUsers = (userData.users || []).filter(user =>
-                    ["telecaller", "counsellor", "marketing"].includes(user.role)
-                );
+                // Return all users as requested
+                const leadUsers = userData.users || [];
                 setTelecallers(leadUsers);
 
-                // If current user has one of these roles, auto-select them in filters
-                if (["telecaller", "counsellor", "marketing"].includes(currentUser.role)) {
-                    const currentLeadUser = leadUsers.find(t => t.name === currentUser.name);
-                    if (currentLeadUser) {
-                        setFilters(prev => ({ ...prev, leadResponsibility: [{ value: currentLeadUser.name, label: currentLeadUser.name }] }));
-                    }
+                // If current user exists, auto-select them in filters (if not already selected)
+                const currentLeadUser = leadUsers.find(t => t.name === currentUser.name);
+                if (currentLeadUser) {
+                    setFilters(prev => ({
+                        ...prev,
+                        leadResponsibility: prev.leadResponsibility.length > 0
+                            ? prev.leadResponsibility
+                            : [{ value: currentLeadUser.name, label: currentLeadUser.name }]
+                    }));
                 }
             }
         } catch (error) {
@@ -288,7 +318,7 @@ const LeadManagementContent = () => {
         if (storedUser) {
             const parsedUser = JSON.parse(storedUser);
             setUser(parsedUser);
-            setCanCreate(hasPermission(parsedUser, 'leadManagement', 'leads', 'create'));
+            setCanCreate(true); // Everyone can create leads as requested
             setCanEdit(hasPermission(parsedUser, 'leadManagement', 'leads', 'edit'));
             setCanDelete(hasPermission(parsedUser, 'leadManagement', 'leads', 'delete'));
         }
@@ -492,10 +522,15 @@ const LeadManagementContent = () => {
                                 Lead Tracking & Management
                             </p>
                         </div>
-                        {/* Daily Trend Chart */}
-                        <LeadTrendChart data={dailyLeads} isDarkMode={isDarkMode} loading={statsLoading} />
                     </div>
-                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 sm:gap-4">
+
+                    {/* Charts Section - Now more prominent in the middle */}
+                    <div className="flex-1 flex flex-col sm:flex-row items-center justify-center gap-6 px-4">
+                        <LeadTrendChart data={dailyLeads} isDarkMode={isDarkMode} loading={statsLoading} />
+                        <CentreCallBarChart data={centreAnalysis} isDarkMode={isDarkMode} loading={analysisLoading} />
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-center sm:justify-end gap-3 sm:gap-4">
                         <button
                             onClick={toggleTheme}
                             className={`p-3 rounded-[2px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
@@ -607,9 +642,10 @@ const LeadManagementContent = () => {
 
                 {/* Activity Analysis */}
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-                    <div className="lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+                    <div className="lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
                         {statsLoading ? (
                             <>
+                                <CardSkeleton isDarkMode={isDarkMode} />
                                 <CardSkeleton isDarkMode={isDarkMode} />
                                 <CardSkeleton isDarkMode={isDarkMode} />
                                 <CardSkeleton isDarkMode={isDarkMode} />
@@ -618,6 +654,39 @@ const LeadManagementContent = () => {
                             </>
                         ) : (
                             <>
+                                {/* Centre Analysis Card */}
+                                <div
+                                    onClick={() => setShowCentreAnalysisModal(true)}
+                                    className={`p-5 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-cyan-500/10 hover:border-cyan-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
+                                >
+                                    <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                        <div>
+                                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                Centre Analysis
+                                            </p>
+                                            <h3 className={`text-3xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                {analysisLoading ? "..." : centreAnalysis.length}
+                                            </h3>
+                                            <p className="text-[8px] font-bold text-cyan-500 mt-1 uppercase tracking-widest text-nowrap">Active Centres analyzed</p>
+                                        </div>
+                                        <div className={`p-2.5 rounded-[2px] transition-all bg-emerald-500/10 text-emerald-500 border border-emerald-500/20`}>
+                                            <FaChartLine size={16} />
+                                        </div>
+                                    </div>
+                                    <div className="mt-2 relative z-10">
+                                        {centreAnalysis.length > 0 && (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[9px] font-black text-cyan-500 uppercase italic truncate max-w-[100px]">{centreAnalysis[0].centreName}</span>
+                                                <div className="flex-1 h-[2px] bg-gray-800 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-cyan-500 w-[70%]"></div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="absolute -right-4 -bottom-4 opacity-[0.03] transform group-hover:scale-110 transition-transform text-emerald-500">
+                                        <FaChartLine size={100} />
+                                    </div>
+                                </div>
                                 {/* Scheduled Follow-ups Card (New Target Section) */}
                                 <div
                                     onClick={() => handleCardClick('scheduled')}
@@ -1109,7 +1178,7 @@ const LeadManagementContent = () => {
                                                     >
                                                         Counselling
                                                     </button>
-                                                    {canEdit && (
+                                                    {(canEdit || (lead.createdBy === user?._id || lead.createdBy === user?.id)) && (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleEdit(lead); }}
                                                             className={`transition-colors ${isDarkMode ? 'text-gray-500 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}
@@ -1117,7 +1186,7 @@ const LeadManagementContent = () => {
                                                             <FaEdit size={14} />
                                                         </button>
                                                     )}
-                                                    {canDelete && (
+                                                    {(canDelete || (lead.createdBy === user?._id || lead.createdBy === user?.id)) && (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleDelete(lead._id); }}
                                                             className="text-red-500 hover:text-red-400 transition-colors"
@@ -1241,7 +1310,18 @@ const LeadManagementContent = () => {
                 data={activityModal.data}
                 isDarkMode={isDarkMode}
             />
-        </div>
+
+            {
+                showCentreAnalysisModal && (
+                    <CentreAnalysisModal
+                        isOpen={showCentreAnalysisModal}
+                        onClose={() => setShowCentreAnalysisModal(false)}
+                        isDarkMode={isDarkMode}
+                        data={centreAnalysis}
+                    />
+                )
+            }
+        </div >
     );
 };
 

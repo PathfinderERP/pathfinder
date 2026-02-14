@@ -29,6 +29,7 @@ export const createLead = async (req, res) => {
             targetExam,
             leadType,
             leadResponsibility,
+            createdBy: req.user.id,
             assignedAt: leadResponsibility ? new Date() : null
         };
 

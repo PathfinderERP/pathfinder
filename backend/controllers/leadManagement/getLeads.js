@@ -107,39 +107,36 @@ export const getLeads = async (req, res) => {
 
             console.log(`Lead Management - User ${userDoc.name} (${userDoc.role}) centres:`, userDoc.centres);
 
-            // Telecallers: Can only see their own assigned leads
-            if (userDoc.role === 'telecaller') {
-                const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                query.leadResponsibility = { $regex: new RegExp(`^${escapedName}$`, "i") };
-            }
+            console.log(`Lead Management - User ${userDoc.name} (${userDoc.role}) centres:`, userDoc.centres);
 
-            // For all non-superAdmin users: Filter by assigned centres
+            // Access Control: User can see leads they created OR leads in their centres
+            // Telecallers additionally see leads assigned to them.
             const userCentreIds = userDoc.centres || [];
 
-            if (userCentreIds.length === 0) {
-                // User has no centres assigned, return empty
-                console.log(`Lead Management - User ${userDoc.name} has no centres assigned`);
-                return res.status(200).json({
-                    message: "Leads fetched successfully",
-                    leads: [],
-                    pagination: {
-                        currentPage: page,
-                        totalPages: 0,
-                        totalLeads: 0,
-                        limit
-                    }
-                });
+            const orConditions = [
+                { createdBy: userDoc._id }
+            ];
+
+            if (userDoc.role === 'telecaller') {
+                const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                orConditions.push({ leadResponsibility: { $regex: new RegExp(`^${escapedName}$`, "i") } });
             }
 
-            // Filter by allowed centres
-            // Base filter: Only show leads from assigned centers
-            query.centre = { $in: userCentreIds };
+            if (userCentreIds.length > 0) {
+                orConditions.push({ centre: { $in: userCentreIds } });
+            }
 
-            // If specific centre(s) requested, refine the filter
+            // Combined restriction
+            query.$and = query.$and || [];
+            query.$and.push({ $or: orConditions });
+
+            // Handle specific centre filter from query if requested
             if (centre) {
                 const requestedCentres = Array.isArray(centre) ? centre : [centre];
-
-                // Filter requested centres to only those allowed for the user
+                // For non-superAdmin, specific centre filter only works within their orConditions
+                // But we already have the centre logic inside orConditions.
+                // If they specify a centre, we should further refine the centre part of the query.
+                // Actually, the standard way is to just let the main query.centre filter it.
                 const validRequestedCentres = requestedCentres.filter(reqCentre =>
                     userCentreIds.some(allowedCentre => allowedCentre.toString() === reqCentre.toString())
                 );
@@ -147,11 +144,10 @@ export const getLeads = async (req, res) => {
                 if (validRequestedCentres.length > 0) {
                     query.centre = { $in: validRequestedCentres };
                 } else {
-                    // All requested centres are unauthorized
-                    console.log(`Lead Management - User ${userDoc.name} tried to access unauthorized centre(s): ${requestedCentres}`);
-                    return res.status(403).json({
-                        message: "Access denied. You don't have permission to view these leads."
-                    });
+                    // If they requested centres they don't have access to, they still see their created leads
+                    // so we don't return 403, we just don't add the centre filter.
+                    // Or we add a filter that matches nothing for centre.
+                    query.centre = { $in: [] };
                 }
             }
         } else {

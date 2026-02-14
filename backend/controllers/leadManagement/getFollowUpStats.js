@@ -82,21 +82,38 @@ export const getFollowUpStats = async (req, res) => {
             userNames = users.length > 0 ? users.map(u => u.name) : [leadResponsibility];
         }
 
-        // Access Control
-        const curUserRole = req.user.role?.toLowerCase();
+        // Access Control (Sync with getLeads.js)
         if (curUserRole !== 'superadmin' && curUserRole !== 'super admin') {
             const userDoc = await User.findById(req.user.id).select('centres role name');
             if (!userDoc) return res.status(401).json({ message: "User not found" });
 
+            const userCentreIds = userDoc.centres || [];
+            const orConditions = [
+                { createdBy: userDoc._id }
+            ];
+
             if (userDoc.role === 'telecaller') {
                 const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                baseMatch.leadResponsibility = { $regex: new RegExp(`^${escapedName}$`, "i") };
-            } else {
-                const userCentreIds = userDoc.centres || [];
-                if (centre) {
-                    baseMatch.centre = new mongoose.Types.ObjectId(centre);
+                orConditions.push({ leadResponsibility: { $regex: new RegExp(`^${escapedName}$`, "i") } });
+            }
+
+            if (userCentreIds.length > 0) {
+                orConditions.push({ centre: { $in: userCentreIds } });
+            }
+
+            baseMatch.$and = baseMatch.$and || [];
+            baseMatch.$and.push({ $or: orConditions });
+
+            // Specific centre filter refined within baseMatch
+            if (centre) {
+                const requestedCentreId = new mongoose.Types.ObjectId(centre);
+                const allowedCentreStrings = userCentreIds.map(c => c.toString());
+
+                if (allowedCentreStrings.includes(centre.toString())) {
+                    baseMatch.centre = requestedCentreId;
                 } else {
-                    baseMatch.centre = { $in: userCentreIds };
+                    // Filter requested but not in your centres, effectively restrict centre branch
+                    baseMatch.centre = { $in: [] };
                 }
             }
         } else {

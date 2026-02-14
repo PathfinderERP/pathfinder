@@ -13,6 +13,7 @@ import { exportTelecallerLogs } from "../../controllers/leadManagement/exportTel
 import { requireAuth } from "../../middleware/permissionMiddleware.js";
 import { getTelecallerAnalytics } from "../../controllers/leadManagement/getTelecallerAnalytics.js";
 import { getAllTelecallerAnalytics } from "../../controllers/leadManagement/getAllTelecallerAnalytics.js";
+import { getCentreLeadAnalysis } from "../../controllers/leadManagement/getCentreAnalysis.js";
 import { resetRedFlags, processDailyPenalty, resetPerformance } from "../../controllers/leadManagement/redFlagController.js";
 import multer from "multer";
 
@@ -27,6 +28,7 @@ router.get("/stats/today-followups", requireAuth, getFollowUpStats);
 router.get("/export/excel", requireAuth, exportLeadsExcel);
 router.get("/export/telecaller-logs", requireAuth, exportTelecallerLogs);
 router.get("/analytics-all", requireAuth, getAllTelecallerAnalytics);
+router.get("/stats/centre-analysis", requireAuth, getCentreLeadAnalysis);
 router.get("/analytics/:telecallerId", requireAuth, getTelecallerAnalytics);
 router.post("/red-flags/reset/:userId", requireAuth, resetRedFlags);
 router.post("/red-flags/process-daily", requireAuth, processDailyPenalty);

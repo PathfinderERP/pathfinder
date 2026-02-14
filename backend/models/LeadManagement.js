@@ -56,6 +56,10 @@ const leadManagementSchema = new mongoose.Schema({
     assignedAt: {
         type: Date
     },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
     // New fields for easier querying
     lastFollowUpDate: {
         type: Date

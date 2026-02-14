@@ -71,39 +71,43 @@ export const getLeadDashboardStats = async (req, res) => {
         // Exclude counseled leads from dashboard stats to match lead list logic
         query.isCounseled = { $ne: true };
 
-        // Access Control (Same as getLeads.js)
+        // Access Control (Sync with getLeads.js)
         if (req.user.role !== 'superAdmin') {
             const userDoc = await User.findById(req.user.id).select('centres role name');
             if (!userDoc) return res.status(401).json({ message: "User not found" });
 
+            const userCentreIds = userDoc.centres || [];
+            const orConditions = [
+                { createdBy: userDoc._id }
+            ];
+
             if (userDoc.role === 'telecaller') {
                 const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                query.leadResponsibility = { $regex: new RegExp(`^${escapedName}$`, "i") };
+                orConditions.push({ leadResponsibility: { $regex: new RegExp(`^${escapedName}$`, "i") } });
             }
 
-            const userCentreIds = userDoc.centres || [];
-            if (userCentreIds.length === 0) {
-                return res.status(200).json({
-                    summary: { totalLeads: 0, hotLeads: 0, coldLeads: 0, negativeLeads: 0 },
-                    telecallers: [],
-                    nextCalls: [],
-                    dailyLeads: []
-                });
+            if (userCentreIds.length > 0) {
+                // If specific centre filter is requested, we apply it inside orConditions for relevant branches
+                // But for simplicity and to match getLeads.js, we refine the main query with centre if provided.
+                orConditions.push({ centre: { $in: userCentreIds } });
             }
 
+            query.$and = query.$and || [];
+            query.$and.push({ $or: orConditions });
+
+            // Handle specific centre filter from query if requested
             if (centre) {
-                const requestedCentres = Array.isArray(centre) ? centre : [centre];
+                const requestedCentres = Array.isArray(centre) ? centre.map(id => id.toString()) : [centre.toString()];
                 const allowedCentreStrings = userCentreIds.map(c => c.toString());
 
-                const isAllowed = requestedCentres.every(id => allowedCentreStrings.includes(id.toString()));
+                const validRequestedCentres = requestedCentres.filter(id => allowedCentreStrings.includes(id));
 
-                if (!isAllowed) {
-                    return res.status(403).json({ message: "Access denied to one or more requested centres" });
+                if (validRequestedCentres.length > 0) {
+                    query.centre = { $in: validRequestedCentres.map(id => new mongoose.Types.ObjectId(id)) };
+                } else {
+                    // Filter requested but none allowed, return 0 counts (via centre empty)
+                    query.centre = { $in: [] };
                 }
-
-                query.centre = { $in: requestedCentres.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
-            } else {
-                query.centre = { $in: userCentreIds };
             }
         }
 

@@ -81,8 +81,9 @@ export const getClassSchedules = async (req, res) => {
 
         // Role-based filtering
         const userId = req.user._id;
+        const userRole = req.user.role;
 
-        if (req.user && (req.user.role === 'admin' || req.user.role === 'superAdmin')) {
+        if (userRole === 'superAdmin' || userRole === 'admin') {
             // Admins can filter by specific teacher/coordinator if provided
             if (teacherId) {
                 const teacherIds = teacherId.split(',').filter(id => id.trim());
@@ -92,12 +93,21 @@ export const getClassSchedules = async (req, res) => {
                 const coordinatorIds = coordinatorId.split(',').filter(id => id.trim());
                 if (coordinatorIds.length > 0) query.coordinatorId = { $in: coordinatorIds };
             }
+        } else if (userRole === 'teacher') {
+            // Teachers ONLY see their own classes
+            query.teacherId = userId;
+        } else if (userRole === 'Class_Coordinator') {
+            // Coordinators ONLY see their own classes
+            query.coordinatorId = userId;
         } else {
-            // Non-admins can also filter if needed, but base scope is controlled by centres below.
-            // If the frontend sends teacherId filter (e.g. "My Classes"), respect it.
+            // Other roles: respect filters if provided, but scope limited by centres below
             if (teacherId) {
                 const teacherIds = teacherId.split(',').filter(id => id.trim());
                 if (teacherIds.length > 0) query.teacherId = { $in: teacherIds };
+            }
+            if (coordinatorId) {
+                const coordinatorIds = coordinatorId.split(',').filter(id => id.trim());
+                if (coordinatorIds.length > 0) query.coordinatorId = { $in: coordinatorIds };
             }
         }
 
