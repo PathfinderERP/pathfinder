@@ -176,8 +176,9 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                 }
 
                 const points = Math.min(12, Number(((count / 50) * 12).toFixed(2)));
-                totalPoints += points;
-                return { date: dateStr, count, met: count >= 50, points };
+                const bonusPoints = count > 50 ? Number(((count - 50) * 0.24).toFixed(2)) : 0;
+                totalPoints += points + bonusPoints;
+                return { date: dateStr, count, met: count >= 50, points, bonusPoints };
             }).reverse();
 
             return {

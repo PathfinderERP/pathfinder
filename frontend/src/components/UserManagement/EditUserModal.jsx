@@ -3,6 +3,7 @@ import { FaTimes } from "react-icons/fa";
 import { toast } from "react-toastify";
 import GranularPermissionsEditor from "./GranularPermissionsEditor";
 import { useTheme } from "../../context/ThemeContext";
+import { hasPermission, hasModuleAccess } from "../../config/permissions";
 
 const EditUserModal = ({ user, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
@@ -63,6 +64,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
     // Get current logged-in user to check if they're SuperAdmin
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
     const isSuperAdmin = currentUser.role === "superAdmin";
+    const canDeactivateUsers = isSuperAdmin || (hasPermission(currentUser.granularPermissions, 'userManagement', 'users', 'edit') && (hasModuleAccess(currentUser.granularPermissions, 'employeeCenter') || hasModuleAccess(currentUser.granularPermissions, 'hrManpower')));
 
     const roles = isSuperAdmin
         ? ["admin", "teacher", "telecaller", "counsellor", "marketing", "superAdmin"]
@@ -360,21 +362,23 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                                 <p className="text-[9px] text-cyan-600 mt-1 uppercase font-black tracking-widest animate-pulse">Analytics will be updated for this script</p>
                             </div>
                         )}
-                        <div className="flex items-center gap-3 p-2.5 border rounded-lg border-dashed border-gray-500/30">
-                            <label className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Account Status:</label>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={formData.isActive}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
-                                    className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
-                                <span className={`ml-3 text-xs font-black uppercase tracking-widest ${formData.isActive ? 'text-green-500' : 'text-red-500'}`}>
-                                    {formData.isActive ? "Active" : "Deactivated"}
-                                </span>
-                            </label>
-                        </div>
+                        {canDeactivateUsers && (
+                            <div className="flex items-center gap-3 p-2.5 border rounded-lg border-dashed border-gray-500/30">
+                                <label className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Account Status:</label>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.isActive}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                                    <span className={`ml-3 text-xs font-black uppercase tracking-widest ${formData.isActive ? 'text-green-500' : 'text-red-500'}`}>
+                                        {formData.isActive ? "Active" : "Deactivated"}
+                                    </span>
+                                </label>
+                            </div>
+                        )}
                         <div className="md:col-span-2">
                             <label className={`block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-black uppercase tracking-widest mb-1`}>Assigned Centres {formData.role !== "superAdmin" && "*"}</label>
 

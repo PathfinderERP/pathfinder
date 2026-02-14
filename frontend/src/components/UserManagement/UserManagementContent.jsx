@@ -8,7 +8,7 @@ import AddUserModal from "./AddUserModal";
 import EditUserModal from "./EditUserModal";
 import PermissionsDetailModal from "./PermissionsDetailModal";
 import "./UserCardWave.css";
-import { hasPermission, getAccessibleModules, PERMISSION_MODULES } from "../../config/permissions";
+import { hasPermission, getAccessibleModules, PERMISSION_MODULES, hasModuleAccess } from "../../config/permissions";
 import ExcelImportExport from "../common/ExcelImportExport";
 import { useTheme } from "../../context/ThemeContext";
 import { TableRowSkeleton, CardSkeleton } from "../common/Skeleton";
@@ -52,6 +52,7 @@ const UserManagementContent = () => {
     const canEditUsers = isSuperAdmin || hasPermission(currentUser.granularPermissions, 'userManagement', 'users', 'edit');
     const canDeleteUsers = isSuperAdmin || hasPermission(currentUser.granularPermissions, 'userManagement', 'users', 'delete');
     const canAddUsers = isSuperAdmin || hasPermission(currentUser.granularPermissions, 'userManagement', 'users', 'create');
+    const canDeactivateUsers = isSuperAdmin || (hasPermission(currentUser.granularPermissions, 'userManagement', 'users', 'edit') && (hasModuleAccess(currentUser.granularPermissions, 'employeeCenter') || hasModuleAccess(currentUser.granularPermissions, 'hrManpower')));
 
 
     const fetchAuxiliaryData = useCallback(async () => {
@@ -652,7 +653,7 @@ const UserManagementContent = () => {
                                             >
                                                 <FaEdit />
                                             </button>
-                                            {isSuperAdmin && (
+                                            {canDeactivateUsers && (
                                                 <button
                                                     onClick={(e) => handleToggleStatus(user._id, user.isActive !== false, e)}
                                                     className={`p-2 rounded transition-all ${user.isActive === false ? (isDarkMode ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : 'bg-green-100 text-green-600 hover:bg-green-500 hover:text-white') : (isDarkMode ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-red-100 text-red-600 hover:bg-red-500 hover:text-white')}`}
@@ -825,7 +826,7 @@ const UserManagementContent = () => {
                                                         >
                                                             <FaEdit size={14} />
                                                         </button>
-                                                        {isSuperAdmin && (
+                                                        {canDeactivateUsers && (
                                                             <button
                                                                 onClick={(e) => handleToggleStatus(user._id, user.isActive !== false, e)}
                                                                 className={`p-2 rounded transition-all ${user.isActive === false ? 'text-green-500 hover:bg-green-500/10' : 'text-red-500 hover:bg-red-500/10'}`}

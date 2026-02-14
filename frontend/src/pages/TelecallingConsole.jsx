@@ -1831,7 +1831,14 @@ const TelecallingConsole = () => {
                                                         </div>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className={`text-xl font-black italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{day.points} PTS</p>
+                                                        <div className="flex flex-col items-end">
+                                                            <p className={`text-xl font-black italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{day.points} PTS</p>
+                                                            {day.bonusPoints > 0 && (
+                                                                <span className="text-[9px] font-black text-green-500 animate-pulse bg-green-500/10 px-2 py-0.5 rounded-[2px] border border-green-500/20 mt-1">
+                                                                    BONUS: +{day.bonusPoints}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Weight: 12 MAX</p>
                                                     </div>
                                                 </div>
@@ -1845,13 +1852,13 @@ const TelecallingConsole = () => {
                                                     <div>
                                                         <p className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.2em]">Aggregate Score</p>
                                                         <p className={`text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                            {Math.round(historyDetail.history.reduce((acc, curr) => acc + curr.points, 0))} / 60
+                                                            {Math.round(historyDetail.history.reduce((acc, curr) => acc + curr.points + (curr.bonusPoints || 0), 0))} / 60
                                                         </p>
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
                                                     <p className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                        {Math.round((historyDetail.history.reduce((acc, curr) => acc + curr.points, 0) / 60) * 100)}%
+                                                        {Math.round((historyDetail.history.reduce((acc, curr) => acc + curr.points + (curr.bonusPoints || 0), 0) / 60) * 100)}%
                                                     </p>
                                                 </div>
                                             </div>
