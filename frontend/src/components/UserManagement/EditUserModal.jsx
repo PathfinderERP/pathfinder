@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { FaTimes } from "react-icons/fa";
 import { toast } from "react-toastify";
 import GranularPermissionsEditor from "./GranularPermissionsEditor";
+import { useTheme } from "../../context/ThemeContext";
+import { hasPermission, hasModuleAccess } from "../../config/permissions";
 
 const EditUserModal = ({ user, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
@@ -15,12 +17,42 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
         permissions: [],
         granularPermissions: {},
         canDeleteUsers: false,
-        assignedScript: ""
+        assignedScript: "",
+        isActive: true
     });
     const [centres, setCentres] = useState([]);
     const [scripts, setScripts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [permissionsConfig, setPermissionsConfig] = useState(null);
+    const [searchTerm, setSearchTerm] = useState("");
+    const { theme } = useTheme();
+
+    const isDarkMode = theme === 'dark';
+
+    // Filter centres based on search
+    const filteredCentres = centres.filter(centre =>
+        centre.centreName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const isAllSelected = filteredCentres.length > 0 && filteredCentres.every(c => formData.centres.includes(c._id));
+
+    const handleSelectAll = () => {
+        if (isAllSelected) {
+            // Deselect all filtered
+            const filteredIds = filteredCentres.map(c => c._id);
+            setFormData(prev => ({
+                ...prev,
+                centres: prev.centres.filter(id => !filteredIds.includes(id))
+            }));
+        } else {
+            // Select all filtered
+            const filteredIds = filteredCentres.map(c => c._id);
+            setFormData(prev => ({
+                ...prev,
+                centres: [...new Set([...prev.centres, ...filteredIds])]
+            }));
+        }
+    };
 
     // Load permissions config
     useEffect(() => {
@@ -32,10 +64,11 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
     // Get current logged-in user to check if they're SuperAdmin
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
     const isSuperAdmin = currentUser.role === "superAdmin";
+    const canDeactivateUsers = isSuperAdmin || (hasPermission(currentUser.granularPermissions, 'userManagement', 'users', 'edit') && (hasModuleAccess(currentUser.granularPermissions, 'employeeCenter') || hasModuleAccess(currentUser.granularPermissions, 'hrManpower')));
 
     const roles = isSuperAdmin
-        ? ["admin", "teacher", "telecaller", "counsellor", "superAdmin"]
-        : ["admin", "teacher", "telecaller", "counsellor"];
+        ? ["admin", "teacher", "telecaller", "counsellor", "marketing", "superAdmin"]
+        : ["admin", "teacher", "telecaller", "counsellor", "marketing"];
 
     useEffect(() => {
         fetchCentres();
@@ -79,7 +112,8 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                 granularPermissions: granularPermissions,
                 canEditUsers: user.canEditUsers || false,
                 canDeleteUsers: user.canDeleteUsers || false,
-                assignedScript: user.assignedScript?._id || user.assignedScript || ""
+                assignedScript: user.assignedScript?._id || user.assignedScript || "",
+                isActive: user.isActive !== false
             });
         }
     }, [user, permissionsConfig]); // Added permissionsConfig dependency
@@ -138,7 +172,50 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                 });
                 newData.granularPermissions = allPerms;
             }
-            // If switching TO a regular role, ensure Employee Center is at least present
+            // Default access for Marketing and Counsellor when switching role
+            else if (name === "role" && (value === "marketing" || value === "counsellor") && permissionsConfig) {
+                const defaultPerms = {};
+                // Employee Center
+                if (permissionsConfig.employeeCenter) {
+                    defaultPerms.employeeCenter = {};
+                    Object.keys(permissionsConfig.employeeCenter.sections).forEach(sectionKey => {
+                        defaultPerms.employeeCenter[sectionKey] = {
+                            create: true,
+                            edit: true,
+                            delete: true
+                        };
+                    });
+                }
+                // Lead Management
+                if (permissionsConfig.leadManagement) {
+                    defaultPerms.leadManagement = {};
+                    Object.keys(permissionsConfig.leadManagement.sections).forEach(sectionKey => {
+                        defaultPerms.leadManagement[sectionKey] = {
+                            view: true,
+                            create: true,
+                            edit: true,
+                            delete: true
+                        };
+                    });
+                }
+                // Admissions
+                if (permissionsConfig.admissions) {
+                    const admissionPerms = {};
+                    Object.keys(permissionsConfig.admissions.sections).forEach(sectionKey => {
+                        if (['allLeads', 'enrolledStudents'].includes(sectionKey)) {
+                            admissionPerms[sectionKey] = {
+                                view: true,
+                                create: true,
+                                edit: true,
+                                delete: false
+                            };
+                        }
+                    });
+                    defaultPerms.admissions = admissionPerms;
+                }
+                newData.granularPermissions = defaultPerms;
+            }
+            // If switching TO a regular role (not superAdmin and not marketing/counsellor)
             else if (name === "role" && value !== "superAdmin" && permissionsConfig) {
                 if (!newData.granularPermissions.employeeCenter) {
                     const empCenterPerms = {};
@@ -190,7 +267,8 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                 granularPermissions: formData.granularPermissions,
                 canEditUsers: formData.canEditUsers,
                 canDeleteUsers: formData.canDeleteUsers,
-                assignedScript: formData.assignedScript
+                assignedScript: formData.assignedScript,
+                isActive: formData.isActive
             };
 
             // Only include password if it's been changed
@@ -224,11 +302,11 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-[#1a1f24] rounded-xl w-full max-w-2xl border border-gray-700 max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center p-6 border-b border-gray-700 sticky top-0 bg-[#1a1f24] z-10">
-                    <h3 className="text-xl font-bold text-white">Edit User</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto backdrop-blur-sm">
+            <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200 shadow-2xl'} rounded-xl w-full max-w-2xl border max-h-[90vh] overflow-y-auto transition-all`}>
+                <div className={`flex justify-between items-center p-6 border-b ${isDarkMode ? 'border-gray-700 bg-[#1a1f24]' : 'border-gray-100 bg-white'} sticky top-0 z-10`}>
+                    <h3 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Edit User Profile</h3>
+                    <button onClick={onClose} className={`${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'} transition-colors`}>
                         <FaTimes size={20} />
                     </button>
                 </div>
@@ -236,28 +314,28 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-gray-400 text-sm mb-1">Name *</label>
-                            <input type="text" name="name" required value={formData.name} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
+                            <label className={`block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-black uppercase tracking-widest mb-1`}>Name *</label>
+                            <input type="text" name="name" required value={formData.name} onChange={handleChange} className={`w-full ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} border rounded-lg p-2.5 focus:border-cyan-500 outline-none transition-all`} />
                         </div>
                         <div>
-                            <label className="block text-gray-400 text-sm mb-1">Employee ID *</label>
-                            <input type="text" name="employeeId" required value={formData.employeeId} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
+                            <label className={`block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-black uppercase tracking-widest mb-1`}>Employee ID *</label>
+                            <input type="text" name="employeeId" required value={formData.employeeId} onChange={handleChange} className={`w-full ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} border rounded-lg p-2.5 focus:border-cyan-500 outline-none transition-all`} />
                         </div>
                         <div>
-                            <label className="block text-gray-400 text-sm mb-1">Email *</label>
-                            <input type="email" name="email" required value={formData.email} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
+                            <label className={`block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-black uppercase tracking-widest mb-1`}>Email *</label>
+                            <input type="email" name="email" required value={formData.email} onChange={handleChange} className={`w-full ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} border rounded-lg p-2.5 focus:border-cyan-500 outline-none transition-all`} />
                         </div>
                         <div>
-                            <label className="block text-gray-400 text-sm mb-1">Mobile Number *</label>
-                            <input type="text" name="mobNum" required value={formData.mobNum} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
+                            <label className={`block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-black uppercase tracking-widest mb-1`}>Mobile Number *</label>
+                            <input type="text" name="mobNum" required value={formData.mobNum} onChange={handleChange} className={`w-full ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} border rounded-lg p-2.5 focus:border-cyan-500 outline-none transition-all`} />
                         </div>
                         <div>
-                            <label className="block text-gray-400 text-sm mb-1">New Password (leave blank to keep current)</label>
-                            <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="Enter new password" className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
+                            <label className={`block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-black uppercase tracking-widest mb-1`}>Password (Leave blank to keep current)</label>
+                            <input type="password" name="password" value={formData.password} onChange={handleChange} className={`w-full ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} border rounded-lg p-2.5 focus:border-cyan-500 outline-none transition-all`} />
                         </div>
                         <div>
-                            <label className="block text-gray-400 text-sm mb-1">Role *</label>
-                            <select name="role" required value={formData.role} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white">
+                            <label className={`block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-black uppercase tracking-widest mb-1`}>Role *</label>
+                            <select name="role" required value={formData.role} onChange={handleChange} className={`w-full ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} border rounded-lg p-2.5 focus:border-cyan-500 outline-none transition-all font-bold`}>
                                 {roles.map(role => (
                                     <option key={role} value={role}>{role === "superAdmin" ? "SuperAdmin" : role.charAt(0).toUpperCase() + role.slice(1)}</option>
                                 ))}
@@ -268,39 +346,83 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                         </div>
                         {formData.role === "telecaller" && (
                             <div>
-                                <label className="block text-gray-400 text-sm mb-1 text-cyan-400 font-bold">Assign Calling Script *</label>
+                                <label className="block text-xs font-black uppercase tracking-widest mb-1 text-cyan-500">Operational Script *</label>
                                 <select
                                     name="assignedScript"
                                     required
                                     value={formData.assignedScript}
                                     onChange={handleChange}
-                                    className="w-full bg-[#131619] border border-cyan-500/50 rounded-lg p-2 text-white focus:border-cyan-500"
+                                    className={`w-full border rounded-lg p-2.5 outline-none font-bold transition-all ${isDarkMode ? 'bg-[#131619] border-cyan-500/50 text-white focus:border-cyan-500' : 'bg-cyan-50 border-cyan-200 text-gray-900 focus:border-cyan-500'}`}
                                 >
                                     <option value="">Select a Script</option>
                                     {scripts.map(script => (
                                         <option key={script._id} value={script._id}>{script.scriptName}</option>
                                     ))}
                                 </select>
-                                <p className="text-[10px] text-cyan-500/70 mt-1 uppercase font-bold tracking-wider">Analysis will be based on this script</p>
+                                <p className="text-[9px] text-cyan-600 mt-1 uppercase font-black tracking-widest animate-pulse">Analytics will be updated for this script</p>
+                            </div>
+                        )}
+                        {canDeactivateUsers && (
+                            <div className="flex items-center gap-3 p-2.5 border rounded-lg border-dashed border-gray-500/30">
+                                <label className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Account Status:</label>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.isActive}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                                    <span className={`ml-3 text-xs font-black uppercase tracking-widest ${formData.isActive ? 'text-green-500' : 'text-red-500'}`}>
+                                        {formData.isActive ? "Active" : "Deactivated"}
+                                    </span>
+                                </label>
                             </div>
                         )}
                         <div className="md:col-span-2">
-                            <label className="block text-gray-400 text-sm mb-1">Centres {formData.role !== "superAdmin" && "*"}</label>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 bg-[#131619] border border-gray-700 rounded-lg p-3 max-h-40 overflow-y-auto">
-                                {centres.map(centre => (
-                                    <label key={centre._id} className="flex items-center gap-2 cursor-pointer group">
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.centres.includes(centre._id)}
-                                            onChange={() => handleCentreChange(centre._id)}
-                                            disabled={formData.role === "superAdmin"}
-                                            className="w-4 h-4 rounded border-gray-600 bg-[#1a1f24] text-cyan-500 focus:ring-offset-[#1a1f24] focus:ring-cyan-500"
-                                        />
-                                        <span className={`text-sm ${formData.role === "superAdmin" ? "text-gray-600" : "text-gray-400 group-hover:text-white"} transition-colors`}>
-                                            {centre.centreName} ({centre.enterCode})
-                                        </span>
-                                    </label>
-                                ))}
+                            <label className={`block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-black uppercase tracking-widest mb-1`}>Assigned Centres {formData.role !== "superAdmin" && "*"}</label>
+
+                            <div className="flex gap-2 mb-2">
+                                <input
+                                    type="text"
+                                    placeholder="Search centres..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className={`flex-1 text-sm border rounded-lg px-3 py-1.5 outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleSelectAll}
+                                    disabled={filteredCentres.length === 0 || formData.role === "superAdmin"}
+                                    className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${isDarkMode
+                                        ? 'bg-[#131619] border-gray-700 text-cyan-400 hover:bg-gray-800'
+                                        : 'bg-white border-gray-200 text-cyan-600 hover:bg-gray-50'}`}
+                                >
+                                    {isAllSelected ? "Deselect All" : "Select All"}
+                                </button>
+                            </div>
+
+                            <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 border rounded-lg p-4 max-h-48 overflow-y-auto transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200 shadow-inner'}`}>
+                                {filteredCentres.length > 0 ? (
+                                    filteredCentres.map(centre => (
+                                        <label key={centre._id} className="flex items-center gap-2 cursor-pointer group p-1 hover:bg-cyan-500/10 rounded transition-all">
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.centres.includes(centre._id)}
+                                                onChange={() => handleCentreChange(centre._id)}
+                                                disabled={formData.role === "superAdmin"}
+                                                className="w-4 h-4 rounded border-gray-400 bg-transparent text-cyan-500 focus:ring-cyan-500"
+                                            />
+                                            <span className={`text-[11px] font-bold uppercase tracking-tight ${formData.role === "superAdmin" ? "text-gray-600 opacity-50" : isDarkMode ? "text-gray-400 group-hover:text-cyan-400" : "text-gray-600 group-hover:text-cyan-600"} transition-colors`}>
+                                                {centre.centreName}
+                                            </span>
+                                        </label>
+                                    ))
+                                ) : (
+                                    <div className="col-span-full text-center py-4 text-xs text-gray-500">
+                                        No centres found matching "{searchTerm}"
+                                    </div>
+                                )}
                             </div>
                             {formData.role === "superAdmin" && (
                                 <p className="text-xs text-gray-500 mt-1">SuperAdmin is not assigned to any centre</p>
@@ -309,65 +431,17 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                     </div>
 
                     {/* Granular Permissions Editor */}
-                    <div className="mb-6">
+                    <div className={`pt-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
                         <GranularPermissionsEditor
                             granularPermissions={formData.granularPermissions}
-                            onChange={(newPermissions) =>
-                                setFormData({ ...formData, granularPermissions: newPermissions })
-                            }
+                            onChange={(newPermissions) => setFormData({ ...formData, granularPermissions: newPermissions })}
                         />
                     </div>
 
-                    {/* User Management Permissions - SuperAdmin Only */}
-                    {/* {isSuperAdmin && (
-                        <div className="pt-4 border-t border-gray-700">
-                            <label className="block text-orange-400 font-semibold mb-3">User Management Permissions</label>
-                            <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 space-y-3">
-                                <label className="flex items-start gap-3 cursor-pointer group">
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.canEditUsers}
-                                        onChange={(e) => setFormData({ ...formData, canEditUsers: e.target.checked })}
-                                        className="w-5 h-5 mt-0.5 rounded border-gray-600 bg-[#131619] text-orange-500 focus:ring-offset-[#1a1f24] focus:ring-orange-500"
-                                    />
-                                    <div>
-                                        <span className="text-sm font-semibold text-orange-300 group-hover:text-orange-200 transition-colors">
-                                            Can Edit Other Users
-                                        </span>
-                                        <p className="text-xs text-gray-400 mt-1">
-                                            Grant this user permission to edit other users of the same or lower role. 
-                                            Without this permission, they will not see edit buttons for other users.
-                                        </p>
-                                    </div>
-                                </label>
-                                
-                                <label className="flex items-start gap-3 cursor-pointer group">
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.canDeleteUsers}
-                                        onChange={(e) => setFormData({ ...formData, canDeleteUsers: e.target.checked })}
-                                        className="w-5 h-5 mt-0.5 rounded border-gray-600 bg-[#131619] text-red-500 focus:ring-offset-[#1a1f24] focus:ring-red-500"
-                                    />
-                                    <div>
-                                        <span className="text-sm font-semibold text-red-300 group-hover:text-red-200 transition-colors">
-                                            Can Delete Other Users
-                                        </span>
-                                        <p className="text-xs text-gray-400 mt-1">
-                                            Grant this user permission to delete other users of the same or lower role. 
-                                            Without this permission, they will not see delete buttons for other users.
-                                        </p>
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
-                    )} */}
-
-
-
-                    <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
-                        <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600">Cancel</button>
-                        <button type="submit" disabled={loading} className="px-4 py-2 bg-cyan-500 text-black font-bold rounded-lg hover:bg-cyan-400">
-                            {loading ? "Updating..." : "Update User"}
+                    <div className={`flex justify-end gap-3 mt-6 pt-6 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                        <button type="button" onClick={onClose} className={`px-5 py-2 rounded-lg font-bold transition-all ${isDarkMode ? 'bg-gray-800 text-white hover:bg-gray-700 border border-gray-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'}`}>Cancel</button>
+                        <button type="submit" disabled={loading} className="px-6 py-2 bg-cyan-500 text-white font-black uppercase tracking-widest text-xs rounded-lg hover:bg-cyan-400 shadow-lg shadow-cyan-500/20 transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:translate-y-0">
+                            {loading ? "Synchronizing..." : "Update User Vector"}
                         </button>
                     </div>
                 </form>

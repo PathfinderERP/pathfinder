@@ -22,6 +22,10 @@ export const requireAuth = async (req, res, next) => {
             return res.status(401).json({ message: "User not found" });
         }
 
+        if (user.isActive === false) {
+            return res.status(403).json({ message: "Account is deactivated. Please contact administrator." });
+        }
+
         req.user = user;
         next();
     } catch (error) {
@@ -51,8 +55,12 @@ export const requirePermission = (requiredPermission) => {
                 return res.status(401).json({ message: "User not found" });
             }
 
+            if (user.isActive === false) {
+                return res.status(403).json({ message: "Account is deactivated. Please contact administrator." });
+            }
+
             // SuperAdmin has access to everything
-            if (user.role === "superAdmin") {
+            if (user.role?.toLowerCase() === "superadmin" || user.role?.toLowerCase() === "super admin") {
                 req.user = user;
                 return next();
             }
@@ -93,8 +101,12 @@ export const requireAnyPermission = (requiredPermissions) => {
                 return res.status(401).json({ message: "User not found" });
             }
 
+            if (user.isActive === false) {
+                return res.status(403).json({ message: "Account is deactivated. Please contact administrator." });
+            }
+
             // SuperAdmin has access to everything
-            if (user.role === "superAdmin") {
+            if (user.role?.toLowerCase() === "superadmin" || user.role?.toLowerCase() === "super admin") {
                 req.user = user;
                 return next();
             }
@@ -139,8 +151,12 @@ export const requireGranularPermission = (module, section, action) => {
                 return res.status(401).json({ message: "User not found" });
             }
 
+            if (user.isActive === false) {
+                return res.status(403).json({ message: "Account is deactivated. Please contact administrator." });
+            }
+
             // SuperAdmin has access to everything
-            if (user.role === "superAdmin") {
+            if (user.role?.toLowerCase() === "superadmin" || user.role?.toLowerCase() === "super admin") {
                 req.user = user;
                 return next();
             }
@@ -192,8 +208,12 @@ export const requireAnyGranularPermission = (requiredPermissions) => {
                 return res.status(401).json({ message: "User not found" });
             }
 
+            if (user.isActive === false) {
+                return res.status(403).json({ message: "Account is deactivated. Please contact administrator." });
+            }
+
             // SuperAdmin has access to everything
-            if (user.role === "superAdmin") {
+            if (user.role?.toLowerCase() === "superadmin" || user.role?.toLowerCase() === "super admin") {
                 req.user = user;
                 return next();
             }

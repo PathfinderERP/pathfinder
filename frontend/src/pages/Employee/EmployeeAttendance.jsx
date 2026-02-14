@@ -15,8 +15,11 @@ import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Legend
 } from 'recharts';
+import { useTheme } from "../../context/ThemeContext";
 
 const ShiftTimer = ({ checkIn, targetHours }) => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [elapsed, setElapsed] = useState(0);
 
     useEffect(() => {
@@ -62,16 +65,16 @@ const ShiftTimer = ({ checkIn, targetHours }) => {
         <div className="w-full max-w-md">
             <div className="flex justify-between items-end mb-2">
                 <div>
-                    <p className="text-gray-400 text-[9px] font-black uppercase tracking-widest mb-1">Elapsed</p>
-                    <p className="text-white font-black text-2xl tracking-tighter tabular-nums drop-shadow-md">{formatTime(elapsed)}</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-[9px] font-black uppercase tracking-widest mb-1">Elapsed</p>
+                    <p className="text-gray-900 dark:text-white font-black text-2xl tracking-tighter tabular-nums drop-shadow-md">{formatTime(elapsed)}</p>
                 </div>
                 <div className="text-right">
-                    <p className="text-gray-400 text-[9px] font-black uppercase tracking-widest mb-1">{remaining <= 0 ? 'Overtime' : 'Remaining'}</p>
-                    <p className={`font-black text-2xl tracking-tighter tabular-nums drop-shadow-md ${remaining <= 0 ? 'text-indigo-400 animate-pulse' : 'text-gray-300'}`}>{remainingTimeStr()}</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-[9px] font-black uppercase tracking-widest mb-1">{remaining <= 0 ? 'Overtime' : 'Remaining'}</p>
+                    <p className={`font-black text-2xl tracking-tighter tabular-nums drop-shadow-md ${remaining <= 0 ? 'text-indigo-400 animate-pulse' : 'text-gray-600 dark:text-gray-300'}`}>{remainingTimeStr()}</p>
                 </div>
             </div>
             {/* Progress Bar Container */}
-            <div className="h-4 bg-gray-800 rounded-full overflow-hidden border border-gray-700 shadow-inner p-[2px]">
+            <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden border border-gray-200 dark:border-gray-700 shadow-inner p-[2px]">
                 <div
                     className={`h-full rounded-full transition-all duration-1000 ease-linear ${getProgressColor()}`}
                     style={{ width: `${progressPercent}%` }}
@@ -88,15 +91,17 @@ const ShiftTimer = ({ checkIn, targetHours }) => {
 };
 
 const CustomTooltip = ({ active, payload, label }) => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     if (active && payload && payload.length) {
         return (
-            <div className="bg-[#1a1f24] border border-gray-700 p-3 rounded-[2px] shadow-2xl">
-                <p className="text-white text-xs font-black mb-1 uppercase tracking-wider">{label}</p>
+            <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200 shadow-xl'} border p-3 rounded-[2px]`}>
+                <p className={`${isDarkMode ? 'text-white' : 'text-gray-900'} text-xs font-black mb-1 uppercase tracking-wider`}>{label}</p>
                 {payload.map((entry, index) => (
                     <div key={index} className="flex items-center gap-2 text-[10px] font-bold">
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></div>
-                        <span className="text-gray-300 uppercase">{entry.name}:</span>
-                        <span className="text-white font-mono">{entry.value}</span>
+                        <span className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} uppercase`}>{entry.name}:</span>
+                        <span className={`${isDarkMode ? 'text-white' : 'text-gray-900'} font-mono`}>{entry.value}</span>
                     </div>
                 ))}
             </div>
@@ -106,6 +111,8 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 const EmployeeAttendance = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [attendanceData, setAttendanceData] = useState([]);
     const [holidays, setHolidays] = useState([]);
     const [workingDays, setWorkingDays] = useState({});
@@ -237,30 +244,30 @@ const EmployeeAttendance = () => {
     });
 
     const StatusLegend = () => (
-        <div className="flex flex-wrap gap-4 px-6 py-3 bg-[#131619] border border-gray-800 rounded-[2px] shadow-inner mb-6">
+        <div className={`flex flex-wrap gap-4 px-6 py-3 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-[2px] shadow-inner mb-6`}>
             <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-red-500 rounded-[2px]" />
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Absent (&lt;4h)</span>
+                <span className={`text-[10px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} uppercase tracking-widest`}>Absent (&lt;4h)</span>
             </div>
             <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-orange-500 rounded-[2px]" />
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Half Day (h/2)</span>
+                <span className={`text-[10px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} uppercase tracking-widest`}>Half Day (h/2)</span>
             </div>
             <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-pink-500 rounded-[2px]" />
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Early Leave (1-2h)</span>
+                <span className={`text-[10px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} uppercase tracking-widest`}>Early Leave (1-2h)</span>
             </div>
             <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-lime-500 rounded-[2px]" />
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Short Leave (30m)</span>
+                <span className={`text-[10px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} uppercase tracking-widest`}>Short Leave (30m)</span>
             </div>
             <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-emerald-500 rounded-[2px]" />
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Present (9h)</span>
+                <span className={`text-[10px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} uppercase tracking-widest`}>Present (9h)</span>
             </div>
             <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-indigo-500 rounded-[2px]" />
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Overtime (9h+) ★</span>
+                <span className={`text-[10px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} uppercase tracking-widest`}>Overtime (9h+) ★</span>
             </div>
         </div>
     );
@@ -381,74 +388,75 @@ const EmployeeAttendance = () => {
 
     return (
         <Layout activePage="Employee Center">
-            <div className="p-4 md:p-8 max-w-[1800px] mx-auto space-y-8">
+            <div className={`p-4 md:p-8 max-w-[1800px] mx-auto space-y-8 transition-colors duration-300 ${isDarkMode ? '' : 'text-gray-800'}`}>
 
                 {/* 1. Header & Actions */}
-                <div className="flex flex-col xl:flex-row gap-8 items-start xl:items-center justify-between">
-                    <div>
-                        <h1 className="text-4xl md:text-5xl font-black text-white mb-2 tracking-tighter uppercase italic">
-                            Attendance <span className="text-cyan-500">Registry</span>
-                        </h1>
-                        <p className="text-gray-500 font-bold text-xs md:text-sm uppercase tracking-[0.3em] flex items-center gap-2">
-                            <FaCalendarCheck className="text-cyan-500" /> Track your daily presence
-                        </p>
-                    </div>
-
-                    <div className="flex flex-col md:flex-row items-center gap-6">
-                        {/* Legend moved to header area */}
-                        {/* Legend visible on mobile and desktop */}
-                        <div className="flex flex-wrap gap-2 md:gap-4 px-4 md:px-6 py-3 bg-[#131619] border border-gray-800 rounded-[2px] shadow-inner w-full md:w-auto justify-center md:justify-start">
-                            <div className="flex items-center gap-2">
-                                <div className="w-2.5 h-2.5 bg-red-500 rounded-[1px]" />
-                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Absent (&lt;4h)</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-2.5 h-2.5 bg-orange-500 rounded-[1px]" />
-                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Half Day (&lt;4.5h)</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-2.5 h-2.5 bg-pink-500 rounded-[1px]" />
-                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Early Leave (up to 8.5h)</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-2.5 h-2.5 bg-lime-500 rounded-[1px]" />
-                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Short Leave (8.5 - 9h)</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-2.5 h-2.5 bg-emerald-500 rounded-[1px]" />
-                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Present (9h)</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-2.5 h-2.5 bg-indigo-500 rounded-[1px]" />
-                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Overtime (&gt;9h) ★</span>
-                            </div>
+                <div className={`p-8 rounded-[2rem] border transition-all duration-300 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                    <div className="flex flex-col xl:flex-row gap-8 items-start xl:items-center justify-between">
+                        <div>
+                            <h1 className={`text-4xl md:text-5xl font-black mb-2 tracking-tighter uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                Attendance <span className="text-cyan-600">Registry</span>
+                            </h1>
+                            <p className={`font-bold text-xs md:text-sm uppercase tracking-[0.3em] flex items-center gap-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                <FaCalendarCheck className="text-cyan-600" /> Track your daily presence
+                            </p>
                         </div>
 
-                        <div className="flex gap-4 w-full md:w-auto">
-                            {!todayRecord || !todayRecord.checkIn?.time || todayRecord.status === 'Absent' ? (
-                                <button
-                                    onClick={() => handleMarkAttendance('checkIn')}
-                                    disabled={marking || loading}
-                                    className="flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 bg-cyan-500 hover:bg-cyan-600 text-[#1a1f24] font-black rounded-[2px] transition-all shadow-2xl shadow-cyan-500/20 active:scale-95 disabled:opacity-50"
-                                >
-                                    <FaMapMarkerAlt size={20} className="animate-bounce" />
-                                    <span className="uppercase tracking-widest text-sm">Clock In Now</span>
-                                </button>
-                            ) : !todayRecord.checkOut ? (
-                                <button
-                                    onClick={() => handleMarkAttendance('checkOut')}
-                                    disabled={marking || loading}
-                                    className="flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 bg-red-500 hover:bg-red-600 text-white font-black rounded-[2px] transition-all shadow-2xl shadow-red-500/20 active:scale-95 disabled:opacity-50"
-                                >
-                                    <FaBolt size={20} className="animate-pulse" />
-                                    <span className="uppercase tracking-widest text-sm">Clock Out Now</span>
-                                </button>
-                            ) : (
-                                <div className="flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 bg-gray-800 text-gray-500 font-black rounded-[2px] cursor-not-allowed">
-                                    <FaCheck size={20} />
-                                    <span className="uppercase tracking-widest text-sm">Shift Completed</span>
+                        <div className="flex flex-col md:flex-row items-center gap-6">
+                            {/* Legend moved to header area */}
+                            <div className={`flex flex-wrap gap-2 md:gap-4 px-4 md:px-6 py-3 border rounded-xl shadow-inner w-full md:w-auto justify-center md:justify-start ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2.5 h-2.5 bg-red-500 rounded-[1px]" />
+                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Absent (&lt;4h)</span>
                                 </div>
-                            )}
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2.5 h-2.5 bg-orange-500 rounded-[1px]" />
+                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Half Day (&lt;4.5h)</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2.5 h-2.5 bg-pink-500 rounded-[1px]" />
+                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Early Leave (up to 8.5h)</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2.5 h-2.5 bg-lime-500 rounded-[1px]" />
+                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Short Leave (8.5 - 9h)</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2.5 h-2.5 bg-emerald-500 rounded-[1px]" />
+                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Present (9h)</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2.5 h-2.5 bg-indigo-500 rounded-[1px]" />
+                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Overtime (&gt;9h) ★</span>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4 w-full md:w-auto">
+                                {!todayRecord || !todayRecord.checkIn?.time || todayRecord.status === 'Absent' ? (
+                                    <button
+                                        onClick={() => handleMarkAttendance('checkIn')}
+                                        disabled={marking || loading}
+                                        className={`flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 font-black rounded-2xl transition-all shadow-2xl active:scale-95 disabled:opacity-50 ${isDarkMode ? 'bg-cyan-500 hover:bg-cyan-400 text-[#1a1f24] shadow-cyan-500/20' : 'bg-cyan-600 hover:bg-cyan-700 text-white shadow-cyan-600/20'}`}
+                                    >
+                                        <FaMapMarkerAlt size={20} className="animate-bounce" />
+                                        <span className="uppercase tracking-widest text-sm">Clock In Now</span>
+                                    </button>
+                                ) : !todayRecord.checkOut ? (
+                                    <button
+                                        onClick={() => handleMarkAttendance('checkOut')}
+                                        disabled={marking || loading}
+                                        className="flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 bg-red-500 hover:bg-red-600 text-white font-black rounded-2xl transition-all shadow-2xl shadow-red-500/20 active:scale-95 disabled:opacity-50"
+                                    >
+                                        <FaBolt size={20} className="animate-pulse" />
+                                        <span className="uppercase tracking-widest text-sm">Clock Out Now</span>
+                                    </button>
+                                ) : (
+                                    <div className={`flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 font-black rounded-2xl cursor-not-allowed ${isDarkMode ? 'bg-gray-800 text-gray-500' : 'bg-gray-100 text-gray-400'}`}>
+                                        <FaCheck size={20} />
+                                        <span className="uppercase tracking-widest text-sm">Shift Completed</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -456,8 +464,8 @@ const EmployeeAttendance = () => {
                 {/* 2. Analytical Charts Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                     {/* A. Monthly Attendance Trend (Area Chart) */}
-                    <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden">
-                        <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-4">Monthly Attendance Trend</h3>
+                    <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-lg'} border rounded-[2px] p-6 shadow-xl relative overflow-hidden`}>
+                        <h3 className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} font-black uppercase tracking-widest text-xs mb-4`}>Monthly Attendance Trend</h3>
                         <div className="h-48 w-full">
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={stats.monthsData}>
@@ -467,8 +475,8 @@ const EmployeeAttendance = () => {
                                             <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
                                         </linearGradient>
                                     </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
-                                    <XAxis dataKey="name" stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} />
+                                    <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#374151" : "#e5e7eb"} opacity={0.3} />
+                                    <XAxis dataKey="name" stroke={isDarkMode ? "#9ca3af" : "#6b7280"} fontSize={10} tickLine={false} axisLine={false} />
                                     <Tooltip content={<CustomTooltip />} />
                                     <Area type="monotone" dataKey="present" stroke="#06b6d4" fillOpacity={1} fill="url(#colorPresent)" strokeWidth={2} />
                                 </AreaChart>
@@ -477,8 +485,8 @@ const EmployeeAttendance = () => {
                     </div>
 
                     {/* B. Attendance Distribution (Pie Chart) */}
-                    <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden flex flex-col items-center justify-center">
-                        <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-4 w-full text-left">Yearly Distribution</h3>
+                    <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-lg'} border rounded-[2px] p-6 shadow-xl relative overflow-hidden flex flex-col items-center justify-center`}>
+                        <h3 className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} font-black uppercase tracking-widest text-xs mb-4 w-full text-left`}>Yearly Distribution</h3>
                         <div className="h-48 w-full flex items-center justify-center relative">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -500,7 +508,7 @@ const EmployeeAttendance = () => {
                                         height={36}
                                         iconType="rect"
                                         iconSize={8}
-                                        formatter={(value) => <span className="text-[10px] uppercase font-bold text-gray-400 ml-1">{value}</span>}
+                                        formatter={(value) => <span className={`text-[10px] uppercase font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} ml-1`}>{value}</span>}
                                     />
                                 </PieChart>
                             </ResponsiveContainer>
@@ -510,15 +518,15 @@ const EmployeeAttendance = () => {
                                     {employeeDetails ? (
                                         <>
 
-                                            <span className="block text-[10px] font-black text-white uppercase tracking-tight max-w-[80px] truncate leading-tight">
+                                            <span className={`block text-[10px] font-black uppercase tracking-tight max-w-[80px] truncate leading-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                 {employeeDetails.name ? employeeDetails.name.split(' ')[0] : 'Employee'}
                                             </span>
-                                            <span className="text-[7px] text-gray-500 font-bold uppercase tracking-widest">{stats.presents} Days</span>
+                                            <span className={`text-[7px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} font-bold uppercase tracking-widest`}>{stats.presents} Days</span>
                                         </>
                                     ) : (
                                         <>
-                                            <span className="block text-2xl font-black text-white">{stats.presents}</span>
-                                            <span className="text-[8px] text-gray-500 font-black uppercase">Present</span>
+                                            <span className={`block text-2xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{stats.presents}</span>
+                                            <span className={`text-[8px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} font-black uppercase`}>Present</span>
                                         </>
                                     )}
                                 </div>
@@ -527,13 +535,13 @@ const EmployeeAttendance = () => {
                     </div>
 
                     {/* C. Working Hours Analysis (Bar Chart) */}
-                    <div className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden">
-                        <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-4">Working Hours / Month</h3>
+                    <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-lg'} border rounded-[2px] p-6 shadow-xl relative overflow-hidden`}>
+                        <h3 className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} font-black uppercase tracking-widest text-xs mb-4`}>Working Hours / Month</h3>
                         <div className="h-48 w-full">
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={stats.monthsData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} vertical={false} />
-                                    <XAxis dataKey="name" stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} />
+                                    <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#374151" : "#e5e7eb"} opacity={0.3} vertical={false} />
+                                    <XAxis dataKey="name" stroke={isDarkMode ? "#9ca3af" : "#6b7280"} fontSize={10} tickLine={false} axisLine={false} />
                                     <Tooltip content={<CustomTooltip />} />
                                     <Bar dataKey="workingHours" fill="#10b981" radius={[2, 2, 0, 0]} />
                                 </BarChart>
@@ -546,15 +554,15 @@ const EmployeeAttendance = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                     {/* Shift Progress Card */}
                     {workingHours > 0 && (
-                        <div className="lg:col-span-2 bg-[#131619] border border-gray-800 rounded-[2px] p-8 shadow-2xl relative overflow-hidden flex flex-col justify-center">
+                        <div className={`lg:col-span-2 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-lg'} border rounded-[2px] p-8 shadow-2xl relative overflow-hidden flex flex-col justify-center`}>
                             <div className="flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
                                 <div className="flex items-center gap-6">
-                                    <div className="w-14 h-14 rounded-[2px] bg-gray-900 border border-gray-800 flex items-center justify-center text-cyan-500 shadow-inner">
+                                    <div className={`w-14 h-14 rounded-[2px] ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'} border flex items-center justify-center text-cyan-500 shadow-inner`}>
                                         <FaStopwatch size={24} />
                                     </div>
                                     <div>
-                                        <h3 className="text-white font-black text-lg uppercase tracking-tighter italic">Shift Progress</h3>
-                                        <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.3em]">Target: <span className="text-cyan-500">{workingHours}h</span></p>
+                                        <h3 className={`${isDarkMode ? 'text-white' : 'text-gray-900'} font-black text-lg uppercase tracking-tighter italic`}>Shift Progress</h3>
+                                        <p className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} text-[10px] font-black uppercase tracking-[0.3em]`}>Target: <span className="text-cyan-500">{workingHours}h</span></p>
                                     </div>
                                 </div>
                                 <div className="flex-1 w-full md:w-auto flex flex-col items-center">
@@ -566,7 +574,7 @@ const EmployeeAttendance = () => {
                                         </div>
                                     ) : (
                                         <div className="text-center">
-                                            <p className="text-gray-600 font-black text-xl tracking-tighter">-- : --</p>
+                                            <p className={`${isDarkMode ? 'text-gray-600' : 'text-gray-300'} font-black text-xl tracking-tighter`}>-- : --</p>
                                         </div>
                                     )}
                                 </div>
@@ -576,20 +584,20 @@ const EmployeeAttendance = () => {
 
                     {/* Stats Summary Cards */}
                     <div className="lg:col-span-2 grid grid-cols-2 gap-4">
-                        <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2px] hover:border-emerald-500/30 transition-all group">
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Total Present</p>
+                        <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-md'} border p-6 rounded-[2px] hover:border-emerald-500/30 transition-all group`}>
+                            <p className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mb-2`}>Total Present</p>
                             <p className="text-3xl font-black text-emerald-500 tracking-tighter">{stats.presents}</p>
                         </div>
-                        <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2px] hover:border-red-500/30 transition-all group">
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Total Absences</p>
+                        <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-md'} border p-6 rounded-[2px] hover:border-red-500/30 transition-all group`}>
+                            <p className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mb-2`}>Total Absences</p>
                             <p className="text-3xl font-black text-red-500 tracking-tighter">{stats.absents}</p>
                         </div>
-                        <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2px] hover:border-blue-500/30 transition-all group">
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Holidays</p>
+                        <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-md'} border p-6 rounded-[2px] hover:border-blue-500/30 transition-all group`}>
+                            <p className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mb-2`}>Holidays</p>
                             <p className="text-3xl font-black text-blue-500 tracking-tighter">{stats.holidayCount}</p>
                         </div>
-                        <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2px] hover:border-cyan-500/30 transition-all group">
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Current Year</p>
+                        <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-md'} border p-6 rounded-[2px] hover:border-cyan-500/30 transition-all group`}>
+                            <p className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mb-2`}>Current Year</p>
                             <p className="text-3xl font-black text-cyan-500 tracking-tighter">{year}</p>
                         </div>
                     </div>
@@ -607,17 +615,17 @@ const EmployeeAttendance = () => {
                             });
 
                             return (
-                                <div key={mIdx} className="bg-[#131619] border border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group hover:border-gray-700 transition-all">
+                                <div key={mIdx} className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-md'} border rounded-[2px] p-6 shadow-xl relative overflow-hidden group hover:border-gray-700 transition-all`}>
                                     <div className="flex justify-between items-center mb-6">
-                                        <h2 className="text-xl font-black text-white uppercase tracking-tighter italic">{format(month, 'MMMM')}</h2>
-                                        <div className="w-8 h-8 bg-gray-900 rounded-[2px] flex items-center justify-center text-[10px] font-black text-gray-700">
+                                        <h2 className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'} uppercase tracking-tighter italic`}>{format(month, 'MMMM')}</h2>
+                                        <div className={`w-8 h-8 ${isDarkMode ? 'bg-gray-900 text-gray-700' : 'bg-gray-50 text-gray-400'} rounded-[2px] flex items-center justify-center text-[10px] font-black`}>
                                             {format(month, 'MM')}
                                         </div>
                                     </div>
 
                                     <div className="grid grid-cols-7 gap-2">
                                         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-                                            <div key={i} className="text-center text-[9px] font-black text-gray-600 pb-2">{d}</div>
+                                            <div key={i} className={`text-center text-[9px] font-black ${isDarkMode ? 'text-gray-600' : 'text-gray-400'} pb-2`}>{d}</div>
                                         ))}
 
                                         {Array.from({ length: getDay(days[0]) }).map((_, i) => (
@@ -628,7 +636,7 @@ const EmployeeAttendance = () => {
                                             const status = getDayStatus(day);
                                             const isHighlight = isToday(day);
 
-                                            let colorClass = "bg-[#1a1f24] text-gray-300 hover:bg-gray-800";
+                                            let colorClass = isDarkMode ? "bg-[#1a1f24] text-gray-300 hover:bg-gray-800" : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-100";
                                             let dotColor = "";
                                             let isOvertime = false;
 
@@ -666,9 +674,9 @@ const EmployeeAttendance = () => {
                                                 colorClass = "bg-blue-500/10 text-blue-400 border border-blue-500/20";
                                                 dotColor = "bg-blue-500";
                                             } else if (status.type === "Off") {
-                                                colorClass = "bg-[#0f1113] text-gray-700 border border-gray-800/50";
+                                                colorClass = isDarkMode ? "bg-[#0f1113] text-gray-700 border border-gray-800/50" : "bg-gray-100/30 text-gray-300 border border-gray-100/50";
                                             } else if (status.type === "NA") {
-                                                colorClass = "bg-transparent text-gray-800";
+                                                colorClass = "bg-transparent text-gray-800 dark:text-gray-200";
                                             }
 
                                             return (

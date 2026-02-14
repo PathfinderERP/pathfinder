@@ -48,7 +48,13 @@ const PettyCashApproval = () => {
 
         try {
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/centre`, { headers });
-            setCentres(res.data);
+            const allCentres = res.data;
+            if (user.role === 'superAdmin') {
+                setCentres(allCentres);
+            } else {
+                const userCentres = (user.centres || []).map(c => c._id || c);
+                setCentres(allCentres.filter(c => userCentres.includes(c._id)));
+            }
         } catch (e) { console.error("Centres fetch failed", e); }
 
         try {

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import './overflow-fix.css';
+import ProtectedRoute from "./components/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -52,6 +53,7 @@ import MasterDataSubject from "./pages/MasterDataSubject";
 import MasterDataFollowUpFeedback from "./pages/MasterDataFollowUpFeedback";
 import ZoneManagement from "./pages/ZoneManagement";
 import EditBoardSubjects from "./pages/EditBoardSubjects";
+import MarketingCRM from "./pages/MarketingCRM";
 
 // ... [existing imports]
 
@@ -148,143 +150,147 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* <Route path="/" element={<LandingPage />} /> */}
+        {/* Root is now Login */}
         <Route path="/" element={<Login />} />
-        <Route path="/lead-management" element={<LeadManagement />} />
-        <Route path="/lead-management/dashboard" element={<LeadDashboard />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/ceo-control-tower" element={<CEOControlTower />} />
-        <Route path="/admissions" element={<Admissions />} />
+        <Route path="/login" element={<Login />} />
 
-        <Route path="/admissions/telecalling-console" element={<TelecallingConsole />} />
-        <Route path="/admissions/section-allotment" element={<SectionAllotment />} />
-        <Route path="/student-registration" element={<StudentRegistration />} />
-        <Route path="/student-admission/:studentId" element={<StudentAdmission />} />
-        <Route path="/admission/:studentId" element={<StudentAdmissionPage />} />
-        <Route path="/finance" element={<Finance />} />
-        <Route path="/finance/installment-payment" element={<InstallmentPayment />} />
-        <Route path="/finance/pay-employee" element={<PayEmployee />} />
-        <Route path="/finance/pay-employee/:id" element={<PayEmployeeDetails />} />
-        <Route path="/finance/fee-due-list" element={<FeeDueList />} />
-        <Route path="/finance/cheque-management" element={<ChequeManagement />} />
-        <Route path="/finance/cancel-cheque" element={<CancelChequePayment />} />
-        <Route path="/finance/cash/report" element={<CashReport />} />
-        <Route path="/finance/cash/transfer" element={<CashTransfer />} />
-        <Route path="/finance/cash/receive" element={<CashReceive />} />
-        <Route path="/finance/cash/centre/:centreId" element={<CashCentreDetails />} />
-        <Route path="/finance/transaction-list" element={<TransactionList />} />
-        <Route path="/finance/analysis" element={<FinancialAnalysis />} />
-        <Route path="/finance/payment-analysis" element={<FinancialAnalysis />} />
-        <Route path="/finance/center-tagging" element={<CenterTagging />} />
-        <Route path="/finance/budget" element={<Budget />} />
-        <Route path="/finance/budget/:centreId" element={<BudgetDetails />} />
-        <Route path="/finance/part-time-teachers" element={<PartTimeTeachers />} />
-        <Route path="/sales" element={<Sales />} />
-        <Route path="/sales/centre-target" element={<CentreTarget />} />
-        <Route path="/sales/centre-rank" element={<CentreRank />} />
-        <Route path="/sales/target-achievement-report" element={<TargetAchievementReport />} />
-        <Route path="/sales/admission-report" element={<AdmissionReport />} />
-        <Route path="/sales/course-report" element={<CourseReport />} />
-        <Route path="/sales/discount-report" element={<DiscountReport />} />
-        <Route path="/sales/transaction-report" element={<TransactionReport />} />
-        <Route path="/sales/board-report" element={<BoardReport />} />
-        <Route path="/hr" element={<HR />} />
-        <Route path="/hr/employee/list" element={<EmployeeList />} />
-        <Route path="/hr/employee/add" element={<AddEmployee />} />
-        <Route path="/hr/employee/edit/:id" element={<AddEmployee />} />
-        <Route path="/hr/employee/view/:id" element={<ViewEmployee />} />
-        <Route path="/hr/employee/letters/:id" element={<EmployeeLetters />} />
-        <Route path="/hr/employee/letters/:id/offer-letter" element={<OfferLetter />} />
-        <Route path="/hr/employee/letters/:id/appointment-letter" element={<AppointmentLetter />} />
-        <Route path="/hr/employee/letters/:id/contract-letter" element={<ContractLetter />} />
-        <Route path="/hr/employee/letters/:id/experience-letter" element={<ExperienceLetter />} />
-        <Route path="/hr/employee/letters/:id/virtual-id" element={<VirtualId />} />
-        <Route path="/hr/employee/letters/:id/relieving-letter" element={<ReleaseLetter />} />
+        {/* Protected Routes */}
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/lead-management" element={<ProtectedRoute><LeadManagement /></ProtectedRoute>} />
+        <Route path="/lead-management/dashboard" element={<ProtectedRoute><LeadDashboard /></ProtectedRoute>} />
+        <Route path="/ceo-control-tower" element={<ProtectedRoute><CEOControlTower /></ProtectedRoute>} />
+        <Route path="/marketing-crm" element={<ProtectedRoute><MarketingCRM /></ProtectedRoute>} />
+        <Route path="/admissions" element={<ProtectedRoute><Admissions /></ProtectedRoute>} />
+
+        <Route path="/admissions/telecalling-console" element={<ProtectedRoute><TelecallingConsole /></ProtectedRoute>} />
+        <Route path="/admissions/section-allotment" element={<ProtectedRoute><SectionAllotment /></ProtectedRoute>} />
+        <Route path="/student-registration" element={<ProtectedRoute><StudentRegistration /></ProtectedRoute>} />
+        <Route path="/student-admission/:studentId" element={<ProtectedRoute><StudentAdmission /></ProtectedRoute>} />
+        <Route path="/admission/:studentId" element={<ProtectedRoute><StudentAdmissionPage /></ProtectedRoute>} />
+        <Route path="/finance" element={<ProtectedRoute><Finance /></ProtectedRoute>} />
+        <Route path="/finance/installment-payment" element={<ProtectedRoute><InstallmentPayment /></ProtectedRoute>} />
+        <Route path="/finance/pay-employee" element={<ProtectedRoute><PayEmployee /></ProtectedRoute>} />
+        <Route path="/finance/pay-employee/:id" element={<ProtectedRoute><PayEmployeeDetails /></ProtectedRoute>} />
+        <Route path="/finance/fee-due-list" element={<ProtectedRoute><FeeDueList /></ProtectedRoute>} />
+        <Route path="/finance/cheque-management" element={<ProtectedRoute><ChequeManagement /></ProtectedRoute>} />
+        <Route path="/finance/cancel-cheque" element={<ProtectedRoute><CancelChequePayment /></ProtectedRoute>} />
+        <Route path="/finance/cash/report" element={<ProtectedRoute><CashReport /></ProtectedRoute>} />
+        <Route path="/finance/cash/transfer" element={<ProtectedRoute><CashTransfer /></ProtectedRoute>} />
+        <Route path="/finance/cash/receive" element={<ProtectedRoute><CashReceive /></ProtectedRoute>} />
+        <Route path="/finance/cash/centre/:centreId" element={<ProtectedRoute><CashCentreDetails /></ProtectedRoute>} />
+        <Route path="/finance/transaction-list" element={<ProtectedRoute><TransactionList /></ProtectedRoute>} />
+        <Route path="/finance/analysis" element={<ProtectedRoute><FinancialAnalysis /></ProtectedRoute>} />
+        <Route path="/finance/payment-analysis" element={<ProtectedRoute><FinancialAnalysis /></ProtectedRoute>} />
+        <Route path="/finance/center-tagging" element={<ProtectedRoute><CenterTagging /></ProtectedRoute>} />
+        <Route path="/finance/budget" element={<ProtectedRoute><Budget /></ProtectedRoute>} />
+        <Route path="/finance/budget/:centreId" element={<ProtectedRoute><BudgetDetails /></ProtectedRoute>} />
+        <Route path="/finance/part-time-teachers" element={<ProtectedRoute><PartTimeTeachers /></ProtectedRoute>} />
+        <Route path="/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
+        <Route path="/sales/centre-target" element={<ProtectedRoute><CentreTarget /></ProtectedRoute>} />
+        <Route path="/sales/centre-rank" element={<ProtectedRoute><CentreRank /></ProtectedRoute>} />
+        <Route path="/sales/target-achievement-report" element={<ProtectedRoute><TargetAchievementReport /></ProtectedRoute>} />
+        <Route path="/sales/admission-report" element={<ProtectedRoute><AdmissionReport /></ProtectedRoute>} />
+        <Route path="/sales/course-report" element={<ProtectedRoute><CourseReport /></ProtectedRoute>} />
+        <Route path="/sales/discount-report" element={<ProtectedRoute><DiscountReport /></ProtectedRoute>} />
+        <Route path="/sales/transaction-report" element={<ProtectedRoute><TransactionReport /></ProtectedRoute>} />
+        <Route path="/sales/board-report" element={<ProtectedRoute><BoardReport /></ProtectedRoute>} />
+        <Route path="/hr" element={<ProtectedRoute><HR /></ProtectedRoute>} />
+        <Route path="/hr/employee/list" element={<ProtectedRoute><EmployeeList /></ProtectedRoute>} />
+        <Route path="/hr/employee/add" element={<ProtectedRoute><AddEmployee /></ProtectedRoute>} />
+        <Route path="/hr/employee/edit/:id" element={<ProtectedRoute><AddEmployee /></ProtectedRoute>} />
+        <Route path="/hr/employee/view/:id" element={<ProtectedRoute><ViewEmployee /></ProtectedRoute>} />
+        <Route path="/hr/employee/letters/:id" element={<ProtectedRoute><EmployeeLetters /></ProtectedRoute>} />
+        <Route path="/hr/employee/letters/:id/offer-letter" element={<ProtectedRoute><OfferLetter /></ProtectedRoute>} />
+        <Route path="/hr/employee/letters/:id/appointment-letter" element={<ProtectedRoute><AppointmentLetter /></ProtectedRoute>} />
+        <Route path="/hr/employee/letters/:id/contract-letter" element={<ProtectedRoute><ContractLetter /></ProtectedRoute>} />
+        <Route path="/hr/employee/letters/:id/experience-letter" element={<ProtectedRoute><ExperienceLetter /></ProtectedRoute>} />
+        <Route path="/hr/employee/letters/:id/virtual-id" element={<ProtectedRoute><VirtualId /></ProtectedRoute>} />
+        <Route path="/hr/employee/letters/:id/relieving-letter" element={<ProtectedRoute><ReleaseLetter /></ProtectedRoute>} />
 
         {/* Attendance Management Routes */}
-        <Route path="/hr/attendance/holiday-management" element={<HolidayCalendar />} />
-        <Route path="/hr/attendance/holiday-list" element={<HolidayList />} />
-        <Route path="/hr/attendance/leave-type" element={<LeaveType />} />
-        <Route path="/hr/attendance/leave-management" element={<LeaveManagement />} />
-        <Route path="/hr/attendance/leave-request" element={<LeaveRequest />} />
-        <Route path="/hr/attendance/regularize-table" element={<RegularizeTable />} />
-        <Route path="/employee/regularization" element={<MyRegularization />} />
-        <Route path="/hr/attendance/employee-logs" element={<EmployeesAttendance />} />
-        <Route path="/hr/training" element={<TrainingList />} />
-        <Route path="/employee/training" element={<TrainingCenter />} />
-        <Route path="/employee/attendance" element={<EmployeeAttendance />} />
-        <Route path="/employee/details" element={<EmployeeDetails />} />
-        <Route path="/employee/posh" element={<PoshComplaint />} />
-        <Route path="/hr/resign/button" element={<ResignationRequest />} />
-        <Route path="/hr/resign" element={<ResignationList />} />
-        <Route path="/hr/resign-request" element={<ResignationList />} />
-        <Route path="/hr/documents/upload" element={<DocumentUpload />} />
-        <Route path="/employee/documents" element={<DocumentCenter />} />
-        <Route path="/hr/birthday" element={<BirthdayList />} />
-        <Route path="/hr/feedback" element={<AllFeedback />} />
-        <Route path="/employee/feedback" element={<FeedbackEvaluation />} />
-        <Route path="/hr/reimbursement" element={<ReimbursementList />} />
-        <Route path="/hr/reimbursement/add" element={<AddReimbursement />} />
-        <Route path="/hr/posh-table" element={<PoshDashboard />} />
-        <Route path="/hr/candidate-hiring" element={<CandidateHiring />} />
+        <Route path="/hr/attendance/holiday-management" element={<ProtectedRoute><HolidayCalendar /></ProtectedRoute>} />
+        <Route path="/hr/attendance/holiday-list" element={<ProtectedRoute><HolidayList /></ProtectedRoute>} />
+        <Route path="/hr/attendance/leave-type" element={<ProtectedRoute><LeaveType /></ProtectedRoute>} />
+        <Route path="/hr/attendance/leave-management" element={<ProtectedRoute><LeaveManagement /></ProtectedRoute>} />
+        <Route path="/hr/attendance/leave-request" element={<ProtectedRoute><LeaveRequest /></ProtectedRoute>} />
+        <Route path="/hr/attendance/regularize-table" element={<ProtectedRoute><RegularizeTable /></ProtectedRoute>} />
+        <Route path="/employee/regularization" element={<ProtectedRoute><MyRegularization /></ProtectedRoute>} />
+        <Route path="/hr/attendance/employee-logs" element={<ProtectedRoute><EmployeesAttendance /></ProtectedRoute>} />
+        <Route path="/hr/training" element={<ProtectedRoute><TrainingList /></ProtectedRoute>} />
+        <Route path="/employee/training" element={<ProtectedRoute><TrainingCenter /></ProtectedRoute>} />
+        <Route path="/employee/attendance" element={<ProtectedRoute><EmployeeAttendance /></ProtectedRoute>} />
+        <Route path="/employee/details" element={<ProtectedRoute><EmployeeDetails /></ProtectedRoute>} />
+        <Route path="/employee/posh" element={<ProtectedRoute><PoshComplaint /></ProtectedRoute>} />
+        <Route path="/hr/resign/button" element={<ProtectedRoute><ResignationRequest /></ProtectedRoute>} />
+        <Route path="/hr/resign" element={<ProtectedRoute><ResignationList /></ProtectedRoute>} />
+        <Route path="/hr/resign-request" element={<ProtectedRoute><ResignationList /></ProtectedRoute>} />
+        <Route path="/hr/documents/upload" element={<ProtectedRoute><DocumentUpload /></ProtectedRoute>} />
+        <Route path="/employee/documents" element={<ProtectedRoute><DocumentCenter /></ProtectedRoute>} />
+        <Route path="/hr/birthday" element={<ProtectedRoute><BirthdayList /></ProtectedRoute>} />
+        <Route path="/hr/feedback" element={<ProtectedRoute><AllFeedback /></ProtectedRoute>} />
+        <Route path="/employee/feedback" element={<ProtectedRoute><FeedbackEvaluation /></ProtectedRoute>} />
+        <Route path="/hr/reimbursement" element={<ProtectedRoute><ReimbursementList /></ProtectedRoute>} />
+        <Route path="/hr/reimbursement/add" element={<ProtectedRoute><AddReimbursement /></ProtectedRoute>} />
+        <Route path="/hr/posh-table" element={<ProtectedRoute><PoshDashboard /></ProtectedRoute>} />
+        <Route path="/hr/candidate-hiring" element={<ProtectedRoute><CandidateHiring /></ProtectedRoute>} />
 
 
-        <Route path="/academics" element={<Academics />} />
-        <Route path="/academics/teacher-list" element={<TeacherList />} />
-        <Route path="/academics/teacher/view/:id" element={<ViewTeacher />} />
-        <Route path="/academics/student-teacher-review" element={<StudentTeacherReview />} />
-        <Route path="/academics/live-class-review" element={<LiveClassReview />} />
-        <Route path="/academics/cc-teacher-review" element={<CCTeacherReview />} />
-        <Route path="/academics/hod-list" element={<HodList />} />
-        <Route path="/academics/centre-management" element={<CentreManagement />} />
-        <Route path="/academics/rm-list" element={<RMList />} />
-        <Route path="/academics/class-coordinator" element={<ClassCoordinator />} />
-        <Route path="/academics/classes" element={<Classes />} />
-        <Route path="/academics/class/add" element={<AddClass />} />
-        <Route path="/academics/upcoming-class" element={<UpcomingClass />} />
-        <Route path="/academics/ongoing-class" element={<OngoingClass />} />
-        <Route path="/academics/previous-class" element={<PreviousClass />} />
-        <Route path="/academics/mental-session-table" element={<MentalSessionTable />} />
-        <Route path="/academics/class-management" element={<ClassManagement />} />
-        <Route path="/academics/class-list" element={<ClassList />} />
-        <Route path="/academics/create-subject" element={<SubjectList />} />
-        <Route path="/academics/create-chapter" element={<ChapterList />} />
-        <Route path="/academics/create-topic" element={<TopicList />} />
-        <Route path="/academics/section-leader-board" element={<SectionLeaderBoard />} />
-        <Route path="/academics/exam-leader-board" element={<ExamLeaderBoard />} />
-        <Route path="/master-data" element={<MasterData />} />
-        <Route path="/master-data/class" element={<MasterDataClass />} />
-        <Route path="/master-data/exam-tag" element={<MasterDataExamTag />} />
-        <Route path="/master-data/department" element={<MasterDataDepartment />} />
-        <Route path="/master-data/centre" element={<MasterDataCentre />} />
-        <Route path="/master-data/batch" element={<MasterDataBatch />} />
-        <Route path="/master-data/source" element={<MasterDataSource />} />
-        <Route path="/master-data/session" element={<MasterDataSession />} />
-        <Route path="/master-data/script" element={<MasterDataScript />} />
-        <Route path="/master-data/expense-category" element={<MasterDataExpenseCategory />} />
-        <Route path="/master-data/expense-subcategory" element={<MasterDataExpenseSubCategory />} />
-        <Route path="/master-data/expenditure-type" element={<MasterDataExpenditureType />} />
-        <Route path="/master-data/account" element={<MasterDataAccount />} />
-        <Route path="/master-data/board" element={<MasterDataBoard />} />
-        <Route path="/master-data/subject" element={<MasterDataSubject />} />
-        <Route path="/master-data/zone" element={<ZoneManagement />} />
+        <Route path="/academics" element={<ProtectedRoute><Academics /></ProtectedRoute>} />
+        <Route path="/academics/teacher-list" element={<ProtectedRoute><TeacherList /></ProtectedRoute>} />
+        <Route path="/academics/teacher/view/:id" element={<ProtectedRoute><ViewTeacher /></ProtectedRoute>} />
+        <Route path="/academics/student-teacher-review" element={<ProtectedRoute><StudentTeacherReview /></ProtectedRoute>} />
+        <Route path="/academics/live-class-review" element={<ProtectedRoute><LiveClassReview /></ProtectedRoute>} />
+        <Route path="/academics/cc-teacher-review" element={<ProtectedRoute><CCTeacherReview /></ProtectedRoute>} />
+        <Route path="/academics/hod-list" element={<ProtectedRoute><HodList /></ProtectedRoute>} />
+        <Route path="/academics/centre-management" element={<ProtectedRoute><CentreManagement /></ProtectedRoute>} />
+        <Route path="/academics/rm-list" element={<ProtectedRoute><RMList /></ProtectedRoute>} />
+        <Route path="/academics/class-coordinator" element={<ProtectedRoute><ClassCoordinator /></ProtectedRoute>} />
+        <Route path="/academics/classes" element={<ProtectedRoute><Classes /></ProtectedRoute>} />
+        <Route path="/academics/class/add" element={<ProtectedRoute><AddClass /></ProtectedRoute>} />
+        <Route path="/academics/upcoming-class" element={<ProtectedRoute><UpcomingClass /></ProtectedRoute>} />
+        <Route path="/academics/ongoing-class" element={<ProtectedRoute><OngoingClass /></ProtectedRoute>} />
+        <Route path="/academics/previous-class" element={<ProtectedRoute><PreviousClass /></ProtectedRoute>} />
+        <Route path="/academics/mental-session-table" element={<ProtectedRoute><MentalSessionTable /></ProtectedRoute>} />
+        <Route path="/academics/class-management" element={<ProtectedRoute><ClassManagement /></ProtectedRoute>} />
+        <Route path="/academics/class-list" element={<ProtectedRoute><ClassList /></ProtectedRoute>} />
+        <Route path="/academics/create-subject" element={<ProtectedRoute><SubjectList /></ProtectedRoute>} />
+        <Route path="/academics/create-chapter" element={<ProtectedRoute><ChapterList /></ProtectedRoute>} />
+        <Route path="/academics/create-topic" element={<ProtectedRoute><TopicList /></ProtectedRoute>} />
+        <Route path="/academics/section-leader-board" element={<ProtectedRoute><SectionLeaderBoard /></ProtectedRoute>} />
+        <Route path="/academics/exam-leader-board" element={<ProtectedRoute><ExamLeaderBoard /></ProtectedRoute>} />
+        <Route path="/master-data" element={<ProtectedRoute><MasterData /></ProtectedRoute>} />
+        <Route path="/master-data/class" element={<ProtectedRoute><MasterDataClass /></ProtectedRoute>} />
+        <Route path="/master-data/exam-tag" element={<ProtectedRoute><MasterDataExamTag /></ProtectedRoute>} />
+        <Route path="/master-data/department" element={<ProtectedRoute><MasterDataDepartment /></ProtectedRoute>} />
+        <Route path="/master-data/centre" element={<ProtectedRoute><MasterDataCentre /></ProtectedRoute>} />
+        <Route path="/master-data/batch" element={<ProtectedRoute><MasterDataBatch /></ProtectedRoute>} />
+        <Route path="/master-data/source" element={<ProtectedRoute><MasterDataSource /></ProtectedRoute>} />
+        <Route path="/master-data/session" element={<ProtectedRoute><MasterDataSession /></ProtectedRoute>} />
+        <Route path="/master-data/script" element={<ProtectedRoute><MasterDataScript /></ProtectedRoute>} />
+        <Route path="/master-data/expense-category" element={<ProtectedRoute><MasterDataExpenseCategory /></ProtectedRoute>} />
+        <Route path="/master-data/expense-subcategory" element={<ProtectedRoute><MasterDataExpenseSubCategory /></ProtectedRoute>} />
+        <Route path="/master-data/expenditure-type" element={<ProtectedRoute><MasterDataExpenditureType /></ProtectedRoute>} />
+        <Route path="/master-data/account" element={<ProtectedRoute><MasterDataAccount /></ProtectedRoute>} />
+        <Route path="/master-data/board" element={<ProtectedRoute><MasterDataBoard /></ProtectedRoute>} />
+        <Route path="/master-data/subject" element={<ProtectedRoute><MasterDataSubject /></ProtectedRoute>} />
+        <Route path="/master-data/zone" element={<ProtectedRoute><ZoneManagement /></ProtectedRoute>} />
 
         {/* Petty Cash Routes */}
-        <Route path="/petty-cash/centre" element={<PettyCashCentre />} />
-        <Route path="/petty-cash/add-cash" element={<AddPettyCash />} />
-        <Route path="/petty-cash/request-approval" element={<PettyCashRequestApproval />} />
-        <Route path="/petty-cash/add-expenditure" element={<AddPettyCashExpenditure />} />
-        <Route path="/petty-cash/approval" element={<PettyCashApproval />} />
+        <Route path="/petty-cash/centre" element={<ProtectedRoute><PettyCashCentre /></ProtectedRoute>} />
+        <Route path="/petty-cash/add-cash" element={<ProtectedRoute><AddPettyCash /></ProtectedRoute>} />
+        <Route path="/petty-cash/request-approval" element={<ProtectedRoute><PettyCashRequestApproval /></ProtectedRoute>} />
+        <Route path="/petty-cash/add-expenditure" element={<ProtectedRoute><AddPettyCashExpenditure /></ProtectedRoute>} />
+        <Route path="/petty-cash/approval" element={<ProtectedRoute><PettyCashApproval /></ProtectedRoute>} />
 
-        <Route path="/master-data/designation" element={<MasterDataDesignation />} />
-        <Route path="/master-data/follow-up-feedback" element={<MasterDataFollowUpFeedback />} />
-        <Route path="/course-management" element={<MasterDataCourse />} />
-        <Route path="/course-management/carry-forward" element={<CarryForward />} />
-        <Route path="/course-management/course-transfer" element={<CourseTransfer />} />
-        <Route path="/enrolled-students" element={<EnrolledStudents />} />
-        <Route path="/edit-board-subjects/:admissionId" element={<EditBoardSubjects />} />
-        <Route path="/user-management" element={<UserManagement />} />
-        <Route path="/profile" element={<Profile />} />
+        <Route path="/master-data/designation" element={<ProtectedRoute><MasterDataDesignation /></ProtectedRoute>} />
+        <Route path="/master-data/follow-up-feedback" element={<ProtectedRoute><MasterDataFollowUpFeedback /></ProtectedRoute>} />
+        <Route path="/course-management" element={<ProtectedRoute><MasterDataCourse /></ProtectedRoute>} />
+        <Route path="/course-management/carry-forward" element={<ProtectedRoute><CarryForward /></ProtectedRoute>} />
+        <Route path="/course-management/course-transfer" element={<ProtectedRoute><CourseTransfer /></ProtectedRoute>} />
+        <Route path="/enrolled-students" element={<ProtectedRoute><EnrolledStudents /></ProtectedRoute>} />
+        <Route path="/edit-board-subjects/:admissionId" element={<ProtectedRoute><EditBoardSubjects /></ProtectedRoute>} />
+        <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );

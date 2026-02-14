@@ -13,6 +13,7 @@ const CashTransfer = () => {
     const [centres, setCentres] = useState([]);
     const [userCentres, setUserCentres] = useState([]);
     const [masterAccounts, setMasterAccounts] = useState([]);
+    const [auditReports, setCentreReports] = useState([]); // Store detailed centre reports
     const [cashSummary, setCashSummary] = useState({ totalCashLeft: 0 });
     const [formData, setFormData] = useState({
         fromCentreId: "",
@@ -49,6 +50,7 @@ const CashTransfer = () => {
 
             const allCentres = centresRes.data;
             setCashSummary(reportRes.data.summary);
+            setCentreReports(reportRes.data.report || []); // Store full report
             setMasterAccounts(accountsRes.data);
 
             // Filter for Hazra HO centre for destination
@@ -444,10 +446,24 @@ const CashTransfer = () => {
                                 <FaExchangeAlt className="text-9xl -rotate-12" />
                             </div>
                             <div className="space-y-1 relative">
-                                <p className="text-cyan-400 font-bold text-xs uppercase tracking-widest">Available Cash Balance</p>
-                                <h4 className="text-3xl md:text-4xl font-black text-white">₹{cashSummary.totalCashLeft.toLocaleString()}</h4>
+                                <p className="text-cyan-400 font-bold text-xs uppercase tracking-widest">
+                                    {formData.fromCentreId ? "Centre Cash Balance" : "Total Available Cash"}
+                                </p>
+                                <h4 className="text-3xl md:text-4xl font-black text-white">
+                                    ₹{(() => {
+                                        if (formData.fromCentreId) {
+                                            const centreReport = auditReports.find(r => r.centreId === formData.fromCentreId);
+                                            return (centreReport?.cashLeft || 0).toLocaleString();
+                                        }
+                                        return (cashSummary.totalCashLeft || 0).toLocaleString();
+                                    })()}
+                                </h4>
                                 <div className="h-1 w-20 bg-cyan-500/30 rounded-full mt-2"></div>
-                                <p className="text-gray-500 text-xs mt-4 italic leading-relaxed">Cash currently held across your authorized centres.</p>
+                                <p className="text-gray-500 text-xs mt-4 italic leading-relaxed">
+                                    {formData.fromCentreId
+                                        ? "Cash currently held at the selected centre."
+                                        : "Total cash held across all your authorized centres."}
+                                </p>
                             </div>
                         </div>
 

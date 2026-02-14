@@ -161,6 +161,7 @@ export const generateMonthlyBill = async (req, res) => {
 
         // Propagation Logic: Update this month and ALL future UNPAID months
         const courseStartDate = new Date(admission.admissionDate || admission.createdAt);
+        courseStartDate.setDate(1); // Set to 1st to avoid month overflow (e.g. Jan 31 -> Mar)
         for (let i = 0; i < admission.courseDurationMonths; i++) {
             const mDate = new Date(courseStartDate);
             mDate.setMonth(mDate.getMonth() + i);
@@ -176,9 +177,11 @@ export const generateMonthlyBill = async (req, res) => {
                         admission.monthlySubjectHistory[histologicalIndex].subjects = selectedSubjectsData;
                         admission.monthlySubjectHistory[histologicalIndex].totalAmount = totalAmount;
 
-                        // If it's the CURRENT month being paid, set isPaid
+                        // If it's the CURRENT month being paid, set status
                         if (mKey === billingMonth && Number(paymentAmount) >= totalAmount) {
-                            admission.monthlySubjectHistory[histologicalIndex].isPaid = true;
+                            const isCheque = (paymentMethod === "CHEQUE");
+                            admission.monthlySubjectHistory[histologicalIndex].isPaid = !isCheque;
+                            admission.monthlySubjectHistory[histologicalIndex].status = isCheque ? "PENDING_CLEARANCE" : "PAID";
                         }
                     }
                 } else {
@@ -187,7 +190,10 @@ export const generateMonthlyBill = async (req, res) => {
                         month: mKey,
                         subjects: selectedSubjectsData,
                         totalAmount: totalAmount,
-                        isPaid: (mKey === billingMonth && Number(paymentAmount) >= totalAmount)
+                        isPaid: (mKey === billingMonth && Number(paymentAmount) >= totalAmount && paymentMethod !== "CHEQUE"),
+                        status: (mKey === billingMonth && Number(paymentAmount) >= totalAmount)
+                            ? (paymentMethod === "CHEQUE" ? "PENDING_CLEARANCE" : "PAID")
+                            : "PENDING"
                     });
                 }
             }
@@ -227,8 +233,13 @@ export const generateMonthlyBill = async (req, res) => {
             const boardName = board.boardCourse || 'Board Course';
             const specificBoardCourseName = `${boardName} ${sessionStr} ${subNames}`.trim();
 
+            // Find the index of the billing month in history to use as installment number
+            const monthIdx = admission.monthlySubjectHistory.findIndex(h => h.month === billingMonth);
+            const calculatedInstNum = monthIdx >= 0 ? monthIdx + 1 : 99; // Fallback to 99 if not found
+
             if (existingPayment) {
                 // Update existing record
+                existingPayment.installmentNumber = calculatedInstNum;
                 existingPayment.amount = totalAmount;
                 existingPayment.paidAmount = (existingPayment.paidAmount || 0) + Number(paymentAmount);
                 existingPayment.status = (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID";
@@ -255,7 +266,7 @@ export const generateMonthlyBill = async (req, res) => {
 
                 const paymentData = {
                     admission: admission._id,
-                    installmentNumber: 0,
+                    installmentNumber: calculatedInstNum,
                     amount: totalAmount,
                     paidAmount: paymentAmount,
                     dueDate: new Date(),
@@ -321,6 +332,7 @@ export const generateMonthlyBreakdown = async (admission) => {
 
     const breakdown = [];
     const startDate = new Date(admission.admissionDate || admission.createdAt);
+    startDate.setDate(1); // Set to 1st to avoid month overflow
 
     for (let i = 0; i < admission.courseDurationMonths; i++) {
         const monthDate = new Date(startDate);
@@ -361,7 +373,7 @@ export const generateMonthlyBreakdown = async (admission) => {
             subjects: displayHistory ? displayHistory.subjects : [],
             totalAmount: displayHistory ? displayHistory.totalAmount : 0,
             isPaid: isPaidStatus,
-            paymentStatus: isPaidStatus ? "PAID" : (paymentEntry?.status || "PENDING"),
+            paymentStatus: isPaidStatus ? "PAID" : (paymentEntry?.status || actualHistoryEntry?.status || "PENDING"),
             billId: paymentEntry?.billId || null,
             receivedDate: paymentEntry?.receivedDate || paymentEntry?.paidDate,
             dueDate: monthDate
@@ -441,6 +453,7 @@ export const updateBoardSubjects = async (req, res) => {
 
         // Propagation Logic for updateBoardSubjects: Update this month and ALL future UNPAID months
         const courseStartDate = new Date(admission.admissionDate || admission.createdAt);
+        courseStartDate.setDate(1); // Set to 1st to avoid month overflow
         for (let i = 0; i < admission.courseDurationMonths; i++) {
             const mDate = new Date(courseStartDate);
             mDate.setMonth(mDate.getMonth() + i);

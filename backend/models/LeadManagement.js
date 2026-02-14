@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import Class from "./Master_data/Class.js";
 import CentreSchema from "./Master_data/Centre.js";
+import Boards from "./Master_data/Boards.js";
+import Course from "./Master_data/Courses.js";
 
 const leadManagementSchema = new mongoose.Schema({
     name: {
@@ -28,11 +30,11 @@ const leadManagementSchema = new mongoose.Schema({
     },
     course: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Course",
+        ref: Course,
     },
     board: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Board",
+        ref: Boards,
     },
     source: {
         type: String,
@@ -50,6 +52,13 @@ const leadManagementSchema = new mongoose.Schema({
     isCounseled: {
         type: Boolean,
         default: false
+    },
+    assignedAt: {
+        type: Date
+    },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
     },
     // New fields for easier querying
     lastFollowUpDate: {
@@ -75,6 +84,10 @@ const leadManagementSchema = new mongoose.Schema({
         },
         updatedBy: {
             type: String // Optional: store who added the follow-up
+        },
+        status: {
+            type: String, // Tracking lead status at the time of follow-up
+            enum: ['HOT LEAD', 'COLD LEAD', 'NEGATIVE']
         },
         callStartTime: {
             type: Date

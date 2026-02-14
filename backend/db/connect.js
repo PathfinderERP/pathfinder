@@ -16,10 +16,10 @@ const connectDB = async (retryCount = 0) => {
     }
 
     const options = {
-      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+      serverSelectionTimeoutMS: 30000, // Timeout after 30s (increased from 5s)
       socketTimeoutMS: 45000,         // Close sockets after 45s of inactivity
       family: 4,                      // Use IPv4, skip trying IPv6 (can help with ENOTFOUND)
-      connectTimeoutMS: 10000,        // Connection timeout
+      connectTimeoutMS: 30000,        // Connection timeout (increased from 10s)
     };
 
     mongoose.connection.on("error", (err) => {
@@ -39,7 +39,7 @@ const connectDB = async (retryCount = 0) => {
 
   } catch (error) {
     console.error(`❌ MongoDB connection attempt ${retryCount + 1} failed: ${error.message}`);
-    
+
     if (retryCount < MAX_RETRIES) {
       console.log(`🔄 Retrying in ${RETRY_DELAY / 1000}s...`);
       setTimeout(() => connectDB(retryCount + 1), RETRY_DELAY);

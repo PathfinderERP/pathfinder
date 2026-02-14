@@ -4,12 +4,15 @@ import { FaEdit, FaTrash, FaPlus, FaTimes, FaSearch } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { hasPermission } from "../../config/permissions";
+import { useTheme } from "../../context/ThemeContext";
 
 const ClassCoordinator = () => {
     const [coordinators, setCoordinators] = useState([]);
     const [centres, setCentres] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
     // Permissions State
     const [canCreate, setCanCreate] = useState(false);
@@ -176,14 +179,14 @@ const ClassCoordinator = () => {
 
     return (
         <Layout activePage="Academics">
-            <div className="p-6 text-gray-100 min-h-screen font-sans">
-                <ToastContainer theme="dark" position="top-right" />
+            <div className={`p-6 min-h-screen font-sans transition-colors duration-300 ${isDarkMode ? 'text-gray-100' : 'text-gray-900 bg-[#f8fafc]'}`}>
+                <ToastContainer theme={theme} position="top-right" />
 
-                <h1 className="text-2xl font-bold text-white mb-6">Class Coordinator List</h1>
+                <h1 className={`text-2xl font-bold mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Class Coordinator List</h1>
 
-                <div className="bg-[#1e2530] p-6 rounded-xl border border-gray-700 shadow-2xl">
+                <div className={`${isDarkMode ? 'bg-[#1e2530] border-gray-700 shadow-2xl' : 'bg-white border-gray-200 shadow-md'} p-6 rounded-xl border transition-colors`}>
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-bold text-gray-300">Class Coordinator List</h2>
+                        <h2 className={`text-xl font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Class Coordinator List</h2>
                         {canCreate && (
                             <button
                                 onClick={() => openModal()}
@@ -202,7 +205,7 @@ const ClassCoordinator = () => {
                                 placeholder="Search by name, email, or employee ID..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="bg-[#131619] text-white pl-10 pr-4 py-2 rounded-lg border border-gray-700 focus:border-blue-500 outline-none w-full md:w-1/3"
+                                className={`pl-10 pr-4 py-2 rounded-lg border focus:border-blue-500 outline-none w-full md:w-1/3 transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                             />
                         </div>
                     </div>
@@ -210,7 +213,7 @@ const ClassCoordinator = () => {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-[#8bbefa] text-black text-xs uppercase font-bold">
+                                <tr className={`${isDarkMode ? 'bg-[#8bbefa] text-black' : 'bg-blue-600 text-white'} text-xs uppercase font-bold`}>
                                     <th className="p-3">SL NO.</th>
                                     <th className="p-3">NAME</th>
                                     <th className="p-3">EMP ID</th>
@@ -219,17 +222,17 @@ const ClassCoordinator = () => {
                                     <th className="p-3 text-right">ACTIONS</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-700 text-sm">
+                            <tbody className={`divide-y text-sm ${isDarkMode ? 'divide-gray-700 bg-[#1e2530]/50' : 'divide-gray-100 bg-white'}`}>
                                 {loading ? (
                                     <tr><td colSpan="6" className="p-8 text-center text-gray-400">Loading...</td></tr>
                                 ) : filteredCoordinators.length === 0 ? (
                                     <tr><td colSpan="6" className="p-8 text-center text-gray-400">No Class Coordinators found</td></tr>
                                 ) : (
                                     filteredCoordinators.map((c, index) => (
-                                        <tr key={c._id} className="hover:bg-[#252b32] transition-colors">
+                                        <tr key={c._id} className={`transition-colors ${isDarkMode ? 'hover:bg-[#252b32] text-gray-300' : 'hover:bg-gray-50 text-gray-600'}`}>
                                             <td className="p-3">{index + 1}</td>
-                                            <td className="p-3 font-semibold text-white uppercase">{c.name}</td>
-                                            <td className="p-3 font-mono text-cyan-400">{c.employeeId}</td>
+                                            <td className={`p-3 font-semibold uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{c.name}</td>
+                                            <td className={`p-3 font-mono ${isDarkMode ? 'text-cyan-400' : 'text-blue-600 font-bold'}`}>{c.employeeId}</td>
                                             <td className="p-3">{c.email}</td>
                                             <td className="p-3">
                                                 {c.centres && c.centres.length > 0 ? c.centres.map(centre => centre.centreName).join(", ") : "-"}
@@ -259,10 +262,10 @@ const ClassCoordinator = () => {
 
             {/* Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-                    <div className="bg-[#1a1f24] p-6 rounded-lg w-full max-w-lg border border-gray-700 shadow-xl">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-xl font-bold text-white">
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                    <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'} p-8 rounded-2xl w-full max-w-lg border shadow-2xl`}>
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className={`text-2xl font-black uppercase italic tracking-wider ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                 {currentCoordinator ? "Edit Coordinator" : "Add Coordinator"}
                             </h3>
                             <button onClick={closeModal} className="text-gray-400 hover:text-white text-2xl">
@@ -273,65 +276,65 @@ const ClassCoordinator = () => {
                             <div className="grid grid-cols-2 gap-6">
                                 {/* Name */}
                                 <div className="flex flex-col">
-                                    <label className="text-gray-300 font-medium text-sm mb-2">Name*</label>
+                                    <label className={`font-medium text-xs uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Name*</label>
                                     <input
                                         name="name"
                                         value={formData.name}
                                         onChange={handleInputChange}
                                         placeholder="Enter Name"
-                                        className="bg-[#2a3038] border border-gray-600 rounded-lg p-3 text-white placeholder-gray-500 focus:border-blue-500 outline-none transition"
+                                        className={`rounded-xl p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#2a3038] border-gray-600 text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-600 shadow-sm'}`}
                                         required
                                     />
                                 </div>
 
                                 {/* Email */}
                                 <div className="flex flex-col">
-                                    <label className="text-gray-300 font-medium text-sm mb-2">Email*</label>
+                                    <label className={`font-medium text-xs uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Email*</label>
                                     <input
                                         type="email"
                                         name="email"
                                         value={formData.email}
                                         onChange={handleInputChange}
                                         placeholder="abc@gmail.com"
-                                        className="bg-[#2a3038] border border-gray-600 rounded-lg p-3 text-white placeholder-gray-500 focus:border-blue-500 outline-none transition"
+                                        className={`rounded-xl p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#2a3038] border-gray-600 text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-600 shadow-sm'}`}
                                         required
                                     />
                                 </div>
 
                                 {/* Employee ID */}
                                 <div className="flex flex-col">
-                                    <label className="text-gray-300 font-medium text-sm mb-2">Employee Id*</label>
+                                    <label className={`font-medium text-xs uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Employee Id*</label>
                                     <input
                                         name="employeeId"
                                         value={formData.employeeId}
                                         onChange={handleInputChange}
                                         placeholder="Enter ID"
-                                        className="bg-[#2a3038] border border-gray-600 rounded-lg p-3 text-white placeholder-gray-500 focus:border-blue-500 outline-none transition"
+                                        className={`rounded-xl p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#2a3038] border-gray-600 text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-600 shadow-sm'}`}
                                         required
                                     />
                                 </div>
 
                                 {/* Phone */}
                                 <div className="flex flex-col">
-                                    <label className="text-gray-300 font-medium text-sm mb-2">Phone</label>
+                                    <label className={`font-medium text-xs uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Phone</label>
                                     <input
                                         name="mobNum"
                                         value={formData.mobNum}
                                         onChange={handleInputChange}
                                         placeholder="Enter Phone"
-                                        className="bg-[#2a3038] border border-gray-600 rounded-lg p-3 text-white placeholder-gray-500 focus:border-blue-500 outline-none transition"
+                                        className={`rounded-xl p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#2a3038] border-gray-600 text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-600 shadow-sm'}`}
                                     />
                                 </div>
 
                                 {/* Centre */}
                                 <div className="flex flex-col col-span-2">
-                                    <label className="text-gray-300 font-medium text-sm mb-2">Centre*</label>
+                                    <label className={`font-medium text-xs uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Centre*</label>
                                     <div className="relative">
                                         <select
                                             name="centreId"
                                             value={formData.centreId}
                                             onChange={handleInputChange}
-                                            className="w-full bg-[#2a3038] border border-gray-600 rounded-lg p-3 text-white placeholder-gray-500 focus:border-blue-500 outline-none appearance-none transition"
+                                            className={`w-full rounded-xl p-3 outline-none appearance-none transition-all border ${isDarkMode ? 'bg-[#2a3038] border-gray-600 text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-600 shadow-sm'}`}
                                             required
                                         >
                                             <option value="" disabled hidden>Select a Center</option>
@@ -339,7 +342,7 @@ const ClassCoordinator = () => {
                                                 <option key={c._id} value={c._id}>{c.centreName || c.name}</option>
                                             ))}
                                         </select>
-                                        <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-400">
+                                        <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-400">
                                             <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path></svg>
                                         </div>
                                     </div>
@@ -347,14 +350,14 @@ const ClassCoordinator = () => {
 
                                 {!currentCoordinator && (
                                     <div className="flex flex-col col-span-2">
-                                        <label className="text-gray-300 font-medium text-sm mb-2">Password*</label>
+                                        <label className={`font-medium text-xs uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Password*</label>
                                         <input
                                             type="password"
                                             name="password"
                                             value={formData.password}
                                             onChange={handleInputChange}
                                             placeholder="Enter Password"
-                                            className="bg-[#2a3038] border border-gray-600 rounded-lg p-3 text-white placeholder-gray-500 focus:border-blue-500 outline-none transition"
+                                            className={`rounded-xl p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#2a3038] border-gray-600 text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-600 shadow-sm'}`}
                                             required={!currentCoordinator}
                                         />
                                     </div>

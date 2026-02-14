@@ -1,4 +1,5 @@
 import express from "express";
+import multer from "multer";
 import {
     createEmployee,
     getEmployees,
@@ -13,7 +14,7 @@ import {
     bulkImportEmployees
 } from "../../controllers/HR/employeeController.js";
 import { getEmployeeAnalytics } from "../../controllers/HR/employeeAnalyticsController.js";
-import authMiddleware from "../../middleware/authMiddleware.js";
+import { requireAuth } from "../../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
@@ -32,7 +33,7 @@ const uploadFields = upload.fields([
 ]);
 
 // All routes require authentication
-router.use(authMiddleware);
+router.use(requireAuth);
 
 // Analytics endpoint
 router.get("/analytics", getEmployeeAnalytics);
@@ -40,18 +41,33 @@ router.get("/analytics", getEmployeeAnalytics);
 // Get employees for dropdown (managers)
 router.get("/dropdown", getEmployeesForDropdown);
 
+// wrapper to catch multer errors
+const handleUpload = (req, res, next) => {
+    uploadFields(req, res, (err) => {
+        if (err instanceof multer.MulterError) {
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                return res.status(400).json({ message: "File too large. Maximum size allowed is 25MB." });
+            }
+            return res.status(400).json({ message: `Upload error: ${err.message}` });
+        } else if (err) {
+            return res.status(500).json({ message: `Server error: ${err.message}` });
+        }
+        next();
+    });
+};
+
 // My Profile Routes (Must be before /:id)
 router.get("/me", getMyProfile);
-router.put("/me", uploadFields, updateMyProfile);
+router.put("/me", handleUpload, updateMyProfile);
 
 // Bulk operations
 router.post("/bulk/import", bulkImportEmployees);
 
 // CRUD routes
-router.post("/", uploadFields, createEmployee);
+router.post("/", handleUpload, createEmployee);
 router.get("/", getEmployees);
 router.get("/:id", getEmployeeById);
-router.put("/:id", uploadFields, updateEmployee);
+router.put("/:id", handleUpload, updateEmployee);
 router.delete("/:id", deleteEmployee);
 
 // Add salary structure

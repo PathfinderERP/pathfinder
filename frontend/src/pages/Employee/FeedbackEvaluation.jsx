@@ -6,8 +6,11 @@ import {
 } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import Layout from "../../components/Layout";
+import { useTheme } from "../../context/ThemeContext";
 
 const FeedbackEvaluation = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [feedbacks, setFeedbacks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -61,34 +64,34 @@ const FeedbackEvaluation = () => {
 
     return (
         <Layout activePage="Employee Center">
-            <div className="p-4 md:p-8 bg-[#0F172A] min-h-screen text-slate-200">
-                <ToastContainer theme="dark" />
+            <div className={`p-4 md:p-8 min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#0F172A] text-slate-200' : 'bg-gray-50 text-gray-800'}`}>
+                <ToastContainer theme={isDarkMode ? "dark" : "light"} />
 
                 <div className="max-w-6xl mx-auto">
                     {/* Header */}
                     <div className="mb-10 animate-in slide-in-from-top duration-700">
-                        <h1 className="text-4xl font-black text-white flex items-center gap-3">
-                            <div className="p-3 bg-indigo-600 rounded-2xl shadow-xl shadow-indigo-600/20">
+                        <h1 className={`text-4xl font-black flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            <div className="p-3 bg-indigo-600 rounded-2xl shadow-xl shadow-indigo-600/20 text-white">
                                 <FaCommentDots />
                             </div>
-                            Feedback & <span className="text-indigo-400">Self Evaluation</span>
+                            Feedback & <span className="text-indigo-600">Self Evaluation</span>
                         </h1>
-                        <p className="text-slate-400 mt-2 font-medium">Share your thoughts, evaluations, or grievances with the HR team.</p>
+                        <p className={`${isDarkMode ? 'text-slate-400' : 'text-gray-500'} mt-2 font-medium`}>Share your thoughts, evaluations, or grievances with the HR team.</p>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         {/* Left: Submission Form */}
                         <div className="lg:col-span-1">
-                            <div className="bg-slate-800/40 border border-slate-700/50 rounded-[32px] p-8 backdrop-blur-sm sticky top-8">
-                                <h2 className="text-xl font-black text-white mb-6 uppercase tracking-tight flex items-center gap-2">
-                                    <FaPaperPlane className="text-indigo-400" /> New Request
+                            <div className={`border rounded-[32px] p-8 backdrop-blur-sm sticky top-8 ${isDarkMode ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white border-gray-200 shadow-sm'}`}>
+                                <h2 className={`text-xl font-black mb-6 uppercase tracking-tight flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    <FaPaperPlane className="text-indigo-600" /> New Request
                                 </h2>
 
                                 <form onSubmit={handleSubmit} className="space-y-5">
                                     <div>
-                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Type</label>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>Type</label>
                                         <select
-                                            className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-3 px-4 outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-bold"
+                                            className={`w-full border rounded-2xl py-3 px-4 outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-bold ${isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-800'}`}
                                             value={formData.type}
                                             onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                                         >
@@ -100,10 +103,10 @@ const FeedbackEvaluation = () => {
                                     </div>
 
                                     <div>
-                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Subject</label>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>Subject</label>
                                         <input
                                             type="text"
-                                            className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-3 px-4 outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-bold placeholder:text-slate-600"
+                                            className={`w-full border rounded-2xl py-3 px-4 outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-bold ${isDarkMode ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-600' : 'bg-gray-50 border-gray-200 text-gray-800 placeholder:text-gray-400'}`}
                                             placeholder="Briefly describe the topic..."
                                             value={formData.subject}
                                             onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
@@ -111,9 +114,9 @@ const FeedbackEvaluation = () => {
                                     </div>
 
                                     <div>
-                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Detailed Message</label>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>Detailed Message</label>
                                         <textarea
-                                            className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-3 px-4 outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-medium min-h-[150px] placeholder:text-slate-600 resize-none"
+                                            className={`w-full border rounded-2xl py-3 px-4 outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-medium min-h-[150px] placeholder:text-slate-600 resize-none ${isDarkMode ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-600' : 'bg-gray-50 border-gray-200 text-gray-800 placeholder:text-gray-400'}`}
                                             placeholder="Write your feedback here..."
                                             value={formData.message}
                                             onChange={(e) => setFormData({ ...formData, message: e.target.value })}
@@ -135,9 +138,9 @@ const FeedbackEvaluation = () => {
 
                         {/* Right: History */}
                         <div className="lg:col-span-2">
-                            <div className="bg-slate-800/20 border border-slate-700/30 rounded-[32px] p-8 min-h-[600px]">
-                                <h2 className="text-xl font-black text-white mb-8 uppercase tracking-tight flex items-center gap-2">
-                                    <FaHistory className="text-indigo-400" /> Request History
+                            <div className={`border rounded-[32px] p-8 min-h-[600px] ${isDarkMode ? 'bg-slate-800/20 border-slate-700/30' : 'bg-white border-gray-200 shadow-sm'}`}>
+                                <h2 className={`text-xl font-black mb-8 uppercase tracking-tight flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    <FaHistory className="text-indigo-600" /> Request History
                                 </h2>
 
                                 {loading ? (
@@ -146,15 +149,15 @@ const FeedbackEvaluation = () => {
                                         <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em]">Syncing Records</p>
                                     </div>
                                 ) : feedbacks.length === 0 ? (
-                                    <div className="text-center py-20 border-2 border-dashed border-slate-800 rounded-3xl">
-                                        <FaCommentDots className="text-6xl text-slate-800 mx-auto mb-4" />
-                                        <p className="text-slate-500 font-bold">No feedback history found.</p>
-                                        <p className="text-slate-600 text-sm mt-1">Your submitted requests will appear here.</p>
+                                    <div className={`text-center py-20 border-2 border-dashed rounded-3xl ${isDarkMode ? 'border-slate-800' : 'border-gray-200'}`}>
+                                        <FaCommentDots className={`text-6xl mx-auto mb-4 ${isDarkMode ? 'text-slate-800' : 'text-gray-200'}`} />
+                                        <p className={`${isDarkMode ? 'text-slate-500' : 'text-gray-400'} font-bold`}>No feedback history found.</p>
+                                        <p className={`${isDarkMode ? 'text-slate-600' : 'text-gray-400'} text-sm mt-1`}>Your submitted requests will appear here.</p>
                                     </div>
                                 ) : (
                                     <div className="space-y-6">
                                         {feedbacks.map((f) => (
-                                            <div key={f._id} className="group relative bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 hover:border-indigo-500/30 transition-all duration-300">
+                                            <div key={f._id} className={`group relative border rounded-3xl p-6 transition-all duration-300 ${isDarkMode ? 'bg-slate-800/40 border-slate-700/50 hover:border-indigo-500/30' : 'bg-white border-gray-100 shadow-sm hover:border-indigo-200'}`}>
                                                 <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-4">
                                                     <div className="flex items-center gap-3">
                                                         <div className={`p-2 rounded-xl ${f.type === 'Grievance' ? 'bg-rose-500/10 text-rose-500' : 'bg-indigo-500/10 text-indigo-500'
@@ -162,8 +165,8 @@ const FeedbackEvaluation = () => {
                                                             <FaUserShield size={16} />
                                                         </div>
                                                         <div>
-                                                            <h4 className="text-white font-black uppercase text-sm tracking-tight">{f.subject}</h4>
-                                                            <div className="flex items-center gap-2 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                                            <h4 className={`font-black uppercase text-sm tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{f.subject}</h4>
+                                                            <div className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>
                                                                 <FaClock /> {new Date(f.createdAt).toLocaleDateString()} • {f.type}
                                                             </div>
                                                         </div>
@@ -176,34 +179,34 @@ const FeedbackEvaluation = () => {
                                                     </div>
                                                 </div>
 
-                                                <div className="bg-slate-900/40 p-5 rounded-2xl mb-4 border border-slate-700/20">
-                                                    <p className="text-slate-300 text-sm font-medium leading-relaxed italic">"{f.message}"</p>
+                                                <div className={`p-5 rounded-2xl mb-4 border ${isDarkMode ? 'bg-slate-900/40 border-slate-700/20' : 'bg-gray-50 border-gray-100'}`}>
+                                                    <p className={`text-sm font-medium leading-relaxed italic ${isDarkMode ? 'text-slate-300' : 'text-gray-600'}`}>"{f.message}"</p>
                                                 </div>
 
                                                 {f.hrResponse && (
-                                                    <div className="mt-4 p-5 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl relative overflow-hidden">
+                                                    <div className={`mt-4 p-5 rounded-2xl relative overflow-hidden border ${isDarkMode ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'}`}>
                                                         <div className="absolute top-0 right-0 p-4 opacity-10">
                                                             <FaCheckCircle className="text-emerald-500" size={40} />
                                                         </div>
                                                         <div className="flex items-center justify-between mb-3">
-                                                            <div className="flex items-center gap-2 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
+                                                            <div className="flex items-center gap-2 text-emerald-600 text-[10px] font-black uppercase tracking-widest">
                                                                 <FaUserTie /> Official Response
                                                             </div>
                                                             {f.responderName && (
-                                                                <div className="flex items-center gap-3 bg-slate-900/80 py-1.5 pl-3 pr-1.5 rounded-full border border-slate-700/50 shadow-inner">
-                                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{f.responderName}</span>
-                                                                    <div className="w-8 h-8 rounded-full bg-slate-800 overflow-hidden ring-2 ring-emerald-500/20 shadow-lg">
+                                                                <div className={`flex items-center gap-3 py-1.5 pl-3 pr-1.5 rounded-full border shadow-inner ${isDarkMode ? 'bg-slate-900/80 border-slate-700/50' : 'bg-white border-gray-200'}`}>
+                                                                    <span className={`text-[10px] font-black uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>{f.responderName}</span>
+                                                                    <div className={`w-8 h-8 rounded-full overflow-hidden ring-2 shadow-lg ${isDarkMode ? 'bg-slate-800 ring-emerald-500/20' : 'bg-gray-100 ring-emerald-100'}`}>
                                                                         {f.responderImage ? (
                                                                             <img src={f.responderImage} alt="" className="w-full h-full object-cover" />
                                                                         ) : (
-                                                                            <FaUserCircle className="w-full h-full p-1 text-slate-600" />
+                                                                            <FaUserCircle className={`w-full h-full p-1 ${isDarkMode ? 'text-slate-600' : 'text-gray-300'}`} />
                                                                         )}
                                                                     </div>
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <p className="text-emerald-100 text-sm font-medium">"{f.hrResponse}"</p>
-                                                        <div className="mt-2 text-[9px] text-emerald-500/60 font-bold uppercase tracking-widest">
+                                                        <p className={`text-sm font-medium ${isDarkMode ? 'text-emerald-100' : 'text-emerald-900'}`}>"{f.hrResponse}"</p>
+                                                        <div className={`mt-2 text-[9px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-emerald-500/60' : 'text-emerald-600/60'}`}>
                                                             Responded on {new Date(f.respondedAt).toLocaleDateString()}
                                                         </div>
                                                     </div>

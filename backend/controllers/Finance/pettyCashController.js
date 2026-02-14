@@ -6,6 +6,7 @@ import Employee from "../../models/HR/Employee.js";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import s3Client from "../../config/r2Config.js";
 import multer from "multer";
+import User from "../../models/User.js";
 
 const storage = multer.memoryStorage();
 export const upload = multer({
@@ -35,8 +36,10 @@ const uploadToR2 = async (file, folder = "petty_cash") => {
 export const getPettyCashCentres = async (req, res) => {
     try {
         let query = {};
-        if (req.user.role !== 'superAdmin') {
-            query.centre = { $in: req.user.centres };
+        if (req.user.role !== 'superAdmin' && req.user.role !== 'Super Admin') {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentres = currentUser ? currentUser.centres.map(c => c._id || c) : [];
+            query.centre = { $in: userCentres };
         }
 
         const centres = await PettyCashCentre.find(query)
@@ -77,12 +80,22 @@ export const addExpenditure = async (req, res) => {
             paymentMode, taxApplicable
         } = req.body;
 
+        // Center Visibility Restriction
+        if (req.user.role !== 'superAdmin' && req.user.role !== 'Super Admin') {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentres = (currentUser ? currentUser.centres : []).map(c => c._id?.toString() || c.toString());
+            if (!userCentres.includes(centre)) {
+                return res.status(403).json({ message: "Access denied: You cannot add expenditure for this centre" });
+            }
+        }
+
         let billImageUrl = null;
         if (req.file) {
             billImageUrl = await uploadToR2(req.file);
         }
 
-        const employee = await Employee.findOne({ user: req.user._id });
+        const userId = req.user.id || req.user._id;
+        const employee = await Employee.findOne({ user: userId });
         if (!employee) return res.status(404).json({ message: "Employee profile not found" });
 
         const expenditure = new PettyCashExpenditure({
@@ -124,13 +137,22 @@ export const getExpenditures = async (req, res) => {
             }
         }
 
-        if (req.user.role !== 'superAdmin') {
-            query.centre = { $in: req.user.centres };
-        }
-
-        if (centreId) {
+        if (req.user.role !== 'superAdmin' && req.user.role !== 'Super Admin') {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentres = (currentUser ? currentUser.centres : []).map(c => c._id?.toString() || c.toString());
+            if (centreId) {
+                const requestedCentres = centreId.split(',').filter(id => id.trim() !== "");
+                const filteredCentres = requestedCentres.filter(id => userCentres.includes(id));
+                if (filteredCentres.length === 0) {
+                    return res.status(200).json({ expenditures: [], totalPages: 0, currentPage: page, totalItems: 0 }); // Better than 403 usually for list filters
+                }
+                query.centre = { $in: filteredCentres };
+            } else {
+                query.centre = { $in: userCentres };
+            }
+        } else if (centreId) {
             if (centreId.includes(',')) {
-                query.centre = { $in: centreId.split(',') };
+                query.centre = { $in: centreId.split(',').filter(id => id.trim() !== "") };
             } else {
                 query.centre = centreId;
             }
@@ -191,6 +213,16 @@ export const approveExpenditure = async (req, res) => {
         const expenditure = await PettyCashExpenditure.findById(id);
 
         if (!expenditure) return res.status(404).json({ message: "Expenditure not found" });
+
+        // Center Visibility Restriction
+        if (req.user.role !== 'superAdmin' && req.user.role !== 'Super Admin') {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentres = (currentUser ? currentUser.centres : []).map(c => c._id?.toString() || c.toString());
+            if (!userCentres.includes(expenditure.centre?.toString())) {
+                return res.status(403).json({ message: "Access denied: You cannot approve expenditure for this centre" });
+            }
+        }
+
         if (expenditure.status !== "pending") return res.status(400).json({ message: "Expenditure already processed" });
 
         // Update Centre balance
@@ -201,7 +233,7 @@ export const approveExpenditure = async (req, res) => {
         pCentre.remainingBalance = pCentre.totalDeposit - pCentre.totalExpenditure;
         await pCentre.save();
 
-        const employee = await Employee.findOne({ user: req.user._id });
+        const employee = await Employee.findOne({ user: req.user.id || req.user._id });
         if (!employee) return res.status(404).json({ message: "Employee profile not found" });
 
         expenditure.status = "approved";
@@ -222,12 +254,22 @@ export const rejectExpenditure = async (req, res) => {
         const { id } = req.params;
         const { reason } = req.body;
 
-        const employee = await Employee.findOne({ user: req.user._id });
+        const employee = await Employee.findOne({ user: req.user.id || req.user._id });
         if (!employee) return res.status(404).json({ message: "Employee profile not found" });
 
         const expenditure = await PettyCashExpenditure.findById(id);
 
         if (!expenditure) return res.status(404).json({ message: "Expenditure not found" });
+
+        // Center Visibility Restriction
+        if (req.user.role !== 'superAdmin' && req.user.role !== 'Super Admin') {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentres = (currentUser ? currentUser.centres : []).map(c => c._id?.toString() || c.toString());
+            if (!userCentres.includes(expenditure.centre?.toString())) {
+                return res.status(403).json({ message: "Access denied: You cannot reject expenditure for this centre" });
+            }
+        }
+
         if (expenditure.status !== "pending") return res.status(400).json({ message: "Expenditure already processed" });
 
         expenditure.status = "rejected";
@@ -247,6 +289,16 @@ export const rejectExpenditure = async (req, res) => {
 export const addPettyCashDeposit = async (req, res) => {
     try {
         const { centreId, amount } = req.body;
+
+        // Center Visibility Restriction
+        if (req.user.role !== 'superAdmin' && req.user.role !== 'Super Admin') {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentres = (currentUser ? currentUser.centres : []).map(c => c._id?.toString() || c.toString());
+            if (!userCentres.includes(centreId)) {
+                return res.status(403).json({ message: "Access denied: You cannot add deposit to this centre" });
+            }
+        }
+
         const pCentre = await PettyCashCentre.findOne({ centre: centreId });
 
         if (!pCentre) {
@@ -272,8 +324,17 @@ export const requestPettyCash = async (req, res) => {
     try {
         const { centre, amount, remarks } = req.body;
 
+        // Center Visibility Restriction
+        if (req.user.role !== 'superAdmin' && req.user.role !== 'Super Admin') {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentres = (currentUser ? currentUser.centres : []).map(c => c._id?.toString() || c.toString());
+            if (!userCentres.includes(centre)) {
+                return res.status(403).json({ message: "Access denied: You cannot request petty cash for this centre" });
+            }
+        }
+
         // Resolve Employee ID from User ID
-        const employee = await Employee.findOne({ user: req.user._id });
+        const employee = await Employee.findOne({ user: req.user.id || req.user._id });
         if (!employee) return res.status(404).json({ message: "Employee profile not found for this user" });
 
         const request = new PettyCashRequest({
@@ -296,11 +357,20 @@ export const getPettyCashRequests = async (req, res) => {
         let query = {};
         if (status) query.status = status;
 
-        if (req.user.role !== 'superAdmin') {
-            query.centre = { $in: req.user.centres };
+        if (req.user.role !== 'superAdmin' && req.user.role !== 'Super Admin') {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentres = (currentUser ? currentUser.centres : []).map(c => c._id?.toString() || c.toString());
+            if (centreId) {
+                if (!userCentres.includes(centreId)) {
+                    return res.status(403).json({ message: "Access denied to this centre's requests" });
+                }
+                query.centre = centreId;
+            } else {
+                query.centre = { $in: userCentres };
+            }
+        } else if (centreId) {
+            query.centre = centreId;
         }
-
-        if (centreId) query.centre = centreId;
 
         const requests = await PettyCashRequest.find(query)
             .populate("centre", "centreName")
@@ -321,6 +391,16 @@ export const approvePettyCashRequest = async (req, res) => {
         const request = await PettyCashRequest.findById(id);
 
         if (!request) return res.status(404).json({ message: "Request not found" });
+
+        // Center Visibility Restriction
+        if (req.user.role !== 'superAdmin' && req.user.role !== 'Super Admin') {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentres = (currentUser ? currentUser.centres : []).map(c => c._id?.toString() || c.toString());
+            if (!userCentres.includes(request.centre.toString())) {
+                return res.status(403).json({ message: "Access denied: You cannot approve request for this centre" });
+            }
+        }
+
         if (request.status !== "pending") return res.status(400).json({ message: "Request already processed" });
 
         // Update Centre balance
@@ -337,7 +417,7 @@ export const approvePettyCashRequest = async (req, res) => {
             await pCentre.save();
         }
 
-        const employee = await Employee.findOne({ user: req.user._id });
+        const employee = await Employee.findOne({ user: req.user.id || req.user._id });
         if (!employee) return res.status(404).json({ message: "Employee profile not found" });
 
         request.status = "approved";
@@ -361,9 +441,19 @@ export const rejectPettyCashRequest = async (req, res) => {
         const request = await PettyCashRequest.findById(id);
 
         if (!request) return res.status(404).json({ message: "Request not found" });
+
+        // Center Visibility Restriction
+        if (req.user.role !== 'superAdmin' && req.user.role !== 'Super Admin') {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentres = (currentUser ? currentUser.centres : []).map(c => c._id?.toString() || c.toString());
+            if (!userCentres.includes(request.centre.toString())) {
+                return res.status(403).json({ message: "Access denied: You cannot reject request for this centre" });
+            }
+        }
+
         if (request.status !== "pending") return res.status(400).json({ message: "Request already processed" });
 
-        const employee = await Employee.findOne({ user: req.user._id });
+        const employee = await Employee.findOne({ user: req.user.id || req.user._id });
         if (!employee) return res.status(404).json({ message: "Employee profile not found" });
 
         request.status = "rejected";

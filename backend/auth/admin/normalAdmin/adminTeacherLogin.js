@@ -14,6 +14,10 @@ export default async function adminTeacherLogin(req, res) {
             return res.status(400).json({ message: "User does not exist" });
         }
 
+        if (user.isActive === false) {
+            return res.status(403).json({ message: "Your account has been deactivated. Please contact support." });
+        }
+
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(400).json({ message: "Invalid credentials" });

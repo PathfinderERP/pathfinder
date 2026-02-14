@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { FaTimes, FaUpload, FaDownload, FaFileExcel } from "react-icons/fa";
+import { FaTimes, FaUpload, FaDownload, FaFileExcel, FaSync, FaExclamationTriangle } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
-const BulkLeadModal = ({ onClose, onSuccess }) => {
+const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
     const [loading, setLoading] = useState(false);
     const [validating, setValidating] = useState(false);
     const [file, setFile] = useState(null);
     const [errorMsg, setErrorMsg] = useState("");
 
-    // Dropdown/Validation Data
     const [classes, setClasses] = useState([]);
     const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
@@ -51,17 +50,21 @@ const BulkLeadModal = ({ onClose, onSuccess }) => {
             setSources(sourceData.sources || []);
 
             if (userRes.ok && userData.users) {
-                setTelecallers(userData.users.filter(u => u.role === "telecaller"));
+                // Return all users as requested ("everyone can add/see leads")
+                setTelecallers(userData.users);
             }
         } catch (error) {
             console.error("Error fetching validation data:", error);
-            toast.error("Failed to load validation data");
+            toast.error("Failed to load data");
         }
     };
 
     const handleFileChange = (e) => {
         setFile(e.target.files[0]);
         setErrorMsg("");
+        if (e.target.files[0]) {
+            toast.info(`File [${e.target.files[0].name.toUpperCase()}] ready for import`);
+        }
     };
 
     const downloadTemplate = () => {
@@ -87,11 +90,12 @@ const BulkLeadModal = ({ onClose, onSuccess }) => {
         const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
         const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         saveAs(data, "Lead_Import_Template.xlsx");
+        toast.success("Import template downloaded");
     };
 
     const processFile = async () => {
         if (!file) {
-            toast.error("Please select a file first");
+            toast.error("Please select a file");
             return;
         }
 
@@ -108,7 +112,7 @@ const BulkLeadModal = ({ onClose, onSuccess }) => {
                 const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
                 if (jsonData.length === 0) {
-                    setErrorMsg("Excel file is empty");
+                    setErrorMsg("The file is empty");
                     setValidating(false);
                     return;
                 }
@@ -116,60 +120,58 @@ const BulkLeadModal = ({ onClose, onSuccess }) => {
                 const validLeads = [];
                 const errors = [];
 
+                const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+                const userAllottedCentres = currentUser.centres?.map(c => (typeof c === 'object' ? c._id : c)) || [];
+                const isSuperAdmin = currentUser.role === "superAdmin" || currentUser.role === "Super Admin";
+
                 for (let i = 0; i < jsonData.length; i++) {
                     const row = jsonData[i];
-                    const rowNum = i + 2; // Excel row number (1-based, plus header)
+                    const rowNum = i + 2;
 
-                    // Required Fields Check
                     if (!row.Name || !row.Email || !row.SchoolName) {
-                        errors.push(`Row ${rowNum}: Name, Email, and SchoolName are required`);
+                        errors.push(`Row ${rowNum}: Missing Required Data (Name, Email, SchoolName required)`);
                         continue;
                     }
 
-                    // Validate Telecaller (Case Insensitive)
                     if (row.LeadResponsibility) {
                         const telecallerExists = telecallers.some(
-                            t => t.name.toLowerCase() === row.LeadResponsibility.toLowerCase()
+                            t => t.name.toLowerCase().trim() === row.LeadResponsibility.toString().toLowerCase().trim()
                         );
                         if (!telecallerExists) {
-                            errors.push(`Row ${rowNum}: Telecaller '${row.LeadResponsibility}' not found in system`);
+                            errors.push(`Row ${rowNum}: Agent '${row.LeadResponsibility}' not found`);
                             continue;
                         }
                     }
 
-                    // Map Names to IDs
-                    // Class
                     let classId = null;
                     if (row.Class) {
                         const cls = classes.find(c => c.name.toLowerCase() === row.Class.toString().toLowerCase());
                         if (cls) classId = cls._id;
-                        // Optional: Error if class not found? User didn't specify strictness for other fields, but good for data integrity.
-                        // User emphasized Telecaller check. I'll stick to Telecaller strictness for now, but map others.
                     }
 
-                    // Centre
                     let centreId = null;
                     if (row.Centre) {
                         const ctr = centres.find(c => c.centreName.toLowerCase() === row.Centre.toLowerCase());
-                        if (ctr) centreId = ctr._id;
+                        if (ctr) {
+                            centreId = ctr._id;
+                            // Relaxed centre restriction to allow 'everyone' to add leads as requested
+                        } else {
+                            errors.push(`Row ${rowNum}: Centre '${row.Centre}' not found in system`);
+                            continue;
+                        }
                     }
 
-                    // Course
                     let courseId = null;
                     if (row.Course) {
                         const crs = courses.find(c => c.courseName.toLowerCase() === row.Course.toLowerCase());
                         if (crs) courseId = crs._id;
                     }
 
-                    // Board
                     let boardId = null;
                     if (row.Board) {
                         const brd = boards.find(b => b.boardCourse.toLowerCase() === row.Board.toLowerCase());
                         if (brd) boardId = brd._id;
                     }
-
-                    // Source (String matching)
-                    // If source in DB, fine. If not, we can still save the string as per schema.
 
                     validLeads.push({
                         name: row.Name,
@@ -180,26 +182,25 @@ const BulkLeadModal = ({ onClose, onSuccess }) => {
                         centre: centreId,
                         course: courseId,
                         board: boardId,
-                        source: row.Source, // Just string match or keep as is
+                        source: row.Source,
                         targetExam: row.TargetExam,
-                        leadType: row.LeadType ? row.LeadType.toUpperCase() : "COLD LEAD", // Default or normalize
-                        leadResponsibility: row.LeadResponsibility // Backend stores string
+                        leadType: row.LeadType ? row.LeadType.toUpperCase() : "COLD LEAD",
+                        leadResponsibility: row.LeadResponsibility
                     });
                 }
 
                 if (errors.length > 0) {
-                    setErrorMsg(`Validation Failed:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n...and ${errors.length - 5} more` : ''}`);
+                    setErrorMsg(`Validation Error:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n...and ${errors.length - 5} more` : ''}`);
                     setValidating(false);
-                    toast.error("Validation failed. Please check errors.");
+                    toast.error("Validation Failed");
                     return;
                 }
 
-                // If all good, submit to backend
                 await uploadLeads(validLeads);
 
             } catch (error) {
                 console.error("Error processing file:", error);
-                setErrorMsg("Failed to process Excel file");
+                setErrorMsg("Failed to read file");
                 setValidating(false);
             }
         };
@@ -210,13 +211,6 @@ const BulkLeadModal = ({ onClose, onSuccess }) => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
-
-            // We'll send one by one or create a bulk endpoint. 
-            // Since we don't have a bulk endpoint, we can use Promise.all.
-            // For 100s of leads, Promise.all might be too much. Let's do batches.
-            // But for now, let's assume reasonable size or use a simple loop.
-            // Actually, adding a bulk-create endpoint is better. But I'll loop for now to avoid changing backend too much.
-
             let successCount = 0;
             const failures = [];
 
@@ -241,12 +235,12 @@ const BulkLeadModal = ({ onClose, onSuccess }) => {
                 toast.success(`Successfully imported ${successCount} leads!`);
                 onSuccess();
             } else {
-                toast.warning(`Imported ${successCount} leads. Failed: ${failures.length}`);
+                toast.warning(`Partial Import: ${successCount} successful. Failed: ${failures.length}`);
             }
 
         } catch (error) {
             console.error("Upload error:", error);
-            toast.error("Error uploading leads");
+            toast.error("Import Failed");
         } finally {
             setLoading(false);
             setValidating(false);
@@ -254,26 +248,38 @@ const BulkLeadModal = ({ onClose, onSuccess }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-[#1a1f24] rounded-xl w-full max-w-lg border border-gray-700">
-                <div className="flex justify-between items-center p-6 border-b border-gray-700">
-                    <h3 className="text-xl font-bold text-white">Import Leads</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white">
+        <div className={`fixed inset-0 flex items-center justify-center z-[70] p-4 backdrop-blur-md transition-all ${isDarkMode ? 'bg-black/70' : 'bg-white/60'}`}>
+            <div className={`w-full max-w-lg rounded-[4px] border shadow-2xl transition-all overflow-hidden ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-cyan-500/10' : 'bg-white border-gray-200'}`}>
+
+                {/* Header */}
+                <div className={`px-8 py-5 border-b flex justify-between items-center transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                    <div>
+                        <h3 className={`text-xl font-black uppercase tracking-tighter italic flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            <FaUpload className="text-cyan-500" />
+                            Bulk Lead Import
+                        </h3>
+                        <p className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.3em] mt-0.5">Import leads from an Excel file</p>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className={`transition-all p-2 rounded-[4px] active:scale-95 ${isDarkMode ? 'bg-white/5 text-gray-400 hover:text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                    >
                         <FaTimes size={20} />
                     </button>
                 </div>
 
-                <div className="p-6 space-y-6">
+                <div className={`p-8 space-y-8 ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`}>
                     <div className="flex justify-center">
                         <button
                             onClick={downloadTemplate}
-                            className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300 border border-cyan-400 rounded-lg px-4 py-2 hover:bg-cyan-400/10 transition-colors"
+                            className={`flex items-center gap-3 px-6 py-3 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border group ${isDarkMode ? 'bg-cyan-500/5 text-cyan-400 border-cyan-500/20 hover:bg-cyan-500/10' : 'bg-cyan-50 text-cyan-700 border-cyan-200 hover:bg-cyan-100'}`}
                         >
-                            <FaDownload /> Download Template
+                            <FaDownload className="group-hover:translate-y-0.5 transition-transform" />
+                            Download Template
                         </button>
                     </div>
 
-                    <div className="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-cyan-500 transition-colors">
+                    <div className={`border-2 border-dashed rounded-[4px] p-10 text-center transition-all group ${isDarkMode ? 'bg-[#131619] border-gray-700 hover:border-cyan-500/50' : 'bg-gray-50 border-gray-200 hover:border-cyan-500'}`}>
                         <input
                             type="file"
                             accept=".xlsx, .xls"
@@ -281,33 +287,40 @@ const BulkLeadModal = ({ onClose, onSuccess }) => {
                             className="hidden"
                             id="file-upload"
                         />
-                        <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center gap-2">
-                            <FaFileExcel className="text-4xl text-green-500" />
-                            <span className="text-gray-300 font-medium">
-                                {file ? file.name : "Click to select Excel file"}
-                            </span>
+                        <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center gap-4">
+                            <FaFileExcel className={`text-5xl transition-transform group-hover:scale-110 ${file ? 'text-emerald-500' : 'text-gray-500'}`} />
+                            <div className="space-y-1">
+                                <span className={`block text-[11px] font-black uppercase tracking-widest ${isDarkMode ? (file ? 'text-white' : 'text-gray-400') : (file ? 'text-gray-900' : 'text-gray-500')}`}>
+                                    {file ? file.name.toUpperCase() : "Select Excel File"}
+                                </span>
+                                <span className="block text-[9px] text-gray-500 font-bold uppercase tracking-widest opacity-50 italic">.XLSX, .XLS files only</span>
+                            </div>
                         </label>
                     </div>
 
                     {errorMsg && (
-                        <div className="bg-red-500/10 border border-red-500 text-red-400 p-4 rounded-lg text-sm whitespace-pre-wrap max-h-40 overflow-y-auto">
-                            {errorMsg}
+                        <div className={`p-4 rounded-[4px] border border-dashed flex items-start gap-4 transition-all ${isDarkMode ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-red-50 border-red-200 text-red-600'}`}>
+                            <FaExclamationTriangle className="mt-1 flex-shrink-0" />
+                            <div className="space-y-1">
+                                <p className="text-[10px] font-black uppercase tracking-widest">Import Error</p>
+                                <p className="text-[11px] font-medium whitespace-pre-wrap leading-relaxed">{errorMsg}</p>
+                            </div>
                         </div>
                     )}
 
-                    <div className="flex justify-end gap-3 pt-2">
+                    <div className={`flex justify-end gap-4 pt-4 border-t transition-all ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                         <button
                             onClick={onClose}
-                            className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600"
+                            className={`px-8 py-3 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border ${isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}
                         >
                             Cancel
                         </button>
                         <button
                             onClick={processFile}
                             disabled={loading || validating || !file}
-                            className="px-4 py-2 bg-cyan-500 text-black font-bold rounded-lg hover:bg-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            className={`px-10 py-3 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg flex items-center justify-center gap-3 ${isDarkMode ? 'bg-cyan-600 text-white hover:bg-cyan-500 shadow-cyan-500/20 disabled:opacity-30' : 'bg-cyan-600 text-white hover:bg-cyan-700 shadow-cyan-500/30 disabled:opacity-30'}`}
                         >
-                            {loading ? "Uploading..." : validating ? "Validating..." : <><FaUpload /> Upload</>}
+                            {loading ? <FaSync className="animate-spin" /> : validating ? <FaSync className="animate-spin" /> : <><FaUpload size={14} /> Start Import</>}
                         </button>
                     </div>
                 </div>

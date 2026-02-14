@@ -124,7 +124,7 @@ const PartTimeTeachers = () => {
             // Let's fetch from existing master data endpoints I see in other files.
 
             const [deptRes, boardRes] = await Promise.all([
-                fetch(`${import.meta.env.VITE_API_URL}/master-data/department`, { headers: { Authorization: `Bearer ${token}` } }),
+                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers: { Authorization: `Bearer ${token}` } }),
                 // Board is often just an enum or free text in User model. Let's use common ones.
             ]);
 

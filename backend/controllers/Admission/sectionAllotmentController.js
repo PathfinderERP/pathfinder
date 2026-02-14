@@ -1,6 +1,7 @@
 import Admission from "../../models/Admission/Admission.js";
+import CentreSchema from "../../models/Master_data/Centre.js";
+import mongoose from "mongoose";
 
-// Fetch students for section allotment (with filters and RBAC)
 // Fetch students for section allotment (with filters and RBAC)
 export const getStudentSections = async (req, res) => {
     try {
@@ -11,74 +12,63 @@ export const getStudentSections = async (req, res) => {
         let matchQuery = { admissionStatus: "ACTIVE" };
 
         // 1. RBAC & Centre Filter logic
-        if (user.role === 'superAdmin' || user.role === 'Super Admin') {
+        if (user.role !== 'superAdmin' && user.role !== 'Super Admin') {
+            // Non-Super Admins: Get allowed centres from user profile
+            const userCentres = await CentreSchema.find({
+                _id: { $in: user.centres }
+            }).select('centreName');
+
+            const allowedCentreNames = userCentres.map(c => c.centreName);
+
+            if (allowedCentreNames.length === 0) {
+                return res.status(200).json([]);
+            }
+
+            // Base restriction
+            matchQuery.centre = { $in: allowedCentreNames };
+
+            // Handle query-level centre filtering
             if (centre) {
-                 if (centre.includes(',')) {
-                    matchQuery.centre = { $in: centre.split(',') };
+                const requestedCentres = centre.split(',').map(c => c.trim());
+                const validRequestedCentres = requestedCentres.filter(c => allowedCentreNames.includes(c));
+
+                if (validRequestedCentres.length > 0) {
+                    matchQuery.centre = { $in: validRequestedCentres };
                 } else {
-                    matchQuery.centre = centre;
+                    matchQuery.centre = { $in: [] };
                 }
             }
         } else {
-             // Non-Super Admins: Get allowed centres from user profile
-             // We can check user.centres (array of IDs usually) -> need names if query uses names?
-             // Assuming user.centres are ObjectIds ref Centre. 
-             // We need to fetch Centre names if the query relies on String names. 
-             // BUT current code uses matchQuery.centre = centreName.
-             // We need to fetch allowed names.
-             
-             // Check if user has 'centres' populated or just IDs.
-             // Best to rely on a utility or lookup. 
-             // For now, let's assume we need to restrict to user's assigned centres.
-             // However, to keep it simple and consistent with getAdmissions.js (where we fetched names):
-             
-             // NOTE: We don't have CentreSchema imported here. 
-             // We can proceed if we assume user.centres are accessible or if we import CentreSchema.
-             // Or if we trust the frontend to send valid 'centre' names and just validate?
-             // Actually, strictly we should validate. 
-             
-             // Since I can't easily import CentreSchema without adding imports line 1, 
-             // I will assume for now we can filter "if requested centre is in user.accessibleCentres (if it exists)".
-             // But existing code logic was a bit fuzzy.
-             
-             // Let's rely on the strategy: If centre passed, check against allowed. If no centre, force all allowed.
-             // PROBLEM: I don't have the list of allowed names efficiently here without querying DB.
-             // But let's check standard req.user structure in this codebase.
-             // Usually middleware populates basic user.
-             // User said "update it like this, the logged in user only can see their assigned centers".
-             
-             // I will assume req.user.centres contains the IDs. I need to find the names.
-             // I'll skip the DB Lookup for now and implement the multi-select filter logic first, adding a TODO or strict check if I can.
-             // Wait, the previous controller logic had `if (user.role !== 'Super Admin')`.
-             // I will apply the multi-select splitting logic here.
-             
-             // If non-super admin, we MUST filter.
-             // If we can't validate names easily, we might leak data if we just trust the param.
-             // Safest bet: Import CentreSchema and fetch allowed names like getAdmissions.
-             
-             // However, modifying imports with `replace_file_content` targeting the function body is hard.
-             // I'll replace the WHOLE file content or function to be safe.
-             // I'll assume I can add the import at the top if I replace the whole file. 
             // Super Admin
             if (centre) {
-                matchQuery.centre = { $in: centre.split(',') };
+                const requestedCentres = centre.split(',').map(c => c.trim());
+                matchQuery.centre = { $in: requestedCentres };
             }
         }
-        
+
         // Multi-select Filters (Casting to ObjectId for Aggregation)
         if (course) {
-             matchQuery.course = { $in: course.split(',').map(id => new mongoose.Types.ObjectId(id)) };
+            const courseIds = course.split(',').filter(id => id.length === 24);
+            if (courseIds.length > 0) {
+                matchQuery.course = { $in: courseIds.map(id => new mongoose.Types.ObjectId(id)) };
+            }
         }
         if (className) {
-            matchQuery.class = { $in: className.split(',').map(id => new mongoose.Types.ObjectId(id)) };
+            const classIds = className.split(',').filter(id => id.length === 24);
+            if (classIds.length > 0) {
+                matchQuery.class = { $in: classIds.map(id => new mongoose.Types.ObjectId(id)) };
+            }
         }
         if (examTag) {
-            matchQuery.examTag = { $in: examTag.split(',').map(id => new mongoose.Types.ObjectId(id)) };
+            const examTagIds = examTag.split(',').filter(id => id.length === 24);
+            if (examTagIds.length > 0) {
+                matchQuery.examTag = { $in: examTagIds.map(id => new mongoose.Types.ObjectId(id)) };
+            }
         }
 
         // 2. Aggregation Pipeline
         const pipeline = [
-             // Populate Student first to allow searching by student name
+            // Populate Student first to allow searching by student name
             {
                 $lookup: {
                     from: "students",
@@ -88,11 +78,11 @@ export const getStudentSections = async (req, res) => {
                 }
             },
             { $unwind: "$student" },
-            
+
             { $match: matchQuery }, // Apply filters
-            
+
             // Populate other fields for display
-             {
+            {
                 $lookup: {
                     from: "courses",
                     localField: "course",
@@ -101,8 +91,8 @@ export const getStudentSections = async (req, res) => {
                 }
             },
             { $unwind: { path: "$course", preserveNullAndEmptyArrays: true } },
-            
-             {
+
+            {
                 $lookup: {
                     from: "classes",
                     localField: "class",
@@ -110,9 +100,9 @@ export const getStudentSections = async (req, res) => {
                     as: "class"
                 }
             },
-             { $unwind: { path: "$class", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$class", preserveNullAndEmptyArrays: true } },
 
-             {
+            {
                 $lookup: {
                     from: "boards",
                     localField: "board",
@@ -120,23 +110,23 @@ export const getStudentSections = async (req, res) => {
                     as: "board"
                 }
             },
-             { $unwind: { path: "$board", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$board", preserveNullAndEmptyArrays: true } },
         ];
 
         if (search) {
-             const searchRegex = new RegExp(search, "i");
-             pipeline.push({
-                 $match: {
-                     $or: [
-                         { "student.studentsDetails.0.studentName": searchRegex },
-                         { "student.studentsDetails.0.studentEmail": searchRegex },
-                         { "student.studentsDetails.0.mobileNum": searchRegex },
-                         { "admissionNumber": searchRegex }
-                     ]
-                 }
-             });
+            const searchRegex = new RegExp(search, "i");
+            pipeline.push({
+                $match: {
+                    $or: [
+                        { "student.studentsDetails.0.studentName": searchRegex },
+                        { "student.studentsDetails.0.studentEmail": searchRegex },
+                        { "student.studentsDetails.0.mobileNum": searchRegex },
+                        { "admissionNumber": searchRegex }
+                    ]
+                }
+            });
         }
-        
+
         pipeline.push({ $sort: { createdAt: -1 } });
 
         const results = await Admission.aggregate(pipeline);

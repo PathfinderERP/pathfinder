@@ -27,13 +27,10 @@ const CourseContent = () => {
 
     // Filter states
     const [filters, setFilters] = useState({
-        mode: "",
-        courseType: "",
-        class: "",
-        department: "",
         examTag: "",
         courseSession: "",
-        programme: ""
+        programme: "",
+        searchTerm: ""
     });
 
     const [formData, setFormData] = useState({
@@ -112,6 +109,12 @@ const CourseContent = () => {
         if (filters.programme) {
             filtered = filtered.filter(c => c.programme === filters.programme);
         }
+        if (filters.searchTerm) {
+            const searchLower = filters.searchTerm.toLowerCase();
+            filtered = filtered.filter(c =>
+                c.courseName.toLowerCase().includes(searchLower)
+            );
+        }
 
         setFilteredCourses(filtered);
     };
@@ -126,13 +129,11 @@ const CourseContent = () => {
 
     const clearFilters = () => {
         setFilters({
-            mode: "",
-            courseType: "",
-            class: "",
             department: "",
             examTag: "",
             courseSession: "",
-            programme: ""
+            programme: "",
+            searchTerm: ""
         });
     };
 
@@ -468,7 +469,17 @@ const CourseContent = () => {
                     <FaFilter className="text-cyan-400 text-sm sm:text-base" />
                     <h3 className="text-base sm:text-lg font-semibold text-white">Filters</h3>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-8 gap-2 sm:gap-3">
+                    <div className="lg:col-span-2">
+                        <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Search Course Name</label>
+                        <input
+                            type="text"
+                            placeholder="Search by course name..."
+                            value={filters.searchTerm}
+                            onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-xs sm:text-sm focus:outline-none focus:border-cyan-500"
+                        />
+                    </div>
                     <div>
                         <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Mode</label>
                         <select
@@ -730,256 +741,260 @@ const CourseContent = () => {
             </div>
 
             {/* Edit/Create Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 overflow-y-auto">
-                    <div className="bg-[#1a1f24] p-6 rounded-lg w-full max-w-2xl border border-gray-700 shadow-xl my-10">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-xl font-bold text-white">
-                                {currentCourse ? "Edit Course" : "Add New Course"}
-                            </h3>
-                            <button onClick={closeModal} className="text-gray-400 hover:text-white">
-                                <FaTimes />
-                            </button>
-                        </div>
-                        <form onSubmit={handleSave} className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-gray-400 mb-1 text-sm">Course Name</label>
-                                    <input type="text" name="courseName" value={formData.courseName} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required />
-                                </div>
-                                <div>
-                                    <label className="block text-gray-400 mb-1 text-sm">Course Session</label>
-                                    <select
-                                        name="courseSession"
-                                        value={formData.courseSession}
-                                        onChange={handleInputChange}
-                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
-                                        required
-                                    >
-                                        <option value="">Select Session</option>
-                                        {sessions.map(sess => (
-                                            <option key={sess._id} value={sess.sessionName}>{sess.sessionName}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-gray-400 mb-1 text-sm">Department</label>
-                                    <select name="department" value={formData.department} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required>
-                                        <option value="">Select Department</option>
-                                        {departments.map(dept => <option key={dept._id} value={dept._id}>{dept.departmentName}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-gray-400 mb-1 text-sm">Class</label>
-                                    <select name="class" value={formData.class} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500">
-                                        <option value="">Select Class</option>
-                                        {classes.map(cls => <option key={cls._id} value={cls._id}>{cls.name}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-gray-400 mb-1 text-sm">Exam Tag</label>
-                                    <select name="examTag" value={formData.examTag} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required>
-                                        <option value="">Select Exam Tag</option>
-                                        {examTags.map(tag => <option key={tag._id} value={tag._id}>{tag.name}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-gray-400 mb-1 text-sm">Course Duration (In Month)</label>
-                                    <input type="text" name="courseDuration" value={formData.courseDuration} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required />
-                                </div>
-                                <div>
-                                    <label className="block text-gray-400 mb-1 text-sm">Course Period</label>
-                                    <select name="coursePeriod" value={formData.coursePeriod} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required>
-                                        <option value="">Select Period</option>
-                                        <option value="Yearly">Yearly</option>
-                                        <option value="Monthly">Monthly</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-gray-400 mb-1 text-sm">Mode</label>
-                                    <select name="mode" value={formData.mode} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required>
-                                        <option value="">Select Mode</option>
-                                        <option value="OFFLINE">OFFLINE</option>
-                                        <option value="ONLINE">ONLINE</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-gray-400 mb-1 text-sm">Course Type</label>
-                                    <select name="courseType" value={formData.courseType} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500">
-                                        <option value="">Select Type</option>
-                                        <option value="INSTATION">INSTATION</option>
-                                        <option value="OUTSTATION">OUTSTATION</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-gray-400 mb-1 text-sm">Programme</label>
-                                    <select name="programme" value={formData.programme} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500">
-                                        <option value="">Select Programme</option>
-                                        <option value="CRP">CRP</option>
-                                        <option value="NCRP">NCRP</option>
-                                    </select>
-                                </div>
+            {
+                isModalOpen && (
+                    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 overflow-y-auto">
+                        <div className="bg-[#1a1f24] p-6 rounded-lg w-full max-w-2xl border border-gray-700 shadow-xl my-10">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-xl font-bold text-white">
+                                    {currentCourse ? "Edit Course" : "Add New Course"}
+                                </h3>
+                                <button onClick={closeModal} className="text-gray-400 hover:text-white">
+                                    <FaTimes />
+                                </button>
                             </div>
-
-                            {/* Fees Structure */}
-                            <div>
-                                <div className="flex justify-between items-center mb-2">
-                                    <label className="block text-gray-400 text-sm">Fees Structure</label>
-                                    <button type="button" onClick={addFeeRow} className="text-xs text-cyan-400 hover:text-cyan-300">+ Add Fee</button>
-                                </div>
-                                <div className="flex gap-2 mb-1">
-                                    <span className="w-1/3 text-[10px] text-gray-500 uppercase tracking-wider">Fee Type</span>
-                                    <span className="w-1/3 text-[10px] text-gray-500 uppercase tracking-wider">Amount</span>
-                                    <span className="w-1/4 text-[10px] text-gray-500 uppercase tracking-wider">Discount</span>
-                                </div>
-                                {formData.feesStructure.map((fee, index) => (
-                                    <div key={index} className="flex gap-2 mb-2">
-                                        <input type="text" placeholder="e.g. Tuition" value={fee.feesType} onChange={(e) => handleFeeChange(index, 'feesType', e.target.value)} className="w-1/3 bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm" required />
-                                        <input type="number" placeholder="0.00" value={fee.value} onChange={(e) => handleFeeChange(index, 'value', e.target.value)} className="w-1/3 bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm" required />
-                                        <input type="text" placeholder="e.g. 0%" value={fee.discount} onChange={(e) => handleFeeChange(index, 'discount', e.target.value)} className="w-1/4 bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm" required />
-                                        {formData.feesStructure.length > 1 && (
-                                            <button type="button" onClick={() => removeFeeRow(index)} className="text-red-400 hover:text-red-300">
-                                                <FaTimes />
-                                            </button>
-                                        )}
+                            <form onSubmit={handleSave} className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 text-sm">Course Name</label>
+                                        <input type="text" name="courseName" value={formData.courseName} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required />
                                     </div>
-                                ))}
-                            </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 text-sm">Course Session</label>
+                                        <select
+                                            name="courseSession"
+                                            value={formData.courseSession}
+                                            onChange={handleInputChange}
+                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                            required
+                                        >
+                                            <option value="">Select Session</option>
+                                            {sessions.map(sess => (
+                                                <option key={sess._id} value={sess.sessionName}>{sess.sessionName}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 text-sm">Department</label>
+                                        <select name="department" value={formData.department} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required>
+                                            <option value="">Select Department</option>
+                                            {departments.map(dept => <option key={dept._id} value={dept._id}>{dept.departmentName}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 text-sm">Class</label>
+                                        <select name="class" value={formData.class} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500">
+                                            <option value="">Select Class</option>
+                                            {classes.map(cls => <option key={cls._id} value={cls._id}>{cls.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 text-sm">Exam Tag</label>
+                                        <select name="examTag" value={formData.examTag} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required>
+                                            <option value="">Select Exam Tag</option>
+                                            {examTags.map(tag => <option key={tag._id} value={tag._id}>{tag.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 text-sm">Course Duration (In Month)</label>
+                                        <input type="text" name="courseDuration" value={formData.courseDuration} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 text-sm">Course Period</label>
+                                        <select name="coursePeriod" value={formData.coursePeriod} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required>
+                                            <option value="">Select Period</option>
+                                            <option value="Yearly">Yearly</option>
+                                            <option value="Monthly">Monthly</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 text-sm">Mode</label>
+                                        <select name="mode" value={formData.mode} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" required>
+                                            <option value="">Select Mode</option>
+                                            <option value="OFFLINE">OFFLINE</option>
+                                            <option value="ONLINE">ONLINE</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 text-sm">Course Type</label>
+                                        <select name="courseType" value={formData.courseType} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500">
+                                            <option value="">Select Type</option>
+                                            <option value="INSTATION">INSTATION</option>
+                                            <option value="OUTSTATION">OUTSTATION</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 text-sm">Programme</label>
+                                        <select name="programme" value={formData.programme} onChange={handleInputChange} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500">
+                                            <option value="">Select Programme</option>
+                                            <option value="CRP">CRP</option>
+                                            <option value="NCRP">NCRP</option>
+                                        </select>
+                                    </div>
+                                </div>
 
-                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-700">
-                                <button
-                                    type="button"
-                                    onClick={closeModal}
-                                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors"
-                                >
-                                    Save
-                                </button>
-                            </div>
-                        </form>
+                                {/* Fees Structure */}
+                                <div>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <label className="block text-gray-400 text-sm">Fees Structure</label>
+                                        <button type="button" onClick={addFeeRow} className="text-xs text-cyan-400 hover:text-cyan-300">+ Add Fee</button>
+                                    </div>
+                                    <div className="flex gap-2 mb-1">
+                                        <span className="w-1/3 text-[10px] text-gray-500 uppercase tracking-wider">Fee Type</span>
+                                        <span className="w-1/3 text-[10px] text-gray-500 uppercase tracking-wider">Amount</span>
+                                        <span className="w-1/4 text-[10px] text-gray-500 uppercase tracking-wider">Discount</span>
+                                    </div>
+                                    {formData.feesStructure.map((fee, index) => (
+                                        <div key={index} className="flex gap-2 mb-2">
+                                            <input type="text" placeholder="e.g. Tuition" value={fee.feesType} onChange={(e) => handleFeeChange(index, 'feesType', e.target.value)} className="w-1/3 bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm" required />
+                                            <input type="number" placeholder="0.00" value={fee.value} onChange={(e) => handleFeeChange(index, 'value', e.target.value)} className="w-1/3 bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm" required />
+                                            <input type="text" placeholder="e.g. 0%" value={fee.discount} onChange={(e) => handleFeeChange(index, 'discount', e.target.value)} className="w-1/4 bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm" required />
+                                            {formData.feesStructure.length > 1 && (
+                                                <button type="button" onClick={() => removeFeeRow(index)} className="text-red-400 hover:text-red-300">
+                                                    <FaTimes />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="flex justify-end gap-3 pt-4 border-t border-gray-700">
+                                    <button
+                                        type="button"
+                                        onClick={closeModal}
+                                        className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors"
+                                    >
+                                        Save
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Detail View Modal */}
-            {isDetailModalOpen && selectedCourse && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 overflow-y-auto">
-                    <div className="bg-[#1a1f24] p-6 rounded-lg w-full max-w-3xl border border-gray-700 shadow-xl my-10">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-2xl font-bold text-cyan-400">{selectedCourse.courseName}</h3>
-                            <button onClick={closeDetailModal} className="text-gray-400 hover:text-white">
-                                <FaTimes size={20} />
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-gray-400 text-sm">Department</label>
-                                    <p className="text-white font-medium">{selectedCourse.department?.departmentName || "-"}</p>
-                                </div>
-                                <div>
-                                    <label className="text-gray-400 text-sm">Class</label>
-                                    <p className="text-white font-medium">{selectedCourse.class?.name || "-"}</p>
-                                </div>
-                                <div>
-                                    <label className="text-gray-400 text-sm">Exam Tag</label>
-                                    <p className="text-white font-medium">{selectedCourse.examTag?.name || "-"}</p>
-                                </div>
-                                <div>
-                                    <label className="text-gray-400 text-sm">Course Session</label>
-                                    <p className="text-white font-medium">{selectedCourse.courseSession}</p>
-                                </div>
-                                <div>
-                                    <label className="text-gray-400 text-sm">Duration</label>
-                                    <p className="text-white font-medium">{selectedCourse.courseDuration}</p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-gray-400 text-sm">Course Period</label>
-                                    <p className="text-white font-medium">{selectedCourse.coursePeriod}</p>
-                                </div>
-                                <div>
-                                    <label className="text-gray-400 text-sm">Mode</label>
-                                    <p>
-                                        <span className={`px-3 py-1 rounded ${selectedCourse.mode === 'ONLINE' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'}`}>
-                                            {selectedCourse.mode}
-                                        </span>
-                                    </p>
-                                </div>
-                                <div>
-                                    <label className="text-gray-400 text-sm">Course Type</label>
-                                    <p>
-                                        <span className={`px-3 py-1 rounded ${selectedCourse.courseType === 'INSTATION' ? 'bg-purple-500/20 text-purple-400' : 'bg-orange-500/20 text-orange-400'}`}>
-                                            {selectedCourse.courseType}
-                                        </span>
-                                    </p>
-                                </div>
-                                <div>
-                                    <label className="text-gray-400 text-sm">Programme</label>
-                                    <p>
-                                        <span className={`px-3 py-1 rounded ${selectedCourse.programme === 'CRP' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-pink-500/20 text-pink-400'}`}>
-                                            {selectedCourse.programme}
-                                        </span>
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-6 border-t border-gray-700 pt-4">
-                            <h4 className="text-lg font-semibold text-white mb-3">Fees Structure</h4>
-                            <div className="bg-gray-800 rounded-lg overflow-hidden">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="bg-gray-900">
-                                            <th className="p-3 text-left text-gray-400 text-sm">Fee Type</th>
-                                            <th className="p-3 text-left text-gray-400 text-sm">Amount</th>
-                                            <th className="p-3 text-left text-gray-400 text-sm">Discount</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {selectedCourse.feesStructure.map((fee, index) => (
-                                            <tr key={index} className="border-t border-gray-700">
-                                                <td className="p-3 text-white">{fee.feesType}</td>
-                                                <td className="p-3 text-white">₹{fee.value.toLocaleString()}</td>
-                                                <td className="p-3 text-green-400">{fee.discount}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div className="mt-6 flex justify-end gap-3">
-                            {canEdit && (
-                                <button
-                                    onClick={() => {
-                                        closeDetailModal();
-                                        openModal(selectedCourse);
-                                    }}
-                                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors"
-                                >
-                                    Edit Course
+            {
+                isDetailModalOpen && selectedCourse && (
+                    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 overflow-y-auto">
+                        <div className="bg-[#1a1f24] p-6 rounded-lg w-full max-w-3xl border border-gray-700 shadow-xl my-10">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-2xl font-bold text-cyan-400">{selectedCourse.courseName}</h3>
+                                <button onClick={closeDetailModal} className="text-gray-400 hover:text-white">
+                                    <FaTimes size={20} />
                                 </button>
-                            )}
-                            <button
-                                onClick={closeDetailModal}
-                                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-                            >
-                                Close
-                            </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-gray-400 text-sm">Department</label>
+                                        <p className="text-white font-medium">{selectedCourse.department?.departmentName || "-"}</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-gray-400 text-sm">Class</label>
+                                        <p className="text-white font-medium">{selectedCourse.class?.name || "-"}</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-gray-400 text-sm">Exam Tag</label>
+                                        <p className="text-white font-medium">{selectedCourse.examTag?.name || "-"}</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-gray-400 text-sm">Course Session</label>
+                                        <p className="text-white font-medium">{selectedCourse.courseSession}</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-gray-400 text-sm">Duration</label>
+                                        <p className="text-white font-medium">{selectedCourse.courseDuration}</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-gray-400 text-sm">Course Period</label>
+                                        <p className="text-white font-medium">{selectedCourse.coursePeriod}</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-gray-400 text-sm">Mode</label>
+                                        <p>
+                                            <span className={`px-3 py-1 rounded ${selectedCourse.mode === 'ONLINE' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'}`}>
+                                                {selectedCourse.mode}
+                                            </span>
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label className="text-gray-400 text-sm">Course Type</label>
+                                        <p>
+                                            <span className={`px-3 py-1 rounded ${selectedCourse.courseType === 'INSTATION' ? 'bg-purple-500/20 text-purple-400' : 'bg-orange-500/20 text-orange-400'}`}>
+                                                {selectedCourse.courseType}
+                                            </span>
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label className="text-gray-400 text-sm">Programme</label>
+                                        <p>
+                                            <span className={`px-3 py-1 rounded ${selectedCourse.programme === 'CRP' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-pink-500/20 text-pink-400'}`}>
+                                                {selectedCourse.programme}
+                                            </span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-6 border-t border-gray-700 pt-4">
+                                <h4 className="text-lg font-semibold text-white mb-3">Fees Structure</h4>
+                                <div className="bg-gray-800 rounded-lg overflow-hidden">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="bg-gray-900">
+                                                <th className="p-3 text-left text-gray-400 text-sm">Fee Type</th>
+                                                <th className="p-3 text-left text-gray-400 text-sm">Amount</th>
+                                                <th className="p-3 text-left text-gray-400 text-sm">Discount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {selectedCourse.feesStructure.map((fee, index) => (
+                                                <tr key={index} className="border-t border-gray-700">
+                                                    <td className="p-3 text-white">{fee.feesType}</td>
+                                                    <td className="p-3 text-white">₹{fee.value.toLocaleString()}</td>
+                                                    <td className="p-3 text-green-400">{fee.discount}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div className="mt-6 flex justify-end gap-3">
+                                {canEdit && (
+                                    <button
+                                        onClick={() => {
+                                            closeDetailModal();
+                                            openModal(selectedCourse);
+                                        }}
+                                        className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors"
+                                    >
+                                        Edit Course
+                                    </button>
+                                )}
+                                <button
+                                    onClick={closeDetailModal}
+                                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                                >
+                                    Close
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 

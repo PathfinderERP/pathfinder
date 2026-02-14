@@ -24,17 +24,75 @@ export const createChapter = async (req, res) => {
     }
 };
 
-// Get All Chapters
+// Get All Chapters with Pagination, Search and Filters
 export const getAllChapters = async (req, res) => {
     try {
-        const chapters = await AcademicsChapter.find()
+        const { page, limit, search = "", classId = "", subjectId = "" } = req.query;
+
+        const query = {};
+        if (search) {
+            query.chapterName = { $regex: search, $options: "i" };
+        }
+        if (subjectId) {
+            query.subjectId = subjectId;
+        }
+
+        // First find subjects matching classId if classId is provided
+        if (classId && !subjectId) {
+            const subjectsInClass = await AcademicsSubject.find({ classId }).select('_id');
+            const subjectIds = subjectsInClass.map(s => s._id);
+            query.subjectId = { $in: subjectIds };
+        }
+
+        // If no pagination parameters, return all matching chapters as an array (backward compatibility)
+        if (!page && !limit) {
+            const chapters = await AcademicsChapter.find(query)
+                .populate({
+                    path: 'subjectId',
+                    select: 'subjectName classId',
+                    populate: { path: 'classId', select: 'className' }
+                })
+                .sort({ createdAt: -1 });
+            return res.status(200).json(chapters);
+        }
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const chapters = await AcademicsChapter.find(query)
             .populate({
                 path: 'subjectId',
                 select: 'subjectName classId',
                 populate: { path: 'classId', select: 'className' }
             })
-            .sort({ createdAt: -1 });
-        res.status(200).json(chapters);
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parseInt(limit));
+
+        const total = await AcademicsChapter.countDocuments(query);
+
+        res.status(200).json({
+            chapters,
+            total,
+            currentPage: parseInt(page),
+            totalPages: Math.ceil(total / parseInt(limit))
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
+
+// Delete Multiple Chapters
+export const deleteMultipleChapters = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: "No IDs provided" });
+        }
+
+        const result = await AcademicsChapter.deleteMany({ _id: { $in: ids } });
+        res.status(200).json({
+            message: `${result.deletedCount} chapters deleted successfully`,
+            deletedCount: result.deletedCount
+        });
     } catch (error) {
         res.status(500).json({ message: "Server Error", error: error.message });
     }

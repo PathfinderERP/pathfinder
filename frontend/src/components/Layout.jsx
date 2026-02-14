@@ -46,10 +46,12 @@
 import React, { useState } from "react";
 import Sidebar from "./Dashboard/Sidebar";
 import Header from "./Dashboard/Header";
+import { useTheme } from "../context/ThemeContext";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const Layout = ({ children, activePage }) => {
+    const { theme } = useTheme();
     const [sidebarOpen, setSidebarOpen] = useState(() => {
         // Check session storage first
         const savedState = sessionStorage.getItem("sidebarOpen");
@@ -74,7 +76,7 @@ const Layout = ({ children, activePage }) => {
     };
 
     return (
-        <div className="flex h-screen bg-gray-50 dark:bg-[#131619] font-sans overflow-hidden">
+        <div className="flex h-screen bg-gray-50 dark:bg-[#131619] font-sans overflow-hidden transition-colors duration-300">
             {/* Toast Container */}
             <ToastContainer
                 position="top-center"
@@ -86,7 +88,7 @@ const Layout = ({ children, activePage }) => {
                 pauseOnFocusLoss
                 draggable
                 pauseOnHover
-                theme="dark"
+                theme={theme}
             />
 
             {/* Sidebar */}

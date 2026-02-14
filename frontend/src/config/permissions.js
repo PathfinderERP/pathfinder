@@ -192,6 +192,10 @@ export const PERMISSION_MODULES = {
             budgetAnalysis: {
                 label: "Budget Analysis",
                 operations: ["create", "edit", "delete"]
+            },
+            transactionReport: {
+                label: "Transaction List",
+                operations: ["view", "create", "edit", "delete"]
             }
         }
     },
@@ -497,7 +501,7 @@ export const PERMISSION_MODULES = {
 // Accepts either (granularPermissions, module, section, operation) or (user, module, section, operation)
 export const hasPermission = (granularPermissionsOrUser, module, section, operation) => {
     // Check if first argument is a user object with role
-    if (granularPermissionsOrUser && granularPermissionsOrUser.role === 'superAdmin') {
+    if (granularPermissionsOrUser && (granularPermissionsOrUser.role === 'superAdmin' || granularPermissionsOrUser.role === 'Super Admin')) {
         return true; // SuperAdmin has all permissions
     }
 
@@ -513,7 +517,7 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
 // Helper function to check if user has any permission in a module
 export const hasModuleAccess = (granularPermissionsOrUser, module) => {
     // Check if first argument is a user object with role
-    if (granularPermissionsOrUser && granularPermissionsOrUser.role === 'superAdmin') {
+    if (granularPermissionsOrUser && (granularPermissionsOrUser.role === 'superAdmin' || granularPermissionsOrUser.role === 'Super Admin')) {
         return true; // SuperAdmin has access to all modules
     }
 
@@ -526,7 +530,7 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
 // Helper function to get all accessible modules
 export const getAccessibleModules = (granularPermissionsOrUser) => {
     // Check if first argument is a user object with role
-    if (granularPermissionsOrUser && granularPermissionsOrUser.role === 'superAdmin') {
+    if (granularPermissionsOrUser && (granularPermissionsOrUser.role === 'superAdmin' || granularPermissionsOrUser.role === 'Super Admin')) {
         return Object.keys(PERMISSION_MODULES); // SuperAdmin has access to all modules
     }
 

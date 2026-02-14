@@ -5,16 +5,11 @@ import Designation from "../../models/Master_data/Designation.js";
 import User from "../../models/User.js";
 import bcrypt from "bcryptjs";
 import s3Client from "../../config/r2Config.js";
-import { uploadToR2, deleteFromR2, getSignedFileUrl } from "../../utils/r2Upload.js";
+import { uploadToR2, deleteFromR2, getSignedFileUrl, upload } from "../../utils/r2Upload.js";
+export { upload };
 import multer from "multer";
-// import dotenv from "dotenv"; // dotenv loaded in server.js
-// dotenv.config();
-// Configure multer for file uploads
-const storage = multer.memoryStorage();
-export const upload = multer({
-    storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
-});
+
+// Multer and R2 helpers are now centralized in r2Upload.js and used below.
 
 // Multer and R2 helpers are now centralized in r2Upload.js and used below.
 
@@ -121,16 +116,35 @@ export const createEmployee = async (req, res) => {
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(employeeData.employeeId, salt); // Password = Employee ID
 
+            // Try to determine role based on designation
+            let role = 'admin';
+            if (employeeData.designation) {
+                const designation = await Designation.findById(employeeData.designation);
+                if (designation) {
+                    const desigName = designation.name.toLowerCase();
+                    if (desigName.includes('counsellor')) {
+                        role = 'counsellor';
+                    } else if (desigName.includes('telecaller')) {
+                        role = 'telecaller';
+                    } else if (desigName.includes('teacher') || desigName.includes('faculty')) {
+                        role = 'teacher';
+                    } else if (desigName.includes('marketing')) {
+                        role = 'marketing';
+                    }
+                }
+            }
+
             user = new User({
                 name: employeeData.name,
                 email: employeeData.email,
                 employeeId: employeeData.employeeId,
                 mobNum: employeeData.phoneNumber || "0000000000",
                 password: hashedPassword,
-                role: 'admin', // Default generic role
+                role: role, // Dynamically determined role
                 centres: employeeData.primaryCentre ? [employeeData.primaryCentre] : [],
                 permissions: [],
-                granularPermissions: {}
+                granularPermissions: {}, // Default perms handled by model pre-save hook
+                isActive: employeeData.status ? (employeeData.status === "Active") : true
             });
             await user.save();
         } else {
@@ -204,20 +218,42 @@ export const getEmployees = async (req, res) => {
         }
 
         if (department) {
-             query.department = { $in: department.split(',') };
+            const deptIds = department.split(',').filter(Boolean);
+            query.department = { $in: deptIds };
         }
         if (designation) {
-            query.designation = { $in: designation.split(',') };
+            const desigIds = designation.split(',').filter(Boolean);
+            query.designation = { $in: desigIds };
         }
         if (centre) {
-            const centreIds = centre.split(',');
+            const centreIds = centre.split(',').filter(Boolean);
             query.$or = [
                 { primaryCentre: { $in: centreIds } },
                 { centres: { $in: centreIds } }
             ];
         }
         if (status) {
-            query.status = { $in: status.split(',') };
+            const statusValues = status.split(',').filter(Boolean);
+            query.status = { $in: statusValues };
+        }
+
+        // Data Isolation: If not superAdmin, restrict to assigned centers
+        const userRole = (req.user.role || "").toLowerCase();
+        if (userRole !== 'superadmin' && userRole !== 'super admin') {
+            const userCentres = req.user.centres || [];
+            if (userCentres.length > 0) {
+                query.$and = query.$and || [];
+                query.$and.push({
+                    $or: [
+                        { primaryCentre: { $in: userCentres } },
+                        { centres: { $in: userCentres } }
+                    ]
+                });
+            } else {
+                // If no centres assigned, they shouldn't see anyone (or maybe just themselves? 
+                // but usually it means they have no access).
+                query._id = null; // Forces empty result
+            }
         }
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -382,6 +418,14 @@ export const updateEmployee = async (req, res) => {
         // Update the employee document with new data
         Object.assign(employee, updateData);
 
+        // Sync with User status if status changed
+        if (updateData.status) {
+            await User.findByIdAndUpdate(
+                employee.user,
+                { isActive: updateData.status === "Active" }
+            );
+        }
+
         // Save the employee - this will trigger the pre('save') hook to update currentSalary
         await employee.save();
 
@@ -477,7 +521,23 @@ export const addSalaryStructure = async (req, res) => {
 // Get employees for dropdown (managers)
 export const getEmployeesForDropdown = async (req, res) => {
     try {
-        const employees = await Employee.find({ status: "Active" })
+        const userRole = (req.user.role || "").toLowerCase();
+        const isSuperAdmin = userRole === 'superadmin' || userRole === 'super admin';
+        const userCentres = req.user.centres || [];
+
+        const query = { status: "Active" };
+        if (!isSuperAdmin) {
+            if (userCentres.length > 0) {
+                query.$or = [
+                    { primaryCentre: { $in: userCentres } },
+                    { centres: { $in: userCentres } }
+                ];
+            } else {
+                return res.status(200).json([]); // No centres, no managers
+            }
+        }
+
+        const employees = await Employee.find(query)
             .select("employeeId name designation profileImage")
             .populate("designation", "name")
             .sort({ name: 1 });
@@ -555,11 +615,15 @@ export const updateMyProfile = async (req, res) => {
         ];
 
         // Apply updates only for allowed fields
-        // Apply updates only for allowed fields
+        const fileFieldsList = [
+            "profileImage", "aadharProof", "panProof", "bankStatement",
+            "educationalQualification1", "educationalQualification2", "educationalQualification3"
+        ];
+
         Object.keys(updates).forEach(key => {
             // Exclude file fields from direct text update if they are in allowedUpdates list
             // (We handle them separately via req.files)
-            if (allowedUpdates.includes(key) && !["profileImage", "aadharProof", "panProof", "bankStatement"].includes(key)) {
+            if (allowedUpdates.includes(key) && !fileFieldsList.includes(key)) {
                 if (updates[key] !== undefined && updates[key] !== "undefined" && updates[key] !== null && updates[key] !== "null") {
                     employee[key] = updates[key];
                 }
@@ -689,6 +753,14 @@ export const bulkImportEmployees = async (req, res) => {
                     user.password = hashedPassword;
                     isDirty = true;
 
+                    if (data.status) {
+                        const newActiveStatus = data.status === "Active";
+                        if (user.isActive !== newActiveStatus) {
+                            user.isActive = newActiveStatus;
+                            isDirty = true;
+                        }
+                    }
+
                     if (isDirty) {
                         await user.save();
                     }
@@ -696,16 +768,40 @@ export const bulkImportEmployees = async (req, res) => {
                     const salt = await bcrypt.genSalt(10);
                     // Password matches Employee ID as requested
                     const hashedPassword = await bcrypt.hash(data.employeeId, salt);
+
+                    // Try to determine role based on designation
+                    let role = 'admin';
+                    if (data.designation) {
+                        try {
+                            const designation = await Designation.findById(data.designation);
+                            if (designation) {
+                                const desigName = designation.name.toLowerCase();
+                                if (desigName.includes('counsellor')) {
+                                    role = 'counsellor';
+                                } else if (desigName.includes('telecaller')) {
+                                    role = 'telecaller';
+                                } else if (desigName.includes('teacher') || desigName.includes('faculty')) {
+                                    role = 'teacher';
+                                } else if (desigName.includes('marketing')) {
+                                    role = 'marketing';
+                                }
+                            }
+                        } catch (desigErr) {
+                            console.error("Error fetching designation for bulk user role:", desigErr);
+                        }
+                    }
+
                     user = new User({
                         name: data.name,
                         email: data.email,
                         employeeId: data.employeeId,
                         mobNum: data.phoneNumber || "0000000000",
                         password: hashedPassword,
-                        role: 'admin',
+                        role: role,
                         centres: data.primaryCentre ? [data.primaryCentre] : [],
                         permissions: [],
-                        granularPermissions: {}
+                        granularPermissions: {}, // Default perms handled by model pre-save hook
+                        isActive: data.status ? (data.status === "Active") : true
                     });
                     await user.save();
                 }

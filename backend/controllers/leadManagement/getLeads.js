@@ -1,5 +1,7 @@
 import LeadManagement from "../../models/LeadManagement.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
+import Boards from "../../models/Master_data/Boards.js";
+import Course from "../../models/Master_data/Courses.js";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import s3Client from "../../config/r2Config.js";
@@ -48,25 +50,53 @@ export const getLeads = async (req, res) => {
         const skip = (page - 1) * limit;
 
         // Build Filter
-        const { search, leadType, source, centre, course, leadResponsibility, board } = req.query;
+        const { search, leadType, source, centre, course, leadResponsibility, board, className, fromDate, toDate, feedback } = req.query;
         const query = {};
+
+        if (feedback) {
+            const feedbackArray = Array.isArray(feedback) ? feedback : [feedback];
+            query.followUps = {
+                $elemMatch: { feedback: { $in: feedbackArray.map(f => f) } }
+            };
+        }
+
+        // Date range filter
+        if (fromDate || toDate) {
+            query.createdAt = {};
+            if (fromDate) query.createdAt.$gte = new Date(fromDate);
+            if (toDate) {
+                const end = new Date(toDate);
+                end.setHours(23, 59, 59, 999);
+                query.createdAt.$lte = end;
+            }
+        }
 
         if (leadType) query.leadType = Array.isArray(leadType) ? { $in: leadType } : leadType;
         if (source) query.source = Array.isArray(source) ? { $in: source } : source;
         if (course) query.course = Array.isArray(course) ? { $in: course } : course;
         if (board) query.board = Array.isArray(board) ? { $in: board } : board;
-        
+        if (className) query.className = Array.isArray(className) ? { $in: className } : className;
+
         if (leadResponsibility) {
-             query.leadResponsibility = Array.isArray(leadResponsibility) 
-                ? { $in: leadResponsibility } 
-                : leadResponsibility;
+            query.leadResponsibility = Array.isArray(leadResponsibility)
+                ? { $in: leadResponsibility }
+                : { $regex: leadResponsibility, $options: "i" };
         }
 
-        // Exclude counseled leads from the main list
+        // Filter by Follow-up Status (Contacted vs Remaining)
+        const { followUpStatus } = req.query;
+        if (followUpStatus === 'contacted') {
+            query.followUps = { $exists: true, $not: { $size: 0 } };
+        } else if (followUpStatus === 'remaining') {
+            query.followUps = { $size: 0 };
+        }
+
+        // Exclude counseled leads from dashboard stats to match lead list logic
         query.isCounseled = { $ne: true };
 
         // Centre-based access control
-        if (req.user.role !== 'superAdmin') {
+        const userRole = req.user.role?.toLowerCase();
+        if (userRole !== 'superadmin' && userRole !== 'super admin') {
             // Fetch user's centres from database since JWT doesn't include them
             const User = (await import('../../models/User.js')).default;
             const userDoc = await User.findById(req.user.id).select('centres role name');
@@ -77,42 +107,47 @@ export const getLeads = async (req, res) => {
 
             console.log(`Lead Management - User ${userDoc.name} (${userDoc.role}) centres:`, userDoc.centres);
 
-            // Telecallers: Can only see their own assigned leads
-            if (userDoc.role === 'telecaller') {
-                query.leadResponsibility = userDoc.name;
-            }
+            console.log(`Lead Management - User ${userDoc.name} (${userDoc.role}) centres:`, userDoc.centres);
 
-            // For all non-superAdmin users: Filter by assigned centres
+            // Access Control: User can see leads they created OR leads in their centres
+            // Telecallers additionally see leads assigned to them.
             const userCentreIds = userDoc.centres || [];
 
-            if (userCentreIds.length === 0) {
-                // User has no centres assigned, return empty
-                console.log(`Lead Management - User ${userDoc.name} has no centres assigned`);
-                return res.status(200).json({
-                    message: "Leads fetched successfully",
-                    leads: [],
-                    pagination: {
-                        currentPage: page,
-                        totalPages: 0,
-                        totalLeads: 0,
-                        limit
-                    }
-                });
+            const orConditions = [
+                { createdBy: userDoc._id }
+            ];
+
+            if (userDoc.role === 'telecaller') {
+                const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                orConditions.push({ leadResponsibility: { $regex: new RegExp(`^${escapedName}$`, "i") } });
             }
 
-            // Filter by allowed centres
-            query.centre = { $in: userCentreIds };
+            if (userCentreIds.length > 0) {
+                orConditions.push({ centre: { $in: userCentreIds } });
+            }
 
-            // If a specific centre is requested via query param, validate it
+            // Combined restriction
+            query.$and = query.$and || [];
+            query.$and.push({ $or: orConditions });
+
+            // Handle specific centre filter from query if requested
             if (centre) {
-                if (userCentreIds.map(c => c.toString()).includes(centre)) {
-                    query.centre = centre;
+                const requestedCentres = Array.isArray(centre) ? centre : [centre];
+                // For non-superAdmin, specific centre filter only works within their orConditions
+                // But we already have the centre logic inside orConditions.
+                // If they specify a centre, we should further refine the centre part of the query.
+                // Actually, the standard way is to just let the main query.centre filter it.
+                const validRequestedCentres = requestedCentres.filter(reqCentre =>
+                    userCentreIds.some(allowedCentre => allowedCentre.toString() === reqCentre.toString())
+                );
+
+                if (validRequestedCentres.length > 0) {
+                    query.centre = { $in: validRequestedCentres };
                 } else {
-                    // User trying to access unauthorized centre
-                    console.log(`Lead Management - User ${userDoc.name} tried to access unauthorized centre: ${centre}`);
-                    return res.status(403).json({
-                        message: "Access denied. You don't have permission to view this centre's leads."
-                    });
+                    // If they requested centres they don't have access to, they still see their created leads
+                    // so we don't return 403, we just don't add the centre filter.
+                    // Or we add a filter that matches nothing for centre.
+                    query.centre = { $in: [] };
                 }
             }
         } else {
@@ -131,7 +166,7 @@ export const getLeads = async (req, res) => {
             ];
         }
 
-        console.log("Lead Management - Final query:", JSON.stringify(query, null, 2));
+
 
         const totalLeads = await LeadManagement.countDocuments(query);
 
@@ -139,7 +174,7 @@ export const getLeads = async (req, res) => {
             .populate('className', 'name')
             .populate('centre', 'centreName')
             .populate('course', 'courseName')
-            .populate('board', 'boardName')
+            .populate('board', 'boardCourse')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -172,7 +207,7 @@ export const getLeadById = async (req, res) => {
             .populate('className', 'name')
             .populate('centre', 'centreName')
             .populate('course', 'courseName')
-            .populate('board', 'boardName');
+            .populate('board', 'boardCourse');
 
         if (!lead) {
             return res.status(404).json({ message: "Lead not found" });

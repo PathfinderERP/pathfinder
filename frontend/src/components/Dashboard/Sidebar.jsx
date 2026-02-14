@@ -63,15 +63,17 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     const isSuperAdmin = user.role === "superAdmin";
 
     const menuItems = useMemo(() => [
+        { name: "Dashboard", icon: <FaThLarge />, path: "/dashboard" },
         { name: "Lead Management", icon: <FaBullseye />, path: "/lead-management", permissionModule: "leadManagement" },
+        { name: "Marketing & CRM", icon: <FaBullhorn />, path: "/marketing-crm", permissionModule: "marketingCRM" },
         { name: "CEO Control Tower", icon: <FaChartBar />, path: "/ceo-control-tower", permissionModule: "ceoControlTower" },
         {
             name: "Admissions",
             icon: <FaBullseye />,
             permissionModule: "admissions",
             subItems: [
-                { name: "Counsellead Students", path: "/admissions", permissionSection: "allLeads" },
-                { name: "Admissions", path: "/enrolled-students", permissionSection: "enrolledStudents" },
+                { name: "Counselled Students", path: "/admissions", permissionSection: "allLeads" },
+                { name: "Enrolled Students", path: "/enrolled-students", permissionSection: "enrolledStudents" },
                 { name: "Section Allotment", path: "/admissions/section-allotment", permissionSection: "sectionAllotment" },
                 // { name: "Walk-in Registration", path: "/student-registration", permissionSection: "allLeads" },
                 { name: "Telecalling Console", path: "/admissions/telecalling-console", permissionSection: "telecallingConsole" },
@@ -386,19 +388,19 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     return (
         <div
             className={`
-            bg-[#1a1f24] text-gray-400 h-screen flex flex-col border-r border-gray-800 transition-all duration-300
+            bg-white dark:bg-[#1a1f24] text-gray-600 dark:text-gray-400 h-screen flex flex-col border-r border-gray-200 dark:border-gray-800 transition-all duration-300
             ${isOpen ? "w-64" : "w-0"} overflow-hidden fixed inset-y-0 left-0 z-50 lg:relative
         `}
         >
             {/* Logo + Close */}
             <div className="p-6 flex items-center justify-between text-white">
                 <div className="flex items-center gap-3">
-                    <div className="bg-gray-700 p-2 rounded-lg">
+                    <div className="bg-gray-700 p-2 rounded">
                         <FaChartBar className="text-cyan-400" />
                     </div>
                     <div>
-                        <h1 className="font-bold text-lg tracking-wide text-cyan-400">Pathfinder ERP</h1>
-                        <p className="text-xs text-gray-500">Education Cloud</p>
+                        <h1 className="font-bold text-lg tracking-wide text-cyan-600 dark:text-cyan-400">Pathfinder ERP</h1>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">Education Cloud</p>
                     </div>
                 </div>
 
@@ -415,9 +417,9 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                             onClick={() =>
                                 item.subItems ? toggleMenu(item.name) : navigate(item.path)
                             }
-                            className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${item.name === activePage
-                                ? "bg-cyan-500 text-black font-semibold"
-                                : "hover:bg-gray-800 hover:text-white"
+                            className={`flex items-center justify-between p-3 rounded cursor-pointer transition-colors ${item.name === activePage
+                                ? "bg-cyan-500 text-white dark:text-black font-semibold shadow-lg shadow-cyan-500/20"
+                                : "hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
                                 }`}
                         >
                             <div className="flex items-center gap-3">
@@ -439,7 +441,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                             <div>
                                                 <div
                                                     onClick={() => toggleMenu(sub.name)}
-                                                    className="p-2 rounded-lg cursor-pointer text-sm transition-colors hover:text-white hover:bg-gray-800/50 flex justify-between items-center"
+                                                    className="p-2 rounded cursor-pointer text-sm transition-colors hover:text-white hover:bg-gray-800/50 flex justify-between items-center"
                                                 >
                                                     <div className="flex items-center gap-2">
                                                         {sub.icon && <span className="opacity-70">{sub.icon}</span>}
@@ -455,7 +457,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                                             <div
                                                                 key={nestedIdx}
                                                                 onClick={() => navigate(nestedSub.path)}
-                                                                className={`p-2 rounded-lg cursor-pointer text-sm transition-colors ${location.pathname === nestedSub.path
+                                                                className={`p-2 rounded cursor-pointer text-sm transition-colors ${location.pathname === nestedSub.path
                                                                     ? "text-cyan-400 font-semibold bg-gray-800"
                                                                     : "hover:text-white hover:bg-gray-800/50"
                                                                     }`}
@@ -469,7 +471,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                         ) : (
                                             <div
                                                 onClick={() => navigate(sub.path)}
-                                                className={`p-2 rounded-lg cursor-pointer text-sm transition-colors flex items-center gap-2 ${location.pathname === sub.path
+                                                className={`p-2 rounded cursor-pointer text-sm transition-colors flex items-center gap-2 ${location.pathname === sub.path
                                                     ? "text-cyan-400 font-semibold bg-gray-800"
                                                     : "hover:text-white hover:bg-gray-800/50"
                                                     }`}
@@ -487,17 +489,26 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             </nav>
 
             {/* Profile */}
-            <div className="p-4 border-t border-gray-800">
+            <div className="p-4 border-t border-gray-200 dark:border-gray-800">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-cyan-900 border border-cyan-500/30 flex items-center justify-center text-cyan-400 font-bold overflow-hidden shadow-lg shadow-cyan-500/10">
+                    <div className="w-10 h-10 rounded-full bg-cyan-100 dark:bg-cyan-900 border border-cyan-200 dark:border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-bold overflow-hidden shadow-lg shadow-cyan-500/10">
                         {user.profileImage && !user.profileImage.startsWith('undefined/') ? (
-                            <img src={user.profileImage} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                            <span>{user.name ? user.name.charAt(0).toUpperCase() : "U"}</span>
-                        )}
+                            <img
+                                src={user.profileImage.startsWith('http') ? user.profileImage : `${import.meta.env.VITE_API_URL}${user.profileImage}`}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                }}
+                            />
+                        ) : null}
+                        <span className={user.profileImage && !user.profileImage.startsWith('undefined/') ? 'hidden' : ''}>
+                            {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                        </span>
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-semibold truncate">{user.name || "User"}</p>
+                        <p className="text-gray-900 dark:text-white text-sm font-semibold truncate">{user.name || "User"}</p>
                         <p className="text-xs text-gray-500 truncate">{user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "Role"}</p>
                     </div>
                 </div>

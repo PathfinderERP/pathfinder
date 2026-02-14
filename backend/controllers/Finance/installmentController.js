@@ -130,11 +130,12 @@ export const getStudentFinancialDetails = async (req, res) => {
                     admissionId: admission._id,
                     admissionNumber: admission.admissionNumber || "N/A",
                     admissionDate: admission.admissionDate,
-                    course: admission.course?.courseName || "N/A",
+                    course: admission.admissionType === "BOARD" ? (admission.boardCourseName || "Board Course") : (admission.course?.courseName || "N/A"),
                     class: admission.class?.className || "N/A",
                     examTag: admission.examTag?.examTagName || "N/A",
                     academicSession: admission.academicSession || "N/A",
                     centre: admission.centre || "N/A",
+                    admissionType: admission.admissionType || "NORMAL",
 
                     // Fee Details
                     baseFees: admission.baseFees || 0,
@@ -154,8 +155,10 @@ export const getStudentFinancialDetails = async (req, res) => {
                     paymentStatus: admission.paymentStatus || "PENDING",
                     admissionStatus: admission.admissionStatus || "ACTIVE",
 
-                    // Payment Breakdown from Admission
+                    // Payment Breakdown and History
                     paymentBreakdown: admission.paymentBreakdown || [],
+                    monthlySubjectHistory: admission.monthlySubjectHistory || [],
+                    courseDurationMonths: admission.courseDurationMonths || 0,
 
                     // Actual Payment Records
                     paymentHistory: admissionPayments.map(payment => ({
@@ -170,6 +173,7 @@ export const getStudentFinancialDetails = async (req, res) => {
                         transactionId: payment.transactionId || null,
                         accountHolderName: payment.accountHolderName || null,
                         chequeDate: payment.chequeDate,
+                        billingMonth: payment.billingMonth || null,
                         remarks: payment.remarks || null,
                         billId: payment.billId || null,
                         recordedBy: payment.recordedBy?.name || "N/A",
@@ -207,7 +211,24 @@ export const getFeeDueList = async (req, res) => {
             paymentStatus: { $in: ["PENDING", "PARTIAL"] }
         };
 
-        if (centre) filter.centre = centre;
+        // Center Visibility Restriction
+        if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentreNames = currentUser ? currentUser.centres.map(c => (c.centreName || "").trim()).filter(Boolean) : [];
+
+            if (centre) {
+                const trimmedCentre = (centre || "").trim();
+                if (!userCentreNames.includes(trimmedCentre)) {
+                    return res.status(403).json({ message: "Access denied to this centre" });
+                }
+                filter.centre = trimmedCentre;
+            } else {
+                filter.centre = { $in: userCentreNames };
+            }
+        } else if (centre) {
+            filter.centre = (centre || "").trim();
+        }
+
         if (course) filter.course = course;
         if (department) filter.department = department;
 
@@ -312,9 +333,52 @@ export const getAllAdmissions = async (req, res) => {
 
         const filter = { admissionStatus: "ACTIVE" };
 
-        if (centre) filter.centre = centre;
-        if (course) filter.course = course;
-        if (department) filter.department = department;
+        // Center Visibility Restriction
+        if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentreNames = currentUser ? currentUser.centres.map(c => (c.centreName || "").trim()).filter(Boolean) : [];
+            // Normalize centre names for case-insensitive comparison
+            const normalizedUserCentres = userCentreNames.map(c => c.toLowerCase());
+
+            if (centre) {
+                // Handle both string and array input
+                const requestedCentres = Array.isArray(centre) ? centre : [centre];
+
+                // Validate all requested centres are allowed (case-insensitive)
+                const isAllowed = requestedCentres.every(c => {
+                    const normalizedRequested = (c || "").trim().toLowerCase();
+                    return normalizedUserCentres.includes(normalizedRequested);
+                });
+
+                if (!isAllowed) {
+                    return res.status(403).json({ message: "Access denied to one or more selected centres" });
+                }
+                // Use case-insensitive regex for MongoDB query - allow surrounding whitespace
+                filter.centre = {
+                    $in: requestedCentres.map(c => new RegExp(`^\\s*${(c || "").trim()}\\s*$`, 'i'))
+                };
+            } else {
+                // Use case-insensitive regex for MongoDB query - allow surrounding whitespace
+                filter.centre = {
+                    $in: userCentreNames.map(c => new RegExp(`^\\s*${c}\\s*$`, 'i'))
+                };
+            }
+        } else if (centre) {
+            const requestedCentres = Array.isArray(centre) ? centre : [centre];
+            // Use case-insensitive regex for MongoDB query - allow surrounding whitespace
+            filter.centre = {
+                $in: requestedCentres.map(c => new RegExp(`^\\s*${(c || "").trim()}\\s*$`, 'i'))
+            };
+        }
+
+        if (course) {
+            const courses = Array.isArray(course) ? course : [course];
+            filter.course = { $in: courses };
+        }
+        if (department) {
+            const departments = Array.isArray(department) ? department : [department];
+            filter.department = { $in: departments };
+        }
 
         if (startDate || endDate) {
             const dateFilter = {};
@@ -358,14 +422,15 @@ export const getAllAdmissions = async (req, res) => {
                 studentName: student?.studentName || "N/A",
                 email: student?.studentEmail || "N/A",
                 mobile: student?.mobileNum || "N/A",
-                course: adm.course?.courseName || "N/A",
-                department: adm.department?.departmentName || "N/A",
-                centre: adm.centre || "N/A",
+                course: adm.admissionType === "BOARD" ? (adm.boardCourseName || "Board Course") : (adm.course?.courseName || "N/A"),
+                department: adm.admissionType === "BOARD" ? "BOARD" : (adm.department?.departmentName || "N/A"),
+                centre: adm.centre || student?.centre || "N/A",
                 admissionDate: adm.admissionDate,
                 totalFees: adm.totalFees,
                 totalPaid: adm.totalPaidAmount,
                 remainingAmount: adm.remainingAmount,
                 paymentStatus: adm.paymentStatus,
+                admissionType: adm.admissionType || "NORMAL",
                 paymentBreakdown: adm.paymentBreakdown || []
             };
         });
@@ -374,5 +439,85 @@ export const getAllAdmissions = async (req, res) => {
     } catch (error) {
         console.error("Get All Admissions Error:", error);
         res.status(500).json({ message: "Error fetching admissions", error: error.message });
+    }
+};
+
+// Update installment schedule for an admission
+export const updateInstallmentSchedule = async (req, res) => {
+    try {
+        const { admissionId } = req.params;
+        const { newSchedule } = req.body; // Array of { installmentNumber, dueDate, amount }
+
+        if (!Array.isArray(newSchedule) || newSchedule.length === 0) {
+            return res.status(400).json({ message: "Invalid schedule provided" });
+        }
+
+        const admission = await Admission.findById(admissionId);
+        if (!admission) {
+            return res.status(404).json({ message: "Admission record not found" });
+        }
+
+        // Check if user has permission (handled by route middleware but good to be safe)
+        if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
+            // Additional check for centre access if needed
+        }
+
+        // 1. Identify existing installments that cannot be changed (PAID or PENDING_CLEARANCE)
+        const lockedInstallments = admission.paymentBreakdown.filter(inst =>
+            inst.status === "PAID" || inst.status === "PENDING_CLEARANCE"
+        );
+
+        // 2. Validate that the new schedule doesn't conflict with installment numbers of locked ones
+        const lockedNumbers = lockedInstallments.map(i => i.installmentNumber);
+        const hasConflict = newSchedule.some(i => lockedNumbers.includes(i.installmentNumber));
+
+        if (hasConflict) {
+            return res.status(400).json({
+                message: "New schedule contains installment numbers that are already paid or in process."
+            });
+        }
+
+        // 3. Calculate total of the new schedule
+        const newTotal = newSchedule.reduce((sum, i) => sum + parseFloat(i.amount || 0), 0);
+
+        // Calculate current unpaid amount (excluding locked ones)
+        // Actually, we should check against remainingAmount
+        if (Math.abs(newTotal - admission.remainingAmount) > 0.01) {
+            return res.status(400).json({
+                message: `The total of new installments (₹${newTotal}) must match the remaining balance (₹${admission.remainingAmount}).`
+            });
+        }
+
+        // 4. Transform new schedule into schema format
+        const formattedNewSchedule = newSchedule.map(item => ({
+            installmentNumber: item.installmentNumber,
+            dueDate: new Date(item.dueDate),
+            amount: parseFloat(item.amount),
+            status: "PENDING",
+            paidAmount: 0
+        }));
+
+        // 5. Combine and sort
+        const updatedBreakdown = [...lockedInstallments, ...formattedNewSchedule].sort(
+            (a, b) => a.installmentNumber - b.installmentNumber
+        );
+
+        // 6. Update Admission record
+        admission.paymentBreakdown = updatedBreakdown;
+        admission.numberOfInstallments = updatedBreakdown.length;
+        admission.installmentAmount = updatedBreakdown.length > 0
+            ? (admission.totalFees - admission.downPayment) / updatedBreakdown.length
+            : 0;
+
+        await admission.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Installment schedule updated successfully",
+            admission
+        });
+    } catch (error) {
+        console.error("Update Schedule Error:", error);
+        res.status(500).json({ message: "Error updating installment schedule", error: error.message });
     }
 };

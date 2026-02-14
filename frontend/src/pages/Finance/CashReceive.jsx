@@ -46,7 +46,13 @@ const CashReceive = () => {
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/centre`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setCentres(res.data);
+            const filteredCentres = Array.isArray(res.data)
+                ? res.data.filter(c =>
+                    user.role === 'superAdmin' ||
+                    (user.centres && user.centres.some(uc => uc._id === c._id || uc.centreName === c.centreName))
+                )
+                : [];
+            setCentres(filteredCentres);
         } catch (error) {
             console.error("Failed to fetch centres");
         }

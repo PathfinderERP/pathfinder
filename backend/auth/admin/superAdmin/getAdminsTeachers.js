@@ -1,4 +1,6 @@
 import User from "../../../models/User.js";
+import Employee from "../../../models/HR/Employee.js";
+import { getSignedFileUrl } from "../../../utils/r2Upload.js";
 
 export const getAllAdminsBySuperAdmin = async (req, res) => {
   try {
@@ -32,26 +34,48 @@ export const getAllTeachersBySuperAdmin = async (req, res) => {
 
 export const getAllUsersBySuperAdmin = async (req, res) => {
   try {
-    // Get the requesting user's role from the authenticated user
     const requestingUser = req.user;
+    const isSuperAdmin = requestingUser.role === "superAdmin" || requestingUser.role === "Super Admin";
 
     let query = {};
 
-    // If not SuperAdmin, filter to show only users with the same role
-    if (requestingUser.role !== "superAdmin") {
-      query.role = requestingUser.role;
+    // If not SuperAdmin, filter to show only users who share the same centers
+    if (!isSuperAdmin) {
+      const userCentreIds = requestingUser.centres || [];
+      if (userCentreIds.length > 0) {
+        query.centres = { $in: userCentreIds };
+      } else {
+        // If user has no centers, they shouldn't see anyone (except maybe themselves)
+        query._id = requestingUser._id;
+      }
     }
-    // SuperAdmin sees ALL users (no filter)
 
     // Fetch users based on query, populate centre details
     const users = await User.find(query)
       .populate("centres", "centreName enterCode")
-      .populate("assignedScript", "scriptName scriptContent");
+      .populate("assignedScript", "scriptName scriptContent")
+      .select("-password")
+      .lean(); // Use lean for performance since we'll modify the objects
+
+    // Enrich users with employee data (profile image)
+    const enrichedUsers = await Promise.all(users.map(async (user) => {
+      const employee = await Employee.findOne({ user: user._id });
+      let profileImageUrl = null;
+      if (employee?.profileImage) {
+        profileImageUrl = await getSignedFileUrl(employee.profileImage);
+      }
+
+      return {
+        ...user,
+        profileImage: profileImageUrl,
+        mobNum: user.mobNum || employee?.phoneNumber // Prefer user.mobNum if available
+      };
+    }));
 
     res.status(200).json({
-      message: "List of all users",
-      count: users.length,
-      users,
+      message: "List of all users based on access permissions",
+      count: enrichedUsers.length,
+      users: enrichedUsers,
     });
   } catch (error) {
     console.error("Error fetching users:", error);

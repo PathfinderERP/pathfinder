@@ -1,11 +1,162 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
 import { hasPermission } from "../../config/permissions";
-import { FaSearch, FaEraser, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaCalendarAlt, FaMoneyBillWave, FaCheckCircle, FaClock, FaExclamationTriangle, FaFileInvoice, FaFilter, FaDownload, FaChevronRight } from "react-icons/fa";
+import { FaSearch, FaEraser, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaCalendarAlt, FaMoneyBillWave, FaCheckCircle, FaClock, FaExclamationTriangle, FaFileInvoice, FaFilter, FaDownload, FaChevronRight, FaEdit, FaPlus, FaTrash } from "react-icons/fa";
 import { toast } from "react-toastify";
+import Select from "react-select";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import BillGenerator from "../../components/Finance/BillGenerator";
+import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import Pagination from "../../components/common/Pagination";
+
+const EditScheduleModal = ({ admission, onClose, onSave }) => {
+    // Initialize with existing unpaid installments
+    const [schedule, setSchedule] = useState(() => {
+        const unpaid = admission.paymentBreakdown
+            .filter(inst => inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE")
+            .map(inst => ({
+                installmentNumber: inst.installmentNumber,
+                dueDate: inst.dueDate ? inst.dueDate.split('T')[0] : new Date().toISOString().split('T')[0],
+                amount: inst.amount
+            }));
+        return unpaid.length > 0 ? unpaid : [{
+            installmentNumber: (admission.paymentBreakdown.length > 0 ? Math.max(...admission.paymentBreakdown.map(i => i.installmentNumber)) + 1 : 1),
+            dueDate: new Date().toISOString().split('T')[0],
+            amount: admission.remainingAmount
+        }];
+    });
+
+    const [isSaving, setIsSaving] = useState(false);
+
+    const totalNew = schedule.reduce((sum, i) => sum + parseFloat(i.amount || 0), 0);
+    const isValid = Math.abs(totalNew - admission.remainingAmount) < 1;
+
+    const handleAdd = () => {
+        const lastNum = schedule.length > 0 ? Math.max(...schedule.map(i => i.installmentNumber)) : 0;
+        const lastDate = schedule.length > 0 ? new Date(schedule[schedule.length - 1].dueDate) : new Date();
+        const nextDate = new Date(lastDate.setMonth(lastDate.getMonth() + 1));
+
+        setSchedule([...schedule, {
+            installmentNumber: lastNum + 1,
+            dueDate: nextDate.toISOString().split('T')[0],
+            amount: 0
+        }]);
+    };
+
+    const handleRemove = (index) => {
+        setSchedule(schedule.filter((_, i) => i !== index));
+    };
+
+    const handleChange = (index, field, value) => {
+        const newSchedule = [...schedule];
+        newSchedule[index][field] = value;
+        setSchedule(newSchedule);
+    };
+
+    const handleSubmit = async () => {
+        if (!isValid || schedule.length === 0) return;
+        setIsSaving(true);
+        try {
+            await onSave(schedule);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl">
+            <div className="bg-[#0d0f11] border border-gray-800 w-full max-w-2xl rounded-[3rem] overflow-hidden shadow-[0_0_100px_rgba(6,182,212,0.1)] flex flex-col max-h-[90vh]">
+                <div className="p-8 border-b border-gray-800 bg-gradient-to-r from-cyan-500/10 via-transparent to-transparent flex justify-between items-center">
+                    <div>
+                        <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Edit <span className="text-cyan-500">Schedule</span></h2>
+                        <div className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] mt-1">Admission # {admission.admissionNumber}</div>
+                    </div>
+                    <div className="text-right">
+                        <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Remaining Balance</div>
+                        <div className="text-xl font-black text-cyan-500">₹{admission.remainingAmount.toLocaleString()}</div>
+                    </div>
+                </div>
+
+                <div className="p-8 overflow-y-auto custom-scrollbar flex-1 bg-black/20">
+                    <div className="space-y-4">
+                        {schedule.map((inst, idx) => (
+                            <div key={idx} className="bg-gray-900/40 border border-gray-800 p-6 rounded-3xl flex flex-wrap md:flex-nowrap items-center gap-6 group hover:border-gray-700 transition-all">
+                                <div className="w-12 h-12 rounded-2xl bg-gray-800 flex items-center justify-center text-cyan-500 font-black italic shadow-lg">
+                                    #{inst.installmentNumber}
+                                </div>
+                                <div className="flex-1 min-w-[150px]">
+                                    <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Due Date</label>
+                                    <input
+                                        type="date"
+                                        value={inst.dueDate}
+                                        onChange={(e) => handleChange(idx, 'dueDate', e.target.value)}
+                                        className="w-full bg-black/40 border border-gray-800 rounded-xl py-2 px-3 text-white text-xs font-bold outline-none focus:border-cyan-500/50 transition-all"
+                                    />
+                                </div>
+                                <div className="flex-1 min-w-[120px]">
+                                    <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Amount (₹)</label>
+                                    <input
+                                        type="number"
+                                        value={inst.amount}
+                                        onFocus={(e) => e.target.select()}
+                                        onChange={(e) => handleChange(idx, 'amount', e.target.value)}
+                                        className="w-full bg-black/40 border border-gray-800 rounded-xl py-2 px-3 text-white text-xs font-black outline-none focus:border-cyan-500/50 transition-all"
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => handleRemove(idx)}
+                                    className="h-10 w-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center opacity-0 group-hover:opacity-100"
+                                    title="Remove Installment"
+                                >
+                                    <FaTrash className="text-xs" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+
+                    <button
+                        onClick={handleAdd}
+                        className="w-full mt-6 py-4 border-2 border-dashed border-gray-800 rounded-3xl text-gray-500 font-black uppercase text-[10px] tracking-widest hover:border-cyan-500/50 hover:text-cyan-500 transition-all flex items-center justify-center gap-2"
+                    >
+                        <FaPlus /> Add New Installment
+                    </button>
+                </div>
+
+                <div className="p-8 border-t border-gray-800 bg-black/40 backdrop-blur-xl">
+                    <div className="flex items-center justify-between mb-6 px-2">
+                        <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                            New Total: <span className={isValid ? "text-emerald-500" : "text-red-500"}>₹{totalNew.toLocaleString()}</span>
+                        </div>
+                        {!isValid && (
+                            <div className="text-[9px] font-black text-red-500 uppercase tracking-tight animate-pulse">
+                                Difference: ₹{(admission.remainingAmount - totalNew).toLocaleString()}
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex gap-4">
+                        <button
+                            onClick={onClose}
+                            className="flex-1 py-4 bg-gray-900 text-gray-500 font-black uppercase text-[10px] tracking-widest rounded-2xl hover:bg-gray-800 hover:text-white transition-all border border-gray-800"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleSubmit}
+                            disabled={!isValid || schedule.length === 0 || isSaving}
+                            className={`flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all shadow-xl flex items-center justify-center gap-2 ${isValid && schedule.length > 0 && !isSaving
+                                ? "bg-gradient-to-r from-emerald-600 to-emerald-400 text-black shadow-emerald-500/20 hover:scale-105 active:scale-95"
+                                : "bg-gray-800 text-gray-600 cursor-not-allowed"
+                                }`}
+                        >
+                            {isSaving ? "Saving..." : "Save New Schedule"}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const InstallmentPayment = () => {
     const [loading, setLoading] = useState(false);
@@ -21,9 +172,9 @@ const InstallmentPayment = () => {
     // Admissions List & Filters
     const [admissionsList, setAdmissionsList] = useState([]);
     const [filters, setFilters] = useState({
-        centre: "",
-        course: "",
-        department: "",
+        centre: [],
+        course: [],
+        department: [],
         startDate: "",
         endDate: "",
         minRemaining: "",
@@ -36,12 +187,49 @@ const InstallmentPayment = () => {
         departments: []
     });
 
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    const itemsPerPageOptions = [
+        { value: 10, label: "10 per page" },
+        { value: 25, label: "25 per page" },
+        { value: 50, label: "50 per page" },
+        { value: 100, label: "100 per page" },
+        { value: 500, label: "500 per page" },
+    ];
+
+    const [allowedCentres, setAllowedCentres] = useState(null); // null means all allowed (SuperAdmin)
+
     useEffect(() => {
-        fetchMetadata();
-        fetchAdmissions();
+        const init = async () => {
+            const perms = await fetchUserPermissions();
+            setAllowedCentres(perms);
+            fetchMetadata(perms);
+            fetchAdmissions(perms);
+        };
+        init();
     }, []);
 
-    const fetchMetadata = async () => {
+    const fetchUserPermissions = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/profile/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                // Check role strictly from profile
+                if (data.user.role === 'superAdmin' || data.user.role === 'SuperAdmin') return null; // All access
+                return data.user.centres?.map(c => c.centreName) || [];
+            }
+        } catch (error) {
+            console.error(error);
+        }
+        return []; // Default no access if error or no centres
+    };
+
+    const fetchMetadata = async (allowedOverride) => {
         try {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
@@ -56,8 +244,22 @@ const InstallmentPayment = () => {
             const courses = await coursesRes.json();
             const depts = await deptsRes.json();
 
+            // Filter centres based on permissions with case-insensitive comparison
+            const perms = allowedOverride !== undefined ? allowedOverride : allowedCentres;
+            let filteredCentres = Array.isArray(centres) ? centres : [];
+
+            if (perms !== null && Array.isArray(perms)) {
+                // Normalize permission centre names (trim and lowercase)
+                const normalizedPerms = perms.map(c => (c || "").trim().toLowerCase());
+                // Filter centres by comparing normalized names
+                filteredCentres = filteredCentres.filter(c => {
+                    const centreName = (c.centreName || "").trim().toLowerCase();
+                    return normalizedPerms.includes(centreName);
+                });
+            }
+
             setMetadata({
-                centres: Array.isArray(centres) ? centres : [],
+                centres: filteredCentres,
                 courses: Array.isArray(courses) ? courses : [],
                 departments: Array.isArray(depts) ? depts : []
             });
@@ -66,13 +268,18 @@ const InstallmentPayment = () => {
         }
     };
 
-    const fetchAdmissions = async () => {
+    const fetchAdmissions = async (allowedOverride) => {
         setLoading(true);
+        setCurrentPage(1); // Reset to first page on new search
         try {
             const token = localStorage.getItem("token");
             const queryParams = new URLSearchParams();
             Object.entries(filters).forEach(([key, value]) => {
-                if (value) queryParams.append(key, value);
+                if (Array.isArray(value) && value.length > 0) {
+                    value.forEach(v => queryParams.append(key, v));
+                } else if (value && !Array.isArray(value)) {
+                    queryParams.append(key, value);
+                }
             });
 
             const response = await fetch(
@@ -101,9 +308,9 @@ const InstallmentPayment = () => {
 
     const resetFilters = () => {
         setFilters({
-            centre: "",
-            course: "",
-            department: "",
+            centre: [],
+            course: [],
+            department: [],
             startDate: "",
             endDate: "",
             minRemaining: "",
@@ -274,6 +481,8 @@ const InstallmentPayment = () => {
 
     // Payment Modal State
     const [showPayModal, setShowPayModal] = useState(false);
+    const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
+    const [editingAdmission, setEditingAdmission] = useState(null);
     const [activeInstallment, setActiveInstallment] = useState(null);
     const [activeAdmissionId, setActiveAdmissionId] = useState(null);
     const [payFormData, setPayFormData] = useState({
@@ -355,11 +564,71 @@ const InstallmentPayment = () => {
         }
     };
 
+    // React-select custom styles
+    const selectStyles = {
+        control: (base) => ({
+            ...base,
+            backgroundColor: 'rgba(0, 0, 0, 0.4)',
+            borderColor: '#1f2937',
+            borderRadius: '0.75rem',
+            padding: '0.25rem',
+            '&:hover': { borderColor: 'rgba(6, 182, 212, 0.5)' }
+        }),
+        menu: (base) => ({
+            ...base,
+            backgroundColor: '#131619',
+            border: '1px solid #1f2937',
+            borderRadius: '0.75rem',
+            overflow: 'hidden'
+        }),
+        option: (base, state) => ({
+            ...base,
+            backgroundColor: state.isFocused ? 'rgba(6, 182, 212, 0.1)' : 'transparent',
+            color: state.isFocused ? '#06b6d4' : '#9ca3af',
+            fontWeight: 'bold',
+            fontSize: '0.75rem',
+            textTransform: 'uppercase',
+            '&:active': { backgroundColor: 'rgba(6, 182, 212, 0.2)' }
+        }),
+        multiValue: (base) => ({
+            ...base,
+            backgroundColor: 'rgba(6, 182, 212, 0.1)',
+            borderRadius: '0.5rem',
+            border: '1px solid rgba(6, 182, 212, 0.3)'
+        }),
+        multiValueLabel: (base) => ({
+            ...base,
+            color: '#06b6d4',
+            fontWeight: 'bold',
+            fontSize: '0.65rem',
+            textTransform: 'uppercase',
+            padding: '0.25rem 0.5rem'
+        }),
+        multiValueRemove: (base) => ({
+            ...base,
+            color: '#06b6d4',
+            '&:hover': { backgroundColor: '#06b6d4', color: '#000' }
+        }),
+        placeholder: (base) => ({
+            ...base,
+            color: '#6b7280',
+            fontWeight: 'bold',
+            fontSize: '0.75rem',
+            textTransform: 'uppercase'
+        }),
+        input: (base) => ({
+            ...base,
+            color: '#fff',
+            fontWeight: 'bold',
+            fontSize: '0.75rem'
+        })
+    };
+
     return (
         <Layout activePage="Finance & Fees">
             <div className="p-4 md:p-10 max-w-[1800px] mx-auto min-h-screen pb-20">
                 {/* Header */}
-                <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="mb-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
                     <div>
                         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">
                             Installment <span className="text-cyan-500">Payment</span>
@@ -368,6 +637,82 @@ const InstallmentPayment = () => {
                             {selectedStudent ? "Financial Details for " + selectedStudent.name : "Manage Student Payments & Financial Records"}
                         </p>
                     </div>
+
+                    {!selectedStudent && (
+                        <div className="bg-[#131619] border border-gray-800 rounded-2xl p-4" style={{ width: '480px', height: '140px' }}>
+                            <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Payment Analytics</div>
+                            <ResponsiveContainer width="100%" height={90}>
+                                <BarChart
+                                    data={[
+                                        {
+                                            name: 'Completed',
+                                            value: admissionsList.filter(a => a.paymentStatus === "COMPLETED").length,
+                                            amount: admissionsList.filter(a => a.paymentStatus === "COMPLETED").reduce((sum, a) => sum + (a.totalPaid || 0), 0),
+                                            color: '#10b981'
+                                        },
+                                        {
+                                            name: 'Partial',
+                                            value: admissionsList.filter(a => a.paymentStatus === "PARTIAL").length,
+                                            amount: admissionsList.filter(a => a.paymentStatus === "PARTIAL").reduce((sum, a) => sum + (a.totalPaid || 0), 0),
+                                            color: '#f59e0b'
+                                        },
+                                        {
+                                            name: 'Pending',
+                                            value: admissionsList.filter(a => a.paymentStatus === "PENDING" || !a.paymentStatus).length,
+                                            amount: admissionsList.filter(a => a.paymentStatus === "PENDING" || !a.paymentStatus).reduce((sum, a) => sum + (a.totalPaid || 0), 0),
+                                            color: '#ef4444'
+                                        }
+                                    ]}
+                                    margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                                    <XAxis
+                                        dataKey="name"
+                                        stroke="#6b7280"
+                                        style={{ fontSize: '10px', fontWeight: 'bold' }}
+                                        tick={{ fill: '#9ca3af' }}
+                                        axisLine={false}
+                                        tickLine={false}
+                                    />
+                                    <YAxis
+                                        stroke="#6b7280"
+                                        style={{ fontSize: '9px' }}
+                                        tick={{ fill: '#9ca3af' }}
+                                        axisLine={false}
+                                        tickLine={false}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{
+                                            backgroundColor: '#1f2937',
+                                            border: '1px solid #374151',
+                                            borderRadius: '8px',
+                                            fontSize: '11px',
+                                            fontWeight: 'bold'
+                                        }}
+                                        labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '10px' }}
+                                        cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+                                        formatter={(value, name) => {
+                                            if (name === 'value') return [value + ' Students', 'Count'];
+                                            if (name === 'amount') return ['₹' + value.toLocaleString(), 'Amount'];
+                                            return [value, name];
+                                        }}
+                                    />
+                                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                        {
+                                            [
+                                                { name: 'Completed', color: '#10b981' },
+                                                { name: 'Partial', color: '#f59e0b' },
+                                                { name: 'Pending', color: '#ef4444' }
+                                            ].map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} />
+                                            ))
+                                        }
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+
                     {selectedStudent && (
                         <button
                             onClick={() => {
@@ -408,58 +753,58 @@ const InstallmentPayment = () => {
                                     />
                                 </div>
 
-                                {/* Dept Filter */}
+                                {/* Dept Filter - Multi-select */}
                                 <div>
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Department</label>
-                                    <select
-                                        name="department"
-                                        value={filters.department}
-                                        onChange={handleFilterChange}
-                                        className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-white font-bold text-xs outline-none focus:border-cyan-500/50 transition-all appearance-none"
-                                    >
-                                        <option value="">ALL DEPARTMENTS</option>
-                                        {metadata.departments.map(d => (
-                                            <option key={d._id} value={d._id}>{d.departmentName}</option>
-                                        ))}
-                                    </select>
+                                    <Select
+                                        isMulti
+                                        options={metadata.departments.map(d => ({ value: d._id, label: d.departmentName }))}
+                                        value={filters.department.map(id => {
+                                            const dept = metadata.departments.find(d => d._id === id);
+                                            return dept ? { value: dept._id, label: dept.departmentName } : null;
+                                        }).filter(Boolean)}
+                                        onChange={(selected) => setFilters(prev => ({ ...prev, department: selected ? selected.map(s => s.value) : [] }))}
+                                        styles={selectStyles}
+                                        placeholder="ALL DEPARTMENTS"
+                                        isClearable
+                                    />
                                 </div>
 
-                                {/* Course Filter */}
+                                {/* Course Filter - Multi-select */}
                                 <div>
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Course</label>
-                                    <select
-                                        name="course"
-                                        value={filters.course}
-                                        onChange={handleFilterChange}
-                                        className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-white font-bold text-xs outline-none focus:border-cyan-500/50 transition-all appearance-none"
-                                    >
-                                        <option value="">ALL COURSES</option>
-                                        {metadata.courses.map(c => (
-                                            <option key={c._id} value={c._id}>{c.courseName}</option>
-                                        ))}
-                                    </select>
+                                    <Select
+                                        isMulti
+                                        options={metadata.courses.map(c => ({ value: c._id, label: c.courseName }))}
+                                        value={filters.course.map(id => {
+                                            const course = metadata.courses.find(c => c._id === id);
+                                            return course ? { value: course._id, label: course.courseName } : null;
+                                        }).filter(Boolean)}
+                                        onChange={(selected) => setFilters(prev => ({ ...prev, course: selected ? selected.map(s => s.value) : [] }))}
+                                        styles={selectStyles}
+                                        placeholder="ALL COURSES"
+                                        isClearable
+                                    />
                                 </div>
 
-                                {/* Centre Filter */}
+                                {/* Centre Filter - Multi-select */}
                                 <div>
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
-                                    <select
-                                        name="centre"
-                                        value={filters.centre}
-                                        onChange={handleFilterChange}
-                                        className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-white font-bold text-xs outline-none focus:border-cyan-500/50 transition-all appearance-none"
-                                    >
-                                        <option value="">ALL CENTRES</option>
-                                        {metadata.centres.map(c => (
-                                            <option key={c._id} value={c.centreName}>{c.centreName}</option>
-                                        ))}
-                                    </select>
+                                    <Select
+                                        isMulti
+                                        options={metadata.centres.map(c => ({ value: c.centreName, label: c.centreName }))}
+                                        value={filters.centre.map(name => ({ value: name, label: name }))}
+                                        onChange={(selected) => setFilters(prev => ({ ...prev, centre: selected ? selected.map(s => s.value) : [] }))}
+                                        styles={selectStyles}
+                                        placeholder="ALL CENTRES"
+                                        isClearable
+                                    />
                                 </div>
 
                                 {/* Action Buttons */}
                                 <div className="flex gap-2">
                                     <button
-                                        onClick={fetchAdmissions}
+                                        onClick={() => fetchAdmissions()}
                                         className="flex-1 py-3 bg-cyan-500 text-black font-black uppercase text-xs tracking-widest rounded-xl hover:bg-cyan-400 transition-all"
                                     >
                                         Apply
@@ -511,18 +856,32 @@ const InstallmentPayment = () => {
                                 </div>
                             </div>
 
-                            {/* Text Search */}
-                            <div className="mt-8 relative group">
-                                <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-cyan-500 transition-colors" />
-                                <input
-                                    type="text"
-                                    name="searchTerm"
-                                    placeholder="SEARCH BY NAME, EMAIL, OR ADMISSION NUMBER..."
-                                    value={filters.searchTerm}
-                                    onChange={handleFilterChange}
-                                    onKeyPress={(e) => e.key === "Enter" && fetchAdmissions()}
-                                    className="w-full bg-black/20 border border-gray-800 rounded-2xl py-4 pl-12 pr-4 text-gray-200 font-bold text-sm uppercase tracking-wider outline-none focus:border-cyan-500/50 transition-all focus:bg-black/40"
-                                />
+                            {/* Text Search & Items Per Page */}
+                            <div className="mt-8 flex flex-col md:flex-row gap-4">
+                                <div className="relative group flex-1">
+                                    <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-cyan-500 transition-colors" />
+                                    <input
+                                        type="text"
+                                        name="searchTerm"
+                                        placeholder="SEARCH BY NAME, EMAIL, OR ADMISSION NUMBER..."
+                                        value={filters.searchTerm}
+                                        onChange={handleFilterChange}
+                                        onKeyPress={(e) => e.key === "Enter" && fetchAdmissions()}
+                                        className="w-full bg-black/20 border border-gray-800 rounded-2xl py-4 pl-12 pr-4 text-gray-200 font-bold text-sm uppercase tracking-wider outline-none focus:border-cyan-500/50 transition-all focus:bg-black/40"
+                                    />
+                                </div>
+                                <div className="w-full md:w-64">
+                                    <Select
+                                        options={itemsPerPageOptions}
+                                        value={itemsPerPageOptions.find(opt => opt.value === itemsPerPage)}
+                                        onChange={(opt) => {
+                                            setItemsPerPage(opt.value);
+                                            setCurrentPage(1);
+                                        }}
+                                        styles={selectStyles}
+                                        isSearchable={false}
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -557,7 +916,7 @@ const InstallmentPayment = () => {
                                                 <td colSpan="7" className="p-20 text-center italic text-gray-600 font-bold uppercase tracking-widest">No students found matching your criteria</td>
                                             </tr>
                                         ) : (
-                                            admissionsList.map((adm, idx) => (
+                                            admissionsList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((adm, idx) => (
                                                 <tr
                                                     key={idx}
                                                     className="hover:bg-cyan-500/5 transition-all cursor-pointer group"
@@ -621,6 +980,14 @@ const InstallmentPayment = () => {
                                     </tbody>
                                 </table>
                             </div>
+                            {!loading && admissionsList.length > 0 && (
+                                <Pagination
+                                    currentPage={currentPage}
+                                    totalItems={admissionsList.length}
+                                    itemsPerPage={itemsPerPage}
+                                    onPageChange={setCurrentPage}
+                                />
+                            )}
                         </div>
                     </>
                 ) : (
@@ -754,91 +1121,185 @@ const InstallmentPayment = () => {
                                             </div>
                                         </div>
 
-                                        {/* Installment Details */}
-                                        <div className="mb-10">
-                                            <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
-                                                <div className="h-1 w-8 bg-cyan-500 rounded-full"></div>
-                                                Installment Schedule
-                                            </h4>
-                                            <div className="bg-black/20 border border-gray-800 rounded-[2rem] overflow-hidden">
-                                                <table className="w-full text-left border-collapse">
-                                                    <thead>
-                                                        <tr className="bg-gray-900/50 border-b border-gray-800">
-                                                            <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Installment</th>
-                                                            <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Due Date</th>
-                                                            <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Amount</th>
-                                                            <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Paid</th>
-                                                            <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Method</th>
-                                                            <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Status</th>
-                                                            <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Due Status</th>
-                                                            <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest text-right">Action</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-gray-800/50">
-                                                        {admission.paymentBreakdown && admission.paymentBreakdown.map((installment, idx) => {
-                                                            const today = new Date();
-                                                            today.setHours(0, 0, 0, 0);
-                                                            const dueDate = new Date(installment.dueDate);
-                                                            dueDate.setHours(0, 0, 0, 0);
-                                                            const isOverdue = (installment.status !== "PAID" && installment.status !== "PENDING_CLEARANCE" && dueDate < today);
+                                        {/* Board Monthly Subject History */}
+                                        {admission.admissionType === "BOARD" && admission.monthlySubjectHistory && admission.monthlySubjectHistory.length > 0 && (
+                                            <div className="mb-10">
+                                                <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+                                                    <div className="h-1 w-8 bg-purple-500 rounded-full"></div>
+                                                    Monthly Payment History
+                                                </h4>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                    {admission.monthlySubjectHistory.map((history, hIdx) => {
+                                                        const monthDate = new Date(history.month + "-01");
+                                                        const monthName = monthDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 
-                                                            return (
-                                                                <tr key={idx} className="hover:bg-cyan-500/[0.03] transition-colors">
-                                                                    <td className="p-5 font-black text-cyan-500 text-sm italic">#{installment.installmentNumber}</td>
-                                                                    <td className="p-5 text-gray-300 text-xs font-bold uppercase tracking-tighter">{new Date(installment.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                                                                    <td className="p-5 text-white font-black">₹{installment.amount.toLocaleString()}</td>
-                                                                    <td className="p-5 text-emerald-400 font-black">₹{installment.paidAmount?.toLocaleString() || 0}</td>
-                                                                    <td className="p-5 text-gray-500 text-[10px] font-bold uppercase tracking-widest">{installment.paymentMethod || "-"}</td>
-                                                                    <td className="p-5">{getStatusBadge(installment.status)}</td>
-                                                                    <td className="p-5">
-                                                                        {installment.status === "PAID" ? (
-                                                                            <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-emerald-500 bg-emerald-500/10 border-emerald-500/20">PAID</span>
-                                                                        ) : isOverdue ? (
-                                                                            <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-red-500 bg-red-500/10 border-red-500/20">OVERDUE</span>
-                                                                        ) : (
-                                                                            <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-cyan-500 bg-cyan-500/10 border-cyan-500/20">UPCOMING</span>
-                                                                        )}
-                                                                    </td>
-                                                                    <td className="p-5 text-right flex items-center justify-end gap-2">
-                                                                        {(installment.status === "PENDING" || installment.status === "OVERDUE") && canCreatePayment && (
-                                                                            <button
-                                                                                onClick={() => handleOpenPayModal(admission.admissionId, installment)}
-                                                                                className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 text-black font-black text-[10px] uppercase rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-cyan-500/20"
-                                                                            >
-                                                                                Pay Now
-                                                                            </button>
-                                                                        )}
-                                                                        {(installment.status === "PAID" || installment.status === "COMPLETED" || installment.status === "PENDING_CLEARANCE" || (installment.paidAmount > 0)) && (
-                                                                            <button
-                                                                                onClick={() => setBillModal({
+                                                        return (
+                                                            <div key={hIdx} className="bg-black/20 border border-gray-800 rounded-[2rem] p-6 hover:border-purple-500/30 transition-all group/month">
+                                                                <div className="flex justify-between items-start mb-6">
+                                                                    <div>
+                                                                        <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Month {hIdx + 1} / {admission.courseDurationMonths || 0}</div>
+                                                                        <h5 className="text-xl font-black text-white italic tracking-tight">{monthName}</h5>
+                                                                    </div>
+                                                                    {history.isPaid ? (
+                                                                        <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-emerald-500 bg-emerald-500/10 border-emerald-500/20">PAID</span>
+                                                                    ) : (
+                                                                        <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-orange-500 bg-orange-500/10 border-orange-500/20">PENDING</span>
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="space-y-3 mb-6">
+                                                                    {history.subjects.map((sub, sIdx) => (
+                                                                        <div key={sIdx} className="flex justify-between items-center text-[11px]">
+                                                                            <span className="text-gray-400 font-bold uppercase tracking-tight">{sub.name}</span>
+                                                                            <span className="text-white font-black">₹{sub.price.toLocaleString()}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+
+                                                                <div className="pt-4 border-t border-gray-800/50 flex justify-between items-center">
+                                                                    <div>
+                                                                        <div className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Aggregate</div>
+                                                                        <div className="text-lg font-black text-cyan-500">₹{history.totalAmount.toLocaleString()}</div>
+                                                                    </div>
+                                                                    {history.isPaid && (
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                const monthDate = new Date(history.month + "-01");
+                                                                                const monthName = monthDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+                                                                                // Try both YYYY-MM and formatted Month Name for lookup
+                                                                                const actualPayment = admission.paymentHistory?.find(p =>
+                                                                                    p.billingMonth === history.month ||
+                                                                                    p.billingMonth === monthName
+                                                                                );
+
+                                                                                setBillModal({
                                                                                     show: true,
                                                                                     admission: { ...admission, _id: admission.admissionId },
                                                                                     installment: {
-                                                                                        installmentNumber: installment.installmentNumber,
-                                                                                        amount: installment.amount,
-                                                                                        paidAmount: installment.paidAmount,
-                                                                                        paidDate: installment.paidDate || new Date(),
-                                                                                        paymentMethod: installment.paymentMethod,
-                                                                                        status: installment.status
+                                                                                        installmentNumber: hIdx + 1,
+                                                                                        billingMonth: monthName,
+                                                                                        amount: history.totalAmount,
+                                                                                        paidAmount: actualPayment ? actualPayment.paidAmount : history.totalAmount,
+                                                                                        paidDate: actualPayment ? actualPayment.createdAt : new Date(),
+                                                                                        paymentMethod: actualPayment ? actualPayment.paymentMethod : "Monthly Fee",
+                                                                                        status: actualPayment ? actualPayment.status : "PAID"
                                                                                     }
-                                                                                })}
-                                                                                className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-lg border border-emerald-500/20 transition-all group/btn"
-                                                                                title="View Bill"
-                                                                            >
-                                                                                <FaFileInvoice className="group-hover/btn:scale-110 transition-transform" />
-                                                                            </button>
-                                                                        )}
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </tbody>
-                                                </table>
+                                                                                });
+                                                                            }}
+                                                                            className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 text-black font-black text-[10px] uppercase rounded-xl hover:scale-105 transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2"
+                                                                        >
+                                                                            <FaFileInvoice className="text-xs" />
+                                                                            Extract Bill
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
-                                        </div>
+                                        )}
 
-                                        {/* Payment History */}
-                                        {admission.paymentHistory && admission.paymentHistory.length > 0 && (
+                                        {/* Installment Details - Only for Normal Admissions */}
+                                        {admission.admissionType !== "BOARD" && (
+                                            <div className="mb-10">
+                                                <div className="flex justify-between items-center mb-6">
+                                                    <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-3">
+                                                        <div className="h-1 w-8 bg-cyan-500 rounded-full"></div>
+                                                        Installment Schedule
+                                                    </h4>
+                                                    {canCreatePayment && admission.remainingAmount > 0 && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setEditingAdmission(admission);
+                                                                setShowEditScheduleModal(true);
+                                                            }}
+                                                            className="px-4 py-2 bg-gray-800 text-gray-300 font-bold uppercase text-[10px] rounded-xl hover:bg-gray-700 transition-all border border-gray-700 flex items-center gap-2"
+                                                        >
+                                                            <FaEdit className="text-cyan-500" /> Edit Schedule
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className="bg-black/20 border border-gray-800 rounded-[2rem] overflow-hidden">
+                                                    <table className="w-full text-left border-collapse">
+                                                        <thead>
+                                                            <tr className="bg-gray-900/50 border-b border-gray-800">
+                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Installment</th>
+                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Due Date</th>
+                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Amount</th>
+                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Paid</th>
+                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Method</th>
+                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Status</th>
+                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Due Status</th>
+                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest text-right">Action</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-gray-800/50">
+                                                            {admission.paymentBreakdown && admission.paymentBreakdown.map((installment, idx) => {
+                                                                const today = new Date();
+                                                                today.setHours(0, 0, 0, 0);
+                                                                const dueDate = new Date(installment.dueDate);
+                                                                dueDate.setHours(0, 0, 0, 0);
+                                                                const isOverdue = (installment.status !== "PAID" && installment.status !== "PENDING_CLEARANCE" && dueDate < today);
+
+                                                                return (
+                                                                    <tr key={idx} className="hover:bg-cyan-500/[0.03] transition-colors">
+                                                                        <td className="p-5 font-black text-cyan-500 text-sm italic">#{installment.installmentNumber}</td>
+                                                                        <td className="p-5 text-gray-300 text-xs font-bold uppercase tracking-tighter">{new Date(installment.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                                                                        <td className="p-5 text-white font-black">₹{installment.amount.toLocaleString()}</td>
+                                                                        <td className="p-5 text-emerald-400 font-black">₹{installment.paidAmount?.toLocaleString() || 0}</td>
+                                                                        <td className="p-5 text-gray-500 text-[10px] font-bold uppercase tracking-widest">{installment.paymentMethod || "-"}</td>
+                                                                        <td className="p-5">{getStatusBadge(installment.status)}</td>
+                                                                        <td className="p-5">
+                                                                            {installment.status === "PAID" ? (
+                                                                                <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-emerald-500 bg-emerald-500/10 border-emerald-500/20">PAID</span>
+                                                                            ) : isOverdue ? (
+                                                                                <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-red-500 bg-red-500/10 border-red-500/20">OVERDUE</span>
+                                                                            ) : (
+                                                                                <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-cyan-500 bg-cyan-500/10 border-cyan-500/20">UPCOMING</span>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="p-5 text-right flex items-center justify-end gap-2">
+                                                                            {(installment.status === "PENDING" || installment.status === "OVERDUE") && canCreatePayment && (
+                                                                                <button
+                                                                                    onClick={() => handleOpenPayModal(admission.admissionId, installment)}
+                                                                                    className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 text-black font-black text-[10px] uppercase rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-cyan-500/20"
+                                                                                >
+                                                                                    Pay Now
+                                                                                </button>
+                                                                            )}
+                                                                            {(installment.status === "PAID" || installment.status === "COMPLETED" || installment.status === "PENDING_CLEARANCE" || (installment.paidAmount > 0)) && (
+                                                                                <button
+                                                                                    onClick={() => setBillModal({
+                                                                                        show: true,
+                                                                                        admission: { ...admission, _id: admission.admissionId },
+                                                                                        installment: {
+                                                                                            installmentNumber: installment.installmentNumber,
+                                                                                            amount: installment.amount,
+                                                                                            paidAmount: installment.paidAmount,
+                                                                                            paidDate: installment.paidDate || new Date(),
+                                                                                            paymentMethod: installment.paymentMethod,
+                                                                                            status: installment.status
+                                                                                        }
+                                                                                    })}
+                                                                                    className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-lg border border-emerald-500/20 transition-all group/btn"
+                                                                                    title="View Bill"
+                                                                                >
+                                                                                    <FaFileInvoice className="group-hover/btn:scale-110 transition-transform" />
+                                                                                </button>
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Payment History - Only for Normal Admissions (Board students use the card view above) */}
+                                        {admission.admissionType !== "BOARD" && admission.paymentHistory && admission.paymentHistory.length > 0 && (
                                             <div>
                                                 <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
                                                     <div className="h-1 w-8 bg-emerald-500 rounded-full"></div>
@@ -850,6 +1311,7 @@ const InstallmentPayment = () => {
                                                             <tr className="bg-gray-900/50 border-b border-gray-800 text-[9px] font-black text-gray-500 uppercase tracking-widest">
                                                                 <th className="p-5">Date</th>
                                                                 <th className="p-5">Inst #</th>
+                                                                <th className="p-5">Details</th>
                                                                 <th className="p-5">Amount</th>
                                                                 <th className="p-5">Method</th>
                                                                 <th className="p-5">Status</th>
@@ -861,6 +1323,15 @@ const InstallmentPayment = () => {
                                                                 <tr key={idx} className="hover:bg-emerald-500/[0.03] transition-colors">
                                                                     <td className="p-5 text-gray-300 text-[10px] font-bold">{new Date(payment.createdAt).toLocaleDateString('en-GB')}</td>
                                                                     <td className="p-5 text-cyan-500 font-black italic text-xs">#{payment.installmentNumber}</td>
+                                                                    <td className="p-5 text-gray-400 text-[10px] font-bold uppercase tracking-tighter">
+                                                                        {payment.installmentNumber === 0 ? (
+                                                                            <span className="text-emerald-500 font-black">Down Payment</span>
+                                                                        ) : payment.billingMonth ? (
+                                                                            <span>Monthly Fee: <span className="text-white">{payment.billingMonth}</span></span>
+                                                                        ) : (
+                                                                            `Installment #${payment.installmentNumber}`
+                                                                        )}
+                                                                    </td>
                                                                     <td className="p-5 text-white font-black">₹{payment.paidAmount.toLocaleString()}</td>
                                                                     <td className="p-5 text-gray-500 text-[10px] font-bold uppercase tracking-widest">{payment.paymentMethod}</td>
                                                                     <td className="p-5">{getStatusBadge(payment.status)}</td>
@@ -871,6 +1342,7 @@ const InstallmentPayment = () => {
                                                                                 admission: { ...admission, _id: admission.admissionId },
                                                                                 installment: {
                                                                                     installmentNumber: payment.installmentNumber,
+                                                                                    billingMonth: payment.billingMonth,
                                                                                     amount: payment.amount,
                                                                                     paidAmount: payment.paidAmount,
                                                                                     paidDate: payment.createdAt,
@@ -1052,9 +1524,50 @@ const InstallmentPayment = () => {
                         onClose={() => setBillModal({ show: false, admission: null, installment: null })}
                     />
                 )}
+
+                {/* Edit Schedule Modal */}
+                {showEditScheduleModal && (
+                    <EditScheduleModal
+                        admission={editingAdmission}
+                        onClose={() => {
+                            setShowEditScheduleModal(false);
+                            setEditingAdmission(null);
+                        }}
+                        onSave={async (newSchedule) => {
+                            try {
+                                const token = localStorage.getItem("token");
+                                const response = await fetch(
+                                    `${import.meta.env.VITE_API_URL}/finance/installment/update-schedule/${editingAdmission.admissionId}`,
+                                    {
+                                        method: "PUT",
+                                        headers: {
+                                            "Content-Type": "application/json",
+                                            Authorization: `Bearer ${token}`
+                                        },
+                                        body: JSON.stringify({ newSchedule })
+                                    }
+                                );
+
+                                if (response.ok) {
+                                    toast.success("Installment schedule updated successfully!");
+                                    setShowEditScheduleModal(false);
+                                    setEditingAdmission(null);
+                                    handleSelectStudent(selectedStudent.studentId);
+                                    fetchAdmissions();
+                                } else {
+                                    const err = await response.json();
+                                    toast.error(err.message || "Failed to update schedule");
+                                }
+                            } catch (error) {
+                                console.error("Update Schedule Error:", error);
+                                toast.error("Error connecting to server");
+                            }
+                        }}
+                    />
+                )}
             </div>
         </Layout>
     );
 };
 
-export default InstallmentPayment;
+export default InstallmentPayment

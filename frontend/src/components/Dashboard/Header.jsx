@@ -71,6 +71,7 @@ import React from "react";
 import { FaBars, FaSignOutAlt, FaUser, FaCheckCircle } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import ThemeToggle from "../ThemeToggle";
 
 const Header = ({ toggleSidebar }) => {
     const navigate = useNavigate();
@@ -202,7 +203,9 @@ const Header = ({ toggleSidebar }) => {
 
             {/* Right Section - User Info & Logout */}
             <div className="flex items-center gap-4">
-                
+                {/* Theme Toggle Button */}
+                <ThemeToggle />
+
                 {/* User Info - Clickable ONLY for SuperAdmin */}
                 {userRole === "superAdmin" ? (
                     <div
@@ -212,10 +215,19 @@ const Header = ({ toggleSidebar }) => {
                     >
                         <div className="w-8 h-8 rounded-full bg-cyan-900 border border-cyan-500/30 flex items-center justify-center overflow-hidden shadow-lg shadow-cyan-500/10">
                             {userInfo.profileImage && !userInfo.profileImage.startsWith('undefined/') ? (
-                                <img src={userInfo.profileImage} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                                <span className="text-cyan-400 font-bold">{userName.charAt(0).toUpperCase()}</span>
-                            )}
+                                <img
+                                    src={userInfo.profileImage.startsWith('http') ? userInfo.profileImage : `${import.meta.env.VITE_API_URL}${userInfo.profileImage}`}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        e.target.style.display = 'none';
+                                        e.target.nextSibling.style.display = 'flex';
+                                    }}
+                                />
+                            ) : null}
+                            <span className={`text-cyan-400 font-bold ${userInfo.profileImage && !userInfo.profileImage.startsWith('undefined/') ? 'hidden' : ''}`}>
+                                {userName.charAt(0).toUpperCase()}
+                            </span>
                         </div>
                         <div className="flex flex-col">
                             <span className="text-gray-900 dark:text-white font-semibold">{userName}</span>
@@ -229,10 +241,19 @@ const Header = ({ toggleSidebar }) => {
                     >
                         <div className="w-8 h-8 rounded-full bg-cyan-900 border border-cyan-500/30 flex items-center justify-center overflow-hidden shadow-lg shadow-cyan-500/10">
                             {userInfo.profileImage && !userInfo.profileImage.startsWith('undefined/') ? (
-                                <img src={userInfo.profileImage} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                                <span className="text-cyan-400 font-bold">{userName.charAt(0).toUpperCase()}</span>
-                            )}
+                                <img
+                                    src={userInfo.profileImage.startsWith('http') ? userInfo.profileImage : `${import.meta.env.VITE_API_URL}${userInfo.profileImage}`}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        e.target.style.display = 'none';
+                                        e.target.nextSibling.style.display = 'flex';
+                                    }}
+                                />
+                            ) : null}
+                            <span className={`text-cyan-400 font-bold ${userInfo.profileImage && !userInfo.profileImage.startsWith('undefined/') ? 'hidden' : ''}`}>
+                                {userName.charAt(0).toUpperCase()}
+                            </span>
                         </div>
                         <div className="flex flex-col">
                             <span className="text-gray-900 dark:text-white font-semibold">{userName}</span>

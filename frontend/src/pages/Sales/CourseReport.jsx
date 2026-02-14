@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "../../context/ThemeContext";
 
 import {
     PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
@@ -12,6 +13,8 @@ import {
 } from 'recharts';
 
 const CourseReport = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const navigate = useNavigate();
     // ---- State ----
     const [loading, setLoading] = useState(false);
@@ -264,6 +267,8 @@ const CourseReport = () => {
 
     // Mini Pie Chart Component for Rows/Cards
     const MiniStatusPie = ({ admitted, counselling, size = 60 }) => {
+        const { theme } = useTheme();
+        const isDarkMode = theme === 'dark';
         const data = [
             { name: 'Admitted', value: admitted },
             { name: 'In Counselling', value: counselling }
@@ -272,8 +277,8 @@ const CourseReport = () => {
 
         if (total === 0) {
             return (
-                <div style={{ width: size, height: size }} className="rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center border border-dashed border-gray-300 dark:border-gray-700">
-                    <span className="text-[8px] text-gray-400 font-bold">EMPTY</span>
+                <div style={{ width: size, height: size }} className={`rounded-full flex items-center justify-center border border-dashed ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-300'}`}>
+                    <span className="text-[8px] text-gray-400 font-bold uppercase">Empty</span>
                 </div>
             );
         }
@@ -297,8 +302,16 @@ const CourseReport = () => {
                             ))}
                         </Pie>
                         <Tooltip
-                            contentStyle={{ fontSize: '10px', padding: '4px', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                            itemStyle={{ padding: '0px' }}
+                            contentStyle={{
+                                fontSize: '10px',
+                                padding: '4px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                                backgroundColor: isDarkMode ? '#1a1f24' : '#fff',
+                                color: isDarkMode ? '#fff' : '#1f2937'
+                            }}
+                            itemStyle={{ padding: '0px', color: isDarkMode ? '#fff' : '#1f2937' }}
                         />
                     </PieChart>
                 </ResponsiveContainer>
@@ -311,45 +324,45 @@ const CourseReport = () => {
             <div className="space-y-6 animate-fade-in pb-10">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Course Report</h1>
+                        <h1 className={`text-3xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Course Report</h1>
                     </div>
-                    <div className="flex items-center gap-2 bg-gray-100 dark:bg-[#1a1f24] p-1.5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-inner">
+                    <div className={`flex items-center gap-2 p-1.5 rounded-xl border shadow-inner transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
                         <button
                             onClick={() => setDisplayMode("chart")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "chart" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "chart" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-white/10 dark:hover:bg-gray-800/50 hover:text-gray-700 dark:hover:text-gray-300"}`}
                             title="Chart View"
                         >
                             <FaChartBar size={18} />
-                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Chart</span>
+                            <span className="text-xs font-black uppercase tracking-widest hidden sm:block">Chart</span>
                         </button>
                         <button
                             onClick={() => setDisplayMode("table")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "table" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "table" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-white/10 dark:hover:bg-gray-800/50 hover:text-gray-700 dark:hover:text-gray-300"}`}
                             title="Table View"
                         >
                             <FaTable size={18} />
-                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Table</span>
+                            <span className="text-xs font-black uppercase tracking-widest hidden sm:block">Table</span>
                         </button>
                         <button
                             onClick={() => setDisplayMode("card")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "card" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "card" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-white/10 dark:hover:bg-gray-800/50 hover:text-gray-700 dark:hover:text-gray-300"}`}
                             title="Card View"
                         >
                             <FaTh size={18} />
-                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Cards</span>
+                            <span className="text-xs font-black uppercase tracking-widest hidden sm:block">Cards</span>
                         </button>
                     </div>
 
-                    <div className="flex items-center gap-2 bg-gray-100 dark:bg-[#1a1f24] p-1.5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-inner">
+                    <div className={`flex items-center gap-2 p-1.5 rounded-xl border shadow-inner transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
                         <button
                             onClick={() => setReportType("monthly")}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-300 ${reportType === "monthly" ? "bg-purple-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${reportType === "monthly" ? "bg-purple-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
                         >
                             Monthly
                         </button>
                         <button
                             onClick={() => setReportType("daily")}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-300 ${reportType === "daily" ? "bg-purple-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${reportType === "daily" ? "bg-purple-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
                         >
                             Day Wise
                         </button>
@@ -357,29 +370,34 @@ const CourseReport = () => {
                 </div>
 
                 {/* Subheader */}
-                <h2 className="text-xl font-bold text-gray-800 dark:text-white">Student Course Analytics</h2>
+                <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Student Course Analytics</h2>
 
                 {/* Filters */}
-                <div className="bg-white dark:bg-[#1a1f24] p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800">
+                <div className={`p-4 rounded-xl shadow-sm border transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                     <div className="flex flex-wrap items-center gap-4 justify-between">
                         <div className="flex flex-wrap items-center gap-3">
                             {/* Centre */}
                             <div className="relative" ref={centreDropdownRef}>
                                 <button
                                     onClick={() => setIsCentreDropdownOpen(!isCentreDropdownOpen)}
-                                    className="min-w-[170px] h-10 px-3 bg-white border border-gray-300 rounded-md flex justify-between items-center text-sm text-gray-500"
+                                    className={`min-w-[170px] h-10 px-3 border rounded-md flex justify-between items-center text-sm font-bold uppercase tracking-tighter transition-colors ${isDarkMode
+                                        ? 'bg-[#1a1f24] border-gray-700 text-gray-400 hover:border-blue-500'
+                                        : 'bg-white border-gray-300 text-gray-600 hover:border-blue-500 shadow-sm'
+                                        }`}
                                 >
-                                    <span className="truncate">{selectedCentres.length ? `${selectedCentres.length} Selected` : "------Set Centre------"}</span>
-                                    <FaChevronDown size={10} />
+                                    <span className="truncate">{selectedCentres.length ? `${selectedCentres.length} Selected` : "Set Centre"}</span>
+                                    <FaChevronDown size={10} className={`transition-transform duration-200 ${isCentreDropdownOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {isCentreDropdownOpen && (
-                                    <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto z-50">
+                                    <div className={`absolute top-full left-0 mt-1 w-64 border rounded-lg shadow-xl max-h-60 overflow-y-auto z-50 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'
+                                        }`}>
                                         {centres.map(c => (
-                                            <div key={c._id} className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" onClick={() => {
-                                                setSelectedCentres(prev => prev.includes(c._id) ? prev.filter(x => x !== c._id) : [...prev, c._id]);
-                                            }}>
-                                                <input type="checkbox" checked={selectedCentres.includes(c._id)} readOnly className="rounded text-blue-600" />
-                                                <span className="text-sm text-gray-700 truncate">{c.centreName}</span>
+                                            <div key={c._id} className={`px-3 py-2 cursor-pointer flex items-center gap-2 transition-colors ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-50'
+                                                }`} onClick={() => {
+                                                    setSelectedCentres(prev => prev.includes(c._id) ? prev.filter(x => x !== c._id) : [...prev, c._id]);
+                                                }}>
+                                                <input type="checkbox" checked={selectedCentres.includes(c._id)} readOnly className={`rounded transition-colors ${isDarkMode ? 'bg-gray-700 border-gray-600 text-blue-500' : 'bg-white border-gray-300 text-blue-600'}`} />
+                                                <span className={`text-sm font-bold uppercase tracking-tight truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{c.centreName}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -390,19 +408,24 @@ const CourseReport = () => {
                             <div className="relative" ref={courseDropdownRef}>
                                 <button
                                     onClick={() => setIsCourseDropdownOpen(!isCourseDropdownOpen)}
-                                    className="min-w-[170px] h-10 px-3 bg-white border border-gray-300 rounded-md flex justify-between items-center text-sm text-gray-500"
+                                    className={`min-w-[170px] h-10 px-3 border rounded-md flex justify-between items-center text-sm font-bold uppercase tracking-tighter transition-colors ${isDarkMode
+                                        ? 'bg-[#1a1f24] border-gray-700 text-gray-400 hover:border-blue-500'
+                                        : 'bg-white border-gray-300 text-gray-600 hover:border-blue-500 shadow-sm'
+                                        }`}
                                 >
-                                    <span className="truncate">{selectedCourses.length ? `${selectedCourses.length} Selected` : "------Set Course------"}</span>
-                                    <FaChevronDown size={10} />
+                                    <span className="truncate">{selectedCourses.length ? `${selectedCourses.length} Selected` : "Set Course"}</span>
+                                    <FaChevronDown size={10} className={`transition-transform duration-200 ${isCourseDropdownOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {isCourseDropdownOpen && (
-                                    <div className="absolute top-full left-0 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto z-50">
+                                    <div className={`absolute top-full left-0 mt-1 w-72 border rounded-lg shadow-xl max-h-60 overflow-y-auto z-50 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'
+                                        }`}>
                                         {courses.map(c => (
-                                            <div key={c._id} className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" onClick={() => {
-                                                setSelectedCourses(prev => prev.includes(c._id) ? prev.filter(x => x !== c._id) : [...prev, c._id]);
-                                            }}>
-                                                <input type="checkbox" checked={selectedCourses.includes(c._id)} readOnly className="rounded text-blue-600" />
-                                                <span className="text-sm text-gray-700 truncate">{c.courseName}</span>
+                                            <div key={c._id} className={`px-3 py-2 cursor-pointer flex items-center gap-2 transition-colors ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-50'
+                                                }`} onClick={() => {
+                                                    setSelectedCourses(prev => prev.includes(c._id) ? prev.filter(x => x !== c._id) : [...prev, c._id]);
+                                                }}>
+                                                <input type="checkbox" checked={selectedCourses.includes(c._id)} readOnly className={`rounded transition-colors ${isDarkMode ? 'bg-gray-700 border-gray-600 text-blue-500' : 'bg-white border-gray-300 text-blue-600'}`} />
+                                                <span className={`text-sm font-bold uppercase tracking-tight truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{c.courseName}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -413,19 +436,24 @@ const CourseReport = () => {
                             <div className="relative" ref={departmentDropdownRef}>
                                 <button
                                     onClick={() => setIsDepartmentDropdownOpen(!isDepartmentDropdownOpen)}
-                                    className="min-w-[170px] h-10 px-3 bg-white border border-gray-300 rounded-md flex justify-between items-center text-sm text-gray-500"
+                                    className={`min-w-[170px] h-10 px-3 border rounded-md flex justify-between items-center text-sm font-bold uppercase tracking-tighter transition-colors ${isDarkMode
+                                        ? 'bg-[#1a1f24] border-gray-700 text-gray-400 hover:border-blue-500'
+                                        : 'bg-white border-gray-300 text-gray-600 hover:border-blue-500 shadow-sm'
+                                        }`}
                                 >
-                                    <span className="truncate">{selectedDepartments.length ? `${selectedDepartments.length} Selected` : "------Set Dept------"}</span>
-                                    <FaChevronDown size={10} />
+                                    <span className="truncate">{selectedDepartments.length ? `${selectedDepartments.length} Selected` : "Set Dept"}</span>
+                                    <FaChevronDown size={10} className={`transition-transform duration-200 ${isDepartmentDropdownOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {isDepartmentDropdownOpen && (
-                                    <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto z-50">
+                                    <div className={`absolute top-full left-0 mt-1 w-64 border rounded-lg shadow-xl max-h-60 overflow-y-auto z-50 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'
+                                        }`}>
                                         {departments.map(d => (
-                                            <div key={d._id} className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2" onClick={() => {
-                                                setSelectedDepartments(prev => prev.includes(d._id) ? prev.filter(x => x !== d._id) : [...prev, d._id]);
-                                            }}>
-                                                <input type="checkbox" checked={selectedDepartments.includes(d._id)} readOnly className="rounded text-blue-600" />
-                                                <span className="text-sm text-gray-700 truncate">{d.departmentName}</span>
+                                            <div key={d._id} className={`px-3 py-2 cursor-pointer flex items-center gap-2 transition-colors ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-50'
+                                                }`} onClick={() => {
+                                                    setSelectedDepartments(prev => prev.includes(d._id) ? prev.filter(x => x !== d._id) : [...prev, d._id]);
+                                                }}>
+                                                <input type="checkbox" checked={selectedDepartments.includes(d._id)} readOnly className={`rounded transition-colors ${isDarkMode ? 'bg-gray-700 border-gray-600 text-blue-500' : 'bg-white border-gray-300 text-blue-600'}`} />
+                                                <span className={`text-sm font-bold uppercase tracking-tight truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{d.departmentName}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -436,7 +464,10 @@ const CourseReport = () => {
                             <select
                                 value={selectedExamTag}
                                 onChange={(e) => setSelectedExamTag(e.target.value)}
-                                className="h-10 px-3 bg-white border border-gray-300 rounded-md text-sm text-gray-700 min-w-[150px] outline-none"
+                                className={`h-10 px-3 border rounded-md text-sm font-bold uppercase tracking-tighter outline-none transition-colors ${isDarkMode
+                                    ? 'bg-[#1a1f24] border-gray-700 text-gray-400 focus:border-blue-500'
+                                    : 'bg-white border-gray-300 text-gray-600 shadow-sm focus:border-blue-500'
+                                    }`}
                             >
                                 <option value="">Exam Tag</option>
                                 {examTags.map(tag => (
@@ -448,7 +479,10 @@ const CourseReport = () => {
                             <select
                                 value={selectedSession}
                                 onChange={(e) => setSelectedSession(e.target.value)}
-                                className="h-10 px-3 bg-white border border-gray-300 rounded-md text-sm text-gray-700 min-w-[150px] outline-none"
+                                className={`h-10 px-3 border rounded-md text-sm font-bold uppercase tracking-tighter outline-none transition-colors ${isDarkMode
+                                    ? 'bg-[#1a1f24] border-gray-700 text-gray-400 focus:border-blue-500'
+                                    : 'bg-white border-gray-300 text-gray-600 shadow-sm focus:border-blue-500'
+                                    }`}
                             >
                                 <option value="">Select Session</option>
                                 {sessions.length === 0 ? (
@@ -484,26 +518,29 @@ const CourseReport = () => {
                         <select
                             value={timePeriod}
                             onChange={(e) => setTimePeriod(e.target.value)}
-                            className="h-9 px-3 bg-white border border-gray-300 rounded-md text-sm font-semibold text-gray-700 outline-none shadow-sm"
+                            className={`h-9 px-3 border rounded-md text-sm font-black uppercase tracking-widest outline-none transition-colors border ${isDarkMode ? 'bg-black/20 border-gray-700 text-purple-400' : 'bg-purple-50 border-purple-100 text-purple-700 shadow-sm'
+                                }`}
                         >
                             <option value="This Year">This Year</option>
                             <option value="Last Year">Last Year</option>
                             <option value="Custom">Custom</option>
                         </select>
                         {timePeriod === "Custom" && (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
                                 <input
                                     type="date"
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
-                                    className="h-9 px-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none shadow-sm"
+                                    className={`h-9 px-2 border rounded-md text-xs font-bold outline-none shadow-sm transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-700'
+                                        }`}
                                 />
-                                <span className="text-gray-500">to</span>
+                                <span className="text-gray-500 font-black text-[10px] uppercase">to</span>
                                 <input
                                     type="date"
                                     value={endDate}
                                     onChange={(e) => setEndDate(e.target.value)}
-                                    className="h-9 px-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none shadow-sm"
+                                    className={`h-9 px-2 border rounded-md text-xs font-bold outline-none shadow-sm transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-700'
+                                        }`}
                                 />
                             </div>
                         )}
@@ -511,18 +548,18 @@ const CourseReport = () => {
                 </div>
 
                 {/* Content Area */}
-                <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 min-h-[500px]">
-                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-8 flex items-center gap-3">
+                <div className={`p-6 rounded-2xl shadow-xl border min-h-[500px] transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                    <h3 className={`text-xl font-bold mb-8 flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
                         <div className="w-2 h-8 bg-purple-600 rounded-full"></div>
                         Course-Wise Student Enrollments ({reportType === 'monthly' ? 'Monthly' : 'Daily'} Trend)
                     </h3>
 
                     {displayMode === "chart" && trendData.length > 0 && (
-                        <div className="mb-12 animate-fade-in bg-gray-50 dark:bg-[#131619] p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                        <div className={`mb-12 animate-fade-in p-6 rounded-2xl border transition-colors ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                             <div className="flex items-center justify-between mb-6">
                                 <div className="flex flex-col">
                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Timeline Range</span>
-                                    <span className="text-sm font-black text-gray-700 dark:text-gray-300">
+                                    <span className={`text-sm font-black ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                         {reportType === 'daily'
                                             ? `${trendData[trendIndex]?.date} — ${trendData[Math.min(trendIndex + trendLimit - 1, trendData.length - 1)]?.date}`
                                             : `Fiscal Year Breakdown`
@@ -534,14 +571,16 @@ const CourseReport = () => {
                                         <button
                                             onClick={() => setTrendIndex(Math.max(0, trendIndex - trendLimit))}
                                             disabled={trendIndex === 0}
-                                            className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 disabled:opacity-30 hover:bg-gray-50 transition-all shadow-sm"
+                                            className={`p-2 border rounded-lg transition-all shadow-sm disabled:opacity-30 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                }`}
                                         >
                                             <FaChevronLeft size={12} />
                                         </button>
                                         <button
                                             onClick={() => setTrendIndex(Math.min(trendData.length - trendLimit, trendIndex + trendLimit))}
                                             disabled={trendIndex + trendLimit >= trendData.length}
-                                            className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 disabled:opacity-30 hover:bg-gray-50 transition-all shadow-sm"
+                                            className={`p-2 border rounded-lg transition-all shadow-sm disabled:opacity-30 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                }`}
                                         >
                                             <FaChevronRight size={12} />
                                         </button>
@@ -555,10 +594,18 @@ const CourseReport = () => {
                                         data={reportType === 'daily' ? trendData.slice(trendIndex, trendIndex + trendLimit) : trendData}
                                         margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
                                     >
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                                        <XAxis dataKey={reportType === 'monthly' ? "month" : "date"} stroke="#6B7280" fontSize={10} tickLine={false} />
-                                        <YAxis stroke="#6B7280" fontSize={10} tickLine={false} />
-                                        <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#374151' : '#E5E7EB'} />
+                                        <XAxis dataKey={reportType === 'monthly' ? "month" : "date"} stroke={isDarkMode ? '#9CA3AF' : "#6B7280"} fontSize={10} tickLine={false} />
+                                        <YAxis stroke={isDarkMode ? '#9CA3AF' : "#6B7280"} fontSize={10} tickLine={false} />
+                                        <Tooltip
+                                            contentStyle={{
+                                                borderRadius: '12px',
+                                                border: 'none',
+                                                boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+                                                backgroundColor: isDarkMode ? '#1a1f24' : '#fff',
+                                                color: isDarkMode ? '#fff' : '#1f2937'
+                                            }}
+                                        />
                                         <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} barSize={reportType === 'monthly' ? 40 : 25} />
                                     </BarChart>
                                 </ResponsiveContainer>
@@ -599,20 +646,29 @@ const CourseReport = () => {
                                                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                                         ))}
                                                     </Pie>
-                                                    <Tooltip />
+                                                    <Tooltip
+                                                        contentStyle={{
+                                                            backgroundColor: isDarkMode ? '#1a1f24' : '#ffffff',
+                                                            borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                                                            borderRadius: '12px',
+                                                            color: isDarkMode ? '#ffffff' : '#374151',
+                                                            border: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb'
+                                                        }}
+                                                        itemStyle={{ color: isDarkMode ? '#ffffff' : '#374151' }}
+                                                    />
                                                 </PieChart>
                                             </ResponsiveContainer>
                                         </div>
                                         <div className="w-full lg:w-1/2">
-                                            <h4 className="text-center font-bold text-gray-700 dark:text-gray-300 mb-6 uppercase tracking-widest text-xs">Top Value Distribution</h4>
+                                            <h4 className={`text-center font-bold mb-6 uppercase tracking-widest text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Top Value Distribution</h4>
                                             <div className="space-y-3 max-h-[400px] overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-gray-200">
                                                 {reportData.map((item, index) => (
-                                                    <div key={index} className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800 pb-3 group">
+                                                    <div key={index} className={`flex items-center justify-between text-sm border-b pb-3 group transition-colors ${isDarkMode ? 'text-gray-400 border-gray-800' : 'text-gray-600 border-gray-100'}`}>
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                                                            <span className="font-bold group-hover:text-gray-900 dark:group-hover:text-white transition-colors uppercase text-[11px]">{item.name}</span>
+                                                            <span className={`font-black uppercase text-[11px] transition-colors ${isDarkMode ? 'group-hover:text-white' : 'group-hover:text-gray-900'}`}>{item.name}</span>
                                                         </div>
-                                                        <span className="font-black text-gray-900 dark:text-white">{item.percent}%</span>
+                                                        <span className={`font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.percent}%</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -630,40 +686,40 @@ const CourseReport = () => {
                             )}
 
                             {displayMode === "table" && (
-                                <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                                <div className={`overflow-x-auto animate-fade-in rounded-xl border shadow-sm transition-colors ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                                     <table className="w-full text-left border-collapse">
                                         <thead>
-                                            <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Course Name</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Admitted</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Counselling</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Conversion Status</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Revenue</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Market Share</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Revenue %</th>
+                                            <tr className={`border-b transition-colors ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                                <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider">Course Name</th>
+                                                <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider text-center">Admitted</th>
+                                                <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider text-center">Counselling</th>
+                                                <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider text-center">Conversion Status</th>
+                                                <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider text-right">Revenue</th>
+                                                <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider text-center">Market Share</th>
+                                                <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider text-right">Revenue %</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                        <tbody className={`divide-y transition-colors ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                             {reportData.map((item, idx) => (
-                                                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
-                                                    <td className="p-5 text-sm font-bold text-gray-800 dark:text-white uppercase tracking-tight group-hover:text-purple-600 transition-colors">{item.name}</td>
-                                                    <td className="p-5 text-center font-black text-lg text-green-600 dark:text-green-400">{item.admitted || 0}</td>
-                                                    <td className="p-5 text-center font-black text-lg text-amber-500 dark:text-amber-400">{item.counselling || 0}</td>
+                                                <tr key={idx} className={`transition-colors group ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
+                                                    <td className={`p-5 text-sm font-black uppercase tracking-tight transition-colors group-hover:text-purple-600 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{item.name}</td>
+                                                    <td className={`p-5 text-center font-black text-lg ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>{item.admitted || 0}</td>
+                                                    <td className={`p-5 text-center font-black text-lg ${isDarkMode ? 'text-amber-400' : 'text-amber-500'}`}>{item.counselling || 0}</td>
                                                     <td className="p-5">
                                                         <div className="flex justify-center">
                                                             <MiniStatusPie admitted={item.admitted || 0} counselling={item.counselling || 0} size={50} />
                                                         </div>
                                                     </td>
-                                                    <td className="p-5 text-right font-bold text-gray-600 dark:text-gray-400">₹{item.revenue.toLocaleString('en-IN')}</td>
+                                                    <td className={`p-5 text-right font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>₹{item.revenue.toLocaleString('en-IN')}</td>
                                                     <td className="p-5 text-center">
                                                         <div className="flex flex-col items-center gap-1">
                                                             <span className="text-xs font-black text-purple-600">{item.percent}%</span>
-                                                            <div className="w-24 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                            <div className={`w-24 h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
                                                                 <div className="h-full bg-purple-500" style={{ width: `${item.percent}%` }}></div>
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="p-5 text-right font-black text-sm text-gray-900 dark:text-white">{item.revenuePercent || 0}%</td>
+                                                    <td className={`p-5 text-right font-black text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.revenuePercent || 0}%</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -674,35 +730,36 @@ const CourseReport = () => {
                             {displayMode === "card" && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
                                     {reportData.map((item, idx) => (
-                                        <div key={idx} className="bg-white dark:bg-[#131619] rounded-2xl border border-gray-200 dark:border-gray-800 p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden">
+                                        <div key={idx} className={`rounded-2xl border p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'
+                                            }`}>
                                             <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 -mr-12 -mt-12 rounded-full transform rotate-45 group-hover:scale-150 transition-transform duration-700"></div>
                                             <div className="relative z-10">
                                                 <div className="flex justify-between items-center mb-6">
-                                                    <h4 className="font-black text-gray-800 dark:text-white uppercase text-xs tracking-tight line-clamp-1 flex-1">{item.name}</h4>
+                                                    <h4 className={`font-black uppercase text-xs tracking-tight line-clamp-1 flex-1 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{item.name}</h4>
                                                     <MiniStatusPie admitted={item.admitted || 0} counselling={item.counselling || 0} size={40} />
                                                 </div>
                                                 <div className="space-y-6">
                                                     <div className="grid grid-cols-2 gap-4">
                                                         <div>
                                                             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Admitted</div>
-                                                            <div className="text-2xl font-black text-green-600 dark:text-green-400 tracking-tighter">{item.admitted || 0}</div>
+                                                            <div className={`text-2xl font-black tracking-tighter ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>{item.admitted || 0}</div>
                                                         </div>
                                                         <div className="text-right">
                                                             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Counselling</div>
-                                                            <div className="text-2xl font-black text-amber-500 dark:text-amber-400 tracking-tighter">{item.counselling || 0}</div>
+                                                            <div className={`text-2xl font-black tracking-tighter ${isDarkMode ? 'text-amber-400' : 'text-amber-500'}`}>{item.counselling || 0}</div>
                                                         </div>
                                                     </div>
                                                     <div className="flex justify-between items-center">
                                                         <div>
                                                             <div className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Revenue</div>
-                                                            <div className="text-xs font-bold text-gray-700 dark:text-gray-300">₹{(item.revenue / 1000).toFixed(1)}K</div>
+                                                            <div className={`text-xs font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>₹{(item.revenue / 1000).toFixed(1)}K</div>
                                                         </div>
                                                         <div className="text-right">
                                                             <div className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Share</div>
                                                             <div className="text-xs font-black text-purple-600">{item.percent}%</div>
                                                         </div>
                                                     </div>
-                                                    <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                    <div className={`h-1.5 w-full rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
                                                         <div
                                                             className="h-full bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full transition-all duration-1000"
                                                             style={{ width: `${item.percent}%` }}
@@ -719,8 +776,8 @@ const CourseReport = () => {
                 </div>
 
                 {/* Second Section: Total Revenue Per Course */}
-                <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 min-h-[500px] mt-8">
-                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-8 flex items-center gap-3">
+                <div className={`p-6 rounded-2xl shadow-xl border min-h-[500px] mt-8 transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                    <h3 className={`text-xl font-bold mb-8 flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
                         <div className="w-2 h-8 bg-green-600 rounded-full"></div>
                         Total Revenue Per Course
                     </h3>
@@ -744,20 +801,29 @@ const CourseReport = () => {
                                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                                 ))}
                                             </Pie>
-                                            <Tooltip formatter={(value) => [`₹${value.toLocaleString()}`, "Revenue"]} />
+                                            <Tooltip
+                                                formatter={(value) => [`₹${value.toLocaleString()}`, "Revenue"]}
+                                                contentStyle={{
+                                                    borderRadius: '12px',
+                                                    border: 'none',
+                                                    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+                                                    backgroundColor: isDarkMode ? '#1a1f24' : '#fff',
+                                                    color: isDarkMode ? '#fff' : '#1f2937'
+                                                }}
+                                            />
                                         </PieChart>
                                     </ResponsiveContainer>
                                 </div>
                                 <div className="w-full lg:w-1/2">
-                                    <h4 className="text-center font-bold text-gray-700 dark:text-gray-300 mb-6 uppercase tracking-widest text-xs">Revenue Distribution</h4>
+                                    <h4 className={`text-center font-bold mb-6 uppercase tracking-widest text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Revenue Distribution</h4>
                                     <div className="space-y-3 max-h-[400px] overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-gray-200">
                                         {[...reportData].sort((a, b) => b.revenue - a.revenue).map((item, index) => (
-                                            <div key={index} className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800 pb-3 group">
+                                            <div key={index} className={`flex items-center justify-between text-sm border-b pb-3 group transition-colors ${isDarkMode ? 'text-gray-400 border-gray-800' : 'text-gray-600 border-gray-100'}`}>
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                                                    <span className="font-bold group-hover:text-gray-900 dark:group-hover:text-white transition-colors uppercase text-[11px]">{item.name}</span>
+                                                    <span className={`font-black uppercase text-[11px] transition-colors ${isDarkMode ? 'group-hover:text-white' : 'group-hover:text-gray-900'}`}>{item.name}</span>
                                                 </div>
-                                                <span className="font-black text-gray-900 dark:text-white">{item.revenuePercent || 0}%</span>
+                                                <span className={`font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.revenuePercent || 0}%</span>
                                             </div>
                                         ))}
                                     </div>
@@ -775,23 +841,23 @@ const CourseReport = () => {
                     )}
 
                     {displayMode === "table" && (
-                        <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <div className={`overflow-x-auto animate-fade-in rounded-xl border shadow-sm transition-colors ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                             <table className="w-full text-left border-collapse">
                                 <thead>
-                                    <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
-                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Course Name</th>
-                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Total Revenue</th>
-                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Avg. Fee / Student</th>
-                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Revenue Share</th>
+                                    <tr className={`border-b transition-colors ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                        <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider">Course Name</th>
+                                        <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider text-right">Total Revenue</th>
+                                        <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider text-center">Avg. Fee / Student</th>
+                                        <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider text-right">Revenue Share</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                <tbody className={`divide-y transition-colors ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                     {[...reportData].sort((a, b) => b.revenue - a.revenue).map((item, idx) => (
-                                        <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
-                                            <td className="p-5 text-sm font-bold text-gray-800 dark:text-white uppercase tracking-tight">{item.name}</td>
-                                            <td className="p-5 text-right font-black text-lg text-green-600 dark:text-green-400">₹{item.revenue.toLocaleString('en-IN')}</td>
-                                            <td className="p-5 text-center font-bold text-gray-600 dark:text-gray-400">₹{item.value > 0 ? (item.revenue / item.value).toLocaleString('en-IN', { maximumFractionDigits: 0 }) : 0}</td>
-                                            <td className="p-5 text-right font-black text-sm text-gray-900 dark:text-white">{item.revenuePercent || 0}%</td>
+                                        <tr key={idx} className={`transition-colors group ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
+                                            <td className={`p-5 text-sm font-black uppercase tracking-tight transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{item.name}</td>
+                                            <td className={`p-5 text-right font-black text-lg ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>₹{item.revenue.toLocaleString('en-IN')}</td>
+                                            <td className={`p-5 text-center font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>₹{item.value > 0 ? (item.revenue / item.value).toLocaleString('en-IN', { maximumFractionDigits: 0 }) : 0}</td>
+                                            <td className={`p-5 text-right font-black text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.revenuePercent || 0}%</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -802,23 +868,26 @@ const CourseReport = () => {
                     {displayMode === "card" && (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
                             {[...reportData].sort((a, b) => b.revenue - a.revenue).map((item, idx) => (
-                                <div key={idx} className="bg-white dark:bg-[#131619] rounded-2xl border border-gray-200 dark:border-gray-800 p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group">
+                                <div key={idx} className={`rounded-2xl border p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white' : 'bg-white border-gray-200 shadow-sm text-gray-800'
+                                    }`}>
                                     <div className="flex justify-between items-center mb-6">
-                                        <h4 className="font-black text-gray-800 dark:text-white uppercase text-xs tracking-tight line-clamp-1 flex-1">{item.name}</h4>
+                                        <h4 className={`font-black uppercase text-xs tracking-tight line-clamp-1 flex-1 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{item.name}</h4>
                                         <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center text-green-500">₹</div>
                                     </div>
                                     <div className="space-y-4">
                                         <div>
                                             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Revenue</div>
-                                            <div className="text-2xl font-black text-gray-900 dark:text-white tracking-tighter">₹{(item.revenue / 100000).toFixed(2)}L</div>
+                                            <div className={`text-2xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{(item.revenue / 100000).toFixed(2)}L</div>
                                         </div>
-                                        <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+                                        <div className={`pt-2 border-t transition-colors ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                                             <div className="flex justify-between text-[10px] font-black uppercase mb-2">
-                                                <span className="text-gray-400">Revenue Contribution</span>
+                                                <span className="text-gray-400">Contribution</span>
                                                 <span className="text-green-500">{item.revenuePercent || 0}%</span>
                                             </div>
-                                            <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                                                <div className="h-full bg-green-500 ml-auto" style={{ width: `${item.revenuePercent || 0}%` }}></div>
+                                            <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                                                <div className="h-full bg-gradient-to-r from-green-600 to-emerald-500 rounded-full ml-auto"
+                                                    style={{ width: `${item.revenuePercent || 0}%` }}
+                                                ></div>
                                             </div>
                                         </div>
                                     </div>
@@ -830,8 +899,8 @@ const CourseReport = () => {
 
 
                 {/* Third Section: Center-wise Analysis */}
-                <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 min-h-[500px] mt-8 mb-10">
-                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-8 flex items-center gap-3">
+                <div className={`p-6 rounded-2xl shadow-xl border min-h-[500px] mt-8 mb-10 transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                    <h3 className={`text-xl font-bold mb-8 flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
                         <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
                         Center-wise Analysis
                     </h3>
@@ -839,8 +908,8 @@ const CourseReport = () => {
                     {displayMode === "chart" && (
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in">
                             {/* Center-wise Revenue Chart */}
-                            <div className="bg-gray-50 dark:bg-[#131619] p-6 rounded-2xl border border-gray-200 dark:border-gray-800">
-                                <h4 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">Center-wise Revenue</h4>
+                            <div className={`p-6 rounded-2xl border transition-colors ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-6 px-2">Center-wise Revenue</h4>
                                 <div className="h-[400px] w-full min-w-[300px]">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart
@@ -848,18 +917,25 @@ const CourseReport = () => {
                                             data={[...centreData].sort((a, b) => b.revenue - a.revenue)}
                                             margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                                         >
-                                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" />
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? '#374151' : '#E5E7EB'} />
                                             <XAxis type="number" hide />
                                             <YAxis
                                                 dataKey="name"
                                                 type="category"
                                                 width={150}
-                                                tick={{ fontSize: 11, fill: '#6B7280', fontWeight: 600 }}
+                                                tick={{ fontSize: 11, fill: isDarkMode ? '#9CA3AF' : '#6B7280', fontWeight: 600 }}
                                                 interval={0}
                                             />
                                             <Tooltip
                                                 formatter={(value) => [`₹${value.toLocaleString()}`, "Revenue"]}
-                                                contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                                contentStyle={{
+                                                    borderRadius: '12px',
+                                                    border: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb',
+                                                    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+                                                    backgroundColor: isDarkMode ? '#1a1f24' : '#fff',
+                                                    color: isDarkMode ? '#fff' : '#1f2937'
+                                                }}
+                                                itemStyle={{ color: isDarkMode ? '#ffffff' : '#374151' }}
                                             />
                                             <Bar dataKey="revenue" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
                                         </BarChart>
@@ -868,8 +944,8 @@ const CourseReport = () => {
                             </div>
 
                             {/* Center-wise Enrollment Chart */}
-                            <div className="bg-gray-50 dark:bg-[#131619] p-6 rounded-2xl border border-gray-200 dark:border-gray-800">
-                                <h4 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">Center-wise Enrollment</h4>
+                            <div className={`p-6 rounded-2xl border transition-colors ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-6 px-2">Center-wise Enrollment</h4>
                                 <div className="h-[400px] w-full min-w-[300px]">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart
@@ -877,18 +953,25 @@ const CourseReport = () => {
                                             data={[...centreData].sort((a, b) => b.enrollment - a.enrollment)}
                                             margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                                         >
-                                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" />
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? '#374151' : '#E5E7EB'} />
                                             <XAxis type="number" hide />
                                             <YAxis
                                                 dataKey="name"
                                                 type="category"
                                                 width={150}
-                                                tick={{ fontSize: 11, fill: '#6B7280', fontWeight: 600 }}
+                                                tick={{ fontSize: 11, fill: isDarkMode ? '#9CA3AF' : '#6B7280', fontWeight: 600 }}
                                                 interval={0}
                                             />
                                             <Tooltip
                                                 cursor={{ fill: 'transparent' }}
-                                                contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                                contentStyle={{
+                                                    borderRadius: '12px',
+                                                    border: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb',
+                                                    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+                                                    backgroundColor: isDarkMode ? '#1a1f24' : '#fff',
+                                                    color: isDarkMode ? '#fff' : '#1f2937'
+                                                }}
+                                                itemStyle={{ color: isDarkMode ? '#ffffff' : '#374151' }}
                                             />
                                             <Bar dataKey="enrollment" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={20} />
                                         </BarChart>
@@ -899,23 +982,23 @@ const CourseReport = () => {
                     )}
 
                     {displayMode === "table" && (
-                        <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <div className={`overflow-x-auto animate-fade-in rounded-xl border shadow-sm transition-colors ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                             <table className="w-full text-left border-collapse">
                                 <thead>
-                                    <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
-                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Center Name</th>
-                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Total Enrollment</th>
-                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Total Revenue</th>
-                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Avg Revenue/Student</th>
+                                    <tr className={`border-b transition-colors ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                        <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider">Center Name</th>
+                                        <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider text-center">Total Enrollment</th>
+                                        <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider text-right">Total Revenue</th>
+                                        <th className="p-5 text-gray-500 font-bold text-xs uppercase tracking-wider text-right">Avg Revenue/Student</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                <tbody className={`divide-y transition-colors ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                     {[...centreData].sort((a, b) => b.revenue - a.revenue).map((item, idx) => (
-                                        <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
-                                            <td className="p-5 text-sm font-bold text-gray-800 dark:text-white uppercase tracking-tight">{item.name}</td>
-                                            <td className="p-5 text-center font-black text-lg text-blue-600 dark:text-blue-400">{item.enrollment || 0}</td>
-                                            <td className="p-5 text-right font-black text-lg text-green-600 dark:text-green-400">₹{item.revenue.toLocaleString('en-IN')}</td>
-                                            <td className="p-5 text-right font-bold text-gray-600 dark:text-gray-400">₹{item.enrollment > 0 ? (item.revenue / item.enrollment).toLocaleString('en-IN', { maximumFractionDigits: 0 }) : 0}</td>
+                                        <tr key={idx} className={`transition-colors group ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
+                                            <td className={`p-5 text-sm font-black uppercase tracking-tight transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{item.name}</td>
+                                            <td className={`p-5 text-center font-black text-lg ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{item.enrollment || 0}</td>
+                                            <td className={`p-5 text-right font-black text-lg ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>₹{item.revenue.toLocaleString('en-IN')}</td>
+                                            <td className={`p-5 text-right font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>₹{item.enrollment > 0 ? (item.revenue / item.enrollment).toLocaleString('en-IN', { maximumFractionDigits: 0 }) : 0}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -926,9 +1009,10 @@ const CourseReport = () => {
                     {displayMode === "card" && (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
                             {[...centreData].sort((a, b) => b.revenue - a.revenue).map((item, idx) => (
-                                <div key={idx} className="bg-white dark:bg-[#131619] rounded-2xl border border-gray-200 dark:border-gray-800 p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group">
+                                <div key={idx} className={`rounded-2xl border p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'
+                                    }`}>
                                     <div className="flex justify-between items-center mb-6">
-                                        <h4 className="font-black text-gray-800 dark:text-white uppercase text-xs tracking-tight line-clamp-1 flex-1">{item.name}</h4>
+                                        <h4 className={`font-black uppercase text-xs tracking-tight line-clamp-1 flex-1 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{item.name}</h4>
                                         <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
                                             <FaTh size={12} />
                                         </div>
@@ -937,17 +1021,17 @@ const CourseReport = () => {
                                         <div className="flex justify-between">
                                             <div>
                                                 <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Enrollment</div>
-                                                <div className="text-xl font-black text-blue-600 dark:text-blue-400">{item.enrollment || 0}</div>
+                                                <div className={`text-xl font-black ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{item.enrollment || 0}</div>
                                             </div>
                                             <div className="text-right">
                                                 <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Revenue</div>
-                                                <div className="text-xl font-black text-green-600 dark:text-green-400">₹{(item.revenue / 1000).toFixed(0)}K</div>
+                                                <div className={`text-xl font-black ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>₹{(item.revenue / 1000).toFixed(0)}K</div>
                                             </div>
                                         </div>
-                                        <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+                                        <div className={`pt-2 border-t transition-colors ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                                             <div className="flex justify-between items-center">
                                                 <span className="text-[10px] font-bold text-gray-400 uppercase">Avg Yield</span>
-                                                <span className="text-sm font-black text-gray-900 dark:text-white">₹{item.enrollment > 0 ? (item.revenue / (item.enrollment * 1000)).toFixed(1) : 0}K</span>
+                                                <span className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{item.enrollment > 0 ? (item.revenue / (item.enrollment * 1000)).toFixed(1) : 0}K</span>
                                             </div>
                                         </div>
                                     </div>

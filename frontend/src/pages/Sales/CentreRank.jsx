@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaFilter, FaSync, FaDownload, FaChevronDown } from "react-icons/fa";
-import { toast } from "react-toastify";
+import { FaDownload, FaChevronDown, FaSync } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { useTheme } from "../../context/ThemeContext";
+import { toast } from "react-toastify";
 
 const CentreRank = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [rankings, setRankings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [sessions, setSessions] = useState([]);
@@ -159,8 +162,8 @@ const CentreRank = () => {
             <div className="space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-white">Centre Rank</h1>
-                        <p className="text-cyan-400">Monthly Performance Ranking</p>
+                        <h1 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Centre Rank</h1>
+                        <p className={`font-bold uppercase tracking-widest text-xs ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Monthly Performance Ranking</p>
                     </div>
                     <button
                         onClick={handleExport}
@@ -170,17 +173,17 @@ const CentreRank = () => {
                     </button>
                 </div>
 
-                <div className="bg-[#1a1f24] p-5 rounded-xl border border-gray-800 shadow-lg flex flex-wrap items-center justify-between gap-4">
+                <div className={`p-5 rounded-xl border shadow-lg flex flex-wrap items-center justify-between gap-4 transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                     <div className="flex items-center gap-4">
-                        <h3 className="text-white font-bold text-lg hidden lg:block">Centre Performance Ranking</h3>
-                        <div className="bg-gray-800 rounded-lg p-1 flex">
+                        <h3 className={`font-bold text-lg hidden lg:block ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Centre Performance Ranking</h3>
+                        <div className={`rounded-lg p-1 flex ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
                             {["Monthly", "Yearly", "Custom"].map(mode => (
                                 <button
                                     key={mode}
                                     onClick={() => setViewMode(mode)}
-                                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === mode
+                                    className={`px-4 py-1.5 rounded-md text-sm font-bold uppercase tracking-widest transition-all ${viewMode === mode
                                         ? "bg-blue-600 text-white shadow-lg"
-                                        : "text-gray-400 hover:text-white"
+                                        : `${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'}`
                                         }`}
                                 >
                                     {mode}
@@ -190,22 +193,22 @@ const CentreRank = () => {
 
                         {viewMode === "Custom" && (
                             <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
-                                <div className="flex items-center gap-2 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1">
-                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tight text-gray-400">From</span>
+                                <div className={`flex items-center gap-2 border rounded-lg px-2 py-1 ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    <span className="text-[10px] font-bold uppercase tracking-tight text-gray-400">From</span>
                                     <input
                                         type="date"
                                         value={startDate}
                                         onChange={(e) => setStartDate(e.target.value)}
-                                        className="bg-transparent text-gray-200 text-xs focus:outline-none w-28"
+                                        className={`bg-transparent text-xs focus:outline-none w-28 font-bold ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}
                                     />
                                 </div>
-                                <div className="flex items-center gap-2 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1">
-                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tight text-gray-400">To</span>
+                                <div className={`flex items-center gap-2 border rounded-lg px-2 py-1 ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    <span className="text-[10px] font-bold uppercase tracking-tight text-gray-400">To</span>
                                     <input
                                         type="date"
                                         value={endDate}
                                         onChange={(e) => setEndDate(e.target.value)}
-                                        className="bg-transparent text-gray-200 text-xs focus:outline-none w-28"
+                                        className={`bg-transparent text-xs focus:outline-none w-28 font-bold ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}
                                     />
                                 </div>
                             </div>
@@ -216,9 +219,12 @@ const CentreRank = () => {
                         <div className="relative" ref={dropdownRef}>
                             <button
                                 onClick={() => setIsCentreDropdownOpen(!isCentreDropdownOpen)}
-                                className="bg-white border border-gray-200 text-gray-800 text-sm rounded-md px-3 py-2 outline-none font-medium min-w-[180px] flex justify-between items-center hover:bg-gray-50 transition-colors"
+                                className={`text-sm rounded-md px-3 py-2 outline-none font-bold min-w-[180px] flex justify-between items-center transition-colors border ${isDarkMode
+                                    ? 'bg-[#1a1f24] border-gray-700 text-gray-300 hover:border-blue-500'
+                                    : 'bg-white border-gray-300 text-gray-800 hover:border-blue-500 shadow-sm'
+                                    }`}
                             >
-                                <span className="truncate max-w-[140px]">
+                                <span className="truncate max-w-[140px] uppercase text-xs tracking-widest font-black">
                                     {selectedCentres.length === 0
                                         ? "All Centres"
                                         : `${selectedCentres.length} Selected`}
@@ -227,28 +233,30 @@ const CentreRank = () => {
                             </button>
 
                             {isCentreDropdownOpen && (
-                                <div className="absolute top-full mt-2 left-0 w-60 z-20 bg-[#1a1f24] border border-gray-700 rounded-lg shadow-xl overflow-hidden text-left">
+                                <div className={`absolute top-full mt-2 left-0 w-60 z-20 border rounded-lg shadow-xl overflow-hidden text-left ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'
+                                    }`}>
                                     <div className="max-h-60 overflow-y-auto p-2 space-y-1">
                                         {centres.map(c => (
                                             <div
                                                 key={c._id}
-                                                className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-800 rounded cursor-pointer"
+                                                className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'
+                                                    }`}
                                                 onClick={() => toggleCentreSelection(c._id)}
                                             >
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedCentres.includes(c._id)}
                                                     readOnly
-                                                    className="rounded border-gray-600 bg-gray-700 text-cyan-500 focus:ring-offset-0 focus:ring-0"
+                                                    className={`rounded w-4 h-4 ${isDarkMode ? 'border-gray-600 bg-gray-700 text-cyan-500' : 'border-gray-300 text-cyan-600'}`}
                                                 />
-                                                <span className="text-gray-300 text-sm truncate">{c.centreName}</span>
+                                                <span className={`text-sm truncate font-bold uppercase tracking-tighter ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{c.centreName}</span>
                                             </div>
                                         ))}
                                     </div>
-                                    <div className="p-2 border-t border-gray-700 bg-[#131619]">
+                                    <div className={`p-2 border-t ${isDarkMode ? 'border-gray-700 bg-[#131619]' : 'border-gray-100 bg-gray-50'}`}>
                                         <button
                                             onClick={() => setSelectedCentres([])}
-                                            className="text-xs text-cyan-400 hover:text-cyan-300 w-full text-center"
+                                            className="text-xs font-black uppercase tracking-widest text-cyan-500 hover:text-cyan-400 w-full text-center"
                                         >
                                             Clear Selection
                                         </button>
@@ -261,7 +269,10 @@ const CentreRank = () => {
                             <select
                                 value={filterFinancialYear}
                                 onChange={(e) => setFilterFinancialYear(e.target.value)}
-                                className="bg-white text-gray-800 text-sm rounded-md block px-3 py-2 outline-none font-medium w-32"
+                                className={`text-sm rounded-md block px-3 py-2 outline-none font-bold w-32 border transition-colors ${isDarkMode
+                                    ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-blue-500'
+                                    : 'bg-white border-gray-300 text-gray-800 shadow-sm focus:border-blue-500'
+                                    }`}
                             >
                                 {sessions.map(session => (
                                     <option key={session._id} value={session.sessionName}>{session.sessionName}</option>
@@ -274,7 +285,10 @@ const CentreRank = () => {
                                 <select
                                     value={filterYear}
                                     onChange={(e) => setFilterYear(e.target.value)}
-                                    className="bg-white text-gray-800 text-sm rounded-md block px-3 py-2 outline-none font-medium w-24"
+                                    className={`text-sm rounded-md block px-3 py-2 outline-none font-bold w-24 border transition-colors ${isDarkMode
+                                        ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-blue-500'
+                                        : 'bg-white border-gray-300 text-gray-800 shadow-sm focus:border-blue-500'
+                                        }`}
                                 >
                                     {Array.from({ length: 13 }, (_, i) => 2024 + i).map(year => (
                                         <option key={year} value={year}>{year}</option>
@@ -283,7 +297,10 @@ const CentreRank = () => {
                                 <select
                                     value={filterMonth}
                                     onChange={(e) => setFilterMonth(e.target.value)}
-                                    className="bg-white text-gray-800 text-sm rounded-md block px-3 py-2 outline-none font-medium w-32"
+                                    className={`text-sm rounded-md block px-3 py-2 outline-none font-bold w-32 border transition-colors ${isDarkMode
+                                        ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-blue-500'
+                                        : 'bg-white border-gray-300 text-gray-800 shadow-sm focus:border-blue-500'
+                                        }`}
                                 >
                                     {months.map(m => <option key={m} value={m}>{m}</option>)}
                                 </select>
@@ -299,20 +316,20 @@ const CentreRank = () => {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-xl overflow-hidden min-h-[400px]">
+                <div className={`rounded-xl shadow-xl overflow-hidden min-h-[400px] border transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-50 text-gray-500 uppercase font-semibold text-xs border-b border-gray-200">
+                        <table className="w-full text-left text-sm font-bold">
+                            <thead className={`uppercase font-black text-xs border-b ${isDarkMode ? 'bg-black/20 text-gray-400 border-gray-800' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
                                 <tr>
-                                    <th className="px-6 py-4">Rank</th>
-                                    <th className="px-6 py-4">Center</th>
-                                    <th className="px-6 py-4">Achievement %</th>
-                                    <th className="px-6 py-4">Last Month %</th>
-                                    <th className="px-6 py-4">Last Month Rank</th>
-                                    <th className="px-6 py-4">Best Achievement %</th>
+                                    <th className="px-6 py-4 tracking-widest">Rank</th>
+                                    <th className="px-6 py-4 tracking-widest">Center</th>
+                                    <th className="px-6 py-4 tracking-widest text-center">Achievement %</th>
+                                    <th className="px-6 py-4 tracking-widest text-center">Last Month %</th>
+                                    <th className="px-6 py-4 tracking-widest text-center">Last Month Rank</th>
+                                    <th className="px-6 py-4 tracking-widest text-right">Best Achievement %</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100">
+                            <tbody className={`divide-y transition-colors ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                 {loading ? (
                                     <tr>
                                         <td colSpan="6" className="px-6 py-12 text-center text-gray-400 font-medium">Calculating ranks...</td>
@@ -323,31 +340,31 @@ const CentreRank = () => {
                                     </tr>
                                 ) : (
                                     rankings.map((rank, index) => (
-                                        <tr key={index} className="hover:bg-blue-50/50 transition-all duration-200 cursor-default group">
-                                            <td className="px-6 py-5 font-bold text-gray-800 text-lg group-hover:text-blue-600">{rank.rank}</td>
-                                            <td className="px-6 py-5 font-bold text-gray-700 uppercase tracking-wide">{rank.centreName}</td>
-                                            <td className={`px-6 py-5 font-bold text-base ${parseFloat(rank.achievementPercentage) > 50 ? "text-green-600" : "text-blue-600"}`}>
+                                        <tr key={index} className={`transition-all duration-200 cursor-default group ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-blue-50/50'}`}>
+                                            <td className={`px-6 py-5 font-black text-lg transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'} group-hover:text-blue-500`}>{rank.rank}</td>
+                                            <td className={`px-6 py-5 font-black uppercase tracking-wide transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{rank.centreName}</td>
+                                            <td className={`px-6 py-5 font-black text-lg text-center ${parseFloat(rank.achievementPercentage) > 50 ? "text-green-500" : "text-blue-500"}`}>
                                                 {rank.achievementPercentage}%
                                             </td>
-                                            <td className="px-6 py-5 font-medium text-gray-600">
-                                                <span className={parseFloat(rank.lastMonthPercentage) > 50 ? "text-green-600" : "text-gray-600"}>
+                                            <td className={`px-6 py-5 font-bold text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                <span className={parseFloat(rank.lastMonthPercentage) > 50 ? "text-green-500" : ""}>
                                                     {rank.lastMonthPercentage}%
                                                 </span>
                                                 {rank.growth && (
-                                                    <span className={`ml-2 text-xs ${parseFloat(rank.growth) > 0 ? "text-green-500" : "text-red-500"}`}>
+                                                    <span className={`ml-2 text-xs font-black ${parseFloat(rank.growth) > 0 ? "text-green-500" : "text-red-500"}`}>
                                                         {parseFloat(rank.growth) > 0 ? "↑" : "↓"} {Math.abs(parseFloat(rank.growth))}%
                                                     </span>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-5 text-gray-600 font-medium">
+                                            <td className={`px-6 py-5 font-black text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                                 {rank.lastMonthRank}
                                                 {rank.rankChange !== 0 && (
-                                                    <span className={`ml-2 text-xs font-bold ${rank.rankChange > 0 ? "text-green-500" : "text-red-500"}`}>
+                                                    <span className={`ml-2 text-xs font-black ${rank.rankChange > 0 ? "text-green-500" : "text-red-500"}`}>
                                                         {rank.rankChange > 0 ? `↑ ${rank.rankChange}` : `↓ ${Math.abs(rank.rankChange)}`}
                                                     </span>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-5 font-bold text-green-600">{rank.bestAchievementPercentage}%</td>
+                                            <td className="px-6 py-5 font-black text-right text-green-500 text-lg">{rank.bestAchievementPercentage}%</td>
                                         </tr>
                                     ))
                                 )}

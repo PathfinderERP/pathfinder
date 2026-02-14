@@ -1,40 +1,56 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useTheme } from "../../context/ThemeContext";
+
 import {
     FaUsers, FaChartLine, FaMoneyBillWave, FaUserCheck,
     FaMoon, FaSun, FaArrowUp, FaArrowDown, FaBuilding, FaUserFriends, FaBullseye,
-    FaSyncAlt, FaChartBar, FaUserClock, FaStopwatch, FaMapMarkerAlt
+    FaSyncAlt, FaChartBar, FaUserClock, FaStopwatch, FaMapMarkerAlt, FaChevronDown
 } from "react-icons/fa";
+
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     BarChart, Bar, Cell, AreaChart, Area, PieChart, Pie, Legend
 } from 'recharts';
 
+import {
+    BaseSkeleton,
+    CardSkeleton,
+    TableRowSkeleton,
+    BoxSkeleton,
+    ListSkeleton
+} from "../common/Skeleton";
+
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+
 import EmployeeAttendanceAnalytics from './EmployeeAttendanceAnalytics';
 
 // Reusable Components matching Attendance Management Styling
-const StatCard = ({ title, value, subValue, icon, color = "cyan", isDarkMode }) => (
-    <div className={`border rounded-[2px] p-6 relative group overflow-hidden transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-cyan-500/30' : 'bg-white border-gray-200 hover:border-cyan-500/30 shadow-sm hover:shadow-md'}`}>
-        <div className={`absolute top-0 right-0 w-24 h-24 rounded-full blur-2xl -mr-10 -mt-10 transition-all ${isDarkMode ? `bg-${color}-500/5 group-hover:bg-${color}-500/10` : `bg-${color}-500/10 group-hover:bg-${color}-500/20`}`} />
-        <div className="flex justify-between items-start mb-4 relative z-10">
-            <div>
-                <p className={`font-black text-[9px] uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{title}</p>
-                <h3 className={`text-3xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{value}</h3>
+// Reusable Components matching Attendance Management Styling
+const StatCard = ({ title, value, subValue, icon, color = "cyan", isDarkMode, loading }) => {
+    if (loading) return <CardSkeleton isDarkMode={isDarkMode} />;
+    return (
+        <div className={`border rounded-[2px] p-6 relative group overflow-hidden transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-cyan-500/30' : 'bg-white border-gray-200 hover:border-cyan-500/30 shadow-sm hover:shadow-md'}`}>
+            <div className={`absolute top-0 right-0 w-24 h-24 rounded-full blur-2xl -mr-10 -mt-10 transition-all ${isDarkMode ? `bg-${color}-500/5 group-hover:bg-${color}-500/10` : `bg-${color}-500/10 group-hover:bg-${color}-500/20`}`} />
+            <div className="flex justify-between items-start mb-4 relative z-10">
+                <div>
+                    <p className={`font-black text-[9px] uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{title}</p>
+                    <h3 className={`text-3xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{value}</h3>
+                </div>
+                <div className={`w-10 h-10 rounded-[2px] bg-${color}-500/10 flex items-center justify-center text-${color}-500 border border-${color}-500/20 group-hover:scale-110 transition-transform`}>
+                    {icon}
+                </div>
             </div>
-            <div className={`w-10 h-10 rounded-[2px] bg-${color}-500/10 flex items-center justify-center text-${color}-500 border border-${color}-500/20 group-hover:scale-110 transition-transform`}>
-                {icon}
+            <div className="relative z-10">
+                <div className={`text-${color}-500 font-black text-[10px] uppercase tracking-widest flex items-center gap-1`}>
+                    {subValue}
+                </div>
             </div>
         </div>
-        <div className="relative z-10">
-            <div className={`text-${color}-500 font-black text-[10px] uppercase tracking-widest flex items-center gap-1`}>
-                {subValue}
-            </div>
-        </div>
-    </div>
-);
+    );
+};
 
-const ChartContainer = ({ title, children, isDarkMode, color = "cyan", onExport }) => (
+const ChartContainer = ({ title, children, isDarkMode, color = "cyan", onExport, loading }) => (
     <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border p-6 rounded-[2px] relative overflow-hidden group min-w-0`}>
         <div className="flex justify-between items-center mb-6">
             <h4 className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-[0.2em]`}>{title}</h4>
@@ -51,28 +67,31 @@ const ChartContainer = ({ title, children, isDarkMode, color = "cyan", onExport 
             </div>
         </div>
         <div className="h-[250px] w-full relative">
-            {children}
+            {loading ? <BoxSkeleton className="h-full w-full" /> : children}
         </div>
     </div>
 );
 
-const ScrollableChartContainer = ({ title, children, isDarkMode, color = "cyan", height = 300 }) => (
+const ScrollableChartContainer = ({ title, children, isDarkMode, color = "cyan", height = 300, loading }) => (
     <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border p-6 rounded-[2px] relative overflow-hidden group min-w-0`}>
         <div className="flex justify-between items-center mb-6">
             <h4 className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-[0.2em]`}>{title}</h4>
             <div className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-[1px]`} style={{ backgroundColor: `${color === 'cyan' ? '#06b6d4' : (color === 'purple' ? '#a855f7' : (color === 'amber' ? '#f59e0b' : '#10b981'))}20`, color: color === 'cyan' ? '#06b6d4' : (color === 'purple' ? '#a855f7' : (color === 'amber' ? '#f59e0b' : '#10b981')) }}>ANALYTICS</div>
         </div>
         <div style={{ height: height }} className="w-full relative overflow-y-auto custom-scrollbar">
-            {children}
+            {loading ? <BoxSkeleton className="h-full w-full" /> : children}
         </div>
     </div>
 );
 
 const CEOControlTowerContent = () => {
-    const [isDarkMode, setIsDarkMode] = useState(true);
+    const { theme, toggleTheme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
     const [centres, setCentres] = useState([]);
+    const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
+    const centreDropdownRef = useRef(null);
 
     // Filter States
     const [filters, setFilters] = useState({
@@ -81,32 +100,31 @@ const CEOControlTowerContent = () => {
         centre: 'ALL'
     });
 
-    useEffect(() => {
-        fetchCentres();
-    }, []);
-
-    useEffect(() => {
-        fetchData();
-    }, [filters]);
-
-    const fetchCentres = async () => {
+    const fetchCentres = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/master-data/centre`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/centre`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const result = await response.json();
-            if (result.success) setCentres(result.data);
+            if (response.ok) {
+                setCentres(Array.isArray(result) ? result : result.centres || []);
+            }
         } catch (error) {
             console.error("Error fetching centres:", error);
         }
-    };
+    }, []);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const queryParams = new URLSearchParams(filters).toString();
+            const fetchFilters = { ...filters };
+            // If centre is an array, join it with commas for the API
+            if (Array.isArray(fetchFilters.centre)) {
+                fetchFilters.centre = fetchFilters.centre.join(',');
+            }
+            const queryParams = new URLSearchParams(fetchFilters).toString();
             const response = await fetch(`${import.meta.env.VITE_API_URL}/ceo/analytics?${queryParams}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -119,7 +137,23 @@ const CEOControlTowerContent = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [filters]);
+
+    useEffect(() => {
+        fetchCentres();
+        const handleClickOutside = (event) => {
+            if (centreDropdownRef.current && !centreDropdownRef.current.contains(event.target)) {
+                setIsCentreDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [fetchCentres]);
+
+    useEffect(() => {
+        fetchData();
+    }, [filters, fetchData]);
+
 
     const exportToExcel = (chartData, fileName) => {
         const ws = XLSX.utils.json_to_sheet(chartData);
@@ -130,21 +164,40 @@ const CEOControlTowerContent = () => {
         saveAs(data, `${fileName}_${new Date().toLocaleDateString()}.xlsx`);
     };
 
-    if (loading && !data) {
-        return (
-            <div className={`flex h-full items-center justify-center ${isDarkMode ? 'bg-[#0a0a0b]' : 'bg-gray-50'}`}>
-                <div className="flex flex-col items-center gap-4">
-                    <div className="relative w-16 h-16">
-                        <div className="absolute inset-0 border-2 border-cyan-500/20 rounded-full"></div>
-                        <div className="absolute inset-0 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                    <span className="text-cyan-500 font-black text-[10px] uppercase tracking-[0.3em] animate-pulse">Initializing Control Tower</span>
-                </div>
-            </div>
-        );
-    }
-
     const { workforce, sales } = data || {};
+
+    // Aggregated Stats to prevent duplicates by name
+    const aggregatedCounselorStats = useMemo(() => {
+        if (!sales?.counselorStats) return [];
+        const map = new Map();
+        sales.counselorStats.forEach(item => {
+            const name = item.name?.toUpperCase().trim();
+            if (map.has(name)) {
+                const existing = map.get(name);
+                existing.count += item.count || 0;
+                existing.revenue += item.revenue || 0;
+            } else {
+                map.set(name, { ...item, name });
+            }
+        });
+        return Array.from(map.values()).sort((a, b) => b.count - a.count);
+    }, [sales?.counselorStats]);
+
+    const aggregatedTelecallerStats = useMemo(() => {
+        if (!sales?.telecallerStats) return [];
+        const map = new Map();
+        sales.telecallerStats.forEach(item => {
+            const name = item.name?.toUpperCase().trim();
+            if (map.has(name)) {
+                const existing = map.get(name);
+                existing.count += item.count || 0;
+            } else {
+                map.set(name, { ...item, name });
+            }
+        });
+        return Array.from(map.values()).sort((a, b) => b.count - a.count);
+    }, [sales?.telecallerStats]);
+
 
     const chartTooltipStyle = {
         backgroundColor: isDarkMode ? '#131619' : '#fff',
@@ -172,13 +225,13 @@ const CEOControlTowerContent = () => {
                 <div className="flex items-center gap-3">
                     <div className={`flex items-center gap-1 p-1 rounded-[2px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
                         <button
-                            onClick={() => setIsDarkMode(true)}
+                            onClick={() => theme === 'light' && toggleTheme()}
                             className={`p-2 rounded-[1px] transition-all ${isDarkMode ? "bg-cyan-500 text-black" : "text-gray-500 hover:text-cyan-500"}`}
                         >
                             <FaMoon size={12} />
                         </button>
                         <button
-                            onClick={() => setIsDarkMode(false)}
+                            onClick={() => theme === 'dark' && toggleTheme()}
                             className={`p-2 rounded-[1px] transition-all ${!isDarkMode ? "bg-cyan-500 text-black" : "text-gray-600 hover:text-cyan-500"}`}
                         >
                             <FaSun size={12} />
@@ -191,14 +244,56 @@ const CEOControlTowerContent = () => {
             <div className={`mb-8 p-4 border rounded-[2px] flex flex-wrap items-center gap-6 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                 <div className="flex flex-col gap-1.5">
                     <label className={`text-[9px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Operational Centre</label>
-                    <select
-                        value={filters.centre}
-                        onChange={(e) => setFilters({ ...filters, centre: e.target.value })}
-                        className={`text-[10px] font-black uppercase tracking-widest p-2 rounded-[2px] border outline-none min-w-[200px] ${isDarkMode ? 'bg-black border-gray-800 text-white' : 'bg-white border-gray-200 text-black'}`}
-                    >
-                        <option value="ALL">Global Operations (All)</option>
-                        {centres.map(c => <option key={c._id} value={c.centreName}>{c.centreName}</option>)}
-                    </select>
+                    <div className="relative" ref={centreDropdownRef}>
+                        <div
+                            onClick={() => setIsCentreDropdownOpen(!isCentreDropdownOpen)}
+                            className={`text-[10px] font-black uppercase tracking-widest p-2 rounded-[2px] border outline-none min-w-[220px] cursor-pointer flex justify-between items-center transition-all ${isDarkMode ? 'bg-black border-gray-800 text-white hover:border-cyan-500/50' : 'bg-white border-gray-200 text-black hover:border-cyan-500/50'}`}
+                        >
+                            <span className="truncate max-w-[170px]">
+                                {!filters.centre || filters.centre === 'ALL' || (Array.isArray(filters.centre) && filters.centre.length === 0)
+                                    ? "Global Operations (All)"
+                                    : (Array.isArray(filters.centre) ? `${filters.centre.length} Units Selected` : filters.centre)}
+                            </span>
+                            <FaChevronDown size={8} className={`transition-transform duration-300 ${isCentreDropdownOpen ? 'rotate-180' : ''}`} />
+                        </div>
+
+                        {isCentreDropdownOpen && (
+                            <div className={`absolute top-full left-0 mt-1 w-64 z-50 border rounded-[2px] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
+                                <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                                    <div
+                                        className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors border-b border-gray-800/10 ${(!filters.centre || filters.centre === 'ALL') ? 'text-cyan-500 bg-cyan-500/5' : (isDarkMode ? 'text-gray-400 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-50')}`}
+                                        onClick={() => {
+                                            setFilters({ ...filters, centre: 'ALL' });
+                                            setIsCentreDropdownOpen(false);
+                                        }}
+                                    >
+                                        Global Operations (All)
+                                    </div>
+                                    {centres.map(c => {
+                                        const isSelected = Array.isArray(filters.centre) && filters.centre.includes(c.centreName);
+                                        return (
+                                            <div
+                                                key={c._id}
+                                                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center justify-between ${isSelected ? 'text-cyan-500 bg-cyan-500/5' : (isDarkMode ? 'text-gray-400 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-50')}`}
+                                                onClick={() => {
+                                                    let newCentres = Array.isArray(filters.centre) ? [...filters.centre] : (filters.centre === 'ALL' ? [] : [filters.centre]);
+                                                    if (newCentres.includes(c.centreName)) {
+                                                        newCentres = newCentres.filter(name => name !== c.centreName);
+                                                    } else {
+                                                        newCentres.push(c.centreName);
+                                                    }
+                                                    setFilters({ ...filters, centre: newCentres.length === 0 ? 'ALL' : newCentres });
+                                                }}
+                                            >
+                                                <span>{c.centreName}</span>
+                                                {isSelected && <div className="w-1 h-1 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.8)]" />}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -245,6 +340,7 @@ const CEOControlTowerContent = () => {
                     icon={<FaMoneyBillWave />}
                     color="emerald"
                     isDarkMode={isDarkMode}
+                    loading={loading}
                 />
                 <StatCard
                     title="Gross Admissions"
@@ -253,6 +349,7 @@ const CEOControlTowerContent = () => {
                     icon={<FaUsers />}
                     color="cyan"
                     isDarkMode={isDarkMode}
+                    loading={loading}
                 />
                 <StatCard
                     title="Workforce Baseline"
@@ -261,6 +358,7 @@ const CEOControlTowerContent = () => {
                     icon={<FaUserFriends />}
                     color="purple"
                     isDarkMode={isDarkMode}
+                    loading={loading}
                 />
                 <StatCard
                     title="Operation Presence"
@@ -269,14 +367,15 @@ const CEOControlTowerContent = () => {
                     icon={<FaUserCheck />}
                     color="amber"
                     isDarkMode={isDarkMode}
+                    loading={loading}
                 />
             </div>
 
             {/* Business Velocity & Conversion Tracker */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 <div className="lg:col-span-2">
-                    <ChartContainer title="Registrations vs Admissions Velocity" isDarkMode={isDarkMode} color="cyan" onExport={() => exportToExcel(sales?.conversionTrend || [], 'conversion_trend')}>
-                        <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                    <ChartContainer title="Registrations vs Admissions Velocity" isDarkMode={isDarkMode} color="cyan" onExport={() => exportToExcel(sales?.conversionTrend || [], 'conversion_trend')} loading={loading}>
+                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                             <AreaChart data={sales?.conversionTrend || []}>
                                 <defs>
                                     <linearGradient id="colorReg" x1="0" y1="0" x2="0" y2="1">
@@ -300,8 +399,8 @@ const CEOControlTowerContent = () => {
                     </ChartContainer>
                 </div>
 
-                <ChartContainer title="Transaction Method Mix" isDarkMode={isDarkMode} color="emerald" onExport={() => exportToExcel(sales?.transactionStats || [], 'transactions')}>
-                    <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                <ChartContainer title="Transaction Method Mix" isDarkMode={isDarkMode} color="emerald" onExport={() => exportToExcel(sales?.transactionStats || [], 'transactions')} loading={loading}>
+                    <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                         <PieChart>
                             <Pie data={sales?.transactionStats || []} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={5} dataKey="count" nameKey="name" stroke="none">
                                 {(sales?.transactionStats || []).map((entry, index) => <Cell key={`cell-${index}`} fill={["#10b981", "#06b6d4", "#f59e0b", "#a855f7", "#ef4444"][index % 5]} />)}
@@ -331,15 +430,23 @@ const CEOControlTowerContent = () => {
                                 </tr>
                             </thead>
                             <tbody className="text-[10px] font-black tracking-widest">
-                                {(sales?.counselorStats || []).map((row, i) => (
-                                    <tr key={i} className={`border-b ${isDarkMode ? 'border-gray-800/30' : 'border-gray-100'} hover:bg-cyan-500/[0.02]`}>
-                                        <td className="px-6 py-4 text-white uppercase italic">{row.name}</td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400">{row.count} ADM</span>
-                                        </td>
-                                        <td className="px-6 py-4 text-right text-emerald-500">₹{(row.revenue / 100000).toFixed(2)}L</td>
-                                    </tr>
-                                ))}
+                                {loading ? (
+                                    <>
+                                        {[...Array(5)].map((_, i) => (
+                                            <TableRowSkeleton key={i} isDarkMode={isDarkMode} />
+                                        ))}
+                                    </>
+                                ) : (
+                                    aggregatedCounselorStats.map((row, i) => (
+                                        <tr key={i} className={`border-b ${isDarkMode ? 'border-gray-800/30' : 'border-gray-100'} hover:bg-cyan-500/[0.02]`}>
+                                            <td className="px-6 py-4 text-white uppercase italic">{row.name}</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400">{row.count} ADM</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right text-emerald-500">₹{(row.revenue / 100000).toFixed(2)}L</td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -361,17 +468,25 @@ const CEOControlTowerContent = () => {
                                 </tr>
                             </thead>
                             <tbody className="text-[10px] font-black tracking-widest">
-                                {(sales?.telecallerStats || []).map((row, i) => {
-                                    const total = sales.telecallerStats.reduce((a, b) => a + b.count, 0);
-                                    const share = ((row.count / total) * 100).toFixed(1);
-                                    return (
-                                        <tr key={i} className={`border-b ${isDarkMode ? 'border-gray-800/30' : 'border-gray-100'} hover:bg-purple-500/[0.02]`}>
-                                            <td className="px-6 py-4 text-white uppercase italic">{row.name}</td>
-                                            <td className="px-6 py-4 text-center text-purple-400 font-bold">{row.count} LEADS</td>
-                                            <td className="px-6 py-4 text-right text-gray-500">{share}%</td>
-                                        </tr>
-                                    );
-                                })}
+                                {loading ? (
+                                    <>
+                                        {[...Array(5)].map((_, i) => (
+                                            <TableRowSkeleton key={i} isDarkMode={isDarkMode} />
+                                        ))}
+                                    </>
+                                ) : (
+                                    aggregatedTelecallerStats.map((row, i) => {
+                                        const total = aggregatedTelecallerStats.reduce((a, b) => a + b.count, 0);
+                                        const share = total > 0 ? ((row.count / total) * 100).toFixed(1) : "0.0";
+                                        return (
+                                            <tr key={i} className={`border-b ${isDarkMode ? 'border-gray-800/30' : 'border-gray-100'} hover:bg-purple-500/[0.02]`}>
+                                                <td className="px-6 py-4 text-white uppercase italic">{row.name}</td>
+                                                <td className="px-6 py-4 text-center text-purple-400 font-bold">{row.count} LEADS</td>
+                                                <td className="px-6 py-4 text-right text-gray-500">{share}%</td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -380,9 +495,9 @@ const CEOControlTowerContent = () => {
 
             {/* Employee Analytics Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <ScrollableChartContainer title="Employee Department Distribution" isDarkMode={isDarkMode} color="purple" height={300}>
+                <ScrollableChartContainer title="Employee Department Distribution" isDarkMode={isDarkMode} color="purple" height={300} loading={loading}>
                     <div style={{ height: Math.max(300, (data?.workforce?.departments?.length || 0) * 40) }}>
-                        <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                             <BarChart data={data?.workforce?.departments || []} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }} barSize={15}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
                                 <XAxis type="number" hide />
@@ -396,8 +511,8 @@ const CEOControlTowerContent = () => {
                     </div>
                 </ScrollableChartContainer>
 
-                <ChartContainer title="Lead Acquisition Sources" isDarkMode={isDarkMode} color="emerald" onExport={() => exportToExcel(sales?.leadSourceStats || [], 'lead_sources')}>
-                    <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                <ChartContainer title="Lead Acquisition Sources" isDarkMode={isDarkMode} color="emerald" onExport={() => exportToExcel(sales?.leadSourceStats || [], 'lead_sources')} loading={loading}>
+                    <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                         <BarChart data={sales?.leadSourceStats || []}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
                             <XAxis dataKey="name" stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} axisLine={false} tickLine={false} />
@@ -411,9 +526,9 @@ const CEOControlTowerContent = () => {
 
             {/* Employee Designation & Centre Distribution */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <ScrollableChartContainer title="Employee Designation Distribution" isDarkMode={isDarkMode} color="cyan" height={350}>
+                <ScrollableChartContainer title="Employee Designation Distribution" isDarkMode={isDarkMode} color="cyan" height={350} loading={loading}>
                     <div style={{ height: Math.max(350, (data?.workforce?.designations?.length || 0) * 35) }}>
-                        <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                             <BarChart data={data?.workforce?.designations || []} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }} barSize={15}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
                                 <XAxis type="number" hide />
@@ -427,9 +542,9 @@ const CEOControlTowerContent = () => {
                     </div>
                 </ScrollableChartContainer>
 
-                <ScrollableChartContainer title="Employee Centre Distribution" isDarkMode={isDarkMode} color="amber" height={350}>
+                <ScrollableChartContainer title="Employee Centre Distribution" isDarkMode={isDarkMode} color="amber" height={350} loading={loading}>
                     <div style={{ height: Math.max(350, (data?.workforce?.centres?.length || 0) * 35) }}>
-                        <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                             <BarChart data={data?.workforce?.centres || []} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }} barSize={15}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
                                 <XAxis type="number" hide />
@@ -447,8 +562,8 @@ const CEOControlTowerContent = () => {
             {/* Academic Intelligence Dropdown - Comprehensive Course & Board Analysis */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 {/* Board Course Wise Analysis - Area Chart */}
-                <ChartContainer title="Board Course Analysis" isDarkMode={isDarkMode} color="cyan">
-                    <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                <ChartContainer title="Board Course Analysis" isDarkMode={isDarkMode} color="cyan" loading={loading}>
+                    <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                         <AreaChart data={data?.academics?.boardCourse || []}>
                             <defs>
                                 <linearGradient id="colorBoard" x1="0" y1="0" x2="0" y2="1">
@@ -466,27 +581,29 @@ const CEOControlTowerContent = () => {
                 </ChartContainer>
 
                 {/* Normal Course Wise Analysis - Bar Graph */}
-                <ChartContainer title="Standard Course Distribution" isDarkMode={isDarkMode} color="purple">
-                    <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
-                        <BarChart data={data?.academics?.normalCourse || []} layout="vertical">
-                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
-                            <XAxis type="number" stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} axisLine={false} tickLine={false} />
-                            <YAxis dataKey="name" type="category" stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} axisLine={false} tickLine={false} width={100} />
-                            <Tooltip contentStyle={chartTooltipStyle} cursor={{ fill: isDarkMode ? '#ffffff05' : '#00000005' }} />
-                            <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
-                                {(data?.academics?.normalCourse || []).map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={["#a855f7", "#8b5cf6", "#7c3aed", "#6d28d9"][index % 4]} />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </ChartContainer>
+                <ScrollableChartContainer title="Standard Course Distribution" isDarkMode={isDarkMode} color="purple" height={300} loading={loading}>
+                    <div style={{ height: Math.max(300, (data?.academics?.normalCourse?.length || 0) * 45) }}>
+                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
+                            <BarChart data={data?.academics?.normalCourse || []} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
+                                <XAxis type="number" stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} axisLine={false} tickLine={false} />
+                                <YAxis dataKey="name" type="category" stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} fontWeight={700} axisLine={false} tickLine={false} width={140} />
+                                <Tooltip contentStyle={chartTooltipStyle} cursor={{ fill: isDarkMode ? '#ffffff05' : '#00000005' }} />
+                                <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
+                                    {(data?.academics?.normalCourse || []).map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={["#a855f7", "#8b5cf6", "#7c3aed", "#6d28d9"][index % 4]} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </ScrollableChartContainer>
             </div>
 
             {/* Subject Analysis for Board Students */}
             <div className="mb-8">
-                <ChartContainer title="Board Subject Preference" isDarkMode={isDarkMode} color="emerald">
-                    <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                <ChartContainer title="Board Subject Preference" isDarkMode={isDarkMode} color="emerald" loading={loading}>
+                    <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                         <BarChart data={data?.academics?.boardSubjects || []}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
                             <XAxis dataKey="name" stroke={isDarkMode ? "#4b5563" : "#9ca3af"} fontSize={9} axisLine={false} tickLine={false} />
@@ -504,8 +621,8 @@ const CEOControlTowerContent = () => {
 
             {/* Final Distribution Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                <ChartContainer title="Regional Spread" isDarkMode={isDarkMode} color="purple">
-                    <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                <ChartContainer title="Regional Spread" isDarkMode={isDarkMode} color="purple" loading={loading}>
+                    <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                         <PieChart>
                             <Pie data={data?.students?.state || []} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="count" nameKey="name" stroke="none">
                                 {(data?.students?.state || []).map((entry, index) => <Cell key={`cell-${index}`} fill={["#a855f7", "#10b981", "#f59e0b", "#06b6d4", "#ef4444"][index % 5]} />)}
@@ -516,8 +633,8 @@ const CEOControlTowerContent = () => {
                     </ResponsiveContainer>
                 </ChartContainer>
 
-                <ChartContainer title="Student Board Mix" isDarkMode={isDarkMode} color="amber">
-                    <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={0} minWidth={0}>
+                <ChartContainer title="Student Board Mix" isDarkMode={isDarkMode} color="amber" loading={loading}>
+                    <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                         <PieChart>
                             <Pie data={data?.students?.board || []} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={5} dataKey="count" nameKey="name" stroke="none">
                                 {(data?.students?.board || []).map((entry, index) => <Cell key={`cell-${index}`} fill={["#f59e0b", "#ef4444", "#10b981", "#06b6d4"][index % 4]} />)}
@@ -536,15 +653,23 @@ const CEOControlTowerContent = () => {
                     <div className="overflow-x-auto custom-scrollbar" style={{ maxHeight: '250px' }}>
                         <table className="w-full text-left">
                             <tbody className="text-[10px] font-black tracking-widest text-gray-400">
-                                {(sales?.centrePerformance || []).map((centre, i) => (
-                                    <tr key={i} className={`border-b border-gray-800/20 hover:bg-white/[0.02] transition-colors`}>
-                                        <td className="px-6 py-3">
-                                            <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full border ${i < 3 ? 'border-cyan-500 text-cyan-500' : 'border-gray-800 text-gray-600'} text-[8px] font-black`}>{i + 1}</span>
-                                        </td>
-                                        <td className="px-6 py-3 text-white uppercase">{centre.name}</td>
-                                        <td className="px-6 py-3 text-right text-emerald-500">₹{(centre.revenue / 1000).toFixed(0)}K</td>
-                                    </tr>
-                                ))}
+                                {loading ? (
+                                    <>
+                                        {[...Array(5)].map((_, i) => (
+                                            <TableRowSkeleton key={i} isDarkMode={isDarkMode} />
+                                        ))}
+                                    </>
+                                ) : (
+                                    (sales?.centrePerformance || []).map((centre, i) => (
+                                        <tr key={i} className={`border-b border-gray-800/20 hover:bg-white/[0.02] transition-colors`}>
+                                            <td className="px-6 py-3">
+                                                <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full border ${i < 3 ? 'border-cyan-500 text-cyan-500' : 'border-gray-800 text-gray-600'} text-[8px] font-black`}>{i + 1}</span>
+                                            </td>
+                                            <td className="px-6 py-3 text-white uppercase">{centre.name}</td>
+                                            <td className="px-6 py-3 text-right text-emerald-500">₹{(centre.revenue / 1000).toFixed(0)}K</td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -553,6 +678,7 @@ const CEOControlTowerContent = () => {
 
             {/* Employee Attendance Analytics Section */}
             <EmployeeAttendanceAnalytics
+                isDarkMode={isDarkMode}
                 masterData={{
                     departments: data?.workforce?.departments || [],
                     designations: data?.workforce?.designations || [],

@@ -5,6 +5,17 @@ import { FaSearch, FaBan, FaUndo, FaExclamationTriangle, FaFilter, FaDownload, F
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import Select from "react-select";
+import {
+    BarChart,
+    Bar,
+    Cell,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer
+} from 'recharts';
 
 const CancelChequePayment = () => {
     const [searchTerm, setSearchTerm] = useState("");
@@ -20,9 +31,9 @@ const CancelChequePayment = () => {
     const [loading, setLoading] = useState(true);
 
     const [filters, setFilters] = useState({
-        centre: "",
-        course: "",
-        department: ""
+        centre: [],
+        course: [],
+        department: []
     });
     const [metadata, setMetadata] = useState({
         centres: [],
@@ -58,8 +69,16 @@ const CancelChequePayment = () => {
             const courses = await coursesRes.json();
             const depts = await deptsRes.json();
 
+            // Filter centres based on user's authorized centres
+            const filteredCentres = Array.isArray(centres)
+                ? centres.filter(c =>
+                    user.role === 'superAdmin' || user.role === 'Super Admin' ||
+                    (user.centres && user.centres.some(uc => uc._id === c._id || (uc.centreName && c.centreName && uc.centreName.trim() === c.centreName.trim())))
+                )
+                : [];
+
             setMetadata({
-                centres: Array.isArray(centres) ? centres : [],
+                centres: filteredCentres,
                 courses: Array.isArray(courses) ? courses : [],
                 departments: Array.isArray(depts) ? depts : []
             });
@@ -77,9 +96,16 @@ const CancelChequePayment = () => {
 
             // Build query params
             const queryParams = new URLSearchParams();
-            if (filters.centre) queryParams.append("centre", filters.centre);
-            if (filters.course) queryParams.append("course", filters.course);
-            if (filters.department) queryParams.append("department", filters.department);
+
+            // Handle multi-select arrays
+            Object.entries(filters).forEach(([key, value]) => {
+                if (Array.isArray(value) && value.length > 0) {
+                    value.forEach(v => queryParams.append(key, v));
+                } else if (value && !Array.isArray(value)) {
+                    queryParams.append(key, value);
+                }
+            });
+
             if (searchTerm) queryParams.append("search", searchTerm);
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/finance/cheque/all?${queryParams.toString()}`, {
@@ -98,13 +124,12 @@ const CancelChequePayment = () => {
         }
     };
 
-    const handleFilterChange = (e) => {
-        const { name, value } = e.target;
+    const handleFilterChange = (name, value) => {
         setFilters(prev => ({ ...prev, [name]: value }));
     };
 
     const clearFilters = () => {
-        setFilters({ centre: "", course: "", department: "" });
+        setFilters({ centre: [], course: [], department: [] });
         setSearchTerm("");
     };
 
@@ -177,17 +202,156 @@ const CancelChequePayment = () => {
         }
     };
 
+    const customStyles = {
+        control: (provided) => ({
+            ...provided,
+            backgroundColor: 'rgba(0, 0, 0, 0.4)',
+            borderColor: '#1f2937',
+            borderRadius: '0.75rem',
+            padding: '4px',
+            fontSize: '0.75rem',
+            fontWeight: 'bold',
+            color: 'white',
+            outline: 'none',
+            '&:hover': {
+                borderColor: 'rgba(239, 68, 68, 0.5)',
+            }
+        }),
+        menu: (provided) => ({
+            ...provided,
+            backgroundColor: '#131619',
+            border: '1px solid #1f2937',
+            borderRadius: '0.75rem',
+            zIndex: 999
+        }),
+        option: (provided, state) => ({
+            ...provided,
+            backgroundColor: state.isFocused ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+            color: state.isFocused ? '#ef4444' : '#9ca3af',
+            fontSize: '0.75rem',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            padding: '10px 15px',
+            '&:active': {
+                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+            }
+        }),
+        multiValue: (provided) => ({
+            ...provided,
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            borderRadius: '6px',
+        }),
+        multiValueLabel: (provided) => ({
+            ...provided,
+            color: '#ef4444',
+            fontSize: '0.7rem',
+            fontWeight: 'black',
+            textTransform: 'uppercase'
+        }),
+        multiValueRemove: (provided) => ({
+            ...provided,
+            color: '#ef4444',
+            '&:hover': {
+                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                color: 'white',
+            }
+        }),
+        input: (provided) => ({
+            ...provided,
+            color: 'white',
+        }),
+        singleValue: (provided) => ({
+            ...provided,
+            color: 'white',
+        }),
+    };
+
     return (
         <Layout activePage="Finance & Fees">
             <div className="p-4 md:p-10 max-w-[1600px] mx-auto min-h-screen pb-20">
                 {/* Header */}
-                <div className="mb-10">
-                    <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">
-                        Cancel Cheque <span className="text-red-500">Payment</span>
-                    </h1>
-                    <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">
-                        Process Cheque Cancellations & Refunds
-                    </p>
+                <div className="mb-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
+                    <div>
+                        <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">
+                            Cancel Cheque <span className="text-red-500">Payment</span>
+                        </h1>
+                        <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">
+                            Process Cheque Cancellations & Refunds
+                        </p>
+                    </div>
+
+                    <div className="bg-[#131619] border border-gray-800 rounded-2xl p-4" style={{ width: '480px', height: '140px' }}>
+                        <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Cheque Analytics</div>
+                        <ResponsiveContainer width="100%" height={90}>
+                            <BarChart
+                                data={[
+                                    {
+                                        name: 'Cleared',
+                                        value: cheques.filter(c => c.status === "Cleared").length,
+                                        amount: cheques.filter(c => c.status === "Cleared").reduce((sum, c) => sum + (c.amount || 0), 0),
+                                        color: '#10b981'
+                                    },
+                                    {
+                                        name: 'Pending',
+                                        value: cheques.filter(c => c.status === "Pending").length,
+                                        amount: cheques.filter(c => c.status === "Pending").reduce((sum, c) => sum + (c.amount || 0), 0),
+                                        color: '#f59e0b'
+                                    },
+                                    {
+                                        name: 'Cancelled',
+                                        value: cheques.filter(c => c.status === "Cancelled" || c.status === "Rejected").length,
+                                        amount: cheques.filter(c => c.status === "Cancelled" || c.status === "Rejected").reduce((sum, c) => sum + (c.amount || 0), 0),
+                                        color: '#ef4444'
+                                    }
+                                ]}
+                                margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                                <XAxis
+                                    dataKey="name"
+                                    stroke="#6b7280"
+                                    style={{ fontSize: '10px', fontWeight: 'bold' }}
+                                    tick={{ fill: '#9ca3af' }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                />
+                                <YAxis
+                                    stroke="#6b7280"
+                                    style={{ fontSize: '9px' }}
+                                    tick={{ fill: '#9ca3af' }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                />
+                                <Tooltip
+                                    contentStyle={{
+                                        backgroundColor: '#1f2937',
+                                        border: '1px solid #374151',
+                                        borderRadius: '8px',
+                                        fontSize: '11px',
+                                        fontWeight: 'bold'
+                                    }}
+                                    labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '10px' }}
+                                    cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+                                    formatter={(value, name, props) => {
+                                        if (name === 'value') return [value + ' Cheques', 'Count'];
+                                        if (name === 'amount') return ['₹' + value.toLocaleString(), 'Amount'];
+                                        return [value, name];
+                                    }}
+                                />
+                                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                    {
+                                        [
+                                            { name: 'Cleared', color: '#10b981' },
+                                            { name: 'Pending', color: '#f59e0b' },
+                                            { name: 'Cancelled', color: '#ef4444' }
+                                        ].map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} />
+                                        ))
+                                    }
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
 
                 {/* Warning Banner */}
@@ -206,45 +370,42 @@ const CancelChequePayment = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                         <div className="lg:col-span-1">
                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
-                            <select
-                                name="centre"
-                                value={filters.centre}
-                                onChange={handleFilterChange}
-                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-white font-bold text-xs outline-none focus:border-red-500/50 transition-all appearance-none"
-                            >
-                                <option value="">ALL CENTRES</option>
-                                {metadata.centres.map(c => (
-                                    <option key={c._id} value={c.centreName}>{c.centreName}</option>
-                                ))}
-                            </select>
+                            <Select
+                                isMulti
+                                options={metadata.centres.map(c => ({ value: c.centreName, label: c.centreName }))}
+                                value={filters.centre.map(c => ({ value: c, label: c }))}
+                                onChange={(selected) => handleFilterChange("centre", selected ? selected.map(s => s.value) : [])}
+                                styles={customStyles}
+                                placeholder="ALL CENTRES"
+                                className="react-select-container"
+                                classNamePrefix="react-select"
+                            />
                         </div>
                         <div className="lg:col-span-1">
                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Course</label>
-                            <select
-                                name="course"
-                                value={filters.course}
-                                onChange={handleFilterChange}
-                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-white font-bold text-xs outline-none focus:border-red-500/50 transition-all appearance-none"
-                            >
-                                <option value="">ALL COURSES</option>
-                                {metadata.courses.map(c => (
-                                    <option key={c._id} value={c.courseName}>{c.courseName}</option>
-                                ))}
-                            </select>
+                            <Select
+                                isMulti
+                                options={metadata.courses.map(c => ({ value: c.courseName, label: c.courseName }))}
+                                value={filters.course.map(c => ({ value: c, label: c }))}
+                                onChange={(selected) => handleFilterChange("course", selected ? selected.map(s => s.value) : [])}
+                                styles={customStyles}
+                                placeholder="ALL COURSES"
+                                className="react-select-container"
+                                classNamePrefix="react-select"
+                            />
                         </div>
                         <div className="lg:col-span-1">
                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Department</label>
-                            <select
-                                name="department"
-                                value={filters.department}
-                                onChange={handleFilterChange}
-                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-white font-bold text-xs outline-none focus:border-red-500/50 transition-all appearance-none"
-                            >
-                                <option value="">ALL DEPARTMENTS</option>
-                                {metadata.departments.map(d => (
-                                    <option key={d._id} value={d.departmentName}>{d.departmentName}</option>
-                                ))}
-                            </select>
+                            <Select
+                                isMulti
+                                options={metadata.departments.map(d => ({ value: d.departmentName, label: d.departmentName }))}
+                                value={filters.department.map(d => ({ value: d, label: d }))}
+                                onChange={(selected) => handleFilterChange("department", selected ? selected.map(s => s.value) : [])}
+                                styles={customStyles}
+                                placeholder="ALL DEPARTMENTS"
+                                className="react-select-container"
+                                classNamePrefix="react-select"
+                            />
                         </div>
                         <div className="lg:col-span-1">
                             <button
@@ -288,7 +449,7 @@ const CancelChequePayment = () => {
                                 <th className="p-6">Amount</th>
                                 <th className="p-6">Cheque Date</th>
                                 <th className="p-6">Status</th>
-                                <th className="p-6 text-right">Actions</th>
+                                {/* <th className="p-6 text-right">Actions</th> */}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800">
@@ -316,15 +477,15 @@ const CancelChequePayment = () => {
                                         <td className="p-6 text-gray-300">{new Date(cheque.chequeDate).toLocaleDateString('en-IN')}</td>
                                         <td className="p-6">
                                             <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${cheque.status === "Pending"
-                                                    ? "text-yellow-500 bg-yellow-500/10 border-yellow-500/20"
-                                                    : cheque.status === "Cleared"
-                                                        ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
-                                                        : "text-red-500 bg-red-500/10 border-red-500/20" // Default/Cancelled
+                                                ? "text-yellow-500 bg-yellow-500/10 border-yellow-500/20"
+                                                : cheque.status === "Cleared"
+                                                    ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
+                                                    : "text-red-500 bg-red-500/10 border-red-500/20" // Default/Cancelled
                                                 }`}>
                                                 {cheque.status}
                                             </span>
                                         </td>
-                                        <td className="p-6 text-right">
+                                        {/* <td className="p-6 text-right">
                                             {canCancelCheque && cheque.status !== "Cancelled" && (
                                                 <button
                                                     onClick={() => handleCancelClick(cheque)}
@@ -333,7 +494,7 @@ const CancelChequePayment = () => {
                                                     <FaBan /> Cancel
                                                 </button>
                                             )}
-                                        </td>
+                                        </td> */}
                                     </tr>
                                 ))
                             )}

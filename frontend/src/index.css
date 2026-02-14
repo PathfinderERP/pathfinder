@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@theme {
+  --variant-dark: .dark &;
+}
+
 /* Custom Scrollbar - Thin Gray */
 ::-webkit-scrollbar {
   width: 6px;

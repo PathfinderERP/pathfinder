@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { useTheme } from "../../context/ThemeContext";
 
 const LegendItem = ({ color, label, isDarkMode }) => (
     <div className="flex items-center gap-2">
@@ -488,7 +489,8 @@ const EmployeesAttendance = () => {
     const [showCautionModal, setShowCautionModal] = useState(false);
     const [showManualMarkModal, setShowManualMarkModal] = useState(false);
     const [activeCaution, setActiveCaution] = useState(null); // 'Overtime', 'Early Leave', 'Half Day', 'Short Leave'
-    const [isDarkMode, setIsDarkMode] = useState(true);
+    const { theme, toggleTheme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
     // Individual User Analysis State
     const [selectedUser, setSelectedUser] = useState(null);
@@ -871,7 +873,7 @@ const EmployeesAttendance = () => {
 
                         <div className="flex flex-wrap gap-4 items-center">
                             <button
-                                onClick={() => setIsDarkMode(!isDarkMode)}
+                                onClick={toggleTheme}
                                 className={`p-3 rounded-[2px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
                             >
                                 {isDarkMode ? <><FaSun /> Day Mode</> : <><FaMoon /> Night Mode</>}
@@ -1065,7 +1067,7 @@ const EmployeesAttendance = () => {
                                     </div>
                                 </div>
                                 <div className="h-[280px] w-full">
-                                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                    <ResponsiveContainer width="100%" height="100%" minHeight={280} minWidth={100}>
                                         <AreaChart data={stats?.dailyCautionsTrend}>
                                             <defs>
                                                 <linearGradient id="multiOvertime" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.1} /><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} /></linearGradient>
@@ -1080,10 +1082,10 @@ const EmployeesAttendance = () => {
                                                 contentStyle={{ backgroundColor: isDarkMode ? '#111827' : '#fff', borderColor: isDarkMode ? '#374151' : '#e5e7eb', borderRadius: '4px', fontSize: '10px', color: isDarkMode ? '#fff' : '#111827' }}
                                                 itemStyle={{ fontWeight: '900', textTransform: 'uppercase' }}
                                             />
-                                            <Area type="monotone" dataKey="overtime" stroke="#8b5cf6" fillOpacity={1} fill="url(#multiOvertime)" strokeWidth={3} stackId="1" />
-                                            <Area type="monotone" dataKey="earlyLeave" stroke="#ec4899" fillOpacity={1} fill="url(#multiEarly)" strokeWidth={3} stackId="1" />
-                                            <Area type="monotone" dataKey="halfDay" stroke="#f59e0b" fillOpacity={1} fill="url(#multiHalf)" strokeWidth={3} stackId="1" />
-                                            <Area type="monotone" dataKey="shortLeave" stroke="#84cc16" fillOpacity={1} fill="url(#multiShort)" strokeWidth={3} stackId="1" />
+                                            <Area type="monotone" dataKey="overtime" stroke="#8b5cf6" fillOpacity={1} fill="url(#multiOvertime)" strokeWidth={3} />
+                                            <Area type="monotone" dataKey="earlyLeave" stroke="#ec4899" fillOpacity={1} fill="url(#multiEarly)" strokeWidth={3} />
+                                            <Area type="monotone" dataKey="halfDay" stroke="#f59e0b" fillOpacity={1} fill="url(#multiHalf)" strokeWidth={3} />
+                                            <Area type="monotone" dataKey="shortLeave" stroke="#84cc16" fillOpacity={1} fill="url(#multiShort)" strokeWidth={3} />
                                         </AreaChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -1125,7 +1127,7 @@ const EmployeesAttendance = () => {
                                     </div>
 
                                     <div className="flex-1 min-h-0">
-                                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                        <ResponsiveContainer width="100%" height="100%" minHeight={150} minWidth={100}>
                                             <AreaChart data={stats?.dailyCautionsTrend}>
                                                 <defs>
                                                     <linearGradient id="multiForgot" x1="0" y1="0" x2="0" y2="1">
@@ -1160,7 +1162,7 @@ const EmployeesAttendance = () => {
                                 <button className="text-cyan-500 text-[10px] font-black uppercase hover:underline">View Report</button>
                             </div>
                             <div className="flex-1 w-full min-h-0">
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                <ResponsiveContainer width="100%" height="100%" minHeight={300} minWidth={100}>
                                     <AreaChart data={stats?.dailyTrend || []} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                         <defs>
                                             <linearGradient id="colorPresent" x1="0" y1="0" x2="0" y2="1">
@@ -1190,7 +1192,7 @@ const EmployeesAttendance = () => {
                         <div className={`border rounded-[2px] p-6 flex flex-col ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                             <h3 className={`font-black text-[10px] uppercase tracking-[0.2em] mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Department Distribution</h3>
                             <div className="flex-1 w-full min-h-0">
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                <ResponsiveContainer width="100%" height="100%" minHeight={300} minWidth={100}>
                                     <BarChart layout="vertical" data={departmentData} margin={{ top: 0, right: 20, left: 40, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
                                         <XAxis type="number" hide />
@@ -1461,7 +1463,7 @@ const EmployeesAttendance = () => {
                                                         <FaChartBar className="text-purple-500" /> Yearly Performance
                                                     </h4>
                                                     <div className={`h-[180px] w-full rounded-[2px] border p-2 ${isDarkMode ? 'bg-gray-900/30 border-gray-800/50' : 'bg-gray-50 border-gray-200 shadow-sm'}`}>
-                                                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                                        <ResponsiveContainer width="100%" height="100%" minHeight={180} minWidth={100}>
                                                             <BarChart data={userAnalysisData.monthlyStats}>
                                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} opacity={0.5} />
                                                                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#6b7280' : '#9ca3af', fontSize: 8, fontWeight: 700 }} />
@@ -1481,7 +1483,7 @@ const EmployeesAttendance = () => {
                                                         <FaChartLine className="text-cyan-500" /> Daily Activity ({format(new Date(filters.year, filters.month - 1), 'MMMM')})
                                                     </h4>
                                                     <div className={`h-[180px] w-full rounded-[2px] border p-2 ${isDarkMode ? 'bg-gray-900/30 border-gray-800/50' : 'bg-gray-50 border-gray-200 shadow-sm'}`}>
-                                                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                                        <ResponsiveContainer width="100%" height="100%" minHeight={180} minWidth={100}>
                                                             <AreaChart data={userAnalysisData.dailyData}>
                                                                 <defs>
                                                                     <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
@@ -1509,7 +1511,7 @@ const EmployeesAttendance = () => {
                                                             <FaChartPie className="text-emerald-500" /> Attendance Mix
                                                         </h4>
                                                         <div className={`h-[160px] w-full rounded-[2px] border relative ${isDarkMode ? 'bg-gray-900/30 border-gray-800/50' : 'bg-gray-50 border-gray-200'}`}>
-                                                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                                            <ResponsiveContainer width="100%" height="100%" minHeight={160} minWidth={100}>
                                                                 <PieChart>
                                                                     <Pie
                                                                         data={userAnalysisData.statusDistribution}

@@ -22,11 +22,58 @@ export const createSubject = async (req, res) => {
     }
 };
 
-// Get All Subjects
+// Get All Subjects with Pagination, Search and Filters
 export const getAllSubjects = async (req, res) => {
     try {
-        const subjects = await AcademicsSubject.find().populate('classId', 'className').sort({ createdAt: -1 });
-        res.status(200).json(subjects);
+        const { page, limit, search = "", classId = "" } = req.query;
+
+        const query = {};
+        if (search) {
+            query.subjectName = { $regex: search, $options: "i" };
+        }
+        if (classId) {
+            query.classId = classId;
+        }
+
+        // Backward compatibility: If no pagination, return plain array
+        if (!page && !limit) {
+            const subjects = await AcademicsSubject.find(query).populate('classId', 'className').sort({ createdAt: -1 });
+            return res.status(200).json(subjects);
+        }
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const subjects = await AcademicsSubject.find(query)
+            .populate('classId', 'className')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parseInt(limit));
+
+        const total = await AcademicsSubject.countDocuments(query);
+
+        res.status(200).json({
+            subjects,
+            total,
+            currentPage: parseInt(page),
+            totalPages: Math.ceil(total / parseInt(limit))
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
+
+// Delete Multiple Subjects
+export const deleteMultipleSubjects = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: "No IDs provided" });
+        }
+
+        const result = await AcademicsSubject.deleteMany({ _id: { $in: ids } });
+        res.status(200).json({
+            message: `${result.deletedCount} subjects deleted successfully`,
+            deletedCount: result.deletedCount
+        });
     } catch (error) {
         res.status(500).json({ message: "Server Error", error: error.message });
     }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { FaFilter, FaPlus, FaSearch, FaDownload, FaEye, FaEdit, FaTrash, FaSync } from "react-icons/fa";
+import { FaFilter, FaPlus, FaSearch, FaDownload, FaEye, FaEdit, FaTrash, FaSync, FaSun, FaMoon, FaUserGraduate } from "react-icons/fa";
+import { useTheme } from "../../context/ThemeContext";
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -29,26 +30,21 @@ const AdmissionsContent = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
+    const { theme, toggleTheme } = useTheme();
+    const isDarkMode = theme === 'dark';
+
     const itemsPerPage = 10;
 
     // Permission checks
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const isSuperAdmin = user.role === "superAdmin";
+    // Memoize user to prevent issues if used in dependencies
+    const user = React.useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
+    const isSuperAdmin = user.role === "superAdmin" || user.role === "Super Admin";
     const canCreate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'allLeads', 'create');
     const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'allLeads', 'edit');
     const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'allLeads', 'delete');
 
-    useEffect(() => {
-        fetchAllowedCentres();
-        fetchStudents();
-        fetchDepartments();
-    }, []);
 
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchQuery, filterCentre, filterBoard, filterExamTag, filterDepartment, startDate, endDate]);
-
-    const fetchStudents = async () => {
+    const fetchStudents = React.useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/normalAdmin/getAllStudents`, {
@@ -68,42 +64,44 @@ const AdmissionsContent = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const fetchAllowedCentres = async () => {
+    const fetchAllowedCentres = React.useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/profile/me`, {
+            const apiUrl = import.meta.env.VITE_API_URL;
+
+            // Fetch current user data to get latest centre assignments
+            const profileResponse = await fetch(`${apiUrl}/profile/me`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                const currentUser = data.user;
+            let currentUser = user;
+            if (profileResponse.ok) {
+                const profileData = await profileResponse.json();
+                currentUser = profileData.user;
+            }
 
-                if (currentUser.role === 'superAdmin') {
-                    // If superAdmin, fetch all centres to populate allowed list
-                    // Or we can just leave it empty and handle "Access All" logic
-                    // But for consistency with filters, let's fetch all
-                    const centreRes = await fetch(`${import.meta.env.VITE_API_URL}/centre`, {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-                    if (centreRes.ok) {
-                        const allCentres = await centreRes.json();
-                        setAllowedCentres(allCentres.map(c => c.centreName));
-                    }
-                } else {
-                    const userCentres = currentUser.centres || [];
-                    const userCentreNames = userCentres.map(c => c.centreName || c.name); // Handle potential population differences
-                    setAllowedCentres(userCentreNames);
-                }
+            // If superAdmin, fetch all centres
+            if (currentUser.role === 'superAdmin' || currentUser.role === 'Super Admin') {
+                const response = await fetch(`${apiUrl}/centre`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const centres = response.ok ? await response.json() : [];
+                setAllowedCentres(centres.map(c => c.centreName));
+            } else {
+                // For non-superAdmin, use centres from profile
+                const userCentres = currentUser.centres || [];
+                const userCentreNames = userCentres.map(c => c.centreName || c.name || c).filter(Boolean);
+                setAllowedCentres(userCentreNames);
             }
         } catch (error) {
             console.error("Error fetching allowed centres:", error);
         }
-    };
+    }, [user]);
 
-    const fetchDepartments = async () => {
+
+    const fetchDepartments = React.useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/department`, {
@@ -114,7 +112,8 @@ const AdmissionsContent = () => {
         } catch (error) {
             console.error("Error fetching departments:", error);
         }
-    };
+    }, []);
+
 
     const handleRefresh = () => {
         setSearchQuery("");
@@ -131,13 +130,21 @@ const AdmissionsContent = () => {
         toast.info("Refreshed data and filters");
     };
 
+    useEffect(() => {
+        fetchAllowedCentres();
+        fetchStudents();
+        fetchDepartments();
+    }, [fetchAllowedCentres, fetchStudents, fetchDepartments]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, filterCentre, filterBoard, filterExamTag, filterDepartment, startDate, endDate]);
+
     // Extract unique values for filters based on visible students
     // First, filter students by allowed centres to ensure safety
     const visibleStudents = students.filter(s => {
-        if (allowedCentres.length === 0) return true; // Loading or issue, might want to block or allow pending check. For now assuming superadmin if empty or fetch pending.
-        // Actually best to rely on 'isSuperAdmin' flag or non-empty allowedCentres.
-        // If allowedCentres is populated, strict check.
         if (isSuperAdmin) return true;
+        if (allowedCentres.length === 0) return false;
 
         const studentCentre = s.studentsDetails?.[0]?.centre;
         return allowedCentres.includes(studentCentre);
@@ -145,15 +152,15 @@ const AdmissionsContent = () => {
 
     const uniqueCentres = [...new Set(visibleStudents.map(s => s.studentsDetails?.[0]?.centre).filter(Boolean))];
     const uniqueBoards = [...new Set(students.map(s => s.studentsDetails?.[0]?.board).filter(Boolean))];
-    const uniqueExamTags = [...new Set(students.map(s => s.sessionExamCourse?.[0]?.examTag).filter(Boolean))];
+    const uniqueExamTags = [...new Set(visibleStudents.map(s => s.sessionExamCourse?.[0]?.examTag || s.examSchema?.[0]?.examName || s.studentsDetails?.[0]?.programme).filter(Boolean))];
 
     // Filter students based on search query and filters
     const filteredStudents = visibleStudents.filter(student => {
+        // Only show students who are NOT yet enrolled
+        if (student.isEnrolled) return false;
+
         const details = student.studentsDetails?.[0] || {};
         const exam = student.examSchema?.[0] || {};
-        const studentStatusList = student.studentStatus || [];
-        const currentStatusObj = studentStatusList.length > 0 ? studentStatusList[studentStatusList.length - 1] : {};
-        const leadStatus = currentStatusObj.status || "";
         const sessionExam = student.sessionExamCourse?.[0] || {};
 
         const studentName = details.studentName || "";
@@ -162,7 +169,7 @@ const AdmissionsContent = () => {
         const centre = details.centre || "";
         const school = details.schoolName || "";
         const board = details.board || "";
-        const examTag = sessionExam.examTag || "";
+        const examTag = sessionExam.examTag || exam.examName || details.programme || "";
 
         const query = searchQuery.toLowerCase();
         const matchesSearch =
@@ -230,9 +237,8 @@ const AdmissionsContent = () => {
 
         // Convert to array and sort by date (approximation by creation order would be better but simple string sort might fail for '01 Jan' vs '02 Feb', 
         // essentially we rely on the filteredStudents being sorted by date already or we sort by raw date)
-        // Better: Process sorted students
+        // process sorted students
         const data = [];
-        const processedDates = new Set();
 
         // filteredStudents is sorted desc in fetch, but we need asc for chart usually? 
         // Re-sorting filteredStudents asc for chart generation
@@ -532,17 +538,24 @@ const AdmissionsContent = () => {
     };
 
     return (
-        <div className="flex-1 p-6 overflow-y-auto bg-[#131619]">
+        <div className={`flex-1 p-6 overflow-y-auto transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
             {/* Header Section */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-8">
                 <div className="flex items-center gap-8">
-                    <h2 className="text-2xl font-bold text-white">Admissions</h2>
+                    <div>
+                        <h2 className={`text-4xl font-black tracking-tighter uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            Counselled Students
+                        </h2>
+                        <p className={`text-[10px] font-bold uppercase tracking-[0.3em] flex items-center gap-2 mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                            Student Lifecycle Management
+                        </p>
+                    </div>
 
                     {/* Small Area Chart Analysis */}
                     {chartData.length > 0 && (
-                        <div className="hidden md:block h-[50px] w-[200px] bg-[#1a1f24] rounded-lg border border-gray-800 p-1 relative overflow-hidden group">
-                            <div className="absolute top-1 left-2 text-[10px] text-gray-400 font-semibold z-10">Trend</div>
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className={`hidden md:block h-[50px] w-[200px] rounded-[4px] border p-1 relative overflow-hidden group ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                            <div className="absolute top-1 left-2 text-[10px] text-gray-400 font-bold uppercase z-10">Trend</div>
+                            <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={40}>
                                 <AreaChart data={chartData}>
                                     <defs>
                                         <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
@@ -551,8 +564,8 @@ const AdmissionsContent = () => {
                                         </linearGradient>
                                     </defs>
                                     <Tooltip
-                                        contentStyle={{ backgroundColor: '#1a1f24', border: '1px solid #374151', borderRadius: '4px', fontSize: '10px' }}
-                                        itemStyle={{ color: '#22d3ee' }}
+                                        contentStyle={{ backgroundColor: isDarkMode ? '#1a1f24' : '#fff', border: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb', borderRadius: '4px', fontSize: '10px' }}
+                                        itemStyle={{ color: '#06b6d4' }}
                                         labelStyle={{ display: 'none' }}
                                     />
                                     <Area type="monotone" dataKey="count" stroke="#06b6d4" fillOpacity={1} fill="url(#colorCount)" strokeWidth={2} />
@@ -562,46 +575,45 @@ const AdmissionsContent = () => {
                     )}
                 </div>
 
-                {/* Additional Analyis Metrics */}
-                <div className="hidden md:flex gap-3">
-                    <div className="bg-[#1a1f24] rounded-lg border border-gray-800 px-4 py-1 h-[50px] flex flex-col justify-center min-w-[100px]">
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Conversion</span>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xl font-bold text-white">{conversionRate}%</span>
-                            {/* <span className="text-[10px] text-green-400 bg-green-500/10 px-1 rounded">Rate</span> */}
+                <div className="flex flex-wrap items-center gap-4">
+                    {/* Additional Analyis Metrics */}
+                    <div className="hidden md:flex gap-3">
+                        <div className={`rounded-[4px] border px-4 py-1 h-[50px] flex flex-col justify-center min-w-[100px] ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                            <span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Conversion</span>
+                            <div className="flex items-center gap-2">
+                                <span className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{conversionRate}%</span>
+                            </div>
+                        </div>
+
+                        <div className={`rounded-[4px] border px-4 py-1 h-[50px] flex flex-col justify-center min-w-[100px] ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                            <span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Today</span>
+                            <div className="flex items-center gap-2">
+                                <span className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>+{todaysNew}</span>
+                                <span className="text-[10px] text-cyan-500 font-black uppercase">New</span>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="bg-[#1a1f24] rounded-lg border border-gray-800 px-4 py-1 h-[50px] flex flex-col justify-center min-w-[100px]">
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Today</span>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xl font-bold text-white">+{todaysNew}</span>
-                            <span className="text-[10px] text-cyan-400 bg-cyan-500/10 px-1 rounded">New</span>
-                        </div>
-                    </div>
+                    <button
+                        onClick={toggleTheme}
+                        className={`p-3 rounded-[4px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
+                    >
+                        {isDarkMode ? <><FaSun /> Day</> : <><FaMoon /> Night</>}
+                    </button>
+
+                    {canCreate && (
+                        <button
+                            onClick={() => navigate("/student-registration")}
+                            className="px-6 py-3 bg-cyan-500 text-black font-black text-[10px] uppercase tracking-widest rounded-[4px] hover:bg-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all flex items-center gap-2"
+                        >
+                            <FaPlus /> New Registration
+                        </button>
+                    )}
                 </div>
             </div>
 
-            <div className="flex gap-3">
-                {/* <button className="flex items-center gap-2 px-4 py-2 bg-[#1a1f24] text-gray-300 rounded-lg border border-gray-700 hover:bg-gray-800">
-                        <FaFilter /> Filter
-                    </button> */}
-
-                {canCreate && (
-                    <button
-                        onClick={() => {
-                            console.log("Navigating to student registration");
-                            navigate("/student-registration");
-                        }}
-                        className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-black font-semibold rounded-lg hover:bg-cyan-400"
-                    >
-                        <FaPlus /> New Registration
-                    </button>
-                )}
-            </div>
-
             {/* Tabs */}
-            <div className="flex border-b border-gray-800 mb-6">
+            <div className={`flex border-b mb-8 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                 {["Counselled Students", "Admissions"].map((tab, index) => (
                     <button
                         key={index}
@@ -610,9 +622,9 @@ const AdmissionsContent = () => {
                                 navigate("/enrolled-students");
                             }
                         }}
-                        className={`px-6 py-3 text-sm font-medium transition-colors ${index === 0
-                            ? "text-cyan-400 border-b-2 border-cyan-400"
-                            : "text-gray-400 hover:text-white"
+                        className={`px-8 py-4 text-[10px] font-black uppercase tracking-widest transition-all ${index === 0
+                            ? "text-cyan-500 border-b-2 border-cyan-500"
+                            : isDarkMode ? "text-gray-500 hover:text-white" : "text-gray-400 hover:text-gray-900"
                             }`}
                     >
                         {tab}
@@ -620,65 +632,41 @@ const AdmissionsContent = () => {
                 ))}
             </div>
 
-            {/* Quick Actions */}
-            {/* <div className="grid grid-cols-4 gap-4 mb-8">
-                <button className="bg-[#1a1f24] text-gray-300 py-3 px-4 rounded-lg border border-gray-700 hover:bg-[#252b32] hover:border-gray-600 transition-all text-sm font-medium">
-                    Counselor Performance
-                </button>
-                {canCreate && (
-                    <button
-                        onClick={() => {
-                            console.log("Navigating to student registration");
-                            navigate("/student-registration");
-                        }}
-                        className="bg-[#1a1f24] text-gray-300 py-3 px-4 rounded-lg border border-gray-700 hover:bg-[#252b32] hover:border-gray-600 transition-all text-sm font-medium"
-                    >
-                        Walk-in Registration
-                    </button>
-                )}
-                <button className="bg-[#1a1f24] text-gray-300 py-3 px-4 rounded-lg border border-gray-700 hover:bg-[#252b32] hover:border-gray-600 transition-all text-sm font-medium">
-                    Telecalling Console
-                </button>
-                <button className="bg-[#1a1f24] text-gray-300 py-3 px-4 rounded-lg border border-gray-700 hover:bg-[#252b32] hover:border-gray-600 transition-all text-sm font-medium">
-                    Admission Enrollment
-                </button>
-            </div> */}
-
             {/* KPI Cards */}
-            <div className="grid grid-cols-4 gap-6 mb-8">
-                <div className="bg-[#1a1f24] p-6 rounded-xl border-l-4 border-cyan-500 shadow-lg">
-                    <h3 className="text-gray-400 text-sm font-medium mb-2">Total Registrations</h3>
-                    <p className="text-4xl font-bold text-white mb-2">{totalStudents}</p>
-                    <p className="text-gray-500 text-xs text-ellipsis overflow-hidden whitespace-nowrap">Matching current filters</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-cyan-500 hover:scale-[1.02] transition-all`}>
+                    <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Total Registrations</h3>
+                    <p className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{totalStudents}</p>
+                    <p className="text-gray-500 text-[10px] font-bold uppercase mt-2">Active Filters</p>
                 </div>
-                <div className="bg-[#1a1f24] p-6 rounded-xl border-l-4 border-green-500 shadow-lg">
-                    <h3 className="text-gray-400 text-sm font-medium mb-2">Enrolled</h3>
-                    <p className="text-4xl font-bold text-white mb-2">{enrolledCount}</p>
-                    <p className="text-gray-500 text-xs">Students admitted</p>
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-green-500 hover:scale-[1.02] transition-all`}>
+                    <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Enrolled</h3>
+                    <p className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{enrolledCount}</p>
+                    <p className="text-gray-500 text-[10px] font-bold uppercase mt-2">Students admitted</p>
                 </div>
-                <div className="bg-[#1a1f24] p-6 rounded-xl border-l-4 border-yellow-500 shadow-lg">
-                    <h3 className="text-gray-400 text-sm font-medium mb-2">Pending</h3>
-                    <p className="text-4xl font-bold text-white mb-2">{pendingEnrolment}</p>
-                    <p className="text-gray-500 text-xs">Waiting for admission</p>
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-yellow-500 hover:scale-[1.02] transition-all`}>
+                    <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Pending</h3>
+                    <p className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{pendingEnrolment}</p>
+                    <p className="text-gray-500 text-[10px] font-bold uppercase mt-2">Awaiting action</p>
                 </div>
-                <div className="bg-[#1a1f24] p-6 rounded-xl border-l-4 border-purple-500 shadow-lg">
-                    <h3 className="text-gray-400 text-sm font-medium mb-2">Courses</h3>
-                    <p className="text-4xl font-bold text-white mb-2">{uniqueCoursesCount}</p>
-                    <p className="text-gray-500 text-xs">Unique courses in view</p>
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-purple-500 hover:scale-[1.02] transition-all`}>
+                    <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Courses</h3>
+                    <p className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{uniqueCoursesCount}</p>
+                    <p className="text-gray-500 text-[10px] font-bold uppercase mt-2">Live Programmes</p>
                 </div>
             </div>
 
             {/* Search & Table Controls */}
-            <div className="bg-[#1a1f24] p-4 rounded-xl border border-gray-800 mb-6">
+            <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border mb-8`}>
                 <div className="flex gap-4 flex-wrap items-center">
                     <div className="flex-1 relative min-w-[300px]">
-                        <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
+                        <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                         <input
                             type="text"
-                            placeholder="Search by name, mobile, email, centre, board, exam..."
+                            placeholder="SEARCH STUDENTS..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-[#131619] text-white pl-10 pr-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-cyan-500"
+                            className={`w-full pl-12 pr-4 py-3 rounded-[4px] border text-[10px] font-black tracking-widest uppercase outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                         />
                     </div>
 
@@ -688,6 +676,7 @@ const AdmissionsContent = () => {
                         options={uniqueCentres.map(c => ({ value: c, label: c }))}
                         selectedValues={filterCentre}
                         onChange={setFilterCentre}
+                        theme={isDarkMode ? 'dark' : 'light'}
                     />
 
                     <MultiSelectFilter
@@ -696,109 +685,104 @@ const AdmissionsContent = () => {
                         options={uniqueBoards.map(b => ({ value: b, label: b }))}
                         selectedValues={filterBoard}
                         onChange={setFilterBoard}
+                        theme={isDarkMode ? 'dark' : 'light'}
                     />
 
                     <MultiSelectFilter
                         label="Exam Tag"
-                        placeholder="All Exam Tags"
+                        placeholder="All Tags"
                         options={uniqueExamTags.map(t => ({ value: t, label: t }))}
                         selectedValues={filterExamTag}
                         onChange={setFilterExamTag}
+                        theme={isDarkMode ? 'dark' : 'light'}
                     />
 
                     <MultiSelectFilter
-                        label="Department"
-                        placeholder="All Departments"
+                        label="Dept"
+                        placeholder="All Depts"
                         options={departments.map(d => ({ value: d.departmentName, label: d.departmentName }))}
                         selectedValues={filterDepartment}
                         onChange={setFilterDepartment}
+                        theme={isDarkMode ? 'dark' : 'light'}
                     />
 
-                    <div className="flex bg-[#131619] rounded-lg border border-gray-700 overflow-hidden">
-                        <div className="px-3 py-2 border-r border-gray-700 text-gray-400 text-xs font-bold uppercase tracking-wider flex items-center bg-[#1a1f24]">
-                            Date Range
+                    <div className={`flex border rounded-[4px] overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <div className={`px-4 py-3 border-r text-[10px] font-black uppercase tracking-widest flex items-center ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-gray-500' : 'bg-white border-gray-200 text-gray-400'}`}>
+                            Period
                         </div>
                         <input
                             type="date"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className="bg-[#131619] text-white px-3 py-2 focus:outline-none text-sm"
-                            placeholder="Start Date"
+                            className={`px-4 py-3 focus:outline-none text-[10px] font-bold ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
                         />
-                        <div className="px-2 py-2 text-gray-500 flex items-center">-</div>
+                        <div className={`px-2 py-3 flex items-center ${isDarkMode ? 'text-gray-700' : 'text-gray-300'}`}>-</div>
                         <input
                             type="date"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className="bg-[#131619] text-white px-3 py-2 focus:outline-none text-sm"
-                            placeholder="End Date"
+                            className={`px-4 py-3 focus:outline-none text-[10px] font-bold ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
                         />
                     </div>
 
                     <button
                         onClick={handleRefresh}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#131619] text-gray-300 rounded-lg border border-gray-700 hover:bg-gray-800 hover:text-cyan-400 transition-all"
-                        title="Refresh Data & Reset Filters"
+                        className={`p-3 rounded-[4px] border transition-all flex items-center gap-2 group ${isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-500 hover:text-cyan-400' : 'bg-white border-gray-200 text-gray-400 hover:text-gray-900'}`}
                     >
-                        <FaSync className={loading ? "animate-spin" : ""} /> Refresh
+                        <FaSync className={`text-[10px] ${loading ? "animate-spin" : ""}`} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Reset</span>
                     </button>
+
                     <ExportButton
                         onExportCSV={handleExportCSV}
                         onExportExcel={handleExportExcel}
+                        theme={isDarkMode ? 'dark' : 'light'}
                     />
                 </div>
             </div>
 
             {/* Students List Table */}
-            <div className="bg-[#1a1f24] rounded-xl border border-gray-800 overflow-hidden">
-                <div className="p-6 border-b border-gray-800">
-                    <h3 className="text-xl font-bold text-white">Registered Students</h3>
+            <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} rounded-[4px] border overflow-hidden transition-all`}>
+                <div className={`p-6 border-b flex justify-between items-center ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                    <h3 className={`text-[10px] font-black uppercase tracking-[0.3em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Registered Students</h3>
+                    <span className={`text-[10px] font-black px-3 py-1 rounded-[4px] ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500' : 'bg-cyan-100 text-cyan-600'}`}>{filteredStudents.length} Records</span>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1000px]">
-                        {/* <thead>
-                            <tr className="bg-[#252b32] text-gray-400 text-sm uppercase">
-                                <th className="p-4 font-medium">Student Name</th>
-                                <th className="p-4 font-medium">Class</th>
-                                <th className="p-4 font-medium">School</th>
-                                <th className="p-4 font-medium">Board</th>
-                                <th className="p-4 font-medium">Exam Tag</th>
-                                <th className="p-4 font-medium">Mobile</th>
-                                <th className="p-4 font-medium">Lead Status</th>
-                                <th className="p-4 font-medium">Email</th>
-                                <th className="p-4 font-medium">Centre</th>
-                                <th className="p-4 font-medium">Actions</th>
-                            </tr>
-                        </thead> */}
-
+                <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left border-collapse min-w-[1500px]">
                         <thead>
-                            <tr className="bg-[#252b32] text-gray-400 text-sm uppercase">
-                                <th className="p-4 font-medium">Reg. Date</th>
-                                <th className="p-4 font-medium">Student Name</th>
-                                <th className="p-4 font-medium">Programme</th>
-                                <th className="p-4 font-medium">Course</th>
-                                <th className="p-4 font-medium">Batch</th>
-                                <th className="p-4 font-medium">Centre</th>
-                                <th className="p-4 font-medium">Department</th>
-                                <th className="p-4 font-medium">Counselled By</th>
-                                <th className="p-4 font-medium">Email</th>
-                                <th className="p-4 font-medium">Class</th>
-                                <th className="p-4 font-medium">Mobile</th>
-                                <th className="p-4 font-medium">Actions</th>
+                            <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-[#131619] text-gray-500 border-gray-800' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                                <th className="p-4">Reg. Date</th>
+                                <th className="p-4">Student Name</th>
+                                <th className="p-4">Programme</th>
+                                <th className="p-4">Exam Tag</th>
+                                <th className="p-4">Course</th>
+                                <th className="p-4">Batch</th>
+                                <th className="p-4">Centre</th>
+                                <th className="p-4">Department</th>
+                                <th className="p-4">Counselled By</th>
+                                <th className="p-4">Email</th>
+                                <th className="p-4">Class</th>
+                                <th className="p-4">Mobile</th>
+                                <th className="p-4 text-right">Actions</th>
                             </tr>
                         </thead>
-
-
-
-                        <tbody className="divide-y divide-gray-800">
+                        <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                             {loading ? (
                                 <tr>
-                                    <td colSpan="9" className="p-8 text-center text-gray-500">Loading students...</td>
+                                    <td colSpan="13" className="p-12 text-center">
+                                        <div className="flex flex-col items-center gap-4">
+                                            <div className="w-10 h-10 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin"></div>
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Retrieving Enrollment Data...</span>
+                                        </div>
+                                    </td>
                                 </tr>
                             ) : filteredStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan="9" className="p-8 text-center text-gray-500">
-                                        {searchQuery ? "No students found matching your search." : "No students found."}
+                                    <td colSpan="13" className="p-12 text-center">
+                                        <div className="flex flex-col items-center gap-2 opacity-30">
+                                            <FaSearch size={40} className="text-gray-500 mb-2" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">No matching student records found</span>
+                                        </div>
                                     </td>
                                 </tr>
                             ) : (
@@ -808,99 +792,110 @@ const AdmissionsContent = () => {
                                         const details = student.studentsDetails?.[0] || {};
                                         const exam = student.examSchema?.[0] || {};
                                         const sessionExam = student.sessionExamCourse?.[0] || {};
-                                        const isEnrolled = student.isEnrolled;
-
                                         return (
-                                            <tr key={student._id} className="admissions-row-wave transition-colors group">
-
-                                                {/* 1️⃣ REG. DATE */}
-                                                <td className="p-4 text-gray-400 text-sm whitespace-nowrap">
-                                                    {student.createdAt ? new Date(student.createdAt).toLocaleDateString('en-GB') : "N/A"}
+                                            <tr key={student._id} className={`transition-all group ${isDarkMode ? 'hover:bg-cyan-500/[0.03]' : 'hover:bg-gray-50'}`}>
+                                                <td className="p-4">
+                                                    <span className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                        {new Date(student.createdAt).toLocaleDateString('en-GB')}
+                                                    </span>
                                                 </td>
-
-                                                {/* 2️⃣ STUDENT NAME */}
-                                                <td className="p-4 text-white font-medium">
-                                                    {details.studentName || "N/A"}
+                                                <td className="p-4">
+                                                    <div className="flex flex-col">
+                                                        <span className={`text-[11px] font-black uppercase tracking-tight ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>
+                                                            {details.studentName}
+                                                        </span>
+                                                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tighter">UID: {student._id.slice(-8)}</span>
+                                                    </div>
                                                 </td>
-
-                                                {/* PROGRAMME */}
-                                                <td className="p-4 text-white font-medium">
-                                                    {details.programme || "N/A"}
+                                                <td className="p-4">
+                                                    <span className={`text-[10px] font-black uppercase ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                                        {details.programme || "N/A"}
+                                                    </span>
                                                 </td>
-
-                                                {/* 3️⃣ COURSE */}
-                                                <td className="p-4 text-cyan-400 font-medium">
-                                                    {student.course?.courseName || "N/A"}
+                                                <td className="p-4">
+                                                    <span className={`text-[10px] font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                        {sessionExam.examTag || exam.examName || "N/A"}
+                                                    </span>
                                                 </td>
-
-                                                {/* 4️⃣ BATCH */}
-                                                <td className="p-4 text-yellow-500 text-xs font-semibold">
-                                                    {student.batches && student.batches.length > 0
-                                                        ? student.batches.map(b => b.batchName).join(", ")
-                                                        : "No Batch"}
+                                                <td className="p-4">
+                                                    <span className={`text-[10px] font-bold uppercase ${isDarkMode ? 'text-cyan-500' : 'text-cyan-600'}`}>
+                                                        {student.course?.courseName || "N/A"}
+                                                    </span>
                                                 </td>
-
-                                                {/* 5️⃣ CENTRE */}
-                                                <td className="p-4 text-gray-300">
-                                                    {details.centre || "N/A"}
-                                                </td>
-
-                                                {/* DEPARTMENT */}
-                                                <td className="p-4 text-gray-400 text-sm">
-                                                    {student.department?.departmentName || "N/A"}
-                                                </td>
-                                                <td className="p-4 text-yellow-500 font-bold text-sm">
-                                                    {student.counselledBy || "N/A"}
-                                                </td>
-
-                                                {/* 6️⃣ EMAIL */}
-                                                <td className="p-4 text-gray-300">
-                                                    {details.studentEmail || "N/A"}
-                                                </td>
-
-                                                <td className="p-4 text-gray-300">{exam.class || "N/A"}</td>
-                                                <td className="p-4 text-gray-300">{details.mobileNum || "N/A"}</td>
-
-                                                <td className="p-4 whitespace-nowrap">
-                                                    <div className="flex gap-2">
-                                                        {isEnrolled ? (
-                                                            <span className="px-3 py-1 bg-green-500/10 text-green-400 rounded text-sm font-semibold border border-green-500/20">
-                                                                ✓ Enrolled
+                                                <td className="p-4">
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {student.batches?.map((b, i) => (
+                                                            <span key={i} className={`text-[8px] font-black px-2 py-0.5 rounded-[2px] uppercase ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-600'}`}>
+                                                                {b.batchName}
                                                             </span>
-                                                        ) : canCreate ? (
-                                                            <button
-                                                                onClick={() => navigate(`/admission/${student._id}`)}
-                                                                className="px-3 py-1 bg-cyan-500 text-black rounded hover:bg-cyan-400 text-sm font-semibold transition-colors"
-                                                            >
-                                                                Admit
-                                                            </button>
-                                                        ) : null}
-
+                                                        )) || "N/A"}
+                                                    </div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`text-[10px] font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                        {details.centre || "N/A"}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`text-[10px] font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                        {student.department?.departmentName || "N/A"}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`text-[10px] font-black uppercase ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>
+                                                        {student.counselledBy || "N/A"}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                        {details.studentEmail || "N/A"}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`text-[10px] font-black ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
+                                                        {exam.class || details.class || "N/A"}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                        {details.mobileNum || "N/A"}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-right">
+                                                    <div className="flex justify-end gap-2">
                                                         <button
                                                             onClick={() => handleViewStudent(student)}
-                                                            className="p-2 bg-cyan-500/10 text-cyan-400 rounded hover:bg-cyan-500/20 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-                                                            title="View"
+                                                            className={`w-8 h-8 flex items-center justify-center rounded-[4px] border transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-cyan-500' : 'bg-white border-gray-200 text-gray-400 hover:text-gray-900 hover:border-cyan-500 shadow-sm'}`}
+                                                            title="View Profile"
                                                         >
-                                                            <FaEye />
+                                                            <FaEye size={12} />
                                                         </button>
-
+                                                        {canCreate && (
+                                                            <button
+                                                                onClick={() => navigate(`/admission/${student._id}`)}
+                                                                className={`px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border transition-all ${isDarkMode ? 'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500 hover:text-black' : 'bg-green-50 border-green-200 text-green-600 hover:bg-green-500 hover:text-white shadow-sm'} text-[9px] font-black uppercase tracking-widest`}
+                                                                title="Admit Student"
+                                                            >
+                                                                <FaUserGraduate size={10} />
+                                                                <span>Admit</span>
+                                                            </button>
+                                                        )}
                                                         {canEdit && (
                                                             <button
                                                                 onClick={() => handleEditStudent(student)}
-                                                                className="p-2 bg-yellow-500/10 text-yellow-400 rounded hover:bg-yellow-500/20 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-                                                                title="Edit"
+                                                                className={`w-8 h-8 flex items-center justify-center rounded-[4px] border transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-400 hover:text-cyan-400 hover:border-cyan-500' : 'bg-white border-gray-200 text-gray-400 hover:text-cyan-600 hover:border-cyan-500 shadow-sm'}`}
+                                                                title="Edit Record"
                                                             >
-                                                                <FaEdit />
+                                                                <FaEdit size={12} />
                                                             </button>
                                                         )}
-
                                                         {canDelete && (
                                                             <button
                                                                 onClick={() => handleDeleteStudent(student._id)}
-                                                                className="p-2 bg-red-500/10 text-red-400 rounded hover:bg-red-500/20 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-                                                                title="Delete"
+                                                                className={`w-8 h-8 flex items-center justify-center rounded-[4px] border transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-400 hover:text-red-400 hover:border-red-500' : 'bg-white border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-500 shadow-sm'}`}
+                                                                title="Delete Permanently"
                                                             >
-                                                                <FaTrash />
+                                                                <FaTrash size={12} />
                                                             </button>
                                                         )}
                                                     </div>
@@ -910,49 +905,47 @@ const AdmissionsContent = () => {
                                     })
                             )}
                         </tbody>
-
                     </table>
+                </div>
+
+                {/* Pagination */}
+                <div className={`p-6 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                    <Pagination
+                        currentPage={currentPage}
+                        totalItems={filteredStudents.length}
+                        itemsPerPage={itemsPerPage}
+                        onPageChange={setCurrentPage}
+                        theme={isDarkMode ? 'dark' : 'light'}
+                    />
                 </div>
             </div>
 
-            <Pagination
-                currentPage={currentPage}
-                totalItems={filteredStudents.length}
-                itemsPerPage={itemsPerPage}
-                onPageChange={setCurrentPage}
-            />
-
             {/* Modals */}
-            {
-                showDetailsModal && selectedStudent && (
-                    <StudentDetailsModal
-                        student={selectedStudent}
-                        canEdit={canEdit}
-                        onClose={() => {
-                            setShowDetailsModal(false);
-                            setSelectedStudent(null);
-                        }}
-                        onEdit={() => {
-                            setShowDetailsModal(false);
-                            setShowEditModal(true);
-                        }}
-                    />
-                )
-            }
+            {showDetailsModal && selectedStudent && (
+                <StudentDetailsModal
+                    student={selectedStudent}
+                    isOpen={showDetailsModal}
+                    onClose={() => {
+                        setShowDetailsModal(false);
+                        setSelectedStudent(null);
+                    }}
+                    isDarkMode={isDarkMode}
+                />
+            )}
 
-            {
-                showEditModal && selectedStudent && (
-                    <EditStudentModal
-                        student={selectedStudent}
-                        onClose={() => {
-                            setShowEditModal(false);
-                            setSelectedStudent(null);
-                        }}
-                        onUpdate={handleUpdateSuccess}
-                    />
-                )
-            }
-        </div >
+            {showEditModal && selectedStudent && (
+                <EditStudentModal
+                    student={selectedStudent}
+                    isOpen={showEditModal}
+                    onClose={() => {
+                        setShowEditModal(false);
+                        setSelectedStudent(null);
+                    }}
+                    onUpdateSuccess={handleUpdateSuccess}
+                    isDarkMode={isDarkMode}
+                />
+            )}
+        </div>
     );
 };
 

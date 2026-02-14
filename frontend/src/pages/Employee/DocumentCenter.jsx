@@ -5,8 +5,11 @@ import { FaFilePdf, FaFileImage, FaFileVideo, FaFileAlt, FaDownload, FaUserCircl
 import { toast, ToastContainer } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
+import { useTheme } from "../../context/ThemeContext";
 
 const DocumentCenter = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const navigate = useNavigate();
     const [documents, setDocuments] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -68,8 +71,8 @@ const DocumentCenter = () => {
 
     return (
         <Layout activePage="Employee Center">
-            <div className="p-4 md:p-8 bg-[#0F172A] min-h-screen text-slate-200 relative font-sans">
-                <ToastContainer theme="dark" />
+            <div className={`p-4 md:p-8 min-h-screen relative font-sans transition-colors duration-300 ${isDarkMode ? 'bg-[#0F172A] text-slate-200' : 'bg-gray-50 text-gray-800'}`}>
+                <ToastContainer theme={isDarkMode ? "dark" : "light"} />
 
                 {/* Premium Header Section */}
                 <div className="max-w-7xl mx-auto mb-12">
@@ -79,38 +82,38 @@ const DocumentCenter = () => {
                                 <FaFileAlt size={28} className="text-white" />
                             </div>
                             <div>
-                                <h1 className="text-4xl font-black tracking-tight text-white flex items-center gap-3">
+                                <h1 className={`text-4xl font-black tracking-tight flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                     Document <span className="bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">Hub</span>
                                 </h1>
-                                <p className="text-slate-400 font-medium">Organization resources and personal documents.</p>
+                                <p className={`${isDarkMode ? 'text-slate-400' : 'text-gray-500'} font-medium`}>Organization resources and personal documents.</p>
                             </div>
                         </div>
 
                         {/* User Profile Info */}
                         {userProfile && (
-                            <div className="flex items-center gap-4 bg-slate-800/40 p-2 pr-6 rounded-full border border-slate-700/50 backdrop-blur-sm group hover:border-slate-600 transition-all duration-300">
-                                <div className="w-12 h-12 rounded-full border-2 border-indigo-500/50 overflow-hidden shadow-inner">
+                            <div className={`${isDarkMode ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white border-gray-200 shadow-sm'} p-2 pr-6 rounded-full border backdrop-blur-sm group hover:border-indigo-500/30 transition-all duration-300 flex items-center gap-4`}>
+                                <div className={`w-12 h-12 rounded-full border-2 ${isDarkMode ? 'border-indigo-500/50' : 'border-indigo-100'} overflow-hidden shadow-inner`}>
                                     {userProfile.profileImage ? (
                                         <img src={userProfile.profileImage} alt="User" className="w-full h-full object-cover" />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-slate-700">
+                                        <div className={`w-full h-full flex items-center justify-center ${isDarkMode ? 'bg-slate-700' : 'bg-gray-100'}`}>
                                             <FaUserCircle size={24} className="text-indigo-400" />
                                         </div>
                                     )}
                                 </div>
                                 <div>
-                                    <h4 className="text-sm font-bold text-white leading-tight group-hover:text-indigo-400 transition-colors uppercase tracking-tight">{userProfile.name}</h4>
+                                    <h4 className={`text-sm font-bold leading-tight group-hover:text-indigo-600 transition-colors uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{userProfile.name}</h4>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">{userProfile.employeeId}</span>
-                                        <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
-                                        <span className="text-[10px] font-black uppercase text-indigo-400 tracking-widest">{userProfile.department?.name || "Corporate"}</span>
+                                        <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>{userProfile.employeeId}</span>
+                                        <span className={`w-1 h-1 rounded-full ${isDarkMode ? 'bg-slate-600' : 'bg-gray-200'}`}></span>
+                                        <span className="text-[10px] font-black uppercase text-indigo-500 tracking-widest">{userProfile.department?.name || "Corporate"}</span>
                                     </div>
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    <div className="h-px bg-gradient-to-r from-transparent via-slate-700/50 to-transparent mb-8"></div>
+                    <div className={`h-px bg-gradient-to-r from-transparent ${isDarkMode ? 'via-slate-700/50' : 'via-gray-200'} to-transparent mb-8`}></div>
 
                     <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-10">
                         <div className="relative w-full md:w-96 group">
@@ -119,9 +122,9 @@ const DocumentCenter = () => {
                                 placeholder="Explore your documents..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full bg-slate-800/50 border border-slate-700 rounded-2xl px-12 py-4 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-500"
+                                className={`w-full border rounded-2xl px-12 py-4 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all ${isDarkMode ? 'bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500' : 'bg-white border-gray-200 text-gray-800 placeholder:text-gray-400'}`}
                             />
-                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
+                            <div className={`absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-indigo-400 transition-colors ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                 </svg>
@@ -129,7 +132,7 @@ const DocumentCenter = () => {
                         </div>
 
                         <div className="flex gap-3">
-                            <button onClick={() => navigate(-1)} className="px-6 py-3 bg-slate-800/50 hover:bg-slate-700 border border-slate-700 rounded-xl transition-all flex items-center gap-2 text-sm font-bold">
+                            <button onClick={() => navigate(-1)} className={`px-6 py-3 border rounded-xl transition-all flex items-center gap-2 text-sm font-bold ${isDarkMode ? 'bg-slate-800/50 hover:bg-slate-700 border-slate-700 text-white' : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-700 shadow-sm'}`}>
                                 <FaTimes /> Close Center
                             </button>
                         </div>
@@ -144,42 +147,42 @@ const DocumentCenter = () => {
                             <p className="text-slate-500 font-black uppercase tracking-widest text-xs animate-pulse">Synchronizing documents...</p>
                         </div>
                     ) : filteredDocuments.length === 0 ? (
-                        <div className="text-center py-24 bg-slate-800/20 rounded-[32px] border border-slate-800 border-dashed backdrop-blur-sm">
+                        <div className={`text-center py-24 rounded-[32px] border border-dashed backdrop-blur-sm ${isDarkMode ? 'bg-slate-800/20 border-slate-800' : 'bg-gray-100/50 border-gray-300'}`}>
                             <div className="relative inline-block mb-6">
                                 <div className="absolute inset-0 bg-indigo-500/20 rounded-full blur-2xl"></div>
-                                <FaFileAlt className="text-7xl text-slate-700 relative z-10 mx-auto" />
+                                <FaFileAlt className={`text-7xl relative z-10 mx-auto ${isDarkMode ? 'text-slate-700' : 'text-gray-300'}`} />
                             </div>
-                            <p className="text-2xl font-black text-slate-500">No matches found</p>
-                            <p className="text-slate-600 mt-2 max-w-xs mx-auto">We couldn't find any documents matching your current criteria.</p>
+                            <p className={`text-2xl font-black ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>No matches found</p>
+                            <p className={`${isDarkMode ? 'text-slate-600' : 'text-gray-500'} mt-2 max-w-xs mx-auto`}>We couldn't find any documents matching your current criteria.</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                             {filteredDocuments.map((doc) => (
                                 <div
                                     key={doc._id}
-                                    className="group bg-slate-800/40 rounded-[28px] p-6 border border-slate-700/50 hover:border-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 backdrop-blur-md flex flex-col"
+                                    className={`group rounded-[28px] p-6 border transition-all duration-500 backdrop-blur-md flex flex-col ${isDarkMode ? 'bg-slate-800/40 border-slate-700/50 hover:border-indigo-500/30' : 'bg-white border-gray-200 shadow-sm hover:border-indigo-500/30 hover:shadow-xl'}`}
                                 >
                                     <div className="flex items-start justify-between mb-6">
-                                        <div className="p-4 bg-slate-900 rounded-2xl shadow-inner group-hover:scale-110 transition-transform duration-500 ring-1 ring-slate-700/50">
+                                        <div className={`p-4 rounded-2xl shadow-inner group-hover:scale-110 transition-transform duration-500 ring-1 ${isDarkMode ? 'bg-slate-900 ring-slate-700/50' : 'bg-gray-50 ring-gray-100'}`}>
                                             {getIcon(doc.files[0]?.fileType || "")}
                                         </div>
-                                        <div className="px-3 py-1 bg-indigo-500/10 text-indigo-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">
+                                        <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>
                                             {new Date(doc.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
                                         </div>
                                     </div>
 
                                     <div className="flex-1">
-                                        <h3 className="text-lg font-black text-white mb-2 line-clamp-2 leading-tight group-hover:text-indigo-400 transition-colors" title={doc.title}>
+                                        <h3 className={`text-lg font-black mb-2 line-clamp-2 leading-tight group-hover:text-indigo-600 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`} title={doc.title}>
                                             {doc.title}
                                         </h3>
-                                        <p className="text-sm text-slate-400 mb-6 line-clamp-2 h-10 font-medium leading-relaxed">
+                                        <p className={`text-sm mb-6 line-clamp-2 h-10 font-medium leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
                                             {doc.description || "No detailed description available for this resource."}
                                         </p>
                                     </div>
 
-                                    <div className="space-y-4 pt-4 border-t border-slate-700/50">
+                                    <div className={`space-y-4 pt-4 border-t ${isDarkMode ? 'border-slate-700/50' : 'border-gray-100'}`}>
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-indigo-400 ring-1 ring-slate-600 overflow-hidden">
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-indigo-400 ring-1 overflow-hidden ${isDarkMode ? 'bg-slate-700 ring-slate-600' : 'bg-gray-100 ring-gray-200'}`}>
                                                 {doc.uploaderImage ? (
                                                     <img src={doc.uploaderImage} alt="Uploader" className="w-full h-full object-cover" />
                                                 ) : (
@@ -187,15 +190,15 @@ const DocumentCenter = () => {
                                                 )}
                                             </div>
                                             <div className="flex flex-col max-w-[120px]">
-                                                <span className="text-xs font-black text-slate-200 truncate">{doc.uploadedByName || "Corporate HR"}</span>
-                                                <span className="text-[9px] text-slate-500 uppercase font-black tracking-widest">{doc.uploadedByDepartment || "System"}</span>
+                                                <span className={`text-xs font-black truncate ${isDarkMode ? 'text-slate-200' : 'text-gray-700'}`}>{doc.uploadedByName || "Corporate HR"}</span>
+                                                <span className={`text-[9px] uppercase font-black tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>{doc.uploadedByDepartment || "System"}</span>
                                             </div>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-3">
                                             <button
                                                 onClick={() => setSelectedDoc(doc)}
-                                                className="py-3 px-4 bg-slate-900/50 hover:bg-slate-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all border border-slate-700 flex items-center justify-center gap-2"
+                                                className={`py-3 px-4 border rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${isDarkMode ? 'bg-slate-900/50 hover:bg-slate-700 text-white border-slate-700' : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200'}`}
                                             >
                                                 <FaFileAlt size={12} className="text-indigo-400" /> Preview
                                             </button>
@@ -219,23 +222,23 @@ const DocumentCenter = () => {
                 {selectedDoc && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 backdrop-blur-xl bg-slate-950/80 animate-in fade-in duration-300">
                         <div className="absolute inset-0" onClick={() => setSelectedDoc(null)}></div>
-                        <div className="relative w-full max-w-6xl h-full flex flex-col bg-slate-900 rounded-[40px] border border-slate-700/50 shadow-2xl overflow-hidden scale-in">
+                        <div className={`relative w-full max-w-6xl h-full flex flex-col rounded-[40px] border shadow-2xl overflow-hidden scale-in ${isDarkMode ? 'bg-slate-900 border-slate-700/50' : 'bg-white border-gray-200'}`}>
                             {/* Modal Header */}
-                            <div className="flex items-center justify-between p-6 border-b border-slate-700/50 px-8">
+                            <div className={`flex items-center justify-between p-6 border-b px-8 ${isDarkMode ? 'border-slate-700/50' : 'border-gray-100'}`}>
                                 <div className="flex items-center gap-4">
                                     <div className="p-2 bg-indigo-500/10 rounded-lg">
                                         {getIcon(selectedDoc.files[0]?.fileType)}
                                     </div>
                                     <div>
-                                        <h2 className="text-xl font-black text-white uppercase tracking-tight">{selectedDoc.title}</h2>
-                                        <p className="text-xs text-indigo-400 font-bold uppercase tracking-widest">Digital Preview Access</p>
+                                        <h2 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedDoc.title}</h2>
+                                        <p className="text-xs text-indigo-600 font-bold uppercase tracking-widest">Digital Preview Access</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <a
                                         href={selectedDoc.files[0]?.url}
                                         download
-                                        className="p-3 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl transition-all"
+                                        className={`p-3 rounded-2xl transition-all ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
                                         title="Download"
                                     >
                                         <FaDownload />
@@ -287,9 +290,9 @@ const DocumentCenter = () => {
                             </div>
 
                             {/* Modal Footer */}
-                            <div className="p-6 bg-slate-900 border-t border-slate-700/50 px-8 flex justify-between items-center">
+                            <div className={`p-6 border-t px-8 flex justify-between items-center ${isDarkMode ? 'bg-slate-900 border-slate-700/50' : 'bg-gray-50 border-gray-100'}`}>
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center ring-1 ring-slate-700 overflow-hidden">
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ring-1 overflow-hidden ${isDarkMode ? 'bg-slate-800 ring-slate-700' : 'bg-white ring-gray-200'}`}>
                                         {selectedDoc.uploaderImage ? (
                                             <img src={selectedDoc.uploaderImage} alt="Uploader" className="w-full h-full object-cover" />
                                         ) : (
@@ -297,11 +300,11 @@ const DocumentCenter = () => {
                                         )}
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-xs font-black text-white">{selectedDoc.uploadedByName}</span>
-                                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{selectedDoc.uploadedByDepartment}</span>
+                                        <span className={`text-xs font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedDoc.uploadedByName}</span>
+                                        <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>{selectedDoc.uploadedByDepartment}</span>
                                     </div>
                                 </div>
-                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">Secure Organization Repository</p>
+                                <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>Secure Organization Repository</p>
                             </div>
                         </div>
                     </div>

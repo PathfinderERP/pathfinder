@@ -6,12 +6,15 @@ import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "../../context/ThemeContext";
 import {
     PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
     BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, AreaChart, Area
 } from 'recharts';
 
 const BoardReport = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const navigate = useNavigate();
     // ---- State ----
     const [loading, setLoading] = useState(false);
@@ -155,7 +158,7 @@ const BoardReport = () => {
                         >
                             <FaChevronLeft size={18} />
                         </button>
-                        <h1 className="text-3xl font-bold text-gray-800 dark:text-white-800 dark:text-gray-100">Board Analysis</h1>
+                        <h1 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Board Analysis</h1>
                         {selectedBoards.length > 0 && (
                             <button
                                 onClick={() => setSelectedBoards([])}
@@ -174,28 +177,28 @@ const BoardReport = () => {
 
                 {/* Performance Overview */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="bg-white dark:bg-[#1a1f24] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm relative overflow-hidden group">
+                    <div className={`p-5 rounded-2xl border shadow-sm relative overflow-hidden group transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100'}`}>
                         <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
                             <FaUserGraduate size={40} className="text-cyan-500" />
                         </div>
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Admissions</p>
-                        <p className="text-2xl font-black text-gray-900 dark:text-white">{totalAdmissions}</p>
+                        <p className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{totalAdmissions}</p>
                     </div>
-                    <div className="bg-white dark:bg-[#1a1f24] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm relative overflow-hidden group">
+                    <div className={`p-5 rounded-2xl border shadow-sm relative overflow-hidden group transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100'}`}>
                         <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
                             <FaChartBar size={40} className="text-green-500" />
                         </div>
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Gross Revenue</p>
                         <p className="text-2xl font-black text-green-600">₹{totalRevenue.toLocaleString()}</p>
                     </div>
-                    <div className="bg-white dark:bg-[#1a1f24] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm relative overflow-hidden group">
+                    <div className={`p-5 rounded-2xl border shadow-sm relative overflow-hidden group transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100'}`}>
                         <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
                             <FaFilter size={40} className="text-purple-500" />
                         </div>
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Popular Board</p>
                         <p className="text-2xl font-black text-purple-600 truncate" title={popularBoard}>{popularBoard}</p>
                     </div>
-                    <div className="bg-white dark:bg-[#1a1f24] p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm relative overflow-hidden group">
+                    <div className={`p-5 rounded-2xl border shadow-sm relative overflow-hidden group transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100'}`}>
                         <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
                             <FaTh size={40} className="text-orange-500" />
                         </div>
@@ -205,24 +208,38 @@ const BoardReport = () => {
                 </div>
 
                 {/* Filters */}
-                <div className="bg-white dark:bg-[#1a1f24] p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800">
+                <div className={`p-5 rounded-2xl shadow-sm border transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                     <div className="flex flex-wrap gap-4 items-center">
-                        <select value={selectedSession} onChange={(e) => setSelectedSession(e.target.value)} className="h-10 px-4 bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-gray-800 rounded-xl text-xs outline-none font-bold text-gray-700 dark:text-gray-300">
+                        <select
+                            value={selectedSession}
+                            onChange={(e) => setSelectedSession(e.target.value)}
+                            className={`h-10 px-4 border rounded-xl text-xs outline-none font-bold transition-all ${isDarkMode
+                                ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-blue-500'
+                                : 'bg-white border-gray-300 text-gray-700 shadow-sm focus:border-blue-500'
+                                }`}
+                        >
                             <option value="">All Sessions</option>
                             {sessions.map(s => <option key={s._id} value={s.sessionName}>{s.sessionName}</option>)}
                         </select>
 
                         <div className="relative" ref={centreDropdownRef}>
-                            <button onClick={() => setIsCentreDropdownOpen(!isCentreDropdownOpen)} className="h-10 px-4 bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-gray-800 rounded-xl text-xs flex items-center justify-between gap-3 min-w-[160px] font-bold text-gray-700 dark:text-gray-300">
+                            <button
+                                onClick={() => setIsCentreDropdownOpen(!isCentreDropdownOpen)}
+                                className={`h-10 px-4 border rounded-xl text-xs flex items-center justify-between gap-3 min-w-[160px] font-bold transition-all ${isDarkMode
+                                    ? 'bg-[#1a1f24] border-gray-700 text-gray-300 hover:border-blue-500'
+                                    : 'bg-white border-gray-300 text-gray-700 shadow-sm hover:border-blue-500'
+                                    }`}
+                            >
                                 {selectedCentres.length > 0 ? `${selectedCentres.length} Centres` : "All Centres"}
                                 <FaChevronDown size={8} />
                             </button>
                             {isCentreDropdownOpen && (
-                                <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-[#1c2128] border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto p-2 border-t-4 border-t-cyan-500">
+                                <div className={`absolute top-full left-0 mt-2 w-64 border rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto p-2 border-t-4 border-t-cyan-500 transition-all ${isDarkMode ? 'bg-[#1c2128] border-gray-800' : 'bg-white border-gray-200'
+                                    }`}>
                                     {centres.map(c => (
-                                        <div key={c._id} className="flex items-center gap-3 p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800/50 rounded-xl cursor-pointer group" onClick={() => setSelectedCentres(prev => prev.includes(c._id) ? prev.filter(id => id !== c._id) : [...prev, c._id])}>
+                                        <div key={c._id} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer group transition-all ${isDarkMode ? 'hover:bg-gray-800/50' : 'hover:bg-gray-50'}`} onClick={() => setSelectedCentres(prev => prev.includes(c._id) ? prev.filter(id => id !== c._id) : [...prev, c._id])}>
                                             <input type="checkbox" checked={selectedCentres.includes(c._id)} readOnly className="rounded border-gray-300 dark:border-gray-700 text-cyan-600 w-4 h-4" />
-                                            <span className="text-xs font-bold uppercase text-gray-700 dark:text-white group-hover:text-cyan-500 transition-colors">{c.centreName}</span>
+                                            <span className={`text-xs font-bold uppercase group-hover:text-cyan-500 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>{c.centreName}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -230,33 +247,40 @@ const BoardReport = () => {
                         </div>
 
                         <div className="relative" ref={boardDropdownRef}>
-                            <button onClick={() => setIsBoardDropdownOpen(!isBoardDropdownOpen)} className="h-10 px-4 bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-gray-800 rounded-xl text-xs flex items-center justify-between gap-3 min-w-[160px] font-bold text-gray-700 dark:text-gray-300">
+                            <button
+                                onClick={() => setIsBoardDropdownOpen(!isBoardDropdownOpen)}
+                                className={`h-10 px-4 border rounded-xl text-xs flex items-center justify-between gap-3 min-w-[160px] font-bold transition-all ${isDarkMode
+                                    ? 'bg-[#1a1f24] border-gray-700 text-gray-300 hover:border-blue-500'
+                                    : 'bg-white border-gray-300 text-gray-700 shadow-sm hover:border-blue-500'
+                                    }`}
+                            >
                                 {selectedBoards.length > 0 ? `${selectedBoards.length} Boards` : "All Boards"}
                                 <FaChevronDown size={8} />
                             </button>
                             {isBoardDropdownOpen && (
-                                <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-[#1c2128] border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto p-2 border-t-4 border-t-purple-500">
+                                <div className={`absolute top-full left-0 mt-2 w-64 border rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto p-2 border-t-4 border-t-purple-500 transition-all ${isDarkMode ? 'bg-[#1c2128] border-gray-800' : 'bg-white border-gray-200'
+                                    }`}>
                                     {boards.map(b => (
-                                        <div key={b._id} className="flex items-center gap-3 p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800/50 rounded-xl cursor-pointer group" onClick={() => setSelectedBoards(prev => prev.includes(b._id) ? prev.filter(id => id !== b._id) : [...prev, b._id])}>
+                                        <div key={b._id} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer group transition-all ${isDarkMode ? 'hover:bg-gray-800/50' : 'hover:bg-gray-50'}`} onClick={() => setSelectedBoards(prev => prev.includes(b._id) ? prev.filter(id => id !== b._id) : [...prev, b._id])}>
                                             <input type="checkbox" checked={selectedBoards.includes(b._id)} readOnly className="rounded border-gray-300 dark:border-gray-700 text-purple-600 w-4 h-4" />
-                                            <span className="text-xs font-bold uppercase text-gray-700 dark:text-white group-hover:text-purple-500 transition-colors">{b.boardCourse}</span>
+                                            <span className={`text-xs font-bold uppercase group-hover:text-purple-500 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>{b.boardCourse}</span>
                                         </div>
                                     ))}
                                 </div>
                             )}
                         </div>
 
-                        <div className="flex items-center gap-2 bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-gray-800 rounded-xl p-1 px-3">
+                        <div className={`flex items-center gap-2 border rounded-xl p-1 px-3 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-300 shadow-sm'}`}>
                             <select value={timePeriod} onChange={(e) => setTimePeriod(e.target.value)} className="bg-transparent border-none text-[10px] font-black uppercase outline-none text-gray-500 dark:text-gray-400">
                                 <option value="This Year">This Year</option>
                                 <option value="Last Year">Last Year</option>
                                 <option value="Custom">Custom</option>
                             </select>
                             {timePeriod === "Custom" && (
-                                <div className="flex items-center gap-2 animate-fade-in ml-2 border-l border-gray-200 dark:border-gray-800 pl-2">
-                                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-transparent border-none text-[10px] font-bold outline-none text-gray-700 dark:text-gray-300" />
+                                <div className={`flex items-center gap-2 animate-fade-in ml-2 border-l pl-2 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={`bg-transparent border-none text-[10px] font-bold outline-none ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} />
                                     <span className="text-[10px] text-gray-400">TO</span>
-                                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-transparent border-none text-[10px] font-bold outline-none text-gray-700 dark:text-gray-300" />
+                                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={`bg-transparent border-none text-[10px] font-bold outline-none ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} />
                                 </div>
                             )}
                         </div>
@@ -276,9 +300,9 @@ const BoardReport = () => {
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         {/* 1. Overall Board Share */}
-                        <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800">
+                        <div className={`p-6 rounded-2xl shadow-xl border transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100'}`}>
                             <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-[11px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-[0.2em] border-l-4 border-cyan-500 pl-3">Board Enrollment Share</h3>
+                                <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] border-l-4 border-cyan-500 pl-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Board Enrollment Share</h3>
                                 <div className="text-[9px] font-bold text-cyan-500 bg-cyan-500/10 px-2 py-0.5 rounded-full uppercase">Live Count</div>
                             </div>
                             <div className="h-[350px]">
@@ -296,35 +320,48 @@ const BoardReport = () => {
                                                 const board = boards.find(b => b.boardCourse === data.name);
                                                 if (board) setSelectedBoards([board._id]);
                                             }}
-                                            className="cursor-pointer outline-none"
+                                            className="cursor-pointer outline-none font-bold"
                                         >
                                             {boardStats.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                                         </Pie>
                                         <Tooltip
-                                            contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', backgroundColor: '#1a1f24', color: '#fff' }}
-                                            itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
+                                            contentStyle={{
+                                                borderRadius: '16px',
+                                                border: isDarkMode ? '1px solid #374151' : 'none',
+                                                boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+                                                backgroundColor: isDarkMode ? '#1a1f24' : '#fff',
+                                                color: isDarkMode ? '#fff' : '#1f2937'
+                                            }}
+                                            itemStyle={{ fontSize: '12px', fontWeight: 'bold', color: isDarkMode ? '#fff' : '#1f2937' }}
                                         />
-                                        <Legend verticalAlign="bottom" height={36} formatter={(value) => <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{value}</span>} />
+                                        <Legend verticalAlign="bottom" height={36} formatter={(value) => <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>{value}</span>} />
                                     </PieChart>
                                 </ResponsiveContainer>
                             </div>
                         </div>
 
                         {/* 2. Board Revenue */}
-                        <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800">
+                        <div className={`p-6 rounded-2xl shadow-xl border transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100'}`}>
                             <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-[11px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-[0.2em] border-l-4 border-green-500 pl-3">Revenue Distribution</h3>
+                                <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] border-l-4 border-green-500 pl-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Revenue Distribution</h3>
                                 <div className="text-[9px] font-bold text-green-500 bg-green-500/10 px-2 py-0.5 rounded-full uppercase">Inc. GST</div>
                             </div>
                             <div className="h-[350px]">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={boardStats} margin={{ top: 20, right: 30, left: 20, bottom: 5 }} onClick={(data) => { if (data?.activePayload) { const name = data.activePayload[0].payload.name; const board = boards.find(b => b.boardName === name); if (board) setSelectedBoards([board._id]); } }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.05} />
-                                        <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontWeight: 'bold' }} />
-                                        <YAxis fontSize={10} axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontWeight: 'bold' }} tickFormatter={(v) => `₹${v >= 1000 ? v / 1000 + 'k' : v}`} />
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#374151" : "#E5E7EB"} strokeOpacity={isDarkMode ? 0.2 : 0.8} />
+                                        <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#6B7280', fontWeight: 'bold' }} />
+                                        <YAxis fontSize={10} axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#6B7280', fontWeight: 'bold' }} tickFormatter={(v) => `₹${v >= 1000 ? v / 1000 + 'k' : v}`} />
                                         <Tooltip
-                                            cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-                                            contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', backgroundColor: '#1a1f24' }}
+                                            cursor={{ fill: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }}
+                                            contentStyle={{
+                                                borderRadius: '16px',
+                                                border: isDarkMode ? '1px solid #374151' : 'none',
+                                                boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+                                                backgroundColor: isDarkMode ? '#1a1f24' : '#fff',
+                                                color: isDarkMode ? '#fff' : '#1f2937'
+                                            }}
+                                            itemStyle={{ color: isDarkMode ? '#fff' : '#1f2937', fontWeight: 'bold' }}
                                         />
                                         <Bar dataKey="revenue" fill="#10B981" radius={[10, 10, 0, 0]} barSize={40} className="cursor-pointer" />
                                     </BarChart>
@@ -333,10 +370,10 @@ const BoardReport = () => {
                         </div>
 
                         {/* 3. Subject Popularity (Bar Chart) */}
-                        <div className="bg-white dark:bg-[#1a1f24] p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 lg:col-span-2">
+                        <div className={`p-8 rounded-2xl shadow-xl border transition-all lg:col-span-2 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-cyan-500/5' : 'bg-white border-gray-100'}`}>
                             <div className="flex justify-between items-center mb-8">
                                 <div>
-                                    <h3 className="text-[11px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-[0.2em] border-l-4 border-purple-500 pl-3">Subject Wise Admission Distribution</h3>
+                                    <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] border-l-4 border-purple-500 pl-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Subject Wise Admission Distribution</h3>
                                     <p className="text-[9px] font-bold text-gray-400 uppercase mt-1 ml-4 tracking-widest">Enrollment Volume per Subject</p>
                                 </div>
                                 <div className="bg-purple-500/10 text-purple-500 px-3 py-1 rounded-full text-[10px] font-black uppercase">Subject Metrics</div>
@@ -344,12 +381,18 @@ const BoardReport = () => {
                             <div className="h-[400px]">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={subjectStats} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.05} />
-                                        <XAxis dataKey="subjectName" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontWeight: 'bold' }} />
-                                        <YAxis fontSize={10} axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontWeight: 'bold' }} />
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#374151" : "#E5E7EB"} strokeOpacity={isDarkMode ? 0.2 : 0.8} />
+                                        <XAxis dataKey="subjectName" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#6B7280', fontWeight: 'bold' }} />
+                                        <YAxis fontSize={10} axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#6B7280', fontWeight: 'bold' }} />
                                         <Tooltip
-                                            cursor={{ fill: 'rgba(139, 92, 246, 0.05)' }}
-                                            contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: '#1a1f24', color: '#fff' }}
+                                            cursor={{ fill: isDarkMode ? 'rgba(139, 92, 246, 0.05)' : 'rgba(139, 92, 246, 0.02)' }}
+                                            contentStyle={{
+                                                borderRadius: '16px',
+                                                border: isDarkMode ? '1px solid #374151' : 'none',
+                                                backgroundColor: isDarkMode ? '#1a1f24' : '#fff',
+                                                color: isDarkMode ? '#fff' : '#1f2937'
+                                            }}
+                                            itemStyle={{ color: isDarkMode ? '#fff' : '#1f2937', fontWeight: 'bold' }}
                                         />
                                         <Bar dataKey="count" fill="#8b5cf6" radius={[6, 6, 0, 0]} barSize={50} />
                                     </BarChart>
@@ -358,16 +401,24 @@ const BoardReport = () => {
                         </div>
 
                         {/* 4. Monthly Trend (Line Chart with Dual Axis) */}
-                        <div className="bg-white dark:bg-[#1a1f24] p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 lg:col-span-2">
-                            <h3 className="text-[11px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-[0.2em] border-l-4 border-orange-500 pl-3 mb-8">Board Admission & Revenue Trend</h3>
+                        <div className={`p-8 rounded-2xl shadow-xl border transition-all lg:col-span-2 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100'}`}>
+                            <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] border-l-4 border-orange-500 pl-3 mb-8 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Board Admission & Revenue Trend</h3>
                             <div className="h-[400px]">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <LineChart data={trendData}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.05} />
-                                        <XAxis dataKey="month" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontWeight: 'bold' }} />
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#374151" : "#E5E7EB"} strokeOpacity={isDarkMode ? 0.2 : 0.8} />
+                                        <XAxis dataKey="month" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#6B7280', fontWeight: 'bold' }} />
                                         <YAxis yAxisId="left" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: '#F59E0B', fontWeight: 'bold' }} label={{ value: 'Enrollments', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#F59E0B' }} />
                                         <YAxis yAxisId="right" orientation="right" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: '#3B82F6', fontWeight: 'bold' }} label={{ value: 'Revenue (₹)', angle: 90, position: 'insideRight', fontSize: 10, fill: '#3B82F6' }} />
-                                        <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: '#1a1f24', color: '#fff' }} />
+                                        <Tooltip
+                                            contentStyle={{
+                                                borderRadius: '16px',
+                                                border: isDarkMode ? '1px solid #374151' : 'none',
+                                                backgroundColor: isDarkMode ? '#1a1f24' : '#fff',
+                                                color: isDarkMode ? '#fff' : '#1f2937'
+                                            }}
+                                            itemStyle={{ fontWeight: 'bold', color: isDarkMode ? '#fff' : '#1f2937' }}
+                                        />
                                         <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
                                         <Line yAxisId="left" name="Admissions" type="monotone" dataKey="enrollments" stroke="#F59E0B" strokeWidth={4} dot={{ r: 6, fill: '#F59E0B', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 10, strokeWidth: 0 }} />
                                         <Line yAxisId="right" name="Revenue" type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={4} dot={{ r: 6, fill: '#3B82F6', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 10, strokeWidth: 0 }} />
@@ -377,39 +428,39 @@ const BoardReport = () => {
                         </div>
 
                         {/* Detailed Table Section */}
-                        <div className="lg:col-span-2 bg-white dark:bg-[#1a1f24] rounded-3xl shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-800 mt-4">
-                            <div className="p-8 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-white/5">
+                        <div className={`lg:col-span-2 rounded-3xl shadow-2xl overflow-hidden border mt-4 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100'}`}>
+                            <div className={`p-8 border-b flex justify-between items-center transition-all ${isDarkMode ? 'border-gray-800 bg-white/5' : 'border-gray-100 bg-gray-50/50'}`}>
                                 <div>
-                                    <h3 className="text-[11px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-[0.2em]">Centre-Wise Board Performance</h3>
+                                    <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Centre-Wise Board Performance</h3>
                                     <p className="text-[9px] font-bold text-gray-400 uppercase mt-1 tracking-widest">Cross-sectional analysis of regional centers</p>
                                 </div>
-                                <div className="bg-gray-100 dark:bg-gray-800 p-2 rounded-xl">
+                                <div className={`p-2 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
                                     <FaTh className="text-gray-400" />
                                 </div>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
-                                        <tr className="bg-gray-50/80 dark:bg-black/20 text-[9px] font-black uppercase text-gray-500 tracking-[0.2em]">
+                                        <tr className={`text-[9px] font-black uppercase text-gray-500 tracking-[0.2em] ${isDarkMode ? 'bg-black/20' : 'bg-gray-50/80 shadow-sm'}`}>
                                             <th className="px-8 py-5">Centre Name</th>
                                             <th className="px-8 py-5 text-center">Total Enrollments</th>
                                             <th className="px-8 py-5 text-right">Revenue (Inc. GST)</th>
                                             <th className="px-8 py-5 text-center">Performance Indicator</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800/50">
+                                    <tbody className={`divide-y transition-all ${isDarkMode ? 'divide-gray-800/50' : 'divide-gray-100'}`}>
                                         {centreStats.length > 0 ? centreStats.map((c, i) => (
-                                            <tr key={i} className="hover:bg-cyan-500/[0.02] transition-colors group">
+                                            <tr key={i} className={`transition-colors group ${isDarkMode ? 'hover:bg-cyan-500/[0.02]' : 'hover:bg-gray-50'}`}>
                                                 <td className="px-8 py-5">
-                                                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-tight group-hover:text-cyan-500 transition-colors">{c.name}</span>
+                                                    <span className={`text-xs font-bold uppercase tracking-tight group-hover:text-cyan-500 transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{c.name}</span>
                                                 </td>
                                                 <td className="px-8 py-5 text-center">
-                                                    <span className="bg-cyan-100/50 dark:bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 px-4 py-1.5 rounded-full text-[10px] font-black shadow-sm ring-1 ring-cyan-500/20">{c.enrollments}</span>
+                                                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black shadow-sm ring-1 ring-cyan-500/20 ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-100/50 text-cyan-600'}`}>{c.enrollments}</span>
                                                 </td>
-                                                <td className="px-8 py-5 text-right font-black text-gray-900 dark:text-gray-100 text-sm italic">₹{c.revenue?.toLocaleString()}</td>
+                                                <td className={`px-8 py-5 text-right font-black text-sm italic transition-colors ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>₹{c.revenue?.toLocaleString()}</td>
                                                 <td className="px-8 py-5">
                                                     <div className="flex items-center justify-center gap-3">
-                                                        <div className="w-32 h-2.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden shadow-inner p-0.5">
+                                                        <div className={`w-32 h-2.5 rounded-full overflow-hidden shadow-inner p-0.5 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
                                                             <div className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 rounded-full transition-all duration-1000 shadow-lg" style={{ width: `${Math.min((c.enrollments / 50) * 100, 100)}%` }}></div>
                                                         </div>
                                                         <span className="text-[9px] font-black text-gray-400 w-8">{(c.enrollments / 50).toFixed(1)}x</span>

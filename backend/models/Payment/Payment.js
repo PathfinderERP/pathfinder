@@ -38,7 +38,7 @@ const paymentSchema = new mongoose.Schema({
 
     status: {
         type: String,
-        enum: ["PENDING", "PAID", "OVERDUE", "PARTIAL", "PENDING_CLEARANCE", "REJECTED"],
+        enum: ["PENDING", "PAID", "OVERDUE", "PARTIAL", "PENDING_CLEARANCE", "REJECTED", "CANCELLED"],
         default: "PENDING"
     },
     billingMonth: {
@@ -98,6 +98,10 @@ const paymentSchema = new mongoose.Schema({
     totalAmount: {
         type: Number, // The final amount including taxes
         default: 0
+    },
+    isCarryForward: {
+        type: Boolean,
+        default: false
     }
 }, { timestamps: true });
 

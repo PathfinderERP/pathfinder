@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { FaTimes, FaSave } from "react-icons/fa";
 import { toast } from "react-toastify";
 
-const AddTargetModal = ({ target, onClose, onSuccess, centres }) => {
+const AddTargetModal = ({ target, onClose, onSuccess, centres, sessions }) => {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         centre: "",
@@ -10,8 +10,17 @@ const AddTargetModal = ({ target, onClose, onSuccess, centres }) => {
         year: new Date().getFullYear(),
         month: getCurrentMonth(),
         targetAmount: "",
-        achievedAmount: "0" // Manual entry for now if needed, or default 0
+        achievedAmount: "0"
     });
+
+    useEffect(() => {
+        if (!target && sessions && sessions.length > 0) {
+            setFormData(prev => ({
+                ...prev,
+                financialYear: sessions[0].sessionName
+            }));
+        }
+    }, [sessions, target]);
 
     function getCurrentMonth() {
         return new Date().toLocaleString('default', { month: 'long' });
@@ -108,8 +117,13 @@ const AddTargetModal = ({ target, onClose, onSuccess, centres }) => {
                                 onChange={(e) => setFormData({ ...formData, financialYear: e.target.value })}
                                 className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2.5 text-white focus:border-cyan-500 outline-none"
                             >
-                                <option value="2024-2025">2024-2025</option>
-                                <option value="2025-2026">2025-2026</option>
+                                {sessions && sessions.length > 0 ? (
+                                    sessions.map(s => (
+                                        <option key={s._id} value={s.sessionName}>{s.sessionName}</option>
+                                    ))
+                                ) : (
+                                    <option value="">No sessions available</option>
+                                )}
                             </select>
                         </div>
                         <div>

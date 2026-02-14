@@ -81,19 +81,34 @@ export const getClassSchedules = async (req, res) => {
 
         // Role-based filtering
         const userId = req.user._id;
+        const userRole = req.user.role;
 
-        if (req.user && req.user.role === 'Class_Coordinator') {
+        if (userRole === 'superAdmin' || userRole === 'admin') {
+            // Admins can filter by specific teacher/coordinator if provided
+            if (teacherId) {
+                const teacherIds = teacherId.split(',').filter(id => id.trim());
+                if (teacherIds.length > 0) query.teacherId = { $in: teacherIds };
+            }
+            if (coordinatorId) {
+                const coordinatorIds = coordinatorId.split(',').filter(id => id.trim());
+                if (coordinatorIds.length > 0) query.coordinatorId = { $in: coordinatorIds };
+            }
+        } else if (userRole === 'teacher') {
+            // Teachers ONLY see their own classes
+            query.teacherId = userId;
+        } else if (userRole === 'Class_Coordinator') {
+            // Coordinators ONLY see their own classes
             query.coordinatorId = userId;
-        } else if (req.user && req.user.role === 'teacher') {
-            query.teacherId = userId;
-        } else if (req.user && req.user.role !== 'superAdmin' && req.user.role !== 'admin') {
-            // Other non-admin roles (HOD, RM, etc.) - for now restrict to their own ID if they have a field
-            // but usually they see by centre. Let's keep it restricted to teacherId if they are viewed as such.
-            query.teacherId = userId;
         } else {
-            // Admins
-            if (teacherId) query.teacherId = teacherId;
-            if (coordinatorId) query.coordinatorId = coordinatorId;
+            // Other roles: respect filters if provided, but scope limited by centres below
+            if (teacherId) {
+                const teacherIds = teacherId.split(',').filter(id => id.trim());
+                if (teacherIds.length > 0) query.teacherId = { $in: teacherIds };
+            }
+            if (coordinatorId) {
+                const coordinatorIds = coordinatorId.split(',').filter(id => id.trim());
+                if (coordinatorIds.length > 0) query.coordinatorId = { $in: coordinatorIds };
+            }
         }
 
         // Center-based filtering for Non-SuperAdmins
@@ -105,10 +120,14 @@ export const getClassSchedules = async (req, res) => {
             if (req.user.role === 'admin') {
                 if (userCentres.length > 0) {
                     if (centreId) {
-                        if (!userCentres.map(c => c.toString()).includes(centreId.toString())) {
-                            query.centreId = { $in: userCentres };
+                        const selectedCentres = centreId.split(',').filter(id => id.trim());
+                        const authorizedCentres = selectedCentres.filter(id => userCentres.map(c => c.toString()).includes(id.toString()));
+
+                        if (authorizedCentres.length > 0) {
+                            query.centreId = { $in: authorizedCentres };
                         } else {
-                            query.centreId = centreId;
+                            // If none of the selected centers are authorized, restrict to userCentres
+                            query.centreId = { $in: userCentres };
                         }
                     } else {
                         query.centreId = { $in: userCentres };
@@ -118,20 +137,41 @@ export const getClassSchedules = async (req, res) => {
                     return res.status(200).json({ classes: [], total: 0, currentPage: parseInt(page), totalPages: 0 });
                 }
             } else {
-                // For other roles (teachers, coordinators), they only see their assigned data.
-                // Optionally allow them to filter by centre if they HAVE centres assigned.
+                // For other roles (teachers, coordinators, etc.), restrict to their assigned centres.
+                // Allow filtering within assigned centres.
                 if (centreId) {
-                    query.centreId = centreId;
-                } else if (userCentres.length > 0 && (req.user.role !== 'teacher' && req.user.role !== 'Class_Coordinator')) {
-                    // Restrict by centre for roles that are not teacher/coordinator (like RM/HOD if they don't have ID assignments)
-                    query.centreId = { $in: userCentres };
+                    const selectedCentres = centreId.split(',').filter(id => id.trim());
+                    // Ensure requested centres are in user's assigned list
+                    const authorized = selectedCentres.filter(id => userCentres.map(c => c.toString()).includes(id.toString()));
+                    if (authorized.length > 0) {
+                        query.centreId = { $in: authorized };
+                    } else {
+                        // If none authorized, default to all assigned centres
+                        query.centreId = { $in: userCentres };
+                    }
+                } else {
+                    // Default to all assigned centres if no specific filter
+                    if (userCentres.length > 0) {
+                        query.centreId = { $in: userCentres };
+                    } else {
+                        // User has no centres assigned -> sees nothing
+                        return res.status(200).json({ classes: [], total: 0, currentPage: -1, totalPages: 0 }); // Return empty
+                    }
                 }
             }
         } else if (centreId) {
-            query.centreId = centreId;
+            const selectedCentres = centreId.split(',').filter(id => id.trim());
+            if (selectedCentres.length > 0) query.centreId = { $in: selectedCentres };
         }
-        if (batchId) query.batchIds = batchId; // Search in array
-        if (subjectId) query.subjectId = subjectId;
+
+        if (batchId) {
+            const batchIds = batchId.split(',').filter(id => id.trim());
+            if (batchIds.length > 0) query.batchIds = { $in: batchIds };
+        }
+        if (subjectId) {
+            const subjectIds = subjectId.split(',').filter(id => id.trim());
+            if (subjectIds.length > 0) query.subjectId = { $in: subjectIds };
+        }
         if (status) query.status = status;
 
         if (fromDate || toDate) {
@@ -406,7 +446,7 @@ export const getClassDropdownData = async (req, res) => {
             centres = await Centre.find({ _id: { $in: userCentres } });
             // Fetch batches for these centres
             batches = await Batch.find({ centreId: { $in: userCentres } });
-            
+
             // Fallback: If no batches found for assigned centres, return all batches
             // (This handles the case where batches are not yet linked to centres in the DB)
             if (!batches || batches.length === 0) {

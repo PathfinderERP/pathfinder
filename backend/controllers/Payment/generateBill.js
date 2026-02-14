@@ -125,8 +125,8 @@ export const generateBill = async (req, res) => {
                 paidAmount: admission.downPayment,
                 dueDate: admission.admissionDate,
                 paidDate: admission.admissionDate,
-                status: "PAID",
-                paymentMethod: "CASH", // Default, will be overridden by actual payment record
+                status: admission.downPaymentStatus || "PAID",
+                paymentMethod: admission.downPaymentMethod || "CASH",
                 remarks: "Down Payment at Admission"
             };
         } else {
@@ -157,8 +157,14 @@ export const generateBill = async (req, res) => {
             installmentNumber: installmentNum
         };
 
-        if (admission.admissionType === 'BOARD' && billingMonth) {
-            query.billingMonth = billingMonth;
+        if (admission.admissionType === 'BOARD') {
+            if (installmentNum === 0) {
+                // Down payments for Board courses might have billingMonth set (the start month)
+                // We search primarily by admission and installmentNumber 0
+            } else if (billingMonth) {
+                // For monthly payments, billingMonth is the primary identifier
+                query.billingMonth = billingMonth;
+            }
         }
 
         let payment = await Payment.findOne(query);

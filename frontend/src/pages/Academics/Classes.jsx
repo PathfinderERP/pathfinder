@@ -4,12 +4,16 @@ import { FaSearch, FaTimes, FaEdit, FaTrash, FaPlus, FaCheck } from "react-icons
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useNavigate } from "react-router-dom";
+import Select from "react-select";
 import { hasPermission } from "../../config/permissions";
+import { useTheme } from "../../context/ThemeContext";
 
 const Classes = () => {
     const navigate = useNavigate();
     const [classes, setClasses] = useState([]);
     const [loading, setLoading] = useState(false);
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
     // Permission States
     const [canCreate, setCanCreate] = useState(false);
@@ -23,13 +27,19 @@ const Classes = () => {
         setCanDelete(hasPermission(userObj, "academics", "classes", "delete"));
     }, []);
 
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const isAdmin = user.role === "admin" || user.role === "superAdmin";
+    const isSuperAdmin = user.role === "superAdmin";
+    const isCoordinator = user.role === "Class_Coordinator";
+    const isTeacher = user.role === "teacher";
+
     // Filters State
     const [filters, setFilters] = useState({
         centreId: "",
         batchId: "",
         subjectId: "",
-        teacherId: "",
-        coordinatorId: "",
+        teacherId: isTeacher ? user._id : "",
+        coordinatorId: isCoordinator ? user._id : "",
         fromDate: "",
         toDate: "",
         search: ""
@@ -40,12 +50,6 @@ const Classes = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalRecords, setTotalRecords] = useState(0);
     const [jumpPage, setJumpPage] = useState("");
-
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const isAdmin = user.role === "admin" || user.role === "superAdmin";
-    const isSuperAdmin = user.role === "superAdmin";
-    const isCoordinator = user.role === "Class_Coordinator";
-    const isTeacher = user.role === "teacher";
 
     // Dropdown Data State
     const [dropdownData, setDropdownData] = useState({
@@ -165,13 +169,84 @@ const Classes = () => {
         setPage(1); // Reset to page 1 on filter change
     };
 
+    const handleMultiSelectChange = (selectedOptions, name) => {
+        const values = selectedOptions ? selectedOptions.map(option => option.value).join(',') : "";
+        setFilters(prev => ({ ...prev, [name]: values }));
+        setPage(1);
+    };
+
+    const customSelectStyles = {
+        control: (base, state) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#131619" : "#f9fafb",
+            borderColor: state.isFocused ? "#06b6d4" : isDarkMode ? "#374151" : "#d1d5db",
+            borderRadius: "0.5rem",
+            padding: "0.1rem",
+            fontSize: "0.875rem",
+            color: isDarkMode ? "white" : "black",
+            boxShadow: "none",
+            "&:hover": {
+                borderColor: "#06b6d4"
+            }
+        }),
+        menu: (base) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#1e2530" : "white",
+            border: `1px solid ${isDarkMode ? "#374151" : "#d1d5db"}`,
+            zIndex: 100
+        }),
+        option: (base, state) => ({
+            ...base,
+            backgroundColor: state.isFocused
+                ? isDarkMode ? "#2a3038" : "#f3f4f6"
+                : "transparent",
+            color: isDarkMode ? "white" : "black",
+            fontSize: "0.875rem",
+            "&:active": {
+                backgroundColor: "#06b6d4"
+            }
+        }),
+        multiValue: (base) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#06b6d420" : "#e0f2fe",
+            borderRadius: "0.25rem",
+            border: `1px solid ${isDarkMode ? "#06b6d440" : "#bae6fd"}`
+        }),
+        multiValueLabel: (base) => ({
+            ...base,
+            color: isDarkMode ? "#22d3ee" : "#0369a1",
+            fontSize: "0.75rem",
+            fontWeight: "bold"
+        }),
+        multiValueRemove: (base) => ({
+            ...base,
+            color: isDarkMode ? "#22d3ee" : "#0369a1",
+            "&:hover": {
+                backgroundColor: isDarkMode ? "#ef4444" : "#fee2e2",
+                color: isDarkMode ? "white" : "#b91c1c"
+            }
+        }),
+        input: (base) => ({
+            ...base,
+            color: isDarkMode ? "white" : "gray"
+        }),
+        placeholder: (base) => ({
+            ...base,
+            color: isDarkMode ? "#6b7280" : "#9ca3af"
+        }),
+        singleValue: (base) => ({
+            ...base,
+            color: isDarkMode ? "white" : "black"
+        })
+    };
+
     const clearFilters = () => {
         setFilters({
             centreId: "",
             batchId: "",
             subjectId: "",
-            teacherId: "",
-            coordinatorId: "",
+            teacherId: isTeacher ? user._id : "",
+            coordinatorId: isCoordinator ? user._id : "",
             fromDate: "",
             toDate: "",
             search: ""
@@ -334,8 +409,8 @@ const Classes = () => {
                     ? "bg-cyan-600 text-white shadow-lg shadow-cyan-900/40"
                     : p === "..."
                         ? "text-gray-500 cursor-default"
-                        : "bg-[#131619] text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-800"
-                    }`}
+                        : `${isDarkMode ? 'bg-[#131619] text-gray-400 border-gray-800 hover:bg-gray-700 hover:text-white' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-900'}`
+                    } border`}
             >
                 {p}
             </button>
@@ -372,85 +447,85 @@ const Classes = () => {
 
     return (
         <Layout activePage="Academics">
-            <div className="p-6 text-gray-100 min-h-screen font-sans">
-                <ToastContainer theme="dark" position="top-right" />
+            <div className={`p-6 min-h-screen font-sans transition-colors duration-300 ${isDarkMode ? 'text-gray-100' : 'text-gray-900 bg-[#f8fafc]'}`}>
+                <ToastContainer theme={theme} position="top-right" />
 
                 <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-3xl font-bold text-white uppercase italic tracking-wider">Class List</h1>
+                    <h1 className={`text-3xl font-bold uppercase italic tracking-wider ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Class List</h1>
                 </div>
 
                 {/* Filters Section */}
-                <div className="bg-[#1e2530] p-4 rounded-xl border border-gray-700 shadow-lg mb-6">
+                <div className={`${isDarkMode ? 'bg-[#1e2530] border-gray-700' : 'bg-white border-gray-200 shadow-sm'} p-4 rounded-xl border mb-6`}>
                     <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
 
                         {/* Center */}
                         <div className="flex flex-col">
                             <label className="text-xs font-bold text-gray-400 mb-1 ml-1 uppercase letter-spacing-wide">Center</label>
-                            <select
-                                name="centreId"
-                                value={filters.centreId}
-                                onChange={handleFilterChange}
-                                className="bg-[#131619] text-white p-2 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none text-sm transition-all"
-                            >
-                                <option value="">Select Center</option>
-                                {dropdownData.centres?.map(c => <option key={c._id} value={c._id}>{c.centreName || c.name}</option>)}
-                            </select>
+                            <Select
+                                isMulti
+                                options={dropdownData.centres?.map(c => ({ value: c._id, label: c.centreName || c.name }))}
+                                value={dropdownData.centres?.filter(c => filters.centreId.split(',').includes(c._id)).map(c => ({ value: c._id, label: c.centreName || c.name }))}
+                                onChange={(selected) => handleMultiSelectChange(selected, "centreId")}
+                                placeholder="Select Center"
+                                styles={customSelectStyles}
+                                className="text-sm"
+                            />
                         </div>
 
                         {/* Batch */}
                         <div className="flex flex-col">
                             <label className="text-xs font-bold text-gray-400 mb-1 ml-1 uppercase letter-spacing-wide">Batch</label>
-                            <select
-                                name="batchId"
-                                value={filters.batchId}
-                                onChange={handleFilterChange}
-                                className="bg-[#131619] text-white p-2 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none text-sm transition-all"
-                            >
-                                <option value="">Select Batch</option>
-                                {dropdownData.batches?.map(b => <option key={b._id} value={b._id}>{b.batchName || b.name}</option>)}
-                            </select>
+                            <Select
+                                isMulti
+                                options={dropdownData.batches?.map(b => ({ value: b._id, label: b.batchName || b.name }))}
+                                value={dropdownData.batches?.filter(b => filters.batchId.split(',').includes(b._id)).map(b => ({ value: b._id, label: b.batchName || b.name }))}
+                                onChange={(selected) => handleMultiSelectChange(selected, "batchId")}
+                                placeholder="Select Batch"
+                                styles={customSelectStyles}
+                                className="text-sm"
+                            />
                         </div>
 
                         {/* Subject */}
                         <div className="flex flex-col">
                             <label className="text-xs font-bold text-gray-400 mb-1 ml-1 uppercase letter-spacing-wide">Subject</label>
-                            <select
-                                name="subjectId"
-                                value={filters.subjectId}
-                                onChange={handleFilterChange}
-                                className="bg-[#131619] text-white p-2 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none text-sm transition-all"
-                            >
-                                <option value="">Select Subject</option>
-                                {dropdownData.subjects?.map(s => <option key={s._id} value={s._id}>{s.subjectName || s.name}</option>)}
-                            </select>
+                            <Select
+                                isMulti
+                                options={dropdownData.subjects?.map(s => ({ value: s._id, label: s.subjectName || s.name }))}
+                                value={dropdownData.subjects?.filter(s => filters.subjectId.split(',').includes(s._id)).map(s => ({ value: s._id, label: s.subjectName || s.name }))}
+                                onChange={(selected) => handleMultiSelectChange(selected, "subjectId")}
+                                placeholder="Select Subject"
+                                styles={customSelectStyles}
+                                className="text-sm"
+                            />
                         </div>
 
                         {/* Teacher */}
                         <div className="flex flex-col">
                             <label className="text-xs font-bold text-gray-400 mb-1 ml-1 uppercase letter-spacing-wide">Teacher</label>
-                            <select
-                                name="teacherId"
-                                value={filters.teacherId}
-                                onChange={handleFilterChange}
-                                className="bg-[#131619] text-white p-2 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none text-sm transition-all"
-                            >
-                                <option value="">Select Teacher</option>
-                                {dropdownData.teachers?.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-                            </select>
+                            <Select
+                                isMulti
+                                options={dropdownData.teachers?.map(t => ({ value: t._id, label: t.name }))}
+                                value={dropdownData.teachers?.filter(t => filters.teacherId.split(',').includes(t._id)).map(t => ({ value: t._id, label: t.name }))}
+                                onChange={(selected) => handleMultiSelectChange(selected, "teacherId")}
+                                placeholder="Select Teacher"
+                                styles={customSelectStyles}
+                                className="text-sm"
+                            />
                         </div>
 
                         {/* Coordinator */}
                         <div className="flex flex-col">
                             <label className="text-xs font-bold text-gray-400 mb-1 ml-1 uppercase letter-spacing-wide">Coordinator</label>
-                            <select
-                                name="coordinatorId"
-                                value={filters.coordinatorId}
-                                onChange={handleFilterChange}
-                                className="bg-[#131619] text-white p-2 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none text-sm transition-all"
-                            >
-                                <option value="">Select Coordinator</option>
-                                {dropdownData.coordinators?.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                            </select>
+                            <Select
+                                isMulti
+                                options={dropdownData.coordinators?.map(c => ({ value: c._id, label: c.name }))}
+                                value={dropdownData.coordinators?.filter(c => filters.coordinatorId.split(',').includes(c._id)).map(c => ({ value: c._id, label: c.name }))}
+                                onChange={(selected) => handleMultiSelectChange(selected, "coordinatorId")}
+                                placeholder="Select Coordinator"
+                                styles={customSelectStyles}
+                                className="text-sm"
+                            />
                         </div>
 
                         {/* From Date */}
@@ -461,7 +536,7 @@ const Classes = () => {
                                 name="fromDate"
                                 value={filters.fromDate}
                                 onChange={handleFilterChange}
-                                className="bg-[#131619] text-white p-2 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none text-sm"
+                                className={`p-2 rounded-lg border focus:border-cyan-500 outline-none text-sm ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                             />
                         </div>
 
@@ -473,7 +548,7 @@ const Classes = () => {
                                 name="toDate"
                                 value={filters.toDate}
                                 onChange={handleFilterChange}
-                                className="bg-[#131619] text-white p-2 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none text-sm"
+                                className={`p-2 rounded-lg border focus:border-cyan-500 outline-none text-sm ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                             />
                         </div>
                     </div>
@@ -481,17 +556,17 @@ const Classes = () => {
                     {/* Search Actions Row */}
                     <div className="flex justify-end gap-2 mt-4">
                         <button onClick={fetchClasses} className="bg-cyan-600 hover:bg-cyan-700 text-white p-2 rounded-lg w-10 h-10 flex items-center justify-center transition shadow-lg shadow-cyan-900/20"><FaSearch /></button>
-                        <button onClick={clearFilters} className="bg-gray-700 hover:bg-gray-600 text-white p-2 rounded-lg w-10 h-10 flex items-center justify-center transition"><FaTimes /></button>
+                        <button onClick={clearFilters} className={`${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'} p-2 rounded-lg w-10 h-10 flex items-center justify-center transition`}><FaTimes /></button>
                     </div>
                 </div>
 
                 {/* Table Section */}
-                <div className="bg-[#1e2530] rounded-xl border border-gray-700 shadow-2xl overflow-hidden p-6">
+                <div className={`${isDarkMode ? 'bg-[#1e2530] border-gray-700 shadow-2xl' : 'bg-white border-gray-200 shadow-md'} rounded-xl border overflow-hidden p-6 transition-colors`}>
 
                     {/* Header: Title & Add Button */}
-                    <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
+                    <div className={`flex justify-between items-center mb-6 border-b pb-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
                         <div>
-                            <h2 className="text-xl font-bold text-white uppercase tracking-wider">Class List</h2>
+                            <h2 className={`text-xl font-bold uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Class List</h2>
                         </div>
                         {canCreate && (
                             <button
@@ -511,12 +586,12 @@ const Classes = () => {
                             value={filters.search}
                             onChange={handleFilterChange}
                             placeholder="Search class name, teacher..."
-                            className="bg-[#131619] text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none w-80 transition-all shadow-inner"
+                            className={`px-4 py-2 rounded-lg border focus:border-cyan-500 outline-none w-80 transition-all shadow-inner ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                         />
                         <select
                             value={limit}
                             onChange={(e) => setLimit(Number(e.target.value))}
-                            className="bg-[#131619] text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none transition-all shadow-inner"
+                            className={`px-4 py-2 rounded-lg border focus:border-cyan-500 outline-none transition-all shadow-inner ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                         >
                             <option value="10">10 per page</option>
                             <option value="20">20 per page</option>
@@ -528,7 +603,7 @@ const Classes = () => {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-[#2a3038] text-gray-300 text-xs uppercase font-bold tracking-wider">
+                                <tr className={`border-b ${isDarkMode ? 'bg-[#2a3038] text-gray-300 border-gray-700' : 'bg-gray-50 text-gray-600 border-gray-200'} text-xs uppercase font-bold tracking-wider`}>
                                     <th className="p-4">Class Name</th>
                                     <th className="p-4">Batch</th>
                                     <th className="p-4">Class Mode</th>
@@ -547,15 +622,15 @@ const Classes = () => {
                                     <th className="p-4 text-right">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-700">
+                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-700' : 'divide-gray-100'}`}>
                                 {loading ? (
                                     <tr><td colSpan="16" className="p-8 text-center text-gray-500 bg-[#1e2530]/50 animate-pulse">Fetching class data...</td></tr>
                                 ) : classes.length === 0 ? (
                                     <tr><td colSpan="16" className="p-12 text-center text-gray-500 uppercase tracking-widest opacity-50">No classes found with selected filters</td></tr>
                                 ) : (
                                     classes.map((cls) => (
-                                        <tr key={cls._id} className="hover:bg-[#252b32] transition-colors text-sm text-gray-300 group">
-                                            <td className="p-4 font-semibold text-white">{cls.className}</td>
+                                        <tr key={cls._id} className={`transition-colors text-sm group ${isDarkMode ? 'hover:bg-[#252b32] text-gray-300' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                            <td className={`p-4 font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{cls.className}</td>
                                             <td className="p-4">{cls.batchId?.batchName || cls.batchId?.name || "-"}</td>
                                             <td className="p-4">
                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${cls.classMode === 'Online' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-orange-500/10 text-orange-400 border border-orange-500/20'}`}>
@@ -665,19 +740,19 @@ const Classes = () => {
                     </div>
 
                     {/* Pagination Footer */}
-                    <div className="flex flex-col md:flex-row justify-between items-center mt-6 text-sm text-gray-400 border-t border-gray-800 pt-6 gap-4">
+                    <div className={`flex flex-col md:flex-row justify-between items-center mt-6 text-sm border-t pt-6 gap-4 ${isDarkMode ? 'text-gray-400 border-gray-800' : 'text-gray-500 border-gray-100'}`}>
                         <div className="flex items-center gap-6">
                             <div>
-                                Showing <span className="text-white font-bold">{totalRecords === 0 ? 0 : ((page - 1) * limit) + 1}</span> to <span className="text-white font-bold">{Math.min(page * limit, totalRecords)}</span> of <span className="text-white font-bold">{totalRecords}</span> entries
+                                Showing <span className={`${isDarkMode ? 'text-white' : 'text-gray-900'} font-bold`}>{totalRecords === 0 ? 0 : ((page - 1) * limit) + 1}</span> to <span className={`${isDarkMode ? 'text-white' : 'text-gray-900'} font-bold`}>{Math.min(page * limit, totalRecords)}</span> of <span className={`${isDarkMode ? 'text-white' : 'text-gray-900'} font-bold`}>{totalRecords}</span> entries
                             </div>
-                            <form onSubmit={handleJumpPage} className="hidden md:flex items-center gap-2 bg-[#131619] px-3 py-1 rounded-lg border border-gray-700">
+                            <form onSubmit={handleJumpPage} className={`hidden md:flex items-center gap-2 px-3 py-1 rounded-lg border ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-300'}`}>
                                 <span className="text-[10px] font-bold uppercase text-gray-500">Go to</span>
                                 <input
                                     type="text"
                                     value={jumpPage}
                                     onChange={(e) => setJumpPage(e.target.value)}
                                     placeholder="Pg"
-                                    className="w-10 bg-transparent text-white text-center outline-none text-xs font-bold font-mono"
+                                    className={`w-10 bg-transparent text-center outline-none text-xs font-bold font-mono ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
                                 />
                             </form>
                         </div>
@@ -685,7 +760,7 @@ const Classes = () => {
                             <button
                                 onClick={() => setPage(prev => Math.max(prev - 1, 1))}
                                 disabled={page === 1}
-                                className="px-3 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 disabled:opacity-30 transition font-bold text-xs flex items-center gap-1"
+                                className={`px-3 py-2 rounded-lg disabled:opacity-30 transition font-bold text-xs flex items-center gap-1 ${isDarkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                             >
                                 <span>&lt;</span> Prev
                             </button>
@@ -697,7 +772,7 @@ const Classes = () => {
                             <button
                                 onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
                                 disabled={page === totalPages || totalPages === 0}
-                                className="px-3 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 disabled:opacity-30 transition font-bold text-xs flex items-center gap-1"
+                                className={`px-3 py-2 rounded-lg disabled:opacity-30 transition font-bold text-xs flex items-center gap-1 ${isDarkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                             >
                                 Next <span>&gt;</span>
                             </button>
@@ -709,13 +784,13 @@ const Classes = () => {
                 {/* Edit Modal */}
                 {showEditModal && editingClassData && (
                     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-                        <div className="bg-[#1a1f24] w-full max-w-4xl rounded-2xl border border-gray-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                            <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-[#1e2530]">
-                                <h3 className="text-lg font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                        <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'} w-full max-w-4xl rounded-2xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200`}>
+                            <div className={`p-6 border-b flex justify-between items-center ${isDarkMode ? 'bg-[#1e2530] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                <h3 className={`text-lg font-bold uppercase tracking-wider flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                     <div className="w-2 h-6 bg-yellow-500 rounded-full"></div>
                                     Edit Class Schedule
                                 </h3>
-                                <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-gray-800 rounded-lg">
+                                <button onClick={() => setShowEditModal(false)} className={`${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'} transition-colors p-2 hover:bg-gray-200 rounded-lg`}>
                                     <FaTimes />
                                 </button>
                             </div>
@@ -723,60 +798,60 @@ const Classes = () => {
                                 <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Class Name */}
                                     <div className="flex flex-col gap-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase">Class Name</label>
+                                        <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class Name</label>
                                         <input
                                             type="text"
                                             required
                                             value={editingClassData.className}
                                             onChange={(e) => setEditingClassData({ ...editingClassData, className: e.target.value })}
-                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all"
+                                            className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                                         />
                                     </div>
 
                                     {/* Date */}
                                     <div className="flex flex-col gap-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase">Date</label>
+                                        <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Date</label>
                                         <input
                                             type="date"
                                             required
                                             value={editingClassData.date}
                                             onChange={(e) => setEditingClassData({ ...editingClassData, date: e.target.value })}
-                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all"
+                                            className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                                         />
                                     </div>
 
                                     {/* Start & End Time */}
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="flex flex-col gap-2">
-                                            <label className="text-xs font-bold text-gray-400 uppercase">Start Time</label>
+                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Start Time</label>
                                             <input
                                                 type="time"
                                                 required
                                                 value={editingClassData.startTime}
                                                 onChange={(e) => setEditingClassData({ ...editingClassData, startTime: e.target.value })}
-                                                className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all"
+                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                                             />
                                         </div>
                                         <div className="flex flex-col gap-2">
-                                            <label className="text-xs font-bold text-gray-400 uppercase">End Time</label>
+                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>End Time</label>
                                             <input
                                                 type="time"
                                                 required
                                                 value={editingClassData.endTime}
                                                 onChange={(e) => setEditingClassData({ ...editingClassData, endTime: e.target.value })}
-                                                className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all"
+                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                                             />
                                         </div>
                                     </div>
 
                                     {/* Center */}
                                     <div className="flex flex-col gap-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase">Center</label>
+                                        <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Center</label>
                                         <select
                                             required
                                             value={editingClassData.centreId}
                                             onChange={(e) => setEditingClassData({ ...editingClassData, centreId: e.target.value })}
-                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all"
+                                            className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                                         >
                                             <option value="">Select Center</option>
                                             {dropdownData.centres?.map(c => <option key={c._id} value={c._id}>{c.centreName || c.name}</option>)}
@@ -785,12 +860,12 @@ const Classes = () => {
 
                                     {/* Instructor */}
                                     <div className="flex flex-col gap-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase">Instructor</label>
+                                        <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Instructor</label>
                                         <select
                                             required
                                             value={editingClassData.teacherId}
                                             onChange={(e) => setEditingClassData({ ...editingClassData, teacherId: e.target.value })}
-                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all transition-all shadow-lg"
+                                            className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all shadow-lg ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                                         >
                                             <option value="">Select Teacher</option>
                                             {dropdownData.teachers?.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}

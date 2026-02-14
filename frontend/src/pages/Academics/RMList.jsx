@@ -4,12 +4,15 @@ import { FaEdit, FaTrash, FaPlus, FaTimes, FaSearch } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { hasPermission } from "../../config/permissions";
+import { useTheme } from "../../context/ThemeContext";
 
 const RMList = () => {
     const [rms, setRms] = useState([]);
     const [centres, setCentres] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
     // Permissions State
     const [canCreate, setCanCreate] = useState(false);
@@ -175,14 +178,14 @@ const RMList = () => {
 
     return (
         <Layout activePage="Academics">
-            <div className="p-6 text-gray-100 min-h-screen font-sans">
-                <ToastContainer theme="dark" position="top-right" />
+            <div className={`p-6 min-h-screen font-sans transition-colors duration-300 ${isDarkMode ? 'text-gray-100' : 'text-gray-900 bg-[#f8fafc]'}`}>
+                <ToastContainer theme={theme} position="top-right" />
 
-                <h1 className="text-2xl font-bold text-white mb-6">RM List</h1>
+                <h1 className={`text-2xl font-bold mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>RM List</h1>
 
-                <div className="bg-[#1e2530] p-6 rounded-xl border border-gray-700 shadow-2xl">
+                <div className={`${isDarkMode ? 'bg-[#1e2530] border-gray-700 shadow-2xl' : 'bg-white border-gray-200 shadow-md'} p-6 rounded-xl border`}>
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-bold text-gray-300">Relationship Manager List</h2>
+                        <h2 className={`text-xl font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Relationship Manager List</h2>
                         {canCreate && (
                             <button
                                 onClick={() => openModal()}
@@ -201,7 +204,7 @@ const RMList = () => {
                                 placeholder="Search by name..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="bg-[#131619] text-white pl-10 pr-4 py-2 rounded-lg border border-gray-700 focus:border-blue-500 outline-none w-full md:w-1/3"
+                                className={`pl-10 pr-4 py-2 rounded-lg border focus:border-blue-500 outline-none w-full md:w-1/3 transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                             />
                         </div>
                     </div>
@@ -209,7 +212,7 @@ const RMList = () => {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-[#8bbefa] text-black text-xs uppercase font-bold">
+                                <tr className={`${isDarkMode ? 'bg-[#8bbefa] text-black' : 'bg-blue-100 text-blue-900'} text-xs uppercase font-bold`}>
                                     <th className="p-3">SL NO.</th>
                                     <th className="p-3">NAME</th>
                                     <th className="p-3">EMAIL</th>
@@ -217,16 +220,16 @@ const RMList = () => {
                                     <th className="p-3 text-right">ACTIONS</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-700 text-sm">
+                            <tbody className={`divide-y text-sm ${isDarkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
                                 {loading ? (
                                     <tr><td colSpan="5" className="p-8 text-center text-gray-400">Loading...</td></tr>
                                 ) : filteredRMs.length === 0 ? (
                                     <tr><td colSpan="5" className="p-8 text-center text-gray-400">No Relationship Managers found</td></tr>
                                 ) : (
                                     filteredRMs.map((rm, index) => (
-                                        <tr key={rm._id} className="hover:bg-[#252b32] transition-colors">
+                                        <tr key={rm._id} className={`transition-colors ${isDarkMode ? 'hover:bg-[#252b32]' : 'hover:bg-gray-50'}`}>
                                             <td className="p-3">{index + 1}</td>
-                                            <td className="p-3 font-semibold text-white">{rm.name}</td>
+                                            <td className={`p-3 font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{rm.name}</td>
                                             <td className="p-3">{rm.email}</td>
                                             <td className="p-3">
                                                 {rm.centres && rm.centres.length > 0 ? rm.centres.map(c => c.centreName).join(", ") : "-"}
@@ -253,7 +256,7 @@ const RMList = () => {
                     </div>
 
                     {/* Pagination (Visual only for now since we are filtering client side) */}
-                    <div className="flex justify-between items-center mt-4 text-sm text-gray-400">
+                    <div className={`flex justify-between items-center mt-4 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         <div>Showing {filteredRMs.length} entries</div>
                         <div className="flex gap-1">
                             <button className="px-3 py-1 bg-blue-600 text-white rounded">1</button>
@@ -264,10 +267,10 @@ const RMList = () => {
 
             {/* Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-                    <div className="bg-[#1a1f24] p-6 rounded-lg w-full max-w-lg border border-gray-700 shadow-xl">
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                    <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-700 shadow-xl' : 'bg-white border-gray-200 shadow-2xl'} p-6 rounded-lg w-full max-w-lg border`}>
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-xl font-bold text-white">
+                            <h3 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                 {currentRM ? "Edit RM" : "Add RM"}
                             </h3>
                             <button onClick={closeModal} className="text-gray-400 hover:text-white">
@@ -278,53 +281,53 @@ const RMList = () => {
                             <div className="grid grid-cols-2 gap-6">
                                 {/* Name */}
                                 <div className="flex flex-col">
-                                    <label className="text-gray-300 font-medium text-sm mb-2">Name*</label>
+                                    <label className={`font-medium text-sm mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Name*</label>
                                     <input
                                         name="name"
                                         value={formData.name}
                                         onChange={handleInputChange}
                                         placeholder="Enter RM Name"
-                                        className="bg-[#2a3038] border border-gray-600 rounded-lg p-3 text-white placeholder-gray-500 focus:border-blue-500 outline-none transition"
+                                        className={`border rounded-lg p-3 text-white placeholder-gray-500 focus:border-blue-500 outline-none transition ${isDarkMode ? 'bg-[#2a3038] border-gray-600' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
                                         required
                                     />
                                 </div>
 
                                 {/* Email */}
                                 <div className="flex flex-col">
-                                    <label className="text-gray-300 font-medium text-sm mb-2">Email*</label>
+                                    <label className={`font-medium text-sm mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Email*</label>
                                     <input
                                         type="email"
                                         name="email"
                                         value={formData.email}
                                         onChange={handleInputChange}
                                         placeholder="abc@gmail.com"
-                                        className="bg-[#2a3038] border border-gray-600 rounded-lg p-3 text-white placeholder-gray-500 focus:border-blue-500 outline-none transition"
+                                        className={`border rounded-lg p-3 text-white placeholder-gray-500 focus:border-blue-500 outline-none transition ${isDarkMode ? 'bg-[#2a3038] border-gray-600' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
                                         required
                                     />
                                 </div>
 
                                 {/* Employee ID */}
                                 <div className="flex flex-col">
-                                    <label className="text-gray-300 font-medium text-sm mb-2">Employee Id*</label>
+                                    <label className={`font-medium text-sm mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Employee Id*</label>
                                     <input
                                         name="employeeId"
                                         value={formData.employeeId}
                                         onChange={handleInputChange}
                                         placeholder="Enter ID"
-                                        className="bg-[#2a3038] border border-gray-600 rounded-lg p-3 text-white placeholder-gray-500 focus:border-blue-500 outline-none transition"
+                                        className={`border rounded-lg p-3 text-white placeholder-gray-500 focus:border-blue-500 outline-none transition ${isDarkMode ? 'bg-[#2a3038] border-gray-600' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
                                         required
                                     />
                                 </div>
 
                                 {/* Centre */}
                                 <div className="flex flex-col">
-                                    <label className="text-gray-300 font-medium text-sm mb-2">Centre*</label>
+                                    <label className={`font-medium text-sm mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Centre*</label>
                                     <div className="relative">
                                         <select
                                             name="centreId"
                                             value={formData.centreId}
                                             onChange={handleInputChange}
-                                            className="w-full bg-[#2a3038] border border-gray-600 rounded-lg p-3 text-white placeholder-gray-500 focus:border-blue-500 outline-none appearance-none transition"
+                                            className={`w-full border rounded-lg p-3 placeholder-gray-500 focus:border-blue-500 outline-none appearance-none transition ${isDarkMode ? 'bg-[#2a3038] border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
                                             required
                                         >
                                             <option value="" disabled hidden>Select a Center</option>

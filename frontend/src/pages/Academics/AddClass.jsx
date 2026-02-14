@@ -5,9 +5,12 @@ import "react-toastify/dist/ReactToastify.css";
 import { useNavigate } from "react-router-dom";
 import { hasPermission } from "../../config/permissions";
 import { FaPlus, FaTrash } from "react-icons/fa";
+import { useTheme } from "../../context/ThemeContext";
 
 const AddClass = () => {
     const navigate = useNavigate();
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
     useEffect(() => {
         const userObj = JSON.parse(localStorage.getItem("user") || "{}");
@@ -199,93 +202,168 @@ const AddClass = () => {
 
     return (
         <Layout activePage="Academics">
-            <div className="p-6 text-gray-100 min-h-screen font-sans">
-                <ToastContainer theme="dark" position="top-right" />
+            <div className={`p-6 min-h-screen font-sans transition-colors duration-300 ${isDarkMode ? 'text-gray-100 bg-[#131619]' : 'text-gray-900 bg-[#f8fafc]'}`}>
+                <ToastContainer theme={theme} position="top-right" />
 
-                <h1 className="text-3xl font-bold text-white mb-6">Add Class</h1>
+                <h1 className={`text-3xl font-bold mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Add Class</h1>
 
-                <div className="bg-[#1e2530] p-6 rounded-xl border border-gray-700 shadow-2xl">
+                <div className={`p-6 rounded-xl border transition-colors ${isDarkMode ? 'bg-[#1e2530] border-gray-700 shadow-2xl' : 'bg-white border-gray-200 shadow-md'}`}>
                     <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                         {/* Top Section Fields */}
                         <div className="md:col-span-1">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">Name*</label>
-                            <input type="text" name="className" value={formData.className} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" required />
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Name*</label>
+                            <input
+                                type="text"
+                                name="className"
+                                value={formData.className}
+                                onChange={handleChange}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                required
+                            />
                         </div>
                         <div className="md:col-span-1">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">Date*</label>
-                            <input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" required />
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Date*</label>
+                            <input
+                                type="date"
+                                name="date"
+                                value={formData.date}
+                                onChange={handleChange}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                required
+                            />
                         </div>
                         <div className="md:col-span-2">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">Class Mode*</label>
-                            <select name="classMode" value={formData.classMode} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" required>
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class Mode*</label>
+                            <select
+                                name="classMode"
+                                value={formData.classMode}
+                                onChange={handleChange}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                required
+                            >
                                 <option value="">Select</option>
                                 <option value="Online">Online</option>
                                 <option value="Offline">Offline</option>
                             </select>
                         </div>
                         <div className="md:col-span-1">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">Start Time*</label>
-                            <input type="time" name="startTime" value={formData.startTime} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" required />
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Start Time*</label>
+                            <input
+                                type="time"
+                                name="startTime"
+                                value={formData.startTime}
+                                onChange={handleChange}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                required
+                            />
                         </div>
                         <div className="md:col-span-1">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">End Time*</label>
-                            <input type="time" name="endTime" value={formData.endTime} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" required />
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>End Time*</label>
+                            <input
+                                type="time"
+                                name="endTime"
+                                value={formData.endTime}
+                                onChange={handleChange}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                required
+                            />
                         </div>
                         <div className="md:col-span-1">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">Teacher Subject*</label>
-                            <select name="subjectId" value={formData.subjectId} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" required>
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Teacher Subject*</label>
+                            <select
+                                name="subjectId"
+                                value={formData.subjectId}
+                                onChange={handleChange}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                required
+                            >
                                 <option value="">Select a subject</option>
                                 {dropdownData.subjects.map(s => <option key={s._id} value={s._id}>{s.subjectName}</option>)}
                             </select>
                         </div>
                         <div className="md:col-span-1">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">Teacher*</label>
-                            <select name="teacherId" value={formData.teacherId} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" required>
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Teacher*</label>
+                            <select
+                                name="teacherId"
+                                value={formData.teacherId}
+                                onChange={handleChange}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                required
+                            >
                                 <option value="">Select a teacher</option>
                                 {dropdownData.teachers.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
                             </select>
                         </div>
                         <div className="md:col-span-1">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">Class Coordinator (Optional)</label>
-                            <select name="coordinatorId" value={formData.coordinatorId} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none">
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class Coordinator (Optional)</label>
+                            <select
+                                name="coordinatorId"
+                                value={formData.coordinatorId}
+                                onChange={handleChange}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                            >
                                 <option value="">Select a coordinator</option>
                                 {dropdownData.coordinators?.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                             </select>
                         </div>
                         <div className="md:col-span-1">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">Session*</label>
-                            <select name="session" value={formData.session} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" required>
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Session*</label>
+                            <select
+                                name="session"
+                                value={formData.session}
+                                onChange={handleChange}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                required
+                            >
                                 <option value="">Select a session</option>
                                 {dropdownData.sessions.map((s, i) => <option key={i} value={s}>{s}</option>)}
                             </select>
                         </div>
                         <div className="md:col-span-1">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">Exam*</label>
-                            <select name="examId" value={formData.examId} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" required>
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Exam*</label>
+                            <select
+                                name="examId"
+                                value={formData.examId}
+                                onChange={handleChange}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                required
+                            >
                                 <option value="">Select a exam</option>
                                 {dropdownData.exams.map(e => <option key={e._id} value={e._id}>{e.name}</option>)}
                             </select>
                         </div>
                         <div className="md:col-span-1">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">Course*</label>
-                            <select name="courseId" value={formData.courseId} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" required>
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course*</label>
+                            <select
+                                name="courseId"
+                                value={formData.courseId}
+                                onChange={handleChange}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                required
+                            >
                                 <option value="">Select a course</option>
                                 {dropdownData.courses.map(c => <option key={c._id} value={c._id}>{c.courseName}</option>)}
                             </select>
                         </div>
                         <div className="md:col-span-1">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">Centre*</label>
-                            <select name="centreId" value={formData.centreId} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" required>
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Centre*</label>
+                            <select
+                                name="centreId"
+                                value={formData.centreId}
+                                onChange={handleChange}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                required
+                            >
                                 <option value="">Select a centre</option>
                                 {dropdownData.centres.map(c => <option key={c._id} value={c._id}>{c.centreName}</option>)}
                             </select>
                         </div>
                         <div className="md:col-span-2">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">Batches*</label>
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 bg-[#131619] p-4 rounded-lg border border-gray-700">
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Batches*</label>
+                            <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200 shadow-inner'}`}>
                                 {dropdownData.batches.map(b => (
-                                    <label key={b._id} className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-all ${formData.batchIds.includes(b._id) ? 'bg-cyan-900/30 border-cyan-500 text-cyan-200' : 'bg-[#1a1f24] border-gray-800 text-gray-500 hover:border-gray-600'}`}>
+                                    <label key={b._id} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${formData.batchIds.includes(b._id) ? (isDarkMode ? 'bg-cyan-900/30 border-cyan-500 text-cyan-200' : 'bg-cyan-50 border-cyan-500 text-cyan-700') : (isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-gray-500 hover:border-gray-600' : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300')}`}>
                                         <input
                                             type="checkbox"
                                             checked={formData.batchIds.includes(b._id)}
@@ -300,7 +378,7 @@ const AddClass = () => {
                                             }}
                                             className="hidden"
                                         />
-                                        <span className="text-xs font-bold truncate">{b.batchName}</span>
+                                        <span className="text-xs font-bold truncate uppercase tracking-tight">{b.batchName}</span>
                                     </label>
                                 ))}
                             </div>
@@ -308,45 +386,62 @@ const AddClass = () => {
 
                         {/* NEW SECTION: Academic Class Content */}
                         <div className="md:col-span-1">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">Class (Academic)*</label>
-                            <select name="acadClassId" value={formData.acadClassId} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none">
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class (Academic)*</label>
+                            <select
+                                name="acadClassId"
+                                value={formData.acadClassId}
+                                onChange={handleChange}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                            >
                                 <option value="">Select a class</option>
                                 {dropdownData.academicClasses?.map(c => <option key={c._id} value={c._id}>{c.className}</option>)}
                             </select>
                         </div>
                         <div className="md:col-span-1">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">Subject (Academic)*</label>
-                            <select name="acadSubjectId" value={formData.acadSubjectId} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" disabled={!formData.acadClassId}>
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Subject (Academic)*</label>
+                            <select
+                                name="acadSubjectId"
+                                value={formData.acadSubjectId}
+                                onChange={handleChange}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                disabled={!formData.acadClassId}
+                            >
                                 <option value="">Select a subject</option>
                                 {acadSubjects.map(s => <option key={s._id} value={s._id}>{s.subjectName}</option>)}
                             </select>
                         </div>
                         <div className="md:col-span-1">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">Chapter*</label>
-                            <select name="chapterId" value={formData.chapterId} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none" disabled={!formData.acadSubjectId}>
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Chapter*</label>
+                            <select
+                                name="chapterId"
+                                value={formData.chapterId}
+                                onChange={handleChange}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                disabled={!formData.acadSubjectId}
+                            >
                                 <option value="">Select a chapter</option>
                                 {acadChapters.map(c => <option key={c._id} value={c._id}>{c.chapterName}</option>)}
                             </select>
                         </div>
                         <div className="md:col-span-1">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">Topic Names</label>
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Topic Names</label>
                             <div className="flex gap-2">
                                 <select
                                     value={currentTopicId}
                                     onChange={(e) => setCurrentTopicId(e.target.value)}
-                                    className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none"
+                                    className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
                                     disabled={!formData.chapterId}
                                 >
                                     <option value="">Select topics</option>
                                     {acadTopics.map(t => <option key={t._id} value={t._id}>{t.topicName}</option>)}
                                 </select>
-                                <button type="button" onClick={handleAddTopic} className="bg-blue-600 px-4 rounded-lg text-white hover:bg-blue-700 disabled:opacity-50"><FaPlus /></button>
+                                <button type="button" onClick={handleAddTopic} className="bg-blue-600 px-5 rounded-lg text-white hover:bg-blue-700 disabled:opacity-50 transition-all font-bold"><FaPlus /></button>
                             </div>
-                            <div className="mt-2 flex flex-wrap gap-2">
+                            <div className="mt-4 flex flex-wrap gap-2">
                                 {selectedTopics.map(t => (
-                                    <span key={t._id} className="bg-cyan-900 text-cyan-200 px-2 py-1 rounded text-sm flex items-center gap-2">
+                                    <span key={t._id} className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-tight flex items-center gap-2 transition-all shadow-sm ${isDarkMode ? 'bg-cyan-900/40 text-cyan-200 border border-cyan-800' : 'bg-cyan-50 text-cyan-700 border border-cyan-100'}`}>
                                         {t.topicName}
-                                        <button type="button" onClick={() => handleRemoveTopic(t._id)} className="text-red-400 hover:text-red-200"><FaTrash size={10} /></button>
+                                        <button type="button" onClick={() => handleRemoveTopic(t._id)} className={`${isDarkMode ? 'text-red-400 hover:text-red-200' : 'text-red-500 hover:text-red-700'}`}><FaTrash size={10} /></button>
                                     </span>
                                 ))}
                             </div>
@@ -354,13 +449,13 @@ const AddClass = () => {
 
                         {/* Message */}
                         <div className="md:col-span-2">
-                            <label className="block text-gray-400 text-sm font-semibold mb-2">Message</label>
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Message</label>
                             <textarea
                                 name="message"
                                 value={formData.message}
                                 onChange={handleChange}
                                 placeholder="Enter message (optional)"
-                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-cyan-500 focus:outline-none h-24"
+                                className={`w-full rounded-lg p-3 outline-none transition-all border h-24 ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
                             ></textarea>
                         </div>
 

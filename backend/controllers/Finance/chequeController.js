@@ -1,6 +1,44 @@
 import Payment from "../../models/Payment/Payment.js";
 import Admission from "../../models/Admission/Admission.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
+import User from "../../models/User.js";
+import Student from "../../models/Students.js";
+
+// Helper function to revert installment amount or carry-forward adjustments
+const revertPaymentVariance = async (payment, admission) => {
+    try {
+        const variance = (payment.amount || 0) - (payment.paidAmount || 0);
+        if (variance === 0) return;
+
+        console.log(`Reverting variance for payment ${payment._id}. Variance to revert: ${variance}`);
+
+        if (payment.isCarryForward) {
+            // Revert Carry Forward Balance on Student
+            const studentId = admission.student._id || admission.student;
+            await Student.findByIdAndUpdate(
+                studentId,
+                { $inc: { carryForwardBalance: -variance } }
+            );
+            console.log(`Reverted student carry forward balance by ${-variance}`);
+        } else {
+            // Revert Next Installment Adjustment
+            const nextInstallmentNumber = (payment.installmentNumber || 0) + 1;
+            const nextInstallment = admission.paymentBreakdown.find(
+                p => p.installmentNumber === nextInstallmentNumber
+            );
+
+            if (nextInstallment) {
+                nextInstallment.amount -= variance;
+                nextInstallment.remarks = (nextInstallment.remarks ? nextInstallment.remarks + "; " : "") +
+                    `Reverted ₹${variance} adjustment from rejected/cancelled Inst #${payment.installmentNumber}`;
+                console.log(`Reverted next installment amount for Inst #${nextInstallmentNumber}. New amount: ${nextInstallment.amount}`);
+            }
+        }
+    } catch (error) {
+        console.error("Error in revertPaymentVariance:", error);
+        // We don't throw here to avoid blocking the main rejection flow, but it's logged.
+    }
+};
 
 // Generate a unique sequential bill ID (same logic as generateBill.js)
 const generateBillId = async (centreCode) => {
@@ -57,7 +95,18 @@ export const getPendingCheques = async (req, res) => {
             })
             .sort({ createdAt: -1 });
 
-        const formattedCheques = cheques.map(c => ({
+        // Center Visibility Restriction
+        let filteredCheques = cheques;
+        if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentreNames = currentUser ? currentUser.centres.map(c => (c.centreName || "").trim()).filter(Boolean) : [];
+            filteredCheques = cheques.filter(c => {
+                const centerName = (c.admission?.centre || "").trim();
+                return userCentreNames.includes(centerName);
+            });
+        }
+
+        const formattedCheques = filteredCheques.map(c => ({
             paymentId: c._id,
             admissionId: c.admission?._id,
             admissionNumber: c.admission?.admissionNumber,
@@ -130,9 +179,13 @@ export const clearCheque = async (req, res) => {
             0
         ) + (admission.downPaymentStatus === "PAID" ? admission.downPayment : 0);
 
+        // Recalculate remaining amount
+        admission.remainingAmount = Math.max(0, admission.totalFees - admission.totalPaidAmount);
+
         // Update overall payment status
         if (admission.totalPaidAmount >= admission.totalFees) {
             admission.paymentStatus = "COMPLETED";
+            admission.remainingAmount = 0; // Ensure it's exactly 0 when completed
         } else {
             admission.paymentStatus = "PARTIAL";
         }
@@ -142,6 +195,7 @@ export const clearCheque = async (req, res) => {
             const historyEntry = admission.monthlySubjectHistory.find(h => h.month === payment.billingMonth);
             if (historyEntry) {
                 historyEntry.isPaid = true;
+                historyEntry.status = "PAID";
             }
         }
 
@@ -173,6 +227,9 @@ export const rejectCheque = async (req, res) => {
         if (!admission) {
             return res.status(404).json({ message: "Admission record not found" });
         }
+
+        // Revert any variance adjustments made during payment recording
+        await revertPaymentVariance(payment, admission);
 
         // 1. Update Payment record
         payment.status = "REJECTED";
@@ -210,11 +267,25 @@ export const rejectCheque = async (req, res) => {
             0
         ) + (admission.downPaymentStatus === "PAID" ? admission.downPayment : 0);
 
+        // Recalculate remaining amount
+        admission.remainingAmount = Math.max(0, admission.totalFees - admission.totalPaidAmount);
+
+        // Update payment status
+        if (admission.totalPaidAmount >= admission.totalFees) {
+            admission.paymentStatus = "COMPLETED";
+            admission.remainingAmount = 0;
+        } else if (admission.totalPaidAmount > 0) {
+            admission.paymentStatus = "PARTIAL";
+        } else {
+            admission.paymentStatus = "PENDING";
+        }
+
         // 4. Update Board Course monthly history if applicable
         if (admission.admissionType === 'BOARD' && payment.billingMonth) {
             const historyEntry = admission.monthlySubjectHistory.find(h => h.month === payment.billingMonth);
             if (historyEntry) {
                 historyEntry.isPaid = false;
+                historyEntry.status = "REJECTED";
             }
         }
 
@@ -235,7 +306,7 @@ export const getAllCheques = async (req, res) => {
         // Build query for retrieving payments
         const query = {
             paymentMethod: "CHEQUE",
-            status: { $in: ["PENDING_CLEARANCE", "PAID", "CLEARED"] } // "PAID" usually means cleared for cheques
+            status: { $in: ["PENDING_CLEARANCE", "PAID", "REJECTED", "CANCELLED"] }
         };
 
         let cheques = await Payment.find(query)
@@ -251,15 +322,35 @@ export const getAllCheques = async (req, res) => {
 
         // Filter results based on query params (since some data is in populated fields)
         if (centre || course || department || search) {
+            const requestedCentres = centre ? (Array.isArray(centre) ? centre : [centre]) : [];
+            const requestedCourses = course ? (Array.isArray(course) ? course : [course]) : [];
+            const requestedDepts = department ? (Array.isArray(department) ? department : [department]) : [];
+
+            // Normalize centre names for robust matching (trim and lowercase)
+            const normalizedRequestedCentres = requestedCentres.map(c => (c || "").trim().toLowerCase()).filter(Boolean);
+
             cheques = cheques.filter(c => {
                 const adm = c.admission;
                 if (!adm) return false;
 
-                const matchesCentre = !centre || adm.centre === centre;
-                const matchesCourse = !course || adm.course?.courseName === course;
-                // Note: Department might be an ObjectId or populated object depending on schema. 
-                // Assuming populated based on getAllCheques population logic above.
-                const matchesDept = !department || adm.department?.departmentName === department;
+                // Robust centre matching (ignoring whitespace and case)
+                let matchesCentre = true;
+                if (normalizedRequestedCentres.length > 0) {
+                    const admCentre = (adm.centre || "").trim().toLowerCase();
+                    matchesCentre = normalizedRequestedCentres.includes(admCentre);
+                }
+
+                // Course multi-select matching
+                let matchesCourse = true;
+                if (requestedCourses.length > 0) {
+                    matchesCourse = requestedCourses.includes(adm.course?.courseName);
+                }
+
+                // Department multi-select matching
+                let matchesDept = true;
+                if (requestedDepts.length > 0) {
+                    matchesDept = requestedDepts.includes(adm.department?.departmentName);
+                }
 
                 let matchesSearch = true;
                 if (search) {
@@ -277,6 +368,16 @@ export const getAllCheques = async (req, res) => {
             });
         }
 
+        // Center Visibility Restriction (Enforce if not SuperAdmin)
+        if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentreNames = currentUser ? currentUser.centres.map(c => (c.centreName || "").trim()).filter(Boolean) : [];
+            cheques = cheques.filter(c => {
+                const centerName = (c.admission?.centre || "").trim();
+                return userCentreNames.includes(centerName);
+            });
+        }
+
         const formattedCheques = cheques.map(c => ({
             id: c._id,
             paymentId: c._id,
@@ -286,7 +387,7 @@ export const getAllCheques = async (req, res) => {
             bankName: c.accountHolderName || "N/A",
             amount: c.paidAmount,
             chequeDate: c.chequeDate,
-            status: c.status === "PAID" ? "Cleared" : "Pending", // Map backend status to UI status
+            status: c.status === "PAID" ? "Cleared" : (c.status === "REJECTED" ? "Rejected" : (c.status === "CANCELLED" ? "Cancelled" : "Pending")), // Map backend status to UI status
             centre: c.admission?.centre || "N/A",
             course: c.admission?.course?.courseName || "N/A",
             department: c.admission?.department?.departmentName || "N/A"
@@ -314,6 +415,19 @@ export const cancelCheque = async (req, res) => {
         if (!admission) {
             return res.status(404).json({ message: "Admission record not found" });
         }
+
+        // Center Visibility Restriction
+        if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentreNames = currentUser ? currentUser.centres.map(c => (c.centreName || "").trim()).filter(Boolean) : [];
+            const centerName = (admission.centre || "").trim();
+            if (!userCentreNames.includes(centerName)) {
+                return res.status(403).json({ message: "Access denied: You cannot cancel cheques for this center" });
+            }
+        }
+
+        // Revert any variance adjustments made during payment recording
+        await revertPaymentVariance(payment, admission);
 
         // 1. Update Payment record
         payment.status = "CANCELLED"; // Or "REJECTED" if you want to reuse that enum
@@ -361,9 +475,13 @@ export const cancelCheque = async (req, res) => {
             0
         ) + (admission.downPaymentStatus === "PAID" ? admission.downPayment : 0);
 
+        // Recalculate remaining amount
+        admission.remainingAmount = Math.max(0, admission.totalFees - admission.totalPaidAmount);
+
         // Update paymentStatus
         if (admission.totalPaidAmount >= admission.totalFees) {
             admission.paymentStatus = "COMPLETED";
+            admission.remainingAmount = 0; // Ensure it's exactly 0 when completed
         } else {
             // If it was completed, it might go back to partial or pending
             if (admission.totalPaidAmount > 0) {
@@ -378,6 +496,7 @@ export const cancelCheque = async (req, res) => {
             const historyEntry = admission.monthlySubjectHistory.find(h => h.month === payment.billingMonth);
             if (historyEntry) {
                 historyEntry.isPaid = false;
+                historyEntry.status = "PENDING";
             }
         }
 

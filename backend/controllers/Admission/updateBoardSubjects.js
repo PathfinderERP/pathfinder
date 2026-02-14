@@ -116,6 +116,40 @@ export const updateBoardSubjects = async (req, res) => {
         const subNames = validSelectedSubjects.map(s => s.subName).join('+');
         admission.boardCourseName = `${board.boardCourse} ${admission.academicSession} ${subNames}`;
 
+        // Update totalPaidAmount and monthly history isPaid status
+        const paymentMethodStr = paymentMethod.toUpperCase();
+        const isPaidStatus = (paymentMethodStr !== "CHEQUE");
+
+        if (paymentAmount > 0 && isPaidStatus) {
+            admission.totalPaidAmount = (admission.totalPaidAmount || 0) + Number(paymentAmount);
+            admission.remainingAmount = Math.max(0, (admission.totalFees || 0) - admission.totalPaidAmount);
+            if (admission.totalPaidAmount >= admission.totalFees) {
+                admission.paymentStatus = "COMPLETED";
+            }
+        }
+
+        // Propagate updates to future unpaid months
+        if (admission.monthlySubjectHistory && admission.monthlySubjectHistory.length > 0) {
+            // Re-calculate tax-inclusive total for history records
+            const taxFactor = 0.18;
+            const histologicalTotal = baseFees + Math.round(baseFees * taxFactor);
+
+            admission.monthlySubjectHistory.forEach(h => {
+                // If it's the current billing month or a future month that is NOT paid, update it
+                if (h.month >= billingMonth && !h.isPaid) {
+                    h.subjects = selectedSubjectsData;
+                    h.totalAmount = histologicalTotal;
+
+                    // Mark as paid if it's the target month and payment is successful
+                    if (h.month === billingMonth) {
+                        const isCheque = (paymentMethod.toUpperCase() === "CHEQUE");
+                        h.isPaid = !isCheque;
+                        h.status = isCheque ? "PENDING_CLEARANCE" : "PAID";
+                    }
+                }
+            });
+        }
+
         await admission.save();
 
         // Create Payment record for this month
@@ -136,9 +170,13 @@ export const updateBoardSubjects = async (req, res) => {
             // Generate bill ID for all payment methods (including Cheque) to allow receipt download
             let newBillId = await generateBillId(centreCode);
 
+            // Find the index of the billing month in history to use as installment number
+            const monthIdx = admission.monthlySubjectHistory.findIndex(h => h.month === billingMonth);
+            const calculatedInstNum = monthIdx >= 0 ? monthIdx + 1 : 99; // Fallback to 99 if not found
+
             const paymentData = {
                 admission: admission._id,
-                installmentNumber: 0, // Monthly payment
+                installmentNumber: calculatedInstNum, // Monthly payment
                 amount: paymentAmount,
                 paidAmount: paymentAmount,
                 dueDate: new Date(),

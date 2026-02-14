@@ -9,6 +9,7 @@ const BillGenerator = ({ admission, installment, onClose }) => {
     const [billData, setBillData] = useState(null);
     const [logoBase64, setLogoBase64] = useState(null);
     const apiUrl = import.meta.env.VITE_API_URL;
+    const safeStr = (val) => (val !== undefined && val !== null) ? String(val) : '';
 
     useEffect(() => {
         // Preload logo and convert to PNG base64 for jsPDF
@@ -108,12 +109,11 @@ const BillGenerator = ({ admission, installment, onClose }) => {
 
         const drawBillPage = (copyType) => {
             const pageWidth = doc.internal.pageSize.getWidth();
-            const pageHeight = doc.internal.pageSize.getHeight();
             const margin = 10;
             let midPoint = pageWidth / 2;
 
             // Helper to safe string
-            const safeStr = (val) => (val !== undefined && val !== null) ? String(val) : '';
+
 
             // Get logged-in user info from localStorage
             const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
@@ -146,7 +146,11 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             doc.setTextColor(0, 0, 255); // Blue
             doc.setFont('helvetica', 'bold');
             // Check status for "RECEIVED" vs "IN PROCESS"
-            const statusLabel = (billData.payment?.status === "PENDING_CLEARANCE") ? "IN PROCESS" : "RECEIVED";
+            const status = billData.payment?.status;
+            const method = safeStr(billData.payment?.paymentMethod).toUpperCase();
+
+            const isPendingClearance = status === "PENDING_CLEARANCE" || (method === "CHEQUE" && status !== "PAID");
+            const statusLabel = isPendingClearance ? "IN PROCESS" : "RECEIVED";
             doc.text(statusLabel, pageWidth - margin, yPos + 6, { align: 'right' });
 
             // Centre Address (instead of name)
@@ -553,8 +557,8 @@ const BillGenerator = ({ admission, installment, onClose }) => {
                                             <span className="text-gray-400 block">Date: {new Date(billData.billDate).toLocaleDateString('en-IN')}</span>
                                         </div>
                                         <div className="text-right">
-                                            <span className={`text-sm font-bold px-3 py-1 rounded-full ${billData.payment?.status === "PENDING_CLEARANCE" ? "bg-blue-500/20 text-blue-400" : "bg-emerald-500/20 text-emerald-400"}`}>
-                                                {billData.payment?.status === "PENDING_CLEARANCE" ? "IN PROCESS" : "RECEIVED"}
+                                            <span className={`text-sm font-bold px-3 py-1 rounded-full ${(billData.payment?.status === "PENDING_CLEARANCE" || (safeStr(billData.payment?.paymentMethod).toUpperCase() === "CHEQUE" && billData.payment?.status !== "PAID")) ? "bg-blue-500/20 text-blue-400" : "bg-emerald-500/20 text-emerald-400"}`}>
+                                                {(billData.payment?.status === "PENDING_CLEARANCE" || (safeStr(billData.payment?.paymentMethod).toUpperCase() === "CHEQUE" && billData.payment?.status !== "PAID")) ? "IN PROCESS" : "RECEIVED"}
                                             </span>
                                         </div>
                                     </div>

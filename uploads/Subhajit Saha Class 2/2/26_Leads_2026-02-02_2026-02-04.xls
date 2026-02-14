@@ -1,0 +1,454 @@
+<?xml version="1.0" encoding="UTF-8"?>
+                      <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+                       xmlns:x="urn:schemas-microsoft-com:office:excel"
+                       xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+                       xmlns:html="http://www.w3.org/TR/REC-html40">
+                      <Styles>
+                        <Style ss:ID="s17">
+                          <NumberFormat ss:Format="m/d/yy"/>
+                          <Font ss:FontName="Verdana"/>
+                        </Style>
+                        <Style ss:ID="s18">
+                          <NumberFormat ss:Format="m/d/yy"/>
+                          <Font ss:FontName="Verdana" ss:Bold="1"/>
+                        </Style>
+                        <Style ss:ID="s19">
+                          <NumberFormat ss:Format="m/yy"/>
+                          <Font ss:FontName="Verdana"/>
+                        </Style>
+                        <Style ss:ID="s20">
+                          <NumberFormat ss:Format="m/yy"/>
+                          <Font ss:FontName="Verdana" ss:Bold="1"/>
+                        </Style>
+                        <Style ss:ID="s21">
+                          <NumberFormat ss:Format="m/d/yy h:mm AM/PM"/>
+                          <Font ss:FontName="Verdana"/>
+                        </Style>
+                        <Style ss:ID="s22">
+                          <NumberFormat ss:Format="m/d/yy h:mm AM/PM"/>
+                          <Font ss:FontName="Verdana" ss:Bold="1"/>
+                        </Style>
+                        <Style ss:ID="s23">
+                         <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana"/>
+                        </Style>
+                        <Style ss:ID="s24">
+                         <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana" ss:Bold="1"/>
+                        </Style>
+                        <Style ss:ID="s25">
+                         <Alignment ss:Horizontal="Left" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana"/>
+                        </Style>
+                        <Style ss:ID="s26">
+                         <Alignment ss:Horizontal="Left" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana" ss:Bold="1"/>
+                        </Style>
+                        <Style ss:ID="s27">
+                         <NumberFormat ss:Format="0"/>
+                         <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana"/>
+                        </Style>
+                        <Style ss:ID="s28">
+                         <NumberFormat ss:Format="0"/>
+                         <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana" ss:Bold="1"/>
+                        </Style>
+                        <Style ss:ID="s29">
+                         <NumberFormat ss:Format="_(&quot;$&quot;* #,##0.00_);_(&quot;$&quot;* (#,##0.00);_(&quot;$&quot;* &quot;-&quot;??_);_(@_)"/>
+                         <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana"/>
+                        </Style>
+                        <Style ss:ID="s30">
+                         <NumberFormat ss:Format="_(&quot;$&quot;* #,##0.00_);_(&quot;$&quot;* (#,##0.00);_(&quot;$&quot;* &quot;-&quot;??_);_(@_)"/>
+                         <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana" ss:Bold="1"/>
+                        </Style>
+                        <Style ss:ID="s31">
+                         <NumberFormat ss:Format="Percent"/>
+                         <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana"/>
+                        </Style>
+                        <Style ss:ID="s32">
+                         <NumberFormat ss:Format="Percent"/>
+                         <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana" ss:Bold="1"/>
+                        </Style>
+                        <Style ss:ID="s33">
+                         <NumberFormat ss:Format="YYYY-mm-dd"/>
+                         <Alignment ss:Horizontal="Left" ss:Vertical="Bottom"/>
+                        </Style>
+                        <Style ss:ID="s34">
+                         <Alignment ss:Horizontal="Left" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana" ss:Bold="1"/>
+                        </Style>
+                        <Style ss:ID="s35">
+                         <Alignment ss:Horizontal="Left" ss:Vertical="Bottom"/>
+                         <Font ss:FontName="Verdana"/>
+                        </Style>
+                        <Style ss:ID="s36">
+                         <Alignment ss:Horizontal="Left" ss:Vertical="Top" ss:WrapText="1"/>
+                         <Font ss:FontName="Verdana"/>
+                        </Style>
+                      </Styles>
+<Worksheet ss:Name="Sheet1">
+<Table>
+<Column ss:Index="1" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="2" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="3" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="4" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="5" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="6" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="7" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="8" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="9" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="10" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="11" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="12" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="13" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="14" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="15" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="16" ss:AutoFitWidth="0" ss:Width="150"/>
+<Column ss:Index="17" ss:AutoFitWidth="0" ss:Width="150"/>
+<Row>
+<Cell ss:StyleID="s24"><Data ss:Type="String">id</Data></Cell>
+<Cell ss:StyleID="s24"><Data ss:Type="String">created_time</Data></Cell>
+<Cell ss:StyleID="s24"><Data ss:Type="String">ad_id</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">ad_name</Data></Cell>
+<Cell ss:StyleID="s24"><Data ss:Type="String">adset_id</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">adset_name</Data></Cell>
+<Cell ss:StyleID="s24"><Data ss:Type="String">campaign_id</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">campaign_name</Data></Cell>
+<Cell ss:StyleID="s24"><Data ss:Type="String">form_id</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">form_name</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">is_organic</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">platform</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">select_board</Data></Cell>
+<Cell ss:StyleID="s24"><Data ss:Type="String">class</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">full_name</Data></Cell>
+<Cell ss:StyleID="s24"><Data ss:Type="String">phone_number</Data></Cell>
+<Cell ss:StyleID="s26"><Data ss:Type="String">city</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s25"><Data ss:Type="String">2072190770227030</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-05T08:57:39.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395420700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395410700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395400700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1785501678783419</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">2 Year CRP</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">ig</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">wb</Data></Cell>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">11</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Ankan Dolui</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+917557076128</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Arambagh</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">885013314521245</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-05T07:03:57.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395420700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395410700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395400700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1785501678783419</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">2 Year CRP</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">ig</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">wb</Data></Cell>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">11</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Gourab Dabnath</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+9242204006</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Haringhata</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s25"><Data ss:Type="String">4257632884554734</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-05T06:32:02.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395420700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395410700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395400700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1785501678783419</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">2 Year CRP</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">fb</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">cbse</Data></Cell>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">11</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Purbayan Das</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+919641390423</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Raiganj</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1821521181900489</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-05T02:29:36.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395420700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395410700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395400700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1785501678783419</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">2 Year CRP</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">ig</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">wb</Data></Cell>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">12</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Ayush</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+917501670984</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Bongaon</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">836584709403555</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-05T02:22:56.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395420700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395410700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395400700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1785501678783419</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">2 Year CRP</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">fb</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">wb</Data></Cell>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">11</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Sathi Bera</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+918170967144</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Nandigram</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">873207135706610</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-04T18:24:36.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395420700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395410700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395400700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1785501678783419</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">2 Year CRP</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">ig</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">wb</Data></Cell>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">11</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">krishna</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+918250808809</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Bankura</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1411491863592071</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-04T07:02:55.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395420700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395410700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395400700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1785501678783419</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">2 Year CRP</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">fb</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">cbse</Data></Cell>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">12</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">shelly dey</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+919830770949</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Kolkata</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">914016504297756</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-04T03:08:52.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395420700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395410700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395400700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1785501678783419</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">2 Year CRP</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">ig</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">isc</Data></Cell>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">12</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Angal Rani</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+918436497542</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">B</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">777190221477638</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-04T03:08:42.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395420700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395410700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395400700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1785501678783419</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">2 Year CRP</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">fb</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">wb</Data></Cell>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">11</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Farhan Akhtar</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+919932713091</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Rampurhat</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">926006776538797</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-03T22:43:40.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395420700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395410700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395400700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1785501678783419</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">2 Year CRP</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">ig</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">wb</Data></Cell>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">12</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Das Indianking</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+916295066981</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Contai</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1698735841534182</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-03T21:33:30.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395420700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395410700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395400700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1785501678783419</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">2 Year CRP</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">ig</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">cbse</Data></Cell>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">11</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Princess✿</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+919749809834</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Goagaon</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">671524562648559</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-03T21:10:37.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395420700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395410700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395400700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1785501678783419</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">2 Year CRP</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">ig</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">cbse</Data></Cell>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">11</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">your babee</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+919093221196</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Katwa</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">862096746702941</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-03T20:08:46.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395420700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395410700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395400700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1785501678783419</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">2 Year CRP</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">ig</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">cbse</Data></Cell>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">11</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Sneha Ghosh</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+919064086820</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Ranaghat</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1945011732759416</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-03T09:04:08.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395420700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395410700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395400700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1785501678783419</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">2 Year CRP</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">ig</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">cbse</Data></Cell>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">11</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">WBܔᏞᴇԍᴇɴᴅ࿐</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+919932173282</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Islampur</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1606332847032868</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-03T09:01:28.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395420700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395410700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395400700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1785501678783419</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">2 Year CRP</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">ig</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">cbse</Data></Cell>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">12</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">samim 786</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+918240640037</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Chinsurah</Data></Cell>
+</Row>
+
+<Row>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1557372698903403</Data></Cell>
+<Cell ss:StyleID="s17"><Data ss:Type="DateTime">2026-02-03T08:50:25.000</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395420700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395410700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">120242047395400700</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Subhajit Saha Class 2/2/26</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">1785501678783419</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">2 Year CRP</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">false</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">ig</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">cbse</Data></Cell>
+<Cell ss:StyleID="s27"><Data ss:Type="Number">12</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Abhijeet Munde</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">+917584989356</Data></Cell>
+<Cell ss:StyleID="s25"><Data ss:Type="String">Hasimar</Data></Cell>
+</Row>
+</Table>
+</Worksheet>
+</Workbook>

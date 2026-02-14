@@ -1,4 +1,6 @@
 import Employee from "../../models/HR/Employee.js";
+import User from "../../models/User.js";
+import mongoose from "mongoose";
 
 // @desc    Get All Employees for Payroll with Filters
 // @route   GET /api/finance/payroll/employees
@@ -6,6 +8,13 @@ import Employee from "../../models/HR/Employee.js";
 export const getPayrollEmployees = async (req, res) => {
     try {
         const { page = 1, limit = 10, search, departments, designations, centres } = req.query;
+
+        // Center Visibility Restriction
+        let authorizedCentreIds = [];
+        if (req.user.role !== "superAdmin") {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            authorizedCentreIds = (currentUser ? currentUser.centres : []).map(c => new mongoose.Types.ObjectId(c._id || c));
+        }
 
         let query = {
             status: { $in: ["Active", "Probation"] } // Only active employees
@@ -42,6 +51,13 @@ export const getPayrollEmployees = async (req, res) => {
 
         const pipeline = [
             { $match: { status: { $in: ["Active", "Probation"] } } }, // Base filter
+
+            // ENFORCE CENTER RESTRICTION IF NOT SUPERADMIN
+            ...(req.user.role !== "superAdmin" ? [{
+                $match: {
+                    primaryCentre: { $in: authorizedCentreIds }
+                }
+            }] : []),
 
             // Lookups
             {

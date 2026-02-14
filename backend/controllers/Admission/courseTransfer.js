@@ -142,7 +142,13 @@ export const transferCourse = async (req, res) => {
         // We overwrite the course, fees, and payment schedule, but keep the ID and Payment History (Paid Amount).
 
         currentAdmission.course = newCourseId;
-        currentAdmission.examTag = newExamTagId;
+        // Only update examTag if a valid value is provided, otherwise keep existing
+        if (newExamTagId && newExamTagId !== "") {
+            currentAdmission.examTag = newExamTagId;
+        }
+        // If examTag is empty and admission is NORMAL type, keep the existing examTag
+        // Don't set to undefined as it will fail required validation
+
         currentAdmission.academicSession = newAcademicSession;
         currentAdmission.department = newCourse.department || currentAdmission.department; // Update dept if available
 

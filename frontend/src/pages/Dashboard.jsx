@@ -1,11 +1,11 @@
 import React from "react";
 import Layout from "../components/Layout";
-import DashboardContent from "../components/Dashboard/DashboardContent";
+import SocialFeed from "../components/Dashboard/SocialFeed";
 
 export default function Dashboard() {
   return (
     <Layout>
-      <DashboardContent />
+      <SocialFeed />
     </Layout>
   );
 }
