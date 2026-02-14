@@ -15,7 +15,7 @@ export default function Login() {
   React.useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
-      navigate("/dashboard");
+      navigate("/");
     }
   }, [navigate]);
 
@@ -57,7 +57,7 @@ export default function Login() {
 
       // Redirect to unified dashboard
       setTimeout(() => {
-        navigate("/dashboard");
+        navigate("/");
       }, 500);
     } catch (err) {
       console.error("Login error:", err);

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { FaPaperPlane, FaImage, FaPoll, FaAt, FaThumbsUp, FaComment, FaCheckCircle, FaChartBar, FaEnvelope, FaBuilding, FaTrash, FaEllipsisV, FaEdit } from "react-icons/fa";
+import { FaPaperPlane, FaImage, FaPoll, FaAt, FaThumbsUp, FaComment, FaCheckCircle, FaChartBar, FaEnvelope, FaBuilding, FaTrash, FaEllipsisV, FaEdit, FaChevronLeft, FaChevronRight, FaTimes, FaExpand } from "react-icons/fa";
 import { toast } from "react-toastify";
+import { useTheme } from "../../context/ThemeContext";
 
 const SocialFeed = () => {
+    const { theme } = useTheme();
     const [posts, setPosts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentUser] = useState(JSON.parse(localStorage.getItem("user") || "{}"));
@@ -17,15 +19,12 @@ const SocialFeed = () => {
     const [pollOptions, setPollOptions] = useState(["", ""]);
     const [selectedTags, setSelectedTags] = useState([]);
     const [showTagList, setShowTagList] = useState(false);
-    const [openMenuId, setOpenMenuId] = useState(null);
 
     useEffect(() => {
         fetchPosts();
         fetchUsers();
-        // Close menu on click outside
-        const handleClickOutside = () => setOpenMenuId(null);
-        document.addEventListener('click', handleClickOutside);
-        return () => document.removeEventListener('click', handleClickOutside);
+        fetchPosts();
+        fetchUsers();
     }, []);
 
     const fetchPosts = async () => {
@@ -251,11 +250,12 @@ const SocialFeed = () => {
     };
 
     return (
-        <div className="flex-1 h-full overflow-y-auto bg-gray-50 dark:bg-[#131619] p-4 md:p-8 custom-scrollbar">
+        <div className={`flex-1 h-full overflow-y-auto p-4 md:p-8 custom-scrollbar transition-colors duration-300 ${theme === 'dark' ? 'bg-[#131619] text-white' : 'bg-gray-50 text-gray-900'
+            }`} data-theme={theme}>
             <div className="max-w-3xl mx-auto space-y-8">
 
                 {/* Create Post Section */}
-                <div className="bg-white dark:bg-[#1a1f24] rounded-xl border border-gray-200 dark:border-gray-800 shadow-xl overflow-hidden">
+                <div className={`${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-xl border shadow-xl overflow-hidden`}>
                     <div className="p-6">
                         <div className="flex gap-4">
                             <div className="w-12 h-12 rounded-full bg-cyan-100 dark:bg-cyan-900 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-bold overflow-hidden shrink-0">
@@ -267,7 +267,7 @@ const SocialFeed = () => {
                             </div>
                             <div className="flex-1">
                                 <textarea
-                                    className="w-full bg-transparent border-none text-gray-900 dark:text-white placeholder-gray-500 focus:ring-0 text-lg resize-none min-h-[100px]"
+                                    className={`w-full bg-transparent border-none ${theme === 'dark' ? 'text-white' : 'text-gray-900'} placeholder-gray-500 focus:ring-0 text-lg resize-none min-h-[100px]`}
                                     placeholder="What's on your mind?"
                                     value={content}
                                     onChange={(e) => setContent(e.target.value)}
@@ -277,7 +277,7 @@ const SocialFeed = () => {
                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
                                         {imagePreviews.map((src, i) => (
                                             <div key={i} className="relative group aspect-square">
-                                                <img src={src} alt="" className="w-full h-full object-cover rounded-lg border border-gray-200 dark:border-gray-800" />
+                                                <img src={src} alt="" className={`w-full h-full object-cover rounded-lg border ${theme === 'dark' ? 'border-gray-800' : 'border-gray-200'}`} />
                                                 <button
                                                     onClick={() => handleRemoveImage(i)}
                                                     className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg hover:scale-110 transition-transform"
@@ -290,11 +290,11 @@ const SocialFeed = () => {
                                 )}
 
                                 {showPoll && (
-                                    <div className="mb-4 p-4 rounded-lg bg-gray-50 dark:bg-[#131619] border border-gray-200 dark:border-gray-800 space-y-3">
+                                    <div className={`mb-4 p-4 rounded-lg border space-y-3 ${theme === 'dark' ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                         <input
                                             type="text"
                                             placeholder="Poll Question"
-                                            className="w-full bg-white dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-700 rounded-lg p-2 text-sm text-white"
+                                            className={`w-full border rounded-lg p-2 text-sm ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
                                             value={pollQuestion}
                                             onChange={(e) => setPollQuestion(e.target.value)}
                                         />
@@ -303,7 +303,7 @@ const SocialFeed = () => {
                                                 key={i}
                                                 type="text"
                                                 placeholder={`Option ${i + 1}`}
-                                                className="w-full bg-white dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-700 rounded-lg p-2 text-xs text-white"
+                                                className={`w-full border rounded-lg p-2 text-xs ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
                                                 value={opt}
                                                 onChange={(e) => {
                                                     const newOpts = [...pollOptions];
@@ -363,7 +363,7 @@ const SocialFeed = () => {
                                 </button>
 
                                 {showTagList && (
-                                    <div className="absolute top-10 left-0 w-64 max-h-60 overflow-y-auto bg-white dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-800 rounded-lg shadow-2xl z-50 p-2 custom-scrollbar">
+                                    <div className={`absolute top-10 left-0 w-64 max-h-60 overflow-y-auto border rounded-lg shadow-2xl z-50 p-2 custom-scrollbar ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                                         <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest p-2 border-b border-gray-800 mb-2">Tag Someone</p>
                                         {taggableUsers.filter(u => !selectedTags.some(t => t._id === u._id)).map(user => (
                                             <button
@@ -373,14 +373,14 @@ const SocialFeed = () => {
                                                     setSelectedTags([...selectedTags, user]);
                                                     setShowTagList(false);
                                                 }}
-                                                className="w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-3 transition-colors"
+                                                className={`w-full text-left p-2 rounded flex items-center gap-3 transition-colors ${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
                                             >
                                                 <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-[10px] font-bold">
                                                     {user.name.charAt(0)}
                                                 </div>
                                                 <div>
-                                                    <p className="text-xs font-bold text-gray-900 dark:text-gray-200">{user.name}</p>
-                                                    <p className="text-[10px] text-gray-500 dark:text-gray-400">{user.role}</p>
+                                                    <p className={`text-xs font-bold ${theme === 'dark' ? 'text-gray-200' : 'text-gray-900'}`}>{user.name}</p>
+                                                    <p className={`text-[10px] ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{user.role}</p>
                                                 </div>
                                             </button>
                                         ))}
@@ -421,9 +421,8 @@ const SocialFeed = () => {
                                 onDelete={() => handleDeletePost(post._id)}
                                 onUpdate={(formData) => handleUpdatePost(post._id, formData)}
                                 onDeleteComment={(commentId) => handleDeleteComment(post._id, commentId)}
-                                openMenuId={openMenuId}
-                                setOpenMenuId={setOpenMenuId}
                                 currentUser={currentUser}
+                                theme={theme}
                             />
                         ))
                     )}
@@ -439,7 +438,151 @@ const SocialFeed = () => {
     );
 };
 
-const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDeleteComment, openMenuId, setOpenMenuId, currentUser }) => {
+const ImageCarousel = ({ images }) => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [isPaused, setIsPaused] = useState(false);
+
+    useEffect(() => {
+        if (images.length <= 1 || isFullscreen || isPaused) return;
+
+        const interval = setInterval(() => {
+            setCurrentIndex((prev) => (prev + 1) % images.length);
+        }, 3000);
+
+        return () => clearInterval(interval);
+    }, [images.length, isFullscreen, isPaused]);
+
+    const nextImage = (e) => {
+        e.stopPropagation();
+        setCurrentIndex((prev) => (prev + 1) % images.length);
+    };
+
+    const prevImage = (e) => {
+        e.stopPropagation();
+        setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+    };
+
+    if (!images || images.length === 0) return null;
+
+    return (
+        <div
+            className="relative group w-full"
+            onMouseEnter={() => setIsPaused(true)}
+            onMouseLeave={() => setIsPaused(false)}
+        >
+            {/* Main Display Container */}
+            <div
+                className="relative aspect-video w-full cursor-zoom-in overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-black/20 group"
+                onClick={() => setIsFullscreen(true)}
+            >
+                {/* Background Blur Image (for premium effect on odd aspect ratios) */}
+                <div
+                    className="absolute inset-0 blur-2xl opacity-30 scale-110"
+                    style={{
+                        backgroundImage: `url(${images[currentIndex].startsWith('http') ? images[currentIndex] : `${import.meta.env.VITE_API_URL}${images[currentIndex]}`})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center'
+                    }}
+                />
+
+                <img
+                    src={images[currentIndex].startsWith('http') ? images[currentIndex] : `${import.meta.env.VITE_API_URL}${images[currentIndex]}`}
+                    alt=""
+                    className="relative w-full h-full object-contain transition-all duration-700 ease-in-out"
+                    key={currentIndex}
+                />
+
+                {/* View Overlay */}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                    <div className="p-3 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-300">
+                        <FaExpand size={20} />
+                    </div>
+                </div>
+
+                {/* Navigation Arrows */}
+                {images.length > 1 && (
+                    <>
+                        <button
+                            onClick={prevImage}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 dark:bg-black/30 backdrop-blur-xl border border-white/20 dark:border-white/5 text-white opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 transition-all hover:bg-white/20 dark:hover:bg-cyan-500/20 hover:border-cyan-500/30"
+                        >
+                            <FaChevronLeft size={18} />
+                        </button>
+                        <button
+                            onClick={nextImage}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 dark:bg-black/30 backdrop-blur-xl border border-white/20 dark:border-white/5 text-white opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all hover:bg-white/20 dark:hover:bg-cyan-500/20 hover:border-cyan-500/30"
+                        >
+                            <FaChevronRight size={18} />
+                        </button>
+
+                        {/* Indicators & Counter */}
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                            <div className="flex gap-1.5 px-3 py-1.5 rounded-full bg-black/30 backdrop-blur-md border border-white/10">
+                                {images.map((_, i) => (
+                                    <div
+                                        key={i}
+                                        className={`h-1.5 rounded-full transition-all duration-500 ${i === currentIndex ? 'bg-cyan-400 w-4 shadow-[0_0_8px_rgba(34,211,238,0.5)]' : 'bg-white/30 w-1.5'}`}
+                                    />
+                                ))}
+                            </div>
+                            <span className="text-[10px] font-black text-white px-2 py-1 rounded bg-black/40 backdrop-blur-md border border-white/10">
+                                {currentIndex + 1} / {images.length}
+                            </span>
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* Fullscreen Overlay Modal */}
+            {isFullscreen && (
+                <div
+                    className="fixed inset-0 z-[99999] bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center animate-fade-in"
+                    onClick={() => setIsFullscreen(false)}
+                >
+                    <button
+                        className="absolute top-8 right-8 p-4 text-white/50 hover:text-white transition-all hover:rotate-90 duration-300 z-10"
+                        onClick={() => setIsFullscreen(false)}
+                    >
+                        <FaTimes size={32} />
+                    </button>
+
+                    <div className="relative w-full h-full flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
+                        <img
+                            src={images[currentIndex].startsWith('http') ? images[currentIndex] : `${import.meta.env.VITE_API_URL}${images[currentIndex]}`}
+                            alt=""
+                            className="max-h-[90vh] max-w-[95vw] object-contain shadow-[0_0_100px_rgba(6,182,212,0.1)] rounded-lg"
+                            key={currentIndex}
+                        />
+
+                        {images.length > 1 && (
+                            <>
+                                <button
+                                    onClick={prevImage}
+                                    className="absolute left-4 sm:left-12 p-6 rounded-full bg-white/5 text-white/50 hover:text-white hover:bg-white/10 transition-all border border-white/10 backdrop-blur-xl"
+                                >
+                                    <FaChevronLeft size={36} />
+                                </button>
+                                <button
+                                    onClick={nextImage}
+                                    className="absolute right-4 sm:right-12 p-6 rounded-full bg-white/5 text-white/50 hover:text-white hover:bg-white/10 transition-all border border-white/10 backdrop-blur-xl"
+                                >
+                                    <FaChevronRight size={36} />
+                                </button>
+
+                                <div className="absolute bottom-10 px-8 py-3 rounded-full bg-white/5 border border-white/10 text-white font-black text-sm tracking-[0.2em] backdrop-blur-xl">
+                                    IMAGE <span className="text-cyan-400">{currentIndex + 1}</span> OF <span className="text-cyan-400">{images.length}</span>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDeleteComment, currentUser, theme }) => {
     const [commentText, setCommentText] = useState("");
     const [showComments, setShowComments] = useState(false);
 
@@ -494,7 +637,7 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
     };
 
     return (
-        <div className="bg-white dark:bg-[#1a1f24] rounded-xl border border-gray-200 dark:border-gray-800 shadow-lg overflow-hidden animate-fade-in transition-all hover:shadow-cyan-500/5">
+        <div className={`${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-xl border shadow-lg overflow-hidden animate-fade-in transition-all hover:shadow-cyan-500/5`}>
             {/* Post Header */}
             <div className="p-6 flex items-start justify-between">
                 <div className="flex gap-4">
@@ -519,19 +662,19 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                                 {post.author?.role}
                             </span>
 
-                            {/* Action Buttons for Author */}
-                            {post.author?._id === currentUser.id && !isEditing && (
+                            {/* Action Buttons for Author or SuperAdmin */}
+                            {(post.author?._id === currentUser._id || currentUser.role === "superAdmin") && !isEditing && (
                                 <div className="flex items-center gap-3 ml-4">
                                     <button
                                         onClick={() => setIsEditing(true)}
-                                        className="flex items-center gap-1 text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-black text-[10px] uppercase tracking-widest transition-all hover:scale-105"
+                                        className="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-black text-[10px] uppercase tracking-widest transition-all hover:scale-110 bg-cyan-500/5 px-2 py-1 rounded-md border border-cyan-500/10 hover:border-cyan-500/30"
                                         title="Edit Post"
                                     >
                                         <FaEdit size={12} /> Edit
                                     </button>
                                     <button
                                         onClick={onDelete}
-                                        className="flex items-center gap-1 text-red-500 hover:text-red-600 font-black text-[10px] uppercase tracking-widest transition-all hover:scale-105"
+                                        className="flex items-center gap-1.5 text-red-500 hover:text-red-600 font-black text-[10px] uppercase tracking-widest transition-all hover:scale-110 bg-red-500/5 px-2 py-1 rounded-md border border-red-500/10 hover:border-red-500/30"
                                         title="Delete Post"
                                     >
                                         <FaTrash size={12} /> Delete
@@ -542,7 +685,7 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                         <p className="text-xs text-gray-500 font-bold">
                             {post.author?.designationName} • {post.author?.departmentName}
                         </p>
-                        <p className="text-[10px] text-gray-600 dark:text-gray-500 font-bold uppercase tracking-widest mt-1">
+                        <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}`}>
                             {new Date(post.createdAt).toLocaleDateString()} at {new Date(post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                     </div>
@@ -550,15 +693,15 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
 
                 {/* Right Side - Author Info */}
                 <div className="hidden sm:flex flex-col items-end gap-1.5 self-start pt-1">
-                    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700/50 transition-all hover:border-cyan-500/30 group">
+                    <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border transition-all hover:border-cyan-500/30 group ${theme === 'dark' ? 'bg-gray-800/40 border-gray-700/50' : 'bg-gray-50 border-gray-200'}`}>
                         <FaEnvelope className="text-cyan-500 text-[10px] group-hover:scale-110 transition-transform" />
-                        <span className="text-[10px] font-black text-gray-600 dark:text-gray-400 lowercase truncate max-w-[180px]">
+                        <span className={`text-[10px] font-black lowercase truncate max-w-[180px] ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
                             {post.author?.email}
                         </span>
                     </div>
                     <div className="flex items-center gap-2 px-2 py-1 rounded-[4px] bg-cyan-500/5 border border-cyan-500/10">
                         <FaBuilding className="text-cyan-500/60 text-[9px]" />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-cyan-600 dark:text-cyan-400/80">
+                        <span className={`text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-cyan-400/80' : 'text-cyan-600'}`}>
                             {post.author?.departmentName || "General"}
                         </span>
                     </div>
@@ -572,7 +715,7 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                         <textarea
                             value={editContent}
                             onChange={(e) => setEditContent(e.target.value)}
-                            className="w-full bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-xl p-4 text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500/50 min-h-[120px] transition-all"
+                            className={`w-full border rounded-xl p-4 placeholder-gray-500 focus:outline-none focus:border-cyan-500/50 min-h-[120px] transition-all ${theme === 'dark' ? 'bg-[#131619] border-gray-800 text-gray-100' : 'bg-white border-gray-200 text-gray-900'}`}
                             placeholder="Edit your post..."
                         />
 
@@ -637,7 +780,7 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                 ) : (
                     <>
                         {post.content && (
-                            <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed whitespace-pre-wrap">
+                            <p className={`text-lg leading-relaxed whitespace-pre-wrap ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                                 {post.content}
                             </p>
                         )}
@@ -651,29 +794,16 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                         )}
 
                         {post.images?.length > 0 && (
-                            <div className={`grid gap-2 ${post.images.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                                {post.images.map((img, i) => (
-                                    <img
-                                        key={i}
-                                        src={img.startsWith('http') ? img : `${import.meta.env.VITE_API_URL}${img}`}
-                                        alt=""
-                                        className="w-full h-auto max-h-[500px] object-cover rounded-xl border border-gray-800"
-                                        onError={(e) => {
-                                            console.error("Post image failed to load:", img);
-                                            e.target.style.display = 'none';
-                                        }}
-                                    />
-                                ))}
-                            </div>
+                            <ImageCarousel images={post.images} />
                         )}
                     </>
                 )}
 
                 {post.poll && post.poll.question && (
-                    <div className="p-6 rounded-xl bg-gray-50 dark:bg-[#131619] border border-gray-200 dark:border-gray-800 space-y-4">
+                    <div className={`p-6 rounded-xl border space-y-4 ${theme === 'dark' ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                         <div className="flex items-center gap-3">
                             <FaChartBar className="text-cyan-500" />
-                            <h5 className="text-gray-900 dark:text-gray-100 font-bold text-lg">{post.poll.question}</h5>
+                            <h5 className={`font-bold text-lg ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>{post.poll.question}</h5>
                         </div>
                         <div className="space-y-3">
                             {post.poll.options.map(opt => {
@@ -686,7 +816,9 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                                         key={opt._id}
                                         disabled={hasVoted}
                                         onClick={() => onVote(opt._id)}
-                                        className={`w-full relative group p-3 rounded-lg border text-left transition-all ${isVotedByMe ? 'border-cyan-500 bg-cyan-500/10' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-black/20 hover:border-gray-400 dark:hover:border-gray-600'}`}
+                                        className={`w-full relative group p-3 rounded-lg border text-left transition-all ${isVotedByMe ? 'border-cyan-500 bg-cyan-500/10' :
+                                            theme === 'dark' ? 'border-gray-800 bg-black/20 hover:border-gray-600' : 'border-gray-200 bg-white hover:border-gray-400'
+                                            }`}
                                     >
                                         <div
                                             className={`absolute inset-y-0 left-0 rounded-l-lg transition-all duration-1000 ${isVotedByMe ? 'bg-cyan-500/20' : 'bg-gray-800/30'}`}
@@ -711,7 +843,7 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
             </div>
 
             {/* Interaction Bar */}
-            <div className="px-6 py-4 bg-gray-50/50 dark:bg-[#131619]/30 border-t border-gray-200 dark:border-gray-800 flex items-center gap-6">
+            <div className={`px-6 py-4 border-t flex items-center gap-6 ${theme === 'dark' ? 'bg-[#131619]/30 border-gray-800' : 'bg-gray-50/50 border-gray-200'}`}>
                 <button
                     onClick={onLike}
                     className={`flex items-center gap-2 font-bold text-sm transition-colors ${isLikedByMe ? 'text-cyan-500 dark:text-cyan-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
@@ -727,50 +859,52 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
             </div>
 
             {/* Comments Section */}
-            {showComments && (
-                <div className="p-6 bg-gray-50 dark:bg-[#131619]/50 border-t border-gray-200 dark:border-gray-800 space-y-6">
-                    <div className="space-y-4 max-h-60 overflow-y-auto custom-scrollbar">
-                        {post.comments.map((comment, i) => (
-                            <div key={i} className="flex gap-3">
-                                <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-xs font-bold shrink-0">
-                                    {comment.user?.name?.charAt(0)}
-                                </div>
-                                <div className="bg-white dark:bg-[#1a1f24] p-3 rounded-xl border border-gray-200 dark:border-gray-800 flex-1 shadow-sm">
-                                    <div className="flex justify-between items-center mb-1">
-                                        <h5 className="text-xs font-black text-gray-900 dark:text-white">{comment.user?.name}</h5>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[9px] text-gray-500 dark:text-gray-400 font-bold">{new Date(comment.createdAt).toLocaleDateString()}</span>
-                                            {(comment.user?._id === currentUser.id || comment.user === currentUser.id || post.author?._id === currentUser.id) && (
-                                                <button
-                                                    onClick={() => onDeleteComment(comment._id)}
-                                                    className="text-red-500 hover:text-red-600 transition-colors"
-                                                >
-                                                    <FaTrash size={8} />
-                                                </button>
-                                            )}
-                                        </div>
+            {
+                showComments && (
+                    <div className={`p-6 border-t space-y-6 ${theme === 'dark' ? 'bg-[#131619]/50 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className="space-y-4 max-h-60 overflow-y-auto custom-scrollbar">
+                            {post.comments.map((comment, i) => (
+                                <div key={i} className="flex gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-xs font-bold shrink-0">
+                                        {comment.user?.name?.charAt(0)}
                                     </div>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">{comment.text}</p>
+                                    <div className={`p-3 rounded-xl border flex-1 shadow-sm ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <h5 className={`text-xs font-black ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{comment.user?.name}</h5>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[9px] text-gray-500 dark:text-gray-400 font-bold">{new Date(comment.createdAt).toLocaleDateString()}</span>
+                                                {(comment.user?._id === currentUser.id || comment.user === currentUser.id || post.author?._id === currentUser.id) && (
+                                                    <button
+                                                        onClick={() => onDeleteComment(comment._id)}
+                                                        className="text-red-500 hover:text-red-600 transition-colors"
+                                                    >
+                                                        <FaTrash size={8} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400">{comment.text}</p>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                    <div className="flex gap-3">
-                        <div className="w-8 h-8 rounded-full bg-cyan-900 flex items-center justify-center text-xs font-bold text-cyan-400 shrink-0">
-                            {currentUser.name?.charAt(0)}
+                            ))}
                         </div>
-                        <input
-                            type="text"
-                            placeholder="Write a comment..."
-                            className="flex-1 bg-white dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-800 rounded-lg px-4 py-2 text-sm text-gray-900 dark:text-white focus:border-cyan-500/50 outline-none"
-                            value={commentText}
-                            onChange={(e) => setCommentText(e.target.value)}
-                            onKeyPress={handleCommentSubmit}
-                        />
+                        <div className="flex gap-3">
+                            <div className="w-8 h-8 rounded-full bg-cyan-900 flex items-center justify-center text-xs font-bold text-cyan-400 shrink-0">
+                                {currentUser.name?.charAt(0)}
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Write a comment..."
+                                className={`flex-1 border rounded-lg px-4 py-2 text-sm focus:border-cyan-500/50 outline-none ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+                                value={commentText}
+                                onChange={(e) => setCommentText(e.target.value)}
+                                onKeyPress={handleCommentSubmit}
+                            />
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 

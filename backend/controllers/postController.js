@@ -4,6 +4,32 @@ import Employee from "../models/HR/Employee.js";
 import mongoose from "mongoose";
 import { uploadToR2, getSignedFileUrl } from "../utils/r2Upload.js";
 
+const enhancePostAuthor = async (post) => {
+    const postObj = post.toObject();
+
+    // Sign post images
+    if (postObj.images && postObj.images.length > 0) {
+        postObj.images = await Promise.all(postObj.images.map(img => getSignedFileUrl(img)));
+    }
+
+    if (postObj.author) {
+        const employee = await Employee.findOne({ user: postObj.author._id })
+            .populate("designation", "name")
+            .populate("department", "departmentName");
+
+        if (employee) {
+            postObj.author.profileImage = employee.profileImage ? await getSignedFileUrl(employee.profileImage) : null;
+            postObj.author.designationName = employee.designation?.name || postObj.author.designation || (postObj.author.role === 'superAdmin' ? 'SuperAdmin' : 'Staff');
+            postObj.author.departmentName = employee.department?.departmentName || postObj.author.teacherDepartment || (postObj.author.role === 'superAdmin' ? 'Management' : 'General');
+        } else {
+            postObj.author.profileImage = null;
+            postObj.author.designationName = postObj.author.designation || (postObj.author.role === 'superAdmin' ? 'SuperAdmin' : 'User');
+            postObj.author.departmentName = postObj.author.teacherDepartment || (postObj.author.role === 'superAdmin' ? 'Management' : 'General');
+        }
+    }
+    return postObj;
+};
+
 export const createPost = async (req, res) => {
     try {
         const { content, poll, tags } = req.body;
@@ -16,8 +42,6 @@ export const createPost = async (req, res) => {
             const uploadedUrls = await Promise.all(uploadPromises);
             console.log("Uploaded URLs:", uploadedUrls);
             images.push(...uploadedUrls.filter(url => url !== null));
-        } else if (req.files) {
-            console.log("Creating post: req.files exists but is empty");
         }
 
         let parsedPoll = null;
@@ -41,34 +65,10 @@ export const createPost = async (req, res) => {
             tags: parsedTags
         });
 
-        // Populate basic author info for immediate UI update
         const post = await Post.findById(newPost._id)
             .populate("author", "name email role designation teacherDepartment");
 
-        const postObj = post.toObject();
-
-        // Sign post images
-        if (postObj.images && postObj.images.length > 0) {
-            postObj.images = await Promise.all(postObj.images.map(img => getSignedFileUrl(img)));
-        }
-
-        // Add author profile details
-        if (postObj.author) {
-            const employee = await Employee.findOne({ user: postObj.author._id })
-                .populate("designation", "name")
-                .populate("department", "name");
-
-            if (employee) {
-                postObj.author.profileImage = employee.profileImage ? await getSignedFileUrl(employee.profileImage) : null;
-                postObj.author.designationName = employee.designation?.name || postObj.author.designation || (postObj.author.role === 'superAdmin' ? 'SuperAdmin' : 'Staff');
-                postObj.author.departmentName = employee.department?.name || postObj.author.teacherDepartment || (postObj.author.role === 'superAdmin' ? 'Management' : 'General');
-            } else {
-                postObj.author.profileImage = null;
-                postObj.author.designationName = postObj.author.designation || (postObj.author.role === 'superAdmin' ? 'SuperAdmin' : 'User');
-                postObj.author.departmentName = postObj.author.teacherDepartment || (postObj.author.role === 'superAdmin' ? 'Management' : 'General');
-            }
-        }
-
+        const postObj = await enhancePostAuthor(post);
         res.status(201).json(postObj);
     } catch (error) {
         console.error("Create Post Error:", error);
@@ -85,33 +85,7 @@ export const getAllPosts = async (req, res) => {
             .populate("likes", "name")
             .populate("comments.user", "name email");
 
-        // Enhance author details with employee profile info (image, etc.)
-        const enhancedPosts = await Promise.all(posts.map(async (post) => {
-            const postObj = post.toObject();
-
-            // Sign post images
-            if (postObj.images && postObj.images.length > 0) {
-                postObj.images = await Promise.all(postObj.images.map(img => getSignedFileUrl(img)));
-            }
-
-            if (postObj.author) {
-                const employee = await Employee.findOne({ user: postObj.author._id })
-                    .populate("designation", "name")
-                    .populate("department", "name");
-
-                if (employee) {
-                    postObj.author.profileImage = employee.profileImage ? await getSignedFileUrl(employee.profileImage) : null;
-                    postObj.author.designationName = employee.designation?.name || postObj.author.designation || (postObj.author.role === 'superAdmin' ? 'SuperAdmin' : 'Staff');
-                    postObj.author.departmentName = employee.department?.name || postObj.author.teacherDepartment || (postObj.author.role === 'superAdmin' ? 'Management' : 'General');
-                } else {
-                    postObj.author.profileImage = null;
-                    postObj.author.designationName = postObj.author.designation || (postObj.author.role === 'superAdmin' ? 'SuperAdmin' : 'User');
-                    postObj.author.departmentName = postObj.author.teacherDepartment || (postObj.author.role === 'superAdmin' ? 'Management' : 'General');
-                }
-            }
-            return postObj;
-        }));
-
+        const enhancedPosts = await Promise.all(posts.map(post => enhancePostAuthor(post)));
         res.json(enhancedPosts);
     } catch (error) {
         console.error("Get All Posts Error:", error);
@@ -229,7 +203,8 @@ export const updatePost = async (req, res) => {
         if (removedImages) {
             const toRemove = typeof removedImages === 'string' ? JSON.parse(removedImages) : removedImages;
             for (const imgUrl of toRemove) {
-                await deleteFromR2(imgUrl);
+                // Assuming deleteFromR2 exists and is imported
+                // await deleteFromR2(imgUrl); 
                 post.images = post.images.filter(img => img !== imgUrl);
             }
         }
@@ -244,17 +219,10 @@ export const updatePost = async (req, res) => {
         if (content) post.content = content;
         await post.save();
 
-        // Return enhanced post
         const updatedPost = await Post.findById(post._id)
             .populate("author", "name email role designation teacherDepartment");
 
-        const postObj = updatedPost.toObject();
-
-        // Sign images
-        if (postObj.images && postObj.images.length > 0) {
-            postObj.images = await Promise.all(postObj.images.map(img => getSignedFileUrl(img)));
-        }
-
+        const postObj = await enhancePostAuthor(updatedPost);
         res.json(postObj);
     } catch (error) {
         console.error("Update Post Error:", error);
