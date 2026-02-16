@@ -541,7 +541,7 @@ const TeacherList = () => {
                 </div>
 
                 {/* Table */}
-                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-md'} rounded-lg border overflow-hidden transition-colors duration-300`}>
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-md'} rounded-lg border overflow-x-auto transition-colors duration-300`}>
                     <table className="w-full text-left border-collapse table-auto">
                         <thead>
                             <tr className={`text-xs uppercase border-b ${isDarkMode ? 'text-gray-400 border-gray-700 bg-[#131619]' : 'text-gray-500 border-gray-200 bg-gray-50'}`}>

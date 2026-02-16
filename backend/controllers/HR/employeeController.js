@@ -338,52 +338,28 @@ export const updateEmployee = async (req, res) => {
         }
 
         const updateData = { ...req.body };
+        
+        // Sanitization: Remove fields and strings that cause issues
+        const forbiddenFields = ["currentSalary", "__v", "_id", "employeeId", "user", "createdAt", "updatedAt"];
+        forbiddenFields.forEach(field => delete updateData[field]);
+        
+        Object.keys(updateData).forEach(key => {
+            if (updateData[key] === "null" || updateData[key] === "undefined") {
+                delete updateData[key];
+            }
+        });
 
         // Parse arrays if they're strings
-        if (typeof updateData.children === "string") {
-            try {
-                updateData.children = JSON.parse(updateData.children);
-            } catch (e) {
-                delete updateData.children;
-            }
-        }
-
-        if (typeof updateData.centres === "string") {
-            try {
-                updateData.centres = JSON.parse(updateData.centres);
-            } catch (e) {
-                delete updateData.centres;
-            }
-        }
-
-        if (typeof updateData.workingDays === "string") {
-            try {
-                updateData.workingDays = JSON.parse(updateData.workingDays);
-            } catch (e) {
-                delete updateData.workingDays;
-            }
-        }
-
-        if (typeof updateData.salaryStructure === "string") {
-            try {
-                updateData.salaryStructure = JSON.parse(updateData.salaryStructure);
-            } catch (e) {
-                delete updateData.salaryStructure;
-            }
-        }
-
-        if (typeof updateData.letters === "string") {
-            try {
-                const parsed = JSON.parse(updateData.letters);
-                if (Array.isArray(parsed)) {
-                    updateData.letters = parsed;
-                } else {
-                    delete updateData.letters;
+        const jsonFields = ["children", "centres", "workingDays", "salaryStructure", "letters"];
+        jsonFields.forEach(field => {
+            if (typeof updateData[field] === "string") {
+                try {
+                    updateData[field] = JSON.parse(updateData[field]);
+                } catch (e) {
+                    delete updateData[field];
                 }
-            } catch (e) {
-                delete updateData.letters;
             }
-        }
+        });
 
         // Handle file uploads and delete old files
         if (req.files) {
@@ -410,7 +386,7 @@ export const updateEmployee = async (req, res) => {
         // Clean up empty strings for ObjectId fields
         const objectIdFields = ["manager", "department", "designation", "primaryCentre"];
         objectIdFields.forEach(field => {
-            if (updateData[field] === "") {
+            if (updateData[field] === "" || updateData[field] === "null") {
                 delete updateData[field];
             }
         });

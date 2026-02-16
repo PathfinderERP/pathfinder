@@ -123,9 +123,13 @@ const AddEmployee = () => {
                     department: data.department?._id || "",
                     designation: data.designation?._id || "",
                     manager: data.manager?._id || "",
+                    workingHours: data.workingHours || 0,
+                    specialAllowance: data.specialAllowance || 0,
                     salaryStructure: data.salaryStructure?.map(s => ({
                         ...s,
-                        effectiveDate: s.effectiveDate ? new Date(s.effectiveDate).toISOString().split('T')[0] : ""
+                        effectiveDate: s.effectiveDate ? new Date(s.effectiveDate).toISOString().split('T')[0] : "",
+                        amount: s.amount || 0,
+                        netSalary: s.netSalary || 0
                     })) || [],
                     workingDays: {
                         sunday: data.workingDays?.sunday || false,
@@ -468,12 +472,17 @@ const AddEmployee = () => {
                 "form16", "insuranceDocument", "tdsCertificate", "profileImage"
             ];
 
+            // Fields to exclude from submission (derived, internal, or causing issues)
+            const excludeFields = ["currentSalary", "__v", "_id", "employeeId", "user", "createdAt", "updatedAt"];
+
             // Append all text fields
             Object.keys(formData).forEach(key => {
+                if (excludeFields.includes(key)) return;
+
                 if (key === "children" || key === "centres" || key === "workingDays" || key === "salaryStructure") {
                     formDataToSend.append(key, JSON.stringify(formData[key]));
-                } else if (!fileFields.includes(key) && key !== "_id" && key !== "__v" && key !== "createdAt" && key !== "updatedAt" && key !== "employeeId") {
-                    formDataToSend.append(key, formData[key]);
+                } else if (!fileFields.includes(key)) {
+                    formDataToSend.append(key, formData[key] ?? "");
                 }
             });
 
