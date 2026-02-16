@@ -30,7 +30,17 @@ export const login = async (req, res) => {
             return res.status(401).json({ message: "Student record not found" });
         }
 
-        // 3. Verify Email matches
+        // 3. Check if student or admission is deactivated
+        if (student.status === "Deactivated") {
+            return res.status(403).json({ message: "Your account has been deactivated. Please contact administration." });
+        }
+
+        const inactiveStatuses = ["INACTIVE", "CANCELLED"];
+        if (inactiveStatuses.includes(admission.admissionStatus)) {
+            return res.status(403).json({ message: "This enrollment is no longer active. Please contact administration." });
+        }
+
+        // 4. Verify Email matches
         // Check if ANY of the studentsDetails has this email
         const emailMatch = student.studentsDetails.some(
             detail => detail.studentEmail?.toLowerCase() === email.toLowerCase()
