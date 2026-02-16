@@ -6,6 +6,13 @@ import { FaSearch, FaTimes, FaSun, FaMoon, FaSync, FaFilter, FaLayerGroup } from
 import CustomMultiSelect from '../common/CustomMultiSelect';
 
 const SectionAllotmentContent = () => {
+    // EXTERNAL PORTAL CREDENTIALS
+    // PLEASE REPLACE THESE WITH ACTUAL VALUES
+    const PORTAL_CREDS = {
+        username: "YOUR_USERNAME",
+        password: "YOUR_PASSWORD"
+    };
+
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
 
@@ -14,6 +21,7 @@ const SectionAllotmentContent = () => {
     const [search, setSearch] = useState("");
     const [selectedDetail, setSelectedDetail] = useState(null); // For Modal
     const [showModal, setShowModal] = useState(false);
+    const [examSections, setExamSections] = useState([]); // Dynamic Exam Sections
 
     // Filter Lists
     const [centres, setCentres] = useState([]);
@@ -40,6 +48,7 @@ const SectionAllotmentContent = () => {
 
     useEffect(() => {
         fetchDropdowns();
+        fetchExamSections();
     }, []);
 
     useEffect(() => {
@@ -49,6 +58,37 @@ const SectionAllotmentContent = () => {
         }, 500);
         return () => clearTimeout(timer);
     }, [search, filters]);
+
+    const fetchExamSections = async () => {
+        try {
+            // 1. Get Token from external portal
+            const tokenRes = await fetch("https://pathfinder-student-portal.onrender.com/api/token/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(PORTAL_CREDS)
+            });
+
+            if (!tokenRes.ok) {
+                console.error("Failed to fetch portal token");
+                return;
+            }
+
+            const { access } = await tokenRes.json();
+
+            // 2. Fetch sections using the token
+            const response = await fetch("https://pathfinder-student-portal.onrender.com/api/sections/", {
+                headers: { "Authorization": `Bearer ${access}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setExamSections(data);
+            }
+        } catch (err) {
+            console.error("Error fetching exam sections:", err);
+            // Fallback to empty if API fails to avoid breaking UI
+        }
+    };
 
     const fetchDropdowns = async () => {
         try {
@@ -333,9 +373,17 @@ const SectionAllotmentContent = () => {
                                         className={`w-full p-3 rounded-[4px] border font-black uppercase tracking-widest text-[11px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                     >
                                         <option value="">Select Section</option>
-                                        <option value="A">Section A</option>
-                                        <option value="B">Section B</option>
-                                        <option value="C">Section C</option>
+                                        {examSections.length > 0 ? (
+                                            examSections.map((section) => (
+                                                <option key={section.id} value={section.name}>{section.name}</option>
+                                            ))
+                                        ) : (
+                                            <>
+                                                <option value="A">Section A</option>
+                                                <option value="B">Section B</option>
+                                                <option value="C">Section C</option>
+                                            </>
+                                        )}
                                     </select>
                                 </div>
                                 <div className="space-y-2">
