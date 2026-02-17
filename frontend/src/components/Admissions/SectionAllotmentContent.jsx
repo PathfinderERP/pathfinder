@@ -6,13 +6,6 @@ import { FaSearch, FaTimes, FaSun, FaMoon, FaSync, FaFilter, FaLayerGroup } from
 import CustomMultiSelect from '../common/CustomMultiSelect';
 
 const SectionAllotmentContent = () => {
-    // EXTERNAL PORTAL CREDENTIALS
-    // PLEASE REPLACE THESE WITH ACTUAL VALUES
-    const PORTAL_CREDS = {
-        username: "YOUR_USERNAME",
-        password: "YOUR_PASSWORD"
-    };
-
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
 
@@ -61,32 +54,28 @@ const SectionAllotmentContent = () => {
 
     const fetchExamSections = async () => {
         try {
-            // 1. Get Token from external portal
-            const tokenRes = await fetch("https://pathfinder-student-portal.onrender.com/api/token/", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(PORTAL_CREDS)
-            });
-
-            if (!tokenRes.ok) {
-                console.error("Failed to fetch portal token");
+            // Retrieve synchronized token from localStorage
+            const portalToken = localStorage.getItem("portalToken");
+            
+            if (!portalToken) {
+                console.warn("No portal token found. Please re-login to synchronize with the student portal.");
                 return;
             }
 
-            const { access } = await tokenRes.json();
-
-            // 2. Fetch sections using the token
+            // Fetch sections using the portal token
             const response = await fetch("https://pathfinder-student-portal.onrender.com/api/sections/", {
-                headers: { "Authorization": `Bearer ${access}` }
+                headers: { "Authorization": `Bearer ${portalToken}` }
             });
 
             if (response.ok) {
                 const data = await response.json();
                 setExamSections(data);
+            } else if (response.status === 401) {
+                console.error("Portal token expired or invalid.");
             }
         } catch (err) {
             console.error("Error fetching exam sections:", err);
-            // Fallback to empty if API fails to avoid breaking UI
+            // Fallback to static sections handled by render logic
         }
     };
 

@@ -27,9 +27,28 @@ export default async function adminTeacherLogin(req, res) {
         const profileImageUrl = employee?.profileImage ? await getSignedFileUrl(employee.profileImage) : null;
         const token = generateToken(user);
 
+        // --- Synchronized External Portal Authentication ---
+        let portalToken = null;
+        try {
+            const portalResponse = await fetch("https://pathfinder-student-portal.onrender.com/api/token/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: email, password: password })
+            });
+            if (portalResponse.ok) {
+                const portalData = await portalResponse.json();
+                portalToken = portalData.access;
+            }
+        } catch (portalError) {
+            console.error("External portal login failed:", portalError.message);
+            // We don't block the main login if the external portal is down
+        }
+        // ---------------------------------------------------
+
         res.status(200).json({
             message: "Login successfully",
             token,
+            portalToken, // Added portal token
             user: {
                 id: user._id,
                 name: user.name,

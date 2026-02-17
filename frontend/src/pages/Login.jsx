@@ -54,6 +54,9 @@ export default function Login() {
       // Save token and user info
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
+      if (data.portalToken) {
+        localStorage.setItem("portalToken", data.portalToken);
+      }
 
       // Redirect to dashboard
       setTimeout(() => {
