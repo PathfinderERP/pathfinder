@@ -28,6 +28,8 @@ const EnrolledStudentsContent = () => {
     const [filterCourse, setFilterCourse] = useState([]);
     const [filterClass, setFilterClass] = useState([]);
     const [filterSession, setFilterSession] = useState([]);
+    const [filterBoard, setFilterBoard] = useState([]);
+    const [filterExamTag, setFilterExamTag] = useState([]);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
@@ -238,7 +240,7 @@ const EnrolledStudentsContent = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession]);
+    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag]);
 
     // Filter students
     useEffect(() => {
@@ -253,27 +255,30 @@ const EnrolledStudentsContent = () => {
         }
 
         if (searchQuery) {
-            const query = searchQuery.toLowerCase();
+            const queries = searchQuery.toLowerCase().split(',').map(q => q.trim()).filter(Boolean);
             result = result.filter(item => {
                 const student = item.student?.studentsDetails?.[0] || {};
-                const studentName = student.studentName || "";
+                const studentName = (student.studentName || "").toLowerCase();
                 const mobile = student.mobileNum || "";
-                const email = student.studentEmail || "";
+                const email = (student.studentEmail || "").toLowerCase();
 
-                // Check if any admission matches
-                const admissionMatch = item.admissions.some(admission => {
-                    const admissionNumber = admission.admissionNumber || "";
-                    const courseName = admission.course?.courseName || "";
-                    const centre = admission.centre || student.centre || "";
-                    return admissionNumber.toLowerCase().includes(query) ||
-                        courseName.toLowerCase().includes(query) ||
-                        centre.toLowerCase().includes(query);
+                // Check if any of the comma-separated terms match
+                return queries.some(query => {
+                    // Check if any admission matches this specific term
+                    const admissionMatch = item.admissions.some(admission => {
+                        const admissionNumber = (admission.admissionNumber || "").toLowerCase();
+                        const courseName = (admission.course?.courseName || admission.boardCourseName || "").toLowerCase();
+                        const centre = (admission.centre || student.centre || "").toLowerCase();
+                        return admissionNumber.includes(query) ||
+                            courseName.includes(query) ||
+                            centre.includes(query);
+                    });
+
+                    return studentName.includes(query) ||
+                        mobile.includes(query) ||
+                        email.includes(query) ||
+                        admissionMatch;
                 });
-
-                return studentName.toLowerCase().includes(query) ||
-                    mobile.includes(query) ||
-                    email.toLowerCase().includes(query) ||
-                    admissionMatch;
             });
         }
 
@@ -329,6 +334,22 @@ const EnrolledStudentsContent = () => {
             );
         }
 
+        if (filterBoard.length > 0) {
+            result = result.filter(item => {
+                const board = item.student?.studentsDetails?.[0]?.board || "";
+                return filterBoard.includes(board);
+            });
+        }
+
+        if (filterExamTag.length > 0) {
+            result = result.filter(item =>
+                item.admissions.some(admission => {
+                    const tag = admission.examTag?.name || "";
+                    return filterExamTag.includes(tag);
+                })
+            );
+        }
+
         if (startDate) {
             result = result.filter(item =>
                 item.admissions.some(admission => {
@@ -361,7 +382,7 @@ const EnrolledStudentsContent = () => {
         });
 
         setFilteredStudents(result);
-    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, startDate, endDate, students, viewMode, allowedCentres, isSuperAdmin]);
+    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, startDate, endDate, students, viewMode, allowedCentres, isSuperAdmin]);
 
     const filteredAdmissions = filteredStudents.flatMap(s =>
         s.admissions.filter(a => {
@@ -387,6 +408,8 @@ const EnrolledStudentsContent = () => {
         setFilterCourse([]);
         setFilterClass([]);
         setFilterSession([]);
+        setFilterBoard([]);
+        setFilterExamTag([]);
         setStartDate("");
         setEndDate("");
         setCurrentPage(1);
@@ -396,6 +419,8 @@ const EnrolledStudentsContent = () => {
     };
 
     const uniqueCentres = allowedCentres;
+    const uniqueBoards = [...new Set(students.map(item => item.student?.studentsDetails?.[0]?.board).filter(Boolean))];
+    const uniqueExamTags = [...new Set(students.flatMap(item => item.admissions.map(a => a.examTag?.name)).filter(Boolean))];
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -875,8 +900,8 @@ const EnrolledStudentsContent = () => {
                         <div className="flex-1 min-w-[150px]">
                             <MultiSelectFilter
                                 label="Centre"
-                                placeholder="ALL CENTRES"
-                                options={uniqueCentres.map(c => ({ value: c, label: c.toUpperCase() }))}
+                                placeholder="All Centres"
+                                options={Array.from(new Set(uniqueCentres)).filter(Boolean).map(c => ({ value: c, label: c.toUpperCase() }))}
                                 selectedValues={filterCentre}
                                 onChange={setFilterCentre}
                                 theme={isDarkMode ? 'dark' : 'light'}
@@ -885,9 +910,31 @@ const EnrolledStudentsContent = () => {
 
                         <div className="flex-1 min-w-[150px]">
                             <MultiSelectFilter
+                                label="Board"
+                                placeholder="All Boards"
+                                options={Array.from(new Set(uniqueBoards)).filter(Boolean).map(b => ({ value: b, label: b.toUpperCase() }))}
+                                selectedValues={filterBoard}
+                                onChange={setFilterBoard}
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+
+                        <div className="flex-1 min-w-[150px]">
+                            <MultiSelectFilter
+                                label="Exam Tag"
+                                placeholder="All Tags"
+                                options={Array.from(new Set(uniqueExamTags)).filter(Boolean).map(t => ({ value: t, label: t.toUpperCase() }))}
+                                selectedValues={filterExamTag}
+                                onChange={setFilterExamTag}
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+
+                        <div className="flex-1 min-w-[150px]">
+                            <MultiSelectFilter
                                 label="Dept"
-                                placeholder="ALL DEPARTMENTS"
-                                options={masterDepartments.map(d => ({ value: d.departmentName, label: d.departmentName.toUpperCase() }))}
+                                placeholder="All Depts"
+                                options={Array.from(new Set(masterDepartments.map(d => d.departmentName))).filter(Boolean).map(name => ({ value: name, label: name.toUpperCase() }))}
                                 selectedValues={filterDepartment}
                                 onChange={setFilterDepartment}
                                 theme={isDarkMode ? 'dark' : 'light'}
@@ -898,7 +945,7 @@ const EnrolledStudentsContent = () => {
                             <MultiSelectFilter
                                 label="Course"
                                 placeholder="ALL COURSES"
-                                options={masterCourses.map(c => ({ value: c.courseName, label: c.courseName.toUpperCase() }))}
+                                options={Array.from(new Set(masterCourses.map(c => c.courseName))).filter(Boolean).map(name => ({ value: name, label: name.toUpperCase() }))}
                                 selectedValues={filterCourse}
                                 onChange={setFilterCourse}
                                 theme={isDarkMode ? 'dark' : 'light'}
@@ -909,7 +956,7 @@ const EnrolledStudentsContent = () => {
                             <MultiSelectFilter
                                 label="Class"
                                 placeholder="ALL CLASSES"
-                                options={masterClasses.map(c => ({ value: c.className || c.name, label: (c.className || c.name).toUpperCase() }))}
+                                options={Array.from(new Set(masterClasses.map(c => c.className || c.name))).filter(Boolean).map(name => ({ value: name, label: name.toUpperCase() }))}
                                 selectedValues={filterClass}
                                 onChange={setFilterClass}
                                 theme={isDarkMode ? 'dark' : 'light'}
@@ -920,7 +967,7 @@ const EnrolledStudentsContent = () => {
                             <MultiSelectFilter
                                 label="Session"
                                 placeholder="ALL SESSIONS"
-                                options={masterSessions.map(s => ({ value: s.sessionName || s.name, label: (s.sessionName || s.name).toUpperCase() }))}
+                                options={Array.from(new Set(masterSessions.map(s => s.sessionName || s.name))).filter(Boolean).map(name => ({ value: name, label: name.toUpperCase() }))}
                                 selectedValues={filterSession}
                                 onChange={setFilterSession}
                                 theme={isDarkMode ? 'dark' : 'light'}

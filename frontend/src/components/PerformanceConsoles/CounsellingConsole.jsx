@@ -1,6 +1,6 @@
 import React from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid, Legend, PieChart, Pie, Cell, LabelList } from 'recharts';
-import { FaPhoneAlt, FaUserCheck, FaPercentage, FaChartLine, FaChartPie, FaChartBar, FaFileExcel, FaUserTie, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
+import { FaUsers, FaPhoneAlt, FaUserCheck, FaPercentage, FaChartLine, FaChartPie, FaChartBar, FaFileExcel, FaUserTie, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
 import * as XLSX from 'xlsx';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
@@ -46,6 +46,21 @@ const CounsellingConsole = ({ mainTheme = 'light', performanceData = [], monthly
             counselled: curr.counselledCount || 0
         }));
 
+    // Center-wise counsellor distribution
+    const centerWiseCounsellors = (() => {
+        const counts = {};
+        performanceData.forEach(p => {
+            const list = p.centres || p.centers || [];
+            list.forEach(c => {
+                const name = c.centreName || c;
+                counts[name] = (counts[name] || 0) + 1;
+            });
+        });
+        return Object.entries(counts)
+            .map(([name, count], idx) => ({ name, count, id: name + idx })) // Added id for unique key
+            .sort((a, b) => b.count - a.count);
+    })();
+
     const exportToExcel = () => {
         const exportData = performanceData.map(p => {
             const row = {
@@ -86,7 +101,20 @@ const CounsellingConsole = ({ mainTheme = 'light', performanceData = [], monthly
     return (
         <div className="space-y-6 animate-fadeIn pb-20">
             {/* Target Overview Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} relative overflow-hidden group`}>
+                    <div className="relative z-10">
+                        <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest">Total Counsellors</p>
+                        <div className="flex items-end gap-2 mt-2">
+                            <h3 className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{performanceData.length}</h3>
+                            <FaUsers className="text-orange-500 mb-1" size={12} />
+                        </div>
+                        <p className="text-[8px] text-orange-500 font-black mt-2 uppercase tracking-tighter">Active Squad Size</p>
+                    </div>
+                    <div className="absolute -right-2 -bottom-2 text-orange-500/10 rotate-12 group-hover:rotate-0 transition-transform duration-500">
+                        <FaUsers size={64} />
+                    </div>
+                </div>
                 <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} relative overflow-hidden group`}>
                     <div className="relative z-10">
                         <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest">Daily Call Target</p>
@@ -137,6 +165,49 @@ const CounsellingConsole = ({ mainTheme = 'light', performanceData = [], monthly
                         <p className="text-[8px] text-purple-500 font-black mt-2 uppercase tracking-tighter">Call to Enrollment Efficiency</p>
                     </div>
                     <FaPercentage className="absolute -right-2 -bottom-2 text-purple-500/10" size={60} />
+                </div>
+            </div>
+
+            {/* Center-wise Distribution Row */}
+            <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-orange-500/10 rounded">
+                        <FaChartPie className="text-orange-500" />
+                    </div>
+                    <div>
+                        <h4 className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Center-wise Agent Distribution</h4>
+                        <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest mt-0.5">Counsellor headcount per operational region</p>
+                    </div>
+                </div>
+                <div className="h-[120px] overflow-y-auto custom-scrollbar">
+                    <ResponsiveContainer width="100%" height={Math.max(100, centerWiseCounsellors.length * 30)}>
+                        <BarChart layout="vertical" data={centerWiseCounsellors} margin={{ top: 0, right: 30, left: 60, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={isDarkMode ? '#333' : '#eee'} />
+                            <XAxis type="number" hide />
+                            <YAxis
+                                dataKey="name"
+                                type="category"
+                                stroke={isDarkMode ? '#666' : '#999'}
+                                fontSize={8}
+                                fontWeight="black"
+                                width={120}
+                                tickFormatter={(val) => val.toUpperCase()}
+                            />
+                            <Tooltip
+                                cursor={{ fill: isDarkMode ? '#ffffff05' : '#00000005' }}
+                                contentStyle={{
+                                    backgroundColor: isDarkMode ? '#1f2937' : '#fff',
+                                    borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                                    borderRadius: '2px',
+                                    fontSize: '9px',
+                                    fontWeight: '900'
+                                }}
+                            />
+                            <Bar dataKey="count" name="Counsellors" fill="#f97316" radius={[0, 2, 2, 0]} barSize={12}>
+                                <LabelList dataKey="count" position="right" style={{ fill: '#f97316', fontSize: 9, fontWeight: 900 }} />
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
                 </div>
             </div>
 

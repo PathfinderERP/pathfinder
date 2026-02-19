@@ -55,7 +55,9 @@ const MultiSelectFilter = ({ options, selectedValues, onChange, placeholder, lab
                     <span className="truncate">
                         {selectedValues.length === 0
                             ? placeholder
-                            : `${selectedValues.length} selected`}
+                            : selectedValues.length <= 2
+                                ? selectedValues.join(', ')
+                                : `${selectedValues.length} selected`}
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -82,6 +84,33 @@ const MultiSelectFilter = ({ options, selectedValues, onChange, placeholder, lab
                             onClick={(e) => e.stopPropagation()}
                             className={`w-full px-3 py-1.5 rounded border text-sm focus:outline-none focus:border-cyan-500 ${isDark ? 'bg-[#1a1f24] text-white border-gray-700' : 'bg-white text-gray-900 border-gray-200'}`}
                         />
+                        <div className="flex items-center justify-between mt-2 px-1">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const allVisibleValues = filteredOptions.map(o => o.value);
+                                    const newValues = Array.from(new Set([...selectedValues, ...allVisibleValues]));
+                                    onChange(newValues);
+                                }}
+                                className="text-[10px] font-bold uppercase tracking-wider text-cyan-500 hover:text-cyan-400"
+                            >
+                                Select All
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (searchTerm) {
+                                        const visibleValues = filteredOptions.map(o => o.value);
+                                        onChange(selectedValues.filter(v => !visibleValues.includes(v)));
+                                    } else {
+                                        onChange([]);
+                                    }
+                                }}
+                                className="text-[10px] font-bold uppercase tracking-wider text-red-500 hover:text-red-400"
+                            >
+                                {searchTerm ? 'Clear Results' : 'Clear All'}
+                            </button>
+                        </div>
                     </div>
                     <div className="overflow-y-auto flex-1">
                         {filteredOptions.length > 0 ? (

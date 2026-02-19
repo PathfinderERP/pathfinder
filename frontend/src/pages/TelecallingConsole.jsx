@@ -718,7 +718,9 @@ const TelecallingConsole = () => {
             });
             if (response.ok) {
                 const data = await response.json();
-                setAvailableCenters(data || []);
+                // Ensure unique centres by ID to prevent duplicate key errors
+                const uniqueCentres = Array.from(new Map((data || []).map(c => [c._id, c])).values());
+                setAvailableCenters(uniqueCentres);
             }
         } catch (error) {
             console.error("Error fetching centres:", error);
@@ -1444,9 +1446,9 @@ const TelecallingConsole = () => {
                                             >
                                                 ALL REGIONS
                                             </button>
-                                            {availableCenters.map(center => (
+                                            {availableCenters.map((center, idx) => (
                                                 <button
-                                                    key={center._id}
+                                                    key={`center-${center._id || idx}`}
                                                     onClick={() => {
                                                         setSelectedCenters(prev =>
                                                             prev.includes(center.centreName)
@@ -1563,9 +1565,9 @@ const TelecallingConsole = () => {
                                                 const matchesCenter = selectedCenters.length === 0 || selectedCenters.some(sc => telecallerCentres.includes(sc));
                                                 return matchesRole && matchesSearch && matchesCenter;
                                             })
-                                            .map(caller => (
+                                            .map((caller, idx) => (
                                                 <div
-                                                    key={caller._id}
+                                                    key={caller._id || `caller-${idx}`}
                                                     onClick={() => handleTelecallerClick(caller)}
                                                     className={`p-6 rounded-[8px] border transition-all cursor-pointer group flex flex-col relative overflow-hidden ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 hover:border-cyan-500/50 hover:bg-[#1e242a] shadow-xl hover:shadow-cyan-500/5' : 'bg-white border-gray-200 hover:border-cyan-500/50 hover:bg-gray-50 shadow-sm'}`}
                                                 >

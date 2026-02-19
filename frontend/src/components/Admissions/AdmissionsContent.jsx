@@ -171,15 +171,16 @@ const AdmissionsContent = () => {
         const board = details.board || "";
         const examTag = sessionExam.examTag || exam.examName || details.programme || "";
 
-        const query = searchQuery.toLowerCase();
-        const matchesSearch =
+        const queries = searchQuery.toLowerCase().split(',').map(q => q.trim()).filter(Boolean);
+        const matchesSearch = queries.length === 0 || queries.some(query =>
             studentName.toLowerCase().includes(query) ||
             mobile.includes(query) ||
             email.toLowerCase().includes(query) ||
             centre.toLowerCase().includes(query) ||
             school.toLowerCase().includes(query) ||
             board.toLowerCase().includes(query) ||
-            examTag.toLowerCase().includes(query);
+            examTag.toLowerCase().includes(query)
+        );
 
         const matchesCentre = filterCentre.length === 0 || filterCentre.includes(centre);
         const matchesBoard = filterBoard.length === 0 || filterBoard.includes(board);
@@ -673,7 +674,7 @@ const AdmissionsContent = () => {
                     <MultiSelectFilter
                         label="Centre"
                         placeholder="All Centres"
-                        options={uniqueCentres.map(c => ({ value: c, label: c }))}
+                        options={Array.from(new Set(uniqueCentres)).filter(Boolean).map(c => ({ value: c, label: c.toUpperCase() }))}
                         selectedValues={filterCentre}
                         onChange={setFilterCentre}
                         theme={isDarkMode ? 'dark' : 'light'}
@@ -682,7 +683,7 @@ const AdmissionsContent = () => {
                     <MultiSelectFilter
                         label="Board"
                         placeholder="All Boards"
-                        options={uniqueBoards.map(b => ({ value: b, label: b }))}
+                        options={Array.from(new Set(uniqueBoards)).filter(Boolean).map(b => ({ value: b, label: b.toUpperCase() }))}
                         selectedValues={filterBoard}
                         onChange={setFilterBoard}
                         theme={isDarkMode ? 'dark' : 'light'}
@@ -691,7 +692,7 @@ const AdmissionsContent = () => {
                     <MultiSelectFilter
                         label="Exam Tag"
                         placeholder="All Tags"
-                        options={uniqueExamTags.map(t => ({ value: t, label: t }))}
+                        options={Array.from(new Set(uniqueExamTags)).filter(Boolean).map(t => ({ value: t, label: t.toUpperCase() }))}
                         selectedValues={filterExamTag}
                         onChange={setFilterExamTag}
                         theme={isDarkMode ? 'dark' : 'light'}
@@ -700,7 +701,7 @@ const AdmissionsContent = () => {
                     <MultiSelectFilter
                         label="Dept"
                         placeholder="All Depts"
-                        options={departments.map(d => ({ value: d.departmentName, label: d.departmentName }))}
+                        options={Array.from(new Set(departments.map(d => d.departmentName))).filter(Boolean).map(name => ({ value: name, label: name.toUpperCase() }))}
                         selectedValues={filterDepartment}
                         onChange={setFilterDepartment}
                         theme={isDarkMode ? 'dark' : 'light'}
