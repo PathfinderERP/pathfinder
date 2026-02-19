@@ -430,19 +430,55 @@ const TelecallingConsole = () => {
             return;
         }
 
-        const exportData = allPerformance.map(item => ({
-            'Telecaller Name': item.name,
-            'Current Period Calls': item.currentCalls,
-            'Previous Period Calls': item.previousCalls,
-            'Centers': item.centerCount || 0,
-            'Time Period': timePeriod.charAt(0).toUpperCase() + timePeriod.slice(1)
-        }));
+        // Apply same filters as the UI view for squad export
+        const filteredData = allPerformance.filter(u => {
+            const matchesRole = u.role === 'telecaller' || u.role === 'centralizedTelecaller';
+            const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
+            const uCentres = u.centres || u.centers || [];
+            const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
+            return matchesRole && matchesSearch && matchesCenter;
+        });
+
+        if (filteredData.length === 0) {
+            alert('No telecallers match the current filters');
+            return;
+        }
+
+        const exportData = filteredData.map(item => {
+            const row = {
+                'Telecaller Name': item.name,
+                'Role': item.role,
+                'Centers': (item.centres || item.centers || []).map(c => c.centreName || c).join(', ') || 'N/A',
+            };
+
+            if (timePeriod === 'daily') {
+                row['Today Calls'] = item.todayCalls || 0;
+                row['Yesterday Calls'] = item.yesterdayCalls || 0;
+            } else if (timePeriod === 'weekly') {
+                row['This Week Calls'] = item.currentCalls || 0;
+                row['Last Week Calls'] = item.previousCalls || 0;
+            } else if (timePeriod === 'monthly') {
+                row['This Month Calls'] = item.thisMonthCalls || 0;
+                row['Last Month Calls'] = item.lastMonthCalls || 0;
+            } else {
+                row['Current Period Calls'] = item.currentCalls;
+                row['Previous Period Calls'] = item.previousCalls;
+            }
+
+            row['Admissions'] = item.admissions || 0;
+            row['Counselled'] = item.counselledCount || 0;
+            row['Hot interest'] = item.hotLeads || 0;
+            row['Conversion %'] = item.currentCalls > 0 ? ((item.admissions / item.currentCalls) * 100).toFixed(2) + '%' : '0%';
+            row['Report Type'] = timePeriod.toUpperCase();
+
+            return row;
+        });
 
         const worksheet = XLSX.utils.json_to_sheet(exportData);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Performance');
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Squad Performance');
 
-        const fileName = `Telecalling_Performance_${timePeriod}_${new Date().toISOString().split('T')[0]}.xlsx`;
+        const fileName = `Telecalling_Squad_Report_${timePeriod}_${new Date().toISOString().split('T')[0]}.xlsx`;
         XLSX.writeFile(workbook, fileName);
     };
 
@@ -1486,11 +1522,13 @@ const TelecallingConsole = () => {
                                     ) : activeConsole === 'counselling' ? (
                                         <CounsellingConsole
                                             mainTheme={theme}
+                                            timePeriod={timePeriod}
                                             performanceData={allPerformance.filter(u => {
                                                 const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
                                                 const uCentres = u.centres || u.centers || [];
                                                 const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
-                                                return u.role === 'counsellor' && matchesSearch && matchesCenter;
+                                                const matchesRole = ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing'].includes(u.role);
+                                                return matchesRole && matchesSearch && matchesCenter;
                                             })}
                                             monthlyTrends={globalTrends}
                                             admissionDetail={globalAdmissionDetail}

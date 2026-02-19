@@ -1,246 +1,372 @@
 import React from 'react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid, Legend, PieChart, Pie, Cell } from 'recharts';
-import { FaPhoneAlt, FaUserCheck, FaPercentage, FaChartLine, FaChartPie, FaChartBar, FaFileExcel } from 'react-icons/fa';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid, Legend, PieChart, Pie, Cell, LabelList } from 'recharts';
+import { FaPhoneAlt, FaUserCheck, FaPercentage, FaChartLine, FaChartPie, FaChartBar, FaFileExcel, FaUserTie, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
 import * as XLSX from 'xlsx';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
-const CounsellingConsole = ({ mainTheme = 'light', performanceData = [], monthlyTrends = [], admissionDetail = { bySource: [], byCenter: [] } }) => {
+const CounsellingConsole = ({ mainTheme = 'light', performanceData = [], monthlyTrends = [], admissionDetail = { bySource: [], byCenter: [] }, timePeriod = 'daily' }) => {
     const isDarkMode = mainTheme === 'dark';
 
     // Aggregate summary from performanceData
     const totalCalls = performanceData.reduce((acc, curr) => acc + (curr.currentCalls || 0), 0);
-    const totalAdmissions = performanceData.reduce((acc, curr) => acc + (curr.hotLeads || 0), 0);
+    const totalAdmissions = performanceData.reduce((acc, curr) => acc + (curr.admissions || 0), 0);
+    const totalCounselled = performanceData.reduce((acc, curr) => acc + (curr.counselledCount || 0), 0);
+
+    // Target Calculations
+    const targetCallsPerDay = 30 * (performanceData.length || 1);
+    const targetAdmissionsPerWeek = 5 * (performanceData.length || 1);
+
     const avgConversion = totalCalls > 0
         ? ((totalAdmissions / totalCalls) * 100).toFixed(1)
         : "0.0";
 
-    // Format for chart
+    // Format for comparative bar chart (Today vs Yesterday)
+    const dailyComparisonData = performanceData
+        .map(curr => ({
+            name: curr.name.split(' ')[0],
+            today: curr.todayCalls || 0,
+            yesterday: curr.yesterdayCalls || 0
+        }));
+
+    // Format for comparative bar chart (This Month vs Last Month)
+    const monthlyComparisonData = performanceData
+        .map(curr => ({
+            name: curr.name.split(' ')[0],
+            thisMonth: curr.thisMonthCalls || 0,
+            lastMonth: curr.lastMonthCalls || 0
+        }));
+
+    // Format for Counsellor Performance (Calls vs Admissions vs Counselled)
     const chartData = performanceData
-        .slice(0, 5) // Show top 5 for the bar chart
         .map(curr => ({
             name: curr.name.split(' ')[0],
             calls: curr.currentCalls || 0,
-            admissions: curr.hotLeads || 0
+            admissions: curr.admissions || 0,
+            counselled: curr.counselledCount || 0
         }));
 
-    // Use monthlyTrends from prop if available
-    const chartTrends = monthlyTrends.length > 0 ? monthlyTrends : [
-        { month: 'Jan', calls: 0, admissions: 0 },
-        { month: 'Feb', calls: 0, admissions: 0 },
-        { month: 'Mar', calls: 0, admissions: 0 },
-        { month: 'Apr', calls: 0, admissions: 0 },
-        { month: 'May', calls: Number(totalCalls) || 0, admissions: Number(totalAdmissions) || 0 },
-    ];
-
     const exportToExcel = () => {
-        const exportData = [
-            ...admissionDetail.bySource.map(s => ({ Type: 'Source', Name: s.name, Count: s.value })),
-            ...admissionDetail.byCenter.map(c => ({ Type: 'Center', Name: c.name, Count: c.value }))
-        ];
+        const exportData = performanceData.map(p => {
+            const row = {
+                'Counsellor Name': p.name,
+                'Role': p.role,
+                'Centers': (p.centres || p.centers || []).map(c => c.centreName || c).join(', ') || 'N/A',
+            };
+
+            if (timePeriod === 'daily') {
+                row['Today Calls'] = p.todayCalls || 0;
+                row['Yesterday Calls'] = p.yesterdayCalls || 0;
+            } else if (timePeriod === 'weekly') {
+                row['This Week Calls'] = p.currentCalls || 0;
+                row['Last Week Calls'] = p.previousCalls || 0;
+            } else if (timePeriod === 'monthly') {
+                row['This Month Calls'] = p.thisMonthCalls || 0;
+                row['Last Month Calls'] = p.lastMonthCalls || 0;
+            } else {
+                row['Current Period Calls'] = p.currentCalls || 0;
+                row['Previous Period Calls'] = p.previousCalls || 0;
+            }
+
+            row['Counselled'] = p.counselledCount || 0;
+            row['Admissions'] = p.admissions || 0;
+            row['Conversion %'] = p.currentCalls > 0 ? ((p.admissions / p.currentCalls) * 100).toFixed(2) + '%' : '0%';
+            row['Report Type'] = timePeriod.toUpperCase();
+
+            return row;
+        });
+
         if (exportData.length === 0) return alert("No data to export");
         const worksheet = XLSX.utils.json_to_sheet(exportData);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Admissions Report");
-        XLSX.writeFile(workbook, `Counselling_Admission_Report_${new Date().toLocaleDateString()}.xlsx`);
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Counselling Performance");
+        XLSX.writeFile(workbook, `Counselling_Detailed_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 
     return (
-        <div className="space-y-6 animate-fadeIn">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Key Metrics */}
-                <div className={`p-6 rounded-[4px] border flex items-center justify-between ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
-                    <div>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Total Students Called</p>
-                        <h3 className={`text-3xl font-black mt-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{totalCalls.toLocaleString()}</h3>
+        <div className="space-y-6 animate-fadeIn pb-20">
+            {/* Target Overview Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} relative overflow-hidden group`}>
+                    <div className="relative z-10">
+                        <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest">Daily Call Target</p>
+                        <div className="flex items-end gap-2 mt-2">
+                            <h3 className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{totalCalls}</h3>
+                            <span className="text-[10px] text-gray-500 font-bold mb-1">/ {targetCallsPerDay}</span>
+                        </div>
+                        <div className="w-full h-1 bg-gray-800 rounded-full mt-3 overflow-hidden">
+                            <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${Math.min(100, (totalCalls / targetCallsPerDay) * 100)}%` }}></div>
+                        </div>
                     </div>
-                    <div className="p-4 rounded-full bg-blue-500/10 text-blue-500">
-                        <FaPhoneAlt size={24} />
+                    <FaPhoneAlt className="absolute -right-2 -bottom-2 text-blue-500/10" size={60} />
+                </div>
+
+                <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} relative overflow-hidden group`}>
+                    <div className="relative z-10">
+                        <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest">Weekly Admission Target</p>
+                        <div className="flex items-end gap-2 mt-2">
+                            <h3 className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{totalAdmissions}</h3>
+                            <span className="text-[10px] text-gray-500 font-bold mb-1">/ {targetAdmissionsPerWeek}</span>
+                        </div>
+                        <div className="w-full h-1 bg-gray-800 rounded-full mt-3 overflow-hidden">
+                            <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${Math.min(100, (totalAdmissions / targetAdmissionsPerWeek) * 100)}%` }}></div>
+                        </div>
+                    </div>
+                    <FaUserCheck className="absolute -right-2 -bottom-2 text-emerald-500/10" size={60} />
+                </div>
+
+                <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} relative overflow-hidden group`}>
+                    <div className="relative z-10">
+                        <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest">Students Counselled</p>
+                        <div className="flex items-end gap-2 mt-2">
+                            <h3 className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{totalCounselled}</h3>
+                            <FaCheckCircle className="text-cyan-500 mb-1" size={12} />
+                        </div>
+                        <p className="text-[8px] text-cyan-500 font-black mt-2 uppercase tracking-tighter">Active Engagement Focus</p>
+                    </div>
+                    <FaUserTie className="absolute -right-2 -bottom-2 text-cyan-500/10" size={60} />
+                </div>
+
+                <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} relative overflow-hidden group`}>
+                    <div className="relative z-10">
+                        <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest">Average Conversion</p>
+                        <div className="flex items-end gap-1 mt-2">
+                            <h3 className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{avgConversion}</h3>
+                            <span className="text-lg font-black text-purple-500">%</span>
+                        </div>
+                        <p className="text-[8px] text-purple-500 font-black mt-2 uppercase tracking-tighter">Call to Enrollment Efficiency</p>
+                    </div>
+                    <FaPercentage className="absolute -right-2 -bottom-2 text-purple-500/10" size={60} />
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                {/* Individual Comparative Bar Chart - Today vs Yesterday */}
+                <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
+                    <div className="flex items-center justify-between mb-6">
+                        <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Daily Call Comparison</h4>
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-full bg-cyan-500"></span>
+                                <span className="text-[8px] font-black text-gray-500 uppercase">Today</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-full bg-gray-600"></span>
+                                <span className="text-[8px] font-black text-gray-500 uppercase">Yesterday</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="h-[350px] overflow-x-auto overflow-y-hidden custom-scrollbar">
+                        <div style={{ minWidth: `${Math.max(100, dailyComparisonData.length * 60)}px`, height: '100%' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={dailyComparisonData} margin={{ top: 20, right: 10, left: 10, bottom: 40 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#333' : '#eee'} />
+                                    <XAxis dataKey="name" interval={0} angle={-45} textAnchor="end" height={60} tick={{ fill: isDarkMode ? '#666' : '#999', fontSize: 9, fontWeight: 900 }} />
+                                    <YAxis tick={{ fill: isDarkMode ? '#666' : '#999', fontSize: 10, fontWeight: 900 }} />
+                                    <Tooltip
+                                        cursor={{ fill: isDarkMode ? '#ffffff05' : '#00000005' }}
+                                        contentStyle={{
+                                            backgroundColor: isDarkMode ? '#1f2937' : '#fff',
+                                            borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                                            borderRadius: '2px',
+                                            fontSize: '11px',
+                                            fontWeight: '900'
+                                        }}
+                                    />
+                                    <Bar dataKey="today" name="Calls Today" fill="#06b6d4" radius={[2, 2, 0, 0]} barSize={15}>
+                                        <LabelList dataKey="today" position="top" style={{ fill: isDarkMode ? '#06b6d4' : '#0e7490', fontSize: 9, fontWeight: 900 }} />
+                                    </Bar>
+                                    <Bar dataKey="yesterday" name="Calls Yesterday" fill="#4b5563" radius={[2, 2, 0, 0]} barSize={15}>
+                                        <LabelList dataKey="yesterday" position="top" style={{ fill: '#666', fontSize: 9, fontWeight: 900 }} />
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
                 </div>
 
-                <div className={`p-6 rounded-[4px] border flex items-center justify-between ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
-                    <div>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Admissions Taken</p>
-                        <h3 className={`text-3xl font-black mt-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{totalAdmissions.toLocaleString()}</h3>
+                {/* Individual Comparative Bar Chart - This Month vs Last Month */}
+                <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
+                    <div className="flex items-center justify-between mb-6">
+                        <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Monthly Call Comparison</h4>
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                <span className="text-[8px] font-black text-gray-500 uppercase">This Month</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-full bg-emerald-900"></span>
+                                <span className="text-[8px] font-black text-gray-500 uppercase">Last Month</span>
+                            </div>
+                        </div>
                     </div>
-                    <div className="p-4 rounded-full bg-green-500/10 text-green-500">
-                        <FaUserCheck size={24} />
-                    </div>
-                </div>
-
-                <div className={`p-6 rounded-[4px] border flex items-center justify-between ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
-                    <div>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Conversion Rate</p>
-                        <h3 className={`text-3xl font-black mt-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{avgConversion}%</h3>
-                    </div>
-                    <div className="p-4 rounded-full bg-purple-500/10 text-purple-500">
-                        <FaPercentage size={24} />
+                    <div className="h-[350px] overflow-x-auto overflow-y-hidden custom-scrollbar">
+                        <div style={{ minWidth: `${Math.max(100, monthlyComparisonData.length * 60)}px`, height: '100%' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={monthlyComparisonData} margin={{ top: 20, right: 10, left: 10, bottom: 40 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#333' : '#eee'} />
+                                    <XAxis dataKey="name" interval={0} angle={-45} textAnchor="end" height={60} tick={{ fill: isDarkMode ? '#666' : '#999', fontSize: 9, fontWeight: 900 }} />
+                                    <YAxis tick={{ fill: isDarkMode ? '#666' : '#999', fontSize: 10, fontWeight: 900 }} />
+                                    <Tooltip
+                                        cursor={{ fill: isDarkMode ? '#ffffff05' : '#00000005' }}
+                                        contentStyle={{
+                                            backgroundColor: isDarkMode ? '#1f2937' : '#fff',
+                                            borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                                            borderRadius: '2px',
+                                            fontSize: '11px',
+                                            fontWeight: '900'
+                                        }}
+                                    />
+                                    <Bar dataKey="thisMonth" name="This Month" fill="#10b981" radius={[2, 2, 0, 0]} barSize={15}>
+                                        <LabelList dataKey="thisMonth" position="top" style={{ fill: '#10b981', fontSize: 9, fontWeight: 900 }} />
+                                    </Bar>
+                                    <Bar dataKey="lastMonth" name="Last Month" fill="#064e3b" radius={[2, 2, 0, 0]} barSize={15}>
+                                        <LabelList dataKey="lastMonth" position="top" style={{ fill: '#064e3b', fontSize: 9, fontWeight: 900 }} />
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Counsellor Performance Chart */}
-                <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
-                    <h4 className={`text-sm font-black uppercase tracking-widest mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Counsellor Performance</h4>
-                    <div className="h-[300px]">
+            {/* Performance Mix Chart - Moved out of grid for full width */}
+            <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'} mb-6`}>
+                <h4 className={`text-sm font-black uppercase tracking-widest mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Performance Distribution</h4>
+                <div className="h-[400px] overflow-x-auto overflow-y-hidden custom-scrollbar">
+                    <div style={{ minWidth: `${Math.max(100, chartData.length * 80)}px`, height: '100%' }}>
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={isDarkMode ? '#333' : '#eee'} />
-                                <XAxis type="number" tick={{ fill: isDarkMode ? '#666' : '#999', fontSize: 10, fontWeight: 'bold' }} />
-                                <YAxis dataKey="name" type="category" width={80} tick={{ fill: isDarkMode ? '#666' : '#999', fontSize: 10, fontWeight: 'bold' }} />
-                                <Tooltip
-                                    cursor={{ fill: isDarkMode ? '#374151' : '#f3f4f6', opacity: 0.2 }}
-                                    contentStyle={{
-                                        backgroundColor: isDarkMode ? '#1f2937' : '#fff',
-                                        borderColor: isDarkMode ? '#374151' : '#e5e7eb',
-                                        borderRadius: '4px',
-                                        fontSize: '12px',
-                                        fontWeight: 'bold'
-                                    }}
-                                />
-                                <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
-                                <Bar dataKey="calls" name="Calls Made" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={10} />
-                                <Bar dataKey="admissions" name="Admissions Taken" fill="#10b981" radius={[0, 4, 4, 0]} barSize={10} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                {/* Monthly Trends Chart */}
-                <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
-                    <h4 className={`text-sm font-black uppercase tracking-widest mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Monthly Admission Trends</h4>
-                    <div className="h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={chartTrends}>
+                            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
                                 <defs>
-                                    <linearGradient id="colorAdmissions" x1="0" y1="0" x2="0" y2="1">
+                                    <linearGradient id="colorCallsCounselling" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                    </linearGradient>
+                                    <linearGradient id="colorAdmsCounselling" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
                                         <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="1 1" stroke={isDarkMode ? '#333' : '#eee'} />
-                                <XAxis dataKey="month" tick={{ fill: isDarkMode ? '#666' : '#999', fontSize: 10, fontWeight: 'bold' }} />
-                                <YAxis tick={{ fill: isDarkMode ? '#666' : '#999', fontSize: 10, fontWeight: 'bold' }} />
+                                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#333' : '#eee'} vertical={false} />
+                                <XAxis dataKey="name" interval={0} angle={-45} textAnchor="end" height={60} tick={{ fill: isDarkMode ? '#666' : '#999', fontSize: 9, fontWeight: 900 }} />
+                                <YAxis tick={{ fill: isDarkMode ? '#666' : '#999', fontSize: 10, fontWeight: 900 }} />
                                 <Tooltip
                                     contentStyle={{
                                         backgroundColor: isDarkMode ? '#1f2937' : '#fff',
                                         borderColor: isDarkMode ? '#374151' : '#e5e7eb',
-                                        borderRadius: '4px',
-                                        fontSize: '12px',
-                                        fontWeight: 'bold'
+                                        borderRadius: '2px',
+                                        fontSize: '11px',
+                                        fontWeight: '900'
                                     }}
                                 />
-                                <Area type="monotone" dataKey="admissions" stroke="#10b981" fillOpacity={1} fill="url(#colorAdmissions)" />
+                                <Legend verticalAlign="top" height={36} iconType="circle" />
+                                <Area type="monotone" dataKey="calls" name="Calls" stroke="#3b82f6" fill="url(#colorCallsCounselling)" strokeWidth={3} />
+                                <Area type="monotone" dataKey="counselled" name="Counselled" stroke="#a855f7" fill="none" strokeWidth={2} strokeDasharray="5 5" />
+                                <Area type="monotone" dataKey="admissions" name="Admissions" stroke="#10b981" fill="url(#colorAdmsCounselling)" strokeWidth={3} />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
             </div>
 
-            {/* Admission Report Section */}
+            {/* Counselled Breakdown & Targets */}
             <div className={`p-8 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
-                <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center justify-between mb-10">
                     <div>
                         <h4 className={`text-lg font-black uppercase tracking-widest flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            <FaChartLine className="text-cyan-500" /> Global Admission Analysis
+                            <FaChartBar className="text-cyan-500" /> Detailed Squad Analytics
                         </h4>
-                        <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Real-time breakdown of conversion channels</p>
+                        <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Comparison of individual counsellor targets and output</p>
                     </div>
                     <button
                         onClick={exportToExcel}
-                        className={`px-6 py-2 rounded-[2px] transition-all font-black text-[9px] uppercase tracking-widest flex items-center gap-3 ${isDarkMode ? 'bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-green-500 hover:text-black' : 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-500 hover:text-white shadow-sm'}`}
+                        className={`px-6 py-2 rounded-[2px] transition-all font-black text-[9px] uppercase tracking-widest flex items-center gap-3 ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 hover:bg-cyan-500 hover:text-white' : 'bg-cyan-50 text-cyan-600 border border-cyan-200 hover:bg-cyan-500 hover:text-white'}`}
                     >
-                        <FaFileExcel /> Export Global Report
+                        <FaFileExcel /> Export Performance Data
                     </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Admissions by Center (Bar Chart) */}
-                    <div className="space-y-4">
-                        <h5 className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Center-wise Admissions</h5>
-                        <div className="h-[250px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={admissionDetail.byCenter}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#333' : '#eee'} />
-                                    <XAxis dataKey="name" tick={{ fontSize: 9, fontWeight: 900, fill: isDarkMode ? '#666' : '#999' }} />
-                                    <YAxis tick={{ fontSize: 9, fontWeight: 900, fill: isDarkMode ? '#666' : '#999' }} />
-                                    <Tooltip contentStyle={{ fontSize: '10px', fontWeight: 'bold', backgroundColor: isDarkMode ? '#1f2937' : '#fff' }} />
-                                    <Bar dataKey="value" name="Admissions" fill="#06b6d4" radius={[4, 4, 0, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {performanceData.map((p, idx) => (
+                        <div key={idx} className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#0f1216] border-gray-800' : 'bg-gray-50 border-gray-200'} transition-all hover:border-cyan-500/50`}>
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-500 font-black">
+                                    {p.name.charAt(0)}
+                                </div>
+                                <div>
+                                    <h5 className={`text-xs font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{p.name}</h5>
+                                    <p className="text-[8px] font-bold text-gray-500 uppercase tracking-widest">{p.role}</p>
+                                </div>
+                            </div>
 
-                    {/* Admissions by Source (Pie Chart) */}
-                    <div className="space-y-4">
-                        <h5 className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Source-wise Admissions</h5>
-                        <div className="h-[250px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={admissionDetail.bySource}
-                                        innerRadius={60}
-                                        outerRadius={80}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                    >
-                                        {admissionDetail.bySource.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip contentStyle={{ fontSize: '10px', fontWeight: 'bold', backgroundColor: isDarkMode ? '#1f2937' : '#fff' }} />
-                                    <Legend iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase' }} />
-                                </PieChart>
-                            </ResponsiveContainer>
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-black text-gray-500 uppercase">Calls Today</span>
+                                    <span className={`text-xs font-black ${p.todayCalls >= 30 ? 'text-emerald-500' : 'text-orange-500'}`}>
+                                        {p.todayCalls} / 30
+                                    </span>
+                                </div>
+                                <div className="w-full h-1 bg-gray-800 rounded-full overflow-hidden">
+                                    <div className={`h-full transition-all duration-1000 ${p.todayCalls >= 30 ? 'bg-emerald-500' : 'bg-orange-500'}`} style={{ width: `${Math.min(100, (p.todayCalls / 30) * 100)}%` }}></div>
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-black text-gray-500 uppercase">Counselled</span>
+                                    <span className="text-xs font-black text-white">{p.counselledCount}</span>
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-black text-gray-500 uppercase">Admissions</span>
+                                    <span className={`text-xs font-black ${p.admissions >= 5 ? 'text-emerald-500' : 'text-blue-500'}`}>
+                                        {p.admissions} / 5
+                                    </span>
+                                </div>
+                                <div className="w-full h-1 bg-gray-800 rounded-full overflow-hidden">
+                                    <div className={`h-full bg-blue-500 transition-all duration-1000`} style={{ width: `${Math.min(100, (p.admissions / 5) * 100)}%` }}></div>
+                                </div>
+                            </div>
+
+                            <div className="mt-4 pt-3 border-t border-gray-800 flex items-center justify-between">
+                                <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Conv Rate</span>
+                                <span className="text-[10px] font-black text-cyan-500">
+                                    {p.currentCalls > 0 ? ((p.admissions / p.currentCalls) * 100).toFixed(1) : 0}%
+                                </span>
+                            </div>
                         </div>
-                    </div>
+                    ))}
                 </div>
             </div>
 
-            {/* Admission Volume Area Chart for every Counsellor */}
+            {/* Global Admission Trends */}
             <div className={`p-8 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
-                <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <h4 className={`text-sm font-black uppercase tracking-widest flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            <FaChartLine className="text-cyan-500" /> Individual Counsellor Admission Volume
-                        </h4>
-                        <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Comparative admission contribution across the squad</p>
+                <h4 className={`text-sm font-black uppercase tracking-widest mb-10 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Monthly Performance Evolution</h4>
+                <div className="h-[350px] overflow-x-auto overflow-y-hidden custom-scrollbar">
+                    <div style={{ minWidth: `${Math.max(100, monthlyTrends.length * 80)}px`, height: '100%' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={monthlyTrends} margin={{ top: 20, right: 10, left: 10, bottom: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#333' : '#eee'} />
+                                <XAxis dataKey="month" tick={{ fill: isDarkMode ? '#666' : '#999', fontSize: 10, fontWeight: 900 }} />
+                                <YAxis tick={{ fill: isDarkMode ? '#666' : '#999', fontSize: 10, fontWeight: 900 }} />
+                                <Tooltip
+                                    cursor={{ fill: isDarkMode ? '#ffffff05' : '#00000005' }}
+                                    contentStyle={{
+                                        backgroundColor: isDarkMode ? '#1f2937' : '#fff',
+                                        borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                                        borderRadius: '2px',
+                                        fontSize: '11px',
+                                        fontWeight: '900'
+                                    }}
+                                />
+                                <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase' }} />
+                                <Bar dataKey="calls" name="Monthly Calls" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={30}>
+                                    <LabelList dataKey="calls" position="top" style={{ fill: '#3b82f6', fontSize: 10, fontWeight: 900 }} />
+                                </Bar>
+                                <Bar dataKey="admissions" name="Monthly Admissions" fill="#10b981" radius={[4, 4, 0, 0]} barSize={30}>
+                                    <LabelList dataKey="admissions" position="top" style={{ fill: '#10b981', fontSize: 10, fontWeight: 900 }} />
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
                     </div>
-                </div>
-                <div className="h-[350px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={performanceData.map(c => ({ name: c.name.split(' ')[0], admissions: c.hotLeads || 0 }))}>
-                            <defs>
-                                <linearGradient id="colorCounsellorAdmissions" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
-                                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#333' : '#eee'} />
-                            <XAxis
-                                dataKey="name"
-                                tick={{ fontSize: 9, fontWeight: 900, fill: isDarkMode ? '#666' : '#999' }}
-                                interval={0}
-                            />
-                            <YAxis tick={{ fontSize: 9, fontWeight: 900, fill: isDarkMode ? '#666' : '#999' }} />
-                            <Tooltip
-                                contentStyle={{ fontSize: '11px', fontWeight: 'bold', backgroundColor: isDarkMode ? '#1f2937' : '#fff', borderColor: isDarkMode ? '#374151' : '#e5e7eb' }}
-                                itemStyle={{ color: '#06b6d4' }}
-                            />
-                            <Area
-                                type="monotone"
-                                dataKey="admissions"
-                                name="Admissions Taken"
-                                stroke="#06b6d4"
-                                fillOpacity={1}
-                                fill="url(#colorCounsellorAdmissions)"
-                                strokeWidth={3}
-                                animationDuration={1500}
-                            />
-                        </AreaChart>
-                    </ResponsiveContainer>
                 </div>
             </div>
         </div>
@@ -248,3 +374,4 @@ const CounsellingConsole = ({ mainTheme = 'light', performanceData = [], monthly
 };
 
 export default CounsellingConsole;
+
