@@ -202,6 +202,7 @@ export const getEmployees = async (req, res) => {
             designation,
             centre,
             status,
+            role,
             page = 1,
             limit = 10
         } = req.query;
@@ -237,6 +238,13 @@ export const getEmployees = async (req, res) => {
             query.status = { $in: statusValues };
         }
 
+        if (role) {
+            const roleValues = role.split(',').filter(Boolean);
+            const usersWithRole = await User.find({ role: { $in: roleValues } }).select('_id');
+            const userIds = usersWithRole.map(u => u._id);
+            query.user = { $in: userIds };
+        }
+
         // Data Isolation: If not superAdmin, restrict to assigned centers
         const userRole = (req.user.role || "").toLowerCase();
         if (userRole !== 'superadmin' && userRole !== 'super admin') {
@@ -264,6 +272,7 @@ export const getEmployees = async (req, res) => {
             .populate("department", "departmentName")
             .populate("designation", "name")
             .populate("manager", "name employeeId")
+            .populate("user", "role")
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(parseInt(limit));
@@ -338,11 +347,11 @@ export const updateEmployee = async (req, res) => {
         }
 
         const updateData = { ...req.body };
-        
+
         // Sanitization: Remove fields and strings that cause issues
         const forbiddenFields = ["currentSalary", "__v", "_id", "employeeId", "user", "createdAt", "updatedAt"];
         forbiddenFields.forEach(field => delete updateData[field]);
-        
+
         Object.keys(updateData).forEach(key => {
             if (updateData[key] === "null" || updateData[key] === "undefined") {
                 delete updateData[key];

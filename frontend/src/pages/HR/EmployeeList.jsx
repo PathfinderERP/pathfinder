@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { FaPlus, FaEdit, FaEye, FaSearch, FaFileExcel, FaFilePdf, FaTrash, FaChevronLeft, FaChevronRight, FaFileUpload, FaFilter, FaFileAlt, FaIdCard, FaBuilding, FaMapMarkerAlt, FaEnvelope, FaUsers, FaChartPie, FaSun, FaMoon } from "react-icons/fa";
@@ -43,7 +43,8 @@ const EmployeeList = () => {
         department: [],
         designation: [],
         centre: [],
-        status: []
+        status: [],
+        role: []
     });
     const [pagination, setPagination] = useState({
         currentPage: 1,
@@ -117,7 +118,8 @@ const EmployeeList = () => {
                 ...(filters.department?.length > 0 && { department: filters.department.map(d => d.value).join(",") }),
                 ...(filters.designation?.length > 0 && { designation: filters.designation.map(d => d.value).join(",") }),
                 ...(filters.centre?.length > 0 && { centre: filters.centre.map(c => c.value).join(",") }),
-                ...(filters.status?.length > 0 && { status: filters.status.map(s => s.value).join(",") })
+                ...(filters.status?.length > 0 && { status: filters.status.map(s => s.value).join(",") }),
+                ...(filters.role?.length > 0 && { role: filters.role.map(r => r.value).join(",") })
             });
 
             const response = await fetch(
@@ -166,7 +168,8 @@ const EmployeeList = () => {
             department: [],
             designation: [],
             centre: [],
-            status: []
+            status: [],
+            role: []
         });
         setPagination(prev => ({ ...prev, currentPage: 1 }));
         toast.info("Filters cleared");
@@ -257,7 +260,8 @@ const EmployeeList = () => {
                 ...(filters.department?.length > 0 && { department: filters.department.map(d => d.value).join(",") }),
                 ...(filters.designation?.length > 0 && { designation: filters.designation.map(d => d.value).join(",") }),
                 ...(filters.centre?.length > 0 && { centre: filters.centre.map(c => c.value).join(",") }),
-                ...(filters.status?.length > 0 && { status: filters.status.map(s => s.value).join(",") })
+                ...(filters.status?.length > 0 && { status: filters.status.map(s => s.value).join(",") }),
+                ...(filters.role?.length > 0 && { role: filters.role.map(r => r.value).join(",") })
             });
 
             const response = await fetch(
@@ -1073,12 +1077,32 @@ const EmployeeList = () => {
                                     placeholder="ALL STATUS"
                                     options={[
                                         { value: "Active", label: "ACTIVE" },
-                                        { value: "Inactive", label: "INACTIVE" },
+                                        { value: "Inactive", label: "DEACTIVATED" },
                                         { value: "Resigned", label: "RESIGNED" },
                                         { value: "Terminated", label: "TERMINATED" }
                                     ]}
                                     value={filters.status}
                                     onChange={(val) => handleFilterChange("status", val)}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>User Role</label>
+                                <CustomMultiSelect
+                                    placeholder="ALL ROLES"
+                                    options={[
+                                        { value: "superAdmin", label: "SUPER ADMIN" },
+                                        { value: "admin", label: "ADMIN" },
+                                        { value: "teacher", label: "TEACHER" },
+                                        { value: "telecaller", label: "TELECALLER" },
+                                        { value: "counsellor", label: "COUNSELLOR" },
+                                        { value: "marketing", label: "MARKETING" },
+                                        { value: "RM", label: "RM" },
+                                        { value: "HOD", label: "HOD" },
+                                        { value: "Class_Coordinator", label: "COORDINATOR" }
+                                    ]}
+                                    value={filters.role}
+                                    onChange={(val) => handleFilterChange("role", val)}
                                 />
                             </div>
 
@@ -1154,8 +1178,15 @@ const EmployeeList = () => {
                                                             )}
                                                         </div>
                                                         <div>
-                                                            <div className={`text-[11px] font-black uppercase tracking-tight transition-all ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>
-                                                                {employee.name}
+                                                            <div className="flex items-center gap-2">
+                                                                <div className={`text-[11px] font-black uppercase tracking-tight transition-all ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>
+                                                                    {employee.name}
+                                                                </div>
+                                                                {employee.status !== "Active" && (
+                                                                    <span className="px-1.5 py-0.5 rounded-[2px] bg-red-500/10 text-red-500 border border-red-500/20 text-[7px] font-black uppercase tracking-widest">
+                                                                        {employee.status === "Inactive" ? "DEACTIVATED" : employee.status}
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                             <div className="text-[8px] font-bold text-gray-500 uppercase mt-1 tracking-wider">
                                                                 {employee.employeeId}
@@ -1186,7 +1217,7 @@ const EmployeeList = () => {
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <span className={`px-3 py-1 rounded-[2px] text-[8px] font-black uppercase tracking-widest border ${employee.status === "Active" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"}`}>
-                                                        {employee.status}
+                                                        {employee.status === "Inactive" ? "DEACTIVATED" : employee.status}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4">
@@ -1250,7 +1281,7 @@ const EmployeeList = () => {
                                 <div key={employee._id} className="bg-[#131619] rounded-[2px] p-5 border border-gray-800 shadow-lg relative overflow-hidden group">
                                     <div className="absolute top-0 right-0 p-3">
                                         <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${employee.status === "Active" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-red-500/10 text-red-500 border-red-500/20"}`}>
-                                            {employee.status}
+                                            {employee.status === "Inactive" ? "DEACTIVATED" : employee.status}
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-4 mb-5">
