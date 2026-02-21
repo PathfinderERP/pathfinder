@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { FaPaperPlane, FaImage, FaPoll, FaAt, FaThumbsUp, FaComment, FaCheckCircle, FaChartBar, FaEnvelope, FaBuilding, FaTrash, FaEllipsisV, FaEdit, FaChevronLeft, FaChevronRight, FaTimes, FaExpand } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
+import PdfDocumentHub from "./PdfDocumentHub";
 
 const SocialFeed = () => {
     const { theme } = useTheme();
@@ -250,182 +251,189 @@ const SocialFeed = () => {
     };
 
     return (
-        <div className={`flex-1 h-full overflow-y-auto p-4 md:p-8 custom-scrollbar transition-colors duration-300 ${theme === 'dark' ? 'bg-[#131619] text-white' : 'bg-gray-50 text-gray-900'
-            }`} data-theme={theme}>
-            <div className="max-w-3xl mx-auto space-y-8">
+        <div className={`flex-1 h-full overflow-y-auto p-4 md:p-8 custom-scrollbar transition-colors duration-300 ${theme === 'dark' ? 'bg-[#131619] text-white' : 'bg-gray-50 text-gray-900'}`} data-theme={theme}>
+            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Left Column: Social Feed */}
+                <div className="lg:col-span-8 space-y-8">
 
-                {/* Create Post Section */}
-                <div className={`${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-xl border shadow-xl overflow-hidden`}>
-                    <div className="p-6">
-                        <div className="flex gap-4">
-                            <div className="w-12 h-12 rounded-full bg-cyan-100 dark:bg-cyan-900 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-bold overflow-hidden shrink-0">
-                                {currentUser.profileImage ? (
-                                    <img src={currentUser.profileImage} alt="" className="w-full h-full object-cover" />
-                                ) : (
-                                    <span>{currentUser.name?.charAt(0).toUpperCase()}</span>
-                                )}
-                            </div>
-                            <div className="flex-1">
-                                <textarea
-                                    className={`w-full bg-transparent border-none ${theme === 'dark' ? 'text-white' : 'text-gray-900'} placeholder-gray-500 focus:ring-0 text-lg resize-none min-h-[100px]`}
-                                    placeholder="What's on your mind?"
-                                    value={content}
-                                    onChange={(e) => setContent(e.target.value)}
-                                />
+                    {/* Create Post Section */}
+                    <div className={`${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-xl border shadow-xl overflow-hidden`}>
+                        <div className="p-6">
+                            <div className="flex gap-4">
+                                <div className="w-12 h-12 rounded-full bg-cyan-100 dark:bg-cyan-900 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-bold overflow-hidden shrink-0">
+                                    {currentUser.profileImage ? (
+                                        <img src={currentUser.profileImage} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <span>{currentUser.name?.charAt(0).toUpperCase()}</span>
+                                    )}
+                                </div>
+                                <div className="flex-1">
+                                    <textarea
+                                        className={`w-full bg-transparent border-none ${theme === 'dark' ? 'text-white' : 'text-gray-900'} placeholder-gray-500 focus:ring-0 text-lg resize-none min-h-[100px]`}
+                                        placeholder="What's on your mind?"
+                                        value={content}
+                                        onChange={(e) => setContent(e.target.value)}
+                                    />
 
-                                {imagePreviews.length > 0 && (
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
-                                        {imagePreviews.map((src, i) => (
-                                            <div key={i} className="relative group aspect-square">
-                                                <img src={src} alt="" className={`w-full h-full object-cover rounded-lg border ${theme === 'dark' ? 'border-gray-800' : 'border-gray-200'}`} />
-                                                <button
-                                                    onClick={() => handleRemoveImage(i)}
-                                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg hover:scale-110 transition-transform"
-                                                >
-                                                    <FaTrash size={10} />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                                    {imagePreviews.length > 0 && (
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+                                            {imagePreviews.map((src, i) => (
+                                                <div key={i} className="relative group aspect-square">
+                                                    <img src={src} alt="" className={`w-full h-full object-cover rounded-lg border ${theme === 'dark' ? 'border-gray-800' : 'border-gray-200'}`} />
+                                                    <button
+                                                        onClick={() => handleRemoveImage(i)}
+                                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg hover:scale-110 transition-transform"
+                                                    >
+                                                        <FaTrash size={10} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
 
-                                {showPoll && (
-                                    <div className={`mb-4 p-4 rounded-lg border space-y-3 ${theme === 'dark' ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
-                                        <input
-                                            type="text"
-                                            placeholder="Poll Question"
-                                            className={`w-full border rounded-lg p-2 text-sm ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
-                                            value={pollQuestion}
-                                            onChange={(e) => setPollQuestion(e.target.value)}
-                                        />
-                                        {pollOptions.map((opt, i) => (
+                                    {showPoll && (
+                                        <div className={`mb-4 p-4 rounded-lg border space-y-3 ${theme === 'dark' ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                             <input
-                                                key={i}
                                                 type="text"
-                                                placeholder={`Option ${i + 1}`}
-                                                className={`w-full border rounded-lg p-2 text-xs ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
-                                                value={opt}
-                                                onChange={(e) => {
-                                                    const newOpts = [...pollOptions];
-                                                    newOpts[i] = e.target.value;
-                                                    setPollOptions(newOpts);
-                                                }}
+                                                placeholder="Poll Question"
+                                                className={`w-full border rounded-lg p-2 text-sm ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+                                                value={pollQuestion}
+                                                onChange={(e) => setPollQuestion(e.target.value)}
                                             />
-                                        ))}
-                                        <button
-                                            type="button"
-                                            onClick={() => setPollOptions([...pollOptions, ""])}
-                                            className="text-xs text-cyan-400 font-bold hover:underline"
-                                            disabled={pollOptions.length >= 5}
-                                        >
-                                            + Add Option
-                                        </button>
-                                    </div>
-                                )}
+                                            {pollOptions.map((opt, i) => (
+                                                <input
+                                                    key={i}
+                                                    type="text"
+                                                    placeholder={`Option ${i + 1}`}
+                                                    className={`w-full border rounded-lg p-2 text-xs ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+                                                    value={opt}
+                                                    onChange={(e) => {
+                                                        const newOpts = [...pollOptions];
+                                                        newOpts[i] = e.target.value;
+                                                        setPollOptions(newOpts);
+                                                    }}
+                                                />
+                                            ))}
+                                            <button
+                                                type="button"
+                                                onClick={() => setPollOptions([...pollOptions, ""])}
+                                                className="text-xs text-cyan-400 font-bold hover:underline"
+                                                disabled={pollOptions.length >= 5}
+                                            >
+                                                + Add Option
+                                            </button>
+                                        </div>
+                                    )}
 
-                                {selectedTags.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 mb-4">
-                                        {selectedTags.map(user => (
-                                            <span key={user._id} className="px-2 py-1 rounded-full bg-cyan-500/10 text-cyan-400 text-xs font-bold border border-cyan-500/20">
-                                                @{user.name}
-                                                <button className="ml-2 hover:text-white" onClick={() => setSelectedTags(selectedTags.filter(t => t._id !== user._id))}>×</button>
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
+                                    {selectedTags.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mb-4">
+                                            {selectedTags.map(user => (
+                                                <span key={user._id} className="px-2 py-1 rounded-full bg-cyan-500/10 text-cyan-400 text-xs font-bold border border-cyan-500/20">
+                                                    @{user.name}
+                                                    <button className="ml-2 hover:text-white" onClick={() => setSelectedTags(selectedTags.filter(t => t._id !== user._id))}>×</button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
+                        </div>
+
+                        <div className="px-6 py-4 bg-gray-50 dark:bg-[#131619]/50 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <label className="cursor-pointer text-gray-400 hover:text-cyan-400 transition-colors flex items-center gap-2">
+                                    <FaImage size={18} />
+                                    <span className="text-xs font-bold hidden sm:inline">Photo</span>
+                                    <input type="file" multiple className="hidden" accept="image/*" onChange={handleImageChange} />
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPoll(!showPoll)}
+                                    className={`flex items-center gap-2 transition-colors ${showPoll ? 'text-cyan-400' : 'text-gray-400 hover:text-cyan-400'}`}
+                                >
+                                    <FaPoll size={18} />
+                                    <span className="text-xs font-bold hidden sm:inline">Poll</span>
+                                </button>
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowTagList(!showTagList)}
+                                        className={`flex items-center gap-2 transition-colors ${showTagList ? 'text-cyan-400' : 'text-gray-400 hover:text-cyan-400'}`}
+                                    >
+                                        <FaAt size={18} />
+                                        <span className="text-xs font-bold hidden sm:inline">Tag</span>
+                                    </button>
+
+                                    {showTagList && (
+                                        <div className={`absolute top-10 left-0 w-64 max-h-60 overflow-y-auto border rounded-lg shadow-2xl z-50 p-2 custom-scrollbar ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest p-2 border-b border-gray-800 mb-2">Tag Someone</p>
+                                            {taggableUsers.filter(u => !selectedTags.some(t => t._id === u._id)).map(user => (
+                                                <button
+                                                    key={user._id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedTags([...selectedTags, user]);
+                                                        setShowTagList(false);
+                                                    }}
+                                                    className={`w-full text-left p-2 rounded flex items-center gap-3 transition-colors ${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
+                                                >
+                                                    <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-[10px] font-bold">
+                                                        {user.name.charAt(0)}
+                                                    </div>
+                                                    <div>
+                                                        <p className={`text-xs font-bold ${theme === 'dark' ? 'text-gray-200' : 'text-gray-900'}`}>{user.name}</p>
+                                                        <p className={`text-[10px] ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{user.role}</p>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={handleSubmitPost}
+                                className="bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-2 rounded-lg font-bold text-sm shadow-lg shadow-cyan-500/20 active:scale-95 transition-all flex items-center gap-2"
+                            >
+                                Share <FaPaperPlane size={12} />
+                            </button>
                         </div>
                     </div>
 
-                    <div className="px-6 py-4 bg-gray-50 dark:bg-[#131619]/50 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <label className="cursor-pointer text-gray-400 hover:text-cyan-400 transition-colors flex items-center gap-2">
-                                <FaImage size={18} />
-                                <span className="text-xs font-bold hidden sm:inline">Photo</span>
-                                <input type="file" multiple className="hidden" accept="image/*" onChange={handleImageChange} />
-                            </label>
-                            <button
-                                type="button"
-                                onClick={() => setShowPoll(!showPoll)}
-                                className={`flex items-center gap-2 transition-colors ${showPoll ? 'text-cyan-400' : 'text-gray-400 hover:text-cyan-400'}`}
-                            >
-                                <FaPoll size={18} />
-                                <span className="text-xs font-bold hidden sm:inline">Poll</span>
-                            </button>
-                            <div className="relative">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowTagList(!showTagList)}
-                                    className={`flex items-center gap-2 transition-colors ${showTagList ? 'text-cyan-400' : 'text-gray-400 hover:text-cyan-400'}`}
-                                >
-                                    <FaAt size={18} />
-                                    <span className="text-xs font-bold hidden sm:inline">Tag</span>
-                                </button>
-
-                                {showTagList && (
-                                    <div className={`absolute top-10 left-0 w-64 max-h-60 overflow-y-auto border rounded-lg shadow-2xl z-50 p-2 custom-scrollbar ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
-                                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest p-2 border-b border-gray-800 mb-2">Tag Someone</p>
-                                        {taggableUsers.filter(u => !selectedTags.some(t => t._id === u._id)).map(user => (
-                                            <button
-                                                key={user._id}
-                                                type="button"
-                                                onClick={() => {
-                                                    setSelectedTags([...selectedTags, user]);
-                                                    setShowTagList(false);
-                                                }}
-                                                className={`w-full text-left p-2 rounded flex items-center gap-3 transition-colors ${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
-                                            >
-                                                <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-[10px] font-bold">
-                                                    {user.name.charAt(0)}
-                                                </div>
-                                                <div>
-                                                    <p className={`text-xs font-bold ${theme === 'dark' ? 'text-gray-200' : 'text-gray-900'}`}>{user.name}</p>
-                                                    <p className={`text-[10px] ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{user.role}</p>
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
+                    {/* Posts Feed */}
+                    <div className="space-y-8">
+                        {loading ? (
+                            <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                                <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+                                <p className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">Loading Feed...</p>
                             </div>
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={handleSubmitPost}
-                            className="bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-2 rounded-lg font-bold text-sm shadow-lg shadow-cyan-500/20 active:scale-95 transition-all flex items-center gap-2"
-                        >
-                            Share <FaPaperPlane size={12} />
-                        </button>
+                        ) : posts.length === 0 ? (
+                            <div className="text-center py-20 bg-white dark:bg-[#1a1f24] rounded-xl border border-gray-200 dark:border-gray-800">
+                                <p className="text-gray-500 font-bold">No posts yet. Be the first to share something!</p>
+                            </div>
+                        ) : (
+                            posts.map(post => (
+                                <PostCard
+                                    key={post._id}
+                                    post={post}
+                                    onLike={() => handleLike(post._id)}
+                                    onVote={(optId) => handleVote(post._id, optId)}
+                                    onComment={(text) => handleComment(post._id, text)}
+                                    onDelete={() => handleDeletePost(post._id)}
+                                    onUpdate={(formData) => handleUpdatePost(post._id, formData)}
+                                    onDeleteComment={(commentId) => handleDeleteComment(post._id, commentId)}
+                                    currentUser={currentUser}
+                                    theme={theme}
+                                />
+                            ))
+                        )}
                     </div>
                 </div>
 
-                {/* Posts Feed */}
-                <div className="space-y-8">
-                    {loading ? (
-                        <div className="flex flex-col items-center justify-center py-20 space-y-4">
-                            <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-                            <p className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">Loading Feed...</p>
-                        </div>
-                    ) : posts.length === 0 ? (
-                        <div className="text-center py-20 bg-white dark:bg-[#1a1f24] rounded-xl border border-gray-200 dark:border-gray-800">
-                            <p className="text-gray-500 font-bold">No posts yet. Be the first to share something!</p>
-                        </div>
-                    ) : (
-                        posts.map(post => (
-                            <PostCard
-                                key={post._id}
-                                post={post}
-                                onLike={() => handleLike(post._id)}
-                                onVote={(optId) => handleVote(post._id, optId)}
-                                onComment={(text) => handleComment(post._id, text)}
-                                onDelete={() => handleDeletePost(post._id)}
-                                onUpdate={(formData) => handleUpdatePost(post._id, formData)}
-                                onDeleteComment={(commentId) => handleDeleteComment(post._id, commentId)}
-                                currentUser={currentUser}
-                                theme={theme}
-                            />
-                        ))
-                    )}
+                {/* Right Column: PDF Document Hub */}
+                <div className="lg:col-span-4 h-fit lg:sticky lg:top-8">
+                    <PdfDocumentHub theme={theme} />
                 </div>
             </div>
             <style>{`

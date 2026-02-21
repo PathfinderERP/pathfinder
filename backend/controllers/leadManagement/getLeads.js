@@ -158,12 +158,22 @@ export const getLeads = async (req, res) => {
         }
 
         if (search) {
-            query.$or = [
+            const searchOr = [
                 { name: { $regex: search, $options: "i" } },
                 { email: { $regex: search, $options: "i" } },
                 { phoneNumber: { $regex: search, $options: "i" } },
                 { schoolName: { $regex: search, $options: "i" } },
             ];
+
+            if (query.$and) {
+                query.$and.push({ $or: searchOr });
+            } else if (query.$or) {
+                // If there's already an $or, we must wrap both in an $and to preserve logic
+                query.$and = [{ $or: query.$or }, { $or: searchOr }];
+                delete query.$or;
+            } else {
+                query.$or = searchOr;
+            }
         }
 
 

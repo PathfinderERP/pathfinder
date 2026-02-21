@@ -183,9 +183,9 @@ const UserManagementContent = () => {
 
     const filteredUsers = users.filter(user => {
         const matchesSearch =
-            user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            user.employeeId.toLowerCase().includes(searchQuery.toLowerCase());
+            (user.name?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+            (user.email?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+            (user.employeeId?.toLowerCase() || "").includes(searchQuery.toLowerCase());
 
         const matchesRole = filterRole.length === 0 || filterRole.some(f => f.value === user.role);
 
