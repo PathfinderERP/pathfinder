@@ -118,8 +118,11 @@ const userSchema = new mongoose.Schema({
     isActive: {
         type: Boolean,
         default: true
+    },
+    lastSocialVisit: {
+        type: Date,
+        default: null
     }
-
 }, { timestamps: true });
 
 // Pre-save hook to set default permissions and ensure Dashboard access

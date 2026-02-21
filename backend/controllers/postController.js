@@ -82,10 +82,18 @@ export const getAllPosts = async (req, res) => {
             .sort({ createdAt: -1 })
             .populate("author", "name email role designation teacherDepartment")
             .populate("tags", "name email")
-            .populate("likes", "name")
-            .populate("comments.user", "name email");
+            .populate("likes", "name email role designation teacherDepartment")
+            .populate("comments.user", "name email")
+            .populate("poll.options.votes", "name email role designation teacherDepartment");
 
-        const enhancedPosts = await Promise.all(posts.map(post => enhancePostAuthor(post)));
+        const enhancedPosts = await Promise.all(posts.map(async (p) => {
+            // AUTHOR PRIVACY: Only populate full viewer details if the requester is the creator of the post
+            if (p.author._id.toString() === req.user.id || p.author.toString() === req.user.id) {
+                await p.populate("views", "name email role designation teacherDepartment");
+            }
+            return await enhancePostAuthor(p);
+        }));
+
         res.json(enhancedPosts);
     } catch (error) {
         console.error("Get All Posts Error:", error);
@@ -118,11 +126,11 @@ export const votePoll = async (req, res) => {
         const post = await Post.findById(req.params.id);
         if (!post || !post.poll) return res.status(404).json({ message: "Poll not found" });
 
-        // Remove previous votes from this user in this poll
-        post.poll.options.forEach(opt => {
-            const voteIndex = opt.votes.indexOf(req.user.id);
-            if (voteIndex > -1) opt.votes.splice(voteIndex, 1);
-        });
+        // Check if user has already voted
+        const alreadyVoted = post.poll.options.some(opt => opt.votes.includes(req.user.id));
+        if (alreadyVoted) {
+            return res.status(400).json({ message: "You have already voted in this poll" });
+        }
 
         // Add new vote
         const option = post.poll.options.id(optionId);
@@ -253,5 +261,59 @@ export const deleteComment = async (req, res) => {
         res.json(populatedPost);
     } catch (error) {
         res.status(500).json({ message: "Error deleting comment" });
+    }
+};
+
+export const recordPostView = async (req, res) => {
+    try {
+        const postId = req.params.id;
+        const userId = req.user.id;
+
+        // Atomic update to prevent VersionError
+        // $addToSet ensures the userId is only added once
+        await Post.findByIdAndUpdate(postId, {
+            $addToSet: { views: userId }
+        });
+
+        const post = await Post.findById(postId)
+            .populate("author", "name email role designation teacherDepartment")
+            .populate("tags", "name email")
+            .populate("likes", "name email role designation teacherDepartment")
+            .populate("comments.user", "name email")
+            .populate("poll.options.votes", "name email role designation teacherDepartment");
+
+        // AUTHOR PRIVACY: Only populate full viewer details for the author's response
+        if (post.author._id.toString() === userId || post.author.toString() === userId) {
+            await post.populate("views", "name email role designation teacherDepartment");
+        }
+
+        const postObj = await enhancePostAuthor(post);
+        res.json(postObj);
+    } catch (error) {
+        console.error("Record View Error:", error);
+        res.status(500).json({ message: "Error recording view" });
+    }
+};
+
+export const updateSocialVisit = async (req, res) => {
+    try {
+        await User.findByIdAndUpdate(req.user.id, { lastSocialVisit: new Date() });
+        res.json({ message: "Activity updated" });
+    } catch (error) {
+        res.status(500).json({ message: "Error updating activity" });
+    }
+};
+
+export const getSocialActivity = async (req, res) => {
+    try {
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        const activeUsers = await User.find({
+            lastSocialVisit: { $gte: oneHourAgo }
+        }, "name email role designation teacherDepartment profileImage")
+            .sort({ lastSocialVisit: -1 });
+
+        res.json(activeUsers);
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching social activity" });
     }
 };

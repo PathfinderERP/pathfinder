@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { FaPaperPlane, FaImage, FaPoll, FaAt, FaThumbsUp, FaComment, FaCheckCircle, FaChartBar, FaEnvelope, FaBuilding, FaTrash, FaEllipsisV, FaEdit, FaChevronLeft, FaChevronRight, FaTimes, FaExpand } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+import { FaPaperPlane, FaImage, FaPoll, FaAt, FaThumbsUp, FaComment, FaCheckCircle, FaChartBar, FaEnvelope, FaBuilding, FaTrash, FaEllipsisV, FaEdit, FaChevronLeft, FaChevronRight, FaTimes, FaExpand, FaEye, FaHistory } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import PdfDocumentHub from "./PdfDocumentHub";
@@ -20,12 +21,19 @@ const SocialFeed = () => {
     const [pollOptions, setPollOptions] = useState(["", ""]);
     const [selectedTags, setSelectedTags] = useState([]);
     const [showTagList, setShowTagList] = useState(false);
+    const [activeUsers, setActiveUsers] = useState([]);
+    const navigate = useNavigate();
+
+    // Participant Modal State (for both likes and votes)
+    const [participantModalData, setParticipantModalData] = useState(null);
 
     useEffect(() => {
         fetchPosts();
         fetchUsers();
-        fetchPosts();
-        fetchUsers();
+        recordSocialVisit();
+        fetchSocialActivity();
+        const interval = setInterval(fetchSocialActivity, 60000); // Refresh activity every minute
+        return () => clearInterval(interval);
     }, []);
 
     const fetchPosts = async () => {
@@ -135,6 +143,55 @@ const SocialFeed = () => {
         }
     };
 
+    const handlePostView = async (postId) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/posts/${postId}/view`, {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const updatedPost = await response.json();
+                setPosts(prev => prev.map(p => p._id === postId ? updatedPost : p));
+            }
+        } catch (error) {
+            console.error("View record error:", error);
+        }
+    };
+
+    const recordSocialVisit = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            await fetch(`${import.meta.env.VITE_API_URL}/posts/visit`, {
+                method: "POST",
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+        } catch (error) {
+            console.error("Visit record error:", error);
+        }
+    };
+
+    const fetchSocialActivity = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/posts/activity`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.status === 401) {
+                // Token expired - redirect to login
+                localStorage.clear();
+                navigate("/login");
+                return;
+            }
+            if (response.ok) {
+                const data = await response.json();
+                setActiveUsers(data);
+            }
+        } catch (error) {
+            console.error("Fetch social activity error:", error);
+        }
+    };
+
     const handleImageChange = (e) => {
         const files = Array.from(e.target.files);
         setImages(prev => [...prev, ...files]);
@@ -225,9 +282,14 @@ const SocialFeed = () => {
             });
             if (response.ok) {
                 fetchPosts();
+                toast.success("Vote recorded! Each person can vote only once.");
+            } else {
+                const data = await response.json();
+                toast.error(data.message || "Failed to vote");
             }
         } catch (error) {
             console.error("Vote error:", error);
+            toast.error("An error occurred while voting");
         }
     };
 
@@ -423,6 +485,8 @@ const SocialFeed = () => {
                                     onDelete={() => handleDeletePost(post._id)}
                                     onUpdate={(formData) => handleUpdatePost(post._id, formData)}
                                     onDeleteComment={(commentId) => handleDeleteComment(post._id, commentId)}
+                                    onViewParticipants={(title, users) => setParticipantModalData({ title, users })}
+                                    onView={() => handlePostView(post._id)}
                                     currentUser={currentUser}
                                     theme={theme}
                                 />
@@ -431,8 +495,18 @@ const SocialFeed = () => {
                     </div>
                 </div>
 
-                {/* Right Column: PDF Document Hub */}
-                <div className="lg:col-span-4 h-fit lg:sticky lg:top-8">
+                {/* Participant Details Modal */}
+                {participantModalData && (
+                    <ParticipantModal
+                        data={participantModalData}
+                        onClose={() => setParticipantModalData(null)}
+                        theme={theme}
+                    />
+                )}
+
+                {/* Right Column: PDF Document Hub & Social Activity */}
+                <div className="lg:col-span-4 h-fit lg:sticky lg:top-8 space-y-8">
+                    <SocialActivity activeUsers={activeUsers} theme={theme} />
                     <PdfDocumentHub theme={theme} />
                 </div>
             </div>
@@ -590,9 +664,91 @@ const ImageCarousel = ({ images }) => {
     );
 };
 
-const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDeleteComment, currentUser, theme }) => {
+const VoterAvatar = ({ name, size = "md" }) => {
+    const variants = {
+        sm: "h-5 w-5 text-[7px]",
+        md: "h-8 w-8 text-xs",
+        lg: "h-12 w-12 text-lg"
+    };
+    return (
+        <div className={`${variants[size]} rounded-full bg-cyan-600 flex items-center justify-center font-black text-white shrink-0 border-2 border-white dark:border-gray-800 shadow-sm`}>
+            {(name || "A").charAt(0).toUpperCase()}
+        </div>
+    );
+};
+
+const ParticipantModal = ({ data, onClose, theme }) => {
+    const isDark = theme === 'dark';
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-fade-in">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+            <div className={`relative w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden transform transition-all animate-scale-up ${isDark ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                {/* Header */}
+                <div className={`px-6 py-4 border-b flex justify-between items-center ${isDark ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                    <div>
+                        <h3 className="text-sm font-black uppercase tracking-widest text-cyan-500">{data.title}</h3>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-red-500/10 text-gray-500 hover:text-red-500 rounded-lg transition-all">
+                        <FaTimes />
+                    </button>
+                </div>
+
+                {/* Voter List */}
+                <div className="p-2 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                    {data.users.length === 0 ? (
+                        <div className="py-10 text-center">
+                            <p className="text-gray-500 font-bold text-sm italic">No participants yet</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-1">
+                            {Array.from(new Map(data.users.map(u => [u._id || u, u])).values()).map((user) => (
+                                <div
+                                    key={user._id || user}
+                                    className={`flex items-center gap-4 p-3 rounded-xl transition-all ${isDark ? 'hover:bg-gray-800/10' : 'hover:bg-gray-50/50'}`}
+                                >
+                                    <VoterAvatar name={user.name} />
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2 text-left">
+                                            <h4 className={`text-sm font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>{user.name}</h4>
+                                            <span className={`px-1.5 py-0.5 rounded-[4px] text-[8px] font-black uppercase tracking-widest ${isDark ? 'bg-gray-800 text-gray-400 border border-gray-700' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
+                                                {user.role}
+                                            </span>
+                                        </div>
+                                        <p className={`text-[10px] font-bold text-left ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{user.email}</p>
+                                        <div className="flex items-center justify-between">
+                                            <p className={`text-[9px] font-black uppercase tracking-tight text-cyan-500/70`}>
+                                                {user.designation || user.teacherDepartment || "Staff Member"}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className={`px-6 py-4 border-t text-center ${isDark ? 'bg-[#131619]/50 border-gray-800' : 'bg-gray-50/50 border-gray-200'}`}>
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Total {data.users.length} Participants</p>
+                </div>
+            </div>
+            <style>{`
+                @keyframes scaleUp { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+                .animate-scale-up { animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+            `}</style>
+        </div>
+    );
+};
+
+const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDeleteComment, onViewParticipants, onView, currentUser, theme }) => {
     const [commentText, setCommentText] = useState("");
     const [showComments, setShowComments] = useState(false);
+
+    useEffect(() => {
+        if (onView) {
+            onView();
+        }
+    }, []);
 
     // Edit State
     const [isEditing, setIsEditing] = useState(false);
@@ -603,7 +759,8 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
     const [isUpdating, setIsUpdating] = useState(false);
 
     const isLikedByMe = post.likes.some(u => u === currentUser._id || u._id === currentUser._id);
-    const hasVoted = post.poll?.options.some(opt => opt.votes.includes(currentUser._id));
+    const hasVoted = post.poll?.options.some(opt => opt.votes.some(v => (v._id || v) === currentUser._id));
+    const isAuthor = post.author?._id === currentUser._id || post.author === currentUser._id;
 
     const handleCommentSubmit = (e) => {
         if (e.key === 'Enter' && commentText.trim()) {
@@ -817,29 +974,57 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                             {post.poll.options.map(opt => {
                                 const totalVotes = post.poll.options.reduce((sum, o) => sum + o.votes.length, 0);
                                 const percentage = totalVotes > 0 ? (opt.votes.length / totalVotes) * 100 : 0;
-                                const isVotedByMe = opt.votes.includes(currentUser._id);
+                                const isVotedByMe = opt.votes.some(v => (v._id || v) === currentUser._id);
 
                                 return (
-                                    <button
-                                        key={opt._id}
-                                        disabled={hasVoted}
-                                        onClick={() => onVote(opt._id)}
-                                        className={`w-full relative group p-3 rounded-lg border text-left transition-all ${isVotedByMe ? 'border-cyan-500 bg-cyan-500/10' :
-                                            theme === 'dark' ? 'border-gray-800 bg-black/20 hover:border-gray-600' : 'border-gray-200 bg-white hover:border-gray-400'
-                                            }`}
-                                    >
-                                        <div
-                                            className={`absolute inset-y-0 left-0 rounded-l-lg transition-all duration-1000 ${isVotedByMe ? 'bg-cyan-500/20' : 'bg-gray-800/30'}`}
-                                            style={{ width: `${percentage}%` }}
-                                        ></div>
-                                        <div className="relative flex justify-between items-center text-sm">
-                                            <span className="font-bold flex items-center gap-2">
-                                                {opt.text}
-                                                {isVotedByMe && <FaCheckCircle className="text-cyan-400" size={12} />}
-                                            </span>
-                                            <span className="text-xs text-gray-500 font-black">{Math.round(percentage)}%</span>
-                                        </div>
-                                    </button>
+                                    <div key={opt._id} className="space-y-1.5">
+                                        <button
+                                            disabled={hasVoted}
+                                            onClick={() => onVote(opt._id)}
+                                            className={`w-full relative group p-3 rounded-lg border text-left transition-all ${isVotedByMe ? 'border-cyan-500 bg-cyan-500/10' :
+                                                theme === 'dark' ? 'border-gray-800 bg-black/20 hover:border-gray-600' : 'border-gray-200 bg-white hover:border-gray-400'
+                                                }`}
+                                        >
+                                            <div
+                                                className={`absolute inset-y-0 left-0 rounded-l-lg transition-all duration-1000 ${isVotedByMe ? 'bg-cyan-500/20' : 'bg-gray-800/30'}`}
+                                                style={{ width: `${percentage}%` }}
+                                            ></div>
+                                            <div className="relative flex justify-between items-center text-sm">
+                                                <span className="font-bold flex items-center gap-2">
+                                                    {opt.text}
+                                                    {isVotedByMe && <FaCheckCircle className="text-cyan-400" size={12} />}
+                                                </span>
+                                                <span className="text-xs text-gray-500 font-black">{Math.round(percentage)}%</span>
+                                            </div>
+                                        </button>
+
+                                        {/* Show Voters if user has voted */}
+                                        {hasVoted && opt.votes.length > 0 && (
+                                            <button
+                                                onClick={() => onViewParticipants(`Voters for: ${opt.text}`, opt.votes)}
+                                                className="flex items-center gap-2 px-1 hover:bg-cyan-500/5 rounded-md transition-colors w-fit group/voters"
+                                                title="View voter details"
+                                            >
+                                                <div className="flex -space-x-1.5 overflow-hidden">
+                                                    {opt.votes.slice(0, 6).map((voter, idx) => (
+                                                        <div
+                                                            key={voter._id || idx}
+                                                            title={voter.name}
+                                                            className="inline-block h-5 w-5 rounded-full ring-2 ring-white dark:ring-[#1a1f24] bg-cyan-600 flex items-center justify-center text-[7px] font-black text-white shrink-0 shadow-sm"
+                                                        >
+                                                            {(voter.name || "A").charAt(0).toUpperCase()}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {opt.votes.length > 0 && (
+                                                    <span className={`text-[8px] font-black uppercase tracking-tight transition-colors group-hover/voters:text-cyan-400 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                        {opt.votes.slice(0, 2).map(v => v.name).join(", ")}
+                                                        {opt.votes.length > 2 ? ` & ${opt.votes.length - 2} others` : " voted"}
+                                                    </span>
+                                                )}
+                                            </button>
+                                        )}
+                                    </div>
                                 );
                             })}
                         </div>
@@ -852,18 +1037,35 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
 
             {/* Interaction Bar */}
             <div className={`px-6 py-4 border-t flex items-center gap-6 ${theme === 'dark' ? 'bg-[#131619]/30 border-gray-800' : 'bg-gray-50/50 border-gray-200'}`}>
-                <button
-                    onClick={onLike}
-                    className={`flex items-center gap-2 font-bold text-sm transition-colors ${isLikedByMe ? 'text-cyan-500 dark:text-cyan-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
-                >
-                    <FaThumbsUp size={16} /> {post.likes.length} Likes
-                </button>
+                <div className="flex items-center gap-2 group/likes">
+                    <button
+                        onClick={onLike}
+                        className={`flex items-center gap-1.5 font-bold text-sm transition-all active:scale-125 ${isLikedByMe ? 'text-cyan-500 dark:text-cyan-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+                        title={isLikedByMe ? "Unlike" : "Like"}
+                    >
+                        <FaThumbsUp size={16} />
+                    </button>
+                    <button
+                        onClick={() => onViewParticipants("People who liked", post.likes)}
+                        className={`text-sm font-black transition-colors hover:text-cyan-400 ${isLikedByMe ? 'text-cyan-500' : 'text-gray-500'}`}
+                    >
+                        {post.likes.length} Likes
+                    </button>
+                </div>
                 <button
                     onClick={() => setShowComments(!showComments)}
                     className="flex items-center gap-2 font-bold text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                 >
                     <FaComment size={16} /> {post.comments.length} Comments
                 </button>
+                {isAuthor && (
+                    <button
+                        onClick={() => onViewParticipants("People who viewed", post.views || [])}
+                        className="flex items-center gap-2 font-bold text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                    >
+                        <FaEye size={16} /> {post.views?.length || 0} Viewers
+                    </button>
+                )}
             </div>
 
             {/* Comments Section */}
@@ -913,6 +1115,50 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                 )
             }
         </div >
+    );
+};
+
+const SocialActivity = ({ activeUsers, theme }) => {
+    const isDark = theme === 'dark';
+    return (
+        <div className={`${isDark ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-2xl border shadow-xl overflow-hidden`}>
+            <div className={`px-6 py-4 border-b flex items-center justify-between ${isDark ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                <div className="flex items-center gap-2">
+                    <FaHistory className="text-cyan-500" />
+                    <h3 className="text-sm font-black uppercase tracking-widest text-cyan-500">Dashboard Interaction</h3>
+                </div>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20">
+                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse shadow-[0_0_8px_rgba(6,182,212,0.6)]" />
+                    <span className="text-[10px] font-black text-cyan-500 uppercase">{activeUsers.length} Online</span>
+                </div>
+            </div>
+            <div className="p-4 space-y-4">
+                <p className={`text-[10px] font-bold uppercase tracking-tight ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                    Active Dashboard Visitors (Last 1 Hour)
+                </p>
+                <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                    {activeUsers.length === 0 ? (
+                        <p className="text-xs text-center py-4 italic text-gray-500">No recent activity</p>
+                    ) : (
+                        activeUsers.map((user) => (
+                            <div key={user._id} className="flex items-center gap-3 group">
+                                <VoterAvatar name={user.name} size="sm" />
+                                <div className="flex-1 overflow-hidden">
+                                    <h4 className={`text-xs font-black truncate transition-colors group-hover:text-cyan-400 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{user.name}</h4>
+                                    <p className={`text-[9px] font-bold truncate ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                                        {user.designation || user.teacherDepartment || "Staff Member"}
+                                    </p>
+                                </div>
+                                <div className="text-[8px] font-black uppercase tracking-widest text-cyan-500/50">Active</div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+            <div className={`px-6 py-3 border-t text-center ${isDark ? 'bg-[#131619]/50 border-gray-800' : 'bg-gray-50/50 border-gray-200'}`}>
+                <p className="text-[9px] font-bold text-gray-500 italic uppercase">Network pulse updated every minute</p>
+            </div>
+        </div>
     );
 };
 

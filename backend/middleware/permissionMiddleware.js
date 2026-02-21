@@ -29,7 +29,9 @@ export const requireAuth = async (req, res, next) => {
         req.user = user;
         next();
     } catch (error) {
-        console.error(error);
+        if (error.name !== "TokenExpiredError") {
+            console.error(error);
+        }
         return res.status(401).json({ message: "Invalid or expired token" });
     }
 };
@@ -75,7 +77,9 @@ export const requirePermission = (requiredPermission) => {
             req.user = user;
             next();
         } catch (error) {
-            console.error(error);
+            if (error.name !== "TokenExpiredError") {
+                console.error(error);
+            }
             return res.status(401).json({ message: "Invalid or expired token" });
         }
     };
@@ -125,7 +129,9 @@ export const requireAnyPermission = (requiredPermissions) => {
             req.user = user;
             next();
         } catch (error) {
-            console.error(error);
+            if (error.name !== "TokenExpiredError") {
+                console.error(error);
+            }
             return res.status(401).json({ message: "Invalid or expired token" });
         }
     };
@@ -179,7 +185,9 @@ export const requireGranularPermission = (module, section, action) => {
             req.user = user;
             next();
         } catch (error) {
-            console.error(error);
+            if (error.name !== "TokenExpiredError") {
+                console.error(error);
+            }
             return res.status(401).json({ message: "Invalid or expired token" });
         }
     };
@@ -232,7 +240,9 @@ export const requireAnyGranularPermission = (requiredPermissions) => {
             req.user = user;
             next();
         } catch (error) {
-            console.error(error);
+            if (error.name !== "TokenExpiredError") {
+                console.error(error);
+            }
             return res.status(401).json({ message: "Invalid or expired token" });
         }
     };
