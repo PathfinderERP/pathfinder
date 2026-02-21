@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaPaperPlane, FaImage, FaPoll, FaAt, FaThumbsUp, FaComment, FaCheckCircle, FaChartBar, FaEnvelope, FaBuilding, FaTrash, FaEllipsisV, FaEdit, FaChevronLeft, FaChevronRight, FaTimes, FaExpand, FaEye, FaHistory, FaVideo, FaUser, FaPhone, FaBriefcase, FaMapMarkerAlt, FaDownload, FaPlay } from "react-icons/fa";
+import { FaUpload, FaPaperPlane, FaImage, FaPoll, FaAt, FaThumbsUp, FaComment, FaCheckCircle, FaChartBar, FaEnvelope, FaBuilding, FaTrash, FaEllipsisV, FaEdit, FaChevronLeft, FaChevronRight, FaTimes, FaExpand, FaEye, FaHistory, FaVideo, FaUser, FaPhone, FaBriefcase, FaMapMarkerAlt, FaDownload, FaPlay } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import PdfDocumentHub from "./PdfDocumentHub";
