@@ -117,7 +117,8 @@ const UserManagementContent = () => {
                 toast.success("User deleted successfully");
                 fetchUsers();
             } else {
-                toast.error("Failed to delete user");
+                const data = await response.json();
+                toast.error(data.message || "Failed to delete user");
             }
         } catch (error) {
             console.error("Error deleting user:", error);

@@ -13,19 +13,24 @@ export const getEmployeeAnalytics = async (req, res) => {
         // Data Isolation Match Stage
         const matchStage = !isSuperAdmin ? {
             $match: {
+                user: { $exists: true, $ne: null }, // Only employees with linked user accounts
                 $or: [
                     { primaryCentre: { $in: userCentres } },
                     { centres: { $in: userCentres } }
                 ]
             }
-        } : { $match: {} };
+        } : {
+            $match: {
+                user: { $exists: true, $ne: null } // Only employees with linked user accounts
+            }
+        };
 
         // Handle case where user has no centres assigned and is not superAdmin
         if (!isSuperAdmin && userCentres.length === 0) {
             matchStage.$match = { _id: null }; // Force no results
         }
 
-        // Total employees count (filtered)
+        // Total employees count (filtered) - only those with user accounts
         const totalEmployees = await Employee.countDocuments(matchStage.$match);
 
         // Total Master Data counts (global)

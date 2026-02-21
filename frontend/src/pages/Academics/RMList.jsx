@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../../components/Layout";
 import { FaEdit, FaTrash, FaPlus, FaTimes, FaSearch } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
@@ -41,9 +41,9 @@ const RMList = () => {
 
         fetchRMs();
         fetchCentres();
-    }, []);
+    }, [fetchRMs, fetchCentres]);
 
-    const fetchRMs = async () => {
+    const fetchRMs = useCallback(async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -57,13 +57,14 @@ const RMList = () => {
                 toast.error("Failed to fetch RM list");
             }
         } catch (error) {
+            console.error("Fetch RMs error:", error);
             toast.error("Error fetching RM list");
         } finally {
             setLoading(false);
         }
-    };
+    }, [API_URL]);
 
-    const fetchCentres = async () => {
+    const fetchCentres = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${API_URL}/centre`, {
@@ -82,7 +83,7 @@ const RMList = () => {
         } catch (error) {
             console.error("Error fetching centers", error);
         }
-    };
+    }, [API_URL]);
 
     const handleInputChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -145,6 +146,7 @@ const RMList = () => {
                 toast.error(data.message || "Operation failed");
             }
         } catch (error) {
+            console.error("Submit error:", error);
             toast.error("Server error");
         }
     };
@@ -163,7 +165,8 @@ const RMList = () => {
                 toast.success("RM Deleted");
                 fetchRMs();
             } else {
-                toast.error("Failed to delete RM");
+                const data = await response.json();
+                toast.error(data.message || "Failed to delete RM");
             }
         } catch (error) {
             toast.error("Server error");

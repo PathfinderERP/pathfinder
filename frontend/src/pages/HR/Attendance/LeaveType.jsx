@@ -183,7 +183,9 @@ const LeaveType = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-white dark:bg-[#2a3038] w-full max-w-md rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                         <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                            <h2 className="text-lg font-bold text-gray-800 dark:text-white">Add Type Of Leave</h2>
+                            <h2 className="text-lg font-bold text-gray-800 dark:text-white">
+                                {editingType ? "Edit Type Of Leave" : "Add Type Of Leave"}
+                            </h2>
                             <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white transition-colors">
                                 <FaPlus size={20} className="rotate-45" />
                             </button>
@@ -214,7 +216,24 @@ const LeaveType = () => {
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Designation Select one or more *</label>
+                                <div className="flex justify-between items-center">
+                                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Designation Select one or more *</label>
+                                    {designations.length > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (formData.designations.length === designations.length) {
+                                                    setFormData({ ...formData, designations: [] });
+                                                } else {
+                                                    setFormData({ ...formData, designations: designations.map(d => d._id) });
+                                                }
+                                            }}
+                                            className="text-[10px] text-blue-600 hover:underline font-bold uppercase tracking-wider"
+                                        >
+                                            {formData.designations.length === designations.length ? "Deselect All" : "Select All"}
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg max-h-40 overflow-y-auto space-y-2">
                                     {designations.length === 0 ? (
                                         <p className="text-sm text-gray-400 italic">No designations found. Please add designations first.</p>
@@ -249,9 +268,9 @@ const LeaveType = () => {
                             <div className="pt-4">
                                 <button
                                     type="submit"
-                                    className="w-full px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium text-sm transition-all"
+                                    className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm transition-all shadow-lg shadow-blue-600/20 uppercase tracking-widest"
                                 >
-                                    Add
+                                    {editingType ? "Update" : "Add"}
                                 </button>
                             </div>
                         </form>

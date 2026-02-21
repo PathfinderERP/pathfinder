@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../../components/Layout";
 import { FaEdit, FaTrash, FaPlus, FaTimes, FaSearch } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
@@ -33,17 +33,7 @@ const ClassCoordinator = () => {
 
     const API_URL = import.meta.env.VITE_API_URL;
 
-    useEffect(() => {
-        const user = JSON.parse(localStorage.getItem("user") || "{}");
-        setCanCreate(hasPermission(user, 'academics', 'classCoordinator', 'create'));
-        setCanEdit(hasPermission(user, 'academics', 'classCoordinator', 'edit'));
-        setCanDelete(hasPermission(user, 'academics', 'classCoordinator', 'delete'));
-
-        fetchCoordinators();
-        fetchCentres();
-    }, []);
-
-    const fetchCoordinators = async () => {
+    const fetchCoordinators = useCallback(async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -57,13 +47,14 @@ const ClassCoordinator = () => {
                 toast.error("Failed to fetch Class Coordinator list");
             }
         } catch (error) {
+            console.error("Fetch coordinators error:", error);
             toast.error("Error fetching Class Coordinator list");
         } finally {
             setLoading(false);
         }
-    };
+    }, [API_URL]);
 
-    const fetchCentres = async () => {
+    const fetchCentres = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${API_URL}/centre`, {
@@ -82,7 +73,17 @@ const ClassCoordinator = () => {
         } catch (error) {
             console.error("Error fetching centers", error);
         }
-    };
+    }, [API_URL]);
+
+    useEffect(() => {
+        const user = JSON.parse(localStorage.getItem("user") || "{}");
+        setCanCreate(hasPermission(user, 'academics', 'classCoordinator', 'create'));
+        setCanEdit(hasPermission(user, 'academics', 'classCoordinator', 'edit'));
+        setCanDelete(hasPermission(user, 'academics', 'classCoordinator', 'delete'));
+
+        fetchCoordinators();
+        fetchCentres();
+    }, [fetchCoordinators, fetchCentres]);
 
     const handleInputChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -145,6 +146,7 @@ const ClassCoordinator = () => {
                 toast.error(data.message || "Operation failed");
             }
         } catch (error) {
+            console.error("Submit error:", error);
             toast.error("Server error");
         }
     };
@@ -163,9 +165,11 @@ const ClassCoordinator = () => {
                 toast.success("Coordinator Deleted");
                 fetchCoordinators();
             } else {
-                toast.error("Failed to delete coordinator");
+                const data = await response.json();
+                toast.error(data.message || "Failed to delete coordinator");
             }
         } catch (error) {
+            console.error("Delete error:", error);
             toast.error("Server error");
         }
     };

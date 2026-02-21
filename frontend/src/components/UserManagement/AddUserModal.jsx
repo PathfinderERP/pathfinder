@@ -278,7 +278,24 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                             </div>
                         )}
                         <div className="md:col-span-2">
-                            <label className={`block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-black uppercase tracking-widest mb-1`}>Assigned Centres {formData.role !== "superAdmin" && "*"}</label>
+                            <div className="flex justify-between items-center mb-1">
+                                <label className={`block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-black uppercase tracking-widest`}>Assigned Centres {formData.role !== "superAdmin" && "*"}</label>
+                                {formData.role !== "superAdmin" && centres.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const allSelected = formData.centres.length === centres.length;
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                centres: allSelected ? [] : centres.map(c => c._id)
+                                            }));
+                                        }}
+                                        className="text-[9px] text-cyan-500 hover:text-cyan-400 font-black uppercase tracking-widest transition-colors"
+                                    >
+                                        {formData.centres.length === centres.length ? "Deselect All" : "Select All"}
+                                    </button>
+                                )}
+                            </div>
                             <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 border rounded-lg p-4 max-h-48 overflow-y-auto transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200 shadow-inner'}`}>
                                 {centres.map(centre => (
                                     <label key={centre._id} className="flex items-center gap-2 cursor-pointer group p-1 hover:bg-cyan-500/10 rounded transition-all">

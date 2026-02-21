@@ -107,8 +107,8 @@ async function migrate() {
         const sheet = workbook.Sheets['data (2)'];
         const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-        const rows = data.slice(101, 1091); // Process next 990 students from second sheet
-        console.log(`Found ${data.length - 1} total rows in 'data (2)'. Processing records 101 to 1090...`);
+        const rows = data.slice(4091); // Process all remaining students from second sheet
+        console.log(`Found ${data.length - 1} total rows in 'data (2)'. Processing all remaining records from index 4091...`);
 
         let totalImported = 0;
         let totalErrors = 0;
@@ -259,7 +259,7 @@ async function migrate() {
                         receivedDate: admissionDate,
                         status: "PAID",
                         paymentMethod: "CASH",
-                        billId: `MIG2-DP-${admission.admissionNumber}-${totalImported}`,
+                        billId: `MIG2-DP-${admission.admissionNumber}-${Date.now()}-${totalImported}`,
                         totalAmount: downPayment
                     });
                 }
@@ -274,7 +274,7 @@ async function migrate() {
                         receivedDate: admissionDate,
                         status: "PAID",
                         paymentMethod: "CASH",
-                        billId: `MIG2-INS-${admission.admissionNumber}-${totalImported}`,
+                        billId: `MIG2-INS-${admission.admissionNumber}-${Date.now()}-${totalImported}`,
                         totalAmount: totalPaid - downPayment
                     });
                 }

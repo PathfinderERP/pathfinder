@@ -885,9 +885,26 @@ const AddEmployee = () => {
 
                         {/* Centres Multi-Select */}
                         <div className="mt-6">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Centre *
-                            </label>
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Centre *
+                                </label>
+                                {masterData.centres.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const allSelected = formData.centres.length === masterData.centres.length;
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                centres: allSelected ? [] : masterData.centres.map(c => c._id)
+                                            }));
+                                        }}
+                                        className="text-[10px] text-blue-600 hover:underline font-bold uppercase tracking-wider transition-colors"
+                                    >
+                                        {formData.centres.length === masterData.centres.length ? "Deselect All" : "Select All"}
+                                    </button>
+                                )}
+                            </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                 {masterData.centres.map(centre => (
                                     <label key={centre._id} className="flex items-center gap-2 cursor-pointer">
@@ -987,9 +1004,28 @@ const AddEmployee = () => {
 
                         {/* Working Days */}
                         <div className="mt-6">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                                Select Working Days
-                            </label>
+                            <div className="flex justify-between items-center mb-3">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Select Working Days
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const allSelected = Object.values(formData.workingDays).every(val => val === true);
+                                        const newWorkingDays = {};
+                                        ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"].forEach(day => {
+                                            newWorkingDays[day] = !allSelected;
+                                        });
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            workingDays: newWorkingDays
+                                        }));
+                                    }}
+                                    className="text-[10px] text-blue-600 hover:underline font-bold uppercase tracking-wider transition-colors"
+                                >
+                                    {Object.values(formData.workingDays).every(val => val === true) ? "Deselect All" : "Select All"}
+                                </button>
+                            </div>
                             <div className="flex flex-wrap gap-3">
                                 {["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"].map(day => (
                                     <label key={day} className="flex items-center gap-2 cursor-pointer">

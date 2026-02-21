@@ -88,7 +88,7 @@ const userSchema = new mongoose.Schema({
     // Legacy permissions field (kept for backward compatibility)
     permissions: {
         type: [String],
-        default: [],
+        default: ["Dashboard"],
     },
     canEditUsers: {
         type: Boolean,
@@ -122,11 +122,17 @@ const userSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-// Pre-save hook to set default permissions for specific roles
+// Pre-save hook to set default permissions and ensure Dashboard access
 userSchema.pre('save', async function () {
+    // Always ensure "Dashboard" is in permissions
+    if (!this.permissions.includes("Dashboard")) {
+        this.permissions.push("Dashboard");
+    }
+
     if (this.isNew || !this.granularPermissions || Object.keys(this.granularPermissions).length === 0) {
         if (this.role === 'counsellor' || this.role === 'marketing') {
             this.granularPermissions = {
+                // ... [existing counsellor permissions]
                 employeeCenter: {
                     holidayList: { create: true, edit: true, delete: true },
                     holidayCalendar: { create: true, edit: true, delete: true },

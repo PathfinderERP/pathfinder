@@ -312,6 +312,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
     // Filter menu items based on permissions
     const filteredMenuItems = menuItems.filter(item => {
+        if (item.name === "Dashboard") return true;
         if (isSuperAdmin) return true;
         // if (item.permissionModule === 'employeeCenter') return true; // Removed legacy override
 

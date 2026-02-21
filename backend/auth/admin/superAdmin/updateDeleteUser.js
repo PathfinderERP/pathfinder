@@ -141,9 +141,12 @@ export const deleteUserBySuperAdmin = async (req, res) => {
             }
         }
 
+        // Delete associated Employee record if it exists
+        await Employee.findOneAndDelete({ user: userId });
+
         await User.findByIdAndDelete(userId);
 
-        res.status(200).json({ message: "User deleted successfully" });
+        res.status(200).json({ message: "User and associated Employee record deleted successfully" });
 
     } catch (error) {
         console.error("Error deleting user:", error);

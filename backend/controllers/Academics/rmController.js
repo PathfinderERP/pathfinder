@@ -1,5 +1,6 @@
 import User from "../../models/User.js";
 import Centre from "../../models/Master_data/Centre.js";
+import Employee from "../../models/HR/Employee.js";
 import bcrypt from "bcrypt";
 
 // Create RM
@@ -107,12 +108,26 @@ export const updateRM = async (req, res) => {
 export const deleteRM = async (req, res) => {
     try {
         const { id } = req.params;
-        const deletedRM = await User.findByIdAndDelete(id);
+        const rm = await User.findById(id);
 
-        if (!deletedRM) {
+        if (!rm) {
             return res.status(404).json({ message: "RM not found" });
         }
-        res.status(200).json({ message: "RM deleted successfully" });
+
+        // Prevent deleting the last SuperAdmin
+        if (rm.role === "superAdmin") {
+            const superAdminCount = await User.countDocuments({ role: "superAdmin" });
+            if (superAdminCount <= 1) {
+                return res.status(400).json({ message: "Cannot delete the last SuperAdmin" });
+            }
+        }
+
+        // Delete associated Employee record if it exists
+        await Employee.findOneAndDelete({ user: id });
+
+        await User.findByIdAndDelete(id);
+
+        res.status(200).json({ message: "RM and associated Employee record deleted successfully" });
     } catch (error) {
         console.error("Delete RM Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });

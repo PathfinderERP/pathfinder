@@ -37,16 +37,25 @@ export const getAllUsersBySuperAdmin = async (req, res) => {
     const requestingUser = req.user;
     const isSuperAdmin = requestingUser.role === "superAdmin" || requestingUser.role === "Super Admin";
 
-    let query = {};
+    // Only show users who have a corresponding Employee record.
+    // This keeps User Management count in sync with Employee List.
+    const employeesWithUser = await Employee.find({ user: { $exists: true, $ne: null } }, "user");
+    const linkedUserIds = employeesWithUser.map(e => e.user.toString());
 
-    // If not SuperAdmin, filter to show only users who share the same centers
+    let query = {
+      _id: { $in: linkedUserIds }
+    };
+
+    // If not SuperAdmin, further filter to show only users who share the same centers
     if (!isSuperAdmin) {
       const userCentreIds = requestingUser.centres || [];
       if (userCentreIds.length > 0) {
+        // Combine with existing _id filter
         query.centres = { $in: userCentreIds };
       } else {
-        // If user has no centers, they shouldn't see anyone (except maybe themselves)
-        query._id = requestingUser._id;
+        // If user has no centers, they can only see themselves (if they have an employee record)
+        // Ensure their own ID is also in the linkedUserIds
+        query._id = { $in: linkedUserIds.filter(id => id === requestingUser._id.toString()) };
       }
     }
 
@@ -55,7 +64,7 @@ export const getAllUsersBySuperAdmin = async (req, res) => {
       .populate("centres", "centreName enterCode")
       .populate("assignedScript", "scriptName scriptContent")
       .select("-password")
-      .lean(); // Use lean for performance since we'll modify the objects
+      .lean();
 
     // Enrich users with employee data (profile image)
     const enrichedUsers = await Promise.all(users.map(async (user) => {
@@ -68,7 +77,7 @@ export const getAllUsersBySuperAdmin = async (req, res) => {
       return {
         ...user,
         profileImage: profileImageUrl,
-        mobNum: user.mobNum || employee?.phoneNumber // Prefer user.mobNum if available
+        mobNum: user.mobNum || employee?.phoneNumber
       };
     }));
 

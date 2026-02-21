@@ -165,7 +165,8 @@ const TeacherList = () => {
                 toast.success("Teacher deleted successfully");
                 fetchTeachers();
             } else {
-                toast.error("Failed to delete teacher");
+                const data = await response.json();
+                toast.error(data.message || "Failed to delete teacher");
             }
         } catch (error) {
             console.error("Delete Error:", error);

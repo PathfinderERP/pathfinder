@@ -6,6 +6,11 @@ import User from "../../models/User.js";
 import bcrypt from "bcryptjs";
 import s3Client from "../../config/r2Config.js";
 import { uploadToR2, deleteFromR2, getSignedFileUrl, upload } from "../../utils/r2Upload.js";
+import EmployeeAttendance from "../../models/Attendance/EmployeeAttendance.js";
+import LeaveRequest from "../../models/Attendance/LeaveRequest.js";
+import Regularization from "../../models/Attendance/Regularization.js";
+import Reimbursement from "../../models/HR/Reimbursement.js";
+import ResignationRequest from "../../models/HR/ResignationRequest.js";
 export { upload };
 import multer from "multer";
 
@@ -209,6 +214,10 @@ export const getEmployees = async (req, res) => {
 
         const query = {};
 
+        // Only show employees who have a linked User account.
+        // This keeps Employee List count in sync with User Management count.
+        query.user = { $exists: true, $ne: null };
+
         // Search by name, email, or employee ID
         if (search) {
             query.$or = [
@@ -242,7 +251,10 @@ export const getEmployees = async (req, res) => {
             const roleValues = role.split(',').filter(Boolean);
             const usersWithRole = await User.find({ role: { $in: roleValues } }).select('_id');
             const userIds = usersWithRole.map(u => u._id);
-            query.user = { $in: userIds };
+            // Merge with existing user filter using $and to also keep the $exists check
+            query.$and = query.$and || [];
+            query.$and.push({ user: { $in: userIds } });
+            delete query.user; // Remove simple user filter; $and conditions handle it
         }
 
         // Data Isolation: If not superAdmin, restrict to assigned centers
@@ -465,9 +477,36 @@ export const deleteEmployee = async (req, res) => {
             }
         }
 
+        // Delete associated User account
+        if (employee.user) {
+            const userToDelete = await User.findById(employee.user);
+            if (userToDelete) {
+                // Safety check: Prevent deleting the last SuperAdmin
+                if (userToDelete.role === "superAdmin") {
+                    const superAdminCount = await User.countDocuments({ role: "superAdmin" });
+                    if (superAdminCount <= 1) {
+                        return res.status(400).json({
+                            message: "Cannot delete this employee as they are linked to the last active SuperAdmin account."
+                        });
+                    }
+                }
+                await User.findByIdAndDelete(employee.user);
+            }
+        }
+
+        // Clean up other related records
+        await Promise.all([
+            Employee.updateMany({ manager: req.params.id }, { $set: { manager: null } }),
+            EmployeeAttendance.deleteMany({ employeeId: req.params.id }),
+            LeaveRequest.deleteMany({ employee: req.params.id }),
+            Regularization.deleteMany({ employeeId: req.params.id }),
+            Reimbursement.deleteMany({ employee: req.params.id }),
+            ResignationRequest.deleteMany({ employeeId: req.params.id })
+        ]);
+
         await Employee.findByIdAndDelete(req.params.id);
 
-        res.status(200).json({ message: "Employee deleted successfully" });
+        res.status(200).json({ message: "Employee and associated User account deleted successfully" });
     } catch (error) {
         console.error("Error deleting employee:", error);
         res.status(500).json({
