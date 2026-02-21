@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaPaperPlane, FaImage, FaPoll, FaAt, FaThumbsUp, FaComment, FaCheckCircle, FaChartBar, FaEnvelope, FaBuilding, FaTrash, FaEllipsisV, FaEdit, FaChevronLeft, FaChevronRight, FaTimes, FaExpand, FaEye, FaHistory } from "react-icons/fa";
+import { FaPaperPlane, FaImage, FaPoll, FaAt, FaThumbsUp, FaComment, FaCheckCircle, FaChartBar, FaEnvelope, FaBuilding, FaTrash, FaEllipsisV, FaEdit, FaChevronLeft, FaChevronRight, FaTimes, FaExpand, FaEye, FaHistory, FaVideo, FaUser, FaPhone, FaBriefcase, FaMapMarkerAlt, FaDownload, FaPlay } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import PdfDocumentHub from "./PdfDocumentHub";
+import { useRef } from "react";
 
 const SocialFeed = () => {
     const { theme } = useTheme();
@@ -16,12 +17,15 @@ const SocialFeed = () => {
     const [content, setContent] = useState("");
     const [images, setImages] = useState([]);
     const [imagePreviews, setImagePreviews] = useState([]);
+    const [videos, setVideos] = useState([]);
+    const [videoPreviews, setVideoPreviews] = useState([]);
     const [showPoll, setShowPoll] = useState(false);
     const [pollQuestion, setPollQuestion] = useState("");
     const [pollOptions, setPollOptions] = useState(["", ""]);
     const [selectedTags, setSelectedTags] = useState([]);
     const [showTagList, setShowTagList] = useState(false);
     const [activeUsers, setActiveUsers] = useState([]);
+    const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
     const navigate = useNavigate();
 
     // Participant Modal State (for both likes and votes)
@@ -194,10 +198,30 @@ const SocialFeed = () => {
 
     const handleImageChange = (e) => {
         const files = Array.from(e.target.files);
-        setImages(prev => [...prev, ...files]);
+        const imageFiles = files.filter(f => f.type.startsWith('image/'));
+        const videoFiles = files.filter(f => f.type.startsWith('video/'));
 
-        const previews = files.map(file => URL.createObjectURL(file));
-        setImagePreviews(prev => [...prev, ...previews]);
+        if (imageFiles.length > 0) {
+            setImages(prev => [...prev, ...imageFiles]);
+            const previews = imageFiles.map(file => URL.createObjectURL(file));
+            setImagePreviews(prev => [...prev, ...previews]);
+        }
+
+        if (videoFiles.length > 0) {
+            setVideos(prev => [...prev, ...videoFiles]);
+            const previews = videoFiles.map(file => URL.createObjectURL(file));
+            setVideoPreviews(prev => [...prev, ...previews]);
+        }
+    };
+
+    const removeFile = (index, type) => {
+        if (type === 'image') {
+            setImages(prev => prev.filter((_, i) => i !== index));
+            setImagePreviews(prev => prev.filter((_, i) => i !== index));
+        } else {
+            setVideos(prev => prev.filter((_, i) => i !== index));
+            setVideoPreviews(prev => prev.filter((_, i) => i !== index));
+        }
     };
 
     const handleRemoveImage = (index) => {
@@ -206,8 +230,8 @@ const SocialFeed = () => {
     };
 
     const handleSubmitPost = async (e) => {
-        e.preventDefault();
-        if (!content && images.length === 0 && !pollQuestion) {
+        if (e) e.preventDefault();
+        if (!content.trim() && images.length === 0 && videos.length === 0 && !pollQuestion) {
             toast.error("Please add some content to your post!");
             return;
         }
@@ -223,9 +247,9 @@ const SocialFeed = () => {
         if (selectedTags.length > 0) {
             formData.append("tags", JSON.stringify(selectedTags.map(t => t._id)));
         }
-        images.forEach(img => {
-            formData.append("images", img);
-        });
+
+        images.forEach(img => formData.append("images", img));
+        videos.forEach(vid => formData.append("images", vid)); // Backend handles separation check on mimetype
 
         try {
             const token = localStorage.getItem("token");
@@ -240,6 +264,8 @@ const SocialFeed = () => {
                 setContent("");
                 setImages([]);
                 setImagePreviews([]);
+                setVideos([]);
+                setVideoPreviews([]);
                 setShowPoll(false);
                 setPollQuestion("");
                 setPollOptions(["", ""]);
@@ -313,10 +339,15 @@ const SocialFeed = () => {
     };
 
     return (
-        <div className={`flex-1 h-full overflow-y-auto p-4 md:p-8 custom-scrollbar transition-colors duration-300 ${theme === 'dark' ? 'bg-[#131619] text-white' : 'bg-gray-50 text-gray-900'}`} data-theme={theme}>
-            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Left Column: Social Feed */}
-                <div className="lg:col-span-8 space-y-8">
+        <div className={`flex-1 h-full overflow-y-auto p-2 sm:p-4 md:p-8 custom-scrollbar transition-colors duration-300 ${theme === 'dark' ? 'bg-[#131619] text-white' : 'bg-gray-50 text-gray-900'}`} data-theme={theme}>
+            <div className="max-w-screen-2xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8">
+                {/* Left Column: User Profile Card */}
+                <div className="lg:col-span-3 h-fit lg:sticky lg:top-8 hidden lg:block">
+                    <ProfileCard user={currentUser} theme={theme} navigate={navigate} />
+                </div>
+
+                {/* Center Column: Social Feed */}
+                <div className="col-span-1 lg:col-span-5 space-y-8">
 
                     {/* Create Post Section */}
                     <div className={`${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-xl border shadow-xl overflow-hidden`}>
@@ -337,13 +368,27 @@ const SocialFeed = () => {
                                         onChange={(e) => setContent(e.target.value)}
                                     />
 
-                                    {imagePreviews.length > 0 && (
+                                    {(imagePreviews.length > 0 || videoPreviews.length > 0) && (
                                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
                                             {imagePreviews.map((src, i) => (
                                                 <div key={i} className="relative group aspect-square">
                                                     <img src={src} alt="" className={`w-full h-full object-cover rounded-lg border ${theme === 'dark' ? 'border-gray-800' : 'border-gray-200'}`} />
                                                     <button
-                                                        onClick={() => handleRemoveImage(i)}
+                                                        onClick={() => removeFile(i, 'image')}
+                                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg hover:scale-110 transition-transform"
+                                                    >
+                                                        <FaTrash size={10} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {videoPreviews.map((src, i) => (
+                                                <div key={i} className="relative group aspect-square">
+                                                    <div className="w-full h-full bg-black rounded-lg flex items-center justify-center overflow-hidden">
+                                                        <video src={src} className="w-full h-full object-cover opacity-60" />
+                                                        <FaPlay className="absolute text-white/50" size={20} />
+                                                    </div>
+                                                    <button
+                                                        onClick={() => removeFile(i, 'video')}
                                                         className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg hover:scale-110 transition-transform"
                                                     >
                                                         <FaTrash size={10} />
@@ -408,22 +453,27 @@ const SocialFeed = () => {
                                     <span className="text-xs font-bold hidden sm:inline">Photo</span>
                                     <input type="file" multiple className="hidden" accept="image/*" onChange={handleImageChange} />
                                 </label>
+                                <label className="cursor-pointer text-gray-400 hover:text-cyan-400 transition-colors flex items-center gap-1.5 sm:gap-2">
+                                    <FaVideo size={16} />
+                                    <span className="text-[10px] font-bold hidden xs:inline">Video</span>
+                                    <input type="file" multiple className="hidden" accept="video/*" onChange={handleImageChange} />
+                                </label>
                                 <button
                                     type="button"
                                     onClick={() => setShowPoll(!showPoll)}
-                                    className={`flex items-center gap-2 transition-colors ${showPoll ? 'text-cyan-400' : 'text-gray-400 hover:text-cyan-400'}`}
+                                    className={`flex items-center gap-1.5 sm:gap-2 transition-colors ${showPoll ? 'text-cyan-400' : 'text-gray-400 hover:text-cyan-400'}`}
                                 >
-                                    <FaPoll size={18} />
-                                    <span className="text-xs font-bold hidden sm:inline">Poll</span>
+                                    <FaPoll size={16} />
+                                    <span className="text-[10px] font-bold hidden xs:inline">Poll</span>
                                 </button>
                                 <div className="relative">
                                     <button
                                         type="button"
                                         onClick={() => setShowTagList(!showTagList)}
-                                        className={`flex items-center gap-2 transition-colors ${showTagList ? 'text-cyan-400' : 'text-gray-400 hover:text-cyan-400'}`}
+                                        className={`flex items-center gap-1.5 sm:gap-2 transition-colors ${showTagList ? 'text-cyan-400' : 'text-gray-400 hover:text-cyan-400'}`}
                                     >
-                                        <FaAt size={18} />
-                                        <span className="text-xs font-bold hidden sm:inline">Tag</span>
+                                        <FaAt size={16} />
+                                        <span className="text-[10px] font-bold hidden xs:inline">Tag</span>
                                     </button>
 
                                     {showTagList && (
@@ -456,9 +506,9 @@ const SocialFeed = () => {
                             <button
                                 type="button"
                                 onClick={handleSubmitPost}
-                                className="bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-2 rounded-lg font-bold text-sm shadow-lg shadow-cyan-500/20 active:scale-95 transition-all flex items-center gap-2"
+                                className="bg-cyan-600 hover:bg-cyan-500 text-white px-4 sm:px-6 py-2 rounded-lg font-bold text-xs sm:text-sm shadow-lg shadow-cyan-500/20 active:scale-95 transition-all flex items-center gap-2"
                             >
-                                Share <FaPaperPlane size={12} />
+                                <span className="hidden xs:inline">Share</span> <FaPaperPlane size={12} />
                             </button>
                         </div>
                     </div>
@@ -505,11 +555,74 @@ const SocialFeed = () => {
                 )}
 
                 {/* Right Column: PDF Document Hub & Social Activity */}
-                <div className="lg:col-span-4 h-fit lg:sticky lg:top-8 space-y-8">
+                <div className="lg:col-span-4 h-fit lg:sticky lg:top-8 space-y-8 hidden lg:block">
                     <SocialActivity activeUsers={activeUsers} theme={theme} />
                     <PdfDocumentHub theme={theme} />
                 </div>
             </div>
+
+            {/* Mobile Right Sidebar Toggle Button */}
+            <button
+                onClick={() => setIsRightSidebarOpen(true)}
+                className="lg:hidden fixed right-0 top-1/2 -translate-y-1/2 z-[45] bg-cyan-600 hover:bg-cyan-500 text-white p-4 rounded-l-2xl shadow-2xl flex flex-col items-center gap-2 transition-all duration-300 active:scale-90 group"
+            >
+                <div className="flex flex-col items-center">
+                    <FaChevronLeft className="animate-pulse" size={14} />
+                    <span className="[writing-mode:vertical-lr] rotate-180 text-[10px] font-black uppercase tracking-widest mt-2 group-hover:tracking-[0.2em] transition-all">Dash Info</span>
+                </div>
+            </button>
+
+            {/* Mobile Right Sidebar Drawer */}
+            <div className={`fixed inset-0 z-[100] lg:hidden transition-all duration-500 ${isRightSidebarOpen ? 'visible' : 'invisible'}`}>
+                {/* Overlay */}
+                <div
+                    className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-500 ${isRightSidebarOpen ? 'opacity-100' : 'opacity-0'}`}
+                    onClick={() => setIsRightSidebarOpen(false)}
+                />
+
+                {/* Drawer Content */}
+                <div className={`absolute right-0 top-0 bottom-0 w-[85%] max-w-sm bg-gray-50 dark:bg-[#131619] shadow-2xl transition-transform duration-500 transform ${isRightSidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+                    <div className="h-full flex flex-col">
+                        {/* Drawer Header */}
+                        <div className={`p-6 border-b flex items-center justify-between ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
+                                <h2 className="text-xs font-black uppercase tracking-[0.2em] text-cyan-500">Dashboard Intelligence</h2>
+                            </div>
+                            <button
+                                onClick={() => setIsRightSidebarOpen(false)}
+                                className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-gray-100'}`}
+                            >
+                                <FaTimes />
+                            </button>
+                        </div>
+
+                        {/* Drawer Body - Scrollable */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+                            <div className="space-y-4">
+                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Your Profile Summary</p>
+                                <ProfileCard user={currentUser} theme={theme} navigate={navigate} />
+                            </div>
+
+                            <div className="space-y-4">
+                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Network Activity</p>
+                                <SocialActivity activeUsers={activeUsers} theme={theme} />
+                            </div>
+
+                            <div className="space-y-4">
+                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Knowledge Assets</p>
+                                <PdfDocumentHub theme={theme} />
+                            </div>
+                        </div>
+
+                        {/* Drawer Footer */}
+                        <div className={`p-4 border-t text-center ${theme === 'dark' ? 'bg-[#1a1f24]/50 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                            <p className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter italic">Updated in real-time • ERP Social System v2.0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <style>{`
                 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -804,9 +917,9 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
     return (
         <div className={`${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-xl border shadow-lg overflow-hidden animate-fade-in transition-all hover:shadow-cyan-500/5`}>
             {/* Post Header */}
-            <div className="p-6 flex items-start justify-between">
-                <div className="flex gap-4">
-                    <div className="w-12 h-12 rounded-full bg-cyan-100 dark:bg-cyan-900 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-bold overflow-hidden border border-cyan-500/20">
+            <div className="p-4 sm:p-6 flex items-start justify-between gap-4">
+                <div className="flex gap-3 sm:gap-4 flex-1 min-w-0">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-cyan-100 dark:bg-cyan-900 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-bold overflow-hidden border border-cyan-500/20 shrink-0">
                         {post.author?.profileImage ? (
                             <img
                                 src={post.author.profileImage.startsWith('http') ? post.author.profileImage : `${import.meta.env.VITE_API_URL}${post.author.profileImage}`}
@@ -820,37 +933,37 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                         ) : null}
                         <span className={post.author?.profileImage ? 'hidden' : ''}>{post.author?.name?.charAt(0).toUpperCase()}</span>
                     </div>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h4 className="text-gray-900 dark:text-white font-black text-lg">{post.author?.name}</h4>
-                            <span className="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 text-[10px] font-black uppercase tracking-widest border border-cyan-500/20">
+                    <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="text-gray-900 dark:text-white font-black text-base sm:text-lg truncate max-w-[150px] sm:max-w-none">{post.author?.name}</h4>
+                            <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 text-[9px] font-black uppercase tracking-widest border border-cyan-500/20 shrink-0">
                                 {post.author?.role}
                             </span>
 
                             {/* Action Buttons for Author or SuperAdmin */}
                             {(post.author?._id === currentUser._id || currentUser.role === "superAdmin") && !isEditing && (
-                                <div className="flex items-center gap-3 ml-4">
+                                <div className="flex items-center gap-2 sm:gap-3 ml-auto sm:ml-4">
                                     <button
                                         onClick={() => setIsEditing(true)}
-                                        className="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-black text-[10px] uppercase tracking-widest transition-all hover:scale-110 bg-cyan-500/5 px-2 py-1 rounded-md border border-cyan-500/10 hover:border-cyan-500/30"
+                                        className="flex items-center gap-1 text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-black text-[9px] uppercase tracking-widest transition-all hover:scale-105 bg-cyan-500/5 px-2 py-1 rounded-md border border-cyan-500/10"
                                         title="Edit Post"
                                     >
-                                        <FaEdit size={12} /> Edit
+                                        <FaEdit size={10} /> <span className="hidden xs:inline">Edit</span>
                                     </button>
                                     <button
                                         onClick={onDelete}
-                                        className="flex items-center gap-1.5 text-red-500 hover:text-red-600 font-black text-[10px] uppercase tracking-widest transition-all hover:scale-110 bg-red-500/5 px-2 py-1 rounded-md border border-red-500/10 hover:border-red-500/30"
+                                        className="flex items-center gap-1 text-red-500 hover:text-red-600 font-black text-[9px] uppercase tracking-widest transition-all hover:scale-105 bg-red-500/5 px-2 py-1 rounded-md border border-red-500/10"
                                         title="Delete Post"
                                     >
-                                        <FaTrash size={12} /> Delete
+                                        <FaTrash size={10} /> <span className="hidden xs:inline">Delete</span>
                                     </button>
                                 </div>
                             )}
                         </div>
-                        <p className="text-xs text-gray-500 font-bold">
+                        <p className="text-[10px] sm:text-xs text-gray-500 font-bold truncate">
                             {post.author?.designationName} • {post.author?.departmentName}
                         </p>
-                        <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}`}>
+                        <p className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-widest mt-0.5 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}`}>
                             {new Date(post.createdAt).toLocaleDateString()} at {new Date(post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                     </div>
@@ -898,7 +1011,19 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                                     </button>
                                 </div>
                             ))}
-                            {/* New Previews */}
+                            {/* Existing Videos */}
+                            {post.videos?.filter(vid => !removedImages.includes(vid)).map((vid, i) => (
+                                <div key={i} className="relative w-24 h-24 bg-black rounded-lg">
+                                    <video src={vid.startsWith('http') ? vid : `${import.meta.env.VITE_API_URL}${vid}`} className="w-full h-full object-cover rounded-lg" />
+                                    <button
+                                        onClick={() => handleRemoveExistingImage(vid)}
+                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:scale-110 transition-transform"
+                                    >
+                                        <FaTrash size={10} />
+                                    </button>
+                                </div>
+                            ))}
+                            {/* New Previews (merged image/video) */}
                             {imagePreviews.map((pre, i) => (
                                 <div key={i} className="relative w-24 h-24">
                                     <img src={pre} className="w-full h-full object-cover rounded-lg border border-cyan-500/50" alt="" />
@@ -914,9 +1039,9 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                                 </div>
                             ))}
                             <label className="w-24 h-24 border-2 border-dashed border-gray-800 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:border-cyan-500/50 hover:text-cyan-500 cursor-pointer transition-all">
-                                <FaImage size={20} />
-                                <span className="text-[10px] mt-1 font-bold">ADD</span>
-                                <input type="file" multiple hidden onChange={handleEditImageChange} accept="image/*" />
+                                <FaUpload size={20} />
+                                <span className="text-[10px] mt-1 font-bold uppercase">ADD</span>
+                                <input type="file" multiple hidden onChange={handleEditImageChange} accept="image/*,video/*" />
                             </label>
                         </div>
 
@@ -961,6 +1086,14 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                         {post.images?.length > 0 && (
                             <ImageCarousel images={post.images} />
                         )}
+
+                        {post.videos?.length > 0 && (
+                            <div className="space-y-4">
+                                {post.videos.map((vid, i) => (
+                                    <VideoPlayer key={i} src={vid} theme={theme} />
+                                ))}
+                            </div>
+                        )}
                     </>
                 )}
 
@@ -968,7 +1101,7 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                     <div className={`p-6 rounded-xl border space-y-4 ${theme === 'dark' ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                         <div className="flex items-center gap-3">
                             <FaChartBar className="text-cyan-500" />
-                            <h5 className={`font-bold text-lg ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>{post.poll.question}</h5>
+                            <h5 className={`font-bold text-base sm:text-lg ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>{post.poll.question}</h5>
                         </div>
                         <div className="space-y-3">
                             {post.poll.options.map(opt => {
@@ -989,12 +1122,12 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                                                 className={`absolute inset-y-0 left-0 rounded-l-lg transition-all duration-1000 ${isVotedByMe ? 'bg-cyan-500/20' : 'bg-gray-800/30'}`}
                                                 style={{ width: `${percentage}%` }}
                                             ></div>
-                                            <div className="relative flex justify-between items-center text-sm">
-                                                <span className="font-bold flex items-center gap-2">
-                                                    {opt.text}
-                                                    {isVotedByMe && <FaCheckCircle className="text-cyan-400" size={12} />}
+                                            <div className="relative flex justify-between items-center gap-2 text-sm">
+                                                <span className="font-bold flex items-center gap-2 min-w-0">
+                                                    <span className="truncate">{opt.text}</span>
+                                                    {isVotedByMe && <FaCheckCircle className="text-cyan-400 shrink-0" size={12} />}
                                                 </span>
-                                                <span className="text-xs text-gray-500 font-black">{Math.round(percentage)}%</span>
+                                                <span className="text-xs text-gray-500 font-black shrink-0">{Math.round(percentage)}%</span>
                                             </div>
                                         </button>
 
@@ -1036,34 +1169,34 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
             </div>
 
             {/* Interaction Bar */}
-            <div className={`px-6 py-4 border-t flex items-center gap-6 ${theme === 'dark' ? 'bg-[#131619]/30 border-gray-800' : 'bg-gray-50/50 border-gray-200'}`}>
+            <div className={`px-4 sm:px-6 py-3 sm:py-4 border-t flex flex-wrap items-center gap-4 sm:gap-6 ${theme === 'dark' ? 'bg-[#131619]/30 border-gray-800' : 'bg-gray-50/50 border-gray-200'}`}>
                 <div className="flex items-center gap-2 group/likes">
                     <button
                         onClick={onLike}
-                        className={`flex items-center gap-1.5 font-bold text-sm transition-all active:scale-125 ${isLikedByMe ? 'text-cyan-500 dark:text-cyan-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+                        className={`flex items-center gap-1.5 font-bold text-xs sm:text-sm transition-all active:scale-125 ${isLikedByMe ? 'text-cyan-500 dark:text-cyan-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
                         title={isLikedByMe ? "Unlike" : "Like"}
                     >
-                        <FaThumbsUp size={16} />
+                        <FaThumbsUp size={14} />
                     </button>
                     <button
                         onClick={() => onViewParticipants("People who liked", post.likes)}
-                        className={`text-sm font-black transition-colors hover:text-cyan-400 ${isLikedByMe ? 'text-cyan-500' : 'text-gray-500'}`}
+                        className={`text-xs sm:text-sm font-black transition-colors hover:text-cyan-400 ${isLikedByMe ? 'text-cyan-500' : 'text-gray-500'}`}
                     >
-                        {post.likes.length} Likes
+                        {post.likes.length} <span className="hidden xs:inline">Likes</span>
                     </button>
                 </div>
                 <button
                     onClick={() => setShowComments(!showComments)}
-                    className="flex items-center gap-2 font-bold text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                    className="flex items-center gap-2 font-bold text-xs sm:text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                 >
-                    <FaComment size={16} /> {post.comments.length} Comments
+                    <FaComment size={14} /> {post.comments.length} <span className="hidden xs:inline">Comments</span>
                 </button>
                 {isAuthor && (
                     <button
                         onClick={() => onViewParticipants("People who viewed", post.views || [])}
-                        className="flex items-center gap-2 font-bold text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                        className="flex items-center gap-2 font-bold text-xs sm:text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                     >
-                        <FaEye size={16} /> {post.views?.length || 0} Viewers
+                        <FaEye size={14} /> {post.views?.length || 0} <span className="hidden xs:inline">Viewers</span>
                     </button>
                 )}
             </div>
@@ -1115,6 +1248,199 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                 )
             }
         </div >
+    );
+};
+
+// ─── LinkedIn-Style Profile Card ──────────────────────────────────────────────
+const ProfileCard = ({ user, theme, navigate }) => {
+    const isDark = theme === 'dark';
+    return (
+        <div className={`${isDark ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-2xl border shadow-xl overflow-hidden transition-all duration-300 hover:shadow-cyan-500/10`}>
+            {/* Banner */}
+            <div className="h-24 bg-gradient-to-r from-cyan-600 to-blue-600 relative">
+                <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]" />
+            </div>
+
+            {/* Profile Pic Overlay */}
+            <div className="px-6 -mt-12 pb-6 relative z-10">
+                <div className="relative inline-block group">
+                    <div className={`w-24 h-24 rounded-2xl border-4 ${isDark ? 'border-[#1a1f24] bg-[#131619]' : 'border-white bg-gray-50'} flex items-center justify-center shadow-xl overflow-hidden transition-transform duration-300 group-hover:scale-105`}>
+                        {user.profileImage ? (
+                            <img src={user.profileImage} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
+                                <span className="text-3xl font-black text-white">{user.name?.charAt(0).toUpperCase()}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="mt-4">
+                    <h3 className={`font-black text-xl tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{user.name}</h3>
+                    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-500 mt-1">{user.role}</p>
+                </div>
+
+                <div className="mt-8 space-y-4">
+                    <div className="flex items-center gap-3 group">
+                        <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-50'} text-cyan-500`}>
+                            <FaEnvelope size={12} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Email Address</p>
+                            <p className={`text-xs font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{user.email}</p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 group">
+                        <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-50'} text-purple-500`}>
+                            <FaBriefcase size={12} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Position & Team</p>
+                            <p className={`text-xs font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                {user.designation || 'Staff'} • {user.teacherDepartment || 'General'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 group">
+                        <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-50'} text-emerald-500`}>
+                            <FaMapMarkerAlt size={12} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Work Location</p>
+                            <p className={`text-xs font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                {user.centres?.[0]?.name || 'Primary Center'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 group">
+                        <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-50'} text-orange-500`}>
+                            <FaPhone size={12} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Contact Number</p>
+                            <p className={`text-xs font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{user.mobNum || 'Not provided'}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className={`px-6 py-5 border-t ${isDark ? 'border-gray-800 bg-[#131619]/50' : 'border-gray-100 bg-gray-50/50'}`}>
+                <button
+                    onClick={() => navigate('/employee/details')}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-cyan-500/20 hover:scale-[1.02] active:scale-95 transition-all"
+                >
+                    View My Profile
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// ─── Pro Video Player ────────────────────────────────────────────────────────
+const VideoPlayer = ({ src, theme }) => {
+    const isDark = theme === 'dark';
+    const videoRef = useRef(null);
+    const [playbackRate, setPlaybackRate] = useState(1);
+    const [isPlaying, setIsPlaying] = useState(false);
+
+    const togglePlay = () => {
+        if (videoRef.current.paused) {
+            videoRef.current.play();
+            setIsPlaying(true);
+        } else {
+            videoRef.current.pause();
+            setIsPlaying(false);
+        }
+    };
+
+    const handleSpeedChange = (rate) => {
+        setPlaybackRate(rate);
+        videoRef.current.playbackRate = rate;
+    };
+
+    const handleDownload = async () => {
+        try {
+            const response = await fetch(src);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `video_${Date.now()}.mp4`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            window.open(src, '_blank');
+        }
+    };
+
+    return (
+        <div className="relative group rounded-2xl overflow-hidden bg-black aspect-video border border-gray-200 dark:border-gray-800 shadow-2xl">
+            <video
+                ref={videoRef}
+                src={src}
+                className="w-full h-full cursor-pointer"
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                onClick={togglePlay}
+            />
+
+            {/* Standard HTML5 Controls Overlay (hidden by default, shown on hover if needed but native is better for volume/fullscr) */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+
+            {/* Premium Control Bar */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-between gap-4 z-20">
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={togglePlay}
+                        className="p-3 rounded-full bg-cyan-500 text-white shadow-lg shadow-cyan-500/40 hover:scale-110 active:scale-90 transition-all pointer-events-auto"
+                    >
+                        {isPlaying ? <FaTimes size={14} /> : <FaPlay size={14} className="ml-0.5" />}
+                    </button>
+
+                    {/* Speed Selector */}
+                    <div className="flex items-center gap-1 bg-black/40 backdrop-blur-md rounded-lg p-1 border border-white/10 pointer-events-auto">
+                        {[1, 1.5, 2].map(rate => (
+                            <button
+                                key={rate}
+                                onClick={() => handleSpeedChange(rate)}
+                                className={`px-2 py-1 rounded-md text-[9px] font-black tracking-tighter transition-all ${playbackRate === rate ? 'bg-cyan-500 text-white' : 'text-gray-400 hover:text-white'}`}
+                            >
+                                {rate}x
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2 pointer-events-auto">
+                    <button
+                        onClick={handleDownload}
+                        className="p-2.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 text-white hover:bg-cyan-500 hover:border-cyan-500 transition-all"
+                        title="Download Video"
+                    >
+                        <FaDownload size={14} />
+                    </button>
+                    {/* Native controls cover volume and fullscr best, but we provide the download button as a premium extra */}
+                </div>
+            </div>
+
+            {/* Play Overlay if not playing */}
+            {!isPlaying && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-20 h-20 rounded-full bg-cyan-500/20 backdrop-blur-sm border border-cyan-500/40 flex items-center justify-center text-cyan-400 animate-pulse">
+                        <FaPlay size={30} className="ml-2" />
+                    </div>
+                </div>
+            )}
+
+            {/* Video metadata overlay */}
+            <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                <p className="text-[10px] font-black text-white uppercase tracking-widest">Premium Playback • {playbackRate}x</p>
+            </div>
+        </div>
     );
 };
 

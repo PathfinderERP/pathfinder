@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     FaFilePdf, FaUpload, FaDownload, FaPrint, FaTimes,
     FaTrash, FaExpand, FaSpinner, FaEye, FaCloudUploadAlt,
-    FaCheckCircle, FaExclamationTriangle, FaFolder
+    FaCheckCircle, FaExclamationTriangle, FaFolder,
+    FaFileImage, FaFileWord, FaFileExcel, FaFilePowerpoint, FaFileAlt
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 
@@ -50,14 +51,8 @@ export default function PdfDocumentHub({ theme }) {
 
     // ─── File selection ──────────────────────────────────────────────────────────
     const handleFileSelect = (files) => {
-        const pdfs = Array.from(files).filter(f => f.type === "application/pdf");
-        if (pdfs.length === 0) {
-            toast.error("Only PDF files are allowed.");
-            return;
-        }
-        const nonPdf = Array.from(files).length - pdfs.length;
-        if (nonPdf > 0) toast.warning(`${nonPdf} non-PDF file(s) skipped.`);
-        setPendingFiles(prev => [...prev, ...pdfs]);
+        const selectedFiles = Array.from(files);
+        setPendingFiles(prev => [...prev, ...selectedFiles]);
         setShowUploadPanel(true);
     };
 
@@ -97,7 +92,7 @@ export default function PdfDocumentHub({ theme }) {
 
             if (res.ok) {
                 setUploadProgress(prev => prev.map(p => ({ ...p, status: "done" })));
-                toast.success(`${pendingFiles.length} PDF(s) uploaded successfully!`);
+                toast.success(`${pendingFiles.length} Document(s) uploaded successfully!`);
                 setTimeout(() => {
                     setPendingFiles([]);
                     setTitle("");
@@ -175,6 +170,16 @@ export default function PdfDocumentHub({ theme }) {
     };
 
     // ─── Helpers ─────────────────────────────────────────────────────────────────
+    const getFileIcon = (fileName, className, size) => {
+        const ext = fileName?.split('.').pop().toLowerCase();
+        if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) return <FaFileImage className={className || "text-emerald-500"} size={size || 16} />;
+        if (['doc', 'docx'].includes(ext)) return <FaFileWord className={className || "text-blue-500"} size={size || 16} />;
+        if (['xls', 'xlsx', 'csv'].includes(ext)) return <FaFileExcel className={className || "text-emerald-600"} size={size || 16} />;
+        if (['ppt', 'pptx'].includes(ext)) return <FaFilePowerpoint className={className || "text-orange-500"} size={size || 16} />;
+        if (ext === 'pdf') return <FaFilePdf className={className || "text-red-500"} size={size || 16} />;
+        return <FaFileAlt className={className || "text-gray-500"} size={size || 16} />;
+    };
+
     const formatSize = (bytes) => {
         if (!bytes) return "";
         if (bytes < 1024) return `${bytes} B`;
@@ -197,11 +202,11 @@ export default function PdfDocumentHub({ theme }) {
             {/* ─── Header ──────────────────────────────────────────────────────── */}
             <div className={`rounded-xl border p-5 flex items-center justify-between shadow-lg ${isDark ? "bg-[#1a1f24] border-gray-800" : "bg-white border-gray-200"}`}>
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-lg shadow-red-500/20">
-                        <FaFilePdf className="text-white" size={18} />
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                        <FaFolder className="text-white" size={18} />
                     </div>
                     <div>
-                        <h3 className={`font-black text-base ${isDark ? "text-white" : "text-gray-900"}`}>PDF Documents</h3>
+                        <h3 className={`font-black text-base ${isDark ? "text-white" : "text-gray-900"}`}>Document Hub</h3>
                         <p className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? "text-gray-500" : "text-gray-400"}`}>
                             {documents.length} document{documents.length !== 1 ? "s" : ""} shared
                         </p>
@@ -211,10 +216,10 @@ export default function PdfDocumentHub({ theme }) {
                     onClick={() => setShowUploadPanel(p => !p)}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition-all active:scale-95 shadow-lg ${showUploadPanel
                         ? "bg-gray-500/10 border border-gray-500/20 text-gray-400"
-                        : "bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-red-500/25"
+                        : "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-cyan-500/25"
                         }`}
                 >
-                    {showUploadPanel ? <><FaTimes size={12} /> Cancel</> : <><FaUpload size={12} /> Upload PDF</>}
+                    {showUploadPanel ? <><FaTimes size={12} /> Cancel</> : <><FaUpload size={12} /> Upload File</>}
                 </button>
             </div>
 
@@ -238,7 +243,7 @@ export default function PdfDocumentHub({ theme }) {
                             ref={fileInputRef}
                             type="file"
                             multiple
-                            accept="application/pdf"
+                            accept="*/*"
                             className="hidden"
                             onChange={e => handleFileSelect(e.target.files)}
                         />
@@ -246,10 +251,10 @@ export default function PdfDocumentHub({ theme }) {
                             <FaCloudUploadAlt className={dragOver ? "text-white" : "text-red-500"} size={28} />
                         </div>
                         <p className={`font-black text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                            {dragOver ? "Drop your PDFs here!" : "Click or drag & drop PDFs"}
+                            {dragOver ? "Drop your files here!" : "Click or drag & drop files"}
                         </p>
                         <p className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-                            Multiple files supported · PDF only
+                            Multiple files supported · PDF, Images, Excel, Docs etc.
                         </p>
                     </div>
 
@@ -260,8 +265,8 @@ export default function PdfDocumentHub({ theme }) {
                                 const status = uploadProgress[i]?.status;
                                 return (
                                     <div key={i} className={`flex items-center gap-3 px-4 py-3 rounded-lg border ${isDark ? "bg-[#131619] border-gray-800" : "bg-gray-50 border-gray-200"}`}>
-                                        <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
-                                            <FaFilePdf className="text-red-500" size={14} />
+                                        <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0">
+                                            {getFileIcon(file.name, "text-cyan-500", 14)}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className={`text-xs font-bold truncate ${isDark ? "text-gray-200" : "text-gray-800"}`}>{file.name}</p>
@@ -304,7 +309,7 @@ export default function PdfDocumentHub({ theme }) {
                         >
                             {uploading
                                 ? <><FaSpinner className="animate-spin" /> Uploading...</>
-                                : <><FaUpload size={14} /> Upload {pendingFiles.length > 0 ? `${pendingFiles.length} PDF${pendingFiles.length > 1 ? "s" : ""}` : "PDFs"}</>
+                                : <><FaUpload size={14} /> Upload {pendingFiles.length > 0 ? `${pendingFiles.length} File${pendingFiles.length > 1 ? "s" : ""}` : "Files"}</>
                             }
                         </button>
                     </div>
@@ -323,7 +328,7 @@ export default function PdfDocumentHub({ theme }) {
                         <FaFolder className="text-red-500" size={24} />
                     </div>
                     <p className={`font-black text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>No documents yet</p>
-                    <p className={`text-xs ${isDark ? "text-gray-600" : "text-gray-400"}`}>Upload your first PDF above</p>
+                    <p className={`text-xs ${isDark ? "text-gray-600" : "text-gray-400"}`}>Upload your first file above</p>
                 </div>
             ) : (
                 <div className="space-y-3">
@@ -336,7 +341,7 @@ export default function PdfDocumentHub({ theme }) {
                             <div className="p-4">
                                 <div className="flex items-start gap-3">
                                     <div className={`w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br ${accents[docIndex % accents.length]} flex items-center justify-center shadow-lg`}>
-                                        <FaFilePdf className="text-white" size={16} />
+                                        <FaFolder className="text-white" size={16} />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <h4 className={`font-black text-sm truncate ${isDark ? "text-white" : "text-gray-900"}`}>
@@ -376,12 +381,14 @@ export default function PdfDocumentHub({ theme }) {
                                     key={fi}
                                     className={`mx-4 mb-3 rounded-lg border flex items-center gap-3 px-4 py-3 group transition-all hover:border-red-500/30 ${isDark ? "bg-[#131619] border-gray-800 hover:bg-red-500/5" : "bg-gray-50 border-gray-200 hover:bg-red-50"}`}
                                 >
-                                    <FaFilePdf className="text-red-500 shrink-0" size={16} />
+                                    {getFileIcon(file.fileName, "", 16)}
                                     <div className="flex-1 min-w-0">
                                         <p className={`text-xs font-bold truncate ${isDark ? "text-gray-300" : "text-gray-700"}`}>
                                             {file.fileName || `File ${fi + 1}`}
                                         </p>
-                                        <p className={`text-[9px] font-bold uppercase tracking-wide ${isDark ? "text-gray-600" : "text-gray-400"}`}>PDF</p>
+                                        <p className={`text-[9px] font-bold uppercase tracking-wide ${isDark ? "text-gray-600" : "text-gray-400"}`}>
+                                            {file.fileName?.split('.').pop().toUpperCase() || "File"}
+                                        </p>
                                     </div>
 
                                     {/* Action buttons */}
@@ -468,21 +475,46 @@ export default function PdfDocumentHub({ theme }) {
                         </div>
                     </div>
 
-                    {/* PDF Viewer */}
-                    <div className="flex-1 relative overflow-hidden" onClick={e => e.stopPropagation()}>
+                    {/* Document Viewer / Preview */}
+                    <div className="flex-1 relative overflow-hidden flex items-center justify-center" onClick={e => e.stopPropagation()}>
                         {previewPageLoading && (
                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-10">
-                                <FaSpinner className="animate-spin text-red-500" size={32} />
-                                <p className="text-gray-400 font-bold text-sm uppercase tracking-widest">Loading PDF...</p>
+                                <FaSpinner className="animate-spin text-cyan-500" size={32} />
+                                <p className="text-gray-400 font-bold text-sm uppercase tracking-widest">Loading Preview...</p>
                             </div>
                         )}
-                        <iframe
-                            src={`${previewDoc.url}#toolbar=1&navpanes=1&scrollbar=1&view=FitH`}
-                            title="PDF Preview"
-                            className="w-full h-full border-0"
-                            onLoad={() => setPreviewPageLoading(false)}
-                            style={{ background: "transparent" }}
-                        />
+
+                        {(previewDoc.fileName?.toLowerCase().endsWith('.pdf')) ? (
+                            <iframe
+                                src={`${previewDoc.url}#toolbar=1&navpanes=1&scrollbar=1&view=FitH`}
+                                title="Document Preview"
+                                className="w-full h-full border-0"
+                                onLoad={() => setPreviewPageLoading(false)}
+                                style={{ background: "transparent" }}
+                            />
+                        ) : (['jpg', 'jpeg', 'png', 'gif', 'webp'].some(ext => previewDoc.fileName?.toLowerCase().endsWith(ext))) ? (
+                            <img
+                                src={previewDoc.url}
+                                alt="Preview"
+                                className="max-w-full max-h-full object-contain"
+                                onLoad={() => setPreviewPageLoading(false)}
+                            />
+                        ) : (
+                            <div className="flex flex-col items-center gap-6 p-12 text-center">
+                                {getFileIcon(previewDoc.fileName, "text-gray-600", 80)}
+                                <div className="space-y-2">
+                                    <h3 className="text-xl font-black text-white">{previewDoc.fileName}</h3>
+                                    <p className="text-gray-500 text-sm font-bold uppercase tracking-widest">Preview not available for this file type</p>
+                                </div>
+                                <button
+                                    onClick={() => handleDownload(previewDoc)}
+                                    className="px-8 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-black text-sm transition-all active:scale-95 shadow-lg shadow-cyan-500/20"
+                                >
+                                    Download to View
+                                </button>
+                                {(() => { if (previewPageLoading) setPreviewPageLoading(false); })()}
+                            </div>
+                        )}
                     </div>
 
                     {/* Bottom hint */}

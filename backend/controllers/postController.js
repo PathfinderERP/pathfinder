@@ -12,6 +12,11 @@ const enhancePostAuthor = async (post) => {
         postObj.images = await Promise.all(postObj.images.map(img => getSignedFileUrl(img)));
     }
 
+    // Sign post videos
+    if (postObj.videos && postObj.videos.length > 0) {
+        postObj.videos = await Promise.all(postObj.videos.map(vid => getSignedFileUrl(vid)));
+    }
+
     if (postObj.author) {
         const employee = await Employee.findOne({ user: postObj.author._id })
             .populate("designation", "name")
@@ -36,12 +41,22 @@ export const createPost = async (req, res) => {
         const author = req.user.id;
 
         const images = [];
+        const videos = [];
         if (req.files && req.files.length > 0) {
             console.log(`Creating post: Received ${req.files.length} files`);
-            const uploadPromises = req.files.map(file => uploadToR2(file, "posts"));
-            const uploadedUrls = await Promise.all(uploadPromises);
-            console.log("Uploaded URLs:", uploadedUrls);
-            images.push(...uploadedUrls.filter(url => url !== null));
+            const uploadPromises = req.files.map(async (file) => {
+                const url = await uploadToR2(file, "posts");
+                if (url) {
+                    if (file.mimetype.startsWith('video/')) {
+                        videos.push(url);
+                    } else {
+                        images.push(url);
+                    }
+                }
+            });
+            await Promise.all(uploadPromises);
+            console.log("Uploaded images:", images);
+            console.log("Uploaded videos:", videos);
         }
 
         let parsedPoll = null;
@@ -61,6 +76,7 @@ export const createPost = async (req, res) => {
             author,
             content,
             images,
+            videos,
             poll: parsedPoll,
             tags: parsedTags
         });
@@ -207,21 +223,29 @@ export const updatePost = async (req, res) => {
             return res.status(403).json({ message: "Unauthorized to update this post" });
         }
 
-        // Handle image removals
+        // Handle image/video removals
         if (removedImages) {
             const toRemove = typeof removedImages === 'string' ? JSON.parse(removedImages) : removedImages;
-            for (const imgUrl of toRemove) {
-                // Assuming deleteFromR2 exists and is imported
-                // await deleteFromR2(imgUrl); 
-                post.images = post.images.filter(img => img !== imgUrl);
+            for (const fileUrl of toRemove) {
+                post.images = post.images.filter(img => img !== fileUrl);
+                post.videos = post.videos?.filter(vid => vid !== fileUrl);
             }
         }
 
-        // Handle new image uploads
+        // Handle new file uploads
         if (req.files && req.files.length > 0) {
-            const uploadPromises = req.files.map(file => uploadToR2(file, "posts"));
-            const uploadedUrls = await Promise.all(uploadPromises);
-            post.images.push(...uploadedUrls.filter(url => url !== null));
+            const uploadPromises = req.files.map(async (file) => {
+                const url = await uploadToR2(file, "posts");
+                if (url) {
+                    if (file.mimetype.startsWith('video/')) {
+                        if (!post.videos) post.videos = [];
+                        post.videos.push(url);
+                    } else {
+                        post.images.push(url);
+                    }
+                }
+            });
+            await Promise.all(uploadPromises);
         }
 
         if (content) post.content = content;

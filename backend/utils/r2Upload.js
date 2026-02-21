@@ -6,7 +6,7 @@ import multer from "multer";
 const storage = multer.memoryStorage();
 export const upload = multer({
     storage: storage,
-    limits: { fileSize: 25 * 1024 * 1024 } // Increased to 25MB limit for high-res mobile photos
+    limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit to allow for videos
 });
 
 /**

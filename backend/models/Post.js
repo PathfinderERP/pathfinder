@@ -13,6 +13,9 @@ const postSchema = new mongoose.Schema({
     images: [{
         type: String // Cloudflare R2 or other URLs
     }],
+    videos: [{
+        type: String // Cloudflare R2 or other URLs for videos
+    }],
     poll: {
         question: { type: String },
         options: [{
