@@ -28,10 +28,22 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
         organizationName: admission.student?.guardians?.[0]?.organizationName || '',
         designation: admission.student?.guardians?.[0]?.designation || '',
         officeAddress: admission.student?.guardians?.[0]?.officeAddress || '',
+
+        // Academic Details
+        department: admission.department?._id || '',
+        course: admission.course?._id || '',
+        class: admission.class?._id || '',
+        academicSession: admission.academicSession || '',
+        examTag: admission.examTag?._id || '',
     });
 
     const [loading, setLoading] = useState(false);
     const [centres, setCentres] = useState([]);
+    const [masterDepartments, setMasterDepartments] = useState([]);
+    const [masterCourses, setMasterCourses] = useState([]);
+    const [masterClasses, setMasterClasses] = useState([]);
+    const [masterSessions, setMasterSessions] = useState([]);
+    const [masterExamTags, setMasterExamTags] = useState([]);
 
     // Indian States
     const indianStates = [
@@ -47,7 +59,32 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
 
     useEffect(() => {
         fetchCentres();
+        fetchMasterData();
     }, []);
+
+    const fetchMasterData = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const headers = { 'Authorization': `Bearer ${token}` };
+            const apiUrl = import.meta.env.VITE_API_URL;
+
+            const [deptRes, courseRes, classRes, sessionRes, tagRes] = await Promise.all([
+                fetch(`${apiUrl}/department`, { headers }),
+                fetch(`${apiUrl}/course`, { headers }),
+                fetch(`${apiUrl}/class`, { headers }),
+                fetch(`${apiUrl}/session/list`, { headers }),
+                fetch(`${apiUrl}/examTag`, { headers })
+            ]);
+
+            if (deptRes.ok) setMasterDepartments(await deptRes.json());
+            if (courseRes.ok) setMasterCourses(await courseRes.json());
+            if (classRes.ok) setMasterClasses(await classRes.json());
+            if (sessionRes.ok) setMasterSessions(await sessionRes.json());
+            if (tagRes.ok) setMasterExamTags(await tagRes.json());
+        } catch (error) {
+            console.error('Error fetching master data:', error);
+        }
+    };
 
     const fetchCentres = async () => {
         try {
@@ -133,7 +170,12 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                             'Authorization': `Bearer ${token}`
                         },
                         body: JSON.stringify({
-                            centre: formData.centre
+                            centre: formData.centre,
+                            department: formData.department,
+                            course: formData.course,
+                            class: formData.class,
+                            academicSession: formData.academicSession,
+                            examTag: formData.examTag
                         })
                     }
                 );
@@ -428,7 +470,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                             <h3 className="text-[12px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
                                 <FaUser size={14} /> ACADEMIC VECTOR
                             </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 <div className="md:col-span-2">
                                     <label className={labelClass}>INSTITUTION (SCHOOL NAME)</label>
                                     <input
@@ -448,37 +490,84 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                     />
                                 </div>
                                 <div>
-                                    <label className={labelClass}>CLASSIFICATION (CLASS)</label>
-                                    <input
-                                        type="text"
-                                        value={formData.class}
-                                        onChange={(e) => setFormData({ ...formData, class: e.target.value })}
+                                    <label className={labelClass}>DEPARTMENT</label>
+                                    <select
+                                        name="department"
+                                        value={formData.department}
+                                        onChange={handleChange}
                                         className={inputClass}
-                                        disabled
-                                    />
-                                    <p className="text-[9px] text-gray-500 mt-1 italic font-black uppercase tracking-tighter opacity-60">LOCKED: READ-ONLY PROPERTY</p>
+                                    >
+                                        <option value="">SELECT DEPARTMENT</option>
+                                        {masterDepartments.map((dept) => (
+                                            <option key={dept._id} value={dept._id}>
+                                                {dept.departmentName?.toUpperCase()}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className={labelClass}>COURSE</label>
+                                    <select
+                                        name="course"
+                                        value={formData.course}
+                                        onChange={handleChange}
+                                        className={inputClass}
+                                    >
+                                        <option value="">SELECT COURSE</option>
+                                        {masterCourses.map((course) => (
+                                            <option key={course._id} value={course._id}>
+                                                {course.courseName?.toUpperCase()}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className={labelClass}>CLASSIFICATION (CLASS)</label>
+                                    <select
+                                        name="class"
+                                        value={formData.class}
+                                        onChange={handleChange}
+                                        className={inputClass}
+                                    >
+                                        <option value="">SELECT CLASS</option>
+                                        {masterClasses.map((cl) => (
+                                            <option key={cl._id} value={cl._id}>
+                                                {(cl.className || cl.name)?.toUpperCase()}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div>
                                     <label className={labelClass}>EXAM CLASSIFICATION</label>
-                                    <input
-                                        type="text"
+                                    <select
+                                        name="examTag"
                                         value={formData.examTag}
-                                        onChange={(e) => setFormData({ ...formData, examTag: e.target.value })}
+                                        onChange={handleChange}
                                         className={inputClass}
-                                        disabled
-                                    />
-                                    <p className="text-[9px] text-gray-500 mt-1 italic font-black uppercase tracking-tighter opacity-60">LOCKED: READ-ONLY PROPERTY</p>
+                                    >
+                                        <option value="">SELECT TAG</option>
+                                        {masterExamTags.map((tag) => (
+                                            <option key={tag._id} value={tag._id}>
+                                                {tag.name?.toUpperCase()}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div>
                                     <label className={labelClass}>ACADEMIC CYCLE (SESSION)</label>
-                                    <input
-                                        type="text"
+                                    <select
+                                        name="academicSession"
                                         value={formData.academicSession}
-                                        onChange={(e) => setFormData({ ...formData, academicSession: e.target.value })}
+                                        onChange={handleChange}
                                         className={inputClass}
-                                        disabled
-                                    />
-                                    <p className="text-[9px] text-gray-500 mt-1 italic font-black uppercase tracking-tighter opacity-60">LOCKED: READ-ONLY PROPERTY</p>
+                                    >
+                                        <option value="">SELECT SESSION</option>
+                                        {masterSessions.map((session) => (
+                                            <option key={session._id} value={session.sessionName || session.name}>
+                                                {(session.sessionName || session.name)?.toUpperCase()}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
                         </div>

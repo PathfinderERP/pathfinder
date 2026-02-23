@@ -30,6 +30,9 @@ const EnrolledStudentsContent = () => {
     const [filterSession, setFilterSession] = useState([]);
     const [filterBoard, setFilterBoard] = useState([]);
     const [filterExamTag, setFilterExamTag] = useState([]);
+    const [filterProgramme, setFilterProgramme] = useState([]);
+    const [filterMode, setFilterMode] = useState([]);
+    const [filterCourseType, setFilterCourseType] = useState([]);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
@@ -240,7 +243,7 @@ const EnrolledStudentsContent = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag]);
+    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType]);
 
     // Filter students
     useEffect(() => {
@@ -350,6 +353,33 @@ const EnrolledStudentsContent = () => {
             );
         }
 
+        if (filterProgramme.length > 0) {
+            result = result.filter(item =>
+                item.admissions.some(admission => {
+                    const prog = admission.course?.programme || "";
+                    return filterProgramme.includes(prog);
+                })
+            );
+        }
+
+        if (filterMode.length > 0) {
+            result = result.filter(item =>
+                item.admissions.some(admission => {
+                    const mode = admission.course?.mode || "";
+                    return filterMode.includes(mode);
+                })
+            );
+        }
+
+        if (filterCourseType.length > 0) {
+            result = result.filter(item =>
+                item.admissions.some(admission => {
+                    const type = admission.course?.courseType || "";
+                    return filterCourseType.includes(type);
+                })
+            );
+        }
+
         if (startDate) {
             result = result.filter(item =>
                 item.admissions.some(admission => {
@@ -382,7 +412,7 @@ const EnrolledStudentsContent = () => {
         });
 
         setFilteredStudents(result);
-    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, startDate, endDate, students, viewMode, allowedCentres, isSuperAdmin]);
+    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, startDate, endDate, students, viewMode, allowedCentres, isSuperAdmin]);
 
     const filteredAdmissions = filteredStudents.flatMap(s =>
         s.admissions.filter(a => {
@@ -410,6 +440,9 @@ const EnrolledStudentsContent = () => {
         setFilterSession([]);
         setFilterBoard([]);
         setFilterExamTag([]);
+        setFilterProgramme([]);
+        setFilterMode([]);
+        setFilterCourseType([]);
         setStartDate("");
         setEndDate("");
         setCurrentPage(1);
@@ -421,6 +454,9 @@ const EnrolledStudentsContent = () => {
     const uniqueCentres = allowedCentres;
     const uniqueBoards = [...new Set(students.map(item => item.student?.studentsDetails?.[0]?.board).filter(Boolean))];
     const uniqueExamTags = [...new Set(students.flatMap(item => item.admissions.map(a => a.examTag?.name)).filter(Boolean))];
+    const uniqueProgrammes = [...new Set(masterCourses.map(c => c.programme).filter(Boolean))];
+    const uniqueModes = [...new Set(masterCourses.map(c => c.mode).filter(Boolean))];
+    const uniqueCourseTypes = [...new Set(masterCourses.map(c => c.courseType).filter(Boolean))];
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -667,6 +703,9 @@ const EnrolledStudentsContent = () => {
 
             // Course & Dept
             { label: 'Course', key: 'course.courseName' },
+            { label: 'Programme', key: 'course.programme' },
+            { label: 'Mode', key: 'course.mode' },
+            { label: 'Station Type', key: 'course.courseType' },
             { label: 'Department', key: 'department.departmentName' },
 
             // Financials
@@ -736,7 +775,12 @@ const EnrolledStudentsContent = () => {
                 admissionDate: formatDate(admission.admissionDate),
                 admissionStatus: admission.admissionStatus || '',
                 createdBy: admission.createdBy?.name || '',
-                course: { courseName: admission.course?.courseName || '' },
+                course: {
+                    courseName: admission.course?.courseName || '',
+                    programme: admission.course?.programme || '',
+                    mode: admission.course?.mode || '',
+                    courseType: admission.course?.courseType || ''
+                },
                 department: { departmentName: admission.department?.departmentName || '' },
                 totalFees: admission.totalFees || 0,
                 totalPaidAmount: admission.totalPaidAmount || 0,
@@ -881,8 +925,8 @@ const EnrolledStudentsContent = () => {
                     </div>
 
                     {/* Filters Grid */}
-                    <div className="flex flex-wrap gap-4">
-                        <div className="flex-1 min-w-[150px]">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+                        <div className="w-full">
                             <MultiSelectFilter
                                 label="Status"
                                 placeholder="ALL STATUS"
@@ -897,10 +941,10 @@ const EnrolledStudentsContent = () => {
                             />
                         </div>
 
-                        <div className="flex-1 min-w-[150px]">
+                        <div className="w-full">
                             <MultiSelectFilter
                                 label="Centre"
-                                placeholder="All Centres"
+                                placeholder="ALL CENTRES"
                                 options={Array.from(new Set(uniqueCentres)).filter(Boolean).map(c => ({ value: c, label: c.toUpperCase() }))}
                                 selectedValues={filterCentre}
                                 onChange={setFilterCentre}
@@ -908,10 +952,10 @@ const EnrolledStudentsContent = () => {
                             />
                         </div>
 
-                        <div className="flex-1 min-w-[150px]">
+                        <div className="w-full">
                             <MultiSelectFilter
                                 label="Board"
-                                placeholder="All Boards"
+                                placeholder="ALL BOARDS"
                                 options={Array.from(new Set(uniqueBoards)).filter(Boolean).map(b => ({ value: b, label: b.toUpperCase() }))}
                                 selectedValues={filterBoard}
                                 onChange={setFilterBoard}
@@ -919,10 +963,10 @@ const EnrolledStudentsContent = () => {
                             />
                         </div>
 
-                        <div className="flex-1 min-w-[150px]">
+                        <div className="w-full">
                             <MultiSelectFilter
                                 label="Exam Tag"
-                                placeholder="All Tags"
+                                placeholder="ALL TAGS"
                                 options={Array.from(new Set(uniqueExamTags)).filter(Boolean).map(t => ({ value: t, label: t.toUpperCase() }))}
                                 selectedValues={filterExamTag}
                                 onChange={setFilterExamTag}
@@ -930,10 +974,10 @@ const EnrolledStudentsContent = () => {
                             />
                         </div>
 
-                        <div className="flex-1 min-w-[150px]">
+                        <div className="w-full">
                             <MultiSelectFilter
                                 label="Dept"
-                                placeholder="All Depts"
+                                placeholder="ALL DEPTS"
                                 options={Array.from(new Set(masterDepartments.map(d => d.departmentName))).filter(Boolean).map(name => ({ value: name, label: name.toUpperCase() }))}
                                 selectedValues={filterDepartment}
                                 onChange={setFilterDepartment}
@@ -941,7 +985,7 @@ const EnrolledStudentsContent = () => {
                             />
                         </div>
 
-                        <div className="flex-1 min-w-[150px]">
+                        <div className="w-full">
                             <MultiSelectFilter
                                 label="Course"
                                 placeholder="ALL COURSES"
@@ -952,7 +996,7 @@ const EnrolledStudentsContent = () => {
                             />
                         </div>
 
-                        <div className="flex-1 min-w-[150px]">
+                        <div className="w-full">
                             <MultiSelectFilter
                                 label="Class"
                                 placeholder="ALL CLASSES"
@@ -963,13 +1007,46 @@ const EnrolledStudentsContent = () => {
                             />
                         </div>
 
-                        <div className="flex-1 min-w-[150px]">
+                        <div className="w-full">
                             <MultiSelectFilter
                                 label="Session"
                                 placeholder="ALL SESSIONS"
                                 options={Array.from(new Set(masterSessions.map(s => s.sessionName || s.name))).filter(Boolean).map(name => ({ value: name, label: name.toUpperCase() }))}
                                 selectedValues={filterSession}
                                 onChange={setFilterSession}
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+
+                        <div className="w-full">
+                            <MultiSelectFilter
+                                label="Prog"
+                                placeholder="PROGRAMME"
+                                options={uniqueProgrammes.map(p => ({ value: p, label: p.toUpperCase() }))}
+                                selectedValues={filterProgramme}
+                                onChange={setFilterProgramme}
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+
+                        <div className="w-full">
+                            <MultiSelectFilter
+                                label="Mode"
+                                placeholder="MODES"
+                                options={uniqueModes.map(m => ({ value: m, label: m.toUpperCase() }))}
+                                selectedValues={filterMode}
+                                onChange={setFilterMode}
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+
+                        <div className="w-full">
+                            <MultiSelectFilter
+                                label="Type"
+                                placeholder="STATION"
+                                options={uniqueCourseTypes.map(t => ({ value: t, label: t.toUpperCase() }))}
+                                selectedValues={filterCourseType}
+                                onChange={setFilterCourseType}
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>
