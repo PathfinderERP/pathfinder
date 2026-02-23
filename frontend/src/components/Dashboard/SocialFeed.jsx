@@ -340,14 +340,9 @@ const SocialFeed = () => {
 
     return (
         <div className={`flex-1 h-full overflow-y-auto p-2 sm:p-4 md:p-8 custom-scrollbar transition-colors duration-300 ${theme === 'dark' ? 'bg-[#131619] text-white' : 'bg-gray-50 text-gray-900'}`} data-theme={theme}>
-            <div className="max-w-screen-2xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8">
-                {/* Left Column: User Profile Card */}
-                <div className="lg:col-span-3 h-fit lg:sticky lg:top-8 hidden lg:block">
-                    <ProfileCard user={currentUser} theme={theme} navigate={navigate} />
-                </div>
-
-                {/* Center Column: Social Feed */}
-                <div className="col-span-1 lg:col-span-5 space-y-8">
+            <div className="w-full grid grid-cols-1 lg:grid-cols-10 gap-4 lg:gap-8">
+                {/* Social Feed - Taking exactly 80% of space (8/10 columns) */}
+                <div className="col-span-1 lg:col-span-8 space-y-8">
 
                     {/* Create Post Section */}
                     <div className={`${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-xl border shadow-xl overflow-hidden`}>
@@ -544,22 +539,20 @@ const SocialFeed = () => {
                         )}
                     </div>
                 </div>
-
-                {/* Participant Details Modal */}
-                {participantModalData && (
-                    <ParticipantModal
-                        data={participantModalData}
-                        onClose={() => setParticipantModalData(null)}
-                        theme={theme}
-                    />
-                )}
-
-                {/* Right Column: PDF Document Hub & Social Activity */}
-                <div className="lg:col-span-4 h-fit lg:sticky lg:top-8 space-y-8 hidden lg:block">
-                    <SocialActivity activeUsers={activeUsers} theme={theme} />
+                {/* Right Column: PDF Document Hub - Taking ~20% of space */}
+                <div className="lg:col-span-2 lg:sticky lg:top-8 space-y-8 hidden lg:block">
                     <PdfDocumentHub theme={theme} />
                 </div>
             </div>
+
+            {/* Participant Details Modal */}
+            {participantModalData && (
+                <ParticipantModal
+                    data={participantModalData}
+                    onClose={() => setParticipantModalData(null)}
+                    theme={theme}
+                />
+            )}
 
             {/* Mobile Right Sidebar Toggle Button */}
             <button
@@ -629,7 +622,7 @@ const SocialFeed = () => {
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(6, 182, 212, 0.1); border-radius: 10px; }
                 .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(6, 182, 212, 0.3); }
             `}</style>
-        </div>
+        </div >
     );
 };
 
@@ -1251,94 +1244,6 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
     );
 };
 
-// ─── LinkedIn-Style Profile Card ──────────────────────────────────────────────
-const ProfileCard = ({ user, theme, navigate }) => {
-    const isDark = theme === 'dark';
-    return (
-        <div className={`${isDark ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-2xl border shadow-xl overflow-hidden transition-all duration-300 hover:shadow-cyan-500/10`}>
-            {/* Banner */}
-            <div className="h-24 bg-gradient-to-r from-cyan-600 to-blue-600 relative">
-                <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]" />
-            </div>
-
-            {/* Profile Pic Overlay */}
-            <div className="px-6 -mt-12 pb-6 relative z-10">
-                <div className="relative inline-block group">
-                    <div className={`w-24 h-24 rounded-2xl border-4 ${isDark ? 'border-[#1a1f24] bg-[#131619]' : 'border-white bg-gray-50'} flex items-center justify-center shadow-xl overflow-hidden transition-transform duration-300 group-hover:scale-105`}>
-                        {user.profileImage ? (
-                            <img src={user.profileImage} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
-                                <span className="text-3xl font-black text-white">{user.name?.charAt(0).toUpperCase()}</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="mt-4">
-                    <h3 className={`font-black text-xl tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{user.name}</h3>
-                    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-500 mt-1">{user.role}</p>
-                </div>
-
-                <div className="mt-8 space-y-4">
-                    <div className="flex items-center gap-3 group">
-                        <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-50'} text-cyan-500`}>
-                            <FaEnvelope size={12} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Email Address</p>
-                            <p className={`text-xs font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{user.email}</p>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 group">
-                        <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-50'} text-purple-500`}>
-                            <FaBriefcase size={12} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Position & Team</p>
-                            <p className={`text-xs font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                                {user.designation || 'Staff'} • {user.teacherDepartment || 'General'}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 group">
-                        <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-50'} text-emerald-500`}>
-                            <FaMapMarkerAlt size={12} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Work Location</p>
-                            <p className={`text-xs font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                                {user.centres?.[0]?.name || 'Primary Center'}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 group">
-                        <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-50'} text-orange-500`}>
-                            <FaPhone size={12} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Contact Number</p>
-                            <p className={`text-xs font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{user.mobNum || 'Not provided'}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className={`px-6 py-5 border-t ${isDark ? 'border-gray-800 bg-[#131619]/50' : 'border-gray-100 bg-gray-50/50'}`}>
-                <button
-                    onClick={() => navigate('/employee/details')}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-cyan-500/20 hover:scale-[1.02] active:scale-95 transition-all"
-                >
-                    View My Profile
-                </button>
-            </div>
-        </div>
-    );
-};
-
 // ─── Pro Video Player ────────────────────────────────────────────────────────
 const VideoPlayer = ({ src, theme }) => {
     const isDark = theme === 'dark';
@@ -1439,6 +1344,94 @@ const VideoPlayer = ({ src, theme }) => {
             {/* Video metadata overlay */}
             <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
                 <p className="text-[10px] font-black text-white uppercase tracking-widest">Premium Playback • {playbackRate}x</p>
+            </div>
+        </div>
+    );
+};
+
+// ─── LinkedIn-Style Profile Card ──────────────────────────────────────────────
+const ProfileCard = ({ user, theme, navigate }) => {
+    const isDark = theme === 'dark';
+    return (
+        <div className={`${isDark ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-2xl border shadow-xl overflow-hidden transition-all duration-300 hover:shadow-cyan-500/10`}>
+            {/* Banner */}
+            <div className="h-24 bg-gradient-to-r from-cyan-600 to-blue-600 relative">
+                <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]" />
+            </div>
+
+            {/* Profile Pic Overlay */}
+            <div className="px-6 -mt-12 pb-6 relative z-10">
+                <div className="relative inline-block group">
+                    <div className={`w-24 h-24 rounded-2xl border-4 ${isDark ? 'border-[#1a1f24] bg-[#131619]' : 'border-white bg-gray-50'} flex items-center justify-center shadow-xl overflow-hidden transition-transform duration-300 group-hover:scale-105`}>
+                        {user.profileImage ? (
+                            <img src={user.profileImage} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
+                                <span className="text-3xl font-black text-white">{user.name?.charAt(0).toUpperCase()}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="mt-4">
+                    <h3 className={`font-black text-xl tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{user.name}</h3>
+                    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-500 mt-1">{user.role}</p>
+                </div>
+
+                <div className="mt-8 space-y-4">
+                    <div className="flex items-center gap-3 group">
+                        <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-50'} text-cyan-500`}>
+                            <FaEnvelope size={12} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Email Address</p>
+                            <p className={`text-xs font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{user.email}</p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 group">
+                        <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-50'} text-purple-500`}>
+                            <FaBriefcase size={12} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Position & Team</p>
+                            <p className={`text-xs font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                {user.designation || 'Staff'} • {user.teacherDepartment || 'General'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 group">
+                        <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-50'} text-emerald-500`}>
+                            <FaMapMarkerAlt size={12} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Work Location</p>
+                            <p className={`text-xs font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                {user.centres?.[0]?.name || 'Primary Center'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 group">
+                        <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-50'} text-orange-500`}>
+                            <FaPhone size={12} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Contact Number</p>
+                            <p className={`text-xs font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{user.mobNum || 'Not provided'}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className={`px-6 py-5 border-t ${isDark ? 'border-gray-800 bg-[#131619]/50' : 'border-gray-100 bg-gray-50/50'}`}>
+                <button
+                    onClick={() => navigate('/employee/details')}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-cyan-500/20 hover:scale-[1.02] active:scale-95 transition-all"
+                >
+                    View My Profile
+                </button>
             </div>
         </div>
     );
