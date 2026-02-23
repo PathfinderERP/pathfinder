@@ -56,14 +56,14 @@ const SectionAllotmentContent = () => {
         try {
             // Retrieve synchronized token from localStorage
             const portalToken = localStorage.getItem("portalToken");
-            
+
             if (!portalToken) {
                 console.warn("No portal token found. Please re-login to synchronize with the student portal.");
                 return;
             }
 
             // Fetch sections using the portal token
-            const response = await fetch("https://pathfinder-student-portal.onrender.com/api/sections/", {
+            const response = await fetch("https://www.studypathportal.in/api/sections/", {
                 headers: { "Authorization": `Bearer ${portalToken}` }
             });
 
