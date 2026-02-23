@@ -19,7 +19,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import CounsellingConsole from "../components/PerformanceConsoles/CounsellingConsole";
-import MarketingConsole from "../components/PerformanceConsoles/MarketingConsole";
+
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -915,7 +915,7 @@ const TelecallingConsole = () => {
                             </h2>
                             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] mt-2 italic">
                                 {activeConsole === 'telecalling' ? (!telecallerNameFromUrl ? "ANALYZE PERFORMANCE AND METRICS" : `PERFORMANCE LOGS FOR AGENT: ${telecallerNameFromUrl.toUpperCase()}`) :
-                                    activeConsole === 'counselling' ? "COUNSELLING PERFORMANCE & ADMISSIONS" : "MARKETING CAMPAIGNS & LEADS"}
+                                    "COUNSELLING PERFORMANCE & ADMISSIONS"}
                             </p>
                         </div>
                     </div>
@@ -923,7 +923,7 @@ const TelecallingConsole = () => {
                     <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto justify-end">
                         {/* Console Switcher */}
                         <div className={`flex items-center p-1 rounded-[4px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
-                            {['telecalling', 'counselling', 'marketing'].map(consoleType => (
+                            {['telecalling', 'counselling'].map(consoleType => (
                                 <button
                                     key={consoleType}
                                     onClick={() => setActiveConsole(consoleType)}
@@ -1521,7 +1521,7 @@ const TelecallingConsole = () => {
                                                 </ResponsiveContainer>
                                             </div>
                                         </div>
-                                    ) : activeConsole === 'counselling' ? (
+                                    ) : (
                                         <CounsellingConsole
                                             mainTheme={theme}
                                             timePeriod={timePeriod}
@@ -1529,20 +1529,8 @@ const TelecallingConsole = () => {
                                                 const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
                                                 const uCentres = u.centres || u.centers || [];
                                                 const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
-                                                const matchesRole = ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing'].includes(u.role);
+                                                const matchesRole = ['telecaller', 'counsellor', 'centralizedTelecaller'].includes(u.role);
                                                 return matchesRole && matchesSearch && matchesCenter;
-                                            })}
-                                            monthlyTrends={globalTrends}
-                                            admissionDetail={globalAdmissionDetail}
-                                        />
-                                    ) : (
-                                        <MarketingConsole
-                                            mainTheme={theme}
-                                            performanceData={allPerformance.filter(u => {
-                                                const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
-                                                const uCentres = u.centres || u.centers || [];
-                                                const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
-                                                return u.role === 'marketing' && matchesSearch && matchesCenter;
                                             })}
                                             monthlyTrends={globalTrends}
                                             admissionDetail={globalAdmissionDetail}
@@ -1555,8 +1543,7 @@ const TelecallingConsole = () => {
                                             .filter(tc => {
                                                 const roleMap = {
                                                     'telecalling': 'telecaller',
-                                                    'counselling': 'counsellor',
-                                                    'marketing': 'marketing'
+                                                    'counselling': 'counsellor'
                                                 };
                                                 const targetRole = roleMap[activeConsole];
                                                 const matchesRole = tc.role === targetRole;

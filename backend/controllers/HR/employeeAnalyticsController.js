@@ -7,11 +7,11 @@ import Centre from "../../models/Master_data/Centre.js";
 export const getEmployeeAnalytics = async (req, res) => {
     try {
         const userRole = (req.user.role || "").toLowerCase();
-        const isSuperAdmin = userRole === 'superadmin' || userRole === 'super admin';
+        const isFullAccess = ['superadmin', 'super admin', 'admin'].includes(userRole);
         const userCentres = req.user.centres || [];
 
         // Data Isolation Match Stage
-        const matchStage = !isSuperAdmin ? {
+        const matchStage = !isFullAccess ? {
             $match: {
                 user: { $exists: true, $ne: null }, // Only employees with linked user accounts
                 $or: [
@@ -26,7 +26,7 @@ export const getEmployeeAnalytics = async (req, res) => {
         };
 
         // Handle case where user has no centres assigned and is not superAdmin
-        if (!isSuperAdmin && userCentres.length === 0) {
+        if (!isFullAccess && userCentres.length === 0) {
             matchStage.$match = { _id: null }; // Force no results
         }
 

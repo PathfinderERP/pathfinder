@@ -89,7 +89,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
 
         // 2. Aggregate Data
         // Performance for history uses a 10-day buffer to ensure we catch enough data for UTC alignment
-        const [historyAgg, statsAgg, admissionAgg, counselledAgg, trendsAgg] = await Promise.all([
+        const [historyAgg, statsAgg, admissionAgg, counselledAgg, trendsAgg, mktLeadsAgg, admissionAggResult, leadsTrendAgg] = await Promise.all([
             LeadManagement.aggregate([
                 { $unwind: "$followUps" },
                 { $match: { "followUps.date": { $gte: oldestHistoryDate } } },
@@ -152,6 +152,63 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                 { $unwind: "$followUps" },
                 { $match: { "followUps.date": { $gte: startOfYear } } },
                 { $group: { _id: { $month: "$followUps.date" }, calls: { $sum: 1 } } }
+            ]),
+            // Marketing-specific: count leads by leadResponsibility (not followUps)
+            LeadManagement.aggregate([
+                {
+                    $facet: {
+                        current: [
+                            { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
+                            { $group: { _id: { $trim: { input: "$leadResponsibility" } }, count: { $sum: 1 } } }
+                        ],
+                        previous: [
+                            { $match: { createdAt: { $gte: prevStartDate, $lte: prevEndDate } } },
+                            { $group: { _id: { $trim: { input: "$leadResponsibility" } }, count: { $sum: 1 } } }
+                        ],
+                        today: [
+                            { $match: { createdAt: { $gte: startOfDay, $lte: endOfDay } } },
+                            { $group: { _id: { $trim: { input: "$leadResponsibility" } }, count: { $sum: 1 } } }
+                        ],
+                        yesterday: [
+                            { $match: { createdAt: { $gte: startOfYesterday, $lte: endOfYesterday } } },
+                            { $group: { _id: { $trim: { input: "$leadResponsibility" } }, count: { $sum: 1 } } }
+                        ],
+                        thisMonth: [
+                            { $match: { createdAt: { $gte: startOfThisMonth, $lte: endDate } } },
+                            { $group: { _id: { $trim: { input: "$leadResponsibility" } }, count: { $sum: 1 } } }
+                        ],
+                        lastMonth: [
+                            { $match: { createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth } } },
+                            { $group: { _id: { $trim: { input: "$leadResponsibility" } }, count: { $sum: 1 } } }
+                        ],
+                        hotLeads: [
+                            { $match: { leadType: "HOT LEAD" } },
+                            { $group: { _id: { $trim: { input: "$leadResponsibility" } }, count: { $sum: 1 } } }
+                        ]
+                    }
+                }
+            ]),
+            // Admission details aggregation
+            Admission.aggregate([
+                { $match: { admissionDate: { $gte: startDate, $lte: endDate } } },
+                {
+                    $facet: {
+                        bySource: [
+                            { $lookup: { from: "students", localField: "student", foreignField: "_id", as: "studentDoc" } },
+                            { $unwind: "$studentDoc" },
+                            { $unwind: "$studentDoc.studentsDetails" },
+                            { $group: { _id: { $toUpper: { $ifNull: ["$studentDoc.studentsDetails.source", "Direct"] } }, count: { $sum: 1 } } }
+                        ],
+                        byCenter: [
+                            { $group: { _id: { $toUpper: "$centre" }, count: { $sum: 1 } } }
+                        ]
+                    }
+                }
+            ]),
+            // New leads trend (created per month)
+            LeadManagement.aggregate([
+                { $match: { createdAt: { $gte: startOfYear } } },
+                { $group: { _id: { $month: "$createdAt" }, count: { $sum: 1 } } }
             ])
         ]);
 
@@ -160,9 +217,21 @@ export const getAllTelecallerAnalytics = async (req, res) => {
         const perfMap = {};
         const getPerf = (idOrName) => {
             const key = normalize(idOrName);
-            if (!perfMap[key]) perfMap[key] = { history: {}, current: 0, prev: 0, hot: 0, today: 0, yesterday: 0, counselled: 0, thisMonth: 0, lastMonth: 0 };
+            if (!perfMap[key]) perfMap[key] = { history: {}, current: 0, prev: 0, hot: 0, today: 0, yesterday: 0, counselled: 0, thisMonth: 0, lastMonth: 0, mktCurrent: 0, mktPrev: 0, mktToday: 0, mktYesterday: 0, mktThisMonth: 0, mktLastMonth: 0, mktHot: 0 };
             return perfMap[key];
         };
+
+        // Populate marketing lead counts by name
+        if (mktLeadsAgg && mktLeadsAgg[0]) {
+            const m0 = mktLeadsAgg[0];
+            if (m0.current) m0.current.forEach(s => { if (s._id) getPerf(s._id).mktCurrent += s.count; });
+            if (m0.previous) m0.previous.forEach(s => { if (s._id) getPerf(s._id).mktPrev += s.count; });
+            if (m0.today) m0.today.forEach(s => { if (s._id) getPerf(s._id).mktToday += s.count; });
+            if (m0.yesterday) m0.yesterday.forEach(s => { if (s._id) getPerf(s._id).mktYesterday += s.count; });
+            if (m0.thisMonth) m0.thisMonth.forEach(s => { if (s._id) getPerf(s._id).mktThisMonth += s.count; });
+            if (m0.lastMonth) m0.lastMonth.forEach(s => { if (s._id) getPerf(s._id).mktLastMonth += s.count; });
+            if (m0.hotLeads) m0.hotLeads.forEach(s => { if (s._id) getPerf(s._id).mktHot += s.count; });
+        }
 
         if (historyAgg) {
             historyAgg.forEach(h => {
@@ -253,6 +322,25 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                 return { date: dateStr, count, met: count >= targetForDay, points, bonusPoints };
             }).reverse();
 
+            const isMarketing = u.role?.toLowerCase() === 'marketing';
+
+            // For marketing users, prefer lead-responsibility-based counts over followUp counts
+            const mktCurrent = namePerf.mktCurrent + idPerf.mktCurrent;
+            const mktPrev = namePerf.mktPrev + idPerf.mktPrev;
+            const mktToday = namePerf.mktToday + idPerf.mktToday;
+            const mktYesterday = namePerf.mktYesterday + idPerf.mktYesterday;
+            const mktThisMonth = namePerf.mktThisMonth + idPerf.mktThisMonth;
+            const mktLastMonth = namePerf.mktLastMonth + idPerf.mktLastMonth;
+            const mktHot = namePerf.mktHot + idPerf.mktHot;
+
+            const effectiveCurrent = isMarketing ? (mktCurrent || currentCalls) : currentCalls;
+            const effectivePrev = isMarketing ? (mktPrev || prevCalls) : prevCalls;
+            const effectiveToday = isMarketing ? (mktToday || todayCalls) : todayCalls;
+            const effectiveYesterday = isMarketing ? (mktYesterday || yesterdayCalls) : yesterdayCalls;
+            const effectiveThisMonth = isMarketing ? (mktThisMonth || thisMonthCalls) : thisMonthCalls;
+            const effectiveLastMonth = isMarketing ? (mktLastMonth || lastMonthCalls) : lastMonthCalls;
+            const effectiveHot = isMarketing ? (mktHot || hotLeads) : (hotLeads + admissions);
+
             return {
                 _id: u._id,
                 userId: u._id,
@@ -261,16 +349,16 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                 mobNum: u.mobNum,
                 redFlags: u.redFlags || 0,
                 centres: (await CentreSchema.find({ _id: { $in: u.centres || [] } }).select('centreName')),
-                currentCalls,
-                previousCalls: prevCalls,
-                todayCalls,
-                yesterdayCalls,
-                thisMonthCalls,
-                lastMonthCalls,
+                currentCalls: effectiveCurrent,
+                previousCalls: effectivePrev,
+                todayCalls: effectiveToday,
+                yesterdayCalls: effectiveYesterday,
+                thisMonthCalls: effectiveThisMonth,
+                lastMonthCalls: effectiveLastMonth,
                 counselledCount,
                 admissions,
-                hotLeads: hotLeads + admissions,
-                conversions: hotLeads + admissions,
+                hotLeads: effectiveHot,
+                conversions: effectiveHot,
                 targets: {
                     dailyCalls: callTarget,
                     weeklyAdmissions: admissionTarget
@@ -280,7 +368,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                     total: 60,
                     percent: Math.min(100, Math.round((totalPoints / 60) * 100)),
                     history5Days,
-                    dailyCalls: currentCalls
+                    dailyCalls: effectiveCurrent
                 }
             };
         }));
@@ -296,15 +384,21 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             const monthIndex = i + 1;
             const monthCalls = trendsAgg.find(t => t._id === monthIndex)?.calls || 0;
             const monthAdmissions = admissionTrends.find(t => t._id === monthIndex)?.count || 0;
+            const monthLeads = leadsTrendAgg.find(t => t._id === monthIndex)?.count || 0;
             return {
                 month: m,
-                leads: 0, // Not tracked per month in this view currently
+                leads: monthLeads,
                 calls: monthCalls,
                 admissions: monthAdmissions
             };
         });
 
-        res.json({ performance: finalTelecallers, trends, admissionDetail: { bySource: [], byCenter: [] } });
+        const admissionDetails = admissionAggResult && admissionAggResult[0] ? {
+            bySource: admissionAggResult[0].bySource.map(s => ({ name: String(s._id).toUpperCase(), value: s.count })),
+            byCenter: admissionAggResult[0].byCenter.map(c => ({ name: String(c._id).toUpperCase(), value: c.count }))
+        } : { bySource: [], byCenter: [] };
+
+        res.json({ performance: finalTelecallers, trends, admissionDetail: admissionDetails });
 
     } catch (error) {
         console.error("Critical Analytics Error:", error);

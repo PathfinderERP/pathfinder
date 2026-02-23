@@ -1016,11 +1016,15 @@ const LeadManagementContent = () => {
                         <div className="space-y-2">
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Telecaller</label>
                             <CustomMultiSelect
-                                options={telecallers.map(t => ({ value: t.name, label: t.name }))}
+                                options={
+                                    ['superadmin', 'super admin'].includes(user?.role?.toLowerCase())
+                                        ? telecallers.map(t => ({ value: t.name, label: t.name }))
+                                        : telecallers.filter(t => t.name === user?.name).map(t => ({ value: t.name, label: t.name }))
+                                }
                                 value={filters.leadResponsibility}
                                 onChange={(selected) => handleFilterChange('leadResponsibility', selected)}
                                 placeholder="Select Telecaller"
-                                isDisabled={user?.role === 'telecaller'}
+                                isDisabled={!['superadmin', 'super admin'].includes(user?.role?.toLowerCase())}
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>

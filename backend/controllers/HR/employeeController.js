@@ -257,9 +257,9 @@ export const getEmployees = async (req, res) => {
             delete query.user; // Remove simple user filter; $and conditions handle it
         }
 
-        // Data Isolation: If not superAdmin, restrict to assigned centers
+        // Data Isolation: If not superAdmin or Admin, restrict to assigned centers
         const userRole = (req.user.role || "").toLowerCase();
-        if (userRole !== 'superadmin' && userRole !== 'super admin') {
+        if (!['superadmin', 'super admin', 'admin'].includes(userRole)) {
             const userCentres = req.user.centres || [];
             if (userCentres.length > 0) {
                 query.$and = query.$and || [];
@@ -546,11 +546,11 @@ export const addSalaryStructure = async (req, res) => {
 export const getEmployeesForDropdown = async (req, res) => {
     try {
         const userRole = (req.user.role || "").toLowerCase();
-        const isSuperAdmin = userRole === 'superadmin' || userRole === 'super admin';
+        const isFullAccess = ['superadmin', 'super admin', 'admin'].includes(userRole);
         const userCentres = req.user.centres || [];
 
         const query = { status: "Active" };
-        if (!isSuperAdmin) {
+        if (!isFullAccess) {
             if (userCentres.length > 0) {
                 query.$or = [
                     { primaryCentre: { $in: userCentres } },

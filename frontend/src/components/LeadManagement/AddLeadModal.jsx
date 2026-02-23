@@ -25,6 +25,7 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
     const [telecallers, setTelecallers] = useState([]);
     const [boards, setBoards] = useState([]);
     const [examTags, setExamTags] = useState([]);
+    const [currentUser, setCurrentUser] = useState(null);
     const [courseFilters, setCourseFilters] = useState({
         class: "",
         mode: "",
@@ -53,8 +54,8 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const profileData = await userProfileRes.json();
-            const currentUser = profileData.user || JSON.parse(localStorage.getItem("user") || "{}");
-            const isSuperAdmin = currentUser.role === "superAdmin";
+            const user = profileData.user || JSON.parse(localStorage.getItem("user") || "{}");
+            setCurrentUser(user);
 
             const classResponse = await fetch(`${import.meta.env.VITE_API_URL}/class`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -315,9 +316,19 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                         <div className="md:col-span-2 space-y-1.5">
                             <label className={labelClasses}>Assign To *</label>
-                            <select name="leadResponsibility" required value={formData.leadResponsibility} onChange={handleChange} className={selectClasses}>
+                            <select
+                                name="leadResponsibility"
+                                required
+                                value={formData.leadResponsibility}
+                                onChange={handleChange}
+                                className={selectClasses}
+                                disabled={!['superadmin', 'super admin'].includes(currentUser?.role?.toLowerCase())}
+                            >
                                 <option value="">Select Agent</option>
-                                {telecallers.map(t => <option key={t._id} value={t.name}>{t.name.toUpperCase()}</option>)}
+                                {['superadmin', 'super admin'].includes(currentUser?.role?.toLowerCase())
+                                    ? telecallers.map(t => <option key={t._id} value={t.name}>{t.name.toUpperCase()}</option>)
+                                    : telecallers.filter(t => t.name === currentUser?.name).map(t => <option key={t._id} value={t.name}>{t.name.toUpperCase()}</option>)
+                                }
                             </select>
                         </div>
                     </div>
