@@ -12,7 +12,8 @@ import {
     sendReleaseLetter,
     generateVirtualId,
     sendVirtualId,
-    downloadLetter
+    downloadLetter,
+    deleteLetter
 } from "../../controllers/HR/letterController.js";
 import authMiddleware from "../../middleware/authMiddleware.js";
 
@@ -46,5 +47,7 @@ router.post("/release/:id/send", sendReleaseLetter);
 // Virtual ID
 router.post("/virtual-id/:id", generateVirtualId);
 router.post("/virtual-id/:id/send", sendVirtualId);
+
+router.delete("/:employeeId/:letterId", deleteLetter);
 
 export default router;

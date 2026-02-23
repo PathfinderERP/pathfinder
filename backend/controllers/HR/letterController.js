@@ -4,7 +4,7 @@ import emailService from "../../utils/emailService.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import s3Client from "../../config/r2Config.js";
 import { signEmployeeFiles } from "./employeeController.js";
 import { getSignedFileUrl } from "../../utils/r2Upload.js";
@@ -200,5 +200,41 @@ export const downloadLetter = async (req, res) => {
         return res.redirect(signedUrl);
     } catch (error) {
         res.status(500).send("Error");
+    }
+};
+
+export const deleteLetter = async (req, res) => {
+    try {
+        const { employeeId, letterId } = req.params;
+
+        const employee = await Employee.findById(employeeId);
+        if (!employee) return res.status(404).json({ message: "Employee not found" });
+
+        const letterIndex = employee.letters.findIndex(l => l._id.toString() === letterId);
+        if (letterIndex === -1) return res.status(404).json({ message: "Letter not found" });
+
+        const letter = employee.letters[letterIndex];
+        const fileName = letter.fileName;
+
+        // 1. Delete from R2
+        try {
+            const deleteParams = {
+                Bucket: process.env.R2_BUCKET_NAME,
+                Key: `letters/${fileName}`,
+            };
+            await s3Client.send(new DeleteObjectCommand(deleteParams));
+            console.log(`R2: Deleted file letters/${fileName}`);
+        } catch (r2Error) {
+            console.error("R2 Delete Error (skipping):", r2Error);
+        }
+
+        // 2. Remove from Database
+        employee.letters.splice(letterIndex, 1);
+        await employee.save();
+
+        res.json({ message: "Letter deleted successfully" });
+    } catch (error) {
+        console.error("Error deleting letter:", error);
+        res.status(500).json({ message: "Error deleting letter", error: error.message });
     }
 };

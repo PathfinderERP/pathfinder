@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "../../../components/Layout";
-import { FaArrowLeft, FaPrint, FaDownload, FaEnvelope, FaFileAlt, FaSpinner, FaHistory, FaIdBadge, FaExternalLinkAlt, FaUser } from "react-icons/fa";
+import { FaArrowLeft, FaPrint, FaDownload, FaEnvelope, FaFileAlt, FaSpinner, FaHistory, FaIdBadge, FaExternalLinkAlt, FaUser, FaTrash } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 const VirtualId = () => {
@@ -17,11 +17,7 @@ const VirtualId = () => {
         companyName: "PathFinder ERP"
     });
 
-    useEffect(() => {
-        fetchEmployeeDetails();
-    }, [id]);
-
-    const fetchEmployeeDetails = async () => {
+    const fetchEmployeeDetails = React.useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee/${id}`, {
@@ -32,12 +28,16 @@ const VirtualId = () => {
                 setEmployee(data);
             }
         } catch (error) {
-            console.error("Error:", error);
+            console.error("Error fetching employee details:", error);
             toast.error("Failed to load employee details");
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
+
+    useEffect(() => {
+        fetchEmployeeDetails();
+    }, [id, fetchEmployeeDetails]);
 
     const handleGenerate = async () => {
         setGenerating(true);
@@ -64,6 +64,7 @@ const VirtualId = () => {
                 toast.error("Failed to generate Virtual ID");
             }
         } catch (error) {
+            console.error("Error generating Virtual ID:", error);
             toast.error("Error generating Virtual ID");
         } finally {
             setGenerating(false);
@@ -90,6 +91,7 @@ const VirtualId = () => {
                 toast.error("Failed to send email");
             }
         } catch (error) {
+            console.error("Error sending email:", error);
             toast.error("Error sending email");
         } finally {
             setSending(false);
@@ -106,6 +108,32 @@ const VirtualId = () => {
     const handlePrint = () => {
         const iframe = document.getElementById("pdf-preview");
         if (iframe) iframe.contentWindow.print();
+    };
+
+    const handleDeleteLetter = async (e, letterId, fileName) => {
+        e.stopPropagation();
+        if (!window.confirm("Are you sure you want to delete this card?")) return;
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/letters/${id}/${letterId}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                toast.success("Card deleted successfully");
+                if (generatedFile?.fileName === fileName) {
+                    setGeneratedFile(null);
+                }
+                fetchEmployeeDetails();
+            } else {
+                toast.error("Failed to delete card");
+            }
+        } catch (error) {
+            console.error("Error deleting card:", error);
+            toast.error("Error deleting card");
+        }
     };
 
     const selectFromHistory = (letter) => {
@@ -290,7 +318,16 @@ const VirtualId = () => {
                                                     <p className="text-[9px] text-gray-500 truncate font-mono">{letter.fileName}</p>
                                                 </div>
                                             </div>
-                                            <FaExternalLinkAlt className="text-gray-300 group-hover:text-blue-500 transition-colors" size={10} />
+                                            <div className="flex items-center gap-2">
+                                                <FaExternalLinkAlt className="text-gray-300 group-hover:text-blue-500 transition-colors" size={10} />
+                                                <button
+                                                    onClick={(e) => handleDeleteLetter(e, letter._id, letter.fileName)}
+                                                    className="p-1.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"
+                                                    title="Delete Card"
+                                                >
+                                                    <FaTrash size={10} />
+                                                </button>
+                                            </div>
                                         </div>
                                     )).reverse()
                                 ) : (

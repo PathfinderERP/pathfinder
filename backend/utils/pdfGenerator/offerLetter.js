@@ -30,29 +30,20 @@ export const generateOfferLetter = async (employee, data) => {
                 doc.image(logoPath, logoX, 40, { width: logoWidth });
             }
 
-            // Company Header
-            doc.moveDown(logoWidth / 20); // Dynamic spacing based on logo
+            const headerY = 95;
+            doc.fillColor('#800000').fontSize(18).font('Helvetica-Bold')
+                .text('PATHFINDER EDUCATIONAL CENTRE', 0, headerY, { align: 'center', width: pageWidth });
 
-            // Adjust Y to be below logo (apx 40 + height of logo ~40? + padding)
-            // Let's assume logo height is proportional. 
-            // Better to use fixed Y for text if we know logo position.
+            doc.fontSize(8.5).font('Helvetica').fillColor('#333')
+                .text('(UNIT OF PATHFINDER EDUCATIONAL CENTRE LLP)', 0, headerY + 22, { align: 'center', width: pageWidth });
 
-            const textY = 90;
-
-            doc.fillColor('#800000').fontSize(16).font('Helvetica-Bold')
-                .text('PATHFINDER EDUCATIONAL CENTRE', 0, textY, { align: 'center', width: pageWidth });
-
-            doc.fontSize(9).font('Helvetica').fillColor('#333')
-                .text('(UNIT OF PATHFINDER EDUCATIONAL CENTRE LLP)', 0, textY + 20, { align: 'center', width: pageWidth });
-
-            doc.moveTo(50, textY + 40).lineTo(545, textY + 40).lineWidth(1).strokeColor('#808080').stroke();
+            doc.moveTo(50, headerY + 38).lineTo(545, headerY + 38).lineWidth(1.5).strokeColor('#800000').stroke();
 
             // Ref No and Date
-            doc.moveDown(1);
-            doc.fillColor('black').fontSize(10).font('Helvetica-Bold');
-            doc.text(`Ref. No :- ............`, 50, 125);
+            doc.fillColor('black').fontSize(9).font('Helvetica-Bold');
+            doc.text(`Ref. No :- ............`, 50, headerY + 48);
             const currentDate = new Date().toLocaleDateString('en-GB');
-            doc.text(`Date: ${currentDate}`, 430, 125);
+            doc.text(`Date: ${currentDate}`, 440, headerY + 48);
 
             // To section
             doc.moveDown(2);
@@ -74,12 +65,17 @@ export const generateOfferLetter = async (employee, data) => {
             doc.text('Congratulations!! We are excited to extend an invitation for you to rejoin our team to work for Pathfinder Educational Group. We are delighted to make you the following job offer.', { align: 'justify' });
 
             doc.moveDown(1);
-            const designationName = employee.designation?.name || 'N/A';
-            const departmentName = employee.department?.name || 'N/A';
-            const centerName = employee.primaryCentre?.name || 'N/A';
+            const designationName = employee.designation?.name || 'Employee';
+            const departmentName = (employee.department?.name && employee.department.name !== 'N/A') ? employee.department.name : null;
+            const centerName = (employee.primaryCentre?.name && employee.primaryCentre.name !== 'N/A') ? employee.primaryCentre.name : null;
+
+            let positionTitle = designationName;
+            if (departmentName) positionTitle += ` - ${departmentName}`;
+            if (centerName) positionTitle += `, ${centerName}`;
 
             doc.text(`The position we are offering you is that of `, { continued: true })
-                .font('Helvetica-Bold').text(`${designationName} - ${departmentName}, ${centerName}.`);
+                .font('Helvetica-Bold').fontSize(9.5).text(`${positionTitle}.`);
+            doc.fontSize(10); // Reset for next lines
 
             doc.moveDown(1);
             const salary = employee.currentSalary || 0;

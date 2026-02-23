@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "../../../components/Layout";
-import { FaArrowLeft, FaPrint, FaDownload, FaEnvelope, FaFileAlt, FaSpinner, FaHistory, FaHandshake, FaExternalLinkAlt } from "react-icons/fa";
+import { FaArrowLeft, FaPrint, FaDownload, FaEnvelope, FaFileAlt, FaSpinner, FaHistory, FaHandshake, FaExternalLinkAlt, FaTrash } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 const ExperienceLetter = () => {
@@ -18,11 +18,7 @@ const ExperienceLetter = () => {
         relievingDate: new Date().toISOString().split('T')[0]
     });
 
-    useEffect(() => {
-        fetchEmployeeDetails();
-    }, [id]);
-
-    const fetchEmployeeDetails = async () => {
+    const fetchEmployeeDetails = React.useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee/${id}`, {
@@ -38,7 +34,11 @@ const ExperienceLetter = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
+
+    useEffect(() => {
+        fetchEmployeeDetails();
+    }, [id, fetchEmployeeDetails]);
 
     const handleGenerate = async () => {
         setGenerating(true);
@@ -65,6 +65,7 @@ const ExperienceLetter = () => {
                 toast.error("Failed to generate letter");
             }
         } catch (error) {
+            console.error("Error generating letter:", error);
             toast.error("Error generating letter");
         } finally {
             setGenerating(false);
@@ -91,6 +92,7 @@ const ExperienceLetter = () => {
                 toast.error("Failed to send email");
             }
         } catch (error) {
+            console.error("Error sending email:", error);
             toast.error("Error sending email");
         } finally {
             setSending(false);
@@ -106,6 +108,32 @@ const ExperienceLetter = () => {
     const handlePrint = () => {
         const iframe = document.getElementById("pdf-preview");
         if (iframe) iframe.contentWindow.print();
+    };
+
+    const handleDeleteLetter = async (e, letterId, fileName) => {
+        e.stopPropagation();
+        if (!window.confirm("Are you sure you want to delete this certificate?")) return;
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/letters/${id}/${letterId}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                toast.success("Certificate deleted successfully");
+                if (generatedFile?.fileName === fileName) {
+                    setGeneratedFile(null);
+                }
+                fetchEmployeeDetails();
+            } else {
+                toast.error("Failed to delete certificate");
+            }
+        } catch (error) {
+            console.error("Error deleting letter:", error);
+            toast.error("Error deleting letter");
+        }
     };
 
     const selectFromHistory = (letter) => {
@@ -203,7 +231,16 @@ const ExperienceLetter = () => {
                                                     <p className="text-[10px] text-gray-500 truncate">{letter.fileName}</p>
                                                 </div>
                                             </div>
-                                            <FaExternalLinkAlt className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" size={10} />
+                                            <div className="flex items-center gap-2">
+                                                <FaExternalLinkAlt className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" size={10} />
+                                                <button
+                                                    onClick={(e) => handleDeleteLetter(e, letter._id, letter.fileName)}
+                                                    className="p-1.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"
+                                                    title="Delete Letter"
+                                                >
+                                                    <FaTrash size={10} />
+                                                </button>
+                                            </div>
                                         </div>
                                     )).reverse()
                                 ) : (

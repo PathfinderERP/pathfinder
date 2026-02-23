@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "../../../components/Layout";
-import { FaArrowLeft, FaPrint, FaDownload, FaEnvelope, FaFileAlt, FaSpinner, FaHistory, FaExternalLinkAlt } from "react-icons/fa";
+import { FaArrowLeft, FaPrint, FaDownload, FaEnvelope, FaFileAlt, FaSpinner, FaHistory, FaExternalLinkAlt, FaTrash } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 const OfferLetter = () => {
@@ -18,11 +18,7 @@ const OfferLetter = () => {
         joiningDate: ""
     });
 
-    useEffect(() => {
-        fetchEmployeeDetails();
-    }, [id]);
-
-    const fetchEmployeeDetails = async () => {
+    const fetchEmployeeDetails = React.useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee/${id}`, {
@@ -42,7 +38,11 @@ const OfferLetter = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
+
+    useEffect(() => {
+        fetchEmployeeDetails();
+    }, [id, fetchEmployeeDetails]);
 
     const handleGenerate = async () => {
         setGenerating(true);
@@ -117,6 +117,33 @@ const OfferLetter = () => {
         const iframe = document.getElementById("pdf-preview");
         if (iframe) {
             iframe.contentWindow.print();
+        }
+    };
+
+    const handleDeleteLetter = async (e, letterId, fileName) => {
+        e.stopPropagation(); // Prevent selecting the letter
+        if (!window.confirm("Are you sure you want to delete this letter?")) return;
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/letters/${id}/${letterId}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                toast.success("Letter deleted successfully");
+                if (generatedFile?.fileName === fileName) {
+                    setGeneratedFile(null);
+                }
+                fetchEmployeeDetails();
+            } else {
+                const error = await response.json();
+                toast.error(error.message || "Failed to delete letter");
+            }
+        } catch (error) {
+            console.error("Error deleting letter:", error);
+            toast.error("Error deleting letter");
         }
     };
 
@@ -255,7 +282,16 @@ const OfferLetter = () => {
                                                     <p className="text-[10px] text-gray-500 truncate">{letter.fileName}</p>
                                                 </div>
                                             </div>
-                                            <FaExternalLinkAlt className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" size={10} />
+                                            <div className="flex items-center gap-2">
+                                                <FaExternalLinkAlt className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" size={10} />
+                                                <button
+                                                    onClick={(e) => handleDeleteLetter(e, letter._id, letter.fileName)}
+                                                    className="p-1.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"
+                                                    title="Delete Letter"
+                                                >
+                                                    <FaTrash size={10} />
+                                                </button>
+                                            </div>
                                         </div>
                                     )).reverse() // Show latest first
                                 ) : (
