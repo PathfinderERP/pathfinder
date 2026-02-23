@@ -48,7 +48,7 @@ const MarketingCRM = () => {
     const conversionRate = totalLeads > 0 ? ((totalConversions / totalLeads) * 100).toFixed(1) : "0.0";
 
     // Chart data - squad comparison
-    const chartData = marketingPerformance.slice(0, 8).map(curr => ({
+    const chartData = marketingPerformance.map(curr => ({
         name: curr.name.split(' ')[0],
         leads: curr.currentCalls || 0,
         conversions: curr.admissions || 0,

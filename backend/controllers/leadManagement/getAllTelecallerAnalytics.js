@@ -60,9 +60,9 @@ export const getAllTelecallerAnalytics = async (req, res) => {
         // Filters
         const leadFilters = {};
         const user = req.user;
-        const isSuperAdmin = user.role?.toLowerCase() === "superadmin" || user.role?.toLowerCase() === "super admin";
+        const isFullAccess = ['superadmin', 'super admin', 'admin'].includes(user.role?.toLowerCase().replace(/\s/g, ''));
 
-        if (!isSuperAdmin) {
+        if (!isFullAccess) {
             const allowedCentreIds = (user.centres || []).map(id => id.toString());
             if (allowedCentreIds.length === 0) return res.json({ performance: [], trends: [], admissionDetail: { bySource: [], byCenter: [] } });
 
@@ -84,13 +84,14 @@ export const getAllTelecallerAnalytics = async (req, res) => {
 
         // 1. Fetch Users
         const telecallers = await User.find({
-            role: { $in: ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing'] }
+            role: { $in: ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing', 'admin'] }
         });
 
         // 2. Aggregate Data
         // Performance for history uses a 10-day buffer to ensure we catch enough data for UTC alignment
         const [historyAgg, statsAgg, admissionAgg, counselledAgg, trendsAgg, mktLeadsAgg, admissionAggResult, leadsTrendAgg] = await Promise.all([
             LeadManagement.aggregate([
+                { $match: { ...leadFilters } },
                 { $unwind: "$followUps" },
                 { $match: { "followUps.date": { $gte: oldestHistoryDate } } },
                 {
@@ -104,6 +105,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                 }
             ]),
             LeadManagement.aggregate([
+                { $match: { ...leadFilters } },
                 { $unwind: "$followUps" },
                 { $match: { "followUps.date": { $gte: startOfLastMonth } } },
                 {
@@ -141,20 +143,22 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                 }
             ]),
             Admission.aggregate([
-                { $match: { admissionDate: { $gte: startDate, $lte: endDate } } },
+                { $match: { ...leadFilters, admissionDate: { $gte: startDate, $lte: endDate } } },
                 { $group: { _id: "$createdBy", count: { $sum: 1 } } }
             ]),
             LeadManagement.aggregate([
-                { $match: { isCounseled: true, updatedAt: { $gte: startDate, $lte: endDate } } },
+                { $match: { ...leadFilters, isCounseled: true, updatedAt: { $gte: startDate, $lte: endDate } } },
                 { $group: { _id: "$leadResponsibility", count: { $sum: 1 } } }
             ]),
             LeadManagement.aggregate([
+                { $match: { ...leadFilters } },
                 { $unwind: "$followUps" },
                 { $match: { "followUps.date": { $gte: startOfYear } } },
                 { $group: { _id: { $month: "$followUps.date" }, calls: { $sum: 1 } } }
             ]),
             // Marketing-specific: count leads by leadResponsibility (not followUps)
             LeadManagement.aggregate([
+                { $match: { ...leadFilters } },
                 {
                     $facet: {
                         current: [
@@ -190,7 +194,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             ]),
             // Admission details aggregation
             Admission.aggregate([
-                { $match: { admissionDate: { $gte: startDate, $lte: endDate } } },
+                { $match: { ...leadFilters, admissionDate: { $gte: startDate, $lte: endDate } } },
                 {
                     $facet: {
                         bySource: [
@@ -207,7 +211,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             ]),
             // New leads trend (created per month)
             LeadManagement.aggregate([
-                { $match: { createdAt: { $gte: startOfYear } } },
+                { $match: { ...leadFilters, createdAt: { $gte: startOfYear } } },
                 { $group: { _id: { $month: "$createdAt" }, count: { $sum: 1 } } }
             ])
         ]);
@@ -287,14 +291,17 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             const yesterdayStr = last5DaysList[1];
 
             const combinedHistory = { ...namePerf.history, ...idPerf.history };
-            const currentCalls = namePerf.current + idPerf.current;
-            const prevCalls = namePerf.prev + idPerf.prev;
-            const hotLeads = namePerf.hot + idPerf.hot;
+
+            // Combine both follow-up activity and lead generation activity
+            const currentCalls = (namePerf.current + idPerf.current) + (namePerf.mktCurrent + idPerf.mktCurrent);
+            const prevCalls = (namePerf.prev + idPerf.prev) + (namePerf.mktPrev + idPerf.mktPrev);
+            const hotLeads = (namePerf.hot + idPerf.hot) + (namePerf.mktHot + idPerf.mktHot);
+            const todayCalls = (combinedHistory[todayStr] || 0) + (namePerf.mktToday + idPerf.mktToday);
+            const yesterdayCalls = (combinedHistory[yesterdayStr] || 0) + (namePerf.mktYesterday + idPerf.mktYesterday);
+            const thisMonthCalls = (namePerf.thisMonth + idPerf.thisMonth) + (namePerf.mktThisMonth + idPerf.mktThisMonth);
+            const lastMonthCalls = (namePerf.lastMonth + idPerf.lastMonth) + (namePerf.mktLastMonth + idPerf.mktLastMonth);
+
             const admissions = admissionCounts[u._id.toString()] || 0;
-            const todayCalls = combinedHistory[todayStr] || 0;
-            const yesterdayCalls = combinedHistory[yesterdayStr] || 0;
-            const thisMonthCalls = namePerf.thisMonth + idPerf.thisMonth;
-            const lastMonthCalls = namePerf.lastMonth + idPerf.lastMonth;
             const counselledCount = namePerf.counselled + idPerf.counselled;
 
             let totalPoints = 0;
