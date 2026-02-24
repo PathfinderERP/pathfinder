@@ -119,20 +119,17 @@ const LeadManagementContent = () => {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams();
 
-            // Pass relevant filters to the stats endpoint
-            if (filters.fromDate) params.append("fromDate", filters.fromDate);
-            if (filters.toDate) params.append("toDate", filters.toDate);
-
-            // Pass centre and telecaller filters if selected
-            if (filters.centre && filters.centre.length > 0) {
-                const c = filters.centre[0];
-                params.append("centre", (c && typeof c === 'object' && 'value' in c) ? c.value : c);
-            }
-            if (filters.leadResponsibility && filters.leadResponsibility.length > 0) {
-                const tr = filters.leadResponsibility[0];
-                params.append("leadResponsibility", (tr && typeof tr === 'object' && 'value' in tr) ? tr.value : tr);
-            }
-            if (filters.scheduledDate) params.append("scheduledDate", filters.scheduledDate);
+            // Pass all relevant filters to the stats endpoint (handling MultiSelect arrays)
+            Object.entries(filters).forEach(([key, value]) => {
+                if (Array.isArray(value)) {
+                    value.forEach(v => {
+                        const val = (v && typeof v === 'object' && 'value' in v) ? v.value : v;
+                        if (val) params.append(key, val);
+                    });
+                } else if (value && key !== 'searchTerm') {
+                    params.append(key, value);
+                }
+            });
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/stats/today-followups?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -153,8 +150,18 @@ const LeadManagementContent = () => {
         try {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams();
-            if (filters.fromDate) params.append("fromDate", filters.fromDate);
-            if (filters.toDate) params.append("toDate", filters.toDate);
+
+            // Sync with current filters
+            Object.entries(filters).forEach(([key, value]) => {
+                if (Array.isArray(value)) {
+                    value.forEach(v => {
+                        const val = (v && typeof v === 'object' && 'value' in v) ? v.value : v;
+                        if (val) params.append(key, val);
+                    });
+                } else if (value && ['fromDate', 'toDate'].includes(key)) {
+                    params.append(key, value);
+                }
+            });
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/stats/centre-analysis?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -168,7 +175,7 @@ const LeadManagementContent = () => {
         } finally {
             setAnalysisLoading(false);
         }
-    }, [filters.fromDate, filters.toDate]);
+    }, [filters]);
 
     useEffect(() => {
         fetchLeadStats();

@@ -103,11 +103,14 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                 setTelecallers(leadUsers);
 
                 // Auto-select the current user as default
-                const currentLeadUser = leadUsers.find(u => u.name === currentUser.name);
+                const currentLeadUser = leadUsers.find(u => u.name && user.name && u.name.toLowerCase() === user.name.toLowerCase());
                 if (currentLeadUser) {
                     setFormData(prev => ({ ...prev, leadResponsibility: currentLeadUser.name }));
                 } else if (leadUsers.length === 1) {
                     setFormData(prev => ({ ...prev, leadResponsibility: leadUsers[0].name }));
+                } else if (user.name) {
+                    // Fallback to current user name directly
+                    setFormData(prev => ({ ...prev, leadResponsibility: user.name }));
                 }
             }
 
@@ -130,6 +133,19 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
         e.preventDefault();
         setLoading(true);
 
+        // For non-admins, always ensure leadResponsibility is set to current user
+        const isAdmin = ['superadmin', 'super admin', 'admin'].includes(currentUser?.role?.toLowerCase());
+        const payload = {
+            ...formData,
+            leadResponsibility: formData.leadResponsibility || (!isAdmin ? currentUser?.name : '') || ''
+        };
+
+        if (!payload.leadResponsibility) {
+            toast.error("Could not determine lead assignment. Please refresh and try again.");
+            setLoading(false);
+            return;
+        }
+
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/create`, {
@@ -138,7 +154,7 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(formData),
+                body: JSON.stringify(payload),
             });
 
             const data = await response.json();
@@ -316,20 +332,28 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                         <div className="md:col-span-2 space-y-1.5">
                             <label className={labelClasses}>Assign To *</label>
-                            <select
-                                name="leadResponsibility"
-                                required
-                                value={formData.leadResponsibility}
-                                onChange={handleChange}
-                                className={selectClasses}
-                                disabled={!['superadmin', 'super admin'].includes(currentUser?.role?.toLowerCase())}
-                            >
-                                <option value="">Select Agent</option>
-                                {['superadmin', 'super admin'].includes(currentUser?.role?.toLowerCase())
-                                    ? telecallers.map(t => <option key={t._id} value={t.name}>{t.name.toUpperCase()}</option>)
-                                    : telecallers.filter(t => t.name === currentUser?.name).map(t => <option key={t._id} value={t.name}>{t.name.toUpperCase()}</option>)
-                                }
-                            </select>
+                            {['superadmin', 'super admin', 'admin'].includes(currentUser?.role?.toLowerCase()) ? (
+                                <select
+                                    name="leadResponsibility"
+                                    required
+                                    value={formData.leadResponsibility}
+                                    onChange={handleChange}
+                                    className={selectClasses}
+                                >
+                                    <option value="">Select Agent</option>
+                                    {telecallers.map(t => (
+                                        <option key={t._id} value={t.name}>{t.name.toUpperCase()}</option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <div className={`w-full px-4 py-2.5 rounded-[4px] border text-[11px] font-black uppercase tracking-widest flex items-center justify-between ${isDarkMode ? 'bg-[#131619] border-gray-700 text-cyan-400' : 'bg-gray-100 border-gray-200 text-gray-700'}`}>
+                                    <span>{formData.leadResponsibility || currentUser?.name || 'You'}</span>
+                                    <span className={`text-[8px] px-2 py-0.5 rounded-full font-black tracking-widest ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border border-cyan-100'}`}>
+                                        Auto-assigned
+                                    </span>
+                                    <input type="hidden" name="leadResponsibility" value={formData.leadResponsibility || currentUser?.name || ''} />
+                                </div>
+                            )}
                         </div>
                     </div>
 

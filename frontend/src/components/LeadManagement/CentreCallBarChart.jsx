@@ -21,7 +21,7 @@ const CentreCallBarChart = ({ data, isDarkMode, loading }) => {
             <div className="absolute -top-4 left-0 text-[8px] font-black uppercase tracking-widest text-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity">
                 Centre Call Distribution
             </div>
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={50}>
                 <BarChart data={chartData}>
                     <Tooltip
                         contentStyle={{

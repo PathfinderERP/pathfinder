@@ -78,9 +78,11 @@ export const getLeads = async (req, res) => {
         if (className) query.className = Array.isArray(className) ? { $in: className } : className;
 
         if (leadResponsibility) {
-            query.leadResponsibility = Array.isArray(leadResponsibility)
-                ? { $in: leadResponsibility }
-                : { $regex: leadResponsibility, $options: "i" };
+            const names = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
+            // Use regex for each name to handle case-insensitivity in an array
+            query.leadResponsibility = {
+                $in: names.map(n => new RegExp(`^${n}$`, "i"))
+            };
         }
 
         // Filter by Follow-up Status (Contacted vs Remaining)
@@ -96,26 +98,17 @@ export const getLeads = async (req, res) => {
 
         // Centre-based access control
         const userRole = req.user.role?.toLowerCase();
-        if (userRole !== 'superadmin' && userRole !== 'super admin') {
+        const isUnrestricted = ['superadmin', 'super admin', 'admin'].includes(userRole);
+
+        if (!isUnrestricted) {
             // Fetch user's centres from database since JWT doesn't include them
             const User = (await import('../../models/User.js')).default;
             const userDoc = await User.findById(req.user.id).select('centres role name');
 
-            if (!userDoc) {
-                return res.status(401).json({ message: "User not found" });
-            }
+            if (!userDoc) return res.status(401).json({ message: "User not found" });
 
-            console.log(`Lead Management - User ${userDoc.name} (${userDoc.role}) centres:`, userDoc.centres);
-
-            console.log(`Lead Management - User ${userDoc.name} (${userDoc.role}) centres:`, userDoc.centres);
-
-            // Access Control: User can see leads they created OR leads in their centres
-            // Telecallers additionally see leads assigned to them.
             const userCentreIds = userDoc.centres || [];
-
-            const orConditions = [
-                { createdBy: userDoc._id }
-            ];
+            const orConditions = [{ createdBy: userDoc._id }];
 
             if (userDoc.role === 'telecaller') {
                 const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -126,34 +119,22 @@ export const getLeads = async (req, res) => {
                 orConditions.push({ centre: { $in: userCentreIds } });
             }
 
-            // Combined restriction
             query.$and = query.$and || [];
             query.$and.push({ $or: orConditions });
 
             // Handle specific centre filter from query if requested
             if (centre) {
                 const requestedCentres = Array.isArray(centre) ? centre : [centre];
-                // For non-superAdmin, specific centre filter only works within their orConditions
-                // But we already have the centre logic inside orConditions.
-                // If they specify a centre, we should further refine the centre part of the query.
-                // Actually, the standard way is to just let the main query.centre filter it.
                 const validRequestedCentres = requestedCentres.filter(reqCentre =>
                     userCentreIds.some(allowedCentre => allowedCentre.toString() === reqCentre.toString())
                 );
-
-                if (validRequestedCentres.length > 0) {
-                    query.centre = { $in: validRequestedCentres };
-                } else {
-                    // If they requested centres they don't have access to, they still see their created leads
-                    // so we don't return 403, we just don't add the centre filter.
-                    // Or we add a filter that matches nothing for centre.
-                    query.centre = { $in: [] };
-                }
+                query.centre = { $in: validRequestedCentres.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
             }
         } else {
-            // SuperAdmin can filter by centre if specified
+            // Unrestricted users can filter by any centre
             if (centre) {
-                query.centre = centre;
+                const requestedCentres = Array.isArray(centre) ? centre : [centre];
+                query.centre = { $in: requestedCentres.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
             }
         }
 

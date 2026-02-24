@@ -32,7 +32,6 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             startDate = new Date(tempDate.setDate(diff));
             startDate.setHours(0, 0, 0, 0);
             endDate = endOfDay;
-
             prevStartDate = new Date(startDate.getTime() - 7 * 86400000);
             prevEndDate = new Date(startDate.getTime() - 1);
         } else if (period === 'monthly') {
@@ -45,7 +44,6 @@ export const getAllTelecallerAnalytics = async (req, res) => {
         if (fromDate) {
             startDate = new Date(fromDate);
             startDate.setHours(0, 0, 0, 0);
-            // If custom range, previous period is the same duration before startDate
             if (toDate) {
                 const rangeDiff = new Date(toDate).getTime() - startDate.getTime();
                 prevStartDate = new Date(startDate.getTime() - rangeDiff - 1000);
@@ -57,10 +55,11 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             endDate.setHours(23, 59, 59, 999);
         }
 
-        // Filters
-        const leadFilters = {};
+        // Filters - Synchronize with Lead Management Dashboard for consistency
         const user = req.user;
         const isFullAccess = ['superadmin', 'super admin', 'admin'].includes(user.role?.toLowerCase().replace(/\s/g, ''));
+
+        const baseLeadFilters = {};
 
         if (!isFullAccess) {
             const allowedCentreIds = (user.centres || []).map(id => id.toString());
@@ -69,29 +68,34 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             if (centre) {
                 const requested = Array.isArray(centre) ? centre : [centre];
                 const valid = requested.filter(id => allowedCentreIds.includes(id.toString()));
-                leadFilters.centre = { $in: (valid.length > 0 ? valid : allowedCentreIds).map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+                baseLeadFilters.centre = { $in: (valid.length > 0 ? valid : allowedCentreIds).map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
             } else {
-                leadFilters.centre = { $in: allowedCentreIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+                baseLeadFilters.centre = { $in: allowedCentreIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
             }
         } else if (centre) {
             const requested = Array.isArray(centre) ? centre : [centre];
-            leadFilters.centre = { $in: requested.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+            baseLeadFilters.centre = { $in: requested.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
         }
 
+        // CRITICAL: We separate lead matching from activity matching
+        // Activity (calls) should be attributed to the person who did it, regardless of lead owner
+        const activityMatch = { ...baseLeadFilters, isCounseled: { $ne: true } };
+
+        // However, if we are specifically filtering the view by leadResponsibility...
+        const specificLeadMatch = { ...baseLeadFilters };
         if (leadResponsibility) {
-            leadFilters.leadResponsibility = { $regex: new RegExp(`^${leadResponsibility}$`, "i") };
+            specificLeadMatch.leadResponsibility = { $regex: new RegExp(`^${leadResponsibility}$`, "i") };
         }
 
-        // 1. Fetch Users
+        // 1. Fetch Users (Telemetry Targets)
         const telecallers = await User.find({
             role: { $in: ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing', 'admin'] }
         });
 
         // 2. Aggregate Data
-        // Performance for history uses a 10-day buffer to ensure we catch enough data for UTC alignment
         const [historyAgg, statsAgg, admissionAgg, counselledAgg, trendsAgg, mktLeadsAgg, admissionAggResult, leadsTrendAgg] = await Promise.all([
             LeadManagement.aggregate([
-                { $match: { ...leadFilters } },
+                { $match: activityMatch },
                 { $unwind: "$followUps" },
                 { $match: { "followUps.date": { $gte: oldestHistoryDate } } },
                 {
@@ -105,7 +109,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                 }
             ]),
             LeadManagement.aggregate([
-                { $match: { ...leadFilters } },
+                { $match: activityMatch },
                 { $unwind: "$followUps" },
                 { $match: { "followUps.date": { $gte: startOfLastMonth } } },
                 {
@@ -143,58 +147,56 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                 }
             ]),
             Admission.aggregate([
-                { $match: { ...leadFilters, admissionDate: { $gte: startDate, $lte: endDate } } },
+                { $match: { ...baseLeadFilters, admissionDate: { $gte: startDate, $lte: endDate } } },
                 { $group: { _id: "$createdBy", count: { $sum: 1 } } }
             ]),
             LeadManagement.aggregate([
-                { $match: { ...leadFilters, isCounseled: true, updatedAt: { $gte: startDate, $lte: endDate } } },
+                { $match: { ...baseLeadFilters, isCounseled: true, updatedAt: { $gte: startDate, $lte: endDate } } },
                 { $group: { _id: "$leadResponsibility", count: { $sum: 1 } } }
             ]),
             LeadManagement.aggregate([
-                { $match: { ...leadFilters } },
+                { $match: activityMatch },
                 { $unwind: "$followUps" },
                 { $match: { "followUps.date": { $gte: startOfYear } } },
                 { $group: { _id: { $month: "$followUps.date" }, calls: { $sum: 1 } } }
             ]),
-            // Marketing-specific: count leads by leadResponsibility (not followUps)
             LeadManagement.aggregate([
-                { $match: { ...leadFilters } },
+                { $match: specificLeadMatch },
                 {
                     $facet: {
                         current: [
                             { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
-                            { $group: { _id: { $trim: { input: "$leadResponsibility" } }, count: { $sum: 1 } } }
+                            { $group: { _id: "$createdBy", count: { $sum: 1 } } }
                         ],
                         previous: [
                             { $match: { createdAt: { $gte: prevStartDate, $lte: prevEndDate } } },
-                            { $group: { _id: { $trim: { input: "$leadResponsibility" } }, count: { $sum: 1 } } }
+                            { $group: { _id: "$createdBy", count: { $sum: 1 } } }
                         ],
                         today: [
                             { $match: { createdAt: { $gte: startOfDay, $lte: endOfDay } } },
-                            { $group: { _id: { $trim: { input: "$leadResponsibility" } }, count: { $sum: 1 } } }
+                            { $group: { _id: "$createdBy", count: { $sum: 1 } } }
                         ],
                         yesterday: [
                             { $match: { createdAt: { $gte: startOfYesterday, $lte: endOfYesterday } } },
-                            { $group: { _id: { $trim: { input: "$leadResponsibility" } }, count: { $sum: 1 } } }
+                            { $group: { _id: "$createdBy", count: { $sum: 1 } } }
                         ],
                         thisMonth: [
                             { $match: { createdAt: { $gte: startOfThisMonth, $lte: endDate } } },
-                            { $group: { _id: { $trim: { input: "$leadResponsibility" } }, count: { $sum: 1 } } }
+                            { $group: { _id: "$createdBy", count: { $sum: 1 } } }
                         ],
                         lastMonth: [
                             { $match: { createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth } } },
-                            { $group: { _id: { $trim: { input: "$leadResponsibility" } }, count: { $sum: 1 } } }
+                            { $group: { _id: "$createdBy", count: { $sum: 1 } } }
                         ],
                         hotLeads: [
                             { $match: { leadType: "HOT LEAD" } },
-                            { $group: { _id: { $trim: { input: "$leadResponsibility" } }, count: { $sum: 1 } } }
+                            { $group: { _id: "$createdBy", count: { $sum: 1 } } }
                         ]
                     }
                 }
             ]),
-            // Admission details aggregation
             Admission.aggregate([
-                { $match: { ...leadFilters, admissionDate: { $gte: startDate, $lte: endDate } } },
+                { $match: { ...baseLeadFilters, admissionDate: { $gte: startDate, $lte: endDate } } },
                 {
                     $facet: {
                         bySource: [
@@ -209,33 +211,28 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                     }
                 }
             ]),
-            // New leads trend (created per month)
             LeadManagement.aggregate([
-                { $match: { ...leadFilters, createdAt: { $gte: startOfYear } } },
+                { $match: { ...specificLeadMatch, createdAt: { $gte: startOfYear } } },
                 { $group: { _id: { $month: "$createdAt" }, count: { $sum: 1 } } }
             ])
         ]);
 
         const normalize = (val) => String(val || '').trim().toLowerCase();
 
+        // 3. Process Data Maps
         const perfMap = {};
         const getPerf = (idOrName) => {
             const key = normalize(idOrName);
-            if (!perfMap[key]) perfMap[key] = { history: {}, current: 0, prev: 0, hot: 0, today: 0, yesterday: 0, counselled: 0, thisMonth: 0, lastMonth: 0, mktCurrent: 0, mktPrev: 0, mktToday: 0, mktYesterday: 0, mktThisMonth: 0, mktLastMonth: 0, mktHot: 0 };
+            if (!perfMap[key]) perfMap[key] = { history: {}, current: 0, prev: 0, hot: 0, today: 0, yesterday: 0, counselled: 0, thisMonth: 0, lastMonth: 0 };
             return perfMap[key];
         };
 
-        // Populate marketing lead counts by name
-        if (mktLeadsAgg && mktLeadsAgg[0]) {
-            const m0 = mktLeadsAgg[0];
-            if (m0.current) m0.current.forEach(s => { if (s._id) getPerf(s._id).mktCurrent += s.count; });
-            if (m0.previous) m0.previous.forEach(s => { if (s._id) getPerf(s._id).mktPrev += s.count; });
-            if (m0.today) m0.today.forEach(s => { if (s._id) getPerf(s._id).mktToday += s.count; });
-            if (m0.yesterday) m0.yesterday.forEach(s => { if (s._id) getPerf(s._id).mktYesterday += s.count; });
-            if (m0.thisMonth) m0.thisMonth.forEach(s => { if (s._id) getPerf(s._id).mktThisMonth += s.count; });
-            if (m0.lastMonth) m0.lastMonth.forEach(s => { if (s._id) getPerf(s._id).mktLastMonth += s.count; });
-            if (m0.hotLeads) m0.hotLeads.forEach(s => { if (s._id) getPerf(s._id).mktHot += s.count; });
-        }
+        const mktPerfMap = {};
+        const getMktPerf = (id) => {
+            const key = String(id);
+            if (!mktPerfMap[key]) mktPerfMap[key] = { current: 0, prev: 0, today: 0, yesterday: 0, thisMonth: 0, lastMonth: 0, hot: 0 };
+            return mktPerfMap[key];
+        };
 
         if (historyAgg) {
             historyAgg.forEach(h => {
@@ -257,96 +254,79 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             if (s0.lastMonth) s0.lastMonth.forEach(s => { if (s._id) getPerf(s._id).lastMonth += s.count; });
         }
 
+        if (mktLeadsAgg && mktLeadsAgg[0]) {
+            const m0 = mktLeadsAgg[0];
+            if (m0.current) m0.current.forEach(s => { if (s._id) getMktPerf(s._id).current += s.count; });
+            if (m0.previous) m0.previous.forEach(s => { if (s._id) getMktPerf(s._id).prev += s.count; });
+            if (m0.today) m0.today.forEach(s => { if (s._id) getMktPerf(s._id).today += s.count; });
+            if (m0.yesterday) m0.yesterday.forEach(s => { if (s._id) getMktPerf(s._id).yesterday += s.count; });
+            if (m0.thisMonth) m0.thisMonth.forEach(s => { if (s._id) getMktPerf(s._id).thisMonth += s.count; });
+            if (m0.lastMonth) m0.lastMonth.forEach(s => { if (s._id) getMktPerf(s._id).lastMonth += s.count; });
+            if (m0.hotLeads) m0.hotLeads.forEach(s => { if (s._id) getMktPerf(s._id).hot += s.count; });
+        }
+
         if (counselledAgg) {
-            counselledAgg.forEach(c => { if (c._id) getPerf(c._id).counselled += c.count; });
+            counselledAgg.forEach(c => { if (c._id) getPerf(c._id).counselled = (getPerf(c._id).counselled || 0) + c.count; });
         }
 
         const admissionCounts = {};
         if (admissionAgg) {
-            admissionAgg.forEach(a => {
-                if (a._id) admissionCounts[a._id.toString()] = a.count;
-            });
+            admissionAgg.forEach(a => { if (a._id) admissionCounts[a._id.toString()] = a.count; });
         }
 
-        // Generate day list for the last 5 days
         const last5DaysList = [];
         for (let i = 0; i < 5; i++) {
             const d = new Date(now);
             d.setDate(d.getDate() - i);
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            last5DaysList.push(`${year}-${month}-${day}`);
+            last5DaysList.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
         }
 
-        const finalTelecallers = await Promise.all(telecallers.map(async (u) => {
-            const nameKey = normalize(u.name);
-            const idKey = normalize(u._id);
+        const allCentres = await CentreSchema.find().select('centreName');
+        const centreMap = {};
+        allCentres.forEach(c => { centreMap[c._id.toString()] = c; });
 
-            // Merge data from both name and ID variations
-            const namePerf = perfMap[nameKey] || { history: {}, current: 0, prev: 0, hot: 0 };
-            const idPerf = perfMap[idKey] || { history: {}, current: 0, prev: 0, hot: 0 };
+        // 4. Final Mapping
+        const finalTelecallers = telecallers.map((u) => {
+            const namePerf = perfMap[normalize(u.name)] || { history: {}, current: 0, prev: 0 };
+            const idPerf = perfMap[normalize(u._id)] || { history: {}, current: 0, prev: 0 };
+            const mktPerf = mktPerfMap[u._id.toString()] || { current: 0, prev: 0, today: 0, yesterday: 0, thisMonth: 0, lastMonth: 0, hot: 0 };
+
+            // Fix: SUM history instead of merging (avoid overwriting overlapping dates)
+            const combinedHistory = {};
+            const allActivityDates = new Set([...Object.keys(namePerf.history), ...Object.keys(idPerf.history)]);
+            allActivityDates.forEach(date => {
+                combinedHistory[date] = (namePerf.history[date] || 0) + (idPerf.history[date] || 0);
+            });
 
             const todayStr = last5DaysList[0];
             const yesterdayStr = last5DaysList[1];
 
-            const combinedHistory = { ...namePerf.history, ...idPerf.history };
+            const isMarketing = u.role?.toLowerCase() === 'marketing';
 
-            // Combine both follow-up activity and lead generation activity
-            const currentCalls = (namePerf.current + idPerf.current) + (namePerf.mktCurrent + idPerf.mktCurrent);
-            const prevCalls = (namePerf.prev + idPerf.prev) + (namePerf.mktPrev + idPerf.mktPrev);
-            const hotLeads = (namePerf.hot + idPerf.hot) + (namePerf.mktHot + idPerf.mktHot);
-            const todayCalls = (combinedHistory[todayStr] || 0) + (namePerf.mktToday + idPerf.mktToday);
-            const yesterdayCalls = (combinedHistory[yesterdayStr] || 0) + (namePerf.mktYesterday + idPerf.mktYesterday);
-            const thisMonthCalls = (namePerf.thisMonth + idPerf.thisMonth) + (namePerf.mktThisMonth + idPerf.mktThisMonth);
-            const lastMonthCalls = (namePerf.lastMonth + idPerf.lastMonth) + (namePerf.mktLastMonth + idPerf.mktLastMonth);
+            // Core logic: Telecallers measured by follow-ups, Marketing by lead generation
+            // Always sum Name and ID buckets to handle cases where system uses both
+            const effectiveCurrent = isMarketing ? mktPerf.current : (namePerf.current + idPerf.current);
+            const effectivePrev = isMarketing ? mktPerf.prev : (namePerf.prev + idPerf.prev);
+            const effectiveToday = isMarketing ? mktPerf.today : (combinedHistory[todayStr] || 0);
+            const effectiveYesterday = isMarketing ? mktPerf.yesterday : (combinedHistory[yesterdayStr] || 0);
+            const effectiveThisMonth = isMarketing ? mktPerf.thisMonth : (namePerf.thisMonth + idPerf.thisMonth);
+            const effectiveLastMonth = isMarketing ? mktPerf.lastMonth : (namePerf.lastMonth + idPerf.lastMonth);
 
+            const followUpHot = (namePerf.hot + idPerf.hot);
             const admissions = admissionCounts[u._id.toString()] || 0;
-            const counselledCount = namePerf.counselled + idPerf.counselled;
-
-            let totalPoints = 0;
-            const resetDate = u.performanceResetDate ? new Date(u.performanceResetDate) : null;
+            const effectiveHot = isMarketing ? mktPerf.hot : (followUpHot + admissions);
 
             const isCounsellor = u.role?.toLowerCase() === 'counsellor';
             const callTarget = isCounsellor ? 30 : 50;
-            const admissionTarget = isCounsellor ? 5 : 0; // 5 per week for counsellors
+            let totalPoints = 0;
 
             const history5Days = last5DaysList.map(dateStr => {
-                const dayDate = new Date(dateStr);
-                let count = combinedHistory[dateStr] || 0;
-                if (resetDate) {
-                    const normalizedResetDate = new Date(resetDate);
-                    normalizedResetDate.setHours(0, 0, 0, 0);
-                    if (dayDate < normalizedResetDate) {
-                        count = 0;
-                    }
-                }
-
-                const targetForDay = callTarget;
-                const points = Math.min(12, Number(((count / targetForDay) * 12).toFixed(2)));
-                const bonusPoints = count > targetForDay ? Number(((count - targetForDay) * 0.24).toFixed(2)) : 0;
+                const count = (combinedHistory[dateStr] || 0) + (isMarketing && dateStr === todayStr ? mktPerf.today : 0);
+                const points = Math.min(12, Number(((count / callTarget) * 12).toFixed(2)));
+                const bonusPoints = count > callTarget ? Number(((count - callTarget) * 0.24).toFixed(2)) : 0;
                 totalPoints += points + bonusPoints;
-                return { date: dateStr, count, met: count >= targetForDay, points, bonusPoints };
+                return { date: dateStr, count, met: count >= callTarget, points, bonusPoints };
             }).reverse();
-
-            const isMarketing = u.role?.toLowerCase() === 'marketing';
-
-            // For marketing users, prefer lead-responsibility-based counts over followUp counts
-            const mktCurrent = namePerf.mktCurrent + idPerf.mktCurrent;
-            const mktPrev = namePerf.mktPrev + idPerf.mktPrev;
-            const mktToday = namePerf.mktToday + idPerf.mktToday;
-            const mktYesterday = namePerf.mktYesterday + idPerf.mktYesterday;
-            const mktThisMonth = namePerf.mktThisMonth + idPerf.mktThisMonth;
-            const mktLastMonth = namePerf.mktLastMonth + idPerf.mktLastMonth;
-            const mktHot = namePerf.mktHot + idPerf.mktHot;
-
-            const effectiveCurrent = isMarketing ? (mktCurrent || currentCalls) : currentCalls;
-            const effectivePrev = isMarketing ? (mktPrev || prevCalls) : prevCalls;
-            const effectiveToday = isMarketing ? (mktToday || todayCalls) : todayCalls;
-            const effectiveYesterday = isMarketing ? (mktYesterday || yesterdayCalls) : yesterdayCalls;
-            const effectiveThisMonth = isMarketing ? (mktThisMonth || thisMonthCalls) : thisMonthCalls;
-            const effectiveLastMonth = isMarketing ? (mktLastMonth || lastMonthCalls) : lastMonthCalls;
-            const effectiveHot = isMarketing ? (mktHot || hotLeads) : (hotLeads + admissions);
 
             return {
                 _id: u._id,
@@ -355,21 +335,18 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                 role: u.role,
                 mobNum: u.mobNum,
                 redFlags: u.redFlags || 0,
-                centres: (await CentreSchema.find({ _id: { $in: u.centres || [] } }).select('centreName')),
+                centres: (u.centres || []).map(id => centreMap[id.toString()]).filter(Boolean),
                 currentCalls: effectiveCurrent,
                 previousCalls: effectivePrev,
                 todayCalls: effectiveToday,
                 yesterdayCalls: effectiveYesterday,
                 thisMonthCalls: effectiveThisMonth,
                 lastMonthCalls: effectiveLastMonth,
-                counselledCount,
+                counselledCount: namePerf.counselled || 0,
                 admissions,
                 hotLeads: effectiveHot,
                 conversions: effectiveHot,
-                targets: {
-                    dailyCalls: callTarget,
-                    weeklyAdmissions: admissionTarget
-                },
+                targets: { dailyCalls: callTarget, weeklyAdmissions: isCounsellor ? 5 : 0 },
                 taskProgress: {
                     completed: Math.round(totalPoints),
                     total: 60,
@@ -378,9 +355,9 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                     dailyCalls: effectiveCurrent
                 }
             };
-        }));
+        });
 
-        // Trends calculation
+        // Trends & Admissions Detail
         const admissionTrends = await Admission.aggregate([
             { $match: { admissionDate: { $gte: startOfYear } } },
             { $group: { _id: { $month: "$admissionDate" }, count: { $sum: 1 } } }
@@ -388,15 +365,12 @@ export const getAllTelecallerAnalytics = async (req, res) => {
 
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const trends = months.map((m, i) => {
-            const monthIndex = i + 1;
-            const monthCalls = trendsAgg.find(t => t._id === monthIndex)?.calls || 0;
-            const monthAdmissions = admissionTrends.find(t => t._id === monthIndex)?.count || 0;
-            const monthLeads = leadsTrendAgg.find(t => t._id === monthIndex)?.count || 0;
+            const mIdx = i + 1;
             return {
                 month: m,
-                leads: monthLeads,
-                calls: monthCalls,
-                admissions: monthAdmissions
+                leads: leadsTrendAgg.find(t => t._id === mIdx)?.count || 0,
+                calls: trendsAgg.find(t => t._id === mIdx)?.calls || 0,
+                admissions: admissionTrends.find(t => t._id === mIdx)?.count || 0
             };
         });
 
@@ -406,7 +380,6 @@ export const getAllTelecallerAnalytics = async (req, res) => {
         } : { bySource: [], byCenter: [] };
 
         res.json({ performance: finalTelecallers, trends, admissionDetail: admissionDetails });
-
     } catch (error) {
         console.error("Critical Analytics Error:", error);
         res.status(500).json({ error: "Internal Server Error" });

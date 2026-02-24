@@ -1488,37 +1488,42 @@ const TelecallingConsole = () => {
                                                 </button>
                                             </div>
 
-                                            <div className="h-[400px] w-full mt-10">
-                                                <ResponsiveContainer width="100%" height="100%" minHeight={400}>
-                                                    <BarChart
-                                                        data={allPerformance
-                                                            .filter(u => {
-                                                                const matchesRole = u.role === 'telecaller' || u.role === 'centralizedTelecaller';
+                                            <div className="w-full mt-10 overflow-x-auto custom-scrollbar">
+                                                <div className="h-[400px]" style={{ minWidth: (allPerformance.filter(u => ['telecaller', 'counsellor', 'centralizedTelecaller'].includes(u.role)).length * 40) + 'px' }}>
+                                                    <ResponsiveContainer width="100%" height="100%">
+                                                        <BarChart
+                                                            data={allPerformance.filter(u => {
+                                                                const matchesRole = ['telecaller', 'centralizedTelecaller', 'counsellor'].includes(u.role);
                                                                 const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
                                                                 const uCentres = u.centres || u.centers || [];
                                                                 const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
                                                                 return matchesRole && matchesSearch && matchesCenter;
-                                                            }).length > 0 ? allPerformance.filter(u => {
-                                                                const matchesRole = u.role === 'telecaller' || u.role === 'centralizedTelecaller';
-                                                                const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
-                                                                const uCentres = u.centres || u.centers || [];
-                                                                const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
-                                                                return matchesRole && matchesSearch && matchesCenter;
-                                                            }) : [{ name: 'No Data', currentCalls: 0, previousCalls: 0 }]}
-                                                        margin={{ top: 20, right: 20, left: 20, bottom: 5 }}
-                                                        barGap={0}
-                                                    >
-                                                        <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#333' : '#eee'} vertical={false} />
-                                                        <XAxis dataKey="name" stroke={isDarkMode ? '#666' : '#999'} fontSize={10} fontWeight="bold" tickFormatter={(val) => val.split(' ')[0]} />
-                                                        <YAxis stroke={isDarkMode ? '#666' : '#999'} fontSize={10} fontWeight="bold" />
-                                                        <Tooltip contentStyle={{ backgroundColor: isDarkMode ? '#1f2937' : '#fff', borderColor: isDarkMode ? '#374151' : '#e5e7eb', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }} />
-                                                        <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: '20px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
-                                                        <Bar name="PREVIOUS PERIOD" dataKey="previousCalls" fill={isDarkMode ? '#2d333b' : '#cbd5e1'} radius={[4, 4, 0, 0]} barSize={30} />
-                                                        <Bar name="CURRENT PERIOD" dataKey="currentCalls" fill="#06b6d4" radius={[4, 4, 0, 0]} barSize={30}>
-                                                            <LabelList content={<CustomBarLabel />} position="top" />
-                                                        </Bar>
-                                                    </BarChart>
-                                                </ResponsiveContainer>
+                                                            })}
+                                                            margin={{ top: 20, right: 20, left: 20, bottom: 5 }}
+                                                            barGap={2}
+                                                        >
+                                                            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#333' : '#eee'} vertical={false} />
+                                                            <XAxis
+                                                                dataKey="name"
+                                                                stroke={isDarkMode ? '#666' : '#999'}
+                                                                fontSize={9}
+                                                                fontWeight="bold"
+                                                                tickFormatter={(val) => val.split(' ')[0]}
+                                                                interval={0}
+                                                            />
+                                                            <YAxis stroke={isDarkMode ? '#666' : '#999'} fontSize={10} fontWeight="bold" />
+                                                            <Tooltip
+                                                                cursor={{ fill: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}
+                                                                contentStyle={{ backgroundColor: isDarkMode ? '#1f2937' : '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}
+                                                            />
+                                                            <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: '30px', fontSize: '10px', fontWeight: 'bold' }} />
+                                                            <Bar name="PREVIOUS PERIOD" dataKey="previousCalls" fill={isDarkMode ? '#374151' : '#cbd5e1'} radius={[2, 2, 0, 0]} />
+                                                            <Bar name="CURRENT PERIOD" dataKey="currentCalls" fill="#06b6d4" radius={[2, 2, 0, 0]}>
+                                                                <LabelList content={<CustomBarLabel />} position="top" />
+                                                            </Bar>
+                                                        </BarChart>
+                                                    </ResponsiveContainer>
+                                                </div>
                                             </div>
                                         </div>
                                     ) : (
