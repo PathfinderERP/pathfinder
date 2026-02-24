@@ -58,7 +58,7 @@ const AnalyticsDashboard = ({ data, isDarkMode }) => {
                         <FaChartPie className="text-cyan-500" /> Lead Disposition
                     </h5>
                     <div className="h-[300px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                             <PieChart>
                                 <Pie
                                     data={leadStatus}
@@ -100,7 +100,7 @@ const AnalyticsDashboard = ({ data, isDarkMode }) => {
                         <FaChartLine className="text-green-500" /> Follow-up Activity (30 Days)
                     </h5>
                     <div className="h-[300px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                             <AreaChart data={calls.trend}>
                                 <defs>
                                     <linearGradient id="colorCalls" x1="0" y1="0" x2="0" y2="1">
@@ -138,7 +138,7 @@ const AnalyticsDashboard = ({ data, isDarkMode }) => {
                         <FaChartBar className="text-purple-500" /> Top Feedback Analysis
                     </h5>
                     <div className="h-[300px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                             <BarChart layout="vertical" data={feedbackAnalysis} margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#e5e7eb'} horizontal={false} />
                                 <XAxis type="number" tick={{ fill: isDarkMode ? '#9ca3af' : '#4b5563', fontSize: 10, fontWeight: 'bold' }} />
@@ -205,7 +205,7 @@ const AnalyticsDashboard = ({ data, isDarkMode }) => {
                         <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                             <h5 className={`text-[10px] font-black uppercase tracking-widest mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Admission Growth</h5>
                             <div className="h-[200px]">
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                                     <AreaChart data={data.admissionDetail.trend}>
                                         <defs>
                                             <linearGradient id="colorAdmissionsDetailed" x1="0" y1="0" x2="0" y2="1">
@@ -225,7 +225,7 @@ const AnalyticsDashboard = ({ data, isDarkMode }) => {
                         <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                             <h5 className={`text-[10px] font-black uppercase tracking-widest mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Admissions by Center</h5>
                             <div className="h-[200px]">
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                                     <BarChart data={data.admissionDetail.byCenter}>
                                         <XAxis dataKey="name" hide />
                                         <Tooltip labelStyle={{ color: '#000' }} />
@@ -239,7 +239,7 @@ const AnalyticsDashboard = ({ data, isDarkMode }) => {
                         <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                             <h5 className={`text-[10px] font-black uppercase tracking-widest mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Lead Source Mix</h5>
                             <div className="h-[200px]">
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                                     <PieChart>
                                         <Pie data={data.admissionDetail.bySource} innerRadius={40} outerRadius={60} dataKey="value" nameKey="name" paddingAngle={5}>
                                             {data.admissionDetail.bySource.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}

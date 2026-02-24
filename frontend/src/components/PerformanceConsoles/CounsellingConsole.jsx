@@ -5,7 +5,7 @@ import * as XLSX from 'xlsx';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
-const CounsellingConsole = ({ mainTheme = 'light', performanceData = [], monthlyTrends = [], admissionDetail = { bySource: [], byCenter: [] }, timePeriod = 'daily' }) => {
+const CounsellingConsole = ({ mainTheme = 'light', performanceData = [], monthlyTrends = [], timePeriod = 'daily' }) => {
     const isDarkMode = mainTheme === 'dark';
 
     // Aggregate summary from performanceData
@@ -180,7 +180,7 @@ const CounsellingConsole = ({ mainTheme = 'light', performanceData = [], monthly
                     </div>
                 </div>
                 <div className="h-[120px] overflow-y-auto custom-scrollbar">
-                    <ResponsiveContainer width="100%" height={Math.max(100, centerWiseCounsellors.length * 30)}>
+                    <ResponsiveContainer width="100%" height={Math.max(100, centerWiseCounsellors.length * 30)} minHeight={100}>
                         <BarChart layout="vertical" data={centerWiseCounsellors} margin={{ top: 0, right: 30, left: 60, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={isDarkMode ? '#333' : '#eee'} />
                             <XAxis type="number" hide />
@@ -229,7 +229,7 @@ const CounsellingConsole = ({ mainTheme = 'light', performanceData = [], monthly
                     </div>
                     <div className="h-[350px] overflow-x-auto overflow-y-hidden custom-scrollbar">
                         <div style={{ minWidth: `${Math.max(100, dailyComparisonData.length * 60)}px`, height: '100%' }}>
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                                 <BarChart data={dailyComparisonData} margin={{ top: 20, right: 10, left: 10, bottom: 40 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#333' : '#eee'} />
                                     <XAxis dataKey="name" interval={0} angle={-45} textAnchor="end" height={60} tick={{ fill: isDarkMode ? '#666' : '#999', fontSize: 9, fontWeight: 900 }} />
@@ -273,7 +273,7 @@ const CounsellingConsole = ({ mainTheme = 'light', performanceData = [], monthly
                     </div>
                     <div className="h-[350px] overflow-x-auto overflow-y-hidden custom-scrollbar">
                         <div style={{ minWidth: `${Math.max(100, monthlyComparisonData.length * 60)}px`, height: '100%' }}>
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                                 <BarChart data={monthlyComparisonData} margin={{ top: 20, right: 10, left: 10, bottom: 40 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#333' : '#eee'} />
                                     <XAxis dataKey="name" interval={0} angle={-45} textAnchor="end" height={60} tick={{ fill: isDarkMode ? '#666' : '#999', fontSize: 9, fontWeight: 900 }} />
@@ -306,7 +306,7 @@ const CounsellingConsole = ({ mainTheme = 'light', performanceData = [], monthly
                 <h4 className={`text-sm font-black uppercase tracking-widest mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Performance Distribution</h4>
                 <div className="h-[400px] overflow-x-auto overflow-y-hidden custom-scrollbar">
                     <div style={{ minWidth: `${Math.max(100, chartData.length * 80)}px`, height: '100%' }}>
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={350}>
                             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
                                 <defs>
                                     <linearGradient id="colorCallsCounselling" x1="0" y1="0" x2="0" y2="1">
@@ -413,7 +413,7 @@ const CounsellingConsole = ({ mainTheme = 'light', performanceData = [], monthly
                 <h4 className={`text-sm font-black uppercase tracking-widest mb-10 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Monthly Performance Evolution</h4>
                 <div className="h-[350px] overflow-x-auto overflow-y-hidden custom-scrollbar">
                     <div style={{ minWidth: `${Math.max(100, monthlyTrends.length * 80)}px`, height: '100%' }}>
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                             <BarChart data={monthlyTrends} margin={{ top: 20, right: 10, left: 10, bottom: 20 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#333' : '#eee'} />
                                 <XAxis dataKey="month" tick={{ fill: isDarkMode ? '#666' : '#999', fontSize: 10, fontWeight: 900 }} />

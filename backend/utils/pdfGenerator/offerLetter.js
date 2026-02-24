@@ -109,8 +109,21 @@ export const generateOfferLetter = async (employee, data) => {
             doc.moveDown(2);
             doc.text('Yours Sincerely,');
 
-            doc.moveDown(4);
-            doc.text('..........................');
+            if (data.signatureImage) {
+                try {
+                    // signatureImage can be a path or a buffer
+                    doc.image(data.signatureImage, 50, doc.y, { width: 100 });
+                    doc.moveDown(4);
+                } catch (sigError) {
+                    console.error("Error adding signature to PDF:", sigError);
+                    doc.moveDown(4);
+                    doc.text('..........................');
+                }
+            } else {
+                doc.moveDown(4);
+                doc.text('..........................');
+            }
+
             doc.font('Helvetica-Bold').text('Deputy Manager HR');
             doc.text('Pathfinder Educational Centre');
 

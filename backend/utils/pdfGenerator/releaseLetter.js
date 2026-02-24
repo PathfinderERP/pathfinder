@@ -70,8 +70,19 @@ export const generateReleaseLetter = async (employee, data) => {
             doc.moveDown(4);
             doc.text('Yours Sincerely,', 50, doc.y, { width: 495 });
 
-            doc.moveDown(4);
-            doc.text('..........................', 50, doc.y, { width: 495 });
+            if (data.signatureImage) {
+                try {
+                    doc.image(data.signatureImage, 50, doc.y, { width: 100 });
+                    doc.moveDown(4);
+                } catch (sigError) {
+                    console.error("Error adding signature to PDF:", sigError);
+                    doc.moveDown(4);
+                    doc.text('..........................', 50, doc.y, { width: 495 });
+                }
+            } else {
+                doc.moveDown(2);
+                doc.text('..........................', 50, doc.y, { width: 495 });
+            }
             doc.font('Helvetica-Bold').text('Deputy Manager HR', 50, doc.y, { width: 495 });
             doc.text('Pathfinder Educational Centre', 50, doc.y, { width: 495 });
 

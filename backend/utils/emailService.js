@@ -200,6 +200,44 @@ class EmailService {
 
         return await this.sendEmail(mailOptions);
     }
+
+    /**
+     * Sends a letter with custom subject, body and additional attachments
+     */
+    async sendCustomLetter(employee, { subject, body, mainAttachment, additionalAttachments = [] }) {
+        const createAttachment = (attr) => {
+            if (!attr) return null;
+            const attachment = { filename: attr.filename || 'attachment.pdf' };
+
+            // Strictly check for path (string) or content (Buffer/string)
+            if (typeof attr.path === 'string' && attr.path) {
+                attachment.path = attr.path;
+            } else if (attr.content && (Buffer.isBuffer(attr.content) || typeof attr.content === 'string')) {
+                attachment.content = attr.content;
+            } else if (attr.path && Buffer.isBuffer(attr.path)) {
+                // If path was mistakenly passed as Buffer
+                attachment.content = attr.path;
+            }
+
+            return (attachment.path || attachment.content) ? attachment : null;
+        };
+
+        const attachments = [
+            createAttachment(mainAttachment),
+            ...additionalAttachments.map(attr => createAttachment(attr))
+        ].filter(Boolean);
+
+        const mailOptions = {
+            from: process.env.SMTP_FROM || '"HR Department" <hr@company.com>',
+            to: employee.email,
+            subject: typeof subject === 'string' ? subject : 'Document from HR',
+            html: typeof body === 'string' ? body : `<p>Dear ${employee.name}, Please find the attached document.</p>`,
+            attachments
+        };
+
+        return await this.sendEmail(mailOptions);
+    }
+
     async sendBirthdayWish(employee) {
         const mailOptions = {
             from: process.env.SMTP_FROM || '"HR Department" <hr@company.com>',
@@ -237,6 +275,58 @@ class EmailService {
                                 <p style="margin: 0; font-size: 15px; color: #6b7280;">With much appreciation, ❤️</p>
                                 <p style="margin: 5px 0 0 0; font-size: 18px; font-weight: 800; background: linear-gradient(to right, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Human Resources Team</p>
                                 <p style="margin: 0; font-size: 14px; font-weight: 600; color: #9ca3af;">Pathfinder</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div style="background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9;">
+                        <p style="margin: 0;">Sent with ❤️ from Pathfinder</p>
+                        <p style="margin: 5px 0 0 0;">&copy; ${new Date().getFullYear()} Pathfinder. All rights reserved.</p>
+                    </div>
+                </div>
+            `
+        };
+
+        return await this.sendEmail(mailOptions);
+    }
+
+    async sendStudentBirthdayWish(student) {
+        const mailOptions = {
+            from: process.env.SMTP_FROM || '"Pathfinder" <info@pathfinder.com>',
+            to: student.email,
+            subject: `🎉 Happy Birthday, ${student.name}! 🎂✨`,
+            html: `
+                <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); background-color: #ffffff;">
+                    <!-- Festive Header -->
+                    <div style="background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%); padding: 50px 20px; text-align: center; color: white; position: relative; overflow: hidden;">
+                        <div style="font-size: 60px; margin-bottom: 10px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));">🥳 🎂 🎈</div>
+                        <h1 style="margin: 0; font-size: 32px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">Happy Birthday!</h1>
+                        <p style="font-size: 20px; font-weight: 500; opacity: 0.95; margin-top: 10px;">Wishing you a great year ahead, ${student.name}! ✨</p>
+                    </div>
+
+                    <!-- Card Body -->
+                    <div style="padding: 40px 30px; color: #1f2937; line-height: 1.8; position: relative;">
+                        <!-- Floating Emojis -->
+                        <div style="font-size: 24px; margin-bottom: 25px;">🎊 Dear <span style="color: #6366f1; font-weight: 800;">${student.name}</span>, 🎁</div>
+                        
+                        <p style="font-size: 16px;">The whole team at <strong style="color: #a855f7;">Pathfinder</strong> is sending you the warmest wishes on your special day! 🌟</p>
+                        
+                        <p style="font-size: 16px;">We are so proud to have you as our student! May this year bring you closer to your dreams and goals, and may your path be filled with learning and success. 🚀</p>
+                        
+                        <div style="background-color: #fef2f2; border-left: 4px solid #f43f5e; padding: 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+                            <p style="margin: 0; font-style: italic; color: #9f1239; font-size: 16px;">
+                                "Success is not final, failure is not fatal: it is the courage to continue that counts. Keep shining!" 🌈✨
+                            </p>
+                        </div>
+                        
+                        <p style="font-size: 16px; margin-bottom: 35px;">Enjoy your day with friends and family! Have a fantastic celebration! 🥂🍦🍰</p>
+                        
+                        <!-- Signature -->
+                        <div style="border-top: 2px dashed #f3f4f6; padding-top: 25px; display: flex; align-items: center;">
+                            <div>
+                                <p style="margin: 0; font-size: 15px; color: #6b7280;">Best wishes, ❤️</p>
+                                <p style="margin: 5px 0 0 0; font-size: 18px; font-weight: 800; background: linear-gradient(to right, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Pathfinder Team</p>
                             </div>
                         </div>
                     </div>

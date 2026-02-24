@@ -78,8 +78,20 @@ export const generateExperienceLetter = async (employee, data) => {
             doc.text(`We wish him/her the very best for all his/her future endeavors.`, 50, doc.y, { align: 'justify', width: 495 });
 
             // --- Footer / Signature ---
-            doc.moveDown(6);
-            doc.text('..........................', 50, doc.y, { width: 495 });
+            doc.moveDown(4);
+            if (data.signatureImage) {
+                try {
+                    doc.image(data.signatureImage, 50, doc.y, { width: 100 });
+                    doc.moveDown(4);
+                } catch (sigError) {
+                    console.error("Error adding signature to PDF:", sigError);
+                    doc.moveDown(4);
+                    doc.text('..........................', 50, doc.y, { width: 495 });
+                }
+            } else {
+                doc.moveDown(2);
+                doc.text('..........................', 50, doc.y, { width: 495 });
+            }
             doc.font('Helvetica-Bold').text('Deputy Manager HR', 50, doc.y, { width: 495 });
             doc.text('Pathfinder Educational Centre', 50, doc.y, { width: 495 });
 

@@ -177,7 +177,18 @@ export const generateContractLetter = async (employee, data) => {
             const signatureY = doc.y;
 
             doc.font('Helvetica-Bold').text('Date : _________________________', 50, signatureY);
-            doc.text('Signed : _______________________', 50, signatureY + 25);
+
+            if (data.signatureImage) {
+                try {
+                    doc.image(data.signatureImage, 50, signatureY + 20, { width: 100 });
+                    doc.moveDown(4);
+                } catch (sigError) {
+                    console.error("Error adding signature to PDF:", sigError);
+                    doc.text('Signed : _______________________', 50, signatureY + 25);
+                }
+            } else {
+                doc.text('Signed : _______________________', 50, signatureY + 25);
+            }
 
             // CEO Signature block on the right or below? User text:
             // "Pathfinder Logo

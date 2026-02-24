@@ -96,6 +96,7 @@ const LeadManagementContent = () => {
     const [classes, setClasses] = useState([]);
     const [telecallers, setTelecallers] = useState([]);
     const [allowedCentres, setAllowedCentres] = useState([]);
+    const [feedbackCategories, setFeedbackCategories] = useState([]);
 
     const fetchLeadStats = useCallback(async () => {
         try {
@@ -320,10 +321,19 @@ const LeadManagementContent = () => {
                     }));
                 }
             }
+
+            // Fetch follow-up feedback categories
+            const feedbackResponse = await fetch(`${import.meta.env.VITE_API_URL}/master-data/follow-up-feedback`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const feedbackData = await feedbackResponse.json();
+            if (feedbackResponse.ok) {
+                setFeedbackCategories(Array.isArray(feedbackData) ? feedbackData : []);
+            }
         } catch (error) {
             console.error("Error fetching filter data:", error);
         }
-    }, []);
+    }, [user?.role, user?.name]);
 
     useEffect(() => {
         const storedUser = localStorage.getItem("user");
@@ -1040,18 +1050,21 @@ const LeadManagementContent = () => {
                         <div className="space-y-2">
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Feedback</label>
                             <CustomMultiSelect
-                                options={[
-                                    { value: "Interested", label: "Interested" },
-                                    { value: "Not Interested", label: "Not Interested" },
-                                    { value: "Call back later", label: "Call back later" },
-                                    { value: "Wrong Number", label: "Wrong Number" },
-                                    { value: "Busy", label: "Busy" },
-                                    { value: "Asked for details", label: "Asked for details" },
-                                    { value: "Price Issue", label: "Price Issue" },
-                                    { value: "Will visit centre", label: "Will visit centre" },
-                                    { value: "Enrolled elsewhere", label: "Enrolled elsewhere" },
-                                    { value: "Others", label: "Others" }
-                                ]}
+                                options={feedbackCategories.length > 0
+                                    ? feedbackCategories.map(f => ({ value: f.name, label: f.name }))
+                                    : [
+                                        { value: "Interested", label: "Interested" },
+                                        { value: "Not Interested", label: "Not Interested" },
+                                        { value: "Call back later", label: "Call back later" },
+                                        { value: "Wrong Number", label: "Wrong Number" },
+                                        { value: "Busy", label: "Busy" },
+                                        { value: "Asked for details", label: "Asked for details" },
+                                        { value: "Price Issue", label: "Price Issue" },
+                                        { value: "Will visit centre", label: "Will visit centre" },
+                                        { value: "Enrolled elsewhere", label: "Enrolled elsewhere" },
+                                        { value: "Others", label: "Others" }
+                                    ]
+                                }
                                 value={filters.feedback}
                                 onChange={(selected) => handleFilterChange('feedback', selected)}
                                 placeholder="Select Feedback"

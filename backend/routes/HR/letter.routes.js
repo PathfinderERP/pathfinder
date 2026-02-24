@@ -15,6 +15,11 @@ import {
     downloadLetter,
     deleteLetter
 } from "../../controllers/HR/letterController.js";
+import {
+    getTemplatesByType,
+    createTemplate,
+    deleteTemplate
+} from "../../controllers/HR/letterTemplateController.js";
 import authMiddleware from "../../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -49,5 +54,10 @@ router.post("/virtual-id/:id", generateVirtualId);
 router.post("/virtual-id/:id/send", sendVirtualId);
 
 router.delete("/:employeeId/:letterId", deleteLetter);
+
+// Templates
+router.get("/templates/:type", getTemplatesByType);
+router.post("/templates", createTemplate);
+router.delete("/templates/:id", deleteTemplate);
 
 export default router;

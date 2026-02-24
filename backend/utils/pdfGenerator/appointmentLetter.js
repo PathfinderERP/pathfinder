@@ -93,7 +93,19 @@ export const generateAppointmentLetter = async (employee, data) => {
             doc.font('Helvetica-Bold').text('Yours Faithfully,');
             doc.text('For PATHFINDER EDUCATIONAL CENTRE');
 
-            doc.moveDown(3);
+            if (data.signatureImage) {
+                try {
+                    doc.image(data.signatureImage, 50, doc.y, { width: 100 });
+                    doc.moveDown(4);
+                } catch (sigError) {
+                    console.error("Error adding signature to PDF:", sigError);
+                    doc.moveDown(4);
+                }
+            } else {
+                doc.moveDown(3);
+                doc.text('..........................');
+            }
+
             doc.text('Madhuparna Sreemany (CEO)');
 
             doc.moveDown(2);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "../../../components/Layout";
-import { FaArrowLeft, FaPrint, FaDownload, FaEnvelope, FaFileAlt, FaSpinner, FaHistory, FaIdBadge, FaExternalLinkAlt, FaUser, FaTrash } from "react-icons/fa";
+import { FaArrowLeft, FaPrint, FaDownload, FaEnvelope, FaFileAlt, FaSpinner, FaHistory, FaIdBadge, FaExternalLinkAlt, FaUser, FaTrash, FaSignature, FaTimes, FaPlus, FaSave } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 const VirtualId = () => {
@@ -12,6 +12,17 @@ const VirtualId = () => {
     const [generating, setGenerating] = useState(false);
     const [sending, setSending] = useState(false);
     const [generatedFile, setGeneratedFile] = useState(null);
+    const [showEmailConfig, setShowEmailConfig] = useState(false);
+
+    const [signature, setSignature] = useState(null);
+    const [emailConfig, setEmailConfig] = useState({
+        subject: "",
+        body: "",
+        additionalAttachments: []
+    });
+
+    const [templates, setTemplates] = useState([]);
+    const [savingTemplate, setSavingTemplate] = useState(false);
 
     const [letterData, setLetterData] = useState({
         companyName: "PathFinder ERP"
@@ -35,9 +46,84 @@ const VirtualId = () => {
         }
     }, [id]);
 
+    const fetchTemplates = React.useCallback(async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/letters/templates/Virtual ID`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setTemplates(data);
+            }
+        } catch (error) {
+            console.error("Error fetching templates:", error);
+        }
+    }, []);
+
     useEffect(() => {
         fetchEmployeeDetails();
-    }, [id, fetchEmployeeDetails]);
+        fetchTemplates();
+    }, [id, fetchEmployeeDetails, fetchTemplates]);
+
+    const handleSignatureUpload = (file) => {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => setSignature(e.target.result);
+        reader.readAsDataURL(file);
+    };
+
+    const handleAdditionalAttachment = (file) => {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            setEmailConfig(prev => ({
+                ...prev,
+                additionalAttachments: [
+                    ...prev.additionalAttachments,
+                    { filename: file.name, content: e.target.result }
+                ]
+            }));
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const saveAsTemplate = async () => {
+        if (!emailConfig.subject || !emailConfig.body) {
+            toast.error("Please provide subject and body for the template");
+            return;
+        }
+        const name = window.prompt("Enter a name for this template:");
+        if (!name) return;
+
+        setSavingTemplate(true);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/letters/templates`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    name,
+                    subject: emailConfig.subject,
+                    body: emailConfig.body,
+                    type: "Virtual ID"
+                })
+            });
+
+            if (response.ok) {
+                toast.success("Template saved successfully");
+                fetchTemplates();
+            }
+        } catch (error) {
+            console.error("Error saving template:", error);
+            toast.error("Error saving template");
+        } finally {
+            setSavingTemplate(false);
+        }
+    };
 
     const handleGenerate = async () => {
         setGenerating(true);
@@ -49,7 +135,10 @@ const VirtualId = () => {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify(letterData)
+                body: JSON.stringify({
+                    ...letterData,
+                    signatureImage: signature
+                })
             });
 
             if (response.ok) {
@@ -82,7 +171,12 @@ const VirtualId = () => {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ fileName: generatedFile.fileName })
+                body: JSON.stringify({
+                    fileName: generatedFile.fileName,
+                    customSubject: emailConfig.subject,
+                    customBody: emailConfig.body,
+                    additionalAttachments: emailConfig.additionalAttachments
+                })
             });
 
             if (response.ok) {
@@ -100,7 +194,6 @@ const VirtualId = () => {
 
     const handleDownload = () => {
         if (!generatedFile) return;
-        // Use the public download route to avoid Authorization header issues with window.open
         const downloadUrl = `${import.meta.env.VITE_API_URL}/hr/letters/download/${generatedFile.fileName}`;
         window.open(downloadUrl, '_blank');
     };
@@ -155,91 +248,6 @@ const VirtualId = () => {
 
     const history = employee?.letters?.filter(l => l.letterType === "Virtual ID") || [];
 
-    const IdCardMockup = ({ employee, companyName }) => (
-        <div className="id-card-perspective group w-[240px] h-[350px] mx-auto animate-float">
-            <div className="id-card-inner relative w-full h-full transition-all duration-700 preserve-3d group-hover:rotate-y-12">
-                <div className="absolute inset-0 bg-white dark:bg-gray-100 rounded-2xl shadow-2xl overflow-hidden border border-gray-200 p-5 flex flex-col items-center select-none backface-hidden">
-                    {/* Header with Logo */}
-                    <div className="w-full h-10 flex justify-center mb-6 pt-1">
-                        <img src="/assets/logo.png" alt="Company Logo" className="w-[85%] h-auto object-contain" />
-                    </div>
-
-                    {/* Profile Image Container */}
-                    <div className="relative mb-6">
-                        <div className="w-28 h-28 rounded-full border-2 border-blue-500 p-0.5 overflow-hidden shadow-lg bg-gray-50 flex items-center justify-center">
-                            {employee?.profileImage ? (
-                                <img src={employee.profileImage} alt="Profile" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="text-gray-300 flex flex-col items-center">
-                                    <FaUser size={35} />
-                                    <span className="text-[8px] uppercase font-bold mt-1">No Image</span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Employee Info */}
-                    <div className="text-center w-full space-y-1">
-                        <h2 className="text-[13px] font-black text-gray-900 leading-tight uppercase tracking-tight truncate w-full px-1">
-                            {employee?.name || "Employee Name"}
-                        </h2>
-                        <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest truncate w-full px-1">
-                            {employee?.designation?.name || "Designation"}
-                        </p>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="w-full h-[1px] bg-gradient-to-r from-transparent via-gray-300 to-transparent my-4"></div>
-
-                    {/* Contact Details */}
-                    <div className="w-full space-y-2 px-1">
-                        <div className="flex flex-col text-[8px] text-gray-600 font-bold space-y-1.5">
-                            <div className="flex items-center gap-1.5">
-                                <span className="text-blue-500 w-4 font-black">ID:</span>
-                                <span className="text-gray-900 truncate font-black">{employee?.employeeId || "EMP0000000"}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                                <span className="text-blue-500 w-4 font-black">EMAIL:</span>
-                                <span className="text-gray-900 truncate">{employee?.email || "n/a"}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-balance">
-                                <span className="text-blue-500 w-4 font-black">TEL:</span>
-                                <span className="text-gray-900 truncate">{employee?.phoneNumber || "n/a"}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Overlays for Glossy Look */}
-                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none group-hover:translate-x-full transition-transform duration-1000"></div>
-                    <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-500"></div>
-                </div>
-            </div>
-
-            <style dangerouslySetInnerHTML={{
-                __html: `
-                @keyframes float {
-                    0%, 100% { transform: translateY(0); }
-                    50% { transform: translateY(-15px); }
-                }
-                .animate-float {
-                    animation: float 4s ease-in-out infinite;
-                }
-                .id-card-perspective {
-                    perspective: 1000px;
-                }
-                .preserve-3d {
-                    transform-style: preserve-3d;
-                }
-                .backface-hidden {
-                    backface-visibility: hidden;
-                }
-                .group-hover\\:rotate-y-12:hover {
-                    transform: rotateY(12deg) rotateX(5deg);
-                }
-            ` }} />
-        </div>
-    );
-
     return (
         <Layout activePage="HR & Manpower">
             <div className="space-y-6 animate-fade-in pb-10">
@@ -259,11 +267,20 @@ const VirtualId = () => {
 
                     <div className="flex gap-2">
                         {generatedFile && (
-                            <div className="flex gap-2 p-1.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700">
-                                <button onClick={handlePrint} className="p-2 hover:bg-white dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg transition-all" title="Print"><FaPrint size={16} /></button>
-                                <button onClick={handleDownload} className="p-2 hover:bg-white dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg transition-all" title="Download"><FaDownload size={16} /></button>
-                                <button disabled={sending} onClick={handleSendEmail} className="p-2 hover:bg-indigo-600 hover:text-white text-indigo-600 dark:text-indigo-400 rounded-lg transition-all" title="Send Email">{sending ? <FaSpinner className="animate-spin" /> : <FaEnvelope size={16} />}</button>
-                            </div>
+                            <>
+                                <div className="flex gap-2 p-1.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700">
+                                    <button onClick={handlePrint} className="p-2 hover:bg-white dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg transition-all" title="Print"><FaPrint size={16} /></button>
+                                    <button onClick={handleDownload} className="p-2 hover:bg-white dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg transition-all" title="Download"><FaDownload size={16} /></button>
+                                    <button
+                                        disabled={sending}
+                                        onClick={() => setShowEmailConfig(!showEmailConfig)}
+                                        className={`p-2 rounded-lg transition-all ${showEmailConfig ? 'bg-amber-500 text-white' : 'hover:bg-indigo-600 hover:text-white text-indigo-600 dark:text-indigo-400'}`}
+                                        title="Email Customization"
+                                    >
+                                        {sending ? <FaSpinner className="animate-spin" /> : <FaEnvelope size={16} />}
+                                    </button>
+                                </div>
+                            </>
                         )}
                         <button
                             disabled={generating}
@@ -289,6 +306,91 @@ const VirtualId = () => {
                                         onChange={(e) => setLetterData({ ...letterData, companyName: e.target.value })}
                                         className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:blue-500/20 transition-all text-sm outline-none dark:text-white"
                                     />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800">
+                            <h3 className="text-[13px] font-black uppercase text-gray-400 dark:text-gray-500 mb-4 tracking-widest flex items-center gap-2">
+                                <FaSignature size={12} /> Signature
+                            </h3>
+                            <div
+                                className={`border-2 border-dashed rounded-xl p-4 text-center transition-all cursor-pointer ${signature ? 'border-green-500/50 bg-green-50/10' : 'border-gray-200 dark:border-gray-700 hover:border-blue-500/50'}`}
+                                onClick={() => document.getElementById('signature-upload').click()}
+                            >
+                                <input id="signature-upload" type="file" className="hidden" accept="image/*" onChange={(e) => handleSignatureUpload(e.target.files[0])} />
+                                {signature ? (
+                                    <div className="space-y-2">
+                                        <img src={signature} alt="Signature" className="max-h-16 mx-auto rounded" />
+                                        <button onClick={(e) => { e.stopPropagation(); setSignature(null); }} className="text-[10px] text-red-500 font-bold uppercase hover:underline">Remove</button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-1">
+                                        <FaSignature className="mx-auto text-gray-300 dark:text-gray-600 mb-2" size={20} />
+                                        <p className="text-[10px] font-medium text-gray-500">Click to upload signature</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Email Customization Panel */}
+                        <div className={`transition-all duration-300 ${showEmailConfig ? 'block' : 'hidden'}`}>
+                            <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-sm border border-blue-200 dark:border-blue-500/30 ring-1 ring-blue-500/20">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-sm font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                                        <FaEnvelope className="text-blue-500" size={14} /> Email Content
+                                    </h3>
+                                    <button onClick={() => setShowEmailConfig(false)} className="text-gray-400 hover:text-gray-600 transition-colors"><FaTimes size={14} /></button>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Template</label>
+                                        <div className="flex gap-2">
+                                            <select
+                                                className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl outline-none dark:text-white text-[11px]"
+                                                onChange={(e) => {
+                                                    const template = templates.find(t => t._id === e.target.value);
+                                                    if (template) setEmailConfig(prev => ({ ...prev, subject: template.subject, body: template.body }));
+                                                }}
+                                            >
+                                                <option value="">Select...</option>
+                                                {templates.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                                            </select>
+                                            <button onClick={saveAsTemplate} disabled={savingTemplate} className="p-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-xl border dark:border-gray-700 transition-all">{savingTemplate ? <FaSpinner className="animate-spin" size={12} /> : <FaSave size={12} />}</button>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Subject</label>
+                                        <input type="text" value={emailConfig.subject} onChange={(e) => setEmailConfig({ ...emailConfig, subject: e.target.value })} className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl text-xs dark:text-white outline-none" placeholder="Subject..." />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Message</label>
+                                        <textarea rows={4} value={emailConfig.body} onChange={(e) => setEmailConfig({ ...emailConfig, body: e.target.value })} className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl text-xs dark:text-white resize-none outline-none" placeholder="Body..." />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <div className="flex items-center justify-between ml-1">
+                                            <label className="text-[10px] font-bold text-gray-500 uppercase">Files</label>
+                                            <button onClick={() => document.getElementById('extra-attach').click()} className="text-[10px] font-bold text-blue-500 flex items-center gap-1"><FaPlus size={8} /> Add</button>
+                                            <input id="extra-attach" type="file" className="hidden" onChange={(e) => handleAdditionalAttachment(e.target.files[0])} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            {emailConfig.additionalAttachments.map((file, idx) => (
+                                                <div key={idx} className="flex items-center justify-between p-1.5 bg-gray-50 dark:bg-gray-800/30 rounded-lg border dark:border-gray-700">
+                                                    <span className="text-[9px] text-gray-600 truncate max-w-[120px]">{file.filename}</span>
+                                                    <button onClick={() => setEmailConfig(prev => ({ ...prev, additionalAttachments: prev.additionalAttachments.filter((_, i) => i !== idx) }))} className="text-red-400"><FaTimes size={8} /></button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <button disabled={sending} onClick={handleSendEmail} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-xs shadow-lg shadow-indigo-600/20 disabled:opacity-50 mt-1">
+                                        {sending ? <FaSpinner className="animate-spin" /> : <FaEnvelope />}
+                                        {sending ? "Sending..." : "Send Securely"}
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -357,17 +459,11 @@ const VirtualId = () => {
                                     </div>
                                 ) : generatedFile ? (
                                     <div className="w-full h-full flex items-center justify-center gap-10">
-                                        {/* 3D Mockup Preview */}
-                                        {/* <div className="hidden xl:block">
-                                            <IdCardMockup employee={employee} companyName={letterData.companyName} />
-                                            <p className="text-center mt-6 text-[10px] text-gray-400 font-black uppercase tracking-widest">3D Visual Preview</p>
-                                        </div> */}
-
                                         {/* Physical Document Frame */}
                                         <div className="w-[450px] h-full rounded-2xl border-4 border-white dark:border-gray-800 shadow-2xl relative bg-white">
                                             <iframe
                                                 id="pdf-preview"
-                                                src={`${generatedFile.filePath}#toolbar=0&navpanes=0`}
+                                                src={generatedFile.filePath}
                                                 className="w-full h-full rounded-lg"
                                                 title="ID Card PDF"
                                                 key={generatedFile.filePath}
@@ -401,6 +497,29 @@ const VirtualId = () => {
                     </div>
                 </div>
             </div>
+
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                @keyframes float {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-15px); }
+                }
+                .animate-float {
+                    animation: float 4s ease-in-out infinite;
+                }
+                .id-card-perspective {
+                    perspective: 1000px;
+                }
+                .preserve-3d {
+                    transform-style: preserve-3d;
+                }
+                .backface-hidden {
+                    backface-visibility: hidden;
+                }
+                .group-hover\\:rotate-y-12:hover {
+                    transform: rotateY(12deg) rotateX(5deg);
+                }
+            ` }} />
         </Layout>
     );
 };

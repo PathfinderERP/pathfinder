@@ -65,49 +65,7 @@ const saveLetterToHistory = async (employeeId, letterType, fileName, fileUrl) =>
     }
 };
 
-// Generate Offer Letter
-export const generateOfferLetter = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const employeeRaw = await Employee.findById(id)
-            .populate("designation")
-            .populate("department")
-            .populate("primaryCentre");
-
-        if (!employeeRaw) return res.status(404).json({ message: "Employee not found" });
-
-        // Sign file URLs
-        const employee = await signEmployeeFiles(employeeRaw);
-
-        const data = {
-            companyName: req.body.companyName || "PathFinder ERP",
-            joiningDate: req.body.joiningDate || employee.joiningDate
-        };
-
-        const { filePath, fileName } = await pdfGenerator.generateOfferLetter(employee, data);
-        const finalUrl = await uploadToR2(filePath);
-        if (finalUrl) {
-            await saveLetterToHistory(id, "Offer Letter", fileName, finalUrl);
-        } else {
-            console.error("Failed to upload generated letter to R2");
-        }
-
-        // Sign the URL for frontend preview
-        const signedUrl = await getSignedFileUrl(finalUrl);
-
-        res.json({
-            message: "Offer letter generated successfully",
-            fileName,
-            filePath: signedUrl
-        });
-    } catch (error) {
-        console.error("Error:", error);
-        res.status(500).json({ message: "Error generating offer letter", error: error.message });
-    }
-};
-
-// ... Similar logic for other letters ...
-// Using helper to refactor the rest
+// Helper function to handle common letter generation logic
 const handleGenerateLetter = async (req, res, letterType, generatorFunc, dataMapper) => {
     try {
         const { id } = req.params;
@@ -121,6 +79,15 @@ const handleGenerateLetter = async (req, res, letterType, generatorFunc, dataMap
         const employee = await signEmployeeFiles(employeeRaw);
 
         const data = dataMapper(employee, req.body);
+
+        // Handle Signature Image (could be base64 from HR drag & drop)
+        if (req.body.signatureImage && req.body.signatureImage.startsWith("data:image")) {
+            const base64Data = req.body.signatureImage.replace(/^data:image\/\w+;base64,/, "");
+            data.signatureImage = Buffer.from(base64Data, 'base64');
+        } else if (req.body.signatureImage) {
+            data.signatureImage = req.body.signatureImage; // Already a URL or path
+        }
+
         const { filePath, fileName } = await generatorFunc(employee, data);
         const finalUrl = await uploadToR2(filePath);
         if (finalUrl) {
@@ -139,6 +106,10 @@ const handleGenerateLetter = async (req, res, letterType, generatorFunc, dataMap
     }
 };
 
+export const generateOfferLetter = (req, res) => handleGenerateLetter(req, res, "Offer Letter", pdfGenerator.generateOfferLetter.bind(pdfGenerator), (emp, body) => ({
+    companyName: body.companyName || "PathFinder ERP",
+    joiningDate: body.joiningDate || emp.joiningDate
+}));
 export const generateAppointmentLetter = (req, res) => handleGenerateLetter(req, res, "Appointment Letter", pdfGenerator.generateAppointmentLetter.bind(pdfGenerator), (emp, body) => ({ companyName: body.companyName || "PathFinder ERP" }));
 export const generateContractLetter = (req, res) => handleGenerateLetter(req, res, "Contract Letter", pdfGenerator.generateContractLetter.bind(pdfGenerator), (emp, body) => ({ companyName: body.companyName || "PathFinder ERP" }));
 export const generateExperienceLetter = (req, res) => handleGenerateLetter(req, res, "Experience Letter", pdfGenerator.generateExperienceLetter.bind(pdfGenerator), (emp, body) => ({ companyName: body.companyName || "PathFinder ERP", relievingDate: body.relievingDate }));
@@ -149,7 +120,7 @@ export const generateVirtualId = (req, res) => handleGenerateLetter(req, res, "V
 const handleSendLetter = async (req, res, mailFunc) => {
     try {
         const { id } = req.params;
-        const { fileName } = req.body;
+        const { fileName, customSubject, customBody, additionalAttachments } = req.body;
         console.log(`Sending letter for Employee ID: ${id}, FileName: ${fileName}`);
 
         const employee = await Employee.findById(id);
@@ -167,12 +138,32 @@ const handleSendLetter = async (req, res, mailFunc) => {
 
         console.log(`Attachment URL resolved to: ${attachmentPath}`);
 
-        if (!attachmentPath || (!attachmentPath.startsWith("http") && !fs.existsSync(attachmentPath))) {
-            console.error(`Invalid attachment path: ${attachmentPath}`);
-            // If local file missing and not a URL, we can't send.
+        if (customSubject || customBody || (additionalAttachments && additionalAttachments.length > 0)) {
+            // Process additional attachments if they are base64
+            const processedAttachments = (additionalAttachments || []).map(attr => {
+                if (attr.content && attr.content.startsWith("data:")) {
+                    const base64Data = attr.content.replace(/^data:.*;base64,/, "");
+                    return {
+                        filename: attr.filename,
+                        content: Buffer.from(base64Data, 'base64')
+                    };
+                }
+                return attr;
+            });
+
+            await emailService.sendCustomLetter(employee, {
+                subject: customSubject,
+                body: customBody,
+                mainAttachment: {
+                    filename: fileName,
+                    path: attachmentPath
+                },
+                additionalAttachments: processedAttachments
+            });
+        } else {
+            await mailFunc(employee, attachmentPath);
         }
 
-        await mailFunc(employee, attachmentPath);
         res.json({ message: "Sent successfully" });
     } catch (error) {
         console.error("Error in handleSendLetter:", error);

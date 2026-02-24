@@ -92,7 +92,7 @@ const MarketingConsole = ({ mainTheme = 'light', performanceData = [], monthlyTr
                 <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
                     <h4 className={`text-sm font-black uppercase tracking-widest mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Squad Performance</h4>
                     <div className="h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                             <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={isDarkMode ? '#333' : '#eee'} />
                                 <XAxis type="number" tick={{ fill: isDarkMode ? '#666' : '#999', fontSize: 10, fontWeight: 'bold' }} />
@@ -119,7 +119,7 @@ const MarketingConsole = ({ mainTheme = 'light', performanceData = [], monthlyTr
                 <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
                     <h4 className={`text-sm font-black uppercase tracking-widest mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Monthly Lead Growth</h4>
                     <div className="h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                             <AreaChart data={chartTrends}>
                                 <defs>
                                     <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
