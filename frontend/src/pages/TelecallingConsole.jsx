@@ -19,6 +19,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import CounsellingConsole from "../components/PerformanceConsoles/CounsellingConsole";
+import MultiSelectFilter from "../components/common/MultiSelectFilter";
 
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
@@ -408,6 +409,8 @@ const TelecallingConsole = () => {
     const [globalAdmissionDetail, setGlobalAdmissionDetail] = useState({ bySource: [], byCenter: [] });
     const [summaryLoading, setSummaryLoading] = useState(false);
     const [timePeriod, setTimePeriod] = useState('daily'); // 'daily', 'weekly', 'monthly'
+    const [selectedTelecallers, setSelectedTelecallers] = useState([]);
+    const [selectedCentralizedTelecallers, setSelectedCentralizedTelecallers] = useState([]);
 
     // Memoized computation of enriched telecallers (base info + performance stats)
     const enrichedTelecallers = React.useMemo(() => {
@@ -673,6 +676,10 @@ const TelecallingConsole = () => {
             startTime: "",
             endTime: ""
         });
+        setSearchQuery("");
+        setSelectedCenters([]);
+        setSelectedTelecallers([]);
+        setSelectedCentralizedTelecallers([]);
     };
 
     const fetchAllPerformance = async (period = 'daily', customFilters = {}) => {
@@ -926,7 +933,10 @@ const TelecallingConsole = () => {
                             {['telecalling', 'counselling'].map(consoleType => (
                                 <button
                                     key={consoleType}
-                                    onClick={() => setActiveConsole(consoleType)}
+                                    onClick={() => {
+                                        setActiveConsole(consoleType);
+                                        setSelectedTelecallers([]);
+                                    }}
                                     className={`px-4 py-2 rounded-[2px] text-[10px] font-black uppercase tracking-widest transition-all ${activeConsole === consoleType ? (isDarkMode ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'bg-white text-black shadow-sm') : (isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700')}`}
                                 >
                                     {consoleType}
@@ -1365,18 +1375,55 @@ const TelecallingConsole = () => {
                                     <div className={`p-8 rounded-[4px] border space-y-8 transition-all animate-fadeIn ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-2xl' : 'bg-white border-gray-200 shadow-md'}`}>
                                         <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
                                             {/* Search & Metadata */}
-                                            <div className="flex flex-1 items-center gap-6 w-full lg:w-auto">
-                                                <div className={`p-4 rounded-[4px] border hidden md:block ${isDarkMode ? 'bg-[#131619] border-gray-800 text-cyan-500' : 'bg-gray-50 border-gray-200 text-cyan-600'}`}>
-                                                    <FaFilter size={18} />
+                                            <div className="flex flex-1 flex-wrap items-center gap-4 w-full lg:w-auto">
+                                                <div className={`p-3 rounded-[4px] border hidden md:block ${isDarkMode ? 'bg-[#131619] border-gray-800 text-cyan-500' : 'bg-gray-50 border-gray-200 text-cyan-600'}`}>
+                                                    <FaFilter size={16} />
                                                 </div>
-                                                <div className="flex-1 max-w-md relative group">
+                                                <div className="flex-1 min-w-[200px] max-w-[300px] relative group">
                                                     <FaSearch className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-gray-600 group-focus-within:text-cyan-500' : 'text-gray-400 group-focus-within:text-cyan-500'}`} />
                                                     <input
                                                         type="text"
-                                                        placeholder="SEARCH SQUAD MEMBERS..."
+                                                        placeholder="SEARCH SQUAD..."
                                                         value={searchQuery}
                                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                                        className={`w-full pl-12 pr-4 py-3 rounded-[2px] border text-[10px] font-black uppercase tracking-widest outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`}
+                                                        className={`w-full pl-12 pr-4 py-2.5 rounded-[2px] border text-[10px] font-black uppercase tracking-widest outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`}
+                                                    />
+                                                </div>
+                                                <div className="w-full md:w-[220px]">
+                                                    <MultiSelectFilter
+                                                        label="Agents"
+                                                        placeholder="Select Agents"
+                                                        options={telecallers
+                                                            .filter(u => {
+                                                                const roleMap = {
+                                                                    'telecalling': 'telecaller',
+                                                                    'counselling': 'counsellor'
+                                                                };
+                                                                return u.role === roleMap[activeConsole];
+                                                            })
+                                                            .map(u => ({ label: u.name, value: u._id }))}
+                                                        selectedValues={selectedTelecallers}
+                                                        onChange={setSelectedTelecallers}
+                                                        theme={isDarkMode ? 'dark' : 'light'}
+                                                    />
+                                                </div>
+                                                <div className="w-full md:w-[220px]">
+                                                    <MultiSelectFilter
+                                                        label="Centralized"
+                                                        placeholder="Select Centralized"
+                                                        options={telecallers
+                                                            .filter(u => {
+                                                                const isCentralized = (u.centres || u.centers || []).length > 10;
+                                                                const roleMap = {
+                                                                    'telecalling': 'telecaller',
+                                                                    'counselling': 'counsellor'
+                                                                };
+                                                                return isCentralized && u.role === roleMap[activeConsole];
+                                                            })
+                                                            .map(u => ({ label: u.name, value: u._id }))}
+                                                        selectedValues={selectedCentralizedTelecallers}
+                                                        onChange={setSelectedCentralizedTelecallers}
+                                                        theme={isDarkMode ? 'dark' : 'light'}
                                                     />
                                                 </div>
                                             </div>
@@ -1497,7 +1544,8 @@ const TelecallingConsole = () => {
                                                                 const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
                                                                 const uCentres = u.centres || u.centers || [];
                                                                 const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
-                                                                return matchesRole && matchesSearch && matchesCenter;
+                                                                const matchesTelecaller = selectedTelecallers.length === 0 || selectedTelecallers.includes(u._id?.toString() || u.userId?.toString());
+                                                                return matchesRole && matchesSearch && matchesCenter && matchesTelecaller;
                                                             })}
                                                             margin={{ top: 20, right: 20, left: 20, bottom: 5 }}
                                                             barGap={2}
@@ -1535,7 +1583,8 @@ const TelecallingConsole = () => {
                                                 const uCentres = u.centres || u.centers || [];
                                                 const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
                                                 const matchesRole = ['telecaller', 'counsellor', 'centralizedTelecaller'].includes(u.role);
-                                                return matchesRole && matchesSearch && matchesCenter;
+                                                const matchesTelecaller = selectedTelecallers.length === 0 || selectedTelecallers.includes(u._id?.toString() || u.userId?.toString());
+                                                return matchesRole && matchesSearch && matchesCenter && matchesTelecaller;
                                             })}
                                             monthlyTrends={globalTrends}
                                             admissionDetail={globalAdmissionDetail}
@@ -1555,7 +1604,8 @@ const TelecallingConsole = () => {
                                                 const matchesSearch = tc.name.toLowerCase().includes(searchQuery.toLowerCase());
                                                 const telecallerCentres = tc.centres?.map(c => c.centreName || c) || [];
                                                 const matchesCenter = selectedCenters.length === 0 || selectedCenters.some(sc => telecallerCentres.includes(sc));
-                                                return matchesRole && matchesSearch && matchesCenter;
+                                                const matchesTelecaller = selectedTelecallers.length === 0 || selectedTelecallers.includes(tc._id?.toString() || tc.userId?.toString());
+                                                return matchesRole && matchesSearch && matchesCenter && matchesTelecaller;
                                             })
                                             .map((caller, idx) => (
                                                 <div
