@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from "../../context/ThemeContext";
-import { FaSearch, FaEye, FaEdit, FaDownload, FaFilter, FaUserGraduate, FaSync, FaTimes, FaBook, FaCalendar, FaMoneyBillWave, FaFileInvoice, FaCheckCircle, FaExclamationCircle, FaUser, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaSchool, FaHistory, FaUsers, FaIdCard, FaBirthdayCake, FaVenusMars, FaPassport, FaBuilding, FaSun, FaMoon, FaPlus } from 'react-icons/fa';
+import { FaSearch, FaEye, FaEdit, FaDownload, FaFilter, FaUserGraduate, FaSync, FaTimes, FaBook, FaCalendar, FaMoneyBillWave, FaFileInvoice, FaCheckCircle, FaExclamationCircle, FaUser, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaSchool, FaHistory, FaUsers, FaIdCard, FaBirthdayCake, FaVenusMars, FaPassport, FaBuilding, FaSun, FaMoon, FaPlus, FaCopy, FaTools } from 'react-icons/fa';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
@@ -84,6 +84,20 @@ const EnrolledStudentsContent = () => {
         if (!dateString) return "N/A";
         const date = new Date(dateString);
         return isNaN(date.getTime()) ? "N/A" : date.toLocaleDateString('en-GB');
+    };
+
+    const handleCopy = (e, text, type = "Enrollment ID") => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(text);
+        toast.success(`${type} copied to clipboard!`, {
+            position: "bottom-right",
+            autoClose: 2000,
+            hideProgressBar: true,
+            closeOnClick: true,
+            pauseOnHover: false,
+            draggable: false,
+            theme: isDarkMode ? "dark" : "light"
+        });
     };
 
     const fetchMasterData = React.useCallback(async () => {
@@ -198,6 +212,53 @@ const EnrolledStudentsContent = () => {
         fetchAdmissions();
         fetchMasterData();
     }, [fetchAllowedCentres, fetchAdmissions, fetchMasterData]);
+
+    const [showCorrectionId, setShowCorrectionId] = useState(null);
+    const [correctionData, setCorrectionData] = useState({
+        totalFees: 0,
+        totalPaidAmount: 0,
+        numberOfInstallments: 1
+    });
+    const [isCorrecting, setIsCorrecting] = useState(false);
+
+    const handleManualCorrection = async (admissionId) => {
+        if (!isSuperAdmin) {
+            toast.error("Unauthorized: Super Admin access required.");
+            return;
+        }
+
+        setIsCorrecting(true);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${apiUrl}/admission/${admissionId}/manual-adjustment`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(correctionData)
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(data.message);
+                setShowCorrectionId(null);
+                fetchAdmissions();
+                if (data.admission) {
+                    setStudentAdmissions(prev => prev.map(ad =>
+                        ad._id === data.admission._id ? data.admission : ad
+                    ));
+                }
+            } else {
+                toast.error(data.message || "Correction failed");
+            }
+        } catch (error) {
+            console.error("Manual correction error:", error);
+            toast.error("Network error. Please try again.");
+        } finally {
+            setIsCorrecting(false);
+        }
+    };
 
     const handleDivideInstallments = async (admissionId) => {
         if (!newInstallmentCount || parseInt(newInstallmentCount) < 1) {
@@ -1086,6 +1147,8 @@ const EnrolledStudentsContent = () => {
                         <thead>
                             <tr className={`${isDarkMode ? 'bg-[#131619] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Enrollment ID</th>
+                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Session</th>
+                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Class</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Department</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Student</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Mobile</th>
@@ -1099,11 +1162,11 @@ const EnrolledStudentsContent = () => {
                         <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                             {loading ? (
                                 [...Array(10)].map((_, i) => (
-                                    <TableRowSkeleton key={i} isDarkMode={isDarkMode} columns={9} />
+                                    <TableRowSkeleton key={i} isDarkMode={isDarkMode} columns={11} />
                                 ))
                             ) : filteredStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan="9" className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
+                                    <td colSpan="11" className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
                                         {searchQuery ? "No matches found" : "No records available"}
                                     </td>
                                 </tr>
@@ -1126,8 +1189,29 @@ const EnrolledStudentsContent = () => {
                                                 onClick={() => openStudentModal(studentItem)}
                                             >
                                                 <td className="p-4 whitespace-nowrap">
-                                                    <span className={`text-[10px] font-black tracking-widest px-3 py-1 rounded-[4px] border ${isDarkMode ? 'bg-cyan-400/5 text-cyan-400 border-cyan-400/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'}`}>
-                                                        {latestAdmission?.admissionNumber || "N/A"}
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`text-[10px] font-black tracking-widest px-3 py-1 rounded-[4px] border ${isDarkMode ? 'bg-cyan-400/5 text-cyan-400 border-cyan-400/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'}`}>
+                                                            {latestAdmission?.admissionNumber || "N/A"}
+                                                        </span>
+                                                        {latestAdmission?.admissionNumber && (
+                                                            <button
+                                                                onClick={(e) => handleCopy(e, latestAdmission.admissionNumber, "Enrollment ID")}
+                                                                className={`p-1.5 rounded-[4px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700' : 'bg-white text-gray-400 hover:text-cyan-600 hover:bg-gray-100 border border-gray-100 shadow-sm'}`}
+                                                                title="Copy ID"
+                                                            >
+                                                                <FaCopy size={10} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-[4px] border ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-indigo-50 text-indigo-600 border-indigo-200'}`}>
+                                                        {latestAdmission?.academicSession || "N/A"}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-[4px] border ${isDarkMode ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-purple-50 text-purple-600 border-purple-200'}`}>
+                                                        {latestAdmission?.class?.className || latestAdmission?.class?.name || "N/A"}
                                                     </span>
                                                 </td>
                                                 <td className="p-4">
@@ -1164,9 +1248,6 @@ const EnrolledStudentsContent = () => {
                                                             latestAdmission?.boardCourseName ||
                                                             latestAdmission?.board?.boardCourse ||
                                                             (typeof latestAdmission?.course === 'string' ? latestAdmission.course : "N/A")}
-                                                    </div>
-                                                    <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mt-0.5">
-                                                        {latestAdmission?.class?.className || latestAdmission?.class?.name || "N/A"} | {latestAdmission?.academicSession || ""}
                                                     </div>
                                                 </td>
                                                 <td className="p-4 text-center">
@@ -1497,6 +1578,28 @@ const EnrolledStudentsContent = () => {
                                                     <div className={`px-4 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-[0.2em] border shadow-sm ${getStatusColor(admission.admissionStatus)}`}>
                                                         {admission.admissionStatus}
                                                     </div>
+                                                    {isSuperAdmin && (
+                                                        <button
+                                                            onClick={() => {
+                                                                if (showCorrectionId === admission._id) {
+                                                                    setShowCorrectionId(null);
+                                                                } else {
+                                                                    setShowCorrectionId(admission._id);
+                                                                    setCorrectionData({
+                                                                        totalFees: admission.totalFees,
+                                                                        totalPaidAmount: admission.totalPaidAmount,
+                                                                        numberOfInstallments: (admission.totalFees - admission.totalPaidAmount) > 0 ? 1 : 0
+                                                                    });
+                                                                }
+                                                            }}
+                                                            className={`p-2 rounded-[4px] transition-all shadow-sm ${showCorrectionId === admission._id
+                                                                ? 'bg-red-500 text-white border border-red-500'
+                                                                : (isDarkMode ? 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 hover:bg-indigo-500 hover:text-black' : 'bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-500 hover:text-white')}`}
+                                                            title="Manual Financial Correction"
+                                                        >
+                                                            <FaTools size={14} />
+                                                        </button>
+                                                    )}
                                                     {admission.admissionType === 'BOARD' ? (
                                                         <button
                                                             onClick={() => navigate(`/edit-board-subjects/${admission._id}`)}
@@ -1531,6 +1634,86 @@ const EnrolledStudentsContent = () => {
                                             </div>
 
                                             <div className="p-4 space-y-4">
+                                                {showCorrectionId === admission._id && (
+                                                    <div className={`p-5 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-cyan-500/30' : 'bg-cyan-50 border-cyan-200'} shadow-inner mb-6`}>
+                                                        <div className="flex items-center gap-3 mb-5">
+                                                            <div className="p-2 bg-cyan-500/10 text-cyan-500 rounded-[4px]">
+                                                                <FaTools size={16} />
+                                                            </div>
+                                                            <div>
+                                                                <h6 className="text-[11px] font-black uppercase tracking-widest text-cyan-500">Super Admin Overrider</h6>
+                                                                <p className="text-[9px] text-gray-500 font-bold uppercase tracking-tighter">Manual correction for imported or migration data</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[9px] font-black uppercase text-gray-500 tracking-widest">Total Fees (Input New Value)</label>
+                                                                <div className="relative">
+                                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-[10px]">₹</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={correctionData.totalFees}
+                                                                        onChange={(e) => setCorrectionData({ ...correctionData, totalFees: e.target.value })}
+                                                                        className={`w-full pl-7 pr-3 py-2 rounded border text-[11px] font-bold ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[9px] font-black uppercase text-gray-500 tracking-widest">Total Paid (Input New Value)</label>
+                                                                <div className="relative">
+                                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-[10px]">₹</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={correctionData.totalPaidAmount}
+                                                                        onChange={(e) => setCorrectionData({ ...correctionData, totalPaidAmount: e.target.value })}
+                                                                        className={`w-full pl-7 pr-3 py-2 rounded border text-[11px] font-bold ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[9px] font-black uppercase text-gray-500 tracking-widest">Split Remaining (Months)</label>
+                                                                <input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    value={correctionData.numberOfInstallments}
+                                                                    onChange={(e) => setCorrectionData({ ...correctionData, numberOfInstallments: e.target.value })}
+                                                                    className={`w-full px-3 py-2 rounded border text-[11px] font-bold ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 outline-none transition-all'}`}
+                                                                    placeholder="e.g. 5"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div className="mt-6 pt-5 border-t border-gray-500/10 flex flex-col sm:flex-row justify-between items-center gap-4">
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-[8px] font-black uppercase text-gray-500 tracking-widest">Remaining Balance</span>
+                                                                    <span className="text-[13px] font-black text-cyan-400 tracking-widest">₹{(correctionData.totalFees - correctionData.totalPaidAmount).toLocaleString()}</span>
+                                                                </div>
+                                                                <div className="w-px h-8 bg-gray-500/20"></div>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-[8px] font-black uppercase text-gray-500 tracking-widest">New Installment</span>
+                                                                    <span className="text-[13px] font-black text-purple-400 tracking-widest">
+                                                                        ₹{correctionData.numberOfInstallments > 0 ? Math.floor((correctionData.totalFees - correctionData.totalPaidAmount) / correctionData.numberOfInstallments).toLocaleString() : "0"}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex gap-3">
+                                                                <button
+                                                                    onClick={() => setShowCorrectionId(null)}
+                                                                    className={`px-6 py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest border transition-all ${isDarkMode ? 'border-gray-700 text-gray-400 hover:bg-gray-800' : 'border-gray-200 text-gray-600 hover:bg-gray-100'}`}
+                                                                >
+                                                                    Cancel
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleManualCorrection(admission._id)}
+                                                                    disabled={isCorrecting}
+                                                                    className="px-10 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-[4px] transition-all shadow-lg shadow-cyan-600/20 disabled:opacity-50"
+                                                                >
+                                                                    {isCorrecting ? 'Applying Overrides...' : 'Commit Changes'}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 {/* Fee Summary */}
                                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                                                     <div className="bg-cyan-500/10 p-3 rounded">

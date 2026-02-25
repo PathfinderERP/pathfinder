@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTheme } from "../../context/ThemeContext";
-import { FaArrowLeft, FaSun, FaMoon, FaUserEdit } from "react-icons/fa";
+import { FaArrowLeft, FaSun, FaMoon, FaUserEdit, FaSearch } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -29,7 +29,8 @@ const StudentRegistrationForm = () => {
         class: "",
         examTag: "",
         session: "",
-        department: ""
+        department: "",
+        searchTerm: ""
     });
 
     const indianStates = [
@@ -278,6 +279,15 @@ const StudentRegistrationForm = () => {
         if (courseFilters.examTag) result = result.filter(v => v.examTag?._id === courseFilters.examTag || v.examTag === courseFilters.examTag);
         if (courseFilters.session) result = result.filter(v => v.courseSession === courseFilters.session);
         if (courseFilters.department) result = result.filter(v => v.department?._id === courseFilters.department || v.department === courseFilters.department);
+
+        if (courseFilters.searchTerm) {
+            const search = courseFilters.searchTerm.toLowerCase();
+            result = result.filter(v =>
+                v.courseName?.toLowerCase().includes(search) ||
+                v.programme?.toLowerCase().includes(search)
+            );
+        }
+
         setFilteredCourses(result);
     }, [courseFilters, courses]);
 
@@ -293,7 +303,8 @@ const StudentRegistrationForm = () => {
             class: "",
             examTag: "",
             session: "",
-            department: ""
+            department: "",
+            searchTerm: ""
         });
     };
 
@@ -534,9 +545,9 @@ const StudentRegistrationForm = () => {
                                                 <input type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} className={inputClass} />
                                             </div>
                                             <div>
-                                                <label className={labelClass}>GENDER IDENTITY</label>
+                                                <label className={labelClass}>GENDER</label>
                                                 <select name="gender" value={formData.gender} onChange={handleChange} className={inputClass}>
-                                                    <option value="">SELECT BIOMETRIC</option>
+                                                    <option value="">SELECT GENDER</option>
                                                     <option value="Male">MALE</option>
                                                     <option value="Female">FEMALE</option>
                                                     <option value="Other">OTHER</option>
@@ -561,24 +572,24 @@ const StudentRegistrationForm = () => {
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className={labelClass}>GEO STATE</label>
+                                                <label className={labelClass}>SELECT STATE</label>
                                                 <select name="state" value={formData.state} onChange={handleChange} className={inputClass}>
-                                                    <option value="">SELECT TERRITORY</option>
+                                                    <option value="">SELECT STATE</option>
                                                     {indianStates.map((state) => (
                                                         <option key={state} value={state}>{state.toUpperCase()}</option>
                                                     ))}
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className={labelClass}>DIGITAL MAILBOX (EMAIL)</label>
-                                                <input type="email" name="studentEmail" value={formData.studentEmail} onChange={handleChange} placeholder="E.G. USER@DOMAIN.COM" className={inputClass} />
+                                                <label className={labelClass}>EMAIL ADDRESS *</label>
+                                                <input type="email" name="studentEmail" required value={formData.studentEmail} onChange={handleChange} placeholder="E.G. USER@DOMAIN.COM" className={inputClass} />
                                             </div>
                                             <div>
-                                                <label className={labelClass}>TELECOM LINE (MOBILE) *</label>
+                                                <label className={labelClass}>MOBILE NUMBER *</label>
                                                 <input type="text" name="mobileNum" required pattern="[0-9]{10}" value={formData.mobileNum} onChange={handleChange} placeholder="PRIMARY CONTACT DIGITS" className={inputClass} />
                                             </div>
                                             <div>
-                                                <label className={labelClass}>ENCRYPTED WHATSAPP *</label>
+                                                <label className={labelClass}>WHATSAPP NUMBER *</label>
                                                 <input type="text" name="whatsappNumber" required pattern="[0-9]{10}" value={formData.whatsappNumber} onChange={handleChange} placeholder="MESSAGING CHANNEL" className={inputClass} />
                                             </div>
                                             <div>
@@ -613,7 +624,7 @@ const StudentRegistrationForm = () => {
                                             <div>
                                                 <label className={labelClass}>DEPARTMENT SECTOR</label>
                                                 <select name="department" value={formData.department} onChange={handleChange} className={inputClass}>
-                                                    <option value="">SELECT DIVISION</option>
+                                                    <option value="">SELECT DEPARTMENT</option>
                                                     {departments.map((dept) => (
                                                         <option key={dept._id} value={dept._id}>{dept.departmentName.toUpperCase()}</option>
                                                     ))}
@@ -705,7 +716,7 @@ const StudentRegistrationForm = () => {
                                             <div>
                                                 <label className={labelClass}>LAST ACADEMIC CLASS</label>
                                                 <select name="class" value={formData.class} onChange={handleChange} className={inputClass}>
-                                                    <option value="">SELECT LEVEL</option>
+                                                    <option value="">SELECT CLASS</option>
                                                     {classes.map(c => (
                                                         <option key={c._id} value={c.name || c.className}>
                                                             CLASS {(c.name || c.className).toUpperCase()}
@@ -733,15 +744,28 @@ const StudentRegistrationForm = () => {
                                         <h4 className={sectionTitle}>COURSE ALLOCATION & FILTER ENGINE</h4>
                                         <div className="space-y-8">
                                             <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-white border-gray-300'}`}>
-                                                <div className="flex items-center justify-between mb-6">
+                                                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
                                                     <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">REAL-TIME FILTER OVERRIDE</p>
-                                                    <button type="button" onClick={resetCourseFilters} className="text-[9px] px-3 py-1 bg-red-500/10 text-red-500 border border-red-500/20 rounded-[4px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all">
-                                                        RESET FILTERS
-                                                    </button>
+                                                    <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+                                                        <div className="relative group flex-1 md:flex-none">
+                                                            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-[10px] group-focus-within:text-cyan-500 transition-colors" />
+                                                            <input
+                                                                type="text"
+                                                                name="searchTerm"
+                                                                placeholder="SEARCH COURSE BY NAME OR UNIT..."
+                                                                value={courseFilters.searchTerm}
+                                                                onChange={handleCourseFilterChange}
+                                                                className={`pl-10 pr-4 py-2 rounded-[4px] border text-[9px] font-black uppercase tracking-widest outline-none transition-all w-full md:w-[300px] ${isDarkMode ? 'bg-[#111418] border-gray-800 text-cyan-500 focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-cyan-600 focus:border-cyan-500'}`}
+                                                            />
+                                                        </div>
+                                                        <button type="button" onClick={resetCourseFilters} className="text-[9px] px-3 py-1 bg-red-500/10 text-red-500 border border-red-500/20 rounded-[4px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all">
+                                                            RESET FILTERS
+                                                        </button>
+                                                    </div>
                                                 </div>
                                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
                                                     <div className="space-y-2">
-                                                        <label className={labelClass}>MODE</label>
+                                                        <label className={labelClass}>MODE (ONLINE/OFFLINE)</label>
                                                         <select name="mode" value={courseFilters.mode} onChange={handleCourseFilterChange} className={`${inputClass} p-2 py-2`}>
                                                             <option value="">ALL</option>
                                                             <option value="ONLINE">ONLINE</option>
@@ -749,7 +773,7 @@ const StudentRegistrationForm = () => {
                                                         </select>
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <label className={labelClass}>TYPE</label>
+                                                        <label className={labelClass}>TYPE (INSTATION/OUTSTATION)</label>
                                                         <select name="courseType" value={courseFilters.courseType} onChange={handleCourseFilterChange} className={`${inputClass} p-2 py-2`}>
                                                             <option value="">ALL</option>
                                                             <option value="INSTATION">INSTATION</option>
@@ -757,14 +781,14 @@ const StudentRegistrationForm = () => {
                                                         </select>
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <label className={labelClass}>LEVEL</label>
+                                                        <label className={labelClass}>CLASS</label>
                                                         <select name="class" value={courseFilters.class} onChange={handleCourseFilterChange} className={`${inputClass} p-2 py-2`}>
                                                             <option value="">ALL</option>
                                                             {classes.map(c => <option key={c._id} value={c._id}>{(c.className || c.name).toUpperCase()}</option>)}
                                                         </select>
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <label className={labelClass}>TAG</label>
+                                                        <label className={labelClass}>EXAM TAG</label>
                                                         <select name="examTag" value={courseFilters.examTag} onChange={handleCourseFilterChange} className={`${inputClass} p-2 py-2`}>
                                                             <option value="">ALL</option>
                                                             {examTags.map(t => <option key={t._id} value={t._id}>{t.name.toUpperCase()}</option>)}
@@ -778,7 +802,7 @@ const StudentRegistrationForm = () => {
                                                         </select>
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <label className={labelClass}>DEPT</label>
+                                                        <label className={labelClass}>DEPARTMENT</label>
                                                         <select name="department" value={courseFilters.department} onChange={handleCourseFilterChange} className={`${inputClass} p-2 py-2`}>
                                                             <option value="">ALL</option>
                                                             {departments.map(d => <option key={d._id} value={d._id}>{d.departmentName.toUpperCase()}</option>)}
@@ -788,7 +812,7 @@ const StudentRegistrationForm = () => {
                                             </div>
 
                                             <div>
-                                                <label className={labelClass}>ENROLLING TARGET COURSE *</label>
+                                                <label className={labelClass}>SELECT COURSE *</label>
                                                 <select name="course" value={formData.course} onChange={handleChange} className={`${inputClass} border-cyan-500/50 bg-cyan-500/5 text-cyan-500`}>
                                                     <option value="" className={isDarkMode ? "bg-[#131619] text-white" : "bg-white text-gray-900"}>CHOOSE COURSE SYLLABUS</option>
                                                     {filteredCourses.map((c) => (

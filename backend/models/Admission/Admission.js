@@ -176,7 +176,7 @@ const admissionSchema = new mongoose.Schema({
     numberOfInstallments: {
         type: Number,
         required: true,
-        min: 1
+        min: 0
     },
     installmentAmount: {
         type: Number,

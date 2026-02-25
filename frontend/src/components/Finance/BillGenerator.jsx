@@ -159,14 +159,15 @@ const BillGenerator = ({ admission, installment, onClose }) => {
 
             doc.setTextColor(0, 0, 0); // Reset to black
             doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
 
             let address = safeStr(billData.centre?.address || billData.centre?.name);
             // Fix literal \n to actual newlines
             address = address.replace(/\\n/g, '\n');
 
-            const splitAddress = doc.splitTextToSize(address, pageWidth - 4 * margin); // tighter margins for address
+            const splitAddress = doc.splitTextToSize(address, pageWidth - 6 * margin); // Even tighter for safety
             doc.text(splitAddress, pageWidth / 2, yPos, { align: 'center' });
-            yPos += (splitAddress.length * 5); // spacing based on lines
+            yPos += (splitAddress.length * 5) + 2; // spacing based on lines + padding
 
             // Address below title - Dynamic from centre data
             // doc.setFontSize(8);
@@ -185,29 +186,56 @@ const BillGenerator = ({ admission, installment, onClose }) => {
 
             const rowHeight = 8;
 
-            // Helper to draw a row with a label and value
+            // Helper to draw a row with a label and value with automatic wrapping
             const drawRow = (y, label, value, isFullWidth = true, splitX = null) => {
-                if (isFullWidth) {
-                    doc.rect(margin, y, pageWidth - 2 * margin, rowHeight);
-                    doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(10);
-                    doc.text(label, margin + 2, y + 5.5);
-                    if (value) {
-                        doc.setFont('helvetica', 'bold');
-                        doc.text(value, margin + 2 + doc.getTextWidth(label) + 2, y + 5.5);
-                    }
-                } else {
-                    // Split row
-                    const midX = splitX || pageWidth / 2;
+                const valStr = safeStr(value);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(10);
+                const labelWidth = doc.getTextWidth(label);
 
-                    // Left side
-                    doc.rect(margin, y, midX - margin, rowHeight);
+                if (isFullWidth) {
+                    const boxWidth = pageWidth - 2 * margin;
+                    const textStartX = margin + 2 + labelWidth + 2;
+                    // Conservative calculation: box right edge - padding - text start
+                    const availableWidth = (pageWidth - margin - 4) - textStartX;
+
+                    doc.setFont('helvetica', 'bold');
+                    const splitValue = doc.splitTextToSize(valStr, availableWidth);
+                    const lines = splitValue.length;
+
+                    // Each line takes ~4mm, add 4mm for top/bottom padding
+                    const h = Math.max(rowHeight, (lines * 4.2) + 3.8);
+
+                    doc.rect(margin, y, boxWidth, h);
+
                     doc.setFont('helvetica', 'normal');
-                    doc.text(label, margin + 2, y + 5.5);
-                    if (value) {
+                    doc.text(label, margin + 2, y + 5.2);
+
+                    if (valStr) {
                         doc.setFont('helvetica', 'bold');
-                        doc.text(value, margin + 2 + doc.getTextWidth(label) + 2, y + 5.5);
+                        // Use the array version to draw all lines
+                        doc.text(splitValue, textStartX, y + 5.2);
                     }
+                    return h;
+                } else {
+                    // Split row (half-width or custom)
+                    const midX = splitX || pageWidth / 2;
+                    const boxWidth = midX - margin;
+
+                    doc.rect(margin, y, boxWidth, rowHeight);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(label, margin + 2, y + 5.2);
+
+                    if (valStr) {
+                        doc.setFont('helvetica', 'bold');
+                        // Truncate if it would overflow the half-box
+                        const availableWidth = boxWidth - (labelWidth + 6);
+                        const displayVal = doc.getTextWidth(valStr) > availableWidth
+                            ? doc.splitTextToSize(valStr, availableWidth)[0] + '...'
+                            : valStr;
+                        doc.text(displayVal, margin + 2 + labelWidth + 2, y + 5.2);
+                    }
+                    return rowHeight;
                 }
             };
 
@@ -299,8 +327,8 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             yPos += rowHeight;
 
             // 7. Course
-            drawRow(yPos, 'Course:', safeStr(billData.course?.name));
-            yPos += rowHeight;
+            const courseRowHeight = drawRow(yPos, 'Course:', safeStr(billData.course?.name));
+            yPos += courseRowHeight;
 
             // 8. Fee Table Header
             const tableWidth = pageWidth - 2 * margin;
@@ -349,16 +377,9 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             yPos += valueBoxHeight;
 
             // 10. Total Amount (in words)
-            doc.rect(margin, yPos, tableWidth, rowHeight);
-            doc.setFont('helvetica', 'bold');
-            doc.text('Total Amount (in words):', margin + 2, yPos + 5.5);
-
-            // Add Amount in Words
-            doc.setFont('helvetica', 'normal');
             const amountInWords = numberToWords(billData.amounts?.totalAmount || 0);
-            doc.text(amountInWords, margin + 50, yPos + 5.5);
-
-            yPos += rowHeight;
+            const amountRowHeight = drawRow(yPos, 'Total Amount (in words):', amountInWords);
+            yPos += amountRowHeight;
 
             // 11. Mode of Payment | Transaction ID
             // Left: Mode
@@ -410,10 +431,9 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             }
 
             // 12. Remarks
-            doc.rect(margin, yPos, tableWidth, rowHeight);
-            doc.setFont('helvetica', 'bold');
-            doc.text('Remarks:', margin + 2, yPos + 5.5);
-            yPos += rowHeight;
+            const remarksText = billData.payment?.remarks || installment?.remarks || '';
+            const remarksHeight = drawRow(yPos, 'Remarks:', remarksText);
+            yPos += remarksHeight;
 
             // 13. Created by
             doc.rect(margin, yPos, tableWidth, rowHeight);
@@ -579,7 +599,10 @@ const BillGenerator = ({ admission, installment, onClose }) => {
                                 <div className="mb-6">
                                     <h3 className="text-lg font-bold text-cyan-400 mb-3">Course Details</h3>
                                     <div className="grid grid-cols-2 gap-3 text-sm">
-                                        <div><span className="text-gray-400">Course:</span> <span className="text-white font-medium">{billData.course.name}</span></div>
+                                        <div className="col-span-2 flex flex-wrap">
+                                            <span className="text-gray-400 mr-1">Course:</span>
+                                            <span className="text-white font-medium">{billData.course.name}</span>
+                                        </div>
                                         <div><span className="text-gray-400">Department:</span> <span className="text-white font-medium">{billData.course.department}</span></div>
                                         <div><span className="text-gray-400">Exam Tag:</span> <span className="text-white font-medium">{billData.course.examTag}</span></div>
                                         <div><span className="text-gray-400">Class:</span> <span className="text-white font-medium">{billData.course.class}</span></div>
