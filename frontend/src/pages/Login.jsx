@@ -15,7 +15,7 @@ export default function Login() {
   React.useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
-      navigate("/dashboard");
+      navigate("/community");
     }
   }, [navigate]);
 
@@ -58,9 +58,9 @@ export default function Login() {
         localStorage.setItem("portalToken", data.portalToken);
       }
 
-      // Redirect to dashboard
+      // Redirect to community
       setTimeout(() => {
-        navigate("/dashboard");
+        navigate("/community");
       }, 500);
     } catch (err) {
       console.error("Login error:", err);

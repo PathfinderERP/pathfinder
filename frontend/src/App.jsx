@@ -146,6 +146,8 @@ import CEOControlTower from "./pages/CEOControlTower";
 // ... inside Routes ... (I will use a simpler replace block to avoid mess)
 
 
+import Community from "./pages/Community";
+
 function App() {
   return (
     <BrowserRouter>
@@ -155,6 +157,7 @@ function App() {
         <Route path="/login" element={<Login />} />
 
         {/* Protected Routes */}
+        <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/lead-management" element={<ProtectedRoute><LeadManagement /></ProtectedRoute>} />
         <Route path="/lead-management/dashboard" element={<ProtectedRoute><LeadDashboard /></ProtectedRoute>} />

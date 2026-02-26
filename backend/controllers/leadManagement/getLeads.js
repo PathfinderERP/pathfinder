@@ -70,7 +70,6 @@ export const getLeads = async (req, res) => {
                 query.createdAt.$lte = end;
             }
         }
-
         if (leadType) query.leadType = Array.isArray(leadType) ? { $in: leadType } : leadType;
         if (source) query.source = Array.isArray(source) ? { $in: source } : source;
         if (course) query.course = Array.isArray(course) ? { $in: course } : course;
@@ -84,7 +83,6 @@ export const getLeads = async (req, res) => {
                 $in: names.map(n => new RegExp(`^${n}$`, "i"))
             };
         }
-
         // Filter by Follow-up Status (Contacted vs Remaining)
         const { followUpStatus } = req.query;
         if (followUpStatus === 'contacted') {
@@ -92,10 +90,8 @@ export const getLeads = async (req, res) => {
         } else if (followUpStatus === 'remaining') {
             query.followUps = { $size: 0 };
         }
-
         // Exclude counseled leads from dashboard stats to match lead list logic
         query.isCounseled = { $ne: true };
-
         // Centre-based access control
         const userRole = req.user.role?.toLowerCase();
         const isUnrestricted = ['superadmin', 'super admin', 'admin'].includes(userRole);
