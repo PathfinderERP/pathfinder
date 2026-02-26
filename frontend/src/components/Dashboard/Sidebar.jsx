@@ -511,7 +511,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                     </div>
                     <div className="flex-1 min-w-0">
                         <p className="text-gray-900 dark:text-white text-sm font-semibold truncate">{user.name || "User"}</p>
-                        <p className="text-xs text-gray-500 truncate">{user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "Role"}</p>
+                        <p className="text-xs text-gray-500 truncate">{user.role ? (user.role === 'centerIncharge' ? 'Center Incharge' : user.role === 'zonalManager' ? 'Zonal Manager' : user.role.charAt(0).toUpperCase() + user.role.slice(1)) : "Role"}</p>
                     </div>
                 </div>
             </div>
