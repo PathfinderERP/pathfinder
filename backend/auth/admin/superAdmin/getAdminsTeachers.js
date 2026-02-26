@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import User from "../../../models/User.js";
 import Employee from "../../../models/HR/Employee.js";
 import { getSignedFileUrl } from "../../../utils/r2Upload.js";
@@ -37,25 +38,26 @@ export const getAllUsersBySuperAdmin = async (req, res) => {
     const requestingUser = req.user;
     const isSuperAdmin = requestingUser.role === "superAdmin" || requestingUser.role === "Super Admin";
 
-    // Only show users who have a corresponding Employee record.
-    // This keeps User Management count in sync with Employee List.
-    const employeesWithUser = await Employee.find({ user: { $exists: true, $ne: null } }, "user");
-    const linkedUserIds = employeesWithUser.map(e => e.user.toString());
+    let query = {};
 
-    let query = {
-      _id: { $in: linkedUserIds }
-    };
+    const userRole = (requestingUser.role || "").toLowerCase().replace(/\s+/g, "");
+    const isUnrestricted = ["superadmin", "admin", "super admin"].includes(userRole);
 
-    // If not SuperAdmin, further filter to show only users who share the same centers
-    if (!isSuperAdmin) {
-      const userCentreIds = requestingUser.centres || [];
+    // If not unrestricted, further filter to show only users who share the same centers
+    if (!isUnrestricted) {
+      const userCentreIds = (requestingUser.centres || []).map(c => (c._id || c).toString());
+
       if (userCentreIds.length > 0) {
-        // Combine with existing _id filter
-        query.centres = { $in: userCentreIds };
+        // Find users who share any of the same centers
+        const centreObjectIds = userCentreIds.map(id => {
+          try { return new mongoose.Types.ObjectId(id); } catch (e) { return null; }
+        }).filter(id => id);
+
+        // Match if any center ID overlaps (as string or ObjectId)
+        query.centres = { $in: [...userCentreIds, ...centreObjectIds] };
       } else {
-        // If user has no centers, they can only see themselves (if they have an employee record)
-        // Ensure their own ID is also in the linkedUserIds
-        query._id = { $in: linkedUserIds.filter(id => id === requestingUser._id.toString()) };
+        // If user has no centers, they can only see themselves
+        query._id = requestingUser._id;
       }
     }
 

@@ -118,10 +118,10 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
             });
             const userData = await userResponse.json();
             if (userResponse.ok) {
-                // Filter users to show only those with the relevant roles for lead management
-                const leadUsers = (userData.users || []).filter(u =>
-                    ["telecaller", "counsellor", "marketing"].includes(u.role)
-                );
+                const leadUsers = (userData.users || []).filter(u => {
+                    const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
+                    return ["telecaller", "centralizedtelecaller", "counsellor", "marketing", "admin", "rm", "centerincharge", "zonalmanager", "zonalhead"].includes(r);
+                });
 
                 setTelecallers(leadUsers);
             }
@@ -349,10 +349,10 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                                 value={formData.leadResponsibility}
                                 onChange={handleChange}
                                 className={selectClasses}
-                                disabled={!['superadmin', 'super admin'].includes(currentUser?.role?.toLowerCase())}
+                                disabled={!['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, ''))}
                             >
                                 <option value="">Select Agent</option>
-                                {['superadmin', 'super admin'].includes(currentUser?.role?.toLowerCase())
+                                {['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, ''))
                                     ? telecallers.map(t => <option key={t._id} value={t.name}>{t.name.toUpperCase()}</option>)
                                     : telecallers.filter(t => t.name === currentUser?.name).map(t => <option key={t._id} value={t.name}>{t.name.toUpperCase()}</option>)
                                 }

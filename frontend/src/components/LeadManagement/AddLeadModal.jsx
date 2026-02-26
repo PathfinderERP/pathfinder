@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaTimes, FaUserPlus, FaSync, FaSave, FaFilter } from "react-icons/fa";
+import { FaTimes, FaUserPlus, FaSync, FaSave, FaFilter, FaSearch } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
@@ -30,11 +30,16 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
         class: "",
         mode: "",
         examTag: "",
-        type: ""
+        type: "",
+        search: ""
     });
 
     const filteredCourses = courses.filter(course => {
+        const matchesSearch = !courseFilters.search ||
+            course.courseName?.toLowerCase().includes(courseFilters.search.toLowerCase());
+
         return (
+            matchesSearch &&
             (!courseFilters.class || (course.class?._id || course.class) === courseFilters.class) &&
             (!courseFilters.mode || course.mode === courseFilters.mode) &&
             (!courseFilters.examTag || (course.examTag?._id || course.examTag) === courseFilters.examTag) &&
@@ -98,8 +103,10 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             });
             const userData = await userResponse.json();
             if (userResponse.ok) {
-                // Show all users as requested
-                const leadUsers = userData.users || [];
+                const leadUsers = (userData.users || []).filter(u => {
+                    const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
+                    return ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'admin', 'rm', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(r);
+                });
                 setTelecallers(leadUsers);
 
                 // Auto-select the current user as default
@@ -286,12 +293,25 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={() => setCourseFilters({ class: "", mode: "", examTag: "", type: "" })}
+                                    onClick={() => setCourseFilters({ class: "", mode: "", examTag: "", type: "", search: "" })}
                                     className={`text-[9px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'text-gray-600 hover:text-cyan-400' : 'text-gray-400 hover:text-cyan-600'}`}
                                 >
                                     Clear Filters
                                 </button>
                             </div>
+
+                            {/* Course Search */}
+                            <div className="relative mb-4">
+                                <FaSearch className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`} size={10} />
+                                <input
+                                    type="text"
+                                    placeholder="SEARCH COURSE BY NAME..."
+                                    value={courseFilters.search}
+                                    onChange={(e) => setCourseFilters({ ...courseFilters, search: e.target.value })}
+                                    className={`w-full pl-9 pr-4 py-2 rounded-[4px] border text-[10px] font-black uppercase tracking-widest outline-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white focus:border-cyan-500/50' : 'bg-white border-gray-100 text-gray-900 focus:border-cyan-500'}`}
+                                />
+                            </div>
+
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 {[
                                     { label: "Admission Type", key: "type", options: [{ v: "INSTATION", l: "INSTA" }, { v: "OUTSTATION", l: "OUT" }] },
@@ -332,7 +352,7 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                         <div className="md:col-span-2 space-y-1.5">
                             <label className={labelClasses}>Assign To *</label>
-                            {['superadmin', 'super admin', 'admin'].includes(currentUser?.role?.toLowerCase()) ? (
+                            {['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, '')) ? (
                                 <select
                                     name="leadResponsibility"
                                     required

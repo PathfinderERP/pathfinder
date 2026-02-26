@@ -89,7 +89,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
 
         // 1. Fetch Users (Telemetry Targets)
         const telecallers = await User.find({
-            role: { $in: ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing', 'admin'] }
+            role: { $in: ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing', 'admin', 'centerIncharge', 'zonalManager', 'zonalHead'] }
         });
 
         // 2. Aggregate Data

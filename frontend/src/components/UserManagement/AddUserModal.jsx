@@ -53,8 +53,8 @@ const AddUserModal = ({ onClose, onSuccess }) => {
     const isSuperAdmin = currentUser.role === "superAdmin";
 
     const roles = isSuperAdmin
-        ? ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "Class_Coordinator", "superAdmin"]
-        : ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "Class_Coordinator"];
+        ? ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "zonalHead", "Class_Coordinator", "superAdmin"]
+        : ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "zonalHead", "Class_Coordinator"];
 
     useEffect(() => {
         fetchCentres();
@@ -266,7 +266,6 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                                     name="assignedScript"
                                     required
                                     value={formData.assignedScript}
-                                    onChange={handleChange}
                                     className={`w-full border rounded-lg p-2.5 outline-none font-bold transition-all ${isDarkMode ? 'bg-[#131619] border-cyan-500/50 text-white focus:border-cyan-500' : 'bg-cyan-50 border-cyan-200 text-gray-900 focus:border-cyan-500'}`}
                                 >
                                     <option value="">Select a Script</option>

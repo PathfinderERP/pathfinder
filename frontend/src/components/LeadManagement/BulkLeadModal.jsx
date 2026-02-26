@@ -50,8 +50,11 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             setSources(sourceData.sources || []);
 
             if (userRes.ok && userData.users) {
-                // Return all users as requested ("everyone can add/see leads")
-                setTelecallers(userData.users);
+                // Return only relevant roles as requested (Telecallers, Counsellors, Admins, etc.)
+                const leadUsers = (userData.users || []).filter(u =>
+                    ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'admin', 'RM', 'centerIncharge', 'zonalManager', 'zonalHead'].includes(u.role)
+                );
+                setTelecallers(leadUsers);
             }
         } catch (error) {
             console.error("Error fetching validation data:", error);

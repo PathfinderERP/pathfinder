@@ -33,16 +33,6 @@ const RMList = () => {
 
     const API_URL = import.meta.env.VITE_API_URL;
 
-    useEffect(() => {
-        const user = JSON.parse(localStorage.getItem("user") || "{}");
-        setCanCreate(hasPermission(user, 'academics', 'rmList', 'create'));
-        setCanEdit(hasPermission(user, 'academics', 'rmList', 'edit'));
-        setCanDelete(hasPermission(user, 'academics', 'rmList', 'delete'));
-
-        fetchRMs();
-        fetchCentres();
-    }, [fetchRMs, fetchCentres]);
-
     const fetchRMs = useCallback(async () => {
         setLoading(true);
         try {
@@ -84,6 +74,16 @@ const RMList = () => {
             console.error("Error fetching centers", error);
         }
     }, [API_URL]);
+
+    useEffect(() => {
+        const user = JSON.parse(localStorage.getItem("user") || "{}");
+        setCanCreate(hasPermission(user, 'academics', 'rmList', 'create'));
+        setCanEdit(hasPermission(user, 'academics', 'rmList', 'edit'));
+        setCanDelete(hasPermission(user, 'academics', 'rmList', 'delete'));
+
+        fetchRMs();
+        fetchCentres();
+    }, [fetchRMs, fetchCentres]);
 
     const handleInputChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });

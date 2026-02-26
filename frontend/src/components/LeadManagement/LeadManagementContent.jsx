@@ -310,16 +310,18 @@ const LeadManagementContent = () => {
             });
             const userData = await userResponse.json();
             if (userResponse.ok) {
-                // Return only relevant roles as requested (Telecallers, Counsellors, Admins, etc.)
-                const leadUsers = (userData.users || []).filter(u =>
-                    ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'admin', 'RM'].includes(u.role)
-                );
+                const leadUsers = (userData.users || []).filter(u => {
+                    const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
+                    return ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'admin', 'rm', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(r);
+                });
+                console.log("Lead Management - Fetched Users:", userData.users?.length, "Filtered Users:", leadUsers.length);
                 setTelecallers(leadUsers);
 
                 // If current user exists and is NOT a superAdmin, auto-select them in filters
-                const isSuperAdmin = currentUser.role?.toLowerCase() === 'superadmin' || currentUser.role?.toLowerCase() === 'super admin';
+                // Managerial roles shouldn't be auto-filtered to themselves
+                const isManagerial = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(currentUser.role?.toLowerCase()?.replace(/\s+/g, ''));
                 const currentLeadUser = leadUsers.find(t => t.name === currentUser.name);
-                if (currentLeadUser && !isSuperAdmin) {
+                if (currentLeadUser && !isManagerial) {
                     setFilters(prev => ({
                         ...prev,
                         leadResponsibility: prev.leadResponsibility.length > 0
@@ -1034,14 +1036,14 @@ const LeadManagementContent = () => {
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Telecaller</label>
                             <CustomMultiSelect
                                 options={
-                                    ['superadmin', 'super admin'].includes(user?.role?.toLowerCase())
+                                    ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(user?.role?.toLowerCase()?.replace(/\s+/g, ''))
                                         ? telecallers.map(t => ({ value: t.name, label: t.name }))
                                         : telecallers.filter(t => t.name === user?.name).map(t => ({ value: t.name, label: t.name }))
                                 }
                                 value={filters.leadResponsibility}
                                 onChange={(selected) => handleFilterChange('leadResponsibility', selected)}
                                 placeholder="Select Telecaller"
-                                isDisabled={!['superadmin', 'super admin'].includes(user?.role?.toLowerCase())}
+                                isDisabled={!['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(user?.role?.toLowerCase()?.replace(/\s+/g, ''))}
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>

@@ -24,14 +24,6 @@ const SubjectList = () => {
 
     const API_URL = import.meta.env.VITE_API_URL;
 
-    useEffect(() => {
-        fetchSubjects();
-    }, [page, limit, searchTerm, filterClass, fetchSubjects]);
-
-    useEffect(() => {
-        fetchClasses();
-    }, [fetchClasses]);
-
     const fetchClasses = React.useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
@@ -73,6 +65,14 @@ const SubjectList = () => {
             setLoading(false);
         }
     }, [API_URL, page, limit, searchTerm, filterClass]);
+
+    useEffect(() => {
+        fetchSubjects();
+    }, [page, limit, searchTerm, filterClass, fetchSubjects]);
+
+    useEffect(() => {
+        fetchClasses();
+    }, [fetchClasses]);
 
     const handleEdit = (sub) => {
         setFormData({
