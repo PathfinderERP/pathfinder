@@ -15,7 +15,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import LeadListModal from "./LeadListModal";
 import FollowUpActivityModal from "../components/LeadManagement/FollowUpActivityModal";
-import axios from 'axios';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import CounsellingConsole from "../components/PerformanceConsoles/CounsellingConsole";
@@ -435,11 +434,15 @@ const TelecallingConsole = () => {
 
         // Apply same filters as the UI view for squad export
         const filteredData = allPerformance.filter(u => {
-            const matchesRole = u.role === 'telecaller' || u.role === 'centralizedTelecaller';
+            const matchesRole = u.role === 'telecaller' || u.role === 'centralizedTelecaller' || u.role === 'counsellor';
             const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
             const uCentres = u.centres || u.centers || [];
             const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
-            return matchesRole && matchesSearch && matchesCenter;
+
+            const combinedSelections = [...(selectedTelecallers || []), ...(selectedCentralizedTelecallers || [])];
+            const matchesTelecaller = combinedSelections.length === 0 || combinedSelections.includes(u._id?.toString() || u.userId?.toString());
+
+            return matchesRole && matchesSearch && matchesCenter && matchesTelecaller;
         });
 
         if (filteredData.length === 0) {
@@ -1544,7 +1547,10 @@ const TelecallingConsole = () => {
                                                                 const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
                                                                 const uCentres = u.centres || u.centers || [];
                                                                 const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
-                                                                const matchesTelecaller = selectedTelecallers.length === 0 || selectedTelecallers.includes(u._id?.toString() || u.userId?.toString());
+
+                                                                const combinedSelections = [...(selectedTelecallers || []), ...(selectedCentralizedTelecallers || [])];
+                                                                const matchesTelecaller = combinedSelections.length === 0 || combinedSelections.includes(u._id?.toString() || u.userId?.toString());
+
                                                                 return matchesRole && matchesSearch && matchesCenter && matchesTelecaller;
                                                             })}
                                                             margin={{ top: 20, right: 20, left: 20, bottom: 5 }}
@@ -1583,7 +1589,10 @@ const TelecallingConsole = () => {
                                                 const uCentres = u.centres || u.centers || [];
                                                 const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
                                                 const matchesRole = ['telecaller', 'counsellor', 'centralizedTelecaller'].includes(u.role);
-                                                const matchesTelecaller = selectedTelecallers.length === 0 || selectedTelecallers.includes(u._id?.toString() || u.userId?.toString());
+
+                                                const combinedSelections = [...(selectedTelecallers || []), ...(selectedCentralizedTelecallers || [])];
+                                                const matchesTelecaller = combinedSelections.length === 0 || combinedSelections.includes(u._id?.toString() || u.userId?.toString());
+
                                                 return matchesRole && matchesSearch && matchesCenter && matchesTelecaller;
                                             })}
                                             monthlyTrends={globalTrends}
@@ -1604,7 +1613,10 @@ const TelecallingConsole = () => {
                                                 const matchesSearch = tc.name.toLowerCase().includes(searchQuery.toLowerCase());
                                                 const telecallerCentres = tc.centres?.map(c => c.centreName || c) || [];
                                                 const matchesCenter = selectedCenters.length === 0 || selectedCenters.some(sc => telecallerCentres.includes(sc));
-                                                const matchesTelecaller = selectedTelecallers.length === 0 || selectedTelecallers.includes(tc._id?.toString() || tc.userId?.toString());
+
+                                                const combinedSelections = [...(selectedTelecallers || []), ...(selectedCentralizedTelecallers || [])];
+                                                const matchesTelecaller = combinedSelections.length === 0 || combinedSelections.includes(tc._id?.toString() || tc.userId?.toString());
+
                                                 return matchesRole && matchesSearch && matchesCenter && matchesTelecaller;
                                             })
                                             .map((caller, idx) => (
