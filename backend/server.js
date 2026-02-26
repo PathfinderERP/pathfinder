@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import express from "express";
 // Force restart timestamp: 2025-12-29
 import cors from "cors";
+import http from "http";
+import { initSocket } from "./utils/socket.js";
 import protect from "./middleware/authMiddleware.js"; // Direct import
 import connectDB from "./db/connect.js";
 import adminRoutes from "./routes/superAdmin/superAdminControllers.routes.js";
@@ -168,6 +170,9 @@ app.use("/api/student-portal", studentPortalRoutes);
 
 
 
-app.listen(process.env.PORT, () => {
+const server = http.createServer(app);
+initSocket(server);
+
+server.listen(process.env.PORT, () => {
     console.log(`Server is running on port ${process.env.PORT}`);
 });

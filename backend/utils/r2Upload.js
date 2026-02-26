@@ -75,7 +75,7 @@ export const deleteFromR2 = async (fileUrl) => {
             key = fileUrl.replace(`${publicUrl}/`, "");
         } else {
             // Fallback: search for common prefixes to find the key
-            const prefixes = ["employees/", "letters/", "regularization/", "posts/"];
+            const prefixes = ["employees/", "letters/", "regularization/", "posts/", "community/"];
             for (const prefix of prefixes) {
                 const index = fileUrl.indexOf(prefix);
                 if (index !== -1) {
@@ -117,7 +117,7 @@ export const getSignedFileUrl = async (fileUrl) => {
         if (publicUrl && fileUrl.startsWith(publicUrl)) {
             key = fileUrl.replace(`${publicUrl}/`, "");
         } else {
-            const prefixes = ["employees/", "letters/", "regularization/", "posts/"];
+            const prefixes = ["employees/", "letters/", "regularization/", "posts/", "community/"];
             for (const prefix of prefixes) {
                 const index = fileUrl.indexOf(prefix);
                 if (index !== -1) {

@@ -17,6 +17,7 @@
     "@aws-sdk/s3-request-presigner": "^3.954.0",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.9.0",
     "cors": "^2.8.5",
     "csv-parser": "^3.2.0",
     "date-fns": "^4.1.0",
@@ -33,6 +34,7 @@
     "openai": "^6.14.0",
     "pdf-parse": "^2.4.5",
     "pdfkit": "^0.17.2",
+    "socket.io": "^4.8.3",
     "twilio": "^5.10.6",
     "xlsx": "^0.18.5"
   }

@@ -28,6 +28,10 @@ const communityPostSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"
     }],
+    reactions: [{
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        emoji: { type: String }
+    }],
     likes: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"
@@ -40,7 +44,15 @@ const communityPostSchema = new mongoose.Schema({
     views: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"
-    }]
+    }],
+    files: [{
+        name: { type: String },
+        url: { type: String }
+    }],
+    isDeleted: {
+        type: Boolean,
+        default: false
+    }
 }, {
     timestamps: true
 });

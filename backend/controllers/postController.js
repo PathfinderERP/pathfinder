@@ -20,16 +20,20 @@ const enhancePostAuthor = async (post) => {
     if (postObj.author) {
         const employee = await Employee.findOne({ user: postObj.author._id })
             .populate("designation", "name")
-            .populate("department", "departmentName");
+            .populate("department", "departmentName")
+            .populate("primaryCentre", "centreName")
+            .populate("centres", "centreName");
 
         if (employee) {
             postObj.author.profileImage = employee.profileImage ? await getSignedFileUrl(employee.profileImage) : null;
             postObj.author.designationName = employee.designation?.name || postObj.author.designation || (postObj.author.role === 'superAdmin' ? 'SuperAdmin' : 'Staff');
             postObj.author.departmentName = employee.department?.departmentName || postObj.author.teacherDepartment || (postObj.author.role === 'superAdmin' ? 'Management' : 'General');
+            postObj.author.centerName = employee.primaryCentre?.centreName || (employee.centres?.[0]?.centreName) || 'Main Center';
         } else {
             postObj.author.profileImage = null;
             postObj.author.designationName = postObj.author.designation || (postObj.author.role === 'superAdmin' ? 'SuperAdmin' : 'User');
             postObj.author.departmentName = postObj.author.teacherDepartment || (postObj.author.role === 'superAdmin' ? 'Management' : 'General');
+            postObj.author.centerName = 'External';
         }
     }
     return postObj;
@@ -333,11 +337,33 @@ export const getSocialActivity = async (req, res) => {
         const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
         const activeUsers = await User.find({
             lastSocialVisit: { $gte: oneHourAgo }
-        }, "name email role designation teacherDepartment profileImage")
-            .sort({ lastSocialVisit: -1 });
+        }).sort({ lastSocialVisit: -1 });
 
-        res.json(activeUsers);
+        const enrichedUsers = await Promise.all(activeUsers.map(async (user) => {
+            const userObj = user.toObject();
+            const employee = await Employee.findOne({ user: user._id })
+                .populate("designation", "name")
+                .populate("department", "departmentName")
+                .populate("primaryCentre", "centreName")
+                .populate("centres", "centreName");
+
+            if (employee) {
+                userObj.profileImage = employee.profileImage ? await getSignedFileUrl(employee.profileImage) : null;
+                userObj.designationName = employee.designation?.name || userObj.designation || (userObj.role === 'superAdmin' ? 'SuperAdmin' : 'Staff');
+                userObj.departmentName = employee.department?.departmentName || userObj.teacherDepartment || (userObj.role === 'superAdmin' ? 'Management' : 'General');
+                userObj.centerName = employee.primaryCentre?.centreName || (employee.centres?.[0]?.centreName) || 'Main Center';
+            } else {
+                userObj.profileImage = null;
+                userObj.designationName = userObj.designation || (userObj.role === 'superAdmin' ? 'SuperAdmin' : 'User');
+                userObj.departmentName = userObj.teacherDepartment || (userObj.role === 'superAdmin' ? 'Management' : 'General');
+                userObj.centerName = 'External';
+            }
+            return userObj;
+        }));
+
+        res.json(enrichedUsers);
     } catch (error) {
+        console.error("Social activity error:", error);
         res.status(500).json({ message: "Error fetching social activity" });
     }
 };
