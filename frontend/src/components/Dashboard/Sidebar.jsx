@@ -280,9 +280,9 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     const [openMenus, setOpenMenus] = useState({});
 
     useEffect(() => {
-        const autoExpand = () => {
-            const currentPath = location.pathname;
-            const newOpenMenus = { ...openMenus };
+        const currentPath = location.pathname;
+        setOpenMenus(prev => {
+            const newOpenMenus = { ...prev };
             let changed = false;
 
             const traverse = (items) => {
@@ -302,10 +302,8 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             };
 
             traverse(menuItems);
-            if (changed) setOpenMenus(newOpenMenus);
-        };
-
-        autoExpand();
+            return changed ? newOpenMenus : prev;
+        });
     }, [location.pathname, menuItems]);
 
     const toggleMenu = (name) =>

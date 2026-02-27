@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { FaTimes, FaUserEdit, FaSync, FaSave, FaFilter, FaSearch } from "react-icons/fa";
 import { toast } from "react-toastify";
 
@@ -62,9 +62,9 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
             });
         }
         fetchDropdownData();
-    }, [lead]);
+    }, [lead, fetchDropdownData]);
 
-    const fetchDropdownData = async () => {
+    const fetchDropdownData = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
 
@@ -135,7 +135,7 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
             console.error("Error fetching dropdown data:", error);
             toast.error("Failed to load options");
         }
-    };
+    }, [lead]);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });

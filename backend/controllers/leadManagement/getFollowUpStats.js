@@ -20,7 +20,7 @@ export const getFollowUpStats = async (req, res) => {
         let centreIds = [];
         if (centre) {
             const cRaw = Array.isArray(centre) ? centre : [centre];
-            centreIds = cRaw.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id);
+            centreIds = cRaw.map(id => mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id);
         }
 
         // 3. Date filters
@@ -102,7 +102,7 @@ export const getFollowUpStats = async (req, res) => {
             const userDoc = await User.findById(req.user.id).select('centres role name');
             if (userDoc) {
                 const userCentres = (userDoc.centres || []).map(id => id.toString());
-                const accessLimit = { $or: [{ createdBy: userDoc._id }, { centre: { $in: userCentres.map(id => new mongoose.Types.ObjectId(id)) } }] };
+                const accessLimit = { $or: [{ createdBy: userDoc._id }, { centre: { $in: userCentres.map(id => mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id) } }] };
 
                 if (userDoc.role === 'telecaller') {
                     accessLimit.$or.push({ leadResponsibility: { $regex: new RegExp(`^${userDoc.name}$`, "i") } });

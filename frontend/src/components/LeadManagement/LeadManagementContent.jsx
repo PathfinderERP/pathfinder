@@ -342,7 +342,7 @@ const LeadManagementContent = () => {
         } catch (error) {
             console.error("Error fetching filter data:", error);
         }
-    }, [user?.role, user?.name]);
+    }, []);
 
     useEffect(() => {
         const storedUser = localStorage.getItem("user");
@@ -1051,7 +1051,7 @@ const LeadManagementContent = () => {
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>From Date</label>
                             <input
                                 type="date"
-                                value={filters.fromDate}
+                                value={filters.fromDate || ""}
                                 onChange={(e) => handleFilterChange('fromDate', e.target.value)}
                                 className={`w-full px-4 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                             />
@@ -1084,7 +1084,7 @@ const LeadManagementContent = () => {
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>To Date</label>
                             <input
                                 type="date"
-                                value={filters.toDate}
+                                value={filters.toDate || ""}
                                 onChange={(e) => handleFilterChange('toDate', e.target.value)}
                                 className={`w-full px-4 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                             />

@@ -1,4 +1,6 @@
 import LeadManagement from "../../models/LeadManagement.js";
+import User from "../../models/User.js";
+import mongoose from "mongoose";
 import CentreSchema from "../../models/Master_data/Centre.js";
 import Boards from "../../models/Master_data/Boards.js";
 import Course from "../../models/Master_data/Courses.js";
@@ -97,8 +99,7 @@ export const getLeads = async (req, res) => {
         const isUnrestricted = ['superadmin', 'super admin', 'admin'].includes(userRole);
 
         if (!isUnrestricted) {
-            // Fetch user's centres from database since JWT doesn't include them
-            const User = (await import('../../models/User.js')).default;
+            // Fetch user's centres from database
             const userDoc = await User.findById(req.user.id).select('centres role name');
 
             if (!userDoc) return res.status(401).json({ message: "User not found" });

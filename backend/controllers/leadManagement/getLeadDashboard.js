@@ -15,15 +15,15 @@ export const getLeadDashboardStats = async (req, res) => {
 
         if (course) {
             const courseIds = Array.isArray(course) ? course : [course];
-            query.course = { $in: courseIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+            query.course = { $in: courseIds.map(id => mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id) };
         }
         if (board) {
             const boardIds = Array.isArray(board) ? board : [board];
-            query.board = { $in: boardIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+            query.board = { $in: boardIds.map(id => mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id) };
         }
         if (className) {
             const classIds = Array.isArray(className) ? className : [className];
-            query.className = { $in: classIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+            query.className = { $in: classIds.map(id => mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id) };
         }
 
         // Date filter
@@ -57,7 +57,7 @@ export const getLeadDashboardStats = async (req, res) => {
         // Centre filter
         if (centre) {
             const centreIds = Array.isArray(centre) ? centre : [centre];
-            query.centre = { $in: centreIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+            query.centre = { $in: centreIds.map(id => mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id) };
         }
 
 
@@ -97,17 +97,14 @@ export const getLeadDashboardStats = async (req, res) => {
 
             // Handle specific centre filter from query if requested
             if (centre) {
-                const requestedCentres = Array.isArray(centre) ? centre.map(id => id.toString()) : [centre.toString()];
-                const allowedCentreStrings = userCentreIds.map(c => c.toString());
-
-                const validRequestedCentres = requestedCentres.filter(id => allowedCentreStrings.includes(id));
-
-                if (validRequestedCentres.length > 0) {
-                    query.centre = { $in: validRequestedCentres.map(id => new mongoose.Types.ObjectId(id)) };
-                } else {
-                    // Filter requested but none allowed, return 0 counts (via centre empty)
-                    query.centre = { $in: [] };
-                }
+                const requestedCentres = Array.isArray(centre) ? centre : [centre];
+                const validRequestedCentres = requestedCentres.filter(reqCentre =>
+                    userCentreIds.some(allowedCentre => allowedCentre.toString() === reqCentre.toString())
+                );
+                query.centre = { $in: validRequestedCentres.map(id => mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id) };
+            } else {
+                // Filter requested but none allowed, return 0 counts (via centre empty)
+                query.centre = { $in: [] };
             }
         }
 

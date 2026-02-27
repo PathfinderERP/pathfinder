@@ -709,7 +709,7 @@ const UserManagementContent = () => {
                                     <span>{user.mobNum}</span>
                                 </div>
                                 <div className="flex items-start gap-2">
-                                    <FaMapMarkerAlt className={isDarkMode ? 'text-gray-500' : 'text-gray-400'} mt-1 />
+                                    <FaMapMarkerAlt className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} mt-1`} />
                                     <span className="break-words">{getCentresDisplay(user)}</span>
                                 </div>
 
