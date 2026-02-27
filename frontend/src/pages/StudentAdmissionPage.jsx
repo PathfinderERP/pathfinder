@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { FaArrowLeft, FaCalculator, FaMoneyBillWave, FaFileInvoice } from 'react-icons/fa';
+import { FaArrowLeft, FaCalculator, FaMoneyBillWave, FaFileInvoice, FaUserGraduate } from 'react-icons/fa';
 import BillGenerator from '../components/Finance/BillGenerator';
 import { useTheme } from '../context/ThemeContext';
 
@@ -62,6 +62,9 @@ const StudentAdmissionPage = () => {
     const [createdAdmission, setCreatedAdmission] = useState(null);
 
     const apiUrl = import.meta.env.VITE_API_URL;
+
+    // Display helper: always show ceiling (whole rupee) — stored values stay exact
+    const fmt = (n) => Math.ceil(Number(n) || 0).toLocaleString('en-IN');
 
     useEffect(() => {
         fetchData();
@@ -240,30 +243,45 @@ const StudentAdmissionPage = () => {
         // Calculate Taxable Amount (Base Fees - Waiver)
         const taxableAmount = Math.max(0, baseFees - feeWaiver);
 
-        // Calculate CGST (9%) and SGST (9%)
-        const cgstAmount = Math.round(taxableAmount * 0.09);
-        const sgstAmount = Math.round(taxableAmount * 0.09);
+        // Calculate CGST (9%) and SGST (9%) — keep as precise decimals, do NOT round here
+        // so that totalFees is exact and installments add up correctly
+        const cgstAmount = parseFloat((taxableAmount * 0.09).toFixed(3));
+        const sgstAmount = parseFloat((taxableAmount * 0.09).toFixed(3));
 
         // Total Fees with Previous Balance
         const previousBalance = student?.carryForwardBalance || 0;
-        const totalFees = taxableAmount + cgstAmount + sgstAmount + previousBalance;
+        const totalFees = parseFloat((taxableAmount + cgstAmount + sgstAmount + previousBalance).toFixed(3));
 
+        // Down payment can be a decimal (e.g. ₹500.50)
         const downPayment = parseFloat(formData.downPayment) || 0;
-        const remainingAmount = Math.max(0, totalFees - downPayment);
+        const remainingAmount = parseFloat(Math.max(0, totalFees - downPayment).toFixed(3));
 
         // For Board courses, calculate monthly amount with taxes
         let monthlyAmount = 0;
         if (admissionType === "BOARD") {
-            // Monthly amount = (monthly fees + taxes)
             const monthlyTaxable = monthlyFees;
-            const monthlyCgst = Math.round(monthlyTaxable * 0.09);
-            const monthlySgst = Math.round(monthlyTaxable * 0.09);
-            monthlyAmount = monthlyTaxable + monthlyCgst + monthlySgst;
+            const monthlyCgst = parseFloat((monthlyTaxable * 0.09).toFixed(3));
+            const monthlySgst = parseFloat((monthlyTaxable * 0.09).toFixed(3));
+            monthlyAmount = parseFloat((monthlyTaxable + monthlyCgst + monthlySgst).toFixed(3));
         }
 
         // For Board courses, use course duration months; for Normal, use installments
-        const numberOfInstallments = admissionType === "BOARD" ? courseDurationMonths : (parseInt(formData.numberOfInstallments) || 1);
-        const installmentAmount = admissionType === "BOARD" ? monthlyAmount : Math.ceil(remainingAmount / numberOfInstallments);
+        const numberOfInstallments = admissionType === "BOARD"
+            ? courseDurationMonths
+            : (parseInt(formData.numberOfInstallments) || 1);
+
+        // ── Ceiling-based installment logic ──
+        // Each regular installment is rounded UP to the next whole rupee (Math.ceil)
+        // so students never underpay. The LAST installment is adjusted downward to
+        // ensure the sum equals the exact remainingAmount (may be a decimal ≤ ceil).
+        let installmentAmount;
+        if (admissionType === "BOARD") {
+            installmentAmount = monthlyAmount; // Board: each month is the fixed monthly amount
+        } else {
+            installmentAmount = numberOfInstallments === 1
+                ? remainingAmount           // Only one installment — keep exact (could be decimal)
+                : Math.ceil(remainingAmount / numberOfInstallments); // Ceil for multi-installment
+        }
 
         // Generate payment schedule
         const paymentSchedule = [];
@@ -273,12 +291,23 @@ const StudentAdmissionPage = () => {
             const dueDate = new Date(currentDate);
             dueDate.setMonth(dueDate.getMonth() + i + 1);
 
+            let amount;
+            if (admissionType === "BOARD") {
+                amount = monthlyAmount;
+            } else if (numberOfInstallments === 1) {
+                amount = remainingAmount;
+            } else if (i === numberOfInstallments - 1) {
+                // Last installment = exact residual (remainingAmount minus what was already scheduled)
+                const alreadyScheduled = installmentAmount * (numberOfInstallments - 1);
+                amount = parseFloat(Math.max(0, remainingAmount - alreadyScheduled).toFixed(3));
+            } else {
+                amount = installmentAmount; // Ceiling value for all non-last installments
+            }
+
             paymentSchedule.push({
                 installmentNumber: i + 1,
                 dueDate: dueDate.toLocaleDateString(),
-                amount: admissionType === "BOARD" ? monthlyAmount : (i === numberOfInstallments - 1
-                    ? remainingAmount - (installmentAmount * (numberOfInstallments - 1))
-                    : installmentAmount)
+                amount
             });
         }
 
@@ -674,8 +703,11 @@ const StudentAdmissionPage = () => {
                                     onChange={handleInputChange}
                                     className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                     min="0"
+                                    step="0.01"
+                                    placeholder="0.00"
                                     required
                                 />
+                                <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">Decimals allowed (e.g. 500.50)</p>
                             </div>
 
                             <div>
@@ -797,7 +829,7 @@ const StudentAdmissionPage = () => {
                                     {selectedCourse.feesStructure.map((fee, index) => (
                                         <div key={index} className={`flex justify-between items-center p-2 rounded ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
                                             <span className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{fee.feesType}</span>
-                                            <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fee.value.toLocaleString()}</span>
+                                            <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(fee.value)}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -806,7 +838,7 @@ const StudentAdmissionPage = () => {
                                     {admissionType === "BOARD" && feeBreakdown.monthlyFees && (
                                         <div className="flex justify-between items-center bg-cyan-900/20 p-2 rounded">
                                             <span className="text-cyan-400 font-semibold">Monthly Fees (Per Month)</span>
-                                            <span className="text-cyan-400 font-bold">₹{feeBreakdown.monthlyFees.toLocaleString()}</span>
+                                            <span className="text-cyan-400 font-bold">₹{fmt(feeBreakdown.monthlyFees)}</span>
                                         </div>
                                     )}
                                     {admissionType === "BOARD" && feeBreakdown.courseDurationMonths && (
@@ -817,33 +849,33 @@ const StudentAdmissionPage = () => {
                                     )}
                                     <div className="flex justify-between items-center">
                                         <span className="text-gray-400">{admissionType === "BOARD" ? "Total Course Fees" : "Base Fees"}</span>
-                                        <span className="text-white">₹{feeBreakdown.baseFees.toLocaleString()}</span>
+                                        <span className="text-white">₹{fmt(feeBreakdown.baseFees)}</span>
                                     </div>
                                     {formData.feeWaiver > 0 && (
                                         <div className="flex justify-between items-center">
                                             <span className="text-green-400">Fee Waiver</span>
-                                            <span className="text-green-400">-₹{parseFloat(formData.feeWaiver).toLocaleString()}</span>
+                                            <span className="text-green-400">-₹{fmt(formData.feeWaiver)}</span>
                                         </div>
                                     )}
                                     <div className="flex justify-between items-center">
                                         <span className="text-gray-400">CGST (9%)</span>
-                                        <span className="text-white">₹{feeBreakdown.cgstAmount.toLocaleString()}</span>
+                                        <span className="text-white">₹{fmt(feeBreakdown.cgstAmount)}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-gray-400">SGST (9%)</span>
-                                        <span className="text-white">₹{feeBreakdown.sgstAmount.toLocaleString()}</span>
+                                        <span className="text-white">₹{fmt(feeBreakdown.sgstAmount)}</span>
                                     </div>
                                     {feeBreakdown.previousBalance > 0 && (
                                         <div className="flex justify-between items-center bg-yellow-500/10 p-2 rounded">
                                             <span className="text-yellow-400">Previous Balance (Carry Forward)</span>
-                                            <span className="text-yellow-400 font-bold">+₹{feeBreakdown.previousBalance.toLocaleString()}</span>
+                                            <span className="text-yellow-400 font-bold">+₹{fmt(feeBreakdown.previousBalance)}</span>
                                         </div>
                                     )}
                                 </div>
 
                                 <div className={`flex justify-between items-center p-3 rounded border mt-3 ${isDarkMode ? 'bg-cyan-500/20 border-cyan-500/50' : 'bg-cyan-50 border-cyan-200'}`}>
                                     <span className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'} font-semibold`}>Total Fees (with GST)</span>
-                                    <span className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'} font-bold text-lg`}>₹{feeBreakdown.totalFees.toLocaleString()}</span>
+                                    <span className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'} font-bold text-lg`}>₹{fmt(feeBreakdown.totalFees)}</span>
                                 </div>
                             </div>
 
@@ -857,19 +889,19 @@ const StudentAdmissionPage = () => {
                                 <div className="space-y-3">
                                     <div className="flex justify-between">
                                         <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Fees</span>
-                                        <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{feeBreakdown.totalFees.toLocaleString()}</span>
+                                        <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(feeBreakdown.totalFees)}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Down Payment</span>
-                                        <span className="text-green-500 font-medium">-₹{feeBreakdown.downPayment.toLocaleString()}</span>
+                                        <span className="text-green-500 font-medium">-₹{fmt(feeBreakdown.downPayment)}</span>
                                     </div>
                                     <div className={`border-t pt-2 flex justify-between ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
                                         <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Remaining Amount</span>
-                                        <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{feeBreakdown.remainingAmount.toLocaleString()}</span>
+                                        <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(feeBreakdown.remainingAmount)}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{admissionType === "BOARD" ? "Per Month" : "Per Installment"}</span>
-                                        <span className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'} font-medium`}>₹{feeBreakdown.installmentAmount.toLocaleString()}</span>
+                                        <span className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'} font-medium`}>₹{fmt(feeBreakdown.installmentAmount)}</span>
                                     </div>
                                 </div>
 
@@ -888,7 +920,7 @@ const StudentAdmissionPage = () => {
                                                         </span>
                                                         <p className="text-xs text-gray-500">{payment.dueDate}</p>
                                                     </div>
-                                                    <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{payment.amount.toLocaleString()}</span>
+                                                    <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(payment.amount)}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -947,6 +979,13 @@ const StudentAdmissionPage = () => {
                                 className={`w-full py-3 font-semibold rounded-lg ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
                             >
                                 {formData.paymentMethod === "CHEQUE" ? "Close & View Admissions" : "Go to Admissions List"}
+                            </button>
+
+                            <button
+                                onClick={() => navigate("/enrolled-students")}
+                                className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg flex items-center justify-center gap-2 shadow-md transition-all"
+                            >
+                                <FaUserGraduate /> View Enrolled Students
                             </button>
                         </div>
                     </div>

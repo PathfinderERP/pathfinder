@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from "../../context/ThemeContext";
-import { FaSearch, FaEye, FaEdit, FaDownload, FaFilter, FaUserGraduate, FaSync, FaTimes, FaBook, FaCalendar, FaMoneyBillWave, FaFileInvoice, FaCheckCircle, FaExclamationCircle, FaUser, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaSchool, FaHistory, FaUsers, FaIdCard, FaBirthdayCake, FaVenusMars, FaPassport, FaBuilding, FaSun, FaMoon, FaPlus, FaCopy, FaTools } from 'react-icons/fa';
+import { FaSearch, FaEye, FaEdit, FaDownload, FaFilter, FaUserGraduate, FaSync, FaTimes, FaBook, FaCalendar, FaMoneyBillWave, FaFileInvoice, FaCheckCircle, FaExclamationCircle, FaUser, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaSchool, FaHistory, FaUsers, FaIdCard, FaBirthdayCake, FaVenusMars, FaPassport, FaBuilding, FaSun, FaMoon, FaPlus, FaCopy, FaTools, FaPen, FaSave, FaTrash } from 'react-icons/fa';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
@@ -39,6 +39,9 @@ const EnrolledStudentsContent = () => {
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
 
+    // Display helper: always show ceiling (whole rupee) — stored values stay exact
+    const fmt = (n) => Math.ceil(Number(n) || 0).toLocaleString('en-IN');
+
     // Master Data States
     const [masterDepartments, setMasterDepartments] = useState([]);
     const [masterCourses, setMasterCourses] = useState([]);
@@ -70,12 +73,22 @@ const EnrolledStudentsContent = () => {
     const [newInstallmentCount, setNewInstallmentCount] = useState("");
     const [isDividing, setIsDividing] = useState(false);
 
+    // Enrollment number inline edit state
+    const [editingEnrollmentId, setEditingEnrollmentId] = useState(null);
+    const [editingEnrollmentValue, setEditingEnrollmentValue] = useState("");
+    const [isSavingEnrollment, setIsSavingEnrollment] = useState(false);
+
+    // Permanent delete confirmation state
+    const [deleteConfirm, setDeleteConfirm] = useState({ show: false, studentItem: null, inputValue: '' });
+    const [isDeleting, setIsDeleting] = useState(false);
+
     // Permission checks
     // Memoize user to prevent infinite re-renders when used in dependency arrays
     const user = React.useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
     const isSuperAdmin = user.role === "superAdmin" || user.role === "Super Admin";
     const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'edit');
     const canDeactivate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'deactivate');
+    const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'delete');
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -220,6 +233,79 @@ const EnrolledStudentsContent = () => {
         numberOfInstallments: 1
     });
     const [isCorrecting, setIsCorrecting] = useState(false);
+
+    const handleUpdateEnrollmentNumber = async (admissionId) => {
+        if (!editingEnrollmentValue.trim()) {
+            toast.error("Enrollment number cannot be empty.");
+            return;
+        }
+        setIsSavingEnrollment(true);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${apiUrl}/admission/${admissionId}/enrollment-number`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ admissionNumber: editingEnrollmentValue.trim().toUpperCase() })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                toast.success("Enrollment number updated successfully!");
+                // Update local modal state immediately
+                setStudentAdmissions(prev =>
+                    prev.map(ad =>
+                        ad._id === admissionId
+                            ? { ...ad, admissionNumber: data.admission.admissionNumber }
+                            : ad
+                    )
+                );
+                // Also refresh the main list so the table reflects the change
+                fetchAdmissions();
+                setEditingEnrollmentId(null);
+                setEditingEnrollmentValue("");
+            } else {
+                toast.error(data.message || "Failed to update enrollment number.");
+            }
+        } catch (err) {
+            console.error("updateEnrollmentNumber error:", err);
+            toast.error("Network error. Please try again.");
+        } finally {
+            setIsSavingEnrollment(false);
+        }
+    };
+
+    const handlePermanentDelete = async () => {
+        const studentItem = deleteConfirm.studentItem;
+        if (!studentItem) return;
+        const studentName = studentItem.student?.studentsDetails?.[0]?.studentName || '';
+        if (deleteConfirm.inputValue.trim().toUpperCase() !== studentName.trim().toUpperCase()) {
+            toast.error('Name does not match. Please type the student name exactly to confirm deletion.');
+            return;
+        }
+        setIsDeleting(true);
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${apiUrl}/admission/student/${studentItem.student._id}/permanent`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(`Student permanently deleted (${data.deletedAdmissions} admission(s) removed).`);
+                setDeleteConfirm({ show: false, studentItem: null, inputValue: '' });
+                fetchAdmissions();
+            } else {
+                toast.error(data.message || 'Failed to delete student.');
+            }
+        } catch (err) {
+            console.error('permanentDelete error:', err);
+            toast.error('Network error. Please try again.');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
 
     const handleManualCorrection = async (admissionId) => {
         if (!isSuperAdmin) {
@@ -1318,6 +1404,23 @@ const EnrolledStudentsContent = () => {
                                                                 {studentItem.student.status === 'Deactivated' ? <FaCheckCircle size={14} /> : <FaTimes size={14} />}
                                                             </button>
                                                         )}
+
+                                                        {/* Permanent Delete — only in Deactivated view */}
+                                                        {viewMode === 'Deactivated' && canDelete && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setDeleteConfirm({ show: true, studentItem, inputValue: '' });
+                                                                }}
+                                                                className={`p-2 rounded-[4px] transition-all border ${isDarkMode
+                                                                    ? 'bg-red-900/20 text-red-500 border-red-500/30 hover:bg-red-500 hover:text-white hover:border-red-500'
+                                                                    : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-600 hover:text-white shadow-sm'
+                                                                    }`}
+                                                                title="Permanently Delete Student"
+                                                            >
+                                                                <FaTrash size={12} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -1361,7 +1464,77 @@ const EnrolledStudentsContent = () => {
                                     )}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 flex-1 justify-center">
+                                {/* Enrollment Number Badge */}
+                                {studentAdmissions.length > 0 && (() => {
+                                    const primaryAdmission = studentAdmissions[0];
+                                    const isEditingHeader = editingEnrollmentId === `header_${primaryAdmission._id}`;
+                                    return (
+                                        <div className={`flex items-center gap-2 px-4 py-2.5 rounded-[4px] border ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-cyan-50 border-cyan-200 shadow-sm'}`}>
+                                            <FaIdCard className="text-cyan-500 shrink-0" size={14} />
+                                            {isEditingHeader ? (
+                                                <span className="flex items-center gap-1.5">
+                                                    <input
+                                                        autoFocus
+                                                        value={editingEnrollmentValue}
+                                                        onChange={e => setEditingEnrollmentValue(e.target.value.toUpperCase())}
+                                                        onKeyDown={e => {
+                                                            if (e.key === 'Enter') handleUpdateEnrollmentNumber(primaryAdmission._id);
+                                                            if (e.key === 'Escape') { setEditingEnrollmentId(null); setEditingEnrollmentValue(''); }
+                                                        }}
+                                                        className={`px-2 py-0.5 text-sm font-black uppercase tracking-[0.2em] rounded-[4px] border focus:outline-none w-44 ${isDarkMode ? 'bg-[#131619] border-cyan-500/50 text-cyan-400 focus:border-cyan-400' : 'bg-white border-cyan-400 text-cyan-700 focus:border-cyan-600'}`}
+                                                        disabled={isSavingEnrollment}
+                                                    />
+                                                    <button
+                                                        onClick={() => handleUpdateEnrollmentNumber(primaryAdmission._id)}
+                                                        disabled={isSavingEnrollment}
+                                                        className="p-1.5 rounded-[4px] bg-green-500 text-white hover:bg-green-400 transition-all disabled:opacity-50"
+                                                        title="Save"
+                                                    >
+                                                        {isSavingEnrollment ? <FaSync className="animate-spin" size={10} /> : <FaSave size={10} />}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { setEditingEnrollmentId(null); setEditingEnrollmentValue(''); }}
+                                                        disabled={isSavingEnrollment}
+                                                        className="p-1.5 rounded-[4px] bg-red-500/80 text-white hover:bg-red-400 transition-all"
+                                                        title="Cancel"
+                                                    >
+                                                        <FaTimes size={10} />
+                                                    </button>
+                                                </span>
+                                            ) : (
+                                                <span className="flex items-center gap-2">
+                                                    <span className={`text-xl font-black tracking-[0.15em] uppercase ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                                        {primaryAdmission.admissionNumber || 'N/A'}
+                                                    </span>
+                                                    {primaryAdmission.admissionNumber && (
+                                                        <button
+                                                            onClick={(e) => handleCopy(e, primaryAdmission.admissionNumber)}
+                                                            className={`p-1.5 rounded-[4px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700' : 'bg-white text-gray-400 hover:text-cyan-600 hover:bg-gray-100 border border-gray-200'}`}
+                                                            title="Copy Enrollment Number"
+                                                        >
+                                                            <FaCopy size={11} />
+                                                        </button>
+                                                    )}
+                                                    {canEdit && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setEditingEnrollmentId(`header_${primaryAdmission._id}`);
+                                                                setEditingEnrollmentValue(primaryAdmission.admissionNumber || '');
+                                                            }}
+                                                            className={`p-1.5 rounded-[4px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-yellow-400 hover:bg-gray-700' : 'bg-white text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 border border-gray-200'}`}
+                                                            title="Edit Enrollment Number"
+                                                        >
+                                                            <FaPen size={10} />
+                                                        </button>
+                                                    )}
+                                                </span>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0">
                                 {canEdit && (
                                     <button
                                         onClick={() => {
@@ -1561,7 +1734,63 @@ const EnrolledStudentsContent = () => {
                                                         COURSE {index + 1}: {admission.course?.courseName || admission.boardCourseName || "UNSPECIFIED"}
                                                     </h5>
                                                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-                                                        <span className="text-[9px] font-black uppercase text-gray-500 tracking-widest">Enrollment: <span className="text-cyan-500">{admission.admissionNumber || "N/A"}</span></span>
+                                                        {/* ── Inline-editable Enrollment Number ── */}
+                                                        {editingEnrollmentId === admission._id ? (
+                                                            <span className="flex items-center gap-1.5">
+                                                                <span className="text-[9px] font-black uppercase text-gray-500 tracking-widest">Enrollment:</span>
+                                                                <input
+                                                                    autoFocus
+                                                                    value={editingEnrollmentValue}
+                                                                    onChange={e => setEditingEnrollmentValue(e.target.value.toUpperCase())}
+                                                                    onKeyDown={e => {
+                                                                        if (e.key === "Enter") handleUpdateEnrollmentNumber(admission._id);
+                                                                        if (e.key === "Escape") { setEditingEnrollmentId(null); setEditingEnrollmentValue(""); }
+                                                                    }}
+                                                                    className={`px-2 py-0.5 text-[10px] font-black uppercase tracking-widest rounded-[4px] border focus:outline-none w-36 ${isDarkMode
+                                                                        ? 'bg-[#131619] border-cyan-500/50 text-cyan-400 focus:border-cyan-400'
+                                                                        : 'bg-white border-cyan-400 text-cyan-700 focus:border-cyan-600'
+                                                                        }`}
+                                                                    disabled={isSavingEnrollment}
+                                                                />
+                                                                <button
+                                                                    onClick={() => handleUpdateEnrollmentNumber(admission._id)}
+                                                                    disabled={isSavingEnrollment}
+                                                                    className="p-1 rounded-[4px] bg-green-500 text-white hover:bg-green-400 transition-all disabled:opacity-50"
+                                                                    title="Save"
+                                                                >
+                                                                    {isSavingEnrollment ? <FaSync className="animate-spin" size={9} /> : <FaSave size={9} />}
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => { setEditingEnrollmentId(null); setEditingEnrollmentValue(""); }}
+                                                                    disabled={isSavingEnrollment}
+                                                                    className="p-1 rounded-[4px] bg-red-500/80 text-white hover:bg-red-400 transition-all disabled:opacity-50"
+                                                                    title="Cancel"
+                                                                >
+                                                                    <FaTimes size={9} />
+                                                                </button>
+                                                            </span>
+                                                        ) : (
+                                                            <span className="flex items-center gap-1.5 group/enroll">
+                                                                <span className="text-[9px] font-black uppercase text-gray-500 tracking-widest">
+                                                                    Enrollment: <span className="text-cyan-500">{admission.admissionNumber || "N/A"}</span>
+                                                                </span>
+                                                                {canEdit && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setEditingEnrollmentId(admission._id);
+                                                                            setEditingEnrollmentValue(admission.admissionNumber || "");
+                                                                        }}
+                                                                        className={`opacity-0 group-hover/enroll:opacity-100 transition-all p-0.5 rounded-[4px] ${isDarkMode
+                                                                            ? 'text-cyan-500 hover:bg-cyan-500/10'
+                                                                            : 'text-cyan-600 hover:bg-cyan-50'
+                                                                            }`}
+                                                                        title="Edit Enrollment Number"
+                                                                    >
+                                                                        <FaPen size={8} />
+                                                                    </button>
+                                                                )}
+                                                            </span>
+                                                        )}
                                                         <div className={`w-1 h-1 rounded-full ${isDarkMode ? 'bg-gray-700' : 'bg-gray-300'}`}></div>
                                                         <span className="text-[9px] font-black uppercase text-gray-500 tracking-widest">Division: <span className="text-orange-500">{admission.admissionType === 'BOARD' ? (admission.board?.boardCourse || 'Board') : (admission.department?.departmentName || admission.centre)}</span></span>
                                                         <div className={`w-1 h-1 rounded-full ${isDarkMode ? 'bg-gray-700' : 'bg-gray-300'}`}></div>
@@ -1686,13 +1915,13 @@ const EnrolledStudentsContent = () => {
                                                             <div className="flex items-center gap-4">
                                                                 <div className="flex flex-col">
                                                                     <span className="text-[8px] font-black uppercase text-gray-500 tracking-widest">Remaining Balance</span>
-                                                                    <span className="text-[13px] font-black text-cyan-400 tracking-widest">₹{(correctionData.totalFees - correctionData.totalPaidAmount).toLocaleString()}</span>
+                                                                    <span className="text-[13px] font-black text-cyan-400 tracking-widest">₹{fmt(correctionData.totalFees - correctionData.totalPaidAmount)}</span>
                                                                 </div>
                                                                 <div className="w-px h-8 bg-gray-500/20"></div>
                                                                 <div className="flex flex-col">
                                                                     <span className="text-[8px] font-black uppercase text-gray-500 tracking-widest">New Installment</span>
                                                                     <span className="text-[13px] font-black text-purple-400 tracking-widest">
-                                                                        ₹{correctionData.numberOfInstallments > 0 ? Math.floor((correctionData.totalFees - correctionData.totalPaidAmount) / correctionData.numberOfInstallments).toLocaleString() : "0"}
+                                                                        ₹{correctionData.numberOfInstallments > 0 ? fmt((correctionData.totalFees - correctionData.totalPaidAmount) / correctionData.numberOfInstallments) : "0"}
                                                                     </span>
                                                                 </div>
                                                             </div>
@@ -1719,25 +1948,25 @@ const EnrolledStudentsContent = () => {
                                                     <div className="bg-cyan-500/10 p-3 rounded">
                                                         <p className="text-xs text-gray-400">Total Fees</p>
                                                         <p className="text-lg font-bold text-cyan-400">
-                                                            ₹{admission.totalFees?.toLocaleString()}
+                                                            ₹{fmt(admission.totalFees)}
                                                         </p>
                                                     </div>
                                                     <div className="bg-green-500/10 p-3 rounded">
                                                         <p className="text-xs text-gray-400">Total Paid</p>
                                                         <p className="text-lg font-bold text-green-400">
-                                                            ₹{admission.totalPaidAmount?.toLocaleString()}
+                                                            ₹{fmt(admission.totalPaidAmount)}
                                                         </p>
                                                     </div>
                                                     <div className="bg-yellow-500/10 p-3 rounded">
                                                         <p className="text-xs text-gray-400">Pending</p>
                                                         <p className="text-lg font-bold text-yellow-400">
-                                                            ₹{(admission.totalFees - admission.totalPaidAmount).toLocaleString()}
+                                                            ₹{fmt(admission.totalFees - admission.totalPaidAmount)}
                                                         </p>
                                                     </div>
                                                     <div className="bg-blue-500/10 p-3 rounded relative group">
                                                         <p className="text-xs text-gray-400">Down Payment</p>
                                                         <p className="text-lg font-bold text-blue-400">
-                                                            ₹{admission.downPayment?.toLocaleString()}
+                                                            ₹{fmt(admission.downPayment)}
                                                         </p>
                                                         {admission.downPayment > 0 && (
                                                             <button
@@ -1830,13 +2059,13 @@ const EnrolledStudentsContent = () => {
                                                                                     {history.subjects?.map((sub, sIdx) => (
                                                                                         <div key={sIdx} className="flex justify-between items-center text-[9px] font-bold uppercase tracking-wide">
                                                                                             <span className="text-gray-500">{sub.name}</span>
-                                                                                            <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>₹{sub.price}</span>
+                                                                                            <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>₹{fmt(sub.price)}</span>
                                                                                         </div>
                                                                                     ))}
                                                                                 </div>
                                                                                 <div className={`pt-3 border-t flex justify-between items-center ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                                                                                     <span className="text-gray-500 text-[9px] font-black uppercase tracking-widest">Aggregate</span>
-                                                                                    <span className="text-cyan-500 font-black text-[11px] tracking-widest italic">₹{history.totalAmount?.toLocaleString()}</span>
+                                                                                    <span className="text-cyan-500 font-black text-[11px] tracking-widest italic">₹{fmt(history.totalAmount)}</span>
                                                                                 </div>
                                                                                 {displayPaid && (
                                                                                     <button
@@ -1904,12 +2133,12 @@ const EnrolledStudentsContent = () => {
                                                                             if (arrearsMatch) {
                                                                                 const amount = arrearsMatch[1].replace(/,/g, '');
                                                                                 const fromInst = arrearsMatch[2];
-                                                                                adjustmentText = `+₹${parseFloat(amount).toLocaleString()} from Inst #${fromInst}`;
+                                                                                adjustmentText = `+₹${fmt(amount)} from Inst #${fromInst}`;
                                                                                 adjustmentColor = "text-red-500";
                                                                             } else if (creditMatch) {
                                                                                 const amount = creditMatch[1].replace(/,/g, '');
                                                                                 const fromInst = creditMatch[2];
-                                                                                adjustmentText = `-₹${parseFloat(amount).toLocaleString()} from Inst #${fromInst}`;
+                                                                                adjustmentText = `-₹${fmt(amount)} from Inst #${fromInst}`;
                                                                                 adjustmentColor = "text-green-500";
                                                                             }
 
@@ -1917,7 +2146,7 @@ const EnrolledStudentsContent = () => {
                                                                                 <tr key={payment.installmentNumber} className={`transition-all ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
                                                                                     <td className={`p-4 font-black text-[10px] tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>#{payment.installmentNumber}</td>
                                                                                     <td className="p-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">{formatDate(payment.dueDate)}</td>
-                                                                                    <td className="p-4 text-[11px] font-black tracking-widest text-gray-400">₹{baseInstallmentAmount.toLocaleString()}</td>
+                                                                                    <td className="p-4 text-[11px] font-black tracking-widest text-gray-400">₹{fmt(baseInstallmentAmount)}</td>
                                                                                     <td className="p-4">
                                                                                         {adjustmentText ? (
                                                                                             <span className={`${adjustmentColor} font-black text-[9px] uppercase tracking-tighter`}>
@@ -1927,8 +2156,8 @@ const EnrolledStudentsContent = () => {
                                                                                             <span className="text-gray-600">-</span>
                                                                                         )}
                                                                                     </td>
-                                                                                    <td className={`p-4 font-black text-[11px] tracking-widest italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{payment.amount?.toLocaleString()}</td>
-                                                                                    <td className="p-4 text-green-500 font-black text-[11px] tracking-widest italic">₹{payment.paidAmount?.toLocaleString() || 0}</td>
+                                                                                    <td className={`p-4 font-black text-[11px] tracking-widest italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(payment.amount)}</td>
+                                                                                    <td className="p-4 text-green-500 font-black text-[11px] tracking-widest italic">₹{fmt(payment.paidAmount)}</td>
                                                                                     <td className="p-4 text-[9px] font-black uppercase tracking-widest text-gray-500">{payment.paymentMethod || "UNSET"}</td>
                                                                                     <td className="p-4">
                                                                                         <div className="flex flex-col gap-1">
@@ -1937,7 +2166,7 @@ const EnrolledStudentsContent = () => {
                                                                                             </span>
                                                                                             {carryForwardMatch && (
                                                                                                 <span className="px-2 py-0.5 bg-yellow-500 text-white rounded-[4px] text-[8px] font-black uppercase tracking-tighter text-center">
-                                                                                                    CF: ₹{carryForwardMatch[1]}
+                                                                                                    CF: ₹{fmt(carryForwardMatch[1])}
                                                                                                 </span>
                                                                                             )}
                                                                                         </div>
@@ -2269,6 +2498,80 @@ const EnrolledStudentsContent = () => {
                     installment={billModal.installment}
                     onClose={() => setBillModal({ show: false, admission: null, installment: null })}
                 />
+            )}
+
+            {/* ── Permanent Delete Confirmation Modal ── */}
+            {deleteConfirm.show && deleteConfirm.studentItem && (
+                <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
+                    <div className={`w-full max-w-md rounded-[4px] border shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#1e2329] border-red-900/50' : 'bg-white border-red-200'}`}>
+                        {/* Header */}
+                        <div className="p-5 bg-red-600 flex items-center gap-3">
+                            <div className="p-2 bg-white/10 rounded-[4px]">
+                                <FaTrash className="text-white" size={18} />
+                            </div>
+                            <div>
+                                <h3 className="text-white font-black uppercase tracking-widest text-sm">Permanent Deletion</h3>
+                                <p className="text-red-200 text-[10px] font-bold uppercase tracking-widest mt-0.5">This action is irreversible</p>
+                            </div>
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-6 space-y-5">
+                            <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-200'}`}>
+                                <p className={`text-[11px] font-bold leading-relaxed ${isDarkMode ? 'text-red-300' : 'text-red-700'}`}>
+                                    You are about to <strong>permanently delete</strong> student&nbsp;
+                                    <span className="font-black uppercase">
+                                        {deleteConfirm.studentItem.student?.studentsDetails?.[0]?.studentName}
+                                    </span>
+                                    &nbsp;and ALL of their admission records from the database.
+                                    This cannot be undone.
+                                </p>
+                            </div>
+
+                            <div>
+                                <label className={`block text-[9px] font-black uppercase tracking-[0.25em] mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    Type student name to confirm
+                                    <span className={`ml-2 font-black uppercase ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>
+                                        {deleteConfirm.studentItem.student?.studentsDetails?.[0]?.studentName}
+                                    </span>
+                                </label>
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    placeholder="TYPE NAME HERE..."
+                                    value={deleteConfirm.inputValue}
+                                    onChange={e => setDeleteConfirm(prev => ({ ...prev, inputValue: e.target.value }))}
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter') handlePermanentDelete();
+                                        if (e.key === 'Escape') setDeleteConfirm({ show: false, studentItem: null, inputValue: '' });
+                                    }}
+                                    className={`w-full px-4 py-3 rounded-[4px] border text-[11px] font-bold uppercase tracking-widest focus:outline-none transition-all ${isDarkMode
+                                        ? 'bg-[#131619] border-gray-700 text-white focus:border-red-500 placeholder-gray-600'
+                                        : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-red-400 placeholder-gray-400'
+                                        }`}
+                                    disabled={isDeleting}
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    onClick={handlePermanentDelete}
+                                    disabled={isDeleting || deleteConfirm.inputValue.trim().toUpperCase() !== (deleteConfirm.studentItem.student?.studentsDetails?.[0]?.studentName || '').trim().toUpperCase()}
+                                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black uppercase tracking-widest text-[10px] rounded-[4px] transition-all"
+                                >
+                                    {isDeleting ? <><FaSync className="animate-spin" size={12} /> Deleting...</> : <><FaTrash size={12} /> Permanently Delete</>}
+                                </button>
+                                <button
+                                    onClick={() => setDeleteConfirm({ show: false, studentItem: null, inputValue: '' })}
+                                    disabled={isDeleting}
+                                    className={`px-6 py-3 rounded-[4px] font-black uppercase tracking-widest text-[10px] transition-all disabled:opacity-40 ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
         </div >
 
