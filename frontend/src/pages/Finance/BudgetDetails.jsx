@@ -32,6 +32,7 @@ const BudgetDetails = () => {
 
     useEffect(() => {
         fetchData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [centreId]);
 
     const fetchData = async () => {
@@ -89,7 +90,8 @@ const BudgetDetails = () => {
                 },
                 body: JSON.stringify({
                     centreId,
-                    ...formData
+                    ...formData,
+                    ...(isEditing && { budgetId: selectedBudget?._id })
                 })
             });
 
@@ -102,6 +104,7 @@ const BudgetDetails = () => {
                 toast.error(data.message || "Operation failed");
             }
         } catch (error) {
+            console.error("Submit error:", error);
             toast.error("Network error");
         }
     };
@@ -270,7 +273,7 @@ const BudgetDetails = () => {
                     </div>
                 )}
             </div>
-        </Layout>
+        </Layout >
     );
 };
 

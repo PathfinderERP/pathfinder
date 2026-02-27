@@ -44,6 +44,7 @@ const CancelChequePayment = () => {
     useEffect(() => {
         fetchMetadata();
         fetchCheques();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Fetch cheques when filters or search change
@@ -52,6 +53,7 @@ const CancelChequePayment = () => {
             fetchCheques();
         }, 500); // Debounce search
         return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filters, searchTerm]);
 
     const fetchMetadata = async () => {
@@ -161,8 +163,7 @@ const CancelChequePayment = () => {
         toast.success("Exported successfully!");
     };
 
-    // No need for client-side filtering anymore since API handles it
-    const filteredCheques = cheques;
+
 
     const handleCancelClick = (cheque) => {
         setSelectedCheque(cheque);
@@ -332,7 +333,7 @@ const CancelChequePayment = () => {
                                     }}
                                     labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '10px' }}
                                     cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
-                                    formatter={(value, name, props) => {
+                                    formatter={(value, name) => {
                                         if (name === 'value') return [value + ' Cheques', 'Count'];
                                         if (name === 'amount') return ['₹' + value.toLocaleString(), 'Amount'];
                                         return [value, name];
@@ -449,11 +450,18 @@ const CancelChequePayment = () => {
                                 <th className="p-6">Amount</th>
                                 <th className="p-6">Cheque Date</th>
                                 <th className="p-6">Status</th>
-                                {/* <th className="p-6 text-right">Actions</th> */}
+                                <th className="p-6 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800">
-                            {cheques.length === 0 ? (
+                            {loading ? (
+                                <tr>
+                                    <td colSpan="7" className="p-12 text-center">
+                                        <div className="animate-spin h-8 w-8 border-t-2 border-red-500 rounded-full mx-auto mb-4"></div>
+                                        <div className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">Loading Cheques...</div>
+                                    </td>
+                                </tr>
+                            ) : cheques.length === 0 ? (
                                 <tr>
                                     <td colSpan="7" className="p-12 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
                                         No cheques found
@@ -485,7 +493,7 @@ const CancelChequePayment = () => {
                                                 {cheque.status}
                                             </span>
                                         </td>
-                                        {/* <td className="p-6 text-right">
+                                        <td className="p-6 text-right">
                                             {canCancelCheque && cheque.status !== "Cancelled" && (
                                                 <button
                                                     onClick={() => handleCancelClick(cheque)}
@@ -494,7 +502,7 @@ const CancelChequePayment = () => {
                                                     <FaBan /> Cancel
                                                 </button>
                                             )}
-                                        </td> */}
+                                        </td>
                                     </tr>
                                 ))
                             )}

@@ -19,7 +19,8 @@ export const getTransactionReport = async (req, res) => {
             transactionType, // "Initial" or "EMI"
             departmentIds,
             minAmount,
-            maxAmount
+            maxAmount,
+            search
         } = req.query;
 
         // Base Match for Payment (paidAmount > 0)
@@ -123,6 +124,21 @@ export const getTransactionReport = async (req, res) => {
             }
         }
 
+        // Search Filter Construction
+        let searchMatch = {};
+        if (search) {
+            const searchRegex = { $regex: search, $options: "i" };
+            searchMatch = {
+                $or: [
+                    { "studentInfo.studentsDetails.studentName": searchRegex },
+                    { "studentInfo.studentsDetails.studentEmail": searchRegex },
+                    { "admissionInfo.admissionNumber": searchRegex },
+                    { "billId": searchRegex },
+                    { "transactionId": searchRegex }
+                ]
+            };
+        }
+
         const reportData = await Payment.aggregate([
             // 1. Match Payments
             { $match: paymentMatch },
@@ -130,6 +146,8 @@ export const getTransactionReport = async (req, res) => {
             // 2. Lookup Admission Details
             { $lookup: { from: "admissions", localField: "admission", foreignField: "_id", as: "admissionInfo" } },
             { $unwind: "$admissionInfo" },
+            { $lookup: { from: "students", localField: "admissionInfo.student", foreignField: "_id", as: "studentInfo" } },
+            { $unwind: { path: "$studentInfo", preserveNullAndEmptyArrays: true } },
 
             // Lookup Course for Dept Filter (and general info)
             { $lookup: { from: "courses", localField: "admissionInfo.course", foreignField: "_id", as: "courseInfo" } },
@@ -139,6 +157,7 @@ export const getTransactionReport = async (req, res) => {
             {
                 $match: {
                     ...admissionMatch,
+                    ...searchMatch,
                     ...(departmentIds ? {
                         $or: [
                             { "courseInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id)) } },
@@ -240,6 +259,7 @@ export const getTransactionReport = async (req, res) => {
             { $unwind: { path: "$studentInfo", preserveNullAndEmptyArrays: true } },
             { $lookup: { from: "courses", localField: "admissionInfo.course", foreignField: "_id", as: "courseInfo" } },
             { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
+            { $match: searchMatch },
             {
                 $lookup: {
                     from: "departments",

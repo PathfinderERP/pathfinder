@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaFilter, FaDownload, FaChevronDown, FaEraser, FaChartBar, FaTable, FaTh, FaArrowUp } from "react-icons/fa";
+import { FaFilter, FaDownload, FaChevronDown, FaEraser, FaChartBar, FaTable, FaTh, FaArrowUp, FaSearch } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -11,8 +11,6 @@ const TransactionList = () => {
     const [detailedReport, setDetailedReport] = useState([]);
     const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-    // Total Revenue only for the stats cards if needed, calculated from list or API
-    const [totalRevenue, setTotalRevenue] = useState(0);
     const [stats, setStats] = useState({
         currentYear: 0,
         previousYear: 0,
@@ -26,8 +24,6 @@ const TransactionList = () => {
 
     // Filters
     const [centres, setCentres] = useState([]);
-    const [courses, setCourses] = useState([]);
-    const [examTags, setExamTags] = useState([]);
     const [sessions, setSessions] = useState([]);
     const [departments, setDepartments] = useState([]);
 
@@ -45,6 +41,7 @@ const TransactionList = () => {
     const [selectedTransactionType, setSelectedTransactionType] = useState([]);
     const [minAmount, setMinAmount] = useState("");
     const [maxAmount, setMaxAmount] = useState("");
+    const [searchTerm, setSearchTerm] = useState("");
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -53,32 +50,19 @@ const TransactionList = () => {
 
     // Dropdown Refs
     const centreDropdownRef = useRef(null);
-    const courseDropdownRef = useRef(null);
     const paymentDropdownRef = useRef(null);
     const typeDropdownRef = useRef(null);
     const departmentDropdownRef = useRef(null);
-    const sessionDropdownRef = useRef(null);
 
     const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
-    const [isCourseDropdownOpen, setIsCourseDropdownOpen] = useState(false);
     const [isPaymentDropdownOpen, setIsPaymentDropdownOpen] = useState(false);
     const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
     const [isDepartmentDropdownOpen, setIsDepartmentDropdownOpen] = useState(false);
-    const [isSessionDropdownOpen, setIsSessionDropdownOpen] = useState(false);
 
     // ---- Effects ----
     useEffect(() => {
         fetchMasterData();
         const handleClickOutside = (event) => {
-            if (centreDropdownRef.current && !centreDropdownRef.current.contains(event.target)) {
-                setIsCentreDropdownOpen(false);
-            }
-            if (courseDropdownRef.current && !courseDropdownRef.current.contains(event.target)) {
-                setIsCourseDropdownOpen(false);
-            }
-            if (courseDropdownRef.current && !courseDropdownRef.current.contains(event.target)) {
-                setIsCourseDropdownOpen(false);
-            }
             if (paymentDropdownRef.current && !paymentDropdownRef.current.contains(event.target)) {
                 setIsPaymentDropdownOpen(false);
             }
@@ -88,23 +72,26 @@ const TransactionList = () => {
             if (departmentDropdownRef.current && !departmentDropdownRef.current.contains(event.target)) {
                 setIsDepartmentDropdownOpen(false);
             }
-            if (sessionDropdownRef.current && !sessionDropdownRef.current.contains(event.target)) {
-                setIsSessionDropdownOpen(false);
-            }
         };
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
         if (timePeriod === "Custom" && (!startDate || !endDate)) {
             return;
         }
-        setCurrentPage(1);
-        setPageInput("1");
-        fetchReportData();
-        fetchReportData();
-    }, [selectedCentres, selectedCourses, selectedExamTag, selectedSession, timePeriod, startDate, endDate, selectedPaymentMode, selectedTransactionType, minAmount, maxAmount, selectedDepartments]);
+
+        const debounce = setTimeout(() => {
+            setCurrentPage(1);
+            setPageInput("1");
+            fetchReportData();
+        }, 500);
+
+        return () => clearTimeout(debounce);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedCentres, selectedCourses, selectedExamTag, selectedSession, timePeriod, startDate, endDate, selectedPaymentMode, selectedTransactionType, minAmount, maxAmount, selectedDepartments, searchTerm]);
 
     // ---- API Calls ----
     const fetchMasterData = async () => {
@@ -112,10 +99,8 @@ const TransactionList = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [cRes, coRes, eRes, dRes, sRes] = await Promise.all([
+            const [cRes, dRes, sRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/course`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/department`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
             ]);
@@ -130,8 +115,6 @@ const TransactionList = () => {
                     : [];
                 setCentres(filteredCentres);
             }
-            if (coRes.ok) setCourses(await coRes.json());
-            if (eRes.ok) setExamTags(await eRes.json());
             if (dRes.ok) setDepartments(await dRes.json());
             if (sRes.ok) {
                 const sessionData = await sRes.json();
@@ -193,6 +176,7 @@ const TransactionList = () => {
             if (selectedTransactionType.length > 0) params.append("transactionType", selectedTransactionType.join(","));
             if (minAmount) params.append("minAmount", minAmount);
             if (maxAmount) params.append("maxAmount", maxAmount);
+            if (searchTerm) params.append("search", searchTerm);
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/sales/transaction-report?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -201,19 +185,11 @@ const TransactionList = () => {
             if (response.ok) {
                 const result = await response.json();
                 setDetailedReport(result.detailedReport || []);
-                // If the backend filters the 'detailedReport' based on all criteria, we can sum it up here for "Current Selection Revenue"
-                // Or if the backend returns specific totals, use those. 
-                // Currently backend returns totalRevenue for the whole matched set.
-                // But let's calculate revenue from the *filtered list* to be safe and dynamic
-                const currentListRevenue = (result.detailedReport || []).reduce((acc, curr) => acc + (curr.amount || 0), 0);
-                setTotalRevenue(currentListRevenue);
-
                 if (result.stats) {
                     setStats(result.stats);
                 }
             } else {
                 setDetailedReport([]);
-                setTotalRevenue(0);
             }
         } catch (error) {
             console.error("Error fetching report", error);
@@ -238,6 +214,7 @@ const TransactionList = () => {
         setSelectedDepartments([]);
         setMinAmount("");
         setMaxAmount("");
+        setSearchTerm("");
         toast.info("Filters reset");
     };
 
@@ -248,7 +225,6 @@ const TransactionList = () => {
         }
 
         const wb = XLSX.utils.book_new();
-        const dateStr = new Date().toLocaleString();
 
         const headers = ["Date", "Received Date", "Enroll No.", "Receipt No", "Student Name", "Session", "Department", "Course Name", "Transaction Type", "PaymentID", "Centre", "Payment Mode", "Revenue (Base)", "GST Amount", "Total (Inc. GST)", "Status"];
         const data = detailedReport.map(item => [
@@ -281,12 +257,6 @@ const TransactionList = () => {
 
     const toggleCentreSelection = (id) => {
         setSelectedCentres(prev =>
-            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-        );
-    };
-
-    const toggleCourseSelection = (id) => {
-        setSelectedCourses(prev =>
             prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
         );
     };
@@ -344,8 +314,6 @@ const TransactionList = () => {
     };
 
     // Calculate Stats
-    // Today's Date
-    const today = new Date();
     // Revenue logic can be expanded if needed (Current Year, Month, etc.)
     // For now, let's show "Current Selection Revenue" like in the screenshot concept or simply Total Revenue
 
@@ -607,6 +575,20 @@ const TransactionList = () => {
                         <button onClick={handleResetFilters} className="text-red-500 hover:text-red-700 font-bold text-xs uppercase tracking-widest whitespace-nowrap ml-auto px-4">
                             Reset Filters
                         </button>
+                    </div>
+                </div>
+
+                {/* Search Row */}
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                    <div className="relative group">
+                        <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                        <input
+                            type="text"
+                            placeholder="SEARCH BY STUDENT NAME, ENROLLMENT NO, EMAIL, OR RECEIPT NO..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full bg-gray-50 border border-gray-100 rounded-lg py-3 pl-12 pr-4 text-gray-700 font-bold text-xs uppercase tracking-widest outline-none focus:border-blue-500/50 transition-all shadow-inner"
+                        />
                     </div>
                 </div>
 

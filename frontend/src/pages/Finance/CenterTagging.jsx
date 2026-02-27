@@ -166,8 +166,8 @@ const CenterTagging = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${centre.taggedHeadCentre === "Not Tagged"
-                                                        ? "bg-red-500/10 text-red-400"
-                                                        : "bg-green-500/10 text-green-400"
+                                                    ? "bg-red-500/10 text-red-400"
+                                                    : "bg-green-500/10 text-green-400"
                                                     }`}>
                                                     {centre.taggedHeadCentre}
                                                 </span>

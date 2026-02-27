@@ -33,11 +33,11 @@ const FeeDueList = () => {
     // Details Popup
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [financialData, setFinancialData] = useState(null);
-    const [loadingDetails, setLoadingDetails] = useState(false);
 
     useEffect(() => {
         fetchMasterData();
         fetchDueList();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const fetchMasterData = async () => {
@@ -123,7 +123,6 @@ const FeeDueList = () => {
     };
 
     const handleSelectStudent = async (studentId) => {
-        setLoadingDetails(true);
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(
@@ -141,8 +140,6 @@ const FeeDueList = () => {
         } catch (error) {
             console.error("Error loading details:", error);
             toast.error("Error loading student details");
-        } finally {
-            setLoadingDetails(false);
         }
     };
 
@@ -587,7 +584,7 @@ const FeeDueList = () => {
                     </div>
                 )}
             </div>
-        </Layout>
+        </Layout >
     );
 };
 
