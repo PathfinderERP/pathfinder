@@ -385,6 +385,7 @@ const CourseContent = () => {
         { header: "Mode", key: "mode" },
         { header: "Course Type", key: "courseType" },
         { header: "Programme", key: "programme" },
+        { header: "Total Amount", key: "totalAmount" },
         { header: "Fee Type 1", key: "feeType1" },
         { header: "Fee Value 1", key: "feeValue1" },
         { header: "Fee Discount 1", key: "feeDiscount1" },
@@ -407,6 +408,7 @@ const CourseContent = () => {
         "Mode": "mode",
         "Course Type": "courseType",
         "Programme": "programme",
+        "Total Amount": "totalAmount",
         "Fee Type 1": "feeType1",
         "Fee Value 1": "feeValue1",
         "Fee Discount 1": "feeDiscount1",
@@ -419,21 +421,25 @@ const CourseContent = () => {
     };
 
     const prepareExportData = () => {
-        return filteredCourses.map(c => ({
-            ...c,
-            department: c.department?.departmentName,
-            class: c.class?.name,
-            examTag: c.examTag?.name,
-            feeType1: c.feesStructure[0]?.feesType,
-            feeValue1: c.feesStructure[0]?.value,
-            feeDiscount1: c.feesStructure[0]?.discount,
-            feeType2: c.feesStructure[1]?.feesType,
-            feeValue2: c.feesStructure[1]?.value,
-            feeDiscount2: c.feesStructure[1]?.discount,
-            feeType3: c.feesStructure[2]?.feesType,
-            feeValue3: c.feesStructure[2]?.value,
-            feeDiscount3: c.feesStructure[2]?.discount,
-        }));
+        return filteredCourses.map(c => {
+            const totalAmount = c.feesStructure?.reduce((sum, fee) => sum + (Number(fee.value) || 0), 0) || 0;
+            return {
+                ...c,
+                department: c.department?.departmentName,
+                class: c.class?.name,
+                examTag: c.examTag?.name,
+                totalAmount: totalAmount,
+                feeType1: c.feesStructure[0]?.feesType,
+                feeValue1: c.feesStructure[0]?.value,
+                feeDiscount1: c.feesStructure[0]?.discount,
+                feeType2: c.feesStructure[1]?.feesType,
+                feeValue2: c.feesStructure[1]?.value,
+                feeDiscount2: c.feesStructure[1]?.discount,
+                feeType3: c.feesStructure[2]?.feesType,
+                feeValue3: c.feesStructure[2]?.value,
+                feeDiscount3: c.feesStructure[2]?.discount,
+            };
+        });
     };
 
 
@@ -587,6 +593,7 @@ const CourseContent = () => {
                             <th className="p-4 border-b border-gray-700">Mode</th>
                             <th className="p-4 border-b border-gray-700">Type</th>
                             <th className="p-4 border-b border-gray-700">Programme</th>
+                            <th className="p-4 border-b border-gray-700">Total Amount</th>
                             <th className="p-4 border-b border-gray-700 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -620,6 +627,9 @@ const CourseContent = () => {
                                         <span className={`px-2 py-1 rounded text-xs ${course.programme === 'CRP' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-pink-500/20 text-pink-400'}`}>
                                             {course.programme}
                                         </span>
+                                    </td>
+                                    <td className="p-4 font-bold text-green-400">
+                                        ₹{Math.ceil(course.feesStructure?.reduce((sum, fee) => sum + (Number(fee.value) || 0), 0) || 0).toLocaleString('en-IN')}
                                     </td>
                                     <td className="p-4 text-right">
                                         <button
@@ -732,6 +742,12 @@ const CourseContent = () => {
                                         <span className={`px-2 py-0.5 rounded text-xs ${course.programme === 'CRP' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-pink-500/20 text-pink-400'}`}>
                                             {course.programme}
                                         </span>
+                                    </p>
+                                </div>
+                                <div>
+                                    <span className="text-gray-500">Total Amount:</span>
+                                    <p className="font-bold text-green-400">
+                                        ₹{Math.ceil(course.feesStructure?.reduce((sum, fee) => sum + (Number(fee.value) || 0), 0) || 0).toLocaleString('en-IN')}
                                     </p>
                                 </div>
                             </div>
