@@ -1236,6 +1236,7 @@ const EnrolledStudentsContent = () => {
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Session</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Class</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Department</th>
+                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Centre</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Student</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Mobile</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Latest Course</th>
@@ -1248,11 +1249,11 @@ const EnrolledStudentsContent = () => {
                         <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                             {loading ? (
                                 [...Array(10)].map((_, i) => (
-                                    <TableRowSkeleton key={i} isDarkMode={isDarkMode} columns={11} />
+                                    <TableRowSkeleton key={i} isDarkMode={isDarkMode} columns={12} />
                                 ))
                             ) : filteredStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan="11" className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
+                                    <td colSpan="12" className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
                                         {searchQuery ? "No matches found" : "No records available"}
                                     </td>
                                 </tr>
@@ -1302,7 +1303,12 @@ const EnrolledStudentsContent = () => {
                                                 </td>
                                                 <td className="p-4">
                                                     <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-[4px] border ${isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700' : 'bg-white text-gray-600 border-gray-200'}`}>
-                                                        {latestAdmission?.department?.departmentName || latestAdmission?.centre || "N/A"}
+                                                        {latestAdmission?.department?.departmentName || "N/A"}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-[4px] border ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'}`}>
+                                                        {latestAdmission?.centre || student.centre || "N/A"}
                                                     </span>
                                                 </td>
                                                 <td className="p-4">

@@ -48,7 +48,8 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
         mode: "",
         courseType: "",
         class: "",
-        examTag: ""
+        examTag: "",
+        searchTerm: ""
     });
 
     useEffect(() => {
@@ -102,6 +103,10 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
         if (courseFilters.courseType) filtered = filtered.filter(c => c.courseType === courseFilters.courseType);
         if (courseFilters.class) filtered = filtered.filter(c => c.class?._id === courseFilters.class || c.class === courseFilters.class);
         if (courseFilters.examTag) filtered = filtered.filter(c => c.examTag?._id === courseFilters.examTag || c.examTag === courseFilters.examTag);
+        if (courseFilters.searchTerm) {
+            const term = courseFilters.searchTerm.toLowerCase();
+            filtered = filtered.filter(c => c.courseName?.toLowerCase().includes(term));
+        }
         setFilteredCourses(filtered);
     }, [courseFilters, courses]);
 
@@ -111,7 +116,7 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
     };
 
     const resetCourseFilters = () => {
-        setCourseFilters({ mode: "", courseType: "", class: "", examTag: "" });
+        setCourseFilters({ mode: "", courseType: "", class: "", examTag: "", searchTerm: "" });
     };
 
     const fetchCourses = async () => {
@@ -615,6 +620,18 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
                                     <option value="">ALL TAGS</option>
                                     {examTags.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
                                 </select>
+                            </div>
+
+                            <div className="mb-4">
+                                <label className={labelClass}>SEARCH COURSE</label>
+                                <input
+                                    type="text"
+                                    name="searchTerm"
+                                    placeholder="SEARCH BY COURSE NAME..."
+                                    value={courseFilters.searchTerm}
+                                    onChange={handleCourseFilterChange}
+                                    className={`${inputClass} !py-2.5`}
+                                />
                             </div>
 
                             <div>
