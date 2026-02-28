@@ -4,6 +4,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { FaArrowLeft, FaCalculator, FaMoneyBillWave, FaFileInvoice, FaUserGraduate } from 'react-icons/fa';
 import BillGenerator from '../components/Finance/BillGenerator';
+import RazorpayPOSModal from '../components/Finance/RazorpayPOSModal';
 import { useTheme } from '../context/ThemeContext';
 
 const StudentAdmissionPage = () => {
@@ -58,6 +59,7 @@ const StudentAdmissionPage = () => {
         paymentSchedule: []
     });
 
+    const [showPOSModal, setShowPOSModal] = useState(false);
     const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
     const [createdAdmission, setCreatedAdmission] = useState(null);
 
@@ -341,9 +343,21 @@ const StudentAdmissionPage = () => {
         });
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = async (e, posData = null) => {
+        if (e) e.preventDefault();
+        
+        if (!posData && formData.paymentMethod === 'RAZORPAY_POS' && parseFloat(formData.downPayment) > 0) {
+            setShowPOSModal(true);
+            return;
+        }
+
         setLoading(true);
+
+        const currentFormData = posData ? {
+            ...formData,
+            transactionId: posData.p2pRequestId,
+            remarks: (formData.remarks ? formData.remarks + " | " : "") + "Razorpay POS Authorized"
+        } : formData;
 
         // Basic validation for board admission
         if (admissionType === "BOARD" && (!selectedBoard || selectedSubjectIds.length === 0)) {
@@ -372,7 +386,7 @@ const StudentAdmissionPage = () => {
                     boardId: selectedBoard,
                     selectedSubjectIds,
                     billingMonth,
-                    ...formData,
+                    ...currentFormData,
                     // For Board courses, set numberOfInstallments to course duration
                     numberOfInstallments: admissionType === "BOARD" ? feeBreakdown.courseDurationMonths : formData.numberOfInstallments
                 })
@@ -385,7 +399,7 @@ const StudentAdmissionPage = () => {
                 setCreatedAdmission(data.admission);
 
                 // If down payment was made and NOT a cheque, automatically open bill generator
-                if (data.admission.downPayment > 0 && formData.paymentMethod !== "CHEQUE") {
+                if (data.admission.downPayment > 0 && currentFormData.paymentMethod !== "CHEQUE") {
                     toast.success("Admission created! Generating bill...", { autoClose: 3000 });
                     setBillModal({
                         show: true,
@@ -724,6 +738,7 @@ const StudentAdmissionPage = () => {
                                     <option value="CARD">CARD</option>
                                     <option value="BANK_TRANSFER">BANK TRANSFER</option>
                                     <option value="CHEQUE">CHEQUE</option>
+                                    <option value="RAZORPAY_POS">RAZORPAY POS</option>
                                 </select>
                             </div>
 
@@ -991,7 +1006,6 @@ const StudentAdmissionPage = () => {
                     </div>
                 </div>
             )}
-
             {/* Bill Generator Modal */}
             {billModal.show && (
                 <BillGenerator
@@ -1000,6 +1014,19 @@ const StudentAdmissionPage = () => {
                     onClose={() => setBillModal({ show: false, admission: null, installment: null })}
                 />
             )}
+
+            {/* Razorpay POS Modal */}
+            <RazorpayPOSModal
+                isOpen={showPOSModal}
+                onClose={() => setShowPOSModal(false)}
+                amount={formData.downPayment}
+                invoiceId={`ADM-${Date.now()}`}
+                studentInfo={student}
+                onPaymentSuccess={(posData) => {
+                    setShowPOSModal(false);
+                    handleSubmit(null, posData);
+                }}
+            />
         </div>
     );
 };

@@ -16,11 +16,12 @@ export const getTemplatesByType = async (req, res) => {
 // @route   POST /api/hr/letter-templates
 export const createTemplate = async (req, res) => {
     try {
-        const { name, subject, body, type } = req.body;
+        const { name, subject, body, letterContent, type } = req.body;
         const newTemplate = new LetterTemplate({
             name,
             subject,
             body,
+            letterContent,
             type,
             createdBy: req.user?._id
         });

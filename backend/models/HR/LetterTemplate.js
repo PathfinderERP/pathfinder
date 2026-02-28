@@ -14,6 +14,10 @@ const letterTemplateSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    letterContent: {
+        type: String,
+        default: ""
+    },
     type: {
         type: String,
         enum: ['Offer Letter', 'Appointment Letter', 'Contract Letter', 'Experience Letter', 'Release Letter', 'Virtual ID'],

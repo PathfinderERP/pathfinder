@@ -15,6 +15,7 @@ import { downloadCSV, downloadExcel } from '../../utils/exportUtils';
 import './AdmissionsWave.css';
 import { hasPermission } from '../../config/permissions';
 import BillGenerator from '../Finance/BillGenerator';
+import RazorpayPOSModal from '../Finance/RazorpayPOSModal';
 
 const EnrolledStudentsContent = () => {
     const navigate = useNavigate();
@@ -72,6 +73,7 @@ const EnrolledStudentsContent = () => {
     const [viewMode, setViewMode] = useState('Active'); // 'Active' or 'Deactivated'
     const [newInstallmentCount, setNewInstallmentCount] = useState("");
     const [isDividing, setIsDividing] = useState(false);
+    const [showPOSModal, setShowPOSModal] = useState(false);
 
     // Enrollment number inline edit state
     const [editingEnrollmentId, setEditingEnrollmentId] = useState(null);
@@ -2338,6 +2340,7 @@ const EnrolledStudentsContent = () => {
                                         <option value="CARD">CREDIT/DEBIT CARD</option>
                                         <option value="BANK_TRANSFER">BANK WIRE TRANSFER</option>
                                         <option value="CHEQUE">BANK CHEQUE</option>
+                                        <option value="RAZORPAY_POS">RAZORPAY POS (TERMINAL)</option>
                                     </select>
                                 </div>
                                 <div>
@@ -2459,7 +2462,14 @@ const EnrolledStudentsContent = () => {
 
                             <div className="flex gap-4 pt-4">
                                 <button
-                                    type="submit"
+                                    type="button"
+                                    onClick={() => {
+                                        if (paymentData.paymentMethod === 'RAZORPAY_POS') {
+                                            setShowPOSModal(true);
+                                        } else {
+                                            handlePaymentSubmit({ preventDefault: () => { } });
+                                        }
+                                    }}
                                     disabled={processingPayment}
                                     className={`flex-1 py-4 font-black uppercase tracking-[0.2em] text-[11px] rounded-[4px] transition-all flex items-center justify-center gap-3 shadow-lg ${processingPayment ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-500/20 active:scale-95'}`}
                                 >
@@ -2579,6 +2589,25 @@ const EnrolledStudentsContent = () => {
                     </div>
                 </div>
             )}
+
+            {/* Razorpay POS Modal */}
+            <RazorpayPOSModal
+                isOpen={showPOSModal}
+                onClose={() => setShowPOSModal(false)}
+                amount={paymentData.paidAmount}
+                invoiceId={`POS-${Date.now()}`}
+                studentInfo={selectedStudent}
+                onPaymentSuccess={(posData) => {
+                    setPaymentData(prev => ({
+                        ...prev,
+                        transactionId: posData.p2pRequestId,
+                        remarks: (prev.remarks ? prev.remarks + " | " : "") + "Razorpay POS Authorized"
+                    }));
+                    setShowPOSModal(false);
+                    // Manually trigger submit after POS success
+                    handlePaymentSubmit({ preventDefault: () => { } });
+                }}
+            />
         </div >
 
     );

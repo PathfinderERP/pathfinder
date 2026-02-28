@@ -63,6 +63,7 @@ import dashboardRoutes from "./routes/dashboard.routes.js";
 import ceoRoutes from "./routes/ceoControlTower.js";
 import postRoutes from "./routes/post.routes.js";
 import communityRoutes from "./routes/community.routes.js";
+import razorpayPOSRoutes from "./routes/Payment/razorpayPOS.routes.js";
 
 import studentPortalRoutes from "./routes/studentPortal.routes.js";
 
@@ -109,6 +110,7 @@ app.use("/api/department", departmentRoutes);
 app.use("/api/admission", admissionRoutes);
 app.use("/api/payment-reminder", paymentReminderRoutes);
 app.use("/api/payment", paymentRoutes);
+app.use("/api/payment/pos", razorpayPOSRoutes);
 app.use("/api/centre", centreRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/lead-management", leadManagementRoutes);

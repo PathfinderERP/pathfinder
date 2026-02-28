@@ -204,7 +204,7 @@ class EmailService {
     /**
      * Sends a letter with custom subject, body and additional attachments
      */
-    async sendCustomLetter(employee, { subject, body, mainAttachment, additionalAttachments = [] }) {
+    async sendCustomLetter(employee, { subject, body, cc, bcc, mainAttachment, additionalAttachments = [] }) {
         const createAttachment = (attr) => {
             if (!attr) return null;
             const attachment = { filename: attr.filename || 'attachment.pdf' };
@@ -230,6 +230,8 @@ class EmailService {
         const mailOptions = {
             from: process.env.SMTP_FROM || '"HR Department" <hr@company.com>',
             to: employee.email,
+            cc: cc,
+            bcc: bcc,
             subject: typeof subject === 'string' ? subject : 'Document from HR',
             html: typeof body === 'string' ? body : `<p>Dear ${employee.name}, Please find the attached document.</p>`,
             attachments

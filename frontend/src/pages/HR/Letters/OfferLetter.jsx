@@ -18,6 +18,8 @@ const OfferLetter = () => {
     const [emailConfig, setEmailConfig] = useState({
         subject: "",
         body: "",
+        cc: "",
+        bcc: "",
         additionalAttachments: [] // { filename, content (base64) }
     });
 
@@ -26,7 +28,8 @@ const OfferLetter = () => {
 
     const [letterData, setLetterData] = useState({
         companyName: "PathFinder ERP",
-        joiningDate: ""
+        joiningDate: "",
+        manualContent: ""
     });
 
 
@@ -115,6 +118,7 @@ const OfferLetter = () => {
                     name,
                     subject: emailConfig.subject,
                     body: emailConfig.body,
+                    letterContent: letterData.manualContent,
                     type: "Offer Letter"
                 })
             });
@@ -185,7 +189,9 @@ const OfferLetter = () => {
                     fileName: generatedFile.fileName,
                     customSubject: emailConfig.subject,
                     customBody: emailConfig.body,
-                    additionalAttachments: emailConfig.additionalAttachments
+                    additionalAttachments: emailConfig.additionalAttachments,
+                    cc: emailConfig.cc,
+                    bcc: emailConfig.bcc
                 })
             });
 
@@ -347,6 +353,16 @@ const OfferLetter = () => {
                                         className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition-all text-sm font-medium"
                                     />
                                 </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Manual Content (In PDF)</label>
+                                    <textarea
+                                        rows={4}
+                                        value={letterData.manualContent}
+                                        onChange={(e) => setLetterData({ ...letterData, manualContent: e.target.value })}
+                                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition-all text-sm font-medium resize-none"
+                                        placeholder="Add any additional terms or notes for the PDF..."
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -415,6 +431,7 @@ const OfferLetter = () => {
                                                     const template = templates.find(t => t._id === e.target.value);
                                                     if (template) {
                                                         setEmailConfig(prev => ({ ...prev, subject: template.subject, body: template.body }));
+                                                        setLetterData(prev => ({ ...prev, manualContent: template.letterContent || "" }));
                                                     }
                                                 }}
                                             >
@@ -443,6 +460,29 @@ const OfferLetter = () => {
                                             className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition-all text-sm font-medium"
                                             placeholder="Enter subject line..."
                                         />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">CC Recipients</label>
+                                            <input
+                                                type="text"
+                                                value={emailConfig.cc}
+                                                onChange={(e) => setEmailConfig({ ...emailConfig, cc: e.target.value })}
+                                                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition-all text-xs"
+                                                placeholder="email1@ex.com, email2..."
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">BCC Recipients</label>
+                                            <input
+                                                type="text"
+                                                value={emailConfig.bcc}
+                                                onChange={(e) => setEmailConfig({ ...emailConfig, bcc: e.target.value })}
+                                                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition-all text-xs"
+                                                placeholder="BCC emails..."
+                                            />
+                                        </div>
                                     </div>
 
                                     <div className="space-y-1.5">

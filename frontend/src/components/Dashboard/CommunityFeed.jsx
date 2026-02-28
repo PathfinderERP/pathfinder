@@ -48,6 +48,7 @@ const CommunityFeed = () => {
     const [showMembersList, setShowMembersList] = useState(false);
     const [replyingTo, setReplyingTo] = useState(null);
     const [selectedMedia, setSelectedMedia] = useState(null); // { url, type }
+    const [viewerDetails, setViewerDetails] = useState(null); // post object with views
     const typingTimeoutRef = useRef(null);
     const pendingViews = useRef(new Set());
 
@@ -533,6 +534,7 @@ const CommunityFeed = () => {
                                             currentUser={currentUser}
                                             isDark={isDark}
                                             onReply={() => setReplyingTo(post)}
+                                            onShowViewers={() => setViewerDetails(post)}
                                         />
                                     </React.Fragment>
                                 );
@@ -562,6 +564,52 @@ const CommunityFeed = () => {
                     </button>
                 )}
             </div>
+
+            {/* Viewer Details Modal */}
+            {viewerDetails && (
+                <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setViewerDetails(null)}>
+                    <div className={`w-full max-w-sm rounded-[3px] shadow-2xl animate-fade-in border ${isDark ? 'bg-[#233138] border-gray-700' : 'bg-white border-gray-200'}`} onClick={e => e.stopPropagation()}>
+                        <div className="p-4 border-b border-gray-700/10 flex justify-between items-center">
+                            <h3 className={`font-black text-xs uppercase tracking-[0.2em] ${isDark ? 'text-cyan-500' : 'text-cyan-600'}`}>Message Info</h3>
+                            <button onClick={() => setViewerDetails(null)} className="text-gray-500 hover:text-red-500 transition-colors">
+                                <FaTimes size={14} />
+                            </button>
+                        </div>
+                        <div className="p-4 bg-cyan-500/5">
+                            <p className="text-[10px] font-black text-cyan-600 uppercase tracking-widest mb-2">Message</p>
+                            <p className={`text-xs italic truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                "{viewerDetails.content || "Media Attachment"}"
+                            </p>
+                        </div>
+                        <div className="max-h-[50vh] overflow-y-auto custom-scrollbar">
+                            <div className="p-4 py-2">
+                                <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-3">Read by {viewerDetails.views?.length || 0} members</p>
+                                <div className="space-y-3">
+                                    {viewerDetails.views?.map((viewer) => (
+                                        <div key={viewer._id} className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center text-[10px] font-black text-cyan-500 overflow-hidden border border-cyan-500/10">
+                                                {viewer.profileImage ? (
+                                                    <img src={viewer.profileImage} alt="" className="w-full h-full object-cover" />
+                                                ) : viewer.name?.charAt(0)}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className={`text-xs font-bold truncate ${isDark ? 'text-white' : 'text-gray-800'}`}>{viewer.name}</p>
+                                                <p className="text-[9px] text-gray-500 font-bold uppercase tracking-tighter">
+                                                    {viewer.designationName || viewer.role || 'Member'}
+                                                </p>
+                                            </div>
+                                            <div className="text-[9px] text-emerald-500 font-black uppercase tracking-tighter">Read</div>
+                                        </div>
+                                    ))}
+                                    {(!viewerDetails.views || viewerDetails.views.length === 0) && (
+                                        <p className="text-center py-4 text-xs italic text-gray-500">No views yet</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Image/File Fullscreen Modal */}
             {selectedMedia && (
@@ -708,7 +756,7 @@ const CommunityFeed = () => {
     );
 };
 
-const WhatsAppMessageBubble = ({ post, isOwn, onReact, onDelete, onView, onMediaClick, currentUser, isDark, onReply }) => {
+const WhatsAppMessageBubble = ({ post, isOwn, onReact, onDelete, onView, onMediaClick, currentUser, isDark, onReply, onShowViewers }) => {
     const bubbleRef = useRef(null);
 
     useEffect(() => {
@@ -883,10 +931,13 @@ const WhatsAppMessageBubble = ({ post, isOwn, onReact, onDelete, onView, onMedia
                             </div>
                         </div>
 
-                        {isOwn && viewCount > 0 && (
-                            <div className="absolute -left-20 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 text-white text-[8px] py-1 px-2 rounded-md pointer-events-none whitespace-nowrap">
-                                Viewed by {viewCount} members
-                            </div>
+                        {((isOwn || currentUser.role === 'superAdmin') && viewCount > 0) && (
+                            <button
+                                onClick={onShowViewers}
+                                className="absolute -left-20 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 text-white text-[8px] py-1.5 px-3 rounded-full pointer-events-auto whitespace-nowrap hover:bg-black flex items-center gap-2 border border-white/10"
+                            >
+                                <FaEye size={8} /> {viewCount} viewed
+                            </button>
                         )}
                     </div>
 

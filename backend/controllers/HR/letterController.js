@@ -108,7 +108,8 @@ const handleGenerateLetter = async (req, res, letterType, generatorFunc, dataMap
 
 export const generateOfferLetter = (req, res) => handleGenerateLetter(req, res, "Offer Letter", pdfGenerator.generateOfferLetter.bind(pdfGenerator), (emp, body) => ({
     companyName: body.companyName || "PathFinder ERP",
-    joiningDate: body.joiningDate || emp.joiningDate
+    joiningDate: body.joiningDate || emp.joiningDate,
+    manualContent: body.manualContent || ""
 }));
 export const generateAppointmentLetter = (req, res) => handleGenerateLetter(req, res, "Appointment Letter", pdfGenerator.generateAppointmentLetter.bind(pdfGenerator), (emp, body) => ({ companyName: body.companyName || "PathFinder ERP" }));
 export const generateContractLetter = (req, res) => handleGenerateLetter(req, res, "Contract Letter", pdfGenerator.generateContractLetter.bind(pdfGenerator), (emp, body) => ({ companyName: body.companyName || "PathFinder ERP" }));
@@ -120,7 +121,7 @@ export const generateVirtualId = (req, res) => handleGenerateLetter(req, res, "V
 const handleSendLetter = async (req, res, mailFunc) => {
     try {
         const { id } = req.params;
-        const { fileName, customSubject, customBody, additionalAttachments } = req.body;
+        const { fileName, customSubject, customBody, additionalAttachments, cc, bcc } = req.body;
         console.log(`Sending letter for Employee ID: ${id}, FileName: ${fileName}`);
 
         const employee = await Employee.findById(id);
@@ -154,6 +155,8 @@ const handleSendLetter = async (req, res, mailFunc) => {
             await emailService.sendCustomLetter(employee, {
                 subject: customSubject,
                 body: customBody,
+                cc: cc,
+                bcc: bcc,
                 mainAttachment: {
                     filename: fileName,
                     path: attachmentPath

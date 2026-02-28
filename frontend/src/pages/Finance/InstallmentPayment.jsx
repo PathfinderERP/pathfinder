@@ -9,6 +9,7 @@ import { saveAs } from "file-saver";
 import BillGenerator from "../../components/Finance/BillGenerator";
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Pagination from "../../components/common/Pagination";
+import RazorpayPOSModal from "../../components/Finance/RazorpayPOSModal";
 
 const EditScheduleModal = ({ admission, onClose, onSave }) => {
     // Initialize with existing unpaid installments
@@ -485,6 +486,7 @@ const InstallmentPayment = () => {
     const [editingAdmission, setEditingAdmission] = useState(null);
     const [activeInstallment, setActiveInstallment] = useState(null);
     const [activeAdmissionId, setActiveAdmissionId] = useState(null);
+    const [showPOSModal, setShowPOSModal] = useState(false);
     const [payFormData, setPayFormData] = useState({
         paidAmount: 0,
         paymentMethod: "CASH",
@@ -1410,7 +1412,7 @@ const InstallmentPayment = () => {
                                 <div>
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 block">Payment Method</label>
                                     <div className="grid grid-cols-3 gap-2">
-                                        {["CASH", "UPI", "CARD", "BANK_TRANSFER", "CHEQUE"].map(method => (
+                                        {["CASH", "UPI", "CARD", "BANK_TRANSFER", "CHEQUE", "RAZORPAY_POS"].map(method => (
                                             <button
                                                 key={method}
                                                 type="button"
@@ -1506,7 +1508,13 @@ const InstallmentPayment = () => {
                                     Cancel
                                 </button>
                                 <button
-                                    onClick={handleRecordPayment}
+                                    onClick={() => {
+                                        if (payFormData.paymentMethod === 'RAZORPAY_POS') {
+                                            setShowPOSModal(true);
+                                        } else {
+                                            handleRecordPayment();
+                                        }
+                                    }}
                                     className="flex-1 py-4 bg-gradient-to-r from-cyan-600 to-cyan-400 text-black font-black uppercase text-[10px] tracking-widest rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-xl shadow-cyan-500/30"
                                 >
                                     Confirm Payment
@@ -1565,6 +1573,25 @@ const InstallmentPayment = () => {
                         }}
                     />
                 )}
+
+                {/* Razorpay POS Modal */}
+                <RazorpayPOSModal
+                    isOpen={showPOSModal}
+                    onClose={() => setShowPOSModal(false)}
+                    amount={payFormData.paidAmount}
+                    invoiceId={`INV-${Date.now()}`}
+                    studentInfo={selectedStudent}
+                    onPaymentSuccess={(posData) => {
+                        // Update payFormData with POS transaction details
+                        setPayFormData(prev => ({
+                            ...prev,
+                            transactionId: posData.p2pRequestId,
+                            remarks: (prev.remarks ? prev.remarks + " | " : "") + "Razorpay POS Authorized"
+                        }));
+                        // Proceed to record the payment in our DB
+                        handleRecordPayment();
+                    }}
+                />
             </div>
         </Layout>
     );

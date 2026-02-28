@@ -106,6 +106,11 @@ export const generateOfferLetter = async (employee, data) => {
                 .font('Helvetica-Bold').text(`30 (Thirty days) `, { continued: true })
                 .font('Helvetica').text(`prior notice will be required for non-employment.`);
 
+            if (data.manualContent) {
+                doc.moveDown(2);
+                doc.font('Helvetica').fontSize(10).text(data.manualContent, { align: 'justify' });
+            }
+
             doc.moveDown(2);
             doc.text('Yours Sincerely,');
 
