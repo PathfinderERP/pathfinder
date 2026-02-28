@@ -1,24 +1,22 @@
 import express from "express";
 import { createPost, getAllPosts, likePost, votePoll, addComment, getUsersForTagging, deletePost, updatePost, deleteComment, recordPostView, updateSocialVisit, getSocialActivity } from "../controllers/postController.js";
-import protect from "../middleware/authMiddleware.js";
+import { requireAuth } from "../middleware/permissionMiddleware.js";
 import { upload } from "../utils/r2Upload.js";
 
 const router = express.Router();
 
-// All routes are protected
-router.use(protect);
-
-router.post("/", upload.array("images", 5), createPost);
-router.get("/", getAllPosts);
-router.put("/:id", upload.array("images", 5), updatePost);
-router.delete("/:id", deletePost);
-router.post("/:id/like", likePost);
-router.post("/:id/vote", votePoll);
-router.post("/:id/comment", addComment);
-router.post("/:id/view", recordPostView);
-router.post("/visit", updateSocialVisit);
-router.get("/activity", getSocialActivity);
-router.delete("/:id/comment/:commentId", deleteComment);
-router.get("/users", getUsersForTagging);
+// All routes are protected via requireAuth to allow all active users
+router.post("/", requireAuth, upload.array("images", 5), createPost);
+router.get("/", requireAuth, getAllPosts);
+router.put("/:id", requireAuth, upload.array("images", 5), updatePost);
+router.delete("/:id", requireAuth, deletePost);
+router.post("/:id/like", requireAuth, likePost);
+router.post("/:id/vote", requireAuth, votePoll);
+router.post("/:id/comment", requireAuth, addComment);
+router.post("/:id/view", requireAuth, recordPostView);
+router.post("/visit", requireAuth, updateSocialVisit);
+router.get("/activity", requireAuth, getSocialActivity);
+router.delete("/:id/comment/:commentId", requireAuth, deleteComment);
+router.get("/users", requireAuth, getUsersForTagging);
 
 export default router;
