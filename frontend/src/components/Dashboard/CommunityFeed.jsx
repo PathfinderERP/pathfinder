@@ -3,7 +3,7 @@ import {
     FaUpload, FaPaperPlane, FaImage, FaPoll, FaThumbsUp, FaComment,
     FaCheckCircle, FaChartBar, FaTrash, FaTimes, FaEye, FaHistory,
     FaVideo, FaPlay, FaUsers, FaEdit, FaSmile, FaCheckDouble, FaCrop,
-    FaFileDownload, FaDownload, FaFileAlt
+    FaFileDownload, FaDownload, FaFileAlt, FaReply
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
@@ -46,6 +46,7 @@ const CommunityFeed = () => {
     const [extraFiles, setExtraFiles] = useState([]);
     const [extraFilePreviews, setExtraFilePreviews] = useState([]);
     const [showMembersList, setShowMembersList] = useState(false);
+    const [replyingTo, setReplyingTo] = useState(null);
     const [selectedMedia, setSelectedMedia] = useState(null); // { url, type }
     const typingTimeoutRef = useRef(null);
     const pendingViews = useRef(new Set());
@@ -306,6 +307,9 @@ const CommunityFeed = () => {
         }
         const formData = new FormData();
         formData.append("content", content);
+        if (replyingTo) {
+            formData.append("replyTo", replyingTo._id);
+        }
         images.forEach(img => formData.append("files", img));
         videos.forEach(vid => formData.append("files", vid));
         extraFiles.forEach(file => formData.append("files", file));
@@ -326,6 +330,7 @@ const CommunityFeed = () => {
                 setExtraFiles([]);
                 setExtraFilePreviews([]);
                 setShowEmojiPicker(false);
+                setReplyingTo(null);
                 fetchPosts();
             }
         } catch {
@@ -527,6 +532,7 @@ const CommunityFeed = () => {
                                             onMediaClick={(url, type) => setSelectedMedia({ url, type })}
                                             currentUser={currentUser}
                                             isDark={isDark}
+                                            onReply={() => setReplyingTo(post)}
                                         />
                                     </React.Fragment>
                                 );
@@ -590,6 +596,19 @@ const CommunityFeed = () => {
 
             {/* Input Area */}
             <div className={`${isDark ? 'bg-[#202c33]' : 'bg-[#f0f2f5]'} p-3 md:px-6 md:py-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-300'} z-30`}>
+                {replyingTo && (
+                    <div className={`mb-3 flex items-center gap-3 p-3 rounded-[3px] border-l-4 border-cyan-500 animate-fade-in relative transition-colors ${isDark ? 'bg-[#1a2329]' : 'bg-gray-100'}`}>
+                        <div className="flex-1 overflow-hidden">
+                            <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest mb-1">Replying to {replyingTo.author?.name || 'Message'}</p>
+                            <p className={`text-xs truncate ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                                {replyingTo.content || (replyingTo.images?.length > 0 ? "📷 Photo" : replyingTo.videos?.length > 0 ? "🎥 Video" : "Attachment")}
+                            </p>
+                        </div>
+                        <button onClick={() => setReplyingTo(null)} className="p-2 text-gray-400 hover:text-red-500">
+                            <FaTimes size={14} />
+                        </button>
+                    </div>
+                )}
                 {(imagePreviews.length > 0 || videoPreviews.length > 0 || extraFilePreviews.length > 0) && (
                     <div className="flex gap-3 mb-3 overflow-x-auto p-2 no-scrollbar">
                         {imagePreviews.map((src, i) => (
@@ -689,7 +708,7 @@ const CommunityFeed = () => {
     );
 };
 
-const WhatsAppMessageBubble = ({ post, isOwn, onReact, onDelete, onView, onMediaClick, currentUser, isDark }) => {
+const WhatsAppMessageBubble = ({ post, isOwn, onReact, onDelete, onView, onMediaClick, currentUser, isDark, onReply }) => {
     const bubbleRef = useRef(null);
 
     useEffect(() => {
@@ -764,6 +783,9 @@ const WhatsAppMessageBubble = ({ post, isOwn, onReact, onDelete, onView, onMedia
                                     <FaTrash size={10} />
                                 </button>
                             )}
+                            <button onClick={onReply} className="p-1 px-2 text-cyan-500 hover:bg-cyan-500/10 rounded-[3px]">
+                                <FaReply size={10} />
+                            </button>
                         </div>
 
                         <div className={`px-4 py-2 rounded-[6px] shadow-sm relative transition-all duration-300 ${post.isDeleted
@@ -779,6 +801,17 @@ const WhatsAppMessageBubble = ({ post, isOwn, onReact, onDelete, onView, onMedia
                                     ? (isDark ? 'bg-[#005c4b] -right-1.5' : 'bg-[#dcf8c6] -right-1.5')
                                     : (isDark ? 'bg-[#202c33] -left-1.5' : 'bg-white -left-1.5')
                                     }`} style={{ clipPath: isOwn ? 'polygon(0 0, 0 100%, 100% 0)' : 'polygon(100% 0, 100% 100%, 0 0)' }}></div>
+                            )}
+
+                            {!post.isDeleted && post.replyTo && (
+                                <div className={`mb-2 p-2 rounded-[3px] border-l-4 bg-black/5 dark:bg-black/20 border-cyan-500 text-[11px]`}>
+                                    <p className="font-black text-cyan-500 uppercase tracking-tighter mb-0.5">{post.replyTo.author?.name || 'Deleted Message'}</p>
+                                    <div className={`line-clamp-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                                        {post.replyTo.isDeleted ? "🚫 Deleted message" : (
+                                            post.replyTo.content || (post.replyTo.images?.length > 0 ? "📷 Photo" : post.replyTo.videos?.length > 0 ? "🎥 Video" : "Attachment")
+                                        )}
+                                    </div>
+                                </div>
                             )}
 
                             {!post.isDeleted && post.images?.length > 0 && (

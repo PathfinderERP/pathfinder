@@ -44,12 +44,23 @@ const enhancePostAuthor = async (post) => {
             postObj.author.centerName = 'External';
         }
     }
+    if (postObj.replyTo) {
+        // Simple enhancement for replied-to post
+        if (postObj.replyTo.images && postObj.replyTo.images.length > 0) {
+            postObj.replyTo.images = await Promise.all(postObj.replyTo.images.map(img => getSignedFileUrl(img)));
+        }
+        if (postObj.replyTo.videos && postObj.replyTo.videos.length > 0) {
+            postObj.replyTo.videos = await Promise.all(postObj.replyTo.videos.map(vid => getSignedFileUrl(vid)));
+        }
+        // No full author signing, just basic name
+    }
+
     return postObj;
 };
 
 export const createPost = async (req, res) => {
     try {
-        const { content, poll, tags } = req.body;
+        const { content, poll, tags, replyTo } = req.body;
         const author = req.user.id;
 
         const images = [];
@@ -99,11 +110,16 @@ export const createPost = async (req, res) => {
             videos,
             files,
             poll: parsedPoll,
-            tags: parsedTags
+            tags: parsedTags,
+            replyTo: replyTo || undefined
         });
 
         const post = await CommunityPost.findById(newPost._id)
-            .populate("author", "name email role designation teacherDepartment");
+            .populate("author", "name email role designation teacherDepartment")
+            .populate({
+                path: 'replyTo',
+                populate: { path: 'author', select: 'name' }
+            });
 
         const postObj = await enhancePostAuthor(post);
 
@@ -122,6 +138,10 @@ export const getAllPosts = async (req, res) => {
         const posts = await CommunityPost.find()
             .sort({ createdAt: -1 })
             .populate("author", "name email role designation teacherDepartment")
+            .populate({
+                path: 'replyTo',
+                populate: { path: 'author', select: 'name' }
+            })
             .populate("tags", "name email")
             .populate("likes", "name email role designation teacherDepartment")
             .populate("reactions.user", "name email role designation teacherDepartment")

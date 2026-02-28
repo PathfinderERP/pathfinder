@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../../components/Layout";
 import { FaPrint, FaArrowLeft, FaCalendarAlt } from "react-icons/fa";
 import { useParams, useNavigate } from "react-router-dom";
@@ -29,51 +29,6 @@ const PayEmployeeDetails = () => {
     const [sundays, setSundays] = useState(4); // Default 4
     const [baseGrossSalary, setBaseGrossSalary] = useState(0);
     const [calculatedSalary, setCalculatedSalary] = useState(null);
-
-    useEffect(() => {
-        // Preload logo and convert to PNG base64 for jsPDF
-        const loadLogo = async () => {
-            try {
-                const img = new Image();
-                img.src = logo;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-                    setLogoBase64(canvas.toDataURL('image/png'));
-                };
-            } catch (error) {
-                console.error("Error loading logo:", error);
-            }
-        };
-        loadLogo();
-    }, []);
-
-    useEffect(() => {
-        fetchEmployeeDetails();
-    }, [id, selectedMonth, selectedYear]);
-
-    useEffect(() => {
-        if (employee) {
-            let baseStructure = employee.salaryStructure?.[0];
-
-            // If no structure exists, generate a logical fallback from baseGrossSalary
-            if (!baseStructure && baseGrossSalary > 0) {
-                baseStructure = calculateSalaryBreakdown(baseGrossSalary);
-            } else if (baseStructure && baseGrossSalary !== (employee.salaryStructure?.[0]?.totalEarnings || 0)) {
-                // If user edited the base salary, override the structure components
-                baseStructure = calculateSalaryBreakdown(baseGrossSalary);
-            }
-
-            if (baseStructure) {
-                calculateProRatedSalary(baseStructure);
-            } else {
-                setCalculatedSalary(null);
-            }
-        }
-    }, [employee, workedDays, sundays, baseGrossSalary]);
 
     const calculateSalaryBreakdown = (grossAmount) => {
         if (!grossAmount) return {
@@ -107,7 +62,7 @@ const PayEmployeeDetails = () => {
         };
     };
 
-    const calculateProRatedSalary = (baseStructure) => {
+    const calculateProRatedSalary = useCallback((baseStructure) => {
         const holidays = sundays;
         const payableDays = Number(workedDays) + holidays;
         const ratio = payableDays / 30;
@@ -146,9 +101,9 @@ const PayEmployeeDetails = () => {
             totalDeductions,
             netSalary
         });
-    };
+    }, [workedDays, sundays]);
 
-    const fetchEmployeeDetails = async () => {
+    const fetchEmployeeDetails = useCallback(async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -175,7 +130,54 @@ const PayEmployeeDetails = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id, selectedMonth, selectedYear]);
+
+    useEffect(() => {
+        // Preload logo and convert to PNG base64 for jsPDF
+        const loadLogo = async () => {
+            try {
+                const img = new Image();
+                img.src = logo;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    setLogoBase64(canvas.toDataURL('image/png'));
+                };
+            } catch (error) {
+                console.error("Error loading logo:", error);
+            }
+        };
+        loadLogo();
+    }, []);
+
+    useEffect(() => {
+        fetchEmployeeDetails();
+    }, [fetchEmployeeDetails]);
+
+    useEffect(() => {
+        if (employee) {
+            let baseStructure = employee.salaryStructure?.[0];
+
+            // If no structure exists, generate a logical fallback from baseGrossSalary
+            if (!baseStructure && baseGrossSalary > 0) {
+                baseStructure = calculateSalaryBreakdown(baseGrossSalary);
+            } else if (baseStructure && baseGrossSalary !== (employee.salaryStructure?.[0]?.totalEarnings || 0)) {
+                // If user edited the base salary, override the structure components
+                baseStructure = calculateSalaryBreakdown(baseGrossSalary);
+            }
+
+            if (baseStructure) {
+                calculateProRatedSalary(baseStructure);
+            } else {
+                setCalculatedSalary(null);
+            }
+        }
+    }, [employee, workedDays, sundays, baseGrossSalary, calculateProRatedSalary]);
+
+
 
     const generateSalarySlip = async () => {
         if (!employee || !calculatedSalary) return;
@@ -185,91 +187,89 @@ const PayEmployeeDetails = () => {
         // --- Header ---
         if (logoBase64) {
             try {
-                // Adjust position/size as needed
-                doc.addImage(logoBase64, 'PNG', 15, 10, 40, 12);
+                // Centered Logo
+                const logoWidth = 50;
+                const logoHeight = 15;
+                doc.addImage(logoBase64, 'PNG', (210 - logoWidth) / 2, 10, logoWidth, logoHeight);
             } catch (e) {
                 console.warn("Could not add logo", e);
             }
         }
 
-        // Header Text - Moved Right to avoid overlap
-        doc.setFontSize(22);
+        // Header Text - Stacked below logo
+        doc.setFontSize(20);
         doc.setTextColor(40, 40, 40);
         doc.setFont("helvetica", "bold");
-        // doc.text("PATHFINDER EDUCATIONAL CENTER LLP", 105, 20, { align: "center" }); // Overlaps
-        // Trying to clear overlap - either move down or rely on logo?
-        // Let's move text down to Y=25 and 30
-
-        doc.text("PATHFINDER EDUCATIONAL CENTER LLP", 115, 20, { align: "center" });
+        doc.text("PATHFINDER EDUCATIONAL CENTER LLP", 105, 32, { align: "center" });
 
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        doc.text("96K, S.P Mukherjee Road, Hazra More, Kolkata-700 026", 115, 26, { align: "center" });
+        doc.text("96K, S.P Mukherjee Road, Hazra More, Kolkata-700 026", 105, 38, { align: "center" });
 
         doc.setFontSize(14);
         doc.setTextColor(0, 0, 0);
         doc.setFont("helvetica", "bold");
-        doc.text(`Salary Slip for ${months.find(m => m.value == selectedMonth)?.label} ${selectedYear}`, 105, 36, { align: "center" });
+        doc.text(`Salary Slip for ${months.find(m => m.value == selectedMonth)?.label} ${selectedYear}`, 105, 50, { align: "center" });
 
         // --- Employee Details Box ---
         doc.setLineWidth(0.1);
-        doc.rect(15, 45, 180, 40); // Increased height for extra fields
+        doc.rect(15, 60, 180, 40); // Shifted down from 45 to 60
 
         doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
-        doc.text("Emp Code:", 20, 52);
+        doc.text("Emp Code:", 20, 67);
         doc.setFont("helvetica", "normal");
-        doc.text(employee.employeeId || "-", 50, 52);
+        doc.text(employee.employeeId || "-", 50, 67);
 
         doc.setFont("helvetica", "bold");
-        doc.text("Name:", 20, 58);
+        doc.text("Name:", 20, 73);
         doc.setFont("helvetica", "normal");
-        doc.text(employee.name?.toUpperCase() || "-", 50, 58);
+        doc.text(employee.name?.toUpperCase() || "-", 50, 73);
 
         doc.setFont("helvetica", "bold");
-        doc.text("Designation:", 20, 64);
+        doc.text("Designation:", 20, 79);
         doc.setFont("helvetica", "normal");
-        doc.text(employee.designation?.name || "-", 50, 64);
+        doc.text(employee.designation?.name || "-", 50, 79);
 
         doc.setFont("helvetica", "bold");
-        doc.text("Department:", 20, 70);
+        doc.text("Department:", 20, 85);
         doc.setFont("helvetica", "normal");
-        doc.text(employee.department?.departmentName || "-", 50, 70);
+        doc.text(employee.department?.departmentName || "-", 50, 85);
 
         // Right Side
         doc.setFont("helvetica", "bold");
-        doc.text("Date of Joining:", 110, 52);
+        doc.text("Date of Joining:", 110, 67);
         doc.setFont("helvetica", "normal");
-        doc.text(employee.dateOfJoining ? new Date(employee.dateOfJoining).toLocaleDateString() : "-", 145, 52);
+        doc.text(employee.dateOfJoining ? new Date(employee.dateOfJoining).toLocaleDateString() : "-", 145, 67);
 
         doc.setFont("helvetica", "bold");
-        doc.text("PAN No:", 110, 58);
+        doc.text("PAN No:", 110, 73);
         doc.setFont("helvetica", "normal");
-        doc.text(employee.panNumber || "-", 145, 58);
+        doc.text(employee.panNumber || "-", 145, 73);
 
         doc.setFont("helvetica", "bold");
-        doc.text("Bank A/C:", 110, 64);
+        doc.text("Bank A/C:", 110, 79);
         doc.setFont("helvetica", "normal");
-        doc.text(employee.accountNumber || "-", 145, 64);
+        doc.text(employee.accountNumber || "-", 145, 79);
 
         // Days Info
         doc.setFont("helvetica", "bold");
-        doc.text("Total Days:", 110, 70);
+        doc.text("Total Days:", 110, 85);
         doc.setFont("helvetica", "normal");
-        doc.text("30", 145, 70);
+        doc.text("30", 145, 85);
 
         doc.setFont("helvetica", "bold");
-        doc.text("Worked Days:", 110, 76);
+        doc.text("Worked Days:", 110, 91);
         doc.setFont("helvetica", "normal");
-        doc.text(String(workedDays), 145, 76);
+        doc.text(String(workedDays), 145, 91);
 
         doc.setFont("helvetica", "bold");
-        doc.text("Paid Holidays:", 155, 76); // Same line, offset
+        doc.text("Paid Holidays:", 155, 91); // Same line, offset
         doc.setFont("helvetica", "normal");
-        doc.text(String(sundays), 180, 76);
+        doc.text(String(sundays), 180, 91);
 
         // --- Salary Table ---
-        const startY = 95; // Adjusted down
+        const startY = 110; // Adjusted down from 95
         const col1 = 15;
         const col2 = 105;
         const rowHeight = 8;
@@ -367,8 +367,22 @@ const PayEmployeeDetails = () => {
     };
 
     const convertNumberToWords = (amount) => {
-        // Simple placeholder, real implementation can use a library
-        return "Rupees..."; // You might want to add a utility for this
+        const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+        const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+        const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+
+        const convert = (n) => {
+            if (n < 10) return ones[n];
+            if (n < 20) return teens[n - 10];
+            if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + ones[n % 10] : '');
+            if (n < 1000) return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 !== 0 ? ' ' + convert(n % 100) : '');
+            if (n < 100000) return convert(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 !== 0 ? ' ' + convert(n % 1000) : '');
+            if (n < 10000000) return convert(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 !== 0 ? ' ' + convert(n % 100000) : '');
+            return 'Large Amount';
+        };
+
+        if (amount === 0) return 'Zero';
+        return convert(amount);
     }
 
     if (loading) {
@@ -382,9 +396,9 @@ const PayEmployeeDetails = () => {
     if (!employee) return null;
 
     // Use calculated salary for display, or fallback
-    const salary = calculatedSalary || employee.salaryStructure?.[0] || {};
-    // Ensure numeric
-    salary.netSalary = salary.netSalary || 0;
+    const baseSalary = calculatedSalary || employee.salaryStructure?.[0] || {};
+    // Ensure numeric and avoid direct mutation
+    const salary = { ...baseSalary, netSalary: baseSalary.netSalary || 0 };
 
     return (
         <Layout activePage="Finance & Fees">

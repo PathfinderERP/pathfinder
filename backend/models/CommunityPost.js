@@ -52,6 +52,11 @@ const communityPostSchema = new mongoose.Schema({
     isDeleted: {
         type: Boolean,
         default: false
+    },
+    replyTo: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "CommunityPost",
+        required: false
     }
 }, {
     timestamps: true
