@@ -2,6 +2,7 @@ import Employee from "../../models/HR/Employee.js";
 import Department from "../../models/Master_data/Department.js";
 import Designation from "../../models/Master_data/Designation.js";
 import Centre from "../../models/Master_data/Centre.js";
+import User from "../../models/User.js";
 
 // Get employee analytics for dashboard
 export const getEmployeeAnalytics = async (req, res) => {
@@ -9,21 +10,65 @@ export const getEmployeeAnalytics = async (req, res) => {
         const userRole = (req.user.role || "").toLowerCase();
         const isFullAccess = ['superadmin', 'super admin', 'admin'].includes(userRole);
         const userCentres = req.user.centres || [];
+        const { tab } = req.query;
 
         // Data Isolation Match Stage
-        const matchStage = !isFullAccess ? {
-            $match: {
-                user: { $exists: true, $ne: null }, // Only employees with linked user accounts
+        let matchStageMatch = !isFullAccess ? {
+            $and: [
+                {
+                    $or: [
+                        { primaryCentre: { $in: userCentres } },
+                        { centres: { $in: userCentres } }
+                    ]
+                }
+            ]
+        } : {};
+
+        // Role-based filtering via Tab
+        if (tab) {
+            let roleFilter = {};
+            const hodFilter = {
                 $or: [
-                    { primaryCentre: { $in: userCentres } },
-                    { centres: { $in: userCentres } }
+                    { role: 'HOD' },
+                    { isDeptHod: true },
+                    { isBoardHod: true },
+                    { isSubjectHod: true }
                 ]
+            };
+
+            if (tab === 'teacher') {
+                roleFilter = {
+                    role: 'teacher',
+                    isDeptHod: { $ne: true },
+                    isBoardHod: { $ne: true },
+                    isSubjectHod: { $ne: true }
+                };
+            } else if (tab === 'hod') {
+                roleFilter = hodFilter;
+            } else if (tab === 'staff') {
+                // Staff = Not teacher, Not HOD (role or flags), and Not superAdmin (top leadership)
+                roleFilter = {
+                    $and: [
+                        { role: { $nin: ['teacher', 'HOD', 'superAdmin'] } },
+                        { isDeptHod: { $ne: true } },
+                        { isBoardHod: { $ne: true } },
+                        { isSubjectHod: { $ne: true } }
+                    ]
+                };
             }
-        } : {
-            $match: {
-                user: { $exists: true, $ne: null } // Only employees with linked user accounts
-            }
-        };
+
+            const usersWithRole = await User.find(roleFilter).select('_id');
+            const userIds = usersWithRole.map(u => u._id);
+
+            if (!matchStageMatch.$and) matchStageMatch.$and = [];
+            matchStageMatch.$and.push({ user: { $in: userIds } });
+        } else {
+            // Default: Only employees with linked user accounts if no tab specified
+            if (!matchStageMatch.$and) matchStageMatch.$and = [];
+            matchStageMatch.$and.push({ user: { $exists: true, $ne: null } });
+        }
+
+        const matchStage = { $match: matchStageMatch };
 
         // Handle case where user has no centres assigned and is not superAdmin
         if (!isFullAccess && userCentres.length === 0) {
@@ -53,6 +98,15 @@ export const getEmployeeAnalytics = async (req, res) => {
             matchStage,
             {
                 $lookup: {
+                    from: "users",
+                    localField: "user",
+                    foreignField: "_id",
+                    as: "userInfo"
+                }
+            },
+            { $unwind: { path: "$userInfo", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
                     from: "departments",
                     localField: "department",
                     foreignField: "_id",
@@ -62,7 +116,7 @@ export const getEmployeeAnalytics = async (req, res) => {
             { $unwind: { path: "$deptInfo", preserveNullAndEmptyArrays: true } },
             {
                 $group: {
-                    _id: "$deptInfo.departmentName",
+                    _id: { $ifNull: ["$deptInfo.departmentName", "$userInfo.teacherDepartment", "Other"] },
                     count: { $sum: 1 }
                 }
             },
@@ -74,6 +128,15 @@ export const getEmployeeAnalytics = async (req, res) => {
             matchStage,
             {
                 $lookup: {
+                    from: "users",
+                    localField: "user",
+                    foreignField: "_id",
+                    as: "userInfo"
+                }
+            },
+            { $unwind: { path: "$userInfo", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
                     from: "designations",
                     localField: "designation",
                     foreignField: "_id",
@@ -83,7 +146,13 @@ export const getEmployeeAnalytics = async (req, res) => {
             { $unwind: { path: "$desigInfo", preserveNullAndEmptyArrays: true } },
             {
                 $group: {
-                    _id: "$desigInfo.name",
+                    _id: {
+                        $ifNull: [
+                            "$desigInfo.name",
+                            { $ifNull: ["$userInfo.subject", "$userInfo.designation"] },
+                            "General"
+                        ]
+                    },
                     count: { $sum: 1 }
                 }
             },
@@ -95,16 +164,39 @@ export const getEmployeeAnalytics = async (req, res) => {
             matchStage,
             {
                 $lookup: {
+                    from: "users",
+                    localField: "user",
+                    foreignField: "_id",
+                    as: "userInfo"
+                }
+            },
+            { $unwind: { path: "$userInfo", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
                     from: "centreschemas",
                     localField: "primaryCentre",
                     foreignField: "_id",
-                    as: "centreInfo"
+                    as: "primaryCentreInfo"
                 }
             },
-            { $unwind: { path: "$centreInfo", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$primaryCentreInfo", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: "centreschemas",
+                    localField: "userInfo.centres",
+                    foreignField: "_id",
+                    as: "userCentresInfo"
+                }
+            },
             {
                 $group: {
-                    _id: "$centreInfo.centreName",
+                    _id: {
+                        $ifNull: [
+                            "$primaryCentreInfo.centreName",
+                            { $arrayElemAt: ["$userCentresInfo.centreName", 0] },
+                            "Unknown"
+                        ]
+                    },
                     count: { $sum: 1 }
                 }
             },

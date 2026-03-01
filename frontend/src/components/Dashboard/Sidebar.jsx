@@ -201,7 +201,16 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             restrictedToSuperAdmin: true,
             subItems: [
                 // { name: "Overview", path: "/hr", icon: <FaThLarge />, permissionSection: "overview" },
-                { name: "Employee Management", path: "/hr/employee/list", icon: <FaUsers />, permissionSection: "employees" },
+                {
+                    name: "Employee Management",
+                    icon: <FaUsers />,
+                    permissionSection: "employees",
+                    subItems: [
+                        { name: "Normal Staff", path: "/hr/employee/list?tab=staff" },
+                        { name: "Teachers", path: "/hr/employee/list?tab=teacher" },
+                        { name: "HODs", path: "/hr/employee/list?tab=hod" },
+                    ]
+                },
                 { name: "Candidate Hiring", path: "/hr/candidate-hiring", icon: <FaUserTie />, permissionSection: "candidateHiring" },
                 {
                     name: "Attendance Management",
@@ -280,7 +289,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     const [openMenus, setOpenMenus] = useState({});
 
     useEffect(() => {
-        const currentPath = location.pathname;
+        const currentPath = location.pathname + location.search;
         setOpenMenus(prev => {
             const newOpenMenus = { ...prev };
             let changed = false;
@@ -304,7 +313,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             traverse(menuItems);
             return changed ? newOpenMenus : prev;
         });
-    }, [location.pathname, menuItems]);
+    }, [location.pathname, location.search, menuItems]);
 
     const toggleMenu = (name) =>
         setOpenMenus((prev) => ({ ...prev, [name]: !prev[name] }));
@@ -457,7 +466,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                                             <div
                                                                 key={nestedIdx}
                                                                 onClick={() => navigate(nestedSub.path)}
-                                                                className={`p-2 rounded cursor-pointer text-sm transition-colors ${location.pathname === nestedSub.path
+                                                                className={`p-2 rounded cursor-pointer text-sm transition-colors ${(location.pathname + location.search) === nestedSub.path
                                                                     ? "text-cyan-400 font-semibold bg-gray-800"
                                                                     : "hover:text-white hover:bg-gray-800/50"
                                                                     }`}
@@ -471,7 +480,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                         ) : (
                                             <div
                                                 onClick={() => navigate(sub.path)}
-                                                className={`p-2 rounded cursor-pointer text-sm transition-colors flex items-center gap-2 ${location.pathname === sub.path
+                                                className={`p-2 rounded cursor-pointer text-sm transition-colors flex items-center gap-2 ${(location.pathname + location.search) === sub.path
                                                     ? "text-cyan-400 font-semibold bg-gray-800"
                                                     : "hover:text-white hover:bg-gray-800/50"
                                                     }`}

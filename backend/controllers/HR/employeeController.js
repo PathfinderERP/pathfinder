@@ -122,8 +122,8 @@ export const createEmployee = async (req, res) => {
             const hashedPassword = await bcrypt.hash(employeeData.employeeId, salt); // Password = Employee ID
 
             // Try to determine role based on designation
-            let role = 'admin';
-            if (employeeData.designation) {
+            let role = employeeData.role || 'admin';
+            if (employeeData.designation && !employeeData.role) {
                 const designation = await Designation.findById(employeeData.designation);
                 if (designation) {
                     const desigName = designation.name.toLowerCase();
@@ -135,13 +135,23 @@ export const createEmployee = async (req, res) => {
                         role = 'teacher';
                     } else if (desigName.includes('marketing')) {
                         role = 'marketing';
+                    } else if (desigName.includes('hod')) {
+                        role = 'HOD';
                     }
                 }
+            } else if (employeeData.role) {
+                // If role provided in employeeData, use it but normalize case for HOD
+                if (employeeData.role.toLowerCase() === 'hod') role = 'HOD';
             }
 
             user = new User({
                 name: employeeData.name,
                 email: employeeData.email,
+                teacherType: employeeData.teacherType || null,
+                designation: employeeData.designationName || null,
+                isDeptHod: employeeData.isDeptHod === 'true' || employeeData.isDeptHod === true,
+                isBoardHod: employeeData.isBoardHod === 'true' || employeeData.isBoardHod === true,
+                isSubjectHod: employeeData.isSubjectHod === 'true' || employeeData.isSubjectHod === true,
                 employeeId: employeeData.employeeId,
                 mobNum: employeeData.phoneNumber || "0000000000",
                 password: hashedPassword,
@@ -251,10 +261,49 @@ export const getEmployees = async (req, res) => {
             const roleValues = role.split(',').filter(Boolean);
             const usersWithRole = await User.find({ role: { $in: roleValues } }).select('_id');
             const userIds = usersWithRole.map(u => u._id);
-            // Merge with existing user filter using $and to also keep the $exists check
             query.$and = query.$and || [];
             query.$and.push({ user: { $in: userIds } });
-            delete query.user; // Remove simple user filter; $and conditions handle it
+            delete query.user;
+        } else if (req.query.tab) {
+            const tab = req.query.tab;
+            let roleFilter = {};
+            const hodFilter = {
+                $or: [
+                    { role: 'HOD' },
+                    { isDeptHod: true },
+                    { isBoardHod: true },
+                    { isSubjectHod: true }
+                ]
+            };
+
+            if (tab === 'teacher') {
+                roleFilter = {
+                    role: 'teacher',
+                    isDeptHod: { $ne: true },
+                    isBoardHod: { $ne: true },
+                    isSubjectHod: { $ne: true }
+                };
+            } else if (tab === 'hod') {
+                roleFilter = hodFilter;
+            } else if (tab === 'staff') {
+                // Staff = Not teacher, Not HOD (role or flags), and Not superAdmin
+                roleFilter = {
+                    $and: [
+                        { role: { $nin: ['teacher', 'HOD', 'superAdmin'] } },
+                        { isDeptHod: { $ne: true } },
+                        { isBoardHod: { $ne: true } },
+                        { isSubjectHod: { $ne: true } }
+                    ]
+                };
+            }
+
+            if (Object.keys(roleFilter).length > 0) {
+                const usersWithRole = await User.find(roleFilter).select('_id');
+                const userIds = usersWithRole.map(u => u._id);
+                query.$and = query.$and || [];
+                query.$and.push({ user: { $in: userIds } });
+                delete query.user;
+            }
         }
 
         // Data Isolation: If not superAdmin or Admin, restrict to assigned centers
@@ -284,7 +333,11 @@ export const getEmployees = async (req, res) => {
             .populate("department", "departmentName")
             .populate("designation", "name")
             .populate("manager", "name employeeId")
-            .populate("user", "role")
+            .populate({
+                path: "user",
+                select: "role designation teacherDepartment subject centres",
+                populate: { path: "centres", select: "centreName" }
+            })
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(parseInt(limit));
@@ -415,13 +468,16 @@ export const updateEmployee = async (req, res) => {
         // Update the employee document with new data
         Object.assign(employee, updateData);
 
-        // Sync with User status if status changed
-        if (updateData.status) {
-            await User.findByIdAndUpdate(
-                employee.user,
-                { isActive: updateData.status === "Active" }
-            );
-        }
+        // Sync with User status and roles
+        const userSyncData = {
+            isActive: updateData.status ? (updateData.status === "Active") : true,
+            isDeptHod: updateData.isDeptHod === 'true' || updateData.isDeptHod === true,
+            isBoardHod: updateData.isBoardHod === 'true' || updateData.isBoardHod === true,
+            isSubjectHod: updateData.isSubjectHod === 'true' || updateData.isSubjectHod === true
+        };
+        if (updateData.role) userSyncData.role = updateData.role;
+
+        await User.findByIdAndUpdate(employee.user, userSyncData);
 
         // Save the employee - this will trigger the pre('save') hook to update currentSalary
         await employee.save();

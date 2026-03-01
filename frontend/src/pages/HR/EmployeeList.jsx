@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { FaPlus, FaEdit, FaEye, FaSearch, FaFileExcel, FaFilePdf, FaTrash, FaChevronLeft, FaChevronRight, FaFileUpload, FaFilter, FaFileAlt, FaIdCard, FaBuilding, FaMapMarkerAlt, FaEnvelope, FaUsers, FaChartPie, FaSun, FaMoon } from "react-icons/fa";
 import { toast } from "react-toastify";
@@ -57,6 +57,24 @@ const EmployeeList = () => {
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
 
+    const location = useLocation();
+    const queryParams = new URLSearchParams(location.search);
+    const [activeTab, setActiveTab] = useState(queryParams.get("tab") || "staff");
+
+    useEffect(() => {
+        const queryParams = new URLSearchParams(location.search);
+        const tab = queryParams.get("tab") || "staff";
+        if (tab !== activeTab) {
+            setActiveTab(tab);
+        }
+    }, [location.search, activeTab]); // Added activeTab to dependency array
+
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+        setPagination(prev => ({ ...prev, currentPage: 1 }));
+        navigate(`/hr/employee/list?tab=${tab}`, { replace: true });
+    };
+
     // Permission checks
     const canCreate = usePermission('hrManpower', 'employees', 'create');
     const canEdit = usePermission('hrManpower', 'employees', 'edit');
@@ -70,9 +88,10 @@ const EmployeeList = () => {
 
 
     const fetchAnalytics = useCallback(async () => {
+        setAnalyticsLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee/analytics`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee/analytics?tab=${activeTab}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (response.ok) {
@@ -84,12 +103,12 @@ const EmployeeList = () => {
         } finally {
             setAnalyticsLoading(false);
         }
-    }, []);
+    }, [activeTab]);
 
     const fetchMasterData = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
-            const headers = { Authorization: `Bearer ${token}` };
+            const headers = { Authorization: `Bearer ${token} ` };
 
             const [deptRes, desigRes, centreRes, empRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/department`, { headers }),
@@ -119,7 +138,8 @@ const EmployeeList = () => {
                 ...(filters.designation?.length > 0 && { designation: filters.designation.map(d => d.value).join(",") }),
                 ...(filters.centre?.length > 0 && { centre: filters.centre.map(c => c.value).join(",") }),
                 ...(filters.status?.length > 0 && { status: filters.status.map(s => s.value).join(",") }),
-                ...(filters.role?.length > 0 && { role: filters.role.map(r => r.value).join(",") })
+                ...(filters.role?.length > 0 && { role: filters.role.map(r => r.value).join(",") }),
+                tab: activeTab
             });
 
             const response = await fetch(
@@ -146,7 +166,7 @@ const EmployeeList = () => {
         } finally {
             setLoading(false);
         }
-    }, [search, filters, pagination.currentPage]);
+    }, [search, filters, pagination.currentPage, activeTab]);
 
     useEffect(() => {
         fetchMasterData();
@@ -530,11 +550,30 @@ const EmployeeList = () => {
                     <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
                         <div>
                             <h1 className={`text-4xl font-black mb-2 tracking-tighter uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                All <span className="text-cyan-500">Employees</span>
+                                {activeTab === 'staff' ? 'Normal ' : activeTab === 'teacher' ? 'Educational ' : 'Department '} <span className="text-cyan-500">{activeTab === 'staff' ? 'Staff' : activeTab === 'teacher' ? 'Teachers' : 'HODs'}</span>
                             </h1>
                             <p className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} font-bold text-[10px] uppercase tracking-[0.3em] flex items-center gap-2`}>
                                 Human Resource & Manpower Management
                             </p>
+                        </div>
+                        {/* Tabs */}
+                        <div className="flex bg-gray-100 dark:bg-[#1a1f24] p-1 rounded-[2px] border border-gray-200 dark:border-gray-800">
+                            {[
+                                { id: 'staff', label: 'NORMAL STAFF', icon: <FaUsers /> },
+                                { id: 'teacher', label: 'TEACHERS', icon: <FaUsers /> },
+                                { id: 'hod', label: 'HODs', icon: <FaUsers /> }
+                            ].map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => handleTabChange(tab.id)}
+                                    className={`px-6 py-2 rounded-[2px] font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all ${activeTab === tab.id
+                                        ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
+                                        : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
+                                        }`}
+                                >
+                                    {tab.icon} {tab.label}
+                                </button>
+                            ))}
                         </div>
                         <div className="flex flex-wrap items-center gap-4">
                             <button
@@ -572,10 +611,10 @@ const EmployeeList = () => {
                             />
                             {canCreate && (
                                 <button
-                                    onClick={() => navigate("/hr/employee/add")}
+                                    onClick={() => navigate(`/hr/employee/add?tab=${activeTab}`)}
                                     className="px-6 py-3 bg-cyan-500 text-black hover:bg-cyan-400 rounded-[2px] shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"
                                 >
-                                    <FaPlus /> Add Employee
+                                    <FaPlus /> Add {activeTab === 'staff' ? 'Staff' : activeTab === 'teacher' ? 'Teacher' : 'HOD'}
                                 </button>
                             )}
                         </div>
@@ -597,21 +636,7 @@ const EmployeeList = () => {
                                     <p className={`text-4xl font-black tracking-tighter relative z-10 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                         {analytics.totalEmployees}
                                     </p>
-                                    <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Total Workforce</p>
-                                </div>
-
-                                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} border p-6 rounded-[2px] hover:border-cyan-500/30 transition-all group relative overflow-hidden`}>
-                                    <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-cyan-500/10"></div>
-                                    <div className="flex items-center justify-between mb-4 relative z-10">
-                                        <div className="p-2 bg-cyan-500/10 rounded-[2px]">
-                                            <FaUsers className="text-cyan-500 text-xl" />
-                                        </div>
-                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Teachers</span>
-                                    </div>
-                                    <p className="text-4xl font-black text-cyan-500 tracking-tighter relative z-10 bg-gradient-to-br from-cyan-400 to-cyan-600 bg-clip-text text-transparent">
-                                        {analytics.teachersCount || 0}
-                                    </p>
-                                    <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Educational Staff</p>
+                                    <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Total {activeTab === 'staff' ? 'Admin Staff' : activeTab === 'teacher' ? 'Teachers' : 'HODs'}</p>
                                 </div>
 
                                 <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} border p-6 rounded-[2px] hover:border-emerald-500/30 transition-all group relative overflow-hidden`}>
@@ -620,15 +645,29 @@ const EmployeeList = () => {
                                         <div className="p-2 bg-emerald-500/10 rounded-[2px]">
                                             <FaUsers className="text-emerald-500 text-xl" />
                                         </div>
-                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Other Staff</span>
+                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Operational</span>
                                     </div>
                                     <p className="text-4xl font-black text-emerald-500 tracking-tighter relative z-10 bg-gradient-to-br from-emerald-400 to-emerald-600 bg-clip-text text-transparent">
-                                        {analytics.staffCount || 0}
+                                        {analytics.statusBreakdown?.find(s => s._id === "Active")?.count || 0}
                                     </p>
-                                    <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Administrative & Ops</p>
+                                    <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Active Professionals</p>
                                 </div>
 
                                 <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} border p-6 rounded-[2px] hover:border-cyan-500/30 transition-all group relative overflow-hidden`}>
+                                    <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-cyan-500/10"></div>
+                                    <div className="flex items-center justify-between mb-4 relative z-10">
+                                        <div className="p-2 bg-cyan-500/10 rounded-[2px]">
+                                            <FaBuilding className="text-cyan-500 text-xl" />
+                                        </div>
+                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Structure</span>
+                                    </div>
+                                    <p className="text-4xl font-black text-cyan-500 tracking-tighter relative z-10 bg-gradient-to-br from-cyan-400 to-cyan-600 bg-clip-text text-transparent">
+                                        {analytics.departmentDistribution?.length || 0}
+                                    </p>
+                                    <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Functional Departments</p>
+                                </div>
+
+                                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} border p-6 rounded-[2px] hover:border-amber-500/30 transition-all group relative overflow-hidden`}>
                                     <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full -mr-12 -mt-12 transition-all group-hover:bg-amber-500/10"></div>
                                     <div className="flex items-center justify-between mb-4 relative z-10">
                                         <div className="p-2 bg-amber-500/10 rounded-[2px]">
@@ -637,7 +676,7 @@ const EmployeeList = () => {
                                         <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Network</span>
                                     </div>
                                     <p className="text-4xl font-black text-amber-500 tracking-tighter relative z-10 bg-gradient-to-br from-amber-400 to-amber-600 bg-clip-text text-transparent">
-                                        {analytics.totalCentres || analytics.centreDistribution.length}
+                                        {analytics.centreDistribution?.length || 0}
                                     </p>
                                     <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest mt-2 relative z-10">Total Locations</p>
                                 </div>
@@ -861,14 +900,14 @@ const EmployeeList = () => {
                                     </div>
                                     <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
                                         <span className="w-1 h-4 bg-cyan-500 rounded-full"></span>
-                                        Teacher Breakdown (FT/PT)
+                                        {activeTab === 'teacher' ? 'Teaching Tenure Mode' : activeTab === 'staff' ? 'Admin Employment Type' : 'Governance Model'}
                                     </h3>
                                     <div className="h-64 w-full">
                                         <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                                             <PieChart>
                                                 <Pie
-                                                    data={analytics.teacherStaffEmployment?.filter(d => d._id.isTeacher).map(d => ({
-                                                        name: (d._id.employment || "Full-time").toUpperCase(),
+                                                    data={analytics.employmentTypeDistribution?.map((d) => ({
+                                                        name: (d._id || "Regular").toUpperCase(),
                                                         value: d.count
                                                     })) || []}
                                                     cx="50%"
@@ -878,8 +917,8 @@ const EmployeeList = () => {
                                                     paddingAngle={5}
                                                     dataKey="value"
                                                 >
-                                                    {(analytics.teacherStaffEmployment?.filter(d => d._id.isTeacher) || []).map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={['#06b6d4', '#0ea5e9', '#3b82f6'][index % 3]} />
+                                                    {(analytics.employmentTypeDistribution || []).map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={['#06b6d4', '#10b981', '#3b82f6', '#f59e0b', '#ec4899'][index % 5]} />
                                                     ))}
                                                 </Pie>
                                                 <Tooltip content={<CustomTooltip />} />
@@ -895,14 +934,14 @@ const EmployeeList = () => {
                                     </div>
                                     <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
                                         <span className="w-1 h-4 bg-emerald-500 rounded-full"></span>
-                                        Admin Staff Breakdown
+                                        Workforce Status
                                     </h3>
                                     <div className="h-64 w-full">
                                         <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
                                             <PieChart>
                                                 <Pie
-                                                    data={analytics.teacherStaffEmployment?.filter(d => !d._id.isTeacher).map(d => ({
-                                                        name: (d._id.employment || "Regular").toUpperCase(),
+                                                    data={analytics.statusBreakdown?.map((d) => ({
+                                                        name: (d._id || "Status").toUpperCase(),
                                                         value: d.count
                                                     })) || []}
                                                     cx="50%"
@@ -912,8 +951,8 @@ const EmployeeList = () => {
                                                     paddingAngle={5}
                                                     dataKey="value"
                                                 >
-                                                    {(analytics.teacherStaffEmployment?.filter(d => !d._id.isTeacher) || []).map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={['#10b981', '#059669', '#34d399'][index % 3]} />
+                                                    {(analytics.statusBreakdown || []).map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={['#10b981', '#f59e0b', '#ef4444', '#3b82f6'][index % 4]} />
                                                     ))}
                                                 </Pie>
                                                 <Tooltip content={<CustomTooltip />} />
@@ -1201,18 +1240,22 @@ const EmployeeList = () => {
                                                 <td className="px-6 py-4">
                                                     <div className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                                         <FaBuilding className="text-cyan-500/50" size={10} />
-                                                        {employee.department?.departmentName || "N/A"}
+                                                        {employee.department?.departmentName || employee.user?.teacherDepartment || "N/A"}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-[2px] inline-block ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
-                                                        {employee.designation?.name || "N/A"}
+                                                        {activeTab === 'teacher' && employee.user?.subject ? (
+                                                            <span className="text-cyan-500 border-b border-cyan-500/30 font-black">{employee.user.subject.toUpperCase()}</span>
+                                                        ) : (
+                                                            employee.designation?.name || employee.user?.designation || "N/A"
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className={`text-[10px] font-black uppercase tracking-tight flex items-center gap-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                                         <FaMapMarkerAlt className="text-cyan-500/50" size={10} />
-                                                        {employee.primaryCentre?.centreName || "N/A"}
+                                                        {employee.primaryCentre?.centreName || (employee.user?.centres && employee.user.centres[0]?.centreName) || "N/A"}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">

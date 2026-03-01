@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { toast } from "react-toastify";
 import { FaPlus, FaTimes } from "react-icons/fa";
@@ -55,7 +55,13 @@ const AddEmployee = () => {
         branchName: "",
         accountNumber: "",
         ifscCode: "",
-        specialAllowance: 0
+        specialAllowance: 0,
+
+        // Role & Flags
+        role: "",
+        isDeptHod: false,
+        isBoardHod: false,
+        isSubjectHod: false
     });
 
     const [files, setFiles] = useState({});
@@ -72,13 +78,25 @@ const AddEmployee = () => {
         tempData: null
     });
 
+    const location = useLocation();
+
     useEffect(() => {
         fetchMasterData();
         if (id) {
             setIsEditMode(true);
             fetchEmployeeData();
+        } else {
+            const queryParams = new URLSearchParams(location.search);
+            const tab = queryParams.get("tab");
+            if (tab === 'teacher') {
+                setFormData(prev => ({ ...prev, role: 'teacher' }));
+            } else if (tab === 'hod') {
+                setFormData(prev => ({ ...prev, role: 'HOD', isDeptHod: true })); // Default true if adding from HOD tab
+            } else if (tab === 'staff') {
+                setFormData(prev => ({ ...prev, role: 'admin' })); // Default role for staff
+            }
         }
-    }, [id]);
+    }, [id, location.search]);
 
     const fetchMasterData = async () => {
         try {
@@ -876,6 +894,68 @@ const AddEmployee = () => {
                                     placeholder="Enter PAN Number"
                                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
                                 />
+                            </div>
+
+                            {/* HOD & Role Flags */}
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        id="isDeptHod"
+                                        name="isDeptHod"
+                                        checked={formData.isDeptHod}
+                                        onChange={handleInputChange}
+                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    />
+                                    <label htmlFor="isDeptHod" className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-tight">
+                                        Department HOD
+                                    </label>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        id="isBoardHod"
+                                        name="isBoardHod"
+                                        checked={formData.isBoardHod}
+                                        onChange={handleInputChange}
+                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    />
+                                    <label htmlFor="isBoardHod" className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-tight">
+                                        Board HOD
+                                    </label>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        id="isSubjectHod"
+                                        name="isSubjectHod"
+                                        checked={formData.isSubjectHod}
+                                        onChange={handleInputChange}
+                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    />
+                                    <label htmlFor="isSubjectHod" className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-tight">
+                                        Subject HOD
+                                    </label>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
+                                        Manual Role Override
+                                    </label>
+                                    <select
+                                        name="role"
+                                        value={formData.role}
+                                        onChange={handleInputChange}
+                                        className="w-full px-3 py-1 text-xs border border-gray-300 dark:border-gray-700 rounded focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white font-bold"
+                                    >
+                                        <option value="">Default (Auto)</option>
+                                        <option value="teacher">Teacher</option>
+                                        <option value="HOD">HOD</option>
+                                        <option value="admin">Admin/Staff</option>
+                                        <option value="counsellor">Counsellor</option>
+                                        <option value="telecaller">Telecaller</option>
+                                        <option value="marketing">Marketing</option>
+                                    </select>
+                                </div>
                             </div>
 
 
