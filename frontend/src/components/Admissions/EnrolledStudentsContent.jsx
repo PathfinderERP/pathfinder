@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from "../../context/ThemeContext";
-import { FaSearch, FaEye, FaEdit, FaDownload, FaFilter, FaUserGraduate, FaSync, FaTimes, FaBook, FaCalendar, FaMoneyBillWave, FaFileInvoice, FaCheckCircle, FaExclamationCircle, FaUser, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaSchool, FaHistory, FaUsers, FaIdCard, FaBirthdayCake, FaVenusMars, FaPassport, FaBuilding, FaSun, FaMoon, FaPlus, FaCopy, FaTools, FaPen, FaSave, FaTrash } from 'react-icons/fa';
+import { FaSearch, FaEye, FaEdit, FaDownload, FaFilter, FaUserGraduate, FaSync, FaTimes, FaBook, FaCalendar, FaMoneyBillWave, FaFileInvoice, FaCheckCircle, FaExclamationCircle, FaUser, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaSchool, FaHistory, FaUsers, FaIdCard, FaBirthdayCake, FaVenusMars, FaPassport, FaBuilding, FaSun, FaMoon, FaPlus, FaCopy, FaTools, FaPen, FaSave, FaTrash, FaBoxOpen } from 'react-icons/fa';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
@@ -34,6 +34,7 @@ const EnrolledStudentsContent = () => {
     const [filterProgramme, setFilterProgramme] = useState([]);
     const [filterMode, setFilterMode] = useState([]);
     const [filterCourseType, setFilterCourseType] = useState([]);
+    const [filterAllocationStatus, setFilterAllocationStatus] = useState([]);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
@@ -551,6 +552,15 @@ const EnrolledStudentsContent = () => {
             );
         }
 
+        if (filterAllocationStatus.length > 0) {
+            result = result.filter(item => {
+                const hasAllocations = item.student?.allocatedItems?.length > 0;
+                if (filterAllocationStatus.includes('allotted') && hasAllocations) return true;
+                if (filterAllocationStatus.includes('not_allotted') && !hasAllocations) return true;
+                return false;
+            });
+        }
+
         // Filter by student status (viewMode)
         result = result.filter(item => {
             if (viewMode === 'Board') {
@@ -561,7 +571,7 @@ const EnrolledStudentsContent = () => {
         });
 
         setFilteredStudents(result);
-    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, startDate, endDate, students, viewMode, allowedCentres, isSuperAdmin]);
+    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterAllocationStatus, startDate, endDate, students, viewMode, allowedCentres, isSuperAdmin]);
 
     const filteredAdmissions = filteredStudents.flatMap(s =>
         s.admissions.filter(a => {
@@ -592,6 +602,7 @@ const EnrolledStudentsContent = () => {
         setFilterProgramme([]);
         setFilterMode([]);
         setFilterCourseType([]);
+        setFilterAllocationStatus([]);
         setStartDate("");
         setEndDate("");
         setCurrentPage(1);
@@ -1199,6 +1210,20 @@ const EnrolledStudentsContent = () => {
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>
+
+                        <div className="w-full">
+                            <MultiSelectFilter
+                                label="Allocation"
+                                placeholder="ALLOCATION STATUS"
+                                options={[
+                                    { value: 'allotted', label: 'ALLOTTED' },
+                                    { value: 'not_allotted', label: 'NOT ALLOTTED' }
+                                ]}
+                                selectedValues={filterAllocationStatus}
+                                onChange={setFilterAllocationStatus}
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-gray-800/20">
@@ -1244,6 +1269,7 @@ const EnrolledStudentsContent = () => {
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Latest Course</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em] text-center">Courses</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Status</th>
+                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em] text-center">Assets</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Admitted By</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Actions</th>
                             </tr>
@@ -1358,6 +1384,22 @@ const EnrolledStudentsContent = () => {
                                                             {latestAdmission?.paymentStatus}
                                                         </span>
                                                     </div>
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    {studentItem.student?.allocatedItems?.length > 0 ? (
+                                                        <div className="flex flex-col items-center gap-1">
+                                                            <span className={`px-3 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest border text-center bg-green-500/10 text-green-400 border-green-500/20`}>
+                                                                Allotted
+                                                            </span>
+                                                            <span className="text-[8px] text-gray-500 font-bold">
+                                                                {studentItem.student.allocatedItems.length} item{studentItem.student.allocatedItems.length !== 1 ? 's' : ''}
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className={`px-3 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest border text-center bg-red-500/10 text-red-400 border-red-500/20`}>
+                                                            Not Allotted
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-2">
@@ -1720,6 +1762,56 @@ const EnrolledStudentsContent = () => {
                                             </div>
                                         )}
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Allocated Assets Section */}
+                            <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'} rounded-[4px] border overflow-hidden`}>
+                                <div className={`px-4 py-3 border-b flex items-center justify-between ${isDarkMode ? 'border-gray-800 bg-[#1a1f24]' : 'border-gray-100 bg-white'}`}>
+                                    <div className="flex items-center gap-2">
+                                        <FaBoxOpen className="text-cyan-500" size={14} />
+                                        <h4 className={`font-black uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Allocated Assets / Inventory</h4>
+                                    </div>
+                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-[4px] border ${selectedStudent.allocatedItems?.length > 0 ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
+                                        {selectedStudent.allocatedItems?.length || 0} ITEMS TOTAL
+                                    </span>
+                                </div>
+                                <div className="p-4">
+                                    {selectedStudent.allocatedItems?.length > 0 ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                            {selectedStudent.allocatedItems.map((item, idx) => (
+                                                <div key={idx} className={`p-3 rounded-[4px] border flex flex-col justify-between transition-all ${isDarkMode ? 'bg-black/20 border-gray-800 hover:border-cyan-500/30' : 'bg-white border-gray-200 hover:border-cyan-500/30'}`}>
+                                                    <div>
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{item.itemName}</span>
+                                                            <div className="p-1.5 bg-cyan-500/10 text-cyan-500 rounded-[4px]">
+                                                                <FaTools size={10} />
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-gray-500 text-[8px] font-bold uppercase tracking-[0.2em]">Allotted On</p>
+                                                        <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{formatDate(item.allocationDate)}</p>
+                                                    </div>
+                                                    {item.allocatedBy && (
+                                                        <div className="mt-3 pt-3 border-t border-gray-800/10">
+                                                            <p className="text-gray-500 text-[8px] font-bold uppercase tracking-[0.2em] mb-1">Approved By</p>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <div className="w-4 h-4 rounded-full bg-cyan-500/20 text-cyan-500 flex items-center justify-center text-[7px] font-black">
+                                                                    A
+                                                                </div>
+                                                                <span className="text-[9px] font-bold uppercase text-gray-500">Inventory Auth</span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="py-8 text-center bg-transparent border border-dashed border-gray-800/20 rounded-[4px]">
+                                            <p className="text-gray-500 text-[9px] font-black uppercase tracking-[0.25em] italic flex items-center justify-center gap-2">
+                                                <FaExclamationCircle size={10} /> No assets or inventory items currently allotted to this profile
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

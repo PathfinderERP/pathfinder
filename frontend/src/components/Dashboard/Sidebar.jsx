@@ -236,7 +236,16 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Birthday Lists", path: "/hr/birthday", icon: <FaBirthdayCake />, permissionSection: "birthday" },
             ]
         },
-        { name: "Operations", icon: <FaCogs />, path: "#", permissionModule: "operations" },
+        {
+            name: "Operations",
+            icon: <FaCogs />,
+            permissionModule: "operations",
+            subItems: [
+                { name: "Store", path: "/operations/store", permissionSection: "store" },
+                { name: "Marketing", path: "/operations/marketing", permissionSection: "marketing" },
+                { name: "Academics", path: "/operations/academics", permissionSection: "academics" },
+            ]
+        },
         {
             name: "Master Data",
             icon: <FaDatabase />,

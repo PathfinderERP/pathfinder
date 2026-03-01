@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
 const Pagination = ({ currentPage, totalItems, itemsPerPage, onPageChange }) => {
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const safeTotal = Number(totalItems) || 0;
+    const safePerPage = Number(itemsPerPage) || 10;
+    const totalPages = safeTotal > 0 ? Math.ceil(safeTotal / safePerPage) : 0;
     const [pageInput, setPageInput] = useState('');
 
     if (totalPages <= 1) return null;
@@ -83,7 +85,7 @@ const Pagination = ({ currentPage, totalItems, itemsPerPage, onPageChange }) => 
             <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
                 <div>
                     <p className="text-sm text-gray-400">
-                        Showing <span className="font-medium text-white">{Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}</span> to <span className="font-medium text-white">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of <span className="font-medium text-white">{totalItems}</span> results
+                        Showing <span className="font-medium text-white">{Math.min((currentPage - 1) * safePerPage + 1, safeTotal)}</span> to <span className="font-medium text-white">{Math.min(currentPage * safePerPage, safeTotal)}</span> of <span className="font-medium text-white">{safeTotal}</span> results
                     </p>
                 </div>
                 <div className="flex items-center gap-4">

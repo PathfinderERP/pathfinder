@@ -141,6 +141,9 @@ import PartTimeTeachers from "./pages/Finance/PartTimeTeachers";
 import PayEmployee from "./pages/Finance/PayEmployee";
 import PayEmployeeDetails from "./pages/Finance/PayEmployeeDetails";
 import CEOControlTower from "./pages/CEOControlTower";
+import Store from "./pages/Operations/Store";
+import MarketingOperations from "./pages/Operations/Marketing";
+import AcademicsOperations from "./pages/Operations/Academics";
 
 
 // ... inside Routes ... (I will use a simpler replace block to avoid mess)
@@ -236,9 +239,11 @@ function App() {
         <Route path="/hr/reimbursement/add" element={<ProtectedRoute><AddReimbursement /></ProtectedRoute>} />
         <Route path="/hr/posh-table" element={<ProtectedRoute><PoshDashboard /></ProtectedRoute>} />
         <Route path="/hr/candidate-hiring" element={<ProtectedRoute><CandidateHiring /></ProtectedRoute>} />
-
-
-        <Route path="/academics" element={<ProtectedRoute><Academics /></ProtectedRoute>} />
+        
+        {/* Operations Routes */}
+        <Route path="/operations/store" element={<ProtectedRoute><Store /></ProtectedRoute>} />
+        <Route path="/operations/marketing" element={<ProtectedRoute><MarketingOperations /></ProtectedRoute>} />
+        <Route path="/operations/academics" element={<ProtectedRoute><AcademicsOperations /></ProtectedRoute>} />
         <Route path="/academics/teacher-list" element={<ProtectedRoute><TeacherList /></ProtectedRoute>} />
         <Route path="/academics/teacher/view/:id" element={<ProtectedRoute><ViewTeacher /></ProtectedRoute>} />
         <Route path="/academics/student-teacher-review" element={<ProtectedRoute><StudentTeacherReview /></ProtectedRoute>} />

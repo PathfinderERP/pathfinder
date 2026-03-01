@@ -281,6 +281,9 @@ export const PERMISSION_MODULES = {
     operations: {
         label: "Operations",
         sections: {
+            store: { label: "Store", operations: ["view", "create", "edit", "delete"] },
+            marketing: { label: "Marketing", operations: ["view", "create", "edit", "delete"] },
+            academics: { label: "Academics", operations: ["view", "create", "edit", "delete"] },
             centres: {
                 label: "Centres",
                 operations: ["create", "edit", "delete"]

@@ -1,15 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FaChevronDown, FaCheck, FaTimes } from 'react-icons/fa';
 
-const MultiSelectFilter = ({ options, selectedValues, onChange, placeholder, label, theme = 'dark' }) => {
+const MultiSelectFilter = ({ options: rawOptions, selectedValues, onChange, placeholder, label, theme = 'dark' }) => {
     const isDark = theme === 'dark';
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const dropdownRef = useRef(null);
 
+    // Ensure options is always a valid array of { value, label } objects
+    const options = Array.isArray(rawOptions)
+        ? rawOptions.filter(o => o != null).map(o =>
+            typeof o === 'object' ? { value: o.value ?? o, label: o.label ?? String(o.value ?? o) } : { value: o, label: String(o) }
+          )
+        : [];
+
     // Filter options based on search term
     const filteredOptions = options.filter(option =>
-        option.label.toLowerCase().includes(searchTerm.toLowerCase())
+        (option.label || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     // Close dropdown when clicking outside

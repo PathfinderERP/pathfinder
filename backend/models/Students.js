@@ -69,7 +69,12 @@ const StudentSchema = new mongoose.Schema({
   deactivationDate: { type: Date },
   carryForwardBalance: { type: Number, default: 0 },
   markedForCarryForward: { type: Boolean, default: false },
-  counselledBy: { type: String }
+  counselledBy: { type: String },
+  allocatedItems: [{
+    itemName: String,
+    allocationDate: { type: Date, default: Date.now },
+    allocatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  }]
 }, { timestamps: true });
 
 const Student = mongoose.model("Student", StudentSchema);
