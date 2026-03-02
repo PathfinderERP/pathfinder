@@ -72,6 +72,7 @@ const StudentSchema = new mongoose.Schema({
   counselledBy: { type: String },
   allocatedItems: [{
     itemName: String,
+    quantity: { type: Number, default: 1 },
     allocationDate: { type: Date, default: Date.now },
     allocatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
   }]

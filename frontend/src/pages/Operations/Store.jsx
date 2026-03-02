@@ -40,7 +40,8 @@ const StorePage = () => {
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
     const [allocationData, setAllocationData] = useState({
-        items: []
+        items: [],
+        quantities: {} // { itemName: quantity }
     });
 
     const user = React.useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
@@ -177,17 +178,35 @@ const StorePage = () => {
         setSelectedStudent(student);
         setIsAllocationModalOpen(true);
         // Reset allocation data
-        setAllocationData({ items: [] });
+        setAllocationData({ items: [], quantities: {} });
     };
 
-    const toggleItem = (item) => {
+    const toggleItem = (itemName) => {
         setAllocationData(prev => {
-            const exists = prev.items.includes(item);
+            const exists = prev.items.includes(itemName);
             if (exists) {
-                return { ...prev, items: prev.items.filter(i => i !== item) };
+                const newItems = prev.items.filter(i => i !== itemName);
+                const newQuantities = { ...prev.quantities };
+                delete newQuantities[itemName];
+                return { ...prev, items: newItems, quantities: newQuantities };
             } else {
-                return { ...prev, items: [...prev.items, item] };
+                return { 
+                    ...prev, 
+                    items: [...prev.items, itemName],
+                    quantities: { ...prev.quantities, [itemName]: 1 }
+                };
             }
+        });
+    };
+
+    const updateQuantity = (itemName, delta) => {
+        setAllocationData(prev => {
+            const currentQty = prev.quantities[itemName] || 1;
+            const newQty = Math.max(1, currentQty + delta);
+            return {
+                ...prev,
+                quantities: { ...prev.quantities, [itemName]: newQty }
+            };
         });
     };
 
@@ -208,7 +227,10 @@ const StorePage = () => {
                 body: JSON.stringify({
                     studentId: selectedStudent.student._id,
                     admissionId: selectedStudent.latestAdmission._id,
-                    items: allocationData.items.map(name => ({ itemName: name, quantity: 1 }))
+                    items: allocationData.items.map(name => ({ 
+                        itemName: name, 
+                        quantity: allocationData.quantities[name] || 1 
+                    }))
                 })
             });
 
@@ -390,6 +412,22 @@ const StorePage = () => {
                                                             <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                                                                 ID: {item.latestAdmission?.admissionNumber || 'N/A'}
                                                             </p>
+                                                            {item.student?.allocatedItems?.length > 0 && (
+                                                                <div className="mt-2 flex flex-wrap gap-1">
+                                                                    {Object.entries(
+                                                                        item.student.allocatedItems.reduce((acc, curr) => {
+                                                                            acc[curr.itemName] = (acc[curr.itemName] || 0) + (curr.quantity || 1);
+                                                                            return acc;
+                                                                        }, {})
+                                                                    ).map(([name, qty], i) => (
+                                                                        <span key={i} className={`text-[10px] px-2 py-0.5 rounded-md border ${
+                                                                            isDarkMode ? 'bg-gray-800/50 border-gray-700 text-gray-400' : 'bg-gray-100 border-gray-200 text-gray-600'
+                                                                        }`}>
+                                                                            {name} (x{qty})
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </td>
@@ -462,71 +500,124 @@ const StorePage = () => {
                 {/* Allocation Modal */}
                 {isAllocationModalOpen && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                        <div className={`w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 ${isDarkMode ? 'bg-[#1a1f24] border border-gray-800' : 'bg-white'}`}>
+                        <div className={`w-full max-w-lg rounded-[32px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 ${isDarkMode ? 'bg-[#1a1f24]/90 backdrop-blur-xl border border-white/10' : 'bg-white/95 backdrop-blur-xl border border-gray-200'}`}>
                             {/* Modal Header */}
-                            <div className="p-6 bg-gradient-to-r from-cyan-500 to-blue-600 text-white relative">
-                                <h3 className="text-xl font-bold flex items-center gap-2">
-                                    <FaBoxOpen />
-                                    Allocate Items
+                            <div className="p-8 bg-gradient-to-br from-cyan-600 to-blue-700 text-white relative">
+                                <h3 className="text-2xl font-black flex items-center gap-3 tracking-tight">
+                                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md">
+                                        <FaBoxOpen className="text-white" />
+                                    </div>
+                                    Allocate New Assets
                                 </h3>
-                                <p className="text-cyan-100 text-xs mt-1">Student: {selectedStudent?.student?.studentsDetails[0]?.studentName}</p>
+                                <p className="text-cyan-100/80 text-sm mt-2 font-medium">Student: <span className="text-white font-bold">{selectedStudent?.student?.studentsDetails[0]?.studentName}</span></p>
                                 <button 
                                     onClick={() => setIsAllocationModalOpen(false)}
-                                    className="absolute top-6 right-6 text-white/70 hover:text-white transition-colors"
+                                    className="absolute top-8 right-8 w-10 h-10 flex items-center justify-center rounded-full bg-black/10 hover:bg-black/20 text-white transition-all group"
                                 >
-                                    <FaSync className="rotate-45" />
+                                    <FaSync className="rotate-45 group-hover:rotate-0 transition-transform duration-300" />
                                 </button>
                             </div>
 
                             {/* Modal Body */}
-                            <div className="p-8">
-                                <p className={`text-sm mb-6 font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                    Select the items you want to allocate to this student.
+                            <div className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                                {selectedStudent?.student?.allocatedItems?.length > 0 && (
+                                    <div className="mb-8">
+                                        <p className={`text-xs font-bold uppercase tracking-widest mb-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                            Already Allotted
+                                        </p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {Object.entries(
+                                                selectedStudent.student.allocatedItems.reduce((acc, curr) => {
+                                                    acc[curr.itemName] = (acc[curr.itemName] || 0) + (curr.quantity || 1);
+                                                    return acc;
+                                                }, {})
+                                            ).map(([name, qty], i) => (
+                                                <div key={i} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 ${
+                                                    isDarkMode ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-green-50 border-green-200 text-green-700'
+                                                }`}>
+                                                    <FaCheckCircle className="text-xs" />
+                                                    <span className="text-xs font-bold">{name}</span>
+                                                    <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${isDarkMode ? 'bg-green-500/20' : 'bg-green-100'}`}>x{qty}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <p className={`text-sm mb-6 font-bold flex items-center gap-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    <FaClipboardList className="text-cyan-500" />
+                                    Select Items to Allot
                                 </p>
 
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 gap-4">
                                     {availableItems.map(item => (
                                         <div 
                                             key={item.id}
-                                            onClick={() => toggleItem(item.name)}
-                                            className={`p-4 rounded-2xl cursor-pointer border-2 transition-all flex flex-col items-center gap-3 ${
+                                            className={`group p-4 rounded-2xl border-2 transition-all duration-300 flex items-center justify-between ${
                                                 allocationData.items.includes(item.name)
-                                                ? (isDarkMode ? 'bg-cyan-500/10 border-cyan-500' : 'bg-blue-50 border-blue-500')
-                                                : (isDarkMode ? 'bg-gray-800/50 border-gray-800 hover:border-gray-700' : 'bg-gray-50 border-gray-100 hover:border-gray-200')
+                                                ? (isDarkMode ? 'bg-cyan-500/10 border-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.1)]' : 'bg-blue-50 border-blue-500 shadow-blue-100 shadow-xl')
+                                                : (isDarkMode ? 'bg-gray-800/30 border-gray-800 hover:border-gray-700' : 'bg-gray-50 border-gray-100 hover:border-gray-200 shadow-sm')
                                             }`}
                                         >
-                                            <div className={`text-2xl p-3 rounded-xl ${isDarkMode ? 'bg-gray-900' : 'bg-white shadow-sm'}`}>
-                                                {item.icon}
+                                            <div 
+                                                className="flex items-center gap-4 cursor-pointer flex-1"
+                                                onClick={() => toggleItem(item.name)}
+                                            >
+                                                <div className={`text-2xl p-4 rounded-2xl transition-transform duration-300 group-hover:scale-110 ${isDarkMode ? 'bg-gray-900 border border-white/5' : 'bg-white shadow-md'}`}>
+                                                    {item.icon}
+                                                </div>
+                                                <div>
+                                                    <span className="text-base font-bold block">{item.name}</span>
+                                                    <span className={`text-[10px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Select to allocate</span>
+                                                </div>
                                             </div>
-                                            <span className="text-sm font-bold">{item.name}</span>
                                             
                                             {allocationData.items.includes(item.name) && (
-                                                <div className="absolute top-2 right-2">
-                                                    <FaCheckCircle className="text-cyan-500" />
+                                                <div className="flex items-center gap-3 bg-white/10 rounded-xl p-1 px-2 border border-white/10">
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); updateQuantity(item.name, -1); }}
+                                                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                                                            isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-cyan-400' : 'bg-white hover:bg-gray-100 text-blue-600'
+                                                        }`}
+                                                    >
+                                                        -
+                                                    </button>
+                                                    <span className="w-6 text-center font-black text-sm">
+                                                        {allocationData.quantities[item.name]}
+                                                    </span>
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); updateQuantity(item.name, 1); }}
+                                                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                                                            isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-cyan-400' : 'bg-white hover:bg-gray-100 text-blue-600'
+                                                        }`}
+                                                    >
+                                                        +
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>
                                     ))}
                                 </div>
 
-                                <div className="mt-8 flex gap-3">
+                                <div className="mt-10 flex gap-4">
                                     <button
                                         onClick={() => setIsAllocationModalOpen(false)}
-                                        className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${
-                                            isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        className={`flex-1 py-4 rounded-2xl font-black text-sm tracking-wider uppercase transition-all ${
+                                            isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                                         }`}
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         onClick={handleAllocationSubmit}
-                                        className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all shadow-lg ${
+                                        disabled={allocationData.items.length === 0}
+                                        className={`flex-[2] py-4 rounded-2xl font-black text-sm tracking-wider uppercase transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${
                                             isDarkMode 
-                                            ? 'bg-cyan-500 text-[#0f1214] hover:bg-cyan-400 shadow-cyan-500/20' 
-                                            : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/20'
+                                            ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-400 hover:to-blue-500 shadow-cyan-500/20' 
+                                            : 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:opacity-90 shadow-blue-500/20'
                                         }`}
                                     >
-                                        Confirm
+                                        Confirm Allocation
                                     </button>
                                 </div>
                             </div>

@@ -24,6 +24,7 @@ export const createAllocation = async (req, res) => {
                 allocatedItems: {
                     $each: items.map(item => ({
                         itemName: item.itemName,
+                        quantity: item.quantity || 1,
                         allocatedBy: req.user._id
                     }))
                 }
