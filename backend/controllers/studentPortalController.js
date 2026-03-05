@@ -2,6 +2,9 @@ import Student from "../models/Students.js";
 import Admission from "../models/Admission/Admission.js";
 import ClassSchedule from "../models/Academics/ClassSchedule.js";
 import StudentAttendance from "../models/Academics/StudentAttendance.js";
+import User from "../models/User.js";
+import Employee from "../models/HR/Employee.js";
+import { getSignedFileUrl } from "../utils/r2Upload.js";
 import jwt from "jsonwebtoken";
 
 // Login: Username (Email) + Password (Admission Number)
@@ -156,5 +159,56 @@ export const getAttendance = async (req, res) => {
     } catch (error) {
         console.error("Get Attendance Error:", error);
         res.status(500).json({ message: "Server error" });
+    }
+};
+
+// Get All Teachers (accessible by Students, Admins, and SuperAdmins)
+export const getTeachers = async (req, res) => {
+    try {
+        const allowedRoles = ["student", "admin", "superAdmin", "teacher", "HOD"];
+        const userRole = req.user.role?.toLowerCase() || "";
+
+        if (!allowedRoles.includes(userRole) && userRole !== "superadmin") {
+            return res.status(403).json({ message: "Access denied." });
+        }
+
+        // Find users with role 'teacher' or 'HOD'
+        const teachers = await User.find({ role: { $in: ["teacher", "HOD"] } })
+            .select("name email mobNum subject designation teacherDepartment boardType teacherType centres isDeptHod isBoardHod isSubjectHod")
+            .populate("centres", "centreName")
+            .sort({ name: 1 });
+
+        // Fetch profile images and additional bio from Employee model
+        const teachersWithImages = await Promise.all(teachers.map(async (teacher) => {
+            const teachObj = teacher.toObject();
+            const employee = await Employee.findOne({ user: teacher._id })
+                .select("profileImage department designation dateOfJoining typeOfEmployment gender bloodGroup");
+
+            if (employee) {
+                if (employee.profileImage) {
+                    try {
+                        teachObj.profileImage = await getSignedFileUrl(employee.profileImage);
+                    } catch (err) {
+                        console.warn(`Could not sign URL for teacher ${teacher.name}:`, err.message);
+                        teachObj.profileImage = null;
+                    }
+                }
+                teachObj.academicInfo = {
+                    joiningDate: employee.dateOfJoining,
+                    employmentType: employee.typeOfEmployment,
+                    gender: employee.gender,
+                    bloodGroup: employee.bloodGroup
+                };
+            } else {
+                teachObj.profileImage = null;
+                teachObj.academicInfo = null;
+            }
+            return teachObj;
+        }));
+
+        res.status(200).json(teachersWithImages);
+    } catch (error) {
+        console.error("Get Teachers Student Portal Error:", error);
+        res.status(500).json({ message: "Server error fetching teachers" });
     }
 };

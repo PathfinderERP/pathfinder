@@ -15,7 +15,7 @@ export default function Login() {
   React.useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
-      navigate("/community");
+      navigate("/dashboard");
     }
   }, [navigate]);
 
@@ -60,7 +60,7 @@ export default function Login() {
 
       // Redirect to community
       setTimeout(() => {
-        navigate("/community");
+        navigate("/dashboard");
       }, 500);
     } catch (err) {
       console.error("Login error:", err);

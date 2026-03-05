@@ -160,7 +160,7 @@ function App() {
         <Route path="/login" element={<Login />} />
 
         {/* Protected Routes */}
-        <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
+        {/* <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} /> */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/lead-management" element={<ProtectedRoute><LeadManagement /></ProtectedRoute>} />
         <Route path="/lead-management/dashboard" element={<ProtectedRoute><LeadDashboard /></ProtectedRoute>} />
@@ -239,7 +239,7 @@ function App() {
         <Route path="/hr/reimbursement/add" element={<ProtectedRoute><AddReimbursement /></ProtectedRoute>} />
         <Route path="/hr/posh-table" element={<ProtectedRoute><PoshDashboard /></ProtectedRoute>} />
         <Route path="/hr/candidate-hiring" element={<ProtectedRoute><CandidateHiring /></ProtectedRoute>} />
-        
+
         {/* Operations Routes */}
         <Route path="/operations/store" element={<ProtectedRoute><Store /></ProtectedRoute>} />
         <Route path="/operations/marketing" element={<ProtectedRoute><MarketingOperations /></ProtectedRoute>} />

@@ -191,11 +191,10 @@ const createAdmissionRecord = async (studentId, course, row, admissionNumber, ce
     let baseFees, cgstAmount, sgstAmount, totalFees;
 
     if (totalFeesExcel > 0) {
-        totalFees = totalFeesExcel;
-        const calculatedBase = totalFees / 1.18;
-        cgstAmount = Math.round(calculatedBase * 0.09);
-        sgstAmount = Math.round(calculatedBase * 0.09);
-        baseFees = totalFees - cgstAmount - sgstAmount;
+        baseFees = totalFeesExcel;
+        cgstAmount = Math.round(baseFees * 0.09);
+        sgstAmount = Math.round(baseFees * 0.09);
+        totalFees = baseFees + cgstAmount + sgstAmount;
     } else {
         baseFees = course.feesStructure.reduce((sum, fee) => sum + fee.value, 0);
         cgstAmount = Math.round(baseFees * 0.09);
@@ -259,10 +258,10 @@ const createAdmissionRecord = async (studentId, course, row, admissionNumber, ce
     });
 
     if (downPayment > 0) {
-        const dpBaseAmount = downPayment / 1.18;
-        const dpCgst = dpBaseAmount * 0.09;
-        const dpSgst = dpBaseAmount * 0.09;
-        const dpCourseFee = downPayment - dpCgst - dpSgst;
+        const dpBaseAmount = downPayment;
+        const dpCgst = Math.round(dpBaseAmount * 0.09);
+        const dpSgst = Math.round(dpBaseAmount * 0.09);
+        const dpTotal = dpBaseAmount + dpCgst + dpSgst;
 
         const centreCode = centreObj ? centreObj.enterCode : 'GEN';
         const billId = await generateBillId(centreCode);
@@ -270,22 +269,28 @@ const createAdmissionRecord = async (studentId, course, row, admissionNumber, ce
         const payment = new Payment({
             admission: admission._id,
             installmentNumber: 0,
-            amount: downPayment,
-            paidAmount: downPayment,
+            amount: dpTotal,
+            paidAmount: dpTotal,
             dueDate: admDate,
             paidDate: admDate,
             receivedDate: admDate,
             status: "PAID",
             paymentMethod: "CASH",
-            remarks: "Imported Admission Payment",
+            remarks: "Imported Admission Payment (GST Extra)",
             recordedBy: ADMIN_ID,
-            cgst: parseFloat(dpCgst.toFixed(2)),
-            sgst: parseFloat(dpSgst.toFixed(2)),
-            courseFee: parseFloat(dpCourseFee.toFixed(2)),
-            totalAmount: downPayment,
+            cgst: dpCgst,
+            sgst: dpSgst,
+            courseFee: dpBaseAmount,
+            totalAmount: dpTotal,
             billId: billId
         });
         await payment.save();
+
+        admission.totalPaidAmount = dpTotal;
+        admission.remainingAmount = Math.max(0, totalFees - dpTotal);
+        admission.paymentStatus = (dpTotal >= totalFees) ? "COMPLETED" : "PARTIAL";
+        admission.paymentBreakdown[0].amount = admission.remainingAmount;
+        await admission.save();
     }
 };
 
