@@ -149,7 +149,7 @@ const EmployeeDetails = () => {
                 fetchProfile(); // Refresh
             } else {
                 const err = await response.json();
-                toast.error(err.message || "Failed to update profile");
+                toast.error(err.error || err.message || "Failed to update profile");
             }
         } catch (error) {
             console.error(error);
@@ -210,7 +210,11 @@ const EmployeeDetails = () => {
                             <div className="pt-6 flex flex-wrap justify-center md:justify-start gap-8 text-sm">
                                 <div>
                                     <span className={`block text-xs uppercase ${isDarkMode ? 'text-gray-500' : 'text-blue-200'} font-bold mb-1`}>Joining Date</span>
-                                    <span className="text-lg font-bold text-gray-200">{new Date(employee.dateOfJoining).toLocaleDateString(undefined, { dateStyle: 'long' })}</span>
+                                    <span className="text-lg font-bold text-gray-200">
+                                        {employee.dateOfJoining && !isNaN(new Date(employee.dateOfJoining).getTime())
+                                            ? new Date(employee.dateOfJoining).toLocaleDateString(undefined, { dateStyle: 'long' })
+                                            : "N/A"}
+                                    </span>
                                 </div>
                                 <div>
                                     <span className="block text-xs uppercase text-gray-500 font-bold mb-1">Department</span>

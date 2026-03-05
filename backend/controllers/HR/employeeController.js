@@ -685,7 +685,7 @@ export const updateMyProfile = async (req, res) => {
 
         // List of allowed fields to update
         const allowedUpdates = [
-            "name", "spouseName", "dateOfBirth", "gender", "children",
+            "name", "spouseName", "dateOfBirth", "gender", "children", "bloodGroup",
             "phoneNumber", "whatsappNumber", "alternativeNumber",
             "state", "city", "pinCode", "address",
             "aadharNumber", "panNumber", "bankName", "branchName",
@@ -700,12 +700,12 @@ export const updateMyProfile = async (req, res) => {
             "educationalQualification1", "educationalQualification2", "educationalQualification3"
         ];
 
+        let nameUpdated = false;
         Object.keys(updates).forEach(key => {
-            // Exclude file fields from direct text update if they are in allowedUpdates list
-            // (We handle them separately via req.files)
             if (allowedUpdates.includes(key) && !fileFieldsList.includes(key)) {
                 if (updates[key] !== undefined && updates[key] !== "undefined" && updates[key] !== null && updates[key] !== "null") {
                     employee[key] = updates[key];
+                    if (key === "name") nameUpdated = true;
                 }
             }
         });
@@ -722,16 +722,27 @@ export const updateMyProfile = async (req, res) => {
                 if (req.files[field] && req.files[field][0]) {
                     // Delete old file if exists
                     if (employee[field]) {
-                        await deleteFromR2(employee[field]);
+                        try {
+                            await deleteFromR2(employee[field]);
+                        } catch (err) {
+                            console.warn(`Failed to delete old ${field} for employee ${employee._id}:`, err.message);
+                        }
                     }
-                    // Upload new file
-                    const fileUrl = await uploadToR2(req.files[field][0], "employees/profile");
+                    // Upload new file - Use consistent path: employees/${field}
+                    const folder = field === "profileImage" ? "employees/profile" : `employees/${field}`;
+                    const fileUrl = await uploadToR2(req.files[field][0], folder);
                     employee[field] = fileUrl;
                 }
             }
         }
 
         await employee.save();
+
+        // If name was updated in Employee, sync with User
+        if (nameUpdated) {
+            await User.findByIdAndUpdate(userId, { name: employee.name });
+        }
+
         const signedEmployee = await signEmployeeFiles(employee);
 
         res.status(200).json({
@@ -740,7 +751,16 @@ export const updateMyProfile = async (req, res) => {
         });
     } catch (error) {
         console.error("Error updating profile:", error);
-        res.status(500).json({ message: "Error updating profile", error: error.message });
+
+        // Return a more descriptive error message if possible
+        const errorMessage = error.name === "ValidationError"
+            ? `Validation Error: ${Object.values(error.errors).map(e => e.message).join(", ")}`
+            : error.message;
+
+        res.status(500).json({
+            message: "Error updating profile",
+            error: errorMessage
+        });
     }
 };
 
