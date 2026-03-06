@@ -8,7 +8,7 @@ import User from "../../models/User.js";
 export const getEmployeeAnalytics = async (req, res) => {
     try {
         const userRole = (req.user.role || "").toLowerCase();
-        const isFullAccess = ['superadmin', 'super admin', 'admin'].includes(userRole);
+        const isFullAccess = ['superadmin', 'super admin', 'admin', 'hr'].includes(userRole);
         const userCentres = req.user.centres || [];
         const { tab } = req.query;
 

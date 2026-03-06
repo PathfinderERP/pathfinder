@@ -776,8 +776,8 @@ const TeacherList = () => {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className={`block text-sm mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600 font-medium'}`}>Board Type <span className="text-red-500">*</span></label>
-                                        <select name="boardType" required disabled={viewOnly} value={formData.boardType} onChange={handleChange}
+                                        <label className={`block text-sm mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600 font-medium'}`}>Board Type</label>
+                                        <select name="boardType" disabled={viewOnly} value={formData.boardType} onChange={handleChange}
                                             className={`w-full border rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none disabled:opacity-70 ${isDarkMode ? 'bg-[#13171c] border-gray-700 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}>
                                             <option value="">Select</option>
                                             <option value="CBSE">CBSE</option>

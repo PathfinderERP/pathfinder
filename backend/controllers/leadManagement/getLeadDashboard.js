@@ -73,7 +73,7 @@ export const getLeadDashboardStats = async (req, res) => {
 
         // Access Control (Sync with getLeads.js)
         const userRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ['superadmin', 'super admin', 'centerincharge', 'zonalmanager', 'zonalhead'];
+        const privilegedRoles = ['superadmin', 'super admin', 'centerincharge', 'zonalmanager', 'zonalhead', 'hr'];
         const isPrivileged = privilegedRoles.includes(userRole);
 
         if (userRole !== 'superadmin' && userRole !== 'super admin') {

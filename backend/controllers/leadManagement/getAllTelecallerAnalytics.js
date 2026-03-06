@@ -90,11 +90,11 @@ export const getAllTelecallerAnalytics = async (req, res) => {
 
         // 1. Fetch Users (Telemetry Targets) - Respecting Access Control
         const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "zonalhead"];
+        const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "zonalhead", "hr"];
         const isPrivileged = privilegedRoles.includes(userRoleStr);
 
         let userQuery = {
-            role: { $in: ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing', 'admin', 'centerIncharge', 'zonalManager', 'zonalHead'] }
+            role: { $in: ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing', 'admin', 'centerIncharge', 'zonalManager', 'zonalHead', 'hr'] }
         };
 
         if (userRoleStr !== "superadmin" && userRoleStr !== "super admin") {

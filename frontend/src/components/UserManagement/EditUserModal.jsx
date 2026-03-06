@@ -67,8 +67,8 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
     const canDeactivateUsers = isSuperAdmin || (hasPermission(currentUser.granularPermissions, 'userManagement', 'users', 'edit') && (hasModuleAccess(currentUser.granularPermissions, 'employeeCenter') || hasModuleAccess(currentUser.granularPermissions, 'hrManpower')));
 
     const roles = isSuperAdmin
-        ? ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "zonalHead", "superAdmin"]
-        : ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "zonalHead"];
+        ? ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "zonalHead", "hr", "superAdmin"]
+        : ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "zonalHead", "hr"];
 
     useEffect(() => {
         fetchCentres();
@@ -172,14 +172,25 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                 });
                 newData.granularPermissions = allPerms;
             }
-            // Default access for Marketing and Counsellor when switching role
-            else if (name === "role" && (value === "marketing" || value === "counsellor") && permissionsConfig) {
+            // Default access for HR, Marketing and Counsellor when switching role
+            else if (name === "role" && (value === "marketing" || value === "counsellor" || value === "hr") && permissionsConfig) {
                 const defaultPerms = {};
                 // Employee Center
                 if (permissionsConfig.employeeCenter) {
                     defaultPerms.employeeCenter = {};
                     Object.keys(permissionsConfig.employeeCenter.sections).forEach(sectionKey => {
                         defaultPerms.employeeCenter[sectionKey] = {
+                            create: true,
+                            edit: true,
+                            delete: true
+                        };
+                    });
+                }
+                // HR Manpower (only for HR)
+                if (value === "hr" && permissionsConfig.hrManpower) {
+                    defaultPerms.hrManpower = {};
+                    Object.keys(permissionsConfig.hrManpower.sections).forEach(sectionKey => {
+                        defaultPerms.hrManpower[sectionKey] = {
                             create: true,
                             edit: true,
                             delete: true
@@ -215,7 +226,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                 }
                 newData.granularPermissions = defaultPerms;
             }
-            // If switching TO a regular role (not superAdmin and not marketing/counsellor)
+            // If switching TO a regular role (not superAdmin and not marketing/counsellor/hr)
             else if (name === "role" && value !== "superAdmin" && permissionsConfig) {
                 if (!newData.granularPermissions.employeeCenter) {
                     const empCenterPerms = {};
@@ -337,7 +348,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                             <label className={`block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-black uppercase tracking-widest mb-1`}>Role *</label>
                             <select name="role" required value={formData.role} onChange={handleChange} className={`w-full ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} border rounded-lg p-2.5 focus:border-cyan-500 outline-none transition-all font-bold`}>
                                 {roles.map(role => (
-                                    <option key={role} value={role}>{role === "superAdmin" ? "SuperAdmin" : role.charAt(0).toUpperCase() + role.slice(1)}</option>
+                                    <option key={role} value={role}>{role === "superAdmin" ? "SuperAdmin" : role === "hr" ? "HR" : role.charAt(0).toUpperCase() + role.slice(1)}</option>
                                 ))}
                             </select>
                             {!isSuperAdmin && formData.role === "superAdmin" && (

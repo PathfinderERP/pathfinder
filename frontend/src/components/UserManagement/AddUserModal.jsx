@@ -53,8 +53,8 @@ const AddUserModal = ({ onClose, onSuccess }) => {
     const isSuperAdmin = currentUser.role === "superAdmin";
 
     const roles = isSuperAdmin
-        ? ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "zonalHead", "Class_Coordinator", "superAdmin"]
-        : ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "zonalHead", "Class_Coordinator"];
+        ? ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "zonalHead", "Class_Coordinator", "hr", "superAdmin"]
+        : ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "zonalHead", "Class_Coordinator", "hr"];
 
     useEffect(() => {
         fetchCentres();
@@ -115,14 +115,25 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                 });
                 newData.granularPermissions = allPerms;
             }
-            // Default access for Marketing and Counsellor
-            else if (name === "role" && (value === "marketing" || value === "counsellor") && permissionsConfig) {
+            // Default access for HR, Marketing and Counsellor
+            else if (name === "role" && (value === "marketing" || value === "counsellor" || value === "hr") && permissionsConfig) {
                 const defaultPerms = {};
                 // Employee Center
                 if (permissionsConfig.employeeCenter) {
                     defaultPerms.employeeCenter = {};
                     Object.keys(permissionsConfig.employeeCenter.sections).forEach(sectionKey => {
                         defaultPerms.employeeCenter[sectionKey] = {
+                            create: true,
+                            edit: true,
+                            delete: true
+                        };
+                    });
+                }
+                // HR Manpower (only for HR)
+                if (value === "hr" && permissionsConfig.hrManpower) {
+                    defaultPerms.hrManpower = {};
+                    Object.keys(permissionsConfig.hrManpower.sections).forEach(sectionKey => {
+                        defaultPerms.hrManpower[sectionKey] = {
                             create: true,
                             edit: true,
                             delete: true
@@ -255,7 +266,7 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                             <label className={`block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-black uppercase tracking-widest mb-1`}>Role *</label>
                             <select name="role" required value={formData.role} onChange={handleChange} className={`w-full ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} border rounded-lg p-2.5 focus:border-cyan-500 outline-none transition-all font-bold`}>
                                 {roles.map(role => (
-                                    <option key={role} value={role}>{role === "superAdmin" ? "SuperAdmin" : role.charAt(0).toUpperCase() + role.slice(1)}</option>
+                                    <option key={role} value={role}>{role === "superAdmin" ? "SuperAdmin" : role === "hr" ? "HR" : role.charAt(0).toUpperCase() + role.slice(1)}</option>
                                 ))}
                             </select>
                         </div>

@@ -289,7 +289,7 @@ export const getEmployees = async (req, res) => {
                 // Staff = Not teacher, Not HOD (role or flags), and Not superAdmin
                 roleFilter = {
                     $and: [
-                        { role: { $nin: ['teacher', 'HOD', 'superAdmin'] } },
+                        { role: { $nin: ['teacher', 'HOD', 'superAdmin', 'hr'] } },
                         { isDeptHod: { $ne: true } },
                         { isBoardHod: { $ne: true } },
                         { isSubjectHod: { $ne: true } }
@@ -308,10 +308,10 @@ export const getEmployees = async (req, res) => {
 
         // Data Isolation: Restrict visibility based on role
         const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "zonalhead"];
+        const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "zonalhead", "hr"];
         const isPrivileged = privilegedRoles.includes(userRoleStr);
 
-        if (userRoleStr !== 'superadmin' && userRoleStr !== 'super admin') {
+        if (userRoleStr !== 'superadmin' && userRoleStr !== 'super admin' && userRoleStr !== 'hr') {
             const userCentres = req.user.centres || [];
             if (isPrivileged && userCentres.length > 0) {
                 // Privileged see their centers
@@ -605,7 +605,7 @@ export const addSalaryStructure = async (req, res) => {
 export const getEmployeesForDropdown = async (req, res) => {
     try {
         const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "zonalhead"];
+        const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "zonalhead", "hr"];
         const isPrivileged = privilegedRoles.includes(userRoleStr);
 
         const query = { status: "Active" };

@@ -96,7 +96,7 @@ export const getLeads = async (req, res) => {
         query.isCounseled = { $ne: true };
         // Centre-based access control
         const userRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ['superadmin', 'super admin', 'centerincharge', 'zonalmanager', 'zonalhead'];
+        const privilegedRoles = ['superadmin', 'super admin', 'centerincharge', 'zonalmanager', 'zonalhead', 'hr'];
         const isPrivileged = privilegedRoles.includes(userRole);
         const isSuperAdmin = ['superadmin', 'super admin'].includes(userRole);
 
