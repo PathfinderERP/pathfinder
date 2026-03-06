@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -60,6 +60,22 @@ const AddClass = () => {
     const [acadTopics, setAcadTopics] = useState([]);
     const [selectedTopics, setSelectedTopics] = useState([]); // List of { id, name }
     const [currentTopicId, setCurrentTopicId] = useState("");
+
+    // Teacher search state
+    const [teacherSearch, setTeacherSearch] = useState("");
+    const [teacherDropdownOpen, setTeacherDropdownOpen] = useState(false);
+    const teacherDropdownRef = useRef(null);
+
+    // Close teacher dropdown on outside click
+    useEffect(() => {
+        const handler = (e) => {
+            if (teacherDropdownRef.current && !teacherDropdownRef.current.contains(e.target)) {
+                setTeacherDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
 
     const [loading, setLoading] = useState(false);
     const API_URL = import.meta.env.VITE_API_URL;
@@ -284,16 +300,64 @@ const AddClass = () => {
                         </div>
                         <div className="md:col-span-1">
                             <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Teacher*</label>
-                            <select
-                                name="teacherId"
-                                value={formData.teacherId}
-                                onChange={handleChange}
-                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
-                                required
-                            >
-                                <option value="">Select a teacher</option>
-                                {dropdownData.teachers.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-                            </select>
+                            <div className="relative" ref={teacherDropdownRef}>
+                                {/* Display Button */}
+                                <button
+                                    type="button"
+                                    onClick={() => { setTeacherDropdownOpen(prev => !prev); setTeacherSearch(""); }}
+                                    className={`w-full rounded-lg p-3 outline-none transition-all border text-left flex justify-between items-center ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                >
+                                    <span className={formData.teacherId ? '' : 'text-gray-400'}>
+                                        {formData.teacherId
+                                            ? (dropdownData.teachers.find(t => t._id === formData.teacherId)?.name || 'Select a teacher')
+                                            : 'Select a teacher'}
+                                    </span>
+                                    <svg className={`w-4 h-4 transition-transform ${teacherDropdownOpen ? 'rotate-180' : ''} ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                </button>
+
+                                {/* Dropdown Panel */}
+                                {teacherDropdownOpen && (
+                                    <div className={`absolute z-50 w-full mt-1 rounded-lg border shadow-xl overflow-hidden ${isDarkMode ? 'bg-[#1e2530] border-gray-700' : 'bg-white border-gray-200'}`}>
+                                        {/* Search input */}
+                                        <div className={`p-2 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                                            <input
+                                                type="text"
+                                                autoFocus
+                                                value={teacherSearch}
+                                                onChange={e => setTeacherSearch(e.target.value)}
+                                                placeholder="Search teacher..."
+                                                className={`w-full px-3 py-1.5 text-sm rounded-lg border outline-none ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`}
+                                            />
+                                        </div>
+                                        {/* Options list */}
+                                        <div className="max-h-52 overflow-y-auto">
+                                            <button
+                                                type="button"
+                                                onClick={() => { setFormData(prev => ({ ...prev, teacherId: "" })); setTeacherDropdownOpen(false); }}
+                                                className={`w-full text-left px-4 py-2 text-sm ${isDarkMode ? 'text-gray-400 hover:bg-[#131619]' : 'text-gray-400 hover:bg-gray-50'}`}
+                                            >
+                                                Select a teacher
+                                            </button>
+                                            {dropdownData.teachers
+                                                .filter(t => t.name.toLowerCase().includes(teacherSearch.toLowerCase()))
+                                                .map(t => (
+                                                    <button
+                                                        key={t._id}
+                                                        type="button"
+                                                        onClick={() => { setFormData(prev => ({ ...prev, teacherId: t._id })); setTeacherDropdownOpen(false); setTeacherSearch(""); }}
+                                                        className={`w-full text-left px-4 py-2 text-sm transition-colors ${formData.teacherId === t._id ? (isDarkMode ? 'bg-cyan-900/40 text-cyan-300' : 'bg-cyan-50 text-cyan-700 font-semibold') : (isDarkMode ? 'text-gray-200 hover:bg-[#131619]' : 'text-gray-800 hover:bg-gray-50')}`}
+                                                    >
+                                                        {t.name}
+                                                    </button>
+                                                ))
+                                            }
+                                            {dropdownData.teachers.filter(t => t.name.toLowerCase().includes(teacherSearch.toLowerCase())).length === 0 && (
+                                                <div className={`px-4 py-3 text-sm ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>No teachers found</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         <div className="md:col-span-1">
                             <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class Coordinator (Optional)</label>
