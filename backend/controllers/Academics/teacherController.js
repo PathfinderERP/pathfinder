@@ -259,20 +259,22 @@ export const getAllTeachers = async (req, res) => {
     try {
         let query = { role: { $in: ["teacher", "HOD"] } };
 
-        if (req.user.role !== 'superAdmin' && req.user.role !== 'admin' && req.user.role !== 'teacher' && req.user.role !== 'HOD') {
-            // Only restrict if the user has a role that should strictly be limited (e.g. maybe a lower role if exists).
-            // For now, let's assume Teachers/HODs/Admins can see the full directory.
-            // Or if we want to keep centre restriction but the user complained, maybe we just comment it out?
-            // The user asked "why he can see only the two". Implies he wants to see ALL.
-            /* 
-            const allowedCentreIds = req.user.centres || [];
-            if (allowedCentreIds.length > 0) {
-                const ids = allowedCentreIds.map(c => c._id || c);
-                query.centres = { $in: ids };
+        const userRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
+        const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "zonalhead"];
+        const isPrivileged = privilegedRoles.includes(userRole);
+
+        if (userRole !== "superadmin" && userRole !== "super admin") {
+            if (isPrivileged) {
+                const userCentres = req.user.centres || [];
+                if (userCentres.length > 0) {
+                    query.centres = { $in: userCentres };
+                } else {
+                    query._id = req.user.id;
+                }
             } else {
-                return res.status(200).json([]);
+                // Non-privileged see ONLY themselves
+                query._id = req.user.id;
             }
-            */
         }
 
         const teachers = await User.find(query)

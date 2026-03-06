@@ -57,12 +57,20 @@ export const getAllCoordinators = async (req, res) => {
     try {
         let query = { role: "Class_Coordinator" };
 
-        if (req.user.role !== 'superAdmin') {
-            const allowedCentreIds = req.user.centres || [];
-            if (allowedCentreIds.length > 0) {
-                query.centres = { $in: allowedCentreIds };
+        const userRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
+        const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "zonalhead"];
+        const isPrivileged = privilegedRoles.includes(userRole);
+
+        if (userRole !== "superadmin" && userRole !== "super admin") {
+            if (isPrivileged) {
+                const allowedCentreIds = req.user.centres || [];
+                if (allowedCentreIds.length > 0) {
+                    query.centres = { $in: allowedCentreIds };
+                } else {
+                    query._id = req.user.id;
+                }
             } else {
-                return res.status(200).json([]);
+                query._id = req.user.id;
             }
         }
 

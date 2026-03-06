@@ -95,31 +95,33 @@ export const getLeads = async (req, res) => {
         // Exclude counseled leads from dashboard stats to match lead list logic
         query.isCounseled = { $ne: true };
         // Centre-based access control
-        const userRole = req.user.role?.toLowerCase();
-        const isUnrestricted = ['superadmin', 'super admin', 'admin'].includes(userRole);
+        const userRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
+        const privilegedRoles = ['superadmin', 'super admin', 'centerincharge', 'zonalmanager', 'zonalhead'];
+        const isPrivileged = privilegedRoles.includes(userRole);
+        const isSuperAdmin = ['superadmin', 'super admin'].includes(userRole);
 
-        if (!isUnrestricted) {
+        if (!isSuperAdmin) {
             // Fetch user's centres from database
             const userDoc = await User.findById(req.user.id).select('centres role name');
-
             if (!userDoc) return res.status(401).json({ message: "User not found" });
 
             const userCentreIds = userDoc.centres || [];
-            const orConditions = [{ createdBy: userDoc._id }];
+            const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-            if (userDoc.role === 'telecaller') {
-                const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                orConditions.push({ leadResponsibility: { $regex: new RegExp(`^${escapedName}$`, "i") } });
-            }
+            const orConditions = [
+                { createdBy: userDoc._id },
+                { leadResponsibility: { $regex: new RegExp(`^${escapedName}$`, "i") } }
+            ];
 
-            if (userCentreIds.length > 0) {
+            if (isPrivileged && userCentreIds.length > 0) {
+                // ONLY privileged roles see center-wide
                 orConditions.push({ centre: { $in: userCentreIds } });
             }
 
             query.$and = query.$and || [];
             query.$and.push({ $or: orConditions });
 
-            // Handle specific centre filter from query if requested
+            // Handle specific centre filter from query if requested, restricted by what they are allowed to see
             if (centre) {
                 const requestedCentres = Array.isArray(centre) ? centre : [centre];
                 const validRequestedCentres = requestedCentres.filter(reqCentre =>

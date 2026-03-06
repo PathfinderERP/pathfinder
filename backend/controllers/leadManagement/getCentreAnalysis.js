@@ -39,10 +39,19 @@ export const getCentreLeadAnalysis = async (req, res) => {
         }
 
         // Access Control
-        const curUserRole = req.user.role?.toLowerCase();
-        if (curUserRole !== 'superadmin' && curUserRole !== 'super admin' && curUserRole !== 'admin') {
+        const curUserRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
+        const privilegedRoles = ['superadmin', 'super admin', 'centerincharge', 'zonalmanager', 'zonalhead'];
+        const isPrivileged = privilegedRoles.includes(curUserRole);
+
+        if (curUserRole !== 'superadmin' && curUserRole !== 'super admin') {
             const userDoc = await User.findById(req.user.id).select('centres role name');
             if (!userDoc) return res.status(401).json({ message: "User not found" });
+
+            if (!isPrivileged) {
+                // Non-privileged users should only see their own data if anything, 
+                // but center analysis is meant for privileged roles.
+                return res.status(200).json([]);
+            }
 
             if (userDoc.role === 'telecaller') {
                 const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

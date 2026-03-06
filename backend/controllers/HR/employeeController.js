@@ -306,11 +306,15 @@ export const getEmployees = async (req, res) => {
             }
         }
 
-        // Data Isolation: If not superAdmin or Admin, restrict to assigned centers
-        const userRole = (req.user.role || "").toLowerCase();
-        if (!['superadmin', 'super admin', 'admin'].includes(userRole)) {
+        // Data Isolation: Restrict visibility based on role
+        const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
+        const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "zonalhead"];
+        const isPrivileged = privilegedRoles.includes(userRoleStr);
+
+        if (userRoleStr !== 'superadmin' && userRoleStr !== 'super admin') {
             const userCentres = req.user.centres || [];
-            if (userCentres.length > 0) {
+            if (isPrivileged && userCentres.length > 0) {
+                // Privileged see their centers
                 query.$and = query.$and || [];
                 query.$and.push({
                     $or: [
@@ -319,9 +323,8 @@ export const getEmployees = async (req, res) => {
                     ]
                 });
             } else {
-                // If no centres assigned, they shouldn't see anyone (or maybe just themselves? 
-                // but usually it means they have no access).
-                query._id = null; // Forces empty result
+                // Restricted users (including standard Admin) see ONLY themselves
+                query.user = req.user.id;
             }
         }
 
@@ -601,19 +604,22 @@ export const addSalaryStructure = async (req, res) => {
 // Get employees for dropdown (managers)
 export const getEmployeesForDropdown = async (req, res) => {
     try {
-        const userRole = (req.user.role || "").toLowerCase();
-        const isFullAccess = ['superadmin', 'super admin', 'admin'].includes(userRole);
-        const userCentres = req.user.centres || [];
+        const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
+        const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "zonalhead"];
+        const isPrivileged = privilegedRoles.includes(userRoleStr);
 
         const query = { status: "Active" };
-        if (!isFullAccess) {
+        if (!isPrivileged) {
+            // Non-privileged users can ONLY see themselves in the dropdown
+            query.user = req.user.id;
+        } else if (userRoleStr !== 'superadmin' && userRoleStr !== 'super admin') {
             if (userCentres.length > 0) {
                 query.$or = [
                     { primaryCentre: { $in: userCentres } },
                     { centres: { $in: userCentres } }
                 ];
             } else {
-                return res.status(200).json([]); // No centres, no managers
+                query.user = req.user.id;
             }
         }
 

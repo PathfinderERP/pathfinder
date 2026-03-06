@@ -72,23 +72,24 @@ export const getLeadDashboardStats = async (req, res) => {
         query.isCounseled = { $ne: true };
 
         // Access Control (Sync with getLeads.js)
-        if (req.user.role !== 'superAdmin') {
+        const userRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
+        const privilegedRoles = ['superadmin', 'super admin', 'centerincharge', 'zonalmanager', 'zonalhead'];
+        const isPrivileged = privilegedRoles.includes(userRole);
+
+        if (userRole !== 'superadmin' && userRole !== 'super admin') {
             const userDoc = await User.findById(req.user.id).select('centres role name');
             if (!userDoc) return res.status(401).json({ message: "User not found" });
 
             const userCentreIds = userDoc.centres || [];
+            const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
             const orConditions = [
-                { createdBy: userDoc._id }
+                { createdBy: userDoc._id },
+                { leadResponsibility: { $regex: new RegExp(`^${escapedName}$`, "i") } }
             ];
 
-            if (userDoc.role === 'telecaller') {
-                const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                orConditions.push({ leadResponsibility: { $regex: new RegExp(`^${escapedName}$`, "i") } });
-            }
-
-            if (userCentreIds.length > 0) {
-                // If specific centre filter is requested, we apply it inside orConditions for relevant branches
-                // But for simplicity and to match getLeads.js, we refine the main query with centre if provided.
+            if (isPrivileged && userCentreIds.length > 0) {
+                // Only privileged roles see center-wide stats
                 orConditions.push({ centre: { $in: userCentreIds } });
             }
 
@@ -102,9 +103,6 @@ export const getLeadDashboardStats = async (req, res) => {
                     userCentreIds.some(allowedCentre => allowedCentre.toString() === reqCentre.toString())
                 );
                 query.centre = { $in: validRequestedCentres.map(id => mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id) };
-            } else {
-                // Filter requested but none allowed, return 0 counts (via centre empty)
-                query.centre = { $in: [] };
             }
         }
 

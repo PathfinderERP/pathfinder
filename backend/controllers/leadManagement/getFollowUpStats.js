@@ -97,15 +97,27 @@ export const getFollowUpStats = async (req, res) => {
             leadOwnerMatch.leadResponsibility = { $in: telecallerNames };
         }
 
-        // Non-Admin access restriction
-        if (!['superadmin', 'super admin', 'admin'].includes(curUserRole)) {
+        // Role-based filtering (Sync with getLeads.js)
+        const curUserRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
+        const privilegedRoles = ['superadmin', 'super admin', 'centerincharge', 'zonalmanager', 'zonalhead'];
+        const isPrivileged = privilegedRoles.includes(curUserRoleStr);
+
+        if (curUserRoleStr !== 'superadmin' && curUserRoleStr !== 'super admin') {
             const userDoc = await User.findById(req.user.id).select('centres role name');
             if (userDoc) {
-                const userCentres = (userDoc.centres || []).map(id => id.toString());
-                const accessLimit = { $or: [{ createdBy: userDoc._id }, { centre: { $in: userCentres.map(id => mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id) } }] };
+                const userCentreIds = userDoc.centres || [];
+                const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-                if (userDoc.role === 'telecaller') {
-                    accessLimit.$or.push({ leadResponsibility: { $regex: new RegExp(`^${userDoc.name}$`, "i") } });
+                const accessLimit = {
+                    $or: [
+                        { createdBy: userDoc._id },
+                        { leadResponsibility: { $regex: new RegExp(`^${escapedName}$`, "i") } }
+                    ]
+                };
+
+                if (isPrivileged && userCentreIds.length > 0) {
+                    // Privileged can see center-wide
+                    accessLimit.$or.push({ centre: { $in: userCentreIds.map(id => mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id) } });
                 }
 
                 leadOwnerMatch.$and = leadOwnerMatch.$and || [];

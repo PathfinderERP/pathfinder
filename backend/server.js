@@ -65,6 +65,7 @@ import postRoutes from "./routes/post.routes.js";
 import communityRoutes from "./routes/community.routes.js";
 import razorpayPOSRoutes from "./routes/payment/razorpayPOS.routes.js";
 import allocationRoutes from "./routes/Inventory/allocation.routes.js";
+import marketingOperationsRoutes from "./routes/Operations/marketing.routes.js";
 
 import studentPortalRoutes from "./routes/studentPortal.routes.js";
 
@@ -171,6 +172,7 @@ app.use("/api/posts", postRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/student-portal", studentPortalRoutes);
 app.use("/api/inventory/allocation", allocationRoutes);
+app.use("/api/operations/marketing", marketingOperationsRoutes);
 
 
 
