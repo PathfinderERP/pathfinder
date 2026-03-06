@@ -84,13 +84,34 @@ export const getAllTelecallerAnalytics = async (req, res) => {
         // However, if we are specifically filtering the view by leadResponsibility...
         const specificLeadMatch = { ...baseLeadFilters };
         if (leadResponsibility) {
-            specificLeadMatch.leadResponsibility = { $regex: new RegExp(`^${leadResponsibility}$`, "i") };
+            const escapedResp = leadResponsibility.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            specificLeadMatch.leadResponsibility = { $regex: new RegExp(`^${escapedResp}$`, "i") };
         }
 
-        // 1. Fetch Users (Telemetry Targets)
-        const telecallers = await User.find({
+        // 1. Fetch Users (Telemetry Targets) - Respecting Access Control
+        const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
+        const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "zonalhead"];
+        const isPrivileged = privilegedRoles.includes(userRoleStr);
+
+        let userQuery = {
             role: { $in: ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing', 'admin', 'centerIncharge', 'zonalManager', 'zonalHead'] }
-        });
+        };
+
+        if (userRoleStr !== "superadmin" && userRoleStr !== "super admin") {
+            if (isPrivileged) {
+                const userCentres = req.user.centres || [];
+                if (userCentres.length > 0) {
+                    userQuery.centres = { $in: userCentres };
+                } else {
+                    userQuery._id = req.user.id;
+                }
+            } else {
+                // Non-privileged see ONLY themselves
+                userQuery._id = req.user.id;
+            }
+        }
+
+        const telecallers = await User.find(userQuery);
 
         // 2. Aggregate Data
         const [historyAgg, statsAgg, admissionAgg, counselledAgg, trendsAgg, mktLeadsAgg, admissionAggResult, leadsTrendAgg] = await Promise.all([

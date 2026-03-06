@@ -61,31 +61,41 @@ export const exportLeadsExcel = async (req, res) => {
             };
         }
 
-        // Access Control
-        if (req.user.role !== 'superAdmin') {
+        // Access Control (Sync with getLeads.js)
+        const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
+        const privilegedRoles = ['superadmin', 'super admin', 'centerincharge', 'zonalmanager', 'zonalhead'];
+        const isPrivileged = privilegedRoles.includes(userRoleStr);
+
+        if (userRoleStr !== 'superadmin' && userRoleStr !== 'super admin') {
             const userDoc = await User.findById(req.user.id).select('centres role name');
             if (!userDoc) return res.status(401).json({ message: "User not found" });
 
-            if (userDoc.role === 'telecaller') {
-                const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                query.leadResponsibility = { $regex: new RegExp(`^${escapedName}$`, "i") };
-            }
-
             const userCentreIds = userDoc.centres || [];
-            if (userCentreIds.length === 0) {
-                return res.status(200).json({ message: "No data available" });
+            const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+            const orConditions = [
+                { createdBy: userDoc._id },
+                { leadResponsibility: { $regex: new RegExp(`^${escapedName}$`, "i") } }
+            ];
+
+            if (isPrivileged && userCentreIds.length > 0) {
+                // ONLY privileged roles see center-wide
+                orConditions.push({ centre: { $in: userCentreIds } });
             }
 
+            query.$and = query.$and || [];
+            query.$and.push({ $or: orConditions });
+
+            // Handle specific centre filter from query if requested, restricted by what they are allowed to see
             if (centre) {
                 const requestedCentres = Array.isArray(centre) ? centre : [centre];
-                const allowedCentreStrings = userCentreIds.map(c => c.toString());
-
-                const isAllowed = requestedCentres.every(c => allowedCentreStrings.includes(c));
-
-                if (!isAllowed) {
-                    return res.status(403).json({ message: "Access denied" });
-                }
-            } else {
+                const validRequestedCentres = requestedCentres.filter(reqCentre =>
+                    userCentreIds.some(allowedCentre => allowedCentre.toString() === reqCentre.toString())
+                );
+                query.centre = { $in: validRequestedCentres };
+            } else if (userCentreIds.length > 0 && isPrivileged) {
+                // If privileged and no specific centre requested, lead query already has $or condition for centers
+                // but we can also set the main centre filter for clarity
                 query.centre = { $in: userCentreIds };
             }
         }

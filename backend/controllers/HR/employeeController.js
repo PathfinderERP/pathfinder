@@ -609,6 +609,7 @@ export const getEmployeesForDropdown = async (req, res) => {
         const isPrivileged = privilegedRoles.includes(userRoleStr);
 
         const query = { status: "Active" };
+        const userCentres = req.user.centres || [];
         if (!isPrivileged) {
             // Non-privileged users can ONLY see themselves in the dropdown
             query.user = req.user.id;
