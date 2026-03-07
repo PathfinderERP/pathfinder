@@ -5,6 +5,38 @@ export const updateAdmission = async (req, res) => {
         const { id } = req.params;
         const updates = req.body;
 
+        // Fetch the current admission to get student ID
+        const currentAdmission = await Admission.findById(id);
+        if (!currentAdmission) {
+            return res.status(404).json({ message: "Admission not found" });
+        }
+
+        const studentId = currentAdmission.student;
+
+        // If admissionNumber is being updated, perform synchronization and conflict checks
+        if (updates.admissionNumber) {
+            const trimmedNumber = updates.admissionNumber.trim().toUpperCase();
+            updates.admissionNumber = trimmedNumber;
+
+            // Check for duplicates among OTHER students
+            const existingForOtherStudent = await Admission.findOne({
+                admissionNumber: trimmedNumber,
+                student: { $ne: studentId }
+            });
+
+            if (existingForOtherStudent) {
+                return res.status(409).json({
+                    message: `Enrollment number "${trimmedNumber}" is already assigned to another student.`
+                });
+            }
+
+            // Synchronize across ALL admissions for this student
+            await Admission.updateMany(
+                { student: studentId },
+                { admissionNumber: trimmedNumber }
+            );
+        }
+
         const admission = await Admission.findByIdAndUpdate(
             id,
             updates,
@@ -30,6 +62,7 @@ export const updateAdmission = async (req, res) => {
             admission
         });
     } catch (err) {
+        console.error("updateAdmission error:", err);
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };

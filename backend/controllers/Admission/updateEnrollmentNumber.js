@@ -11,23 +11,34 @@ export const updateEnrollmentNumber = async (req, res) => {
 
         const trimmedNumber = admissionNumber.trim().toUpperCase();
 
-        // Check for duplicates (allow updating to the same value it already has)
-        const existing = await Admission.findOne({
+        // First, get the current admission to find the student ID
+        const currentAdmission = await Admission.findById(id);
+        if (!currentAdmission) {
+            return res.status(404).json({ message: "Admission not found." });
+        }
+
+        const studentId = currentAdmission.student;
+
+        // Check for duplicates among OTHER students
+        const existingForOtherStudent = await Admission.findOne({
             admissionNumber: trimmedNumber,
-            _id: { $ne: id }
+            student: { $ne: studentId }
         });
 
-        if (existing) {
+        if (existingForOtherStudent) {
             return res.status(409).json({
-                message: `Enrollment number "${trimmedNumber}" is already assigned to another admission.`
+                message: `The enrollment number "${trimmedNumber}" is already assigned to another student. Each student must have a unique identifier.`
             });
         }
 
-        const admission = await Admission.findByIdAndUpdate(
-            id,
-            { admissionNumber: trimmedNumber },
-            { new: true, runValidators: false }
-        )
+        // Update ALL admissions for this student
+        await Admission.updateMany(
+            { student: studentId },
+            { admissionNumber: trimmedNumber }
+        );
+
+        // Fetch the updated current admission to return
+        const admission = await Admission.findById(id)
             .populate("student")
             .populate("course")
             .populate("class")
