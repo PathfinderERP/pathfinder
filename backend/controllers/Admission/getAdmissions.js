@@ -67,7 +67,12 @@ export const getAdmissions = async (req, res) => {
         }
 
         const admissions = await Admission.find(query)
-            .populate('student')
+            .populate({
+                path: 'student',
+                populate: {
+                    path: 'batches'
+                }
+            })
             .populate('course')
             .populate('class')
             .populate('board')

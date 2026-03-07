@@ -23,7 +23,32 @@ export const createCoordinator = async (req, res) => {
 
         const existingUser = await User.findOne({ $or: [{ email }, { employeeId }] });
         if (existingUser) {
-            return res.status(400).json({ message: "User with this email or Employee ID already exists." });
+            // Check if there's a serious conflict (e.g. Email matches but Emp ID doesn't, or vice-versa)
+            if (existingUser.email !== email || existingUser.employeeId !== employeeId) {
+                return res.status(400).json({ 
+                    message: "Conflict: Email or Employee ID belongs to another user. Please verify the details." 
+                });
+            }
+
+            // Promote existing user to Class_Coordinator
+            existingUser.role = "Class_Coordinator";
+            
+            if (centreId) {
+                const centreIdStr = centreId.toString();
+                if (!existingUser.centres.some(c => c.toString() === centreIdStr)) {
+                    existingUser.centres.push(centreId);
+                }
+            }
+
+            // Update name and mobile if they provided new ones
+            if (name) existingUser.name = name;
+            if (mobNum) existingUser.mobNum = mobNum;
+
+            await existingUser.save();
+            return res.status(200).json({ 
+                message: "Existing user promoted to Class Coordinator successfully", 
+                coordinator: existingUser 
+            });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);

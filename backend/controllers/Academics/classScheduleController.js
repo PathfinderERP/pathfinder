@@ -6,6 +6,7 @@ import Centre from "../../models/Master_data/Centre.js";
 import Batch from "../../models/Master_data/Batch.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
 import AcademicsClass from "../../models/Academics/Academics_class.js";
+import Session from "../../models/Master_data/Session.js";
 
 // Create a new class schedule
 export const createClassSchedule = async (req, res) => {
@@ -436,32 +437,39 @@ export const startStudy = async (req, res) => {
 export const getClassDropdownData = async (req, res) => {
     try {
         const subjects = await AcademicsSubject.find();
-        // user role teacher
-        const teachers = await User.find({ role: "teacher" });
-        const coordinators = await User.find({ role: "Class_Coordinator" });
         const courses = await Course.find();
-        let centres, batches;
+        let teachers, coordinators, centres, batches;
         if (req.user && req.user.role !== 'superAdmin') {
             const userCentres = req.user.centres || [];
+            
+            // Filter teachers and coordinators by their assigned centres
+            teachers = await User.find({ 
+                role: "teacher", 
+                centres: { $in: userCentres } 
+            }).populate('centres', 'centreName');
+
+            coordinators = await User.find({ 
+                role: "Class_Coordinator", 
+                centres: { $in: userCentres } 
+            }).populate('centres', 'centreName');
+
             centres = await Centre.find({ _id: { $in: userCentres } });
             // Fetch batches for these centres
             batches = await Batch.find({ centreId: { $in: userCentres } });
 
             // Fallback: If no batches found for assigned centres, return all batches
-            // (This handles the case where batches are not yet linked to centres in the DB)
             if (!batches || batches.length === 0) {
                 batches = await Batch.find();
             }
         } else {
+            teachers = await User.find({ role: "teacher" }).populate('centres', 'centreName');
+            coordinators = await User.find({ role: "Class_Coordinator" }).populate('centres', 'centreName');
             centres = await Centre.find();
             batches = await Batch.find();
         }
         const exams = await ExamTag.find();
         const academicClasses = await AcademicsClass.find();
-
-        // Mock sessions if no model exists (or fetch from somewhere if exists)
-        // For now, returning a list of years/sessions
-        const sessions = ["2023-24", "2024-25", "2025-26"];
+        const sessions = await Session.find();
 
         res.status(200).json({
             subjects,

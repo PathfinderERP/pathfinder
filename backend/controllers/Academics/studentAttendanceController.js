@@ -7,7 +7,7 @@ import Admission from "../../models/Admission/Admission.js";
 export const getStudentsForAttendance = async (req, res) => {
     try {
         const { classScheduleId } = req.params;
-        const schedule = await ClassSchedule.findById(classScheduleId).populate("batchIds");
+        const schedule = await ClassSchedule.findById(classScheduleId).populate("batchIds centreId");
 
         if (!schedule) {
             return res.status(404).json({ message: "Class schedule not found" });
@@ -18,9 +18,10 @@ export const getStudentsForAttendance = async (req, res) => {
             ? schedule.batchIds
             : (schedule.batchId ? [schedule.batchId] : []);
 
-        // Fetch students enrolled in these batches (Only Active students)
+        // Fetch students enrolled in these batches AND belonging to the class's center
         const students = await Student.find({
             batches: { $in: batchIds },
+            "studentsDetails.centre": schedule.centreId?.centreName,
             isEnrolled: true,
             status: "Active"
         }).populate("course").select("studentsDetails examSchema batches course isEnrolled status");

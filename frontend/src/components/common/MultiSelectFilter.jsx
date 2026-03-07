@@ -60,11 +60,15 @@ const MultiSelectFilter = ({ options: rawOptions, selectedValues, onChange, plac
                 <div className="flex items-center gap-2 overflow-hidden">
                     <span className={`whitespace-nowrap font-medium text-xs uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{label}:</span>
                     <span className="truncate">
-                        {selectedValues.length === 0
-                            ? placeholder
-                            : selectedValues.length <= 2
-                                ? selectedValues.join(', ')
-                                : `${selectedValues.length} selected`}
+                        {(() => {
+                            if (selectedValues.length === 0) return placeholder;
+                            if (selectedValues.length <= 2) {
+                                return selectedValues
+                                    .map(v => options.find(o => o.value === v)?.label || v)
+                                    .join(', ');
+                            }
+                            return `${selectedValues.length} selected`;
+                        })()}
                     </span>
                 </div>
                 <div className="flex items-center gap-2">

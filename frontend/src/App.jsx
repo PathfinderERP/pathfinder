@@ -18,7 +18,8 @@ import TransactionReport from "./pages/Sales/TransactionReport";
 import BoardReport from "./pages/Sales/BoardReport";
 import TransactionList from "./pages/Finance/TransactionList";
 import HR from "./pages/HR";
-import Academics from "./pages/Academics";
+import EnrolledStudents from "./pages/EnrolledStudents";
+import BatchAllocation from "./pages/BatchAllocation";
 import StudentAdmission from "./pages/StudentAdmission";
 import StudentAdmissionPage from "./pages/StudentAdmissionPage";
 import SectionAllotment from "./pages/SectionAllotment";
@@ -29,7 +30,6 @@ import MasterDataExamTag from "./pages/MasterDataExamTag";
 import MasterDataDepartment from "./pages/MasterDataDepartment";
 import MasterDataCourse from "./pages/MasterDataCourse";
 import MasterDataCentre from "./pages/MasterDataCentre";
-import EnrolledStudents from "./pages/EnrolledStudents";
 import UserManagement from "./pages/UserManagement";
 import Profile from "./pages/Profile";
 import LeadManagement from "./pages/LeadManagement";
@@ -296,6 +296,7 @@ function App() {
         <Route path="/course-management/carry-forward" element={<ProtectedRoute><CarryForward /></ProtectedRoute>} />
         <Route path="/course-management/course-transfer" element={<ProtectedRoute><CourseTransfer /></ProtectedRoute>} />
         <Route path="/enrolled-students" element={<ProtectedRoute><EnrolledStudents /></ProtectedRoute>} />
+        <Route path="/admissions/batch-allocation" element={<ProtectedRoute><BatchAllocation /></ProtectedRoute>} />
         <Route path="/edit-board-subjects/:admissionId" element={<ProtectedRoute><EditBoardSubjects /></ProtectedRoute>} />
         <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

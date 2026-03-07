@@ -61,24 +61,116 @@ const AddClass = () => {
     const [selectedTopics, setSelectedTopics] = useState([]); // List of { id, name }
     const [currentTopicId, setCurrentTopicId] = useState("");
 
-    // Teacher search state
-    const [teacherSearch, setTeacherSearch] = useState("");
-    const [teacherDropdownOpen, setTeacherDropdownOpen] = useState(false);
-    const teacherDropdownRef = useRef(null);
-
-    // Close teacher dropdown on outside click
-    useEffect(() => {
-        const handler = (e) => {
-            if (teacherDropdownRef.current && !teacherDropdownRef.current.contains(e.target)) {
-                setTeacherDropdownOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handler);
-        return () => document.removeEventListener("mousedown", handler);
-    }, []);
-
     const [loading, setLoading] = useState(false);
     const API_URL = import.meta.env.VITE_API_URL;
+
+    // Searchable Dropdown Component
+    const SearchableSelect = ({ 
+        label, 
+        value, 
+        options, 
+        onChange, 
+        placeholder, 
+        isDarkMode, 
+        required = false,
+        name,
+        disabled = false,
+        displayPath = "name",
+        valuePath = "_id",
+        filterFunc = null,
+        fullWidth = false
+    }) => {
+        const [isOpen, setIsOpen] = useState(false);
+        const [search, setSearch] = useState("");
+        const dropdownRef = useRef(null);
+
+        useEffect(() => {
+            const handler = (e) => {
+                if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                    setIsOpen(false);
+                }
+            };
+            document.addEventListener("mousedown", handler);
+            return () => document.removeEventListener("mousedown", handler);
+        }, []);
+
+        const filteredOptions = options.filter(opt => {
+            const displayVal = typeof opt === 'string' ? opt : opt[displayPath];
+            const matchesSearch = displayVal?.toLowerCase().includes(search.toLowerCase());
+            if (filterFunc) return matchesSearch && filterFunc(opt);
+            return matchesSearch;
+        });
+
+        const selectedOption = options.find(opt => (typeof opt === 'string' ? opt : opt[valuePath]) === value);
+        const displayLabel = selectedOption 
+            ? (typeof selectedOption === 'string' ? selectedOption : selectedOption[displayPath])
+            : placeholder;
+
+        return (
+            <div className={fullWidth ? "md:col-span-2" : "md:col-span-1"} ref={dropdownRef}>
+                {label && (
+                    <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {label}{required ? '*' : ''}
+                    </label>
+                )}
+                <div className="relative">
+                    <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => { if(!disabled) setIsOpen(!isOpen); setSearch(""); }}
+                        className={`w-full rounded-lg p-3 outline-none transition-all border text-left flex justify-between items-center ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                    >
+                        <span className={value ? '' : 'text-gray-400'}>
+                            {displayLabel}
+                        </span>
+                        <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''} ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+
+                    {isOpen && (
+                        <div className={`absolute z-50 w-full mt-1 rounded-lg border shadow-xl overflow-hidden ${isDarkMode ? 'bg-[#1e2530] border-gray-700' : 'bg-white border-gray-200'}`}>
+                            <div className={`p-2 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                                <input
+                                    type="text"
+                                    autoFocus
+                                    value={search}
+                                    onChange={e => setSearch(e.target.value)}
+                                    placeholder={`Search ${label}...`}
+                                    className={`w-full px-3 py-1.5 text-sm rounded-lg border outline-none ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`}
+                                />
+                            </div>
+                            <div className="max-h-52 overflow-y-auto">
+                                <button
+                                    type="button"
+                                    onClick={() => { onChange({ target: { name, value: "" } }); setIsOpen(false); }}
+                                    className={`w-full text-left px-4 py-2 text-sm ${isDarkMode ? 'text-gray-400 hover:bg-[#131619]' : 'text-gray-400 hover:bg-gray-50'}`}
+                                >
+                                    {placeholder}
+                                </button>
+                                {filteredOptions.map((opt, i) => {
+                                    const val = typeof opt === 'string' ? opt : opt[valuePath];
+                                    const labelText = typeof opt === 'string' ? opt : opt[displayPath];
+                                    return (
+                                        <button
+                                            key={i}
+                                            type="button"
+                                            onClick={() => { onChange({ target: { name, value: val } }); setIsOpen(false); setSearch(""); }}
+                                            className={`w-full text-left px-4 py-2 text-sm transition-colors ${value === val ? (isDarkMode ? 'bg-cyan-900/40 text-cyan-300' : 'bg-cyan-50 text-cyan-700 font-semibold') : (isDarkMode ? 'text-gray-200 hover:bg-[#131619]' : 'text-gray-800 hover:bg-gray-50')}`}
+                                        >
+                                            {labelText}
+                                        </button>
+                                    );
+                                })}
+                                {filteredOptions.length === 0 && (
+                                    <div className={`px-4 py-3 text-sm ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>No results found</div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+                {required && !value && <input type="text" value="" required className="opacity-0 absolute h-0 w-0" onChange={()=>{}} />}
+            </div>
+        );
+    };
 
     useEffect(() => {
         fetchDropdownData();
@@ -249,20 +341,17 @@ const AddClass = () => {
                                 required
                             />
                         </div>
-                        <div className="md:col-span-2">
-                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class Mode*</label>
-                            <select
-                                name="classMode"
-                                value={formData.classMode}
-                                onChange={handleChange}
-                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
-                                required
-                            >
-                                <option value="">Select</option>
-                                <option value="Online">Online</option>
-                                <option value="Offline">Offline</option>
-                            </select>
-                        </div>
+                        <SearchableSelect
+                            label="Class Mode"
+                            name="classMode"
+                            value={formData.classMode}
+                            options={["Online", "Offline"]}
+                            onChange={handleChange}
+                            placeholder="Select"
+                            isDarkMode={isDarkMode}
+                            required
+                            fullWidth
+                        />
                         <div className="md:col-span-1">
                             <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Start Time*</label>
                             <input
@@ -285,144 +374,102 @@ const AddClass = () => {
                                 required
                             />
                         </div>
-                        <div className="md:col-span-1">
-                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Teacher Subject*</label>
-                            <select
-                                name="subjectId"
-                                value={formData.subjectId}
-                                onChange={handleChange}
-                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
-                                required
-                            >
-                                <option value="">Select a subject</option>
-                                {dropdownData.subjects.map(s => <option key={s._id} value={s._id}>{s.subjectName}</option>)}
-                            </select>
-                        </div>
-                        <div className="md:col-span-1">
-                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Teacher*</label>
-                            <div className="relative" ref={teacherDropdownRef}>
-                                {/* Display Button */}
-                                <button
-                                    type="button"
-                                    onClick={() => { setTeacherDropdownOpen(prev => !prev); setTeacherSearch(""); }}
-                                    className={`w-full rounded-lg p-3 outline-none transition-all border text-left flex justify-between items-center ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
-                                >
-                                    <span className={formData.teacherId ? '' : 'text-gray-400'}>
-                                        {formData.teacherId
-                                            ? (dropdownData.teachers.find(t => t._id === formData.teacherId)?.name || 'Select a teacher')
-                                            : 'Select a teacher'}
-                                    </span>
-                                    <svg className={`w-4 h-4 transition-transform ${teacherDropdownOpen ? 'rotate-180' : ''} ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                                </button>
+                        <SearchableSelect
+                            label="Teacher Subject"
+                            name="subjectId"
+                            value={formData.subjectId}
+                            options={dropdownData.subjects}
+                            displayPath="subjectName"
+                            onChange={handleChange}
+                            placeholder="Select a subject"
+                            isDarkMode={isDarkMode}
+                            required
+                        />
 
-                                {/* Dropdown Panel */}
-                                {teacherDropdownOpen && (
-                                    <div className={`absolute z-50 w-full mt-1 rounded-lg border shadow-xl overflow-hidden ${isDarkMode ? 'bg-[#1e2530] border-gray-700' : 'bg-white border-gray-200'}`}>
-                                        {/* Search input */}
-                                        <div className={`p-2 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-                                            <input
-                                                type="text"
-                                                autoFocus
-                                                value={teacherSearch}
-                                                onChange={e => setTeacherSearch(e.target.value)}
-                                                placeholder="Search teacher..."
-                                                className={`w-full px-3 py-1.5 text-sm rounded-lg border outline-none ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`}
-                                            />
-                                        </div>
-                                        {/* Options list */}
-                                        <div className="max-h-52 overflow-y-auto">
-                                            <button
-                                                type="button"
-                                                onClick={() => { setFormData(prev => ({ ...prev, teacherId: "" })); setTeacherDropdownOpen(false); }}
-                                                className={`w-full text-left px-4 py-2 text-sm ${isDarkMode ? 'text-gray-400 hover:bg-[#131619]' : 'text-gray-400 hover:bg-gray-50'}`}
-                                            >
-                                                Select a teacher
-                                            </button>
-                                            {dropdownData.teachers
-                                                .filter(t => t.name.toLowerCase().includes(teacherSearch.toLowerCase()))
-                                                .map(t => (
-                                                    <button
-                                                        key={t._id}
-                                                        type="button"
-                                                        onClick={() => { setFormData(prev => ({ ...prev, teacherId: t._id })); setTeacherDropdownOpen(false); setTeacherSearch(""); }}
-                                                        className={`w-full text-left px-4 py-2 text-sm transition-colors ${formData.teacherId === t._id ? (isDarkMode ? 'bg-cyan-900/40 text-cyan-300' : 'bg-cyan-50 text-cyan-700 font-semibold') : (isDarkMode ? 'text-gray-200 hover:bg-[#131619]' : 'text-gray-800 hover:bg-gray-50')}`}
-                                                    >
-                                                        {t.name}
-                                                    </button>
-                                                ))
-                                            }
-                                            {dropdownData.teachers.filter(t => t.name.toLowerCase().includes(teacherSearch.toLowerCase())).length === 0 && (
-                                                <div className={`px-4 py-3 text-sm ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>No teachers found</div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        <div className="md:col-span-1">
-                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class Coordinator (Optional)</label>
-                            <select
-                                name="coordinatorId"
-                                value={formData.coordinatorId}
-                                onChange={handleChange}
-                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
-                            >
-                                <option value="">Select a coordinator</option>
-                                {dropdownData.coordinators?.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                            </select>
-                        </div>
-                        <div className="md:col-span-1">
-                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Session*</label>
-                            <select
-                                name="session"
-                                value={formData.session}
-                                onChange={handleChange}
-                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
-                                required
-                            >
-                                <option value="">Select a session</option>
-                                {dropdownData.sessions.map((s, i) => <option key={i} value={s}>{s}</option>)}
-                            </select>
-                        </div>
-                        <div className="md:col-span-1">
-                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Exam*</label>
-                            <select
-                                name="examId"
-                                value={formData.examId}
-                                onChange={handleChange}
-                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
-                                required
-                            >
-                                <option value="">Select a exam</option>
-                                {dropdownData.exams.map(e => <option key={e._id} value={e._id}>{e.name}</option>)}
-                            </select>
-                        </div>
-                        <div className="md:col-span-1">
-                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course*</label>
-                            <select
-                                name="courseId"
-                                value={formData.courseId}
-                                onChange={handleChange}
-                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
-                                required
-                            >
-                                <option value="">Select a course</option>
-                                {dropdownData.courses.map(c => <option key={c._id} value={c._id}>{c.courseName}</option>)}
-                            </select>
-                        </div>
-                        <div className="md:col-span-1">
-                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Centre*</label>
-                            <select
-                                name="centreId"
-                                value={formData.centreId}
-                                onChange={handleChange}
-                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
-                                required
-                            >
-                                <option value="">Select a centre</option>
-                                {dropdownData.centres.map(c => <option key={c._id} value={c._id}>{c.centreName}</option>)}
-                            </select>
-                        </div>
+                        <SearchableSelect
+                            label="Teacher"
+                            name="teacherId"
+                            value={formData.teacherId}
+                            options={dropdownData.teachers}
+                            displayPath="name"
+                            onChange={handleChange}
+                            placeholder="Select a teacher"
+                            isDarkMode={isDarkMode}
+                            required
+                            filterFunc={(t) => {
+                                if (formData.centreId) {
+                                    return t.centres?.some(c => (c._id || c).toString() === formData.centreId);
+                                }
+                                return true;
+                            }}
+                        />
+
+                        <SearchableSelect
+                            label="Class Coordinator (Optional)"
+                            name="coordinatorId"
+                            value={formData.coordinatorId}
+                            options={dropdownData.coordinators}
+                            displayPath="name"
+                            onChange={handleChange}
+                            placeholder={formData.centreId ? 'Select a coordinator (Filtered by Centre)' : 'Select a coordinator'}
+                            isDarkMode={isDarkMode}
+                            filterFunc={(c) => {
+                                if (formData.centreId) {
+                                    return c.centres?.some(ctrl => (ctrl._id || ctrl).toString() === formData.centreId);
+                                }
+                                return true;
+                            }}
+                        />
+
+                        <SearchableSelect
+                            label="Session"
+                            name="session"
+                            value={formData.session}
+                            options={dropdownData.sessions}
+                            displayPath="sessionName"
+                            valuePath="sessionName"
+                            onChange={handleChange}
+                            placeholder="Select a session"
+                            isDarkMode={isDarkMode}
+                            required
+                        />
+
+                        <SearchableSelect
+                            label="Exam"
+                            name="examId"
+                            value={formData.examId}
+                            options={dropdownData.exams}
+                            displayPath="name"
+                            onChange={handleChange}
+                            placeholder="Select a exam"
+                            isDarkMode={isDarkMode}
+                            required
+                        />
+
+                        <SearchableSelect
+                            label="Course"
+                            name="courseId"
+                            value={formData.courseId}
+                            options={dropdownData.courses}
+                            displayPath="courseName"
+                            onChange={handleChange}
+                            placeholder="Select a course"
+                            isDarkMode={isDarkMode}
+                            required
+                        />
+
+                        <SearchableSelect
+                            label="Centre"
+                            name="centreId"
+                            value={formData.centreId}
+                            options={dropdownData.centres}
+                            displayPath="centreName"
+                            onChange={handleChange}
+                            placeholder="Select a centre"
+                            isDarkMode={isDarkMode}
+                            required
+                        />
+
                         <div className="md:col-span-2">
                             <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Batches*</label>
                             <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200 shadow-inner'}`}>
@@ -449,58 +496,62 @@ const AddClass = () => {
                         </div>
 
                         {/* NEW SECTION: Academic Class Content */}
-                        <div className="md:col-span-1">
-                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class (Academic)*</label>
-                            <select
-                                name="acadClassId"
-                                value={formData.acadClassId}
-                                onChange={handleChange}
-                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
-                            >
-                                <option value="">Select a class</option>
-                                {dropdownData.academicClasses?.map(c => <option key={c._id} value={c._id}>{c.className}</option>)}
-                            </select>
-                        </div>
-                        <div className="md:col-span-1">
-                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Subject (Academic)*</label>
-                            <select
-                                name="acadSubjectId"
-                                value={formData.acadSubjectId}
-                                onChange={handleChange}
-                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
-                                disabled={!formData.acadClassId}
-                            >
-                                <option value="">Select a subject</option>
-                                {acadSubjects.map(s => <option key={s._id} value={s._id}>{s.subjectName}</option>)}
-                            </select>
-                        </div>
-                        <div className="md:col-span-1">
-                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Chapter*</label>
-                            <select
-                                name="chapterId"
-                                value={formData.chapterId}
-                                onChange={handleChange}
-                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
-                                disabled={!formData.acadSubjectId}
-                            >
-                                <option value="">Select a chapter</option>
-                                {acadChapters.map(c => <option key={c._id} value={c._id}>{c.chapterName}</option>)}
-                            </select>
-                        </div>
+                        <SearchableSelect
+                            label="Class (Academic)"
+                            name="acadClassId"
+                            value={formData.acadClassId}
+                            options={dropdownData.academicClasses}
+                            displayPath="className"
+                            onChange={handleChange}
+                            placeholder="Select a class"
+                            isDarkMode={isDarkMode}
+                            required
+                        />
+
+                        <SearchableSelect
+                            label="Subject (Academic)"
+                            name="acadSubjectId"
+                            value={formData.acadSubjectId}
+                            options={acadSubjects}
+                            displayPath="subjectName"
+                            onChange={handleChange}
+                            placeholder="Select a subject"
+                            isDarkMode={isDarkMode}
+                            required
+                            disabled={!formData.acadClassId}
+                        />
+
+                        <SearchableSelect
+                            label="Chapter"
+                            name="chapterId"
+                            value={formData.chapterId}
+                            options={acadChapters}
+                            displayPath="chapterName"
+                            onChange={handleChange}
+                            placeholder="Select a chapter"
+                            isDarkMode={isDarkMode}
+                            required
+                            disabled={!formData.acadSubjectId}
+                        />
+
                         <div className="md:col-span-1">
                             <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Topic Names</label>
-                            <div className="flex gap-2">
-                                <select
-                                    value={currentTopicId}
-                                    onChange={(e) => setCurrentTopicId(e.target.value)}
-                                    className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
-                                    disabled={!formData.chapterId}
-                                >
-                                    <option value="">Select topics</option>
-                                    {acadTopics.map(t => <option key={t._id} value={t._id}>{t.topicName}</option>)}
-                                </select>
-                                <button type="button" onClick={handleAddTopic} className="bg-blue-600 px-5 rounded-lg text-white hover:bg-blue-700 disabled:opacity-50 transition-all font-bold"><FaPlus /></button>
+                            <div className="flex gap-2 items-start">
+                                <div className="flex-1">
+                                    <SearchableSelect
+                                        label=""
+                                        value={currentTopicId}
+                                        options={acadTopics}
+                                        displayPath="topicName"
+                                        onChange={(e) => setCurrentTopicId(e.target.value)}
+                                        placeholder="Select topics"
+                                        isDarkMode={isDarkMode}
+                                        disabled={!formData.chapterId}
+                                    />
+                                </div>
+                                <button type="button" onClick={handleAddTopic} className="bg-blue-600 px-5 h-[46px] rounded-lg text-white hover:bg-blue-700 disabled:opacity-50 transition-all font-bold flex items-center justify-center shrink-0"><FaPlus /></button>
                             </div>
+
                             <div className="mt-4 flex flex-wrap gap-2">
                                 {selectedTopics.map(t => (
                                     <span key={t._id} className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-tight flex items-center gap-2 transition-all shadow-sm ${isDarkMode ? 'bg-cyan-900/40 text-cyan-200 border border-cyan-800' : 'bg-cyan-50 text-cyan-700 border border-cyan-100'}`}>
@@ -510,6 +561,7 @@ const AddClass = () => {
                                 ))}
                             </div>
                         </div>
+
 
                         {/* Message */}
                         <div className="md:col-span-2">

@@ -1013,6 +1013,14 @@ const EnrolledStudentsContent = () => {
                         <span>Refresh</span>
                     </button>
 
+                    <button
+                        onClick={() => navigate('/admissions/batch-allocation')}
+                        className={`p-3 rounded-[4px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-purple-500/10 text-purple-500 border-purple-500/20 hover:bg-purple-500 hover:text-black' : 'bg-purple-500/10 text-purple-600 border-purple-200 hover:bg-purple-500 hover:text-white shadow-sm'}`}
+                    >
+                        <FaUsers />
+                        <span>Batch Allocation</span>
+                    </button>
+
                     <ExportButton
                         onExportCSV={handleExportCSV}
                         onExportExcel={handleExportExcel}
@@ -1831,7 +1839,7 @@ const EnrolledStudentsContent = () => {
                                             <div className={`p-5 flex flex-col lg:flex-row justify-between lg:items-center gap-4 ${isDarkMode ? 'bg-[#1a1f24] border-b border-gray-800' : 'bg-white border-b border-gray-100'}`}>
                                                 <div>
                                                     <h5 className={`text-lg font-black uppercase tracking-tighter italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                        COURSE {index + 1}: {admission.course?.courseName || admission.boardCourseName || "UNSPECIFIED"}
+                                                        COURSE {index + 1}: {admission.course?.courseName || admission.boardCourseName || admission.board?.boardCourse || "UNSPECIFIED"}
                                                     </h5>
                                                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
                                                         {/* ── Inline-editable Enrollment Number ── */}
@@ -2427,12 +2435,12 @@ const EnrolledStudentsContent = () => {
                                         required
                                         className={`w-full p-3 rounded-[4px] border font-black uppercase tracking-widest text-[11px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                     >
-                                        <option value="CASH">HARD CURRENCY (CASH)</option>
-                                        <option value="UPI">DIGITAL VECTOR (UPI)</option>
-                                        <option value="CARD">CREDIT/DEBIT CARD</option>
-                                        <option value="BANK_TRANSFER">BANK WIRE TRANSFER</option>
-                                        <option value="CHEQUE">BANK CHEQUE</option>
-                                        <option value="RAZORPAY_POS">RAZORPAY POS (TERMINAL)</option>
+                                        <option value="CASH" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>HARD CURRENCY (CASH)</option>
+                                        <option value="UPI" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>DIGITAL VECTOR (UPI)</option>
+                                        <option value="CARD" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>CREDIT/DEBIT CARD</option>
+                                        <option value="BANK_TRANSFER" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>BANK WIRE TRANSFER</option>
+                                        <option value="CHEQUE" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>BANK CHEQUE</option>
+                                        <option value="RAZORPAY_POS" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>RAZORPAY POS (TERMINAL)</option>
                                     </select>
                                 </div>
                                 <div>
