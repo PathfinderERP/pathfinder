@@ -277,19 +277,14 @@ export const getEmployees = async (req, res) => {
             };
 
             if (tab === 'teacher') {
-                roleFilter = {
-                    role: 'teacher',
-                    isDeptHod: { $ne: true },
-                    isBoardHod: { $ne: true },
-                    isSubjectHod: { $ne: true }
-                };
+                roleFilter = { role: 'teacher' };
             } else if (tab === 'hod') {
                 roleFilter = hodFilter;
             } else if (tab === 'staff') {
-                // Staff = Not teacher, Not HOD (role or flags), and Not superAdmin
+                // Staff = Not teacher and Not HOD (role or flags)
                 roleFilter = {
                     $and: [
-                        { role: { $nin: ['teacher', 'HOD', 'superAdmin', 'hr'] } },
+                        { role: { $nin: ['teacher', 'HOD'] } },
                         { isDeptHod: { $ne: true } },
                         { isBoardHod: { $ne: true } },
                         { isSubjectHod: { $ne: true } }
