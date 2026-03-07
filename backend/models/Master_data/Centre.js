@@ -53,6 +53,10 @@ const centreSchema = mongoose.Schema({
     accountNumber: {
         type: String,
     },
+    posKey: {
+        type: String,
+        required: false,
+    },
     // New fields from CSV to ensure exact match if needed
     corporateOfficeAddr: { type: String },
     corporateOfficePhoneNo: { type: String },

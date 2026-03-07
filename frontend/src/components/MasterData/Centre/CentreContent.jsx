@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FaPlus, FaSearch, FaEdit, FaTrash, FaMapMarkerAlt, FaPhone, FaEnvelope } from "react-icons/fa";
+import { FaPlus, FaSearch, FaEdit, FaTrash, FaMapMarkerAlt, FaPhone, FaEnvelope, FaCreditCard } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import AddCentreModal from "./AddCentreModal";
@@ -111,6 +111,7 @@ const CentreContent = () => {
         { header: "Corporate Office Address", key: "enterCorporateOfficeAddress" },
         { header: "Corporate Office Phone", key: "enterCorporateOfficePhoneNumber" },
         { header: "Account Number", key: "accountNumber" },
+        { header: "POS Machine Key", key: "posKey" },
     ];
 
     const centreMapping = {
@@ -125,6 +126,7 @@ const CentreContent = () => {
         "Corporate Office Address": "enterCorporateOfficeAddress",
         "Corporate Office Phone": "enterCorporateOfficePhoneNumber",
         "Account Number": "accountNumber",
+        "POS Machine Key": "posKey",
     };
 
     const filteredCentres = centres.filter(centre =>
@@ -230,6 +232,13 @@ const CentreContent = () => {
                             {centre.address && (
                                 <div className="mt-4 pt-4 border-t border-gray-800">
                                     <p className="text-xs text-gray-500">{centre.address}</p>
+                                </div>
+                            )}
+
+                            {centre.posKey && (
+                                <div className="mt-3 pt-3 border-t border-gray-800 flex items-center gap-2">
+                                    <FaCreditCard className="text-yellow-500 text-xs" />
+                                    <span className="text-xs text-yellow-400 font-mono bg-yellow-900/20 px-2 py-0.5 rounded border border-yellow-800/30 truncate">{centre.posKey}</span>
                                 </div>
                             )}
                         </div>

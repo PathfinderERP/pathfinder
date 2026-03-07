@@ -21,6 +21,7 @@ const AddCentreModal = ({ onClose, onSuccess }) => {
         latitude: null,
         longitude: null,
         accountNumber: "",
+        posKey: "",
         corporateOfficeAddr: "",
         corporateOfficePhoneNo: "",
         gstNo: "",
@@ -171,6 +172,10 @@ const AddCentreModal = ({ onClose, onSuccess }) => {
                         <div>
                             <label className="block text-gray-400 text-sm mb-1">Account Number</label>
                             <input type="text" name="accountNumber" value={formData.accountNumber} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
+                        </div>
+                        <div>
+                            <label className="block text-gray-400 text-sm mb-1">POS Machine Key</label>
+                            <input type="text" name="posKey" value={formData.posKey} onChange={handleChange} placeholder="Enter POS terminal key" className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white font-mono" />
                         </div>
                         <div>
                             <label className="block text-gray-400 text-sm mb-1">State</label>
