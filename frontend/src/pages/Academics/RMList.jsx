@@ -64,7 +64,8 @@ const RMList = () => {
             if (response.ok) {
                 const user = JSON.parse(localStorage.getItem("user") || "{}");
                 if (user.role !== 'superAdmin' && user.centres) {
-                    const filtered = data.filter(c => user.centres.includes(c._id));
+                    const userCentreIds = user.centres.map(c => (c._id || c).toString());
+                    const filtered = data.filter(c => userCentreIds.includes(c._id.toString()));
                     setCentres(filtered);
                 } else {
                     setCentres(data);

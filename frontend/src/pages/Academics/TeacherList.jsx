@@ -73,7 +73,22 @@ const TeacherList = () => {
             });
             const data = await response.json();
             if (response.ok) {
-                setTeachers(data);
+                const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+                if (storedUser.role !== 'superAdmin' && storedUser.centres) {
+                    const userCentreIds = storedUser.centres.map(c => (c._id || c).toString());
+                    const filteredTeachers = data.filter(t => {
+                        if (Array.isArray(t.centres)) {
+                            return t.centres.some(c => userCentreIds.includes((c._id || c).toString()));
+                        }
+                        if (t.centre) {
+                            return userCentreIds.includes((t.centre._id || t.centre).toString());
+                        }
+                        return false;
+                    });
+                    setTeachers(filteredTeachers);
+                } else {
+                    setTeachers(data);
+                }
             } else {
                 toast.error(data.message || "Failed to fetch teachers");
             }
@@ -96,7 +111,8 @@ const TeacherList = () => {
                 const data = await response.json();
                 const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
                 if (storedUser.role !== 'superAdmin' && storedUser.centres) {
-                    const filtered = data.filter(c => storedUser.centres.includes(c._id));
+                    const userCentreIds = storedUser.centres.map(c => (c._id || c).toString());
+                    const filtered = data.filter(c => userCentreIds.includes(c._id.toString()));
                     setCentres(filtered);
                 } else {
                     setCentres(data);
@@ -242,20 +258,9 @@ const TeacherList = () => {
         return unique.map(val => ({ value: val, label: val }));
     };
 
-    // Get centre options from all teachers' centres arrays
+    // Get centre options from filtered centres state
     const getCentreOptions = () => {
-        const allCentres = [];
-        teachers.forEach(t => {
-            if (Array.isArray(t.centres)) {
-                t.centres.forEach(c => {
-                    const centreName = c?.centreName || c;
-                    if (centreName && !allCentres.includes(centreName)) {
-                        allCentres.push(centreName);
-                    }
-                });
-            }
-        });
-        return allCentres.sort().map(val => ({ value: val, label: val }));
+        return centres.map(c => ({ value: c.centreName, label: c.centreName })).sort((a, b) => a.label.localeCompare(b.label));
     };
 
     const nameOptions = getOptions('name');

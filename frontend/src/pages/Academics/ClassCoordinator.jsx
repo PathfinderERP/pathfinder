@@ -64,7 +64,7 @@ const ClassCoordinator = () => {
             if (response.ok) {
                 const user = JSON.parse(localStorage.getItem("user") || "{}");
                 const isSuperAdmin = user.role?.toLowerCase() === 'superadmin' || user.role?.toLowerCase() === 'super admin';
-                
+
                 if (!isSuperAdmin && user.centres) {
                     const userCentreIds = user.centres.map(c => (c._id || c).toString());
                     const filtered = data.filter(c => userCentreIds.includes(c._id.toString()));
