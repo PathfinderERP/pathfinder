@@ -44,26 +44,6 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
         );
     });
 
-    useEffect(() => {
-        if (lead) {
-            setFormData({
-                name: lead.name || "",
-                email: lead.email || "",
-                phoneNumber: lead.phoneNumber || "",
-                schoolName: lead.schoolName || "",
-                className: lead.className?._id || "",
-                centre: lead.centre?._id || "",
-                course: lead.course?._id || "",
-                board: lead.board?._id || lead.board || "",
-                source: lead.source || "",
-                targetExam: lead.targetExam || "",
-                leadType: lead.leadType || "",
-                leadResponsibility: lead.leadResponsibility || ""
-            });
-        }
-        fetchDropdownData();
-    }, [lead, fetchDropdownData]);
-
     const fetchDropdownData = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
@@ -136,6 +116,26 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
             toast.error("Failed to load options");
         }
     }, [lead]);
+
+    useEffect(() => {
+        if (lead) {
+            setFormData({
+                name: lead.name || "",
+                email: lead.email || "",
+                phoneNumber: lead.phoneNumber || "",
+                schoolName: lead.schoolName || "",
+                className: lead.className?._id || "",
+                centre: lead.centre?._id || "",
+                course: lead.course?._id || "",
+                board: lead.board?._id || lead.board || "",
+                source: lead.source || "",
+                targetExam: lead.targetExam || "",
+                leadType: lead.leadType || "",
+                leadResponsibility: lead.leadResponsibility || ""
+            });
+        }
+        fetchDropdownData();
+    }, [lead, fetchDropdownData]);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
