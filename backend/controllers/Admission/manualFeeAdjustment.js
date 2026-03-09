@@ -11,11 +11,7 @@ export const manualFeeAdjustment = async (req, res) => {
         const { id } = req.params;
         const { totalFees, totalPaidAmount, numberOfInstallments } = req.body;
 
-        // Check if the user is a super admin (this check is also in middleware, but safe here)
-        const user = await User.findById(req.user.id);
-        if (!user || (user.role !== "superAdmin" && user.role !== "Super Admin")) {
-            return res.status(403).json({ message: "Access denied. Super Admin only." });
-        }
+        // The permission check is now handled via route middleware
 
         const admission = await Admission.findById(id).populate('student');
         if (!admission) {

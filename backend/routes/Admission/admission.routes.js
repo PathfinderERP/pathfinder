@@ -43,7 +43,7 @@ router.get("/:admissionId/monthly-breakdown", requireAuth, getMonthlyBreakdown);
 
 router.put("/student/:studentId/status", requireGranularPermission("admissions", "enrolledStudents", "deactivate"), toggleStudentStatus);
 router.put("/:admissionId/divide-installments", requireGranularPermission("admissions", "enrolledStudents", "edit"), divideRemainingInstallments);
-router.put("/:id/manual-adjustment", requireAuth, manualFeeAdjustment);
+router.put("/:id/manual-adjustment", requireGranularPermission("admissions", "enrolledStudents", "edit"), manualFeeAdjustment);
 router.put("/:id/enrollment-number", requireGranularPermission("admissions", "enrolledStudents", "edit"), updateEnrollmentNumber);
 router.delete("/student/:studentId/permanent", requireGranularPermission("admissions", "enrolledStudents", "delete"), permanentlyDeleteStudent);
 

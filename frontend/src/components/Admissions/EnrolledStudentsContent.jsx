@@ -311,8 +311,8 @@ const EnrolledStudentsContent = () => {
     };
 
     const handleManualCorrection = async (admissionId) => {
-        if (!isSuperAdmin) {
-            toast.error("Unauthorized: Super Admin access required.");
+        if (!canEdit) {
+            toast.error("Unauthorized: Module edit access required.");
             return;
         }
 
@@ -1915,7 +1915,7 @@ const EnrolledStudentsContent = () => {
                                                     <div className={`px-4 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-[0.2em] border shadow-sm ${getStatusColor(admission.admissionStatus)}`}>
                                                         {admission.admissionStatus}
                                                     </div>
-                                                    {isSuperAdmin && (
+                                                    {canEdit && (
                                                         <button
                                                             onClick={() => {
                                                                 if (showCorrectionId === admission._id) {
