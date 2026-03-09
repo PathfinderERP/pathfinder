@@ -11,6 +11,7 @@ import LeaveRequest from "../../models/Attendance/LeaveRequest.js";
 import Regularization from "../../models/Attendance/Regularization.js";
 import Reimbursement from "../../models/HR/Reimbursement.js";
 import ResignationRequest from "../../models/HR/ResignationRequest.js";
+import { getNextEmployeeId } from "../../utils/hrUtils.js";
 export { upload };
 import multer from "multer";
 
@@ -93,30 +94,19 @@ export const createEmployee = async (req, res) => {
         });
 
         // ---------------------------------------------------------
-        // 1. Manually Generate Unique Employee ID (Fixing collision issue)
-        // ---------------------------------------------------------
-        const now = new Date();
-        const year = now.getFullYear().toString().slice(-2);
-        const prefix = `EMP${year}`;
-
-        const lastEmpById = await Employee.findOne({
-            employeeId: { $regex: new RegExp(`^${prefix}`) }
-        }).sort({ employeeId: -1 });
-
-        let sequence = 1;
-        if (lastEmpById && lastEmpById.employeeId) {
-            const lastSeq = parseInt(lastEmpById.employeeId.slice(5), 10);
-            if (!isNaN(lastSeq)) sequence = lastSeq + 1;
-        }
-        employeeData.employeeId = `${prefix}${String(sequence).padStart(6, "0")}`;
-
-        // ---------------------------------------------------------
-        // 2. Create User Account (Auto-generate if not exists)
+        // 1. Handle User Account and Employee ID
         // ---------------------------------------------------------
         // Check if user with this email already exists
         let user = await User.findOne({ email: employeeData.email });
 
-        if (!user) {
+        if (user) {
+            // If user exists, use their existing employeeId to prevent desync
+            console.log(`Linking existing user ${user._id} with ID ${user.employeeId} to new employee`);
+            employeeData.employeeId = user.employeeId;
+        } else {
+            // Generate a truly unique ID checking both collections
+            employeeData.employeeId = await getNextEmployeeId();
+
             // Create new user
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(employeeData.employeeId, salt); // Password = Employee ID
@@ -162,9 +152,6 @@ export const createEmployee = async (req, res) => {
                 isActive: employeeData.status ? (employeeData.status === "Active") : true
             });
             await user.save();
-        } else {
-            // If user exists, we verify if we can link (optional, for now just link)
-            console.log(`Linking existing user ${user._id} to new employee`);
         }
 
         // Link User to Employee

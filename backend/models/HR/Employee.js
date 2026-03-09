@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getNextEmployeeId } from "../../utils/hrUtils.js";
 
 const salaryStructureSchema = new mongoose.Schema({
     effectiveDate: { type: Date, required: false },
@@ -259,22 +260,7 @@ const employeeSchema = new mongoose.Schema({
 employeeSchema.pre("validate", async function () {
     if (!this.employeeId) {
         try {
-            const now = new Date();
-            const year = now.getFullYear().toString().slice(-2);
-            const prefix = `EMP${year}`;
-
-            // Find the latest employee ID for the current year
-            const lastRecord = await this.constructor.findOne({
-                employeeId: new RegExp(`^${prefix}`)
-            }).sort({ employeeId: -1 });
-
-            let sequence = 1;
-            if (lastRecord && lastRecord.employeeId) {
-                const lastSeq = parseInt(lastRecord.employeeId.slice(5), 10);
-                if (!isNaN(lastSeq)) sequence = lastSeq + 1;
-            }
-
-            this.employeeId = `${prefix}${String(sequence).padStart(6, "0")}`;
+            this.employeeId = await getNextEmployeeId();
         } catch (error) {
             throw error;
         }
