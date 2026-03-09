@@ -2330,13 +2330,13 @@ const EnrolledStudentsContent = () => {
                                         </p>
                                     </div>
                                     <div className={`p-6 rounded-[4px] border transition-all hover:scale-[1.02] ${isDarkMode ? 'bg-black/20 border-green-500/20' : 'bg-white border-green-200'}`}>
-                                        <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1.5">Capital Realized</p>
+                                        <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1.5">Total Paid</p>
                                         <p className="text-4xl font-black italic tracking-tighter text-green-500">
                                             ₹{studentAdmissions.reduce((sum, ad) => sum + (ad.totalPaidAmount || 0), 0).toLocaleString()}
                                         </p>
                                     </div>
                                     <div className={`p-6 rounded-[4px] border transition-all hover:scale-[1.02] ${isDarkMode ? 'bg-black/20 border-yellow-500/20' : 'bg-white border-yellow-200'}`}>
-                                        <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1.5">Outstanding Asset</p>
+                                        <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1.5">Remaining</p>
                                         <p className="text-4xl font-black italic tracking-tighter text-yellow-500">
                                             ₹{studentAdmissions.reduce((sum, ad) => sum + ((ad.totalFees || 0) - (ad.totalPaidAmount || 0)), 0).toLocaleString()}
                                         </p>
@@ -2400,7 +2400,7 @@ const EnrolledStudentsContent = () => {
                                             <FaExclamationCircle className="text-yellow-500 text-xl" />
                                             <div>
                                                 <p className="text-yellow-500 font-black uppercase tracking-widest text-[10px]">PARTIAL LIQUIDATION DETECTED</p>
-                                                <p className="text-gray-500 text-[9px] font-bold uppercase tracking-widest mt-1">Delta of ₹{diff.toLocaleString()} will be rolled over to the next cycle.</p>
+                                                <p className="text-gray-500 text-[9px] font-bold uppercase tracking-widest mt-1">Remaining ₹{diff.toLocaleString()} will be rolled over to the next cycle.</p>
                                             </div>
                                         </div>
                                     );
@@ -2410,7 +2410,7 @@ const EnrolledStudentsContent = () => {
                                             <FaCheckCircle className="text-green-500 text-xl" />
                                             <div>
                                                 <p className="text-green-500 font-black uppercase tracking-widest text-[10px]">EXCESS LIQUIDATION DETECTED</p>
-                                                <p className="text-gray-500 text-[9px] font-bold uppercase tracking-widest mt-1">Surplus of ₹{Math.abs(diff).toLocaleString()} will be credited to the next cycle.</p>
+                                                <p className="text-gray-500 text-[9px] font-bold uppercase tracking-widest mt-1">Excess of ₹{Math.abs(diff).toLocaleString()} will be credited to the next cycle.</p>
                                             </div>
                                         </div>
                                     );
@@ -2436,7 +2436,7 @@ const EnrolledStudentsContent = () => {
                                         className={`w-full p-3 rounded-[4px] border font-black uppercase tracking-widest text-[11px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                     >
                                         <option value="CASH" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>HARD CURRENCY (CASH)</option>
-                                        <option value="UPI" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>DIGITAL VECTOR (UPI)</option>
+                                        <option value="UPI" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>Online Payment (UPI)</option>
                                         <option value="CARD" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>CREDIT/DEBIT CARD</option>
                                         <option value="BANK_TRANSFER" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>BANK WIRE TRANSFER</option>
                                         <option value="CHEQUE" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>BANK CHEQUE</option>

@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { toast } from "react-toastify";
 import { FaPlus, FaTimes } from "react-icons/fa";
+import CustomSelect from "../../components/common/CustomSelect";
 
 const AddEmployee = () => {
     const { id } = useParams();
@@ -79,6 +80,7 @@ const AddEmployee = () => {
     });
 
     const location = useLocation();
+    const [centreSearchQuery, setCentreSearchQuery] = useState("");
 
     useEffect(() => {
         fetchMasterData();
@@ -585,18 +587,17 @@ const AddEmployee = () => {
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Gender *
                                 </label>
-                                <select
+                                <CustomSelect
                                     name="gender"
                                     value={formData.gender}
+                                    options={[
+                                        { value: "Male", label: "Male" },
+                                        { value: "Female", label: "Female" },
+                                        { value: "Other", label: "Other" }
+                                    ]}
                                     onChange={handleInputChange}
                                     required
-                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                                >
-                                    <option value="">Choose</option>
-                                    <option value="Male">Male</option>
-                                    <option value="Female">Female</option>
-                                    <option value="Other">Other</option>
-                                </select>
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -744,79 +745,59 @@ const AddEmployee = () => {
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Primary Centre *
                                 </label>
-                                <select
+                                <CustomSelect
                                     name="primaryCentre"
                                     value={formData.primaryCentre}
+                                    options={masterData.centres.map(c => ({ value: c._id, label: c.centreName }))}
                                     onChange={handleInputChange}
-                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                                >
-                                    <option value="">Choose</option>
-                                    {masterData.centres.map(centre => (
-                                        <option key={centre._id} value={centre._id}>{centre.centreName}</option>
-                                    ))}
-                                </select>
+                                    required
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Department *
                                 </label>
-                                <select
+                                <CustomSelect
                                     name="department"
                                     value={formData.department}
+                                    options={masterData.departments.map(d => ({ value: d._id, label: d.departmentName }))}
                                     onChange={handleInputChange}
-                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                                >
-                                    <option value="">Choose</option>
-                                    {masterData.departments.map(dept => (
-                                        <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
-                                    ))}
-                                </select>
+                                    required
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Designation *
                                 </label>
-                                <select
+                                <CustomSelect
                                     name="designation"
                                     value={formData.designation}
+                                    options={masterData.designations.map(d => ({ value: d._id, label: d.name }))}
                                     onChange={handleInputChange}
-                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                                >
-                                    <option value="">Choose</option>
-                                    {masterData.designations.map(desig => (
-                                        <option key={desig._id} value={desig._id}>{desig.name}</option>
-                                    ))}
-                                </select>
+                                    required
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Manager
                                 </label>
-                                <select
+                                <CustomSelect
                                     name="manager"
                                     value={formData.manager}
+                                    options={masterData.managers.map(m => ({ value: m._id, label: `${m.name} (${m.employeeId})` }))}
                                     onChange={handleInputChange}
-                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                                >
-                                    <option value="">Select manager</option>
-                                    {masterData.managers.map(mgr => (
-                                        <option key={mgr._id} value={mgr._id}>{mgr.name} ({mgr.employeeId})</option>
-                                    ))}
-                                </select>
+                                    placeholder="Select manager"
+                                />
                             </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     State
                                 </label>
-                                <select
+                                <CustomSelect
                                     name="state"
                                     value={formData.state}
-                                    onChange={handleInputChange}
-                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                                >
-                                    <option value="">Select State</option>
-                                    {[
+                                    options={[
                                         "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
                                         "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand",
                                         "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur",
@@ -825,10 +806,10 @@ const AddEmployee = () => {
                                         "Uttar Pradesh", "Uttarakhand", "West Bengal",
                                         "Andaman and Nicobar Islands", "Chandigarh", "Dadra and Nagar Haveli and Daman and Diu",
                                         "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry"
-                                    ].map(state => (
-                                        <option key={state} value={state}>{state}</option>
-                                    ))}
-                                </select>
+                                    ].map(s => ({ value: s, label: s }))}
+                                    onChange={handleInputChange}
+                                    placeholder="Select State"
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -941,20 +922,22 @@ const AddEmployee = () => {
                                     <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
                                         Manual Role Override
                                     </label>
-                                    <select
+                                    <CustomSelect
                                         name="role"
                                         value={formData.role}
+                                        options={[
+                                            { value: "", label: "Default (Auto)" },
+                                            { value: "teacher", label: "Teacher" },
+                                            { value: "HOD", label: "HOD" },
+                                            { value: "admin", label: "Admin/Staff" },
+                                            { value: "counsellor", label: "Counsellor" },
+                                            { value: "telecaller", label: "Telecaller" },
+                                            { value: "marketing", label: "Marketing" }
+                                        ]}
                                         onChange={handleInputChange}
-                                        className="w-full px-3 py-1 text-xs border border-gray-300 dark:border-gray-700 rounded focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white font-bold"
-                                    >
-                                        <option value="">Default (Auto)</option>
-                                        <option value="teacher">Teacher</option>
-                                        <option value="HOD">HOD</option>
-                                        <option value="admin">Admin/Staff</option>
-                                        <option value="counsellor">Counsellor</option>
-                                        <option value="telecaller">Telecaller</option>
-                                        <option value="marketing">Marketing</option>
-                                    </select>
+                                        className="font-bold"
+                                        placeholder="Default (Auto)"
+                                    />
                                 </div>
                             </div>
 
@@ -985,18 +968,51 @@ const AddEmployee = () => {
                                     </button>
                                 )}
                             </div>
+
+                            {/* Centre Search Input */}
+                            <div className="mb-4 relative">
+                                <input
+                                    type="text"
+                                    placeholder="Search centres..."
+                                    value={centreSearchQuery}
+                                    onChange={(e) => setCentreSearchQuery(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white pl-10"
+                                />
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                </div>
+                                {centreSearchQuery && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setCentreSearchQuery("")}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                                    >
+                                        <FaTimes className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </div>
+
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                {masterData.centres.map(centre => (
-                                    <label key={centre._id} className="flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.centres.includes(centre._id)}
-                                            onChange={() => handleCentreSelection(centre._id)}
-                                            className="rounded text-blue-600 focus:ring-blue-500"
-                                        />
-                                        <span className="text-sm text-gray-700 dark:text-gray-300">{centre.centreName}</span>
-                                    </label>
-                                ))}
+                                {masterData.centres
+                                    .filter(centre => centre.centreName.toLowerCase().includes(centreSearchQuery.toLowerCase()))
+                                    .map(centre => (
+                                        <label key={centre._id} className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.centres.includes(centre._id)}
+                                                onChange={() => handleCentreSelection(centre._id)}
+                                                className="rounded text-blue-600 focus:ring-blue-500"
+                                            />
+                                            <span className="text-sm text-gray-700 dark:text-gray-300">{centre.centreName}</span>
+                                        </label>
+                                    ))}
+                                {masterData.centres.filter(centre => centre.centreName.toLowerCase().includes(centreSearchQuery.toLowerCase())).length === 0 && (
+                                    <div className="col-span-full py-4 text-center text-gray-500 italic">
+                                        No centres matching your search
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -1041,18 +1057,17 @@ const AddEmployee = () => {
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Type Of Employment
                                 </label>
-                                <select
+                                <CustomSelect
                                     name="typeOfEmployment"
                                     value={formData.typeOfEmployment}
+                                    options={[
+                                        { value: "Full-time", label: "Full-time" },
+                                        { value: "Part-time", label: "Part-time" },
+                                        { value: "Contract", label: "Contract" },
+                                        { value: "Intern", label: "Intern" }
+                                    ]}
                                     onChange={handleInputChange}
-                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                                >
-                                    <option value="">Choose</option>
-                                    <option value="Full-time">Full-time</option>
-                                    <option value="Part-time">Part-time</option>
-                                    <option value="Contract">Contract</option>
-                                    <option value="Intern">Intern</option>
-                                </select>
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
