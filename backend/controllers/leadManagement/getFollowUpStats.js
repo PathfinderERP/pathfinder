@@ -99,7 +99,7 @@ export const getFollowUpStats = async (req, res) => {
 
         // Role-based filtering (Sync with getLeads.js)
         const curUserRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ['superadmin', 'super admin', 'centerincharge', 'zonalmanager', 'zonalhead', 'hr'];
+        const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead', 'hr', 'class_coordinator', 'rm', 'hod'];
         const isPrivileged = privilegedRoles.includes(curUserRoleStr);
 
         if (curUserRoleStr !== 'superadmin' && curUserRoleStr !== 'super admin') {

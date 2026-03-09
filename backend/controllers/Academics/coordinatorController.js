@@ -83,7 +83,7 @@ export const getAllCoordinators = async (req, res) => {
         let query = { role: "Class_Coordinator" };
 
         const userRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "zonalhead", "hr"];
+        const privilegedRoles = ["superadmin", "super admin", "admin", "centerincharge", "zonalmanager", "zonalhead", "hr", "class_coordinator", "rm", "hod"];
         const isPrivileged = privilegedRoles.includes(userRole);
 
         if (userRole !== "superadmin" && userRole !== "super admin" && userRole !== "hr") {

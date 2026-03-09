@@ -3,7 +3,8 @@ import CentreSchema from "../../models/Master_data/Centre.js";
 export const getCentres = async (req, res) => {
     try {
         const user = req.user;
-        const isSuperAdmin = user.role === "superAdmin" || user.role === "Super Admin";
+        const userRole = (user.role || "").toLowerCase().replace(/\s+/g, "");
+        const isSuperAdmin = ["superadmin", "super admin"].includes(userRole);
 
         // SuperAdmins see all centres
         // Other users only see centres they are assigned to

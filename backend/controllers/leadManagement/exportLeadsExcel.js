@@ -63,7 +63,7 @@ export const exportLeadsExcel = async (req, res) => {
 
         // Access Control (Sync with getLeads.js)
         const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ['superadmin', 'super admin', 'centerincharge', 'zonalmanager', 'zonalhead'];
+        const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead', 'hr', 'class_coordinator', 'rm', 'hod'];
         const isPrivileged = privilegedRoles.includes(userRoleStr);
 
         if (userRoleStr !== 'superadmin' && userRoleStr !== 'super admin') {
