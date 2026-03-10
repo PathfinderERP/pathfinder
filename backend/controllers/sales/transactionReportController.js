@@ -23,9 +23,11 @@ export const getTransactionReport = async (req, res) => {
             search
         } = req.query;
 
-        // Base Match for Payment (paidAmount > 0)
+        // Base Match for Payment (paidAmount > 0 AND status is PAID or PARTIAL)
         let baseAttributesMatch = {
-            paidAmount: { $gt: 0 }
+            paidAmount: { $gt: 0 },
+            status: { $in: ["PAID", "PARTIAL"] },
+            paidDate: { $lte: new Date() } // Ensure we only show transactions that have actually happened
         };
 
         if (minAmount || maxAmount) {
