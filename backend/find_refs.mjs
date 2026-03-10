@@ -11,35 +11,32 @@ async function findRefs() {
 
         const db = mongoose.connection;
 
-        console.log('\n--- Searching for Course ---');
-        const course = await db.collection("courses").findOne({
-            courseName: { $regex: /Foundation.*VII.*Outstation/i }
-        });
-        if (course) {
-            console.log('✅ Found Course:', course.courseName, '| _id:', course._id);
-            console.log('   Department:', course.department, '| ExamTag:', course.examTag);
-        } else {
-             const allCourses = await db.collection("courses")
-                .find({ courseName: { $regex: /Foundation.*VII/i } })
-                .toArray();
-            console.log('❌ Course not found exactly. Similar courses:');
-            allCourses.forEach(c => console.log('  -', c.courseName, '|', c._id));
-        }
+        const coursesToFind = [
+            { name: "NEET 25-27", regex: /NEET.*25-27/i },
+            { name: "FOUNDATION 25-26(VII)", regex: /FOUNDATION.*25-26.*VII/i },
+            { name: "FOUNDATION 25-26(VIII)", regex: /FOUNDATION.*25-26.*VIII/i },
+            { name: "FOUNDATION 25-26(IX)", regex: /FOUNDATION.*25-26.*IX/i }
+        ];
 
-        console.log('\n--- Searching for Class 7 ---');
-        const class7 = await db.collection("classes").findOne({
-            $or: [
-                { className: { $regex: /^7$|^VII$/i } },
-                { name: { $regex: /^7$|^VII$/i } }
-            ]
-        });
-        if (class7) {
-            console.log('✅ Found Class:', class7.className || class7.name, '| _id:', class7._id);
-        } else {
-            console.log('❌ Class 7 not found.');
-            const allClasses = await db.collection("classes").find({}).toArray();
-            console.log('   Available classes:');
-            allClasses.forEach(c => console.log('  -', c.className || c.name, '|', c._id));
+        console.log('\n--- Searching for Courses ---');
+        for (const target of coursesToFind) {
+            const course = await db.collection("courses").findOne({
+                courseName: { $regex: target.regex }
+            });
+            if (course) {
+                console.log(`✅ Found Course: ${course.courseName} | _id: ${course._id}`);
+                console.log(`   Class ID: ${course.class} | Dept: ${course.department} | ExamTag: ${course.examTag}`);
+            } else {
+                console.log(`❌ Course NOT FOUND: ${target.name}`);
+                const similar = await db.collection("courses")
+                    .find({ courseName: { $regex: new RegExp(target.name.split(' ')[0], 'i') } })
+                    .limit(3)
+                    .toArray();
+                if (similar.length > 0) {
+                    console.log('   Similar courses:');
+                    similar.forEach(s => console.log('     -', s.courseName, '|', s._id));
+                }
+            }
         }
 
         await mongoose.disconnect();
