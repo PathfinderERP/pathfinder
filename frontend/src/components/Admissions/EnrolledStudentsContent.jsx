@@ -204,7 +204,11 @@ const EnrolledStudentsContent = () => {
     const fetchAdmissions = React.useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${apiUrl}/admission`, {
+            const queryParams = new URLSearchParams();
+            if (startDate) queryParams.append("startDate", startDate);
+            if (endDate) queryParams.append("endDate", endDate);
+
+            const response = await fetch(`${apiUrl}/admission?${queryParams.toString()}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
@@ -221,13 +225,16 @@ const EnrolledStudentsContent = () => {
         } finally {
             setLoading(false);
         }
-    }, [apiUrl, groupStudents]);
+    }, [apiUrl, groupStudents, startDate, endDate]);
 
     useEffect(() => {
         fetchAllowedCentres();
-        fetchAdmissions();
         fetchMasterData();
-    }, [fetchAllowedCentres, fetchAdmissions, fetchMasterData]);
+    }, [fetchAllowedCentres, fetchMasterData]);
+
+    useEffect(() => {
+        fetchAdmissions();
+    }, [fetchAdmissions]);
 
     const [showCorrectionId, setShowCorrectionId] = useState(null);
     const [correctionData, setCorrectionData] = useState({
@@ -575,8 +582,18 @@ const EnrolledStudentsContent = () => {
 
     const filteredAdmissions = filteredStudents.flatMap(s =>
         s.admissions.filter(a => {
-            if (viewMode === 'Board') return a.admissionType === 'BOARD';
-            return a.admissionType === 'NORMAL';
+            const isTypeMatch = viewMode === 'Board' ? a.admissionType === 'BOARD' : a.admissionType === 'NORMAL';
+            if (!isTypeMatch) return false;
+
+            // Also refine by date if filters are active
+            const admDate = new Date(a.admissionDate);
+            if (startDate && admDate < new Date(startDate)) return false;
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                if (admDate > end) return false;
+            }
+            return true;
         })
     );
     const totalCollected = filteredAdmissions.reduce((sum, a) => sum + (a.totalPaidAmount || 0), 0);
@@ -1299,8 +1316,18 @@ const EnrolledStudentsContent = () => {
                                     .map((studentItem) => {
                                         const student = studentItem.student?.studentsDetails?.[0] || {};
                                         const relevantAdmissions = studentItem.admissions.filter(a => {
-                                            if (viewMode === 'Board') return a.admissionType === 'BOARD';
-                                            return a.admissionType === 'NORMAL';
+                                            const isTypeMatch = viewMode === 'Board' ? a.admissionType === 'BOARD' : a.admissionType === 'NORMAL';
+                                            if (!isTypeMatch) return false;
+
+                                            // Refine by date if filters are active
+                                            const admDate = new Date(a.admissionDate);
+                                            if (startDate && admDate < new Date(startDate)) return false;
+                                            if (endDate) {
+                                                const end = new Date(endDate);
+                                                end.setHours(23, 59, 59, 999);
+                                                if (admDate > end) return false;
+                                            }
+                                            return true;
                                         });
                                         const latestAdmission = relevantAdmissions[0] || studentItem.latestAdmission;
                                         const studentImage = student.studentImage || null;

@@ -66,6 +66,19 @@ export const getAdmissions = async (req, res) => {
             query.examTag = { $in: examTags };
         }
 
+        // Date range filtering
+        if (req.query.startDate || req.query.endDate) {
+            query.admissionDate = {};
+            if (req.query.startDate) {
+                query.admissionDate.$gte = new Date(req.query.startDate);
+            }
+            if (req.query.endDate) {
+                const end = new Date(req.query.endDate);
+                end.setHours(23, 59, 59, 999);
+                query.admissionDate.$lte = end;
+            }
+        }
+
         const admissions = await Admission.find(query)
             .populate({
                 path: 'student',
