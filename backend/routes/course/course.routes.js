@@ -15,9 +15,9 @@ router.get("/", requireAuth, getCourses);
 router.get("/:id", requireAuth, getCourseById);
 
 // Write routes - Require granular permissions
-router.post("/create", requireGranularPermission("masterData", "course", "create"), createCourse);
-router.post("/import", requireGranularPermission("masterData", "course", "create"), bulkImport(Course));
-router.put("/:id", requireGranularPermission("masterData", "course", "edit"), updateCourse);
-router.delete("/:id", requireGranularPermission("masterData", "course", "delete"), deleteCourse);
+router.post("/create", requireGranularPermission("courseManagement", "courses", "create"), createCourse);
+router.post("/import", requireGranularPermission("courseManagement", "courses", "create"), bulkImport(Course));
+router.put("/:id", requireGranularPermission("courseManagement", "courses", "edit"), updateCourse);
+router.delete("/:id", requireGranularPermission("courseManagement", "courses", "delete"), deleteCourse);
 
 export default router;
