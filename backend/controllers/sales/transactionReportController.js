@@ -26,8 +26,7 @@ export const getTransactionReport = async (req, res) => {
         // Base Match for Payment (paidAmount > 0 AND status is PAID or PARTIAL)
         let baseAttributesMatch = {
             paidAmount: { $gt: 0 },
-            status: { $in: ["PAID", "PARTIAL"] },
-            paidDate: { $lte: new Date() } // Ensure we only show transactions that have actually happened
+            status: { $in: ["PAID", "PARTIAL"] }
         };
 
         if (minAmount || maxAmount) {
@@ -62,12 +61,27 @@ export const getTransactionReport = async (req, res) => {
             const start = new Date(startDate);
             const end = new Date(endDate);
             end.setHours(23, 59, 59, 999);
-            paymentMatch.paidDate = { $gte: start, $lte: end };
+            paymentMatch.$expr = {
+                $and: [
+                    { $gte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, start] },
+                    { $lte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, end] }
+                ]
+            };
         } else if (year && !isNaN(parseInt(year))) {
             const targetYear = parseInt(year);
             const startOfYear = new Date(targetYear, 0, 1);
             const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59);
-            paymentMatch.paidDate = { $gte: startOfYear, $lte: endOfYear };
+            paymentMatch.$expr = {
+                $and: [
+                    { $gte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, startOfYear] },
+                    { $lte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, endOfYear] }
+                ]
+            };
+        } else {
+            // Default: Ensure we only show transactions that have actually happened (not future dates)
+            paymentMatch.$expr = {
+                $lte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, new Date()]
+            };
         }
 
         // Match for Admission fields (Centre, Course, Session, ExamTag)
@@ -218,7 +232,7 @@ export const getTransactionReport = async (req, res) => {
                         { $sort: { revenue: -1 } }
                     ],
 
-                    // Chart 4: Course Wise Revenue
+            // Chart 4: Course Wise Revenue
                     courseRevenue: [
                         {
                             $group: {
@@ -251,7 +265,6 @@ export const getTransactionReport = async (req, res) => {
         ]);
 
         // Process Detailed Report (Separate Query for Flattened Data)
-        // We reuse the pipeline logic but project detailed fields
         const detailedData = await Payment.aggregate([
             { $match: paymentMatch },
             { $lookup: { from: "admissions", localField: "admission", foreignField: "_id", as: "admissionInfo" } },
@@ -296,11 +309,16 @@ export const getTransactionReport = async (req, res) => {
                     ]
                 } : {}
             },
-            { $sort: { paidDate: -1 } },
+            {
+                $addFields: {
+                    effectivePaidDate: { $ifNull: ["$receivedDate", "$paidDate"] }
+                }
+            },
+            { $sort: { effectivePaidDate: -1 } },
             {
                 $project: {
                     transactionId: "$transactionId",
-                    paymentDate: "$paidDate",
+                    paymentDate: "$effectivePaidDate",
                     amount: "$paidAmount",
                     method: "$paymentMethod",
                     status: "$status",
@@ -361,35 +379,35 @@ export const getTransactionReport = async (req, res) => {
             {
                 $project: {
                     paidAmount: 1,
-                    paidDate: { $ifNull: ["$paidDate", { $ifNull: ["$receivedDate", "$createdAt"] }] }
+                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate"] }
                 }
             },
             {
                 $group: {
                     _id: null,
                     currentYearWithGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", startCFY] }, { $lte: ["$paidDate", endCFY] }] }, "$paidAmount", 0] }
+                        $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startCFY] }, { $lte: ["$effectiveDate", endCFY] }] }, "$paidAmount", 0] }
                     },
                     currentYearWithoutGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", startCFY] }, { $lte: ["$paidDate", endCFY] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
+                        $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startCFY] }, { $lte: ["$effectiveDate", endCFY] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
                     },
                     previousYearWithGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", startPFY] }, { $lte: ["$paidDate", endPFY] }] }, "$paidAmount", 0] }
+                        $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startPFY] }, { $lte: ["$effectiveDate", endPFY] }] }, "$paidAmount", 0] }
                     },
                     previousYearWithoutGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", startPFY] }, { $lte: ["$paidDate", endPFY] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
+                        $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startPFY] }, { $lte: ["$effectiveDate", endPFY] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
                     },
                     currentMonthWithGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", currentMonthStart] }, { $lte: ["$paidDate", currentMonthEnd] }] }, "$paidAmount", 0] }
+                        $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", currentMonthStart] }, { $lte: ["$effectiveDate", currentMonthEnd] }] }, "$paidAmount", 0] }
                     },
                     currentMonthWithoutGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", currentMonthStart] }, { $lte: ["$paidDate", currentMonthEnd] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
+                        $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", currentMonthStart] }, { $lte: ["$effectiveDate", currentMonthEnd] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
                     },
                     previousMonthWithGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", prevMonthStart] }, { $lte: ["$paidDate", prevMonthEnd] }] }, "$paidAmount", 0] }
+                        $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", prevMonthStart] }, { $lte: ["$effectiveDate", prevMonthEnd] }] }, "$paidAmount", 0] }
                     },
                     previousMonthWithoutGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$paidDate", prevMonthStart] }, { $lte: ["$paidDate", prevMonthEnd] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
+                        $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", prevMonthStart] }, { $lte: ["$effectiveDate", prevMonthEnd] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
                     }
                 }
             }
