@@ -1,0 +1,57 @@
+import Payment from "../models/Payment/Payment.js";
+
+/**
+ * Generate a unique sequential bill ID (Receipt Number)
+ * Format: PATH/[BRANCH_CODE]/[FINANCIAL_YEAR]/[SEQUENCE_NUMBER]
+ * Example: PATH/BAR/2025-26/000001
+ * 
+ * @param {string} centreCode - The short code for the centre
+ * @returns {Promise<string>} - The generated bill ID
+ */
+export const generateBillId = async (centreCode) => {
+    try {
+        const date = new Date();
+        const month = date.getMonth(); // 0-11
+        const year = date.getFullYear();
+
+        let startYear, endYear;
+        // Financial Year is April to March
+        if (month >= 3) { // April onwards
+            startYear = year;
+            endYear = year + 1;
+        } else { // Jan-March
+            startYear = year - 1;
+            endYear = year;
+        }
+
+        // Format: YYYY-YY (e.g., 2025-26)
+        const yearStr = `${startYear}-${endYear.toString().slice(-2)}`;
+        const prefix = `PATH/${centreCode}/${yearStr}/`;
+
+        // Find the last payment with a billId matching the pattern
+        // We look for IDs that start with the prefix and end with digits
+        const lastPayment = await Payment.findOne({
+            billId: { $regex: new RegExp(`^${prefix.replace(/\//g, '\\/')}\\d+$`) }
+        }).sort({ createdAt: -1 });
+
+        let nextNumber = 1;
+
+        if (lastPayment && lastPayment.billId) {
+            // Extract the number part
+            const lastId = lastPayment.billId;
+            const parts = lastId.split('/');
+            const lastSeq = parts[parts.length - 1];
+
+            if (lastSeq && !isNaN(lastSeq)) {
+                nextNumber = parseInt(lastSeq) + 1;
+            }
+        }
+
+        // Pad with zeros to ensure 6 digits
+        return `${prefix}${nextNumber.toString().padStart(6, '0')}`;
+    } catch (error) {
+        console.error("Critical error in generateBillId utility:", error);
+        // Fallback to a timestamp-based ID to avoid failing the transaction
+        return `PATH/${centreCode || 'GEN'}/${Date.now()}`;
+    }
+};

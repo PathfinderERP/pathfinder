@@ -787,13 +787,7 @@ const StudentRegistrationForm = () => {
                                                             {classes.map(c => <option key={c._id} value={c._id}>{(c.className || c.name).toUpperCase()}</option>)}
                                                         </select>
                                                     </div>
-                                                    <div className="space-y-2">
-                                                        <label className={labelClass}>EXAM TAG</label>
-                                                        <select name="examTag" value={courseFilters.examTag} onChange={handleCourseFilterChange} className={`${inputClass} p-2 py-2`}>
-                                                            <option value="">ALL</option>
-                                                            {examTags.map(t => <option key={t._id} value={t._id}>{t.name.toUpperCase()}</option>)}
-                                                        </select>
-                                                    </div>
+
                                                     <div className="space-y-2">
                                                         <label className={labelClass}>SESSION</label>
                                                         <select name="session" value={courseFilters.session} onChange={handleCourseFilterChange} className={`${inputClass} p-2 py-2`}>

@@ -1,58 +1,8 @@
 import Payment from "../../models/Payment/Payment.js";
 import Admission from "../../models/Admission/Admission.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
+import { generateBillId } from "../../utils/billIdGenerator.js";
 
-
-// Generate a unique sequential bill ID
-const generateBillId = async (centreCode) => {
-    try {
-        // Calculate Financial Year String (e.g., "2526")
-        const date = new Date();
-        const month = date.getMonth(); // 0-11
-        const year = date.getFullYear(); // 2025
-
-        const currentYear = year;
-        const currentMonth = month; // 0-11
-
-        let startYear, endYear;
-        // Financial Year is April to March
-        if (currentMonth >= 3) { // April onwards: 2025-2026
-            startYear = currentYear;
-            endYear = currentYear + 1;
-        } else { // Jan-March: 2024-2025
-            startYear = currentYear - 1;
-            endYear = currentYear;
-        }
-
-        // Format: YYYY-YY (e.g., 2025-26)
-        const yearStr = `${startYear}-${endYear.toString().slice(-2)}`;
-        const prefix = `PATH/${centreCode}/${yearStr}/`;
-
-        // Find the last payment with a billId matching the pattern
-        const lastPayment = await Payment.findOne({
-            billId: { $regex: new RegExp(`^${prefix.replace(/\//g, '\\/')}\\d+$`) }
-        }).sort({ createdAt: -1 });
-
-        let nextNumber = 1;
-
-        if (lastPayment && lastPayment.billId) {
-            // Extract the number part
-            const lastId = lastPayment.billId;
-            const parts = lastId.split('/');
-            const lastSeq = parts[parts.length - 1];
-
-            if (lastSeq && !isNaN(lastSeq)) {
-                nextNumber = parseInt(lastSeq) + 1;
-            }
-        }
-
-        // Pad with zeros to ensure 6 digits
-        return `${prefix}${nextNumber.toString().padStart(6, '0')}`;
-    } catch (error) {
-        console.error("Bill ID Gen Error:", error);
-        return `PATH/${centreCode || 'GEN'}/${Date.now()}`;
-    }
-};
 
 // Generate a random GST-like number
 const generateGSTNumber = () => {
@@ -205,8 +155,8 @@ export const generateBill = async (req, res) => {
             console.log(`✅ Created missing payment record: ${payment._id}`);
         }
 
-        // If payment exists but doesn't have a bill ID, generate one
-        if (!payment.billId) {
+        // If payment exists but doesn't have a bill ID (or has an old MIG- ID), generate/fix it
+        if (!payment.billId || payment.billId.startsWith('MIG-')) {
             payment.billId = await generateBillId(centre.enterCode || 'GEN');
 
             // Ensure tax calculations are present

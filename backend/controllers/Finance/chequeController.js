@@ -3,6 +3,7 @@ import Admission from "../../models/Admission/Admission.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
 import User from "../../models/User.js";
 import Student from "../../models/Students.js";
+import { generateBillId } from "../../utils/billIdGenerator.js";
 
 // Helper function to revert installment amount or carry-forward adjustments
 const revertPaymentVariance = async (payment, admission) => {
@@ -37,45 +38,6 @@ const revertPaymentVariance = async (payment, admission) => {
     } catch (error) {
         console.error("Error in revertPaymentVariance:", error);
         // We don't throw here to avoid blocking the main rejection flow, but it's logged.
-    }
-};
-
-// Generate a unique sequential bill ID (same logic as generateBill.js)
-const generateBillId = async (centreCode) => {
-    try {
-        const date = new Date();
-        const month = date.getMonth();
-        const year = date.getFullYear();
-
-        let startYear, endYear;
-        if (month >= 3) {
-            startYear = year;
-            endYear = year + 1;
-        } else {
-            startYear = year - 1;
-            endYear = year;
-        }
-
-        const yearStr = `${startYear}-${endYear.toString().slice(-2)}`;
-        const prefix = `PATH/${centreCode}/${yearStr}/`;
-
-        const lastPayment = await Payment.findOne({
-            billId: { $regex: new RegExp(`^${prefix.replace(/\//g, '\\/')}\\d+$`) }
-        }).sort({ createdAt: -1 });
-
-        let nextNumber = 1;
-        if (lastPayment && lastPayment.billId) {
-            const parts = lastPayment.billId.split('/');
-            const lastSeq = parts[parts.length - 1];
-            if (lastSeq && !isNaN(lastSeq)) {
-                nextNumber = parseInt(lastSeq) + 1;
-            }
-        }
-
-        return `${prefix}${nextNumber.toString().padStart(6, '0')}`;
-    } catch (error) {
-        console.error("Bill ID Gen Error:", error);
-        return `PATH/${centreCode || 'GEN'}/${Date.now()}`;
     }
 };
 
