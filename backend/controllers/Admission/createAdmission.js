@@ -137,16 +137,18 @@ export const createAdmission = async (req, res) => {
         // Calculate Fees
         const taxableAmount = Math.max(0, baseFees - Number(feeWaiver));
 
-        // Calculate CGST (9%) and SGST (9%)
-        const cgstAmount = Math.round(taxableAmount * 0.09);
-        const sgstAmount = Math.round(taxableAmount * 0.09);
+        // Calculate CGST (9%) and SGST (9%) — use same precision as frontend (3 decimal places)
+        const cgstAmount = parseFloat((taxableAmount * 0.09).toFixed(3));
+        const sgstAmount = parseFloat((taxableAmount * 0.09).toFixed(3));
 
-        // Total Fees = Current + Previous Arrears
-        const totalFees = taxableAmount + cgstAmount + sgstAmount + previousBalance;
+        // Total Fees = Current + Previous Arrears (exact, not rounded)
+        const totalFees = parseFloat((taxableAmount + cgstAmount + sgstAmount + previousBalance).toFixed(3));
 
         const remainingAmount = totalFees - downPayment;
 
-        if (remainingAmount < 0) {
+        // Use Math.ceil tolerance: allow down payment up to the ceiling of totalFees
+        // to prevent false rejection when user pays exactly what the frontend showed.
+        if (downPayment > Math.ceil(totalFees)) {
             return res.status(400).json({ message: "Down payment cannot exceed total fees" });
         }
 
