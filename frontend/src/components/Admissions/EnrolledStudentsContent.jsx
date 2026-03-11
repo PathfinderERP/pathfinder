@@ -90,7 +90,7 @@ const EnrolledStudentsContent = () => {
     const user = React.useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
     const isSuperAdmin = user.role === "superAdmin" || user.role === "Super Admin";
     const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'edit');
-    const canDeactivate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'deactivate');
+    const canDeactivate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'deactivate') || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'delete');
     const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'delete');
 
     const apiUrl = import.meta.env.VITE_API_URL;

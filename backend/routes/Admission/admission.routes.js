@@ -41,7 +41,10 @@ router.put("/:admissionId/board-subjects", requireGranularPermission("admissions
 router.post("/:admissionId/monthly-bill", requireGranularPermission("admissions", "enrolledStudents", "edit"), generateMonthlyBill);
 router.get("/:admissionId/monthly-breakdown", requireAuth, getMonthlyBreakdown);
 
-router.put("/student/:studentId/status", requireGranularPermission("admissions", "enrolledStudents", "deactivate"), toggleStudentStatus);
+router.put("/student/:studentId/status", requireAnyGranularPermission([
+    { module: "admissions", section: "enrolledStudents", action: "deactivate" },
+    { module: "admissions", section: "enrolledStudents", action: "delete" }
+]), toggleStudentStatus);
 router.put("/:admissionId/divide-installments", requireGranularPermission("admissions", "enrolledStudents", "edit"), divideRemainingInstallments);
 router.put("/:id/manual-adjustment", requireGranularPermission("admissions", "enrolledStudents", "edit"), manualFeeAdjustment);
 router.put("/:id/enrollment-number", requireGranularPermission("admissions", "enrolledStudents", "edit"), updateEnrollmentNumber);
