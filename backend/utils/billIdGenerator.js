@@ -1,7 +1,8 @@
 import Payment from "../models/Payment/Payment.js";
+import BillCounter from "../models/Payment/BillCounter.js";
 
 /**
- * Generate a unique sequential bill ID (Receipt Number)
+ * Generate a unique sequential bill ID (Receipt Number) using an Atomic Counter
  * Format: PATH/[BRANCH_CODE]/[FINANCIAL_YEAR]/[SEQUENCE_NUMBER]
  * Example: PATH/BAR/2025-26/000001
  * 
@@ -28,30 +29,49 @@ export const generateBillId = async (centreCode) => {
         const yearStr = `${startYear}-${endYear.toString().slice(-2)}`;
         const prefix = `PATH/${centreCode}/${yearStr}/`;
 
-        // Find the last payment with a billId matching the pattern
-        // We look for IDs that start with the prefix and end with digits
-        const lastPayment = await Payment.findOne({
-            billId: { $regex: new RegExp(`^${prefix.replace(/\//g, '\\/')}\\d+$`) }
-        }).sort({ createdAt: -1 });
+        // Atomically increment the sequence counter for this exact prefix
+        let counter = await BillCounter.findOneAndUpdate(
+            { prefix: prefix },
+            { $inc: { seq: 1 } },
+            { new: true, upsert: true } // upsert creates it if it doesn't exist
+        );
 
-        let nextNumber = 1;
+        let nextNumber = counter.seq;
 
-        if (lastPayment && lastPayment.billId) {
-            // Extract the number part
-            const lastId = lastPayment.billId;
-            const parts = lastId.split('/');
-            const lastSeq = parts[parts.length - 1];
+        // Self-Healing / Initialization Logic: 
+        // If this is the VERY FIRST time this prefix is generated via the counter (seq === 1),
+        // we must check the legacy Payment table to see if numbers already exist to avoid resetting to 1.
+        if (nextNumber === 1) {
+            // Find the true highest existing sequence in the DB for this prefix using regex.
+            // We pull all matching bills to find the integer maximum, bypassing createdAt sorting flaws.
+            const existingBills = await Payment.find({
+                billId: { $regex: new RegExp(`^${prefix.replace(/\//g, '\\/')}\\d+$`) }
+            }).select('billId').lean();
 
-            if (lastSeq && !isNaN(lastSeq)) {
-                nextNumber = parseInt(lastSeq) + 1;
+            if (existingBills.length > 0) {
+                let maxSeq = 0;
+                existingBills.forEach(b => {
+                    const parts = b.billId.split('/');
+                    const seqNum = parseInt(parts[parts.length - 1], 10);
+                    if (!isNaN(seqNum) && seqNum > maxSeq) {
+                        maxSeq = seqNum;
+                    }
+                });
+
+                if (maxSeq > 0) {
+                    // Update the counter to (maxSeq + 1)
+                    nextNumber = maxSeq + 1;
+                    await BillCounter.updateOne({ prefix: prefix }, { $set: { seq: nextNumber } });
+                }
             }
         }
 
         // Pad with zeros to ensure 6 digits
         return `${prefix}${nextNumber.toString().padStart(6, '0')}`;
+
     } catch (error) {
-        console.error("Critical error in generateBillId utility:", error);
-        // Fallback to a timestamp-based ID to avoid failing the transaction
+        console.error("Critical error in generateBillId utility sequence generation:", error);
+        // Fallback to a timestamp-based ID to strictly avoid failing the transaction
         return `PATH/${centreCode || 'GEN'}/${Date.now()}`;
     }
 };

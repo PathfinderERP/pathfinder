@@ -333,59 +333,124 @@ const CourseTransfer = () => {
                             <div className="bg-[#1a1f24] p-6 rounded-xl border border-gray-800">
                                 <h4 className="text-lg font-semibold text-cyan-400 mb-4 border-b border-gray-700 pb-2">Course To</h4>
                                 <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-gray-400 mb-2 text-sm">Select Session</label>
-                                        <select
-                                            value={formData.newAcademicSession}
-                                            onChange={(e) => setFormData({ ...formData, newAcademicSession: e.target.value })}
-                                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white"
-                                        >
-                                            <option value="">Select Session</option>
-                                            {sessions.map(session => (
-                                                <option key={session._id} value={session.sessionName}>{session.sessionName}</option>
-                                            ))}
-                                        </select>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-gray-400 mb-2 text-sm">Select Session</label>
+                                            <select
+                                                value={formData.newAcademicSession}
+                                                onChange={(e) => setFormData({ ...formData, newAcademicSession: e.target.value })}
+                                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white"
+                                            >
+                                                <option value="">Select Session</option>
+                                                {sessions.map(session => (
+                                                    <option key={session._id} value={session.sessionName}>{session.sessionName}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-gray-400 mb-2 text-sm">Select Exam Tag</label>
+                                            <select
+                                                value={formData.newExamTagId}
+                                                onChange={(e) => setFormData({ ...formData, newExamTagId: e.target.value })}
+                                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white"
+                                            >
+                                                <option value="">Select Tag</option>
+                                                {examTags.map(tag => (
+                                                    <option key={tag._id} value={tag._id}>{tag.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className="block text-gray-400 mb-2 text-sm">Select Exam Tag</label>
-                                        <select
-                                            value={formData.newExamTagId}
-                                            onChange={(e) => setFormData({ ...formData, newExamTagId: e.target.value })}
-                                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white"
-                                        >
-                                            <option value="">Select Tag</option>
-                                            {examTags.map(tag => (
-                                                <option key={tag._id} value={tag._id}>{tag.name}</option>
-                                            ))}
-                                        </select>
+
+                                    {/* Additional Filters */}
+                                    <div className="grid grid-cols-3 gap-2 py-2 border-t border-b border-gray-800 my-4">
+                                        <div>
+                                            <label className="block text-[10px] text-gray-500 uppercase mb-1">Programme</label>
+                                            <select
+                                                value={formData.filterProgramme || ""}
+                                                onChange={(e) => setFormData({ ...formData, filterProgramme: e.target.value })}
+                                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-1 text-xs text-white"
+                                            >
+                                                <option value="">ALL</option>
+                                                <option value="CRP">CRP</option>
+                                                <option value="NCRP">NCRP</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] text-gray-500 uppercase mb-1">Mode</label>
+                                            <select
+                                                value={formData.filterMode || ""}
+                                                onChange={(e) => setFormData({ ...formData, filterMode: e.target.value })}
+                                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-1 text-xs text-white"
+                                            >
+                                                <option value="">ALL</option>
+                                                <option value="ONLINE">ONLINE</option>
+                                                <option value="OFFLINE">OFFLINE</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] text-gray-500 uppercase mb-1">Type</label>
+                                            <select
+                                                value={formData.filterType || ""}
+                                                onChange={(e) => setFormData({ ...formData, filterType: e.target.value })}
+                                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-1 text-xs text-white"
+                                            >
+                                                <option value="">ALL</option>
+                                                <option value="INSTATION">INSTATION</option>
+                                                <option value="OUTSTATION">OUTSTATION</option>
+                                            </select>
+                                        </div>
                                     </div>
+
                                     <div>
-                                        <label className="block text-gray-400 mb-2 text-sm">Select New Course *</label>
+                                        <label className="block text-gray-400 mb-2 text-sm flex justify-between items-center">
+                                            Select New Course *
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search course..."
+                                                    className="bg-[#131619] border border-gray-700 rounded-md px-2 py-1 text-[10px] w-32 focus:outline-none focus:border-cyan-500"
+                                                    value={formData.courseSearchTerm || ""}
+                                                    onChange={(e) => setFormData({ ...formData, courseSearchTerm: e.target.value })}
+                                                />
+                                                <FaSearch className="absolute right-2 top-1.5 text-gray-600 text-[10px]" />
+                                            </div>
+                                        </label>
                                         <select
                                             value={formData.newCourseId}
                                             onChange={(e) => setFormData({ ...formData, newCourseId: e.target.value })}
                                             className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white focus:border-cyan-500"
                                         >
                                             <option value="">Select Course</option>
-                                            {courses.filter(c => c._id !== selectedAdmission.course?._id).map(course => {
-                                                // Calculate total fees for this potential course
-                                                const base = course.feesStructure.reduce((sum, fee) => sum + fee.value, 0);
-                                                // Estimate tax (18%) to get total check
-                                                // Note: Ideally compare base or total. Assuming default total.
-                                                const totalEst = base * 1.18;
-                                                const isDisabled = totalEst < selectedAdmission.totalFees; // Disable if less amount
+                                            {courses
+                                                .filter(c => {
+                                                    // Base exclusions
+                                                    if (c._id === selectedAdmission.course?._id) return false;
 
-                                                return (
-                                                    <option
-                                                        key={course._id}
-                                                        value={course._id}
-                                                        disabled={isDisabled}
-                                                        className={isDisabled ? "text-gray-600" : ""}
-                                                    >
-                                                        {course.courseName} {isDisabled ? '(Fees too low)' : ''}
-                                                    </option>
-                                                );
-                                            })}
+                                                    // Basic filters
+                                                    if (formData.newAcademicSession && c.courseSession !== formData.newAcademicSession) return false;
+                                                    if (formData.newExamTagId && String(c.examTag) !== formData.newExamTagId) return false;
+
+                                                    // New extended filters
+                                                    if (formData.filterProgramme && c.programme !== formData.filterProgramme) return false;
+                                                    if (formData.filterMode && c.mode !== formData.filterMode) return false;
+                                                    if (formData.filterType && c.courseType !== formData.filterType) return false;
+
+                                                    // Text search
+                                                    if (formData.courseSearchTerm && !c.courseName.toLowerCase().includes(formData.courseSearchTerm.toLowerCase())) return false;
+
+                                                    return true;
+                                                })
+                                                .map(course => {
+                                                    return (
+                                                        <option
+                                                            key={course._id}
+                                                            value={course._id}
+                                                        >
+                                                            {course.courseName}
+                                                        </option>
+                                                    );
+                                                })}
                                         </select>
                                     </div>
 

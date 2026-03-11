@@ -26,6 +26,7 @@ const StudentAdmissionPage = () => {
     const [selectedSubjectIds, setSelectedSubjectIds] = useState([]);
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [billingMonth, setBillingMonth] = useState("");
+    const [courseSearchTerm, setCourseSearchTerm] = useState("");
 
     const [formData, setFormData] = useState({
         courseId: "",
@@ -345,7 +346,7 @@ const StudentAdmissionPage = () => {
 
     const handleSubmit = async (e, posData = null) => {
         if (e) e.preventDefault();
-        
+
         if (!posData && formData.paymentMethod === 'RAZORPAY_POS' && parseFloat(formData.downPayment) > 0) {
             setShowPOSModal(true);
             return;
@@ -565,6 +566,15 @@ const StudentAdmissionPage = () => {
 
                                     <div>
                                         <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course *</label>
+                                        <div className="relative mb-1">
+                                            <input
+                                                type="text"
+                                                placeholder="Search course..."
+                                                value={courseSearchTerm}
+                                                onChange={(e) => setCourseSearchTerm(e.target.value)}
+                                                className={`w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
+                                            />
+                                        </div>
                                         <select
                                             name="courseId"
                                             value={formData.courseId}
@@ -573,9 +583,14 @@ const StudentAdmissionPage = () => {
                                             required={admissionType === "NORMAL"}
                                         >
                                             <option value="">Select Course</option>
-                                            {courses.map(course => (
-                                                <option key={course._id} value={course._id}>{course.courseName}</option>
-                                            ))}
+                                            {courses
+                                                .filter(course =>
+                                                    !courseSearchTerm ||
+                                                    course.courseName.toLowerCase().includes(courseSearchTerm.toLowerCase())
+                                                )
+                                                .map(course => (
+                                                    <option key={course._id} value={course._id}>{course.courseName}</option>
+                                                ))}
                                         </select>
                                     </div>
                                 </>
