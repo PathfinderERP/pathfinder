@@ -93,6 +93,7 @@ export const transferCourse = async (req, res) => {
         }
 
         // 3. Calculate new fees (Inclusive Deduction)
+        const baseFees = newCourse.feesStructure.reduce((sum, fee) => sum + fee.value, 0);
         const totalInclusiveBeforeWaiver = baseFees * 1.18;
         const totalNewFees = Math.max(0, totalInclusiveBeforeWaiver - Number(feeWaiver));
 
