@@ -119,34 +119,39 @@ export const generateBill = async (req, res) => {
 
         let payment = await Payment.findOne(query);
 
+        // Determine the actual total amount paid for this bill from source of truth
+        // For installment 0, we trust admission.downPayment. 
+        // For others, we trust installment.paidAmount.
+        const actualPaidTotal = (installmentNum === 0) ? admission.downPayment : (installment.paidAmount || 0);
+
         // If payment record is missing but installment is PAID, create it (Self-healing)
         if (!payment) {
             console.warn(`⚠️ Payment record missing for PAID installment. Creating one now...`);
 
             // Calculate tax amounts
-            const paidAmount = installment.paidAmount;
-            const baseAmount = paidAmount / 1.18;
-            const cgst = baseAmount * 0.09;
-            const sgst = baseAmount * 0.09;
-            const courseFee = baseAmount;
-            const totalAmount = paidAmount;
+            const totalAmount = parseFloat(Number(actualPaidTotal).toFixed(2));
+            const baseAmount = totalAmount / 1.18;
+            const courseFee = parseFloat(baseAmount.toFixed(2));
+            const remainingForGst = totalAmount - courseFee;
+            const cgst = parseFloat((remainingForGst / 2).toFixed(2));
+            const sgst = parseFloat((remainingForGst - cgst).toFixed(2));
 
             payment = new Payment({
                 admission: admissionId,
                 installmentNumber: installmentNum,
                 amount: installment.amount,
-                paidAmount: paidAmount,
+                paidAmount: totalAmount,
                 dueDate: installment.dueDate,
                 paidDate: installment.paidDate || new Date(),
                 status: installment.status || "PAID",
                 paymentMethod: installment.paymentMethod || "CASH",
                 transactionId: installment.transactionId,
                 remarks: installment.remarks,
-                recordedBy: req.user?.id, // Might be undefined if not authenticated, but that's okay for recovery
-                cgst: parseFloat(cgst.toFixed(2)),
-                sgst: parseFloat(sgst.toFixed(2)),
-                courseFee: parseFloat(courseFee.toFixed(2)),
-                totalAmount: parseFloat(totalAmount.toFixed(2)),
+                recordedBy: req.user?.id, 
+                cgst,
+                sgst,
+                courseFee,
+                totalAmount,
                 accountHolderName: installment.accountHolderName,
                 chequeDate: installment.chequeDate
             });
@@ -158,18 +163,17 @@ export const generateBill = async (req, res) => {
         // If payment exists but doesn't have a bill ID (or has an old MIG- ID), generate/fix it
         if (!payment.billId || payment.billId.startsWith('MIG-')) {
             payment.billId = await generateBillId(centre.enterCode || 'GEN');
-
-            // Ensure tax calculations are present
-            if (!payment.cgst || !payment.sgst || !payment.courseFee) {
-                const baseAmount = payment.paidAmount / 1.18;
-                payment.cgst = parseFloat((baseAmount * 0.09).toFixed(2));
-                payment.sgst = parseFloat((baseAmount * 0.09).toFixed(2));
-                payment.courseFee = parseFloat(baseAmount.toFixed(2));
-                payment.totalAmount = parseFloat(payment.paidAmount.toFixed(2));
-            }
-
             await payment.save();
         }
+
+        // RE-CALCULATE amounts for the bill response to match UI source of truth
+        // This fixes legacy/corrupted records where totalAmount was set to baseAmount
+        const billTotal = Math.max(actualPaidTotal, payment.totalAmount || 0);
+        const billBase = billTotal / 1.18;
+        const finalCourseFee = parseFloat(billBase.toFixed(2));
+        const finalGstPool = billTotal - finalCourseFee;
+        const finalCgst = parseFloat((finalGstPool / 2).toFixed(2));
+        const finalSgst = parseFloat((finalGstPool - finalCgst).toFixed(2));
 
 
         // Prepare bill data
@@ -210,10 +214,10 @@ export const generateBill = async (req, res) => {
                 status: payment.status
             },
             amounts: {
-                courseFee: payment.courseFee,
-                cgst: payment.cgst,
-                sgst: payment.sgst,
-                totalAmount: payment.totalAmount
+                courseFee: finalCourseFee,
+                cgst: finalCgst,
+                sgst: finalSgst,
+                totalAmount: billTotal
             }
         };
 

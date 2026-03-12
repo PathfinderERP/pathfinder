@@ -111,7 +111,7 @@ const BillGenerator = ({ admission, installment, onClose }) => {
         const pageWidth = doc.internal.pageSize.getWidth();   // 297mm
         const pageHeight = doc.internal.pageSize.getHeight(); // 210mm
         const halfWidth = pageWidth / 2;  // ~148.5mm each copy
-        const margin = 6;
+        const margin = 5;
 
         const drawBillPage = (copyType, xOffset) => {
             const colWidth = (halfWidth - 2 * margin) / 4;
@@ -125,12 +125,12 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             const createdByName = userInfo.name || userInfo.username || 'N/A';
 
             // --- Header Section ---
-            let yPos = 8;
+            let yPos = 6;
 
             // Logo - Top Left of this copy
             if (logoBase64) {
                 try {
-                    doc.addImage(logoBase64, 'PNG', xOffset + margin, yPos - 3, 32, 10);
+                    doc.addImage(logoBase64, 'PNG', xOffset + margin, yPos - 3, 28, 8);
                 } catch (e) {
                     console.warn("Could not add logo", e);
                 }
@@ -158,7 +158,7 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             doc.text(statusLabel, xOffset + halfWidth - margin, yPos + 5, { align: 'right' });
 
             // Centre Address (Centred)
-            yPos += 12;
+            yPos += 8;
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(7);
             doc.setFont('helvetica', 'normal');
@@ -169,12 +169,12 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             yPos += (splitAddress.length * 3.5) + 2;
 
             // --- Rows ---
-            const rowHeight = 6.5;
+            const rowHeight = 5.8;
 
             const drawRow = (y, label, value, isFullWidth = true, splitX = null) => {
                 const valStr = localSafeStr(value);
                 doc.setFont('helvetica', 'normal');
-                doc.setFontSize(8);
+                doc.setFontSize(7);
                 const labelWidth = doc.getTextWidth(label);
 
                 if (isFullWidth) {
@@ -186,10 +186,10 @@ const BillGenerator = ({ admission, installment, onClose }) => {
                     const h = Math.max(rowHeight, (lines * 3.5) + 3);
                     doc.rect(xOffset + margin, y, tableWidth, h);
                     doc.setFont('helvetica', 'normal');
-                    doc.text(label, xOffset + margin + 2, y + 4.5);
+                    doc.text(label, xOffset + margin + 2, y + 4.2);
                     if (valStr) {
                         doc.setFont('helvetica', 'bold');
-                        doc.text(splitValue, textStartX, y + 4.5);
+                        doc.text(splitValue, textStartX, y + 4.2);
                     }
                     return h;
                 } else {
@@ -204,7 +204,7 @@ const BillGenerator = ({ admission, installment, onClose }) => {
                         const displayVal = doc.getTextWidth(valStr) > availableWidth
                             ? doc.splitTextToSize(valStr, availableWidth)[0] + '...'
                             : valStr;
-                        doc.text(displayVal, xOffset + margin + 2 + labelWidth + 2, y + 4.5);
+                        doc.text(displayVal, xOffset + margin + 2 + labelWidth + 2, y + 4.2);
                     }
                     return rowHeight;
                 }
@@ -213,8 +213,8 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             // GSTN row
             doc.rect(xOffset + margin, yPos, tableWidth, rowHeight);
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8);
-            doc.text('GSTN:', xOffset + margin + 2, yPos + 4.5);
+            doc.setFontSize(7);
+            doc.text('GSTN:', xOffset + margin + 2, yPos + 4.2);
             const gstToDisplay = (billData.centre?.gstNumber && billData.centre?.gstNumber !== 'N/A')
                 ? billData.centre.gstNumber
                 : billData.gstNumber;
@@ -224,64 +224,64 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             // MONEY RECEIPT
             doc.rect(xOffset + margin, yPos, tableWidth, rowHeight);
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(9);
-            doc.text('MONEY RECEIPT', xOffset + halfWidth / 2, yPos + 4.5, { align: 'center' });
+            doc.setFontSize(8.5);
+            doc.text('MONEY RECEIPT', xOffset + halfWidth / 2, yPos + 4.2, { align: 'center' });
             yPos += rowHeight;
 
             // Branch | Received Date
             const midX = xOffset + halfWidth / 2;
             doc.rect(xOffset + margin, yPos, halfWidth / 2 - margin, rowHeight);
-            doc.setFontSize(8);
+            doc.setFontSize(7.5);
             doc.setFont('helvetica', 'normal');
-            doc.text('Branch :', xOffset + margin + 2, yPos + 4.5);
+            doc.text('Branch :', xOffset + margin + 2, yPos + 4.2);
             doc.setFont('helvetica', 'bold');
-            doc.text(localSafeStr(billData.centre?.name), xOffset + margin + 15, yPos + 4.5);
+            doc.text(localSafeStr(billData.centre?.name), xOffset + margin + 15, yPos + 4.2);
             doc.rect(midX, yPos, halfWidth / 2 - margin, rowHeight);
             doc.setFont('helvetica', 'normal');
-            doc.text('RECEIVED:', midX + 2, yPos + 4.5);
+            doc.text('RECEIVED:', midX + 2, yPos + 4.2);
             doc.setFont('helvetica', 'bold');
             const receivedDateMatch = billData.payment?.receivedDate || installment?.receivedDate;
             const receivedDateStr = receivedDateMatch ? new Date(receivedDateMatch).toLocaleDateString('en-IN') : 'N/A';
-            doc.text(receivedDateStr, midX + 21, yPos + 4.5);
+            doc.text(receivedDateStr, midX + 21, yPos + 4.2);
             yPos += rowHeight;
 
             // Receipt No | Date
             doc.rect(xOffset + margin, yPos, halfWidth / 2 - margin, rowHeight);
             doc.setFont('helvetica', 'normal');
-            doc.text('Receipt No.:', xOffset + margin + 2, yPos + 4.5);
+            doc.text('Receipt No.:', xOffset + margin + 2, yPos + 4.2);
             doc.setFont('helvetica', 'bold');
-            doc.text(localSafeStr(billData.billId), xOffset + margin + 22, yPos + 4.5);
+            doc.text(localSafeStr(billData.billId), xOffset + margin + 22, yPos + 4.2);
             doc.rect(midX, yPos, halfWidth / 2 - margin, rowHeight);
             doc.setFont('helvetica', 'normal');
-            doc.text('Date:', midX + 2, yPos + 4.5);
+            doc.text('Date:', midX + 2, yPos + 4.2);
             doc.setFont('helvetica', 'bold');
-            doc.text(new Date(billData.billDate).toLocaleDateString('en-IN'), midX + 13, yPos + 4.5);
+            doc.text(new Date(billData.billDate).toLocaleDateString('en-IN'), midX + 13, yPos + 4.2);
             yPos += rowHeight;
 
             // Student Name | Admission No
             doc.rect(xOffset + margin, yPos, halfWidth / 2 - margin, rowHeight);
             doc.setFont('helvetica', 'normal');
-            doc.text('Student Name:', xOffset + margin + 2, yPos + 4.5);
+            doc.text('Student Name:', xOffset + margin + 2, yPos + 4.2);
             doc.setFont('helvetica', 'bold');
-            doc.text(localSafeStr(billData.student?.name), xOffset + margin + 25, yPos + 4.5);
+            doc.text(localSafeStr(billData.student?.name), xOffset + margin + 25, yPos + 4.2);
             doc.rect(midX, yPos, halfWidth / 2 - margin, rowHeight);
             doc.setFont('helvetica', 'normal');
-            doc.text('Adm No:', midX + 2, yPos + 4.5);
+            doc.text('Adm No:', midX + 2, yPos + 4.2);
             doc.setFont('helvetica', 'bold');
-            doc.text(localSafeStr(billData.student?.admissionNumber), midX + 18, yPos + 4.5);
+            doc.text(localSafeStr(billData.student?.admissionNumber), midX + 18, yPos + 4.2);
             yPos += rowHeight;
 
             // Contact No | Session
             doc.rect(xOffset + margin, yPos, halfWidth / 2 - margin, rowHeight);
             doc.setFont('helvetica', 'normal');
-            doc.text('Contact No.:', xOffset + margin + 2, yPos + 4.5);
+            doc.text('Contact No.:', xOffset + margin + 2, yPos + 4.2);
             doc.setFont('helvetica', 'bold');
-            doc.text(localSafeStr(billData.student?.phoneNumber), xOffset + margin + 22, yPos + 4.5);
+            doc.text(localSafeStr(billData.student?.phoneNumber), xOffset + margin + 22, yPos + 4.2);
             doc.rect(midX, yPos, halfWidth / 2 - margin, rowHeight);
             doc.setFont('helvetica', 'normal');
-            doc.text('Session:', midX + 2, yPos + 4.5);
+            doc.text('Session:', midX + 2, yPos + 4.2);
             doc.setFont('helvetica', 'bold');
-            doc.text(localSafeStr(billData.course?.session || 'N/A'), midX + 16, yPos + 4.5);
+            doc.text(localSafeStr(billData.course?.session || 'N/A'), midX + 16, yPos + 4.2);
             yPos += rowHeight;
 
             // Course (full width, can wrap)
@@ -290,7 +290,7 @@ const BillGenerator = ({ admission, installment, onClose }) => {
 
             // Fee Table Header
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8);
+            doc.setFontSize(7);
             doc.rect(xOffset + margin, yPos, colWidth, rowHeight);
             doc.text('Net Fees', xOffset + margin + colWidth / 2, yPos + 4.5, { align: 'center' });
             doc.rect(xOffset + margin + colWidth, yPos, colWidth, rowHeight);
@@ -302,9 +302,9 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             yPos += rowHeight;
 
             // Fee Table Values
-            const valueBoxHeight = 16;
+            const valueBoxHeight = 12;
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(8);
+            doc.setFontSize(7);
             doc.rect(xOffset + margin, yPos, colWidth, valueBoxHeight);
             doc.text('Rs. ' + (billData.amounts?.courseFee || 0).toFixed(2), xOffset + margin + colWidth / 2, yPos + 8, { align: 'center' });
             doc.rect(xOffset + margin + colWidth, yPos, colWidth, valueBoxHeight);
@@ -323,32 +323,32 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             // Mode of Payment | Transaction ID
             doc.rect(xOffset + margin, yPos, halfWidth / 2 - margin, rowHeight);
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(8);
-            doc.text('Mode:', xOffset + margin + 2, yPos + 4.5);
+            doc.setFontSize(7);
+            doc.text('Mode:', xOffset + margin + 2, yPos + 4.2);
             doc.setFont('helvetica', 'bold');
-            doc.text(localSafeStr(billData.payment?.paymentMethod), xOffset + margin + 13, yPos + 4.5);
+            doc.text(localSafeStr(billData.payment?.paymentMethod), xOffset + margin + 13, yPos + 4.2);
             doc.rect(midX, yPos, halfWidth / 2 - margin, rowHeight);
             doc.setFont('helvetica', 'normal');
-            doc.text('Txn ID:', midX + 2, yPos + 4.5);
+            doc.text('Txn ID:', midX + 2, yPos + 4.2);
             doc.setFont('helvetica', 'bold');
             const paymentMethod2 = localSafeStr(billData.payment?.paymentMethod).toUpperCase();
-            doc.text(paymentMethod2 === 'CASH' ? '/cash' : localSafeStr(billData.payment?.transactionId), midX + 15, yPos + 4.5);
+            doc.text(paymentMethod2 === 'CASH' ? '/cash' : localSafeStr(billData.payment?.transactionId), midX + 15, yPos + 4.2);
             yPos += rowHeight;
 
             // Cheque/Bank Details (Conditional)
             if (['CHEQUE', 'BANK_TRANSFER'].includes(paymentMethod2)) {
                 doc.rect(xOffset + margin, yPos, halfWidth / 2 - margin, rowHeight);
                 doc.setFont('helvetica', 'normal');
-                doc.setFontSize(8);
-                doc.text(paymentMethod2 === 'CHEQUE' ? 'Chq Name:' : 'Payer:', xOffset + margin + 2, yPos + 4.5);
+                doc.setFontSize(7.5);
+                doc.text(paymentMethod2 === 'CHEQUE' ? 'Chq Name:' : 'Payer:', xOffset + margin + 2, yPos + 4.2);
                 doc.setFont('helvetica', 'bold');
-                doc.text(localSafeStr(billData.payment?.accountHolderName), xOffset + margin + 20, yPos + 4.5);
+                doc.text(localSafeStr(billData.payment?.accountHolderName), xOffset + margin + 20, yPos + 4.2);
                 doc.rect(midX, yPos, halfWidth / 2 - margin, rowHeight);
                 doc.setFont('helvetica', 'normal');
-                doc.text(paymentMethod2 === 'CHEQUE' ? 'Chq Date:' : 'Pay Date:', midX + 2, yPos + 4.5);
+                doc.text(paymentMethod2 === 'CHEQUE' ? 'Chq Date:' : 'Pay Date:', midX + 2, yPos + 4.2);
                 doc.setFont('helvetica', 'bold');
                 const cDate = billData.payment?.chequeDate ? new Date(billData.payment.chequeDate).toLocaleDateString('en-IN') : 'N/A';
-                doc.text(cDate, midX + 18, yPos + 4.5);
+                doc.text(cDate, midX + 18, yPos + 4.2);
                 yPos += rowHeight;
             }
 
@@ -360,10 +360,10 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             // Created by
             doc.rect(xOffset + margin, yPos, tableWidth, rowHeight);
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8);
-            doc.text('Created by:', xOffset + margin + 2, yPos + 4.5);
+            doc.setFontSize(7);
+            doc.text('Created by:', xOffset + margin + 2, yPos + 4.2);
             doc.setFont('helvetica', 'normal');
-            doc.text(createdByName, xOffset + margin + 20, yPos + 4.5);
+            doc.text(createdByName, xOffset + margin + 20, yPos + 4.2);
             yPos += rowHeight;
 
             // Note and Sign footer
@@ -377,13 +377,13 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             const wrappedNote = doc.splitTextToSize(noteText, noteBoxWidth - 4);
             doc.text(wrappedNote, xOffset + margin + 2, yPos + 4);
             doc.rect(xOffset + margin + noteBoxWidth, yPos, signBoxWidth, footerHeight);
-            doc.setFontSize(8);
+            doc.setFontSize(7);
             doc.setFont('helvetica', 'bold');
             doc.text('Sign. of Collector', xOffset + margin + noteBoxWidth + signBoxWidth / 2, yPos + 14, { align: 'center' });
             yPos += footerHeight;
 
             // Corporate footer
-            yPos += 3;
+            yPos += 2;
             doc.setFontSize(6);
             doc.setFont('helvetica', 'normal');
             doc.rect(xOffset + margin, yPos - 3, tableWidth, 5);
