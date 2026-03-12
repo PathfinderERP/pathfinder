@@ -134,16 +134,16 @@ export const createAdmission = async (req, res) => {
             course = { courseDurationMonths: durationMonths, monthlyFees: monthlyFees };
         }
 
-        // Calculate Fees
-        const taxableAmount = Math.max(0, baseFees - Number(feeWaiver));
+        // Calculate Fees (Inclusive Deduction)
+        const totalInclusiveBeforeWaiver = baseFees * 1.18;
+        const totalFees = parseFloat(Math.max(0, (totalInclusiveBeforeWaiver - Number(feeWaiver) + previousBalance)).toFixed(3));
 
-        // Calculate CGST (9%) and SGST (9%) — use same precision as frontend (3 decimal places)
+        // Back-calculate taxable and GST (excluding previous balance)
+        const totalForGst = Math.max(0, totalFees - previousBalance);
+        const taxableAmount = parseFloat((totalForGst / 1.18).toFixed(3));
         const cgstAmount = parseFloat((taxableAmount * 0.09).toFixed(3));
         const sgstAmount = parseFloat((taxableAmount * 0.09).toFixed(3));
-
-        // Total Fees = Current + Previous Arrears (exact, not rounded)
-        const totalFees = parseFloat((taxableAmount + cgstAmount + sgstAmount + previousBalance).toFixed(3));
-
+        
         const remainingAmount = totalFees - downPayment;
 
         // Use Math.ceil tolerance: allow down payment up to the ceiling of totalFees

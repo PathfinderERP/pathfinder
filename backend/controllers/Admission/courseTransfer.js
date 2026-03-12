@@ -92,16 +92,14 @@ export const transferCourse = async (req, res) => {
             return res.status(404).json({ message: "New course not found" });
         }
 
-        // 3. Calculate new fees
-        const baseFees = newCourse.feesStructure.reduce((sum, fee) => sum + fee.value, 0);
-        const taxableAmount = Math.max(0, baseFees - Number(feeWaiver));
+        // 3. Calculate new fees (Inclusive Deduction)
+        const totalInclusiveBeforeWaiver = baseFees * 1.18;
+        const totalNewFees = Math.max(0, totalInclusiveBeforeWaiver - Number(feeWaiver));
 
-        // Calculate Taxes (18% for now, split 9/9)
+        // Back-calculate taxable and tax
+        const taxableAmount = totalNewFees / 1.18;
         const cgstAmount = Math.round(taxableAmount * 0.09);
         const sgstAmount = Math.round(taxableAmount * 0.09);
-
-        // Calculate total fees for new course
-        const totalNewFees = taxableAmount + cgstAmount + sgstAmount;
 
         // 4. Calculate Carry Forward (Credit) from existing payments
         // We use the total amount paid so far in the current admission as the credit

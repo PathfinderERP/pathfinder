@@ -243,17 +243,20 @@ const StudentAdmissionPage = () => {
 
         const feeWaiver = parseFloat(formData.feeWaiver) || 0;
 
-        // Calculate Taxable Amount (Base Fees - Waiver)
-        const taxableAmount = Math.max(0, baseFees - feeWaiver);
+        // Calculate Total Inclusive Fees BEFORE waiver (Standard GST 18%)
+        const totalInclusiveBeforeWaiver = baseFees * 1.18;
+        
+        // Total Fees after waiver (deducted from total inclusive amount)
+        const previousBalance = student?.carryForwardBalance || 0;
+        const totalFees = parseFloat(Math.max(0, (totalInclusiveBeforeWaiver - feeWaiver + previousBalance)).toFixed(3));
 
-        // Calculate CGST (9%) and SGST (9%) — keep as precise decimals, do NOT round here
-        // so that totalFees is exact and installments add up correctly
+        // Back-calculate Taxable Amount and GST from the new total (exclusive of previous balance)
+        const totalForGst = Math.max(0, totalFees - previousBalance);
+        const taxableAmount = parseFloat((totalForGst / 1.18).toFixed(3));
+        
+        // Calculate CGST (9%) and SGST (9%)
         const cgstAmount = parseFloat((taxableAmount * 0.09).toFixed(3));
         const sgstAmount = parseFloat((taxableAmount * 0.09).toFixed(3));
-
-        // Total Fees with Previous Balance
-        const previousBalance = student?.carryForwardBalance || 0;
-        const totalFees = parseFloat((taxableAmount + cgstAmount + sgstAmount + previousBalance).toFixed(3));
 
         // Down payment can be a decimal (e.g. ₹500.50)
         const downPayment = parseFloat(formData.downPayment) || 0;
@@ -881,12 +884,6 @@ const StudentAdmissionPage = () => {
                                         <span className="text-gray-400">{admissionType === "BOARD" ? "Total Course Fees" : "Base Fees"}</span>
                                         <span className="text-white">₹{fmt(feeBreakdown.baseFees)}</span>
                                     </div>
-                                    {formData.feeWaiver > 0 && (
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-green-400">Fee Waiver</span>
-                                            <span className="text-green-400">-₹{fmt(formData.feeWaiver)}</span>
-                                        </div>
-                                    )}
                                     <div className="flex justify-between items-center">
                                         <span className="text-gray-400">CGST (9%)</span>
                                         <span className="text-white">₹{fmt(feeBreakdown.cgstAmount)}</span>
@@ -895,6 +892,12 @@ const StudentAdmissionPage = () => {
                                         <span className="text-gray-400">SGST (9%)</span>
                                         <span className="text-white">₹{fmt(feeBreakdown.sgstAmount)}</span>
                                     </div>
+                                    {formData.feeWaiver > 0 && (
+                                        <div className="flex justify-between items-center bg-green-500/10 p-2 rounded">
+                                            <span className="text-green-400 font-semibold">Fee Waiver (Discount)</span>
+                                            <span className="text-green-400 font-bold">-₹{fmt(formData.feeWaiver)}</span>
+                                        </div>
+                                    )}
                                     {feeBreakdown.previousBalance > 0 && (
                                         <div className="flex justify-between items-center bg-yellow-500/10 p-2 rounded">
                                             <span className="text-yellow-400">Previous Balance (Carry Forward)</span>

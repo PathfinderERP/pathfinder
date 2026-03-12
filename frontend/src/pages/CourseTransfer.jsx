@@ -125,10 +125,15 @@ const CourseTransfer = () => {
 
         const baseFees = newCourse.feesStructure.reduce((sum, fee) => sum + fee.value, 0);
         const feeWaiver = parseFloat(formData.feeWaiver) || 0;
-        const taxableAmount = Math.max(0, baseFees - feeWaiver);
+        
+        // Calculate Total Inclusive Fees BEFORE waiver (Standard GST 18%)
+        const totalInclusiveBeforeWaiver = baseFees * 1.18;
+        const totalNewFees = Math.max(0, totalInclusiveBeforeWaiver - feeWaiver);
+
+        // Back-calculate taxable and tax
+        const taxableAmount = totalNewFees / 1.18;
         const cgstAmount = Math.round(taxableAmount * 0.09);
         const sgstAmount = Math.round(taxableAmount * 0.09);
-        const totalNewFees = taxableAmount + cgstAmount + sgstAmount;
 
         const creditAmount = selectedAdmission.totalPaidAmount || 0;
         const remainingAmount = Math.max(0, totalNewFees - creditAmount);
@@ -498,8 +503,10 @@ const CourseTransfer = () => {
                                         <p className="text-lg font-bold text-gray-300">₹{(feeReview.cgstAmount + feeReview.sgstAmount).toLocaleString()}</p>
                                     </div>
                                     <div className="col-span-2">
-                                        <p className="text-xs text-gray-500 uppercase">Total New Fees</p>
-                                        <p className="text-2xl font-bold text-cyan-400">₹{feeReview.totalNewFees.toLocaleString()}</p>
+                                        <p className="text-xs text-gray-500 uppercase">Gross Total (Before Waiver)</p>
+                                        <p className="text-xl font-bold text-gray-400 line-through">₹{(feeReview.baseFees * 1.18).toLocaleString()}</p>
+                                        <p className="text-xs text-green-500 font-bold">Waiver: -₹{parseFloat(formData.feeWaiver || 0).toLocaleString()}</p>
+                                        <p className="text-2xl font-bold text-cyan-400">Net Fees: ₹{feeReview.totalNewFees.toLocaleString()}</p>
                                     </div>
                                 </div>
 
