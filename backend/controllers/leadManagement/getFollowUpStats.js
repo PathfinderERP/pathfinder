@@ -120,6 +120,16 @@ export const getFollowUpStats = async (req, res) => {
                     accessLimit.$or.push({ centre: { $in: userCentreIds.map(id => mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id) } });
                 }
 
+                // Security Fix: Handle self-filtering logic
+                if (leadOwnerMatch.leadResponsibility && !isPrivileged) {
+                    const filterNames = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
+                    const isFilteringSelf = filterNames.some(n => n.toLowerCase().trim() === userDoc.name.toLowerCase().trim());
+                    if (isFilteringSelf) {
+                        delete leadOwnerMatch.leadResponsibility;
+                        // For non-privileged users, leadOwnerMatch will now rely on accessLimit
+                    }
+                }
+
                 leadOwnerMatch.$and = leadOwnerMatch.$and || [];
                 leadOwnerMatch.$and.push(accessLimit);
 

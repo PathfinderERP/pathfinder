@@ -85,7 +85,17 @@ export const getAllTelecallerAnalytics = async (req, res) => {
         const specificLeadMatch = { ...baseLeadFilters };
         if (leadResponsibility) {
             const escapedResp = leadResponsibility.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            specificLeadMatch.leadResponsibility = { $regex: new RegExp(`^${escapedResp}$`, "i") };
+            const respRegex = new RegExp(`^${escapedResp}$`, "i");
+            
+            // If the filter is for the current user, we should be inclusive of their created leads
+            if (!isFullAccess && leadResponsibility.toLowerCase().trim() === user.name.toLowerCase().trim()) {
+                specificLeadMatch.$or = [
+                    { leadResponsibility: { $regex: respRegex } },
+                    { createdBy: user.id || user._id }
+                ];
+            } else {
+                specificLeadMatch.leadResponsibility = { $regex: respRegex };
+            }
         }
 
         // 1. Fetch Users (Telemetry Targets) - Respecting Access Control

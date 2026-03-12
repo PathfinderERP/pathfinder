@@ -118,6 +118,23 @@ export const getLeads = async (req, res) => {
                 orConditions.push({ centre: { $in: userCentreIds } });
             }
 
+            // Security Fix: If a non-privileged user (like a Telecaller) is filtering by their own name,
+            // the strict top-level leadResponsibility filter would hide leads they created but haven't assigned yet.
+            // We need to move this logic into the $or block or handle it inclusively.
+            if (query.leadResponsibility && !isPrivileged) {
+                const filterNames = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
+                const isFilteringSelf = filterNames.some(n => {
+                    const normalizedFilter = n?.toLowerCase()?.trim() || "";
+                    const normalizedUser = userDoc.name?.toLowerCase()?.trim() || "";
+                    return normalizedFilter === normalizedUser || normalizedFilter.includes(normalizedUser) || normalizedUser.includes(normalizedFilter);
+                });
+                
+                if (isFilteringSelf) {
+                    // Remove the top-level strict filter so it doesn't AND with the security block
+                    delete query.leadResponsibility;
+                }
+            }
+
             query.$and = query.$and || [];
             query.$and.push({ $or: orConditions });
 

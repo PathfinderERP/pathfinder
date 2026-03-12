@@ -93,6 +93,20 @@ export const getLeadDashboardStats = async (req, res) => {
                 orConditions.push({ centre: { $in: userCentreIds } });
             }
 
+            // Security Fix: Handle self-filtering to include createdBy
+            if (query.leadResponsibility && !isPrivileged) {
+                const names = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
+                const isFilteringSelf = names.some(n => {
+                    const normalizedFilter = n?.toLowerCase()?.trim() || "";
+                    const normalizedUser = userDoc.name?.toLowerCase()?.trim() || "";
+                    return normalizedFilter === normalizedUser || normalizedFilter.includes(normalizedUser) || normalizedUser.includes(normalizedFilter);
+                });
+                
+                if (isFilteringSelf) {
+                    delete query.leadResponsibility;
+                }
+            }
+
             query.$and = query.$and || [];
             query.$and.push({ $or: orConditions });
 
