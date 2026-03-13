@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash, FaPlus, FaTimes, FaEye, FaFilter, FaFileExport, FaFileImport } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaTimes, FaEye, FaFilter, FaFileExport, FaFileImport, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import '../MasterDataWave.css';
@@ -18,6 +18,11 @@ const CourseContent = () => {
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [currentCourse, setCurrentCourse] = useState(null);
     const [selectedCourse, setSelectedCourse] = useState(null);
+
+    // Pagination states
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [inputPage, setInputPage] = useState("1");
 
     // Permission checks - pass full user object for SuperAdmin support
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -65,8 +70,9 @@ const CourseContent = () => {
 
             if (coursesRes.ok) {
                 const coursesData = await coursesRes.json();
-                setCourses(coursesData);
-                setFilteredCourses(coursesData);
+                const reversedCourses = [...coursesData].reverse();
+                setCourses(reversedCourses);
+                setFilteredCourses(reversedCourses);
             }
             if (classesRes.ok) setClasses(await classesRes.json());
             if (deptsRes.ok) setDepartments(await deptsRes.json());
@@ -117,6 +123,8 @@ const CourseContent = () => {
         }
 
         setFilteredCourses(filtered);
+        setCurrentPage(1);
+        setInputPage("1");
     };
 
     useEffect(() => {
@@ -586,77 +594,107 @@ const CourseContent = () => {
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-gray-800 text-gray-300">
-                            <th className="p-4 border-b border-gray-700">Course Name</th>
-                            <th className="p-4 border-b border-gray-700">Department</th>
-                            <th className="p-4 border-b border-gray-700">Class</th>
-                            <th className="p-4 border-b border-gray-700">Exam Tag</th>
-                            <th className="p-4 border-b border-gray-700">Mode</th>
-                            <th className="p-4 border-b border-gray-700">Type</th>
-                            <th className="p-4 border-b border-gray-700">Programme</th>
-                            <th className="p-4 border-b border-gray-700">Total Amount</th>
+                            <th className="p-4 border-b border-gray-700 w-[35%]">Course Information</th>
+                            <th className="p-4 border-b border-gray-700 w-[55%]">Other Details</th>
                             <th className="p-4 border-b border-gray-700 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading ? (
                             <tr>
-                                <td colSpan="7" className="p-4 text-center text-gray-500">Loading...</td>
+                                <td colSpan="3" className="p-4 text-center text-gray-500">Loading...</td>
                             </tr>
                         ) : filteredCourses.length === 0 ? (
                             <tr>
-                                <td colSpan="7" className="p-4 text-center text-gray-500">No courses found</td>
+                                <td colSpan="3" className="p-4 text-center text-gray-500">No courses found</td>
                             </tr>
                         ) : (
-                            filteredCourses.map((course) => (
-                                <tr key={course._id} className="master-data-row-wave border-b border-gray-800 transition-colors">
-                                    <td className="p-4 font-medium">{course.courseName}</td>
-                                    <td className="p-4 text-gray-400">{course.department?.departmentName || "-"}</td>
-                                    <td className="p-4 text-gray-400">{course.class?.name || "-"}</td>
-                                    <td className="p-4 text-gray-400">{course.examTag?.name || "-"}</td>
-                                    <td className="p-4 text-gray-400">
-                                        <span className={`px-2 py-1 rounded text-xs ${course.mode === 'ONLINE' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'}`}>
-                                            {course.mode}
-                                        </span>
+                            filteredCourses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((course) => (
+                                <tr 
+                                    key={course._id} 
+                                    onClick={() => openDetailModal(course)}
+                                    className="master-data-row-wave border-b border-gray-800 transition-colors cursor-pointer hover:bg-gray-700/30"
+                                >
+                                    <td className="p-4">
+                                        <div className="flex flex-col gap-2">
+                                            <div className="font-bold text-lg text-cyan-400 leading-tight">{course.courseName}</div>
+                                            <div className="flex flex-wrap gap-2 text-[10px]">
+                                                <span className="bg-gray-700/50 text-gray-300 px-2 py-0.5 rounded border border-gray-600">
+                                                    {course.courseSession || "No Session"}
+                                                </span>
+                                                <span className="bg-gray-700/50 text-gray-300 px-2 py-0.5 rounded border border-gray-600">
+                                                    {course.department?.departmentName || "-"}
+                                                </span>
+                                                <span className="bg-gray-700/50 text-gray-300 px-2 py-0.5 rounded border border-gray-600">
+                                                    Class: {course.class?.name || "-"}
+                                                </span>
+                                                <span className="bg-gray-700/50 text-gray-300 px-2 py-0.5 rounded border border-gray-600">
+                                                    Tag: {course.examTag?.name || "-"}
+                                                </span>
+                                                <span className={`px-2 py-0.5 rounded border ${course.mode === 'ONLINE' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>
+                                                    {course.mode}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </td>
-                                    <td className="p-4 text-gray-400">
-                                        <span className={`px-2 py-1 rounded text-xs ${course.courseType === 'INSTATION' ? 'bg-purple-500/20 text-purple-400' : 'bg-orange-500/20 text-orange-400'}`}>
-                                            {course.courseType}
-                                        </span>
-                                    </td>
-                                    <td className="p-4 text-gray-400">
-                                        <span className={`px-2 py-1 rounded text-xs ${course.programme === 'CRP' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-pink-500/20 text-pink-400'}`}>
-                                            {course.programme}
-                                        </span>
-                                    </td>
-                                    <td className="p-4 font-bold text-green-400">
-                                        ₹{Math.ceil(course.feesStructure?.reduce((sum, fee) => sum + (Number(fee.value) || 0), 0) || 0).toLocaleString('en-IN')}
+                                    <td className="p-4">
+                                        <div className="flex items-center justify-between gap-6 mr-4">
+                                            <div className="flex flex-col gap-3">
+                                                <div className="flex gap-2">
+                                                    <span className={`px-2 py-1 rounded text-[11px] font-semibold ${course.courseType === 'INSTATION' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'}`}>
+                                                        {course.courseType}
+                                                    </span>
+                                                    <span className={`px-2 py-1 rounded text-[11px] font-semibold ${course.programme === 'CRP' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-pink-500/20 text-pink-400 border border-pink-500/30'}`}>
+                                                        {course.programme}
+                                                    </span>
+                                                </div>
+                                                <div className="flex gap-4 text-xs text-gray-400">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] text-gray-500 uppercase tracking-wider">Duration</span>
+                                                        <span className="text-gray-200 font-medium">{course.courseDuration} Months</span>
+                                                    </div>
+                                                    <div className="flex flex-col border-l border-gray-700/50 pl-4">
+                                                        <span className="text-[10px] text-gray-500 uppercase tracking-wider">Period</span>
+                                                        <span className="text-gray-200 font-medium">{course.coursePeriod}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Total Course Fee</div>
+                                                <div className="text-2xl font-black text-green-400 drop-shadow-[0_0_10px_rgba(74,222,128,0.2)]">
+                                                    ₹{Math.ceil(course.feesStructure?.reduce((sum, fee) => sum + (Number(fee.value) || 0), 0) || 0).toLocaleString('en-IN')}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td className="p-4 text-right">
-                                        <button
-                                            onClick={() => openDetailModal(course)}
-                                            className="text-cyan-400 hover:text-cyan-300 mr-3"
-                                            title="View Details"
-                                        >
-                                            <FaEye />
-                                        </button>
-                                        {canEdit && (
+                                        <div className="flex justify-end gap-2">
                                             <button
-                                                onClick={() => openModal(course)}
-                                                className="text-blue-400 hover:text-blue-300 mr-3"
-                                                title="Edit"
+                                                onClick={() => openDetailModal(course)}
+                                                className="bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 p-2 rounded-lg transition-colors"
+                                                title="View Details"
                                             >
-                                                <FaEdit />
+                                                <FaEye size={16} />
                                             </button>
-                                        )}
-                                        {canDelete && (
-                                            <button
-                                                onClick={() => handleDelete(course._id)}
-                                                className="text-red-400 hover:text-red-300"
-                                                title="Delete"
-                                            >
-                                                <FaTrash />
-                                            </button>
-                                        )}
+                                            {canEdit && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); openModal(course); }}
+                                                    className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 p-2 rounded-lg transition-colors"
+                                                    title="Edit"
+                                                >
+                                                    <FaEdit size={16} />
+                                                </button>
+                                            )}
+                                            {canDelete && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleDelete(course._id); }}
+                                                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 p-2 rounded-lg transition-colors"
+                                                    title="Delete"
+                                                >
+                                                    <FaTrash size={16} />
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))
@@ -676,8 +714,12 @@ const CourseContent = () => {
                         No courses found
                     </div>
                 ) : (
-                    filteredCourses.map((course) => (
-                        <div key={course._id} className="master-data-card-wave bg-[#1a1f24] p-3 sm:p-4 rounded-lg border border-gray-800 transition-all">
+                    filteredCourses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((course) => (
+                        <div 
+                            key={course._id} 
+                            onClick={() => openDetailModal(course)}
+                            className="master-data-card-wave bg-[#1a1f24] p-3 sm:p-4 rounded-lg border border-gray-800 transition-all cursor-pointer hover:border-cyan-500/30 active:scale-[0.98]"
+                        >
                             <div className="flex justify-between items-start mb-3">
                                 <div className="flex-1">
                                     <h3 className="text-sm sm:text-base font-bold text-white mb-1">{course.courseName}</h3>
@@ -685,26 +727,23 @@ const CourseContent = () => {
                                 </div>
                                 <div className="flex gap-2">
                                     <button
-                                        onClick={() => openDetailModal(course)}
-                                        className="text-cyan-400 hover:text-cyan-300 p-2"
-                                        title="View"
+                                        onClick={(e) => { e.stopPropagation(); openDetailModal(course); }}
+                                        className="text-cyan-400 p-1.5 sm:p-2 bg-cyan-500/10 rounded border border-cyan-500/20"
                                     >
                                         <FaEye size={14} />
                                     </button>
                                     {canEdit && (
                                         <button
-                                            onClick={() => openModal(course)}
-                                            className="text-blue-400 hover:text-blue-300 p-2"
-                                            title="Edit"
+                                            onClick={(e) => { e.stopPropagation(); openModal(course); }}
+                                            className="text-blue-400 p-1.5 sm:p-2 bg-blue-500/10 rounded border border-blue-500/20"
                                         >
                                             <FaEdit size={14} />
                                         </button>
                                     )}
                                     {canDelete && (
                                         <button
-                                            onClick={() => handleDelete(course._id)}
-                                            className="text-red-400 hover:text-red-300 p-2"
-                                            title="Delete"
+                                            onClick={(e) => { e.stopPropagation(); handleDelete(course._id); }}
+                                            className="text-red-400 p-1.5 sm:p-2 bg-red-500/10 rounded border border-red-500/20"
                                         >
                                             <FaTrash size={14} />
                                         </button>
@@ -755,6 +794,99 @@ const CourseContent = () => {
                     ))
                 )}
             </div>
+
+            {/* Pagination UI */}
+            {!loading && filteredCourses.length > 0 && (
+                <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#1a1f24] p-4 rounded-lg border border-gray-800">
+                    <div className="flex items-center gap-4 text-sm text-gray-400">
+                        <div className="flex items-center gap-2">
+                            <span>Show</span>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => {
+                                    setItemsPerPage(Number(e.target.value));
+                                    setCurrentPage(1);
+                                    setInputPage("1");
+                                }}
+                                className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white focus:outline-none focus:border-cyan-500"
+                            >
+                                {[10, 20, 50, 100].map(size => (
+                                    <option key={size} value={size}>{size}</option>
+                                ))}
+                            </select>
+                            <span>entries</span>
+                        </div>
+                        <span className="hidden sm:inline">|</span>
+                        <span>
+                            Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredCourses.length)} to {Math.min(currentPage * itemsPerPage, filteredCourses.length)} of {filteredCourses.length} entries
+                        </span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => {
+                                    const newPage = Math.max(1, currentPage - 1);
+                                    setCurrentPage(newPage);
+                                    setInputPage(newPage.toString());
+                                }}
+                                disabled={currentPage === 1}
+                                className="p-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <FaChevronLeft size={14} />
+                            </button>
+
+                            <div className="flex items-center gap-2 px-2">
+                                <span className="text-sm text-gray-400">Page</span>
+                                <input
+                                    type="text"
+                                    value={inputPage}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === '' || /^\d+$/.test(val)) {
+                                            setInputPage(val);
+                                        }
+                                    }}
+                                    onBlur={() => {
+                                        let page = parseInt(inputPage);
+                                        const maxPage = Math.ceil(filteredCourses.length / itemsPerPage);
+                                        if (isNaN(page) || page < 1) page = 1;
+                                        if (page > maxPage) page = maxPage;
+                                        setCurrentPage(page);
+                                        setInputPage(page.toString());
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            let page = parseInt(inputPage);
+                                            const maxPage = Math.ceil(filteredCourses.length / itemsPerPage);
+                                            if (isNaN(page) || page < 1) page = 1;
+                                            if (page > maxPage) page = maxPage;
+                                            setCurrentPage(page);
+                                            setInputPage(page.toString());
+                                            e.target.blur();
+                                        }
+                                    }}
+                                    className="w-12 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-center text-sm text-white focus:outline-none focus:border-cyan-500"
+                                />
+                                <span className="text-sm text-gray-400">of {Math.ceil(filteredCourses.length / itemsPerPage)}</span>
+                            </div>
+
+                            <button
+                                onClick={() => {
+                                    const maxPage = Math.ceil(filteredCourses.length / itemsPerPage);
+                                    const newPage = Math.min(maxPage, currentPage + 1);
+                                    setCurrentPage(newPage);
+                                    setInputPage(newPage.toString());
+                                }}
+                                disabled={currentPage === Math.ceil(filteredCourses.length / itemsPerPage)}
+                                className="p-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <FaChevronRight size={14} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Edit/Create Modal */}
             {

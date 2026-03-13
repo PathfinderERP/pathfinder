@@ -337,9 +337,9 @@ const StudentRegistrationForm = () => {
         e.preventDefault();
         setLoading(true);
 
-        // Validate batch selection
-        if (!formData.batches || formData.batches.length === 0) {
-            toast.error("Please select at least one batch");
+        // Validate mandatory fields
+        if (!formData.session || !formData.department || !formData.class) {
+            toast.error("Session, Department, and Class are mandatory fields");
             setLoading(false);
             return;
         }
@@ -611,8 +611,8 @@ const StudentRegistrationForm = () => {
                                             </div>
 
                                             <div>
-                                                <label className={labelClass}>ACADEMIC SESSION</label>
-                                                <select name="session" value={formData.session} onChange={handleChange} className={inputClass}>
+                                                <label className={labelClass}>ACADEMIC SESSION *</label>
+                                                <select name="session" required value={formData.session} onChange={handleChange} className={inputClass}>
                                                     <option value="">SELECT YEAR CYCLE</option>
                                                     {sessions.map((session) => (
                                                         <option key={session._id} value={session.sessionName || session.name}>
@@ -622,8 +622,8 @@ const StudentRegistrationForm = () => {
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className={labelClass}>DEPARTMENT SECTOR</label>
-                                                <select name="department" value={formData.department} onChange={handleChange} className={inputClass}>
+                                                <label className={labelClass}>DEPARTMENT SECTOR *</label>
+                                                <select name="department" required value={formData.department} onChange={handleChange} className={inputClass}>
                                                     <option value="">SELECT DEPARTMENT</option>
                                                     {departments.map((dept) => (
                                                         <option key={dept._id} value={dept._id}>{dept.departmentName.toUpperCase()}</option>
@@ -714,8 +714,8 @@ const StudentRegistrationForm = () => {
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className={labelClass}>LAST ACADEMIC CLASS</label>
-                                                <select name="class" value={formData.class} onChange={handleChange} className={inputClass}>
+                                                <label className={labelClass}>LAST ACADEMIC CLASS *</label>
+                                                <select name="class" required value={formData.class} onChange={handleChange} className={inputClass}>
                                                     <option value="">SELECT CLASS</option>
                                                     {classes.map(c => (
                                                         <option key={c._id} value={c.name || c.className}>
@@ -755,7 +755,7 @@ const StudentRegistrationForm = () => {
                                                                 placeholder="SEARCH COURSE BY NAME OR UNIT..."
                                                                 value={courseFilters.searchTerm}
                                                                 onChange={handleCourseFilterChange}
-                                                                className={`pl-10 pr-4 py-2 rounded-[4px] border text-[9px] font-black uppercase tracking-widest outline-none transition-all w-full md:w-[300px] ${isDarkMode ? 'bg-[#111418] border-gray-800 text-cyan-500 focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-cyan-600 focus:border-cyan-500'}`}
+                                                                className={`pl-10 pr-4 py-2 rounded-[4px] border text-[9px] font-black uppercase tracking-widest outline-none transition-all w-full md:w-[600px] ${isDarkMode ? 'bg-[#111418] border-gray-800 text-cyan-500 focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-cyan-600 focus:border-cyan-500'}`}
                                                             />
                                                         </div>
                                                         <button type="button" onClick={resetCourseFilters} className="text-[9px] px-3 py-1 bg-red-500/10 text-red-500 border border-red-500/20 rounded-[4px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all">
@@ -763,7 +763,7 @@ const StudentRegistrationForm = () => {
                                                         </button>
                                                     </div>
                                                 </div>
-                                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                                                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-6">
                                                     <div className="space-y-2">
                                                         <label className={labelClass}>MODE (ONLINE/OFFLINE)</label>
                                                         <select name="mode" value={courseFilters.mode} onChange={handleCourseFilterChange} className={`${inputClass} p-2 py-2`}>
@@ -795,54 +795,56 @@ const StudentRegistrationForm = () => {
                                                             {sessions.map(s => <option key={s._id} value={s.sessionName || s.name}>{(s.sessionName || s.name).toUpperCase()}</option>)}
                                                         </select>
                                                     </div>
-                                                    <div className="space-y-2">
-                                                        <label className={labelClass}>DEPARTMENT</label>
-                                                        <select name="department" value={courseFilters.department} onChange={handleCourseFilterChange} className={`${inputClass} p-2 py-2`}>
-                                                            <option value="">ALL</option>
-                                                            {departments.map(d => <option key={d._id} value={d._id}>{d.departmentName.toUpperCase()}</option>)}
-                                                        </select>
-                                                    </div>
                                                 </div>
                                             </div>
 
-                                            <div>
-                                                <label className={labelClass}>SELECT COURSE *</label>
-                                                <select name="course" value={formData.course} onChange={handleChange} className={`${inputClass} border-cyan-500/50 bg-cyan-500/5 text-cyan-500`}>
-                                                    <option value="" className={isDarkMode ? "bg-[#131619] text-white" : "bg-white text-gray-900"}>CHOOSE COURSE SYLLABUS</option>
-                                                    {filteredCourses.map((c) => (
-                                                        <option key={c._id} value={c._id} className={isDarkMode ? "bg-[#131619] text-white" : "bg-white text-gray-900"}>
-                                                            {c.courseName.toUpperCase()} [{c.mode} | {c.courseType}]
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
+                                                <div>
+                                                    <label className={labelClass}>SELECT COURSE *</label>
+                                                    <select name="course" value={formData.course} onChange={handleChange} className={`${inputClass} border-cyan-500/50 bg-cyan-500/5 text-cyan-500`}>
+                                                        <option value="" className={isDarkMode ? "bg-[#131619] text-white" : "bg-white text-gray-900"}>CHOOSE COURSE SYLLABUS</option>
+                                                        {filteredCourses.map((c) => (
+                                                            <option key={c._id} value={c._id} className={isDarkMode ? "bg-[#131619] text-white" : "bg-white text-gray-900"}>
+                                                                {c.courseName.toUpperCase()} [{c.mode} | {c.courseType}]
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+
+                                                {/* INSTANT FEE CALCULATOR OVERLAY */}
+                                                {formData.course ? (() => {
+                                                    const selectedCourse = courses.find(c => c._id === formData.course);
+                                                    if (!selectedCourse) return null;
+                                                    const baseAmount = selectedCourse.feesStructure?.reduce((sum, fee) => sum + (Number(fee.value) || 0), 0) || 0;
+                                                    const gstAmount = baseAmount * 0.18;
+                                                    const netPayable = baseAmount + gstAmount;
+
+                                                    return (
+                                                        <div className={`grid grid-cols-3 gap-3 p-4 rounded-[4px] border border-dashed animate-in fade-in slide-in-from-left-4 duration-300 ${isDarkMode ? 'bg-cyan-500/[0.03] border-cyan-500/30' : 'bg-cyan-50 border-cyan-200'}`}>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1">Base Fee</span>
+                                                                <span className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{Math.round(baseAmount).toLocaleString('en-IN')}</span>
+                                                            </div>
+                                                            <div className={`flex flex-col border-l pl-3 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                                                <span className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1">GST (18%)</span>
+                                                                <span className="text-sm font-black text-cyan-500">₹{Math.round(gstAmount).toLocaleString('en-IN')}</span>
+                                                            </div>
+                                                            <div className={`flex flex-col border-l pl-3 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                                                <span className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1">Net Payable</span>
+                                                                <span className="text-sm font-black text-green-500 drop-shadow-[0_0_8px_rgba(34,197,94,0.3)]">₹{Math.round(netPayable).toLocaleString('en-IN')}</span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })() : (
+                                                    <div className={`p-4 rounded-[4px] border border-dashed flex items-center justify-center ${isDarkMode ? 'bg-gray-500/5 border-gray-800 text-gray-600' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
+                                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] italic">Course Amount will appear here</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Batch Selection */}
-                                    <div className={`p-8 rounded-[4px] border ${isDarkMode ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
-                                        <h4 className="text-[12px] font-black text-amber-500 uppercase tracking-[0.2em] mb-8 border-l-4 border-amber-500 pl-4">BATCH ALLOCATION MATRIX (MULTIPLE SELECTION) *</h4>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                                            {batches.map((batch) => (
-                                                <label key={batch._id} className={`flex items-center gap-4 p-4 rounded-[4px] border cursor-pointer transition-all active:scale-95 ${formData.batches.includes(batch._id)
-                                                    ? 'bg-amber-600/20 border-amber-500 text-amber-500 shadow-lg shadow-amber-500/10'
-                                                    : isDarkMode ? 'bg-[#111418] border-gray-800 text-gray-400 hover:border-gray-500' : 'bg-white border-gray-200 text-gray-600 hover:border-amber-300'
-                                                    }`}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.batches.includes(batch._id)}
-                                                        onChange={() => handleBatchToggle(batch._id)}
-                                                        className="hidden"
-                                                    />
-                                                    <div className={`w-5 h-5 rounded-[4px] border-2 flex items-center justify-center transition-all ${formData.batches.includes(batch._id) ? 'bg-amber-500 border-amber-500' : 'border-gray-600'}`}>
-                                                        {formData.batches.includes(batch._id) && <span className="text-[10px] text-black font-black">✓</span>}
-                                                    </div>
-                                                    <span className="text-[11px] font-black uppercase tracking-tight">{batch.batchName}</span>
-                                                </label>
-                                            ))}
-                                            {batches.length === 0 && <p className="text-[10px] text-gray-500 font-bold italic uppercase col-span-full">NO BATCH DATA DETECTED IN MASTER GRID</p>}
-                                        </div>
-                                    </div>
+
 
                                     <button
                                         type="submit"
