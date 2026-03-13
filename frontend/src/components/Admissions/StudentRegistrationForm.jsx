@@ -338,8 +338,20 @@ const StudentRegistrationForm = () => {
         setLoading(true);
 
         // Validate mandatory fields
-        if (!formData.session || !formData.department || !formData.class) {
-            toast.error("Session, Department, and Class are mandatory fields");
+        if (!formData.session || !formData.department || !formData.class || !formData.course || !formData.programme) {
+            if (!formData.session || !formData.department || !formData.class) {
+                toast.error("Session, Department, and Class are required fields in the filter section");
+            } else if (!formData.course) {
+                toast.error("Please select a course from the 'SELECT COURSE' dropdown");
+            } else if (!formData.programme) {
+                toast.error("Course selection failed to identify Programme (CRP/NCRP). Please re-select the course.");
+            }
+            setLoading(false);
+            return;
+        }
+
+        if (!formData.studentName || !formData.centre || !formData.mobileNum || !formData.whatsappNumber) {
+            toast.error("Please fill in all required student identification fields (Name, Centre, Mobile, WhatsApp)");
             setLoading(false);
             return;
         }
