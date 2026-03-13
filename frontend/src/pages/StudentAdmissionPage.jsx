@@ -376,6 +376,13 @@ const StudentAdmissionPage = () => {
             return;
         }
 
+        // New validation: require Transaction ID for UPI if down payment > 0
+        if (formData.paymentMethod === 'UPI' && parseFloat(formData.downPayment) > 0 && !formData.transactionId) {
+            toast.error("Transaction ID / Ref is mandatory for UPI payments.");
+            setLoading(false);
+            return;
+        }
+
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${apiUrl}/admission/create`, {
@@ -810,14 +817,17 @@ const StudentAdmissionPage = () => {
                                 </>
                             ) : (
                                 <div>
-                                    <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Transaction ID / Ref</label>
+                                    <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        Transaction ID / Ref {formData.paymentMethod === 'UPI' && <span className="text-red-500">*</span>}
+                                    </label>
                                     <input
                                         type="text"
                                         name="transactionId"
                                         value={formData.transactionId}
                                         onChange={handleInputChange}
                                         className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                        placeholder="Optional"
+                                        placeholder={formData.paymentMethod === 'UPI' ? "Required for UPI" : "Optional"}
+                                        required={formData.paymentMethod === 'UPI' && parseFloat(formData.downPayment) > 0}
                                     />
                                 </div>
                             )}

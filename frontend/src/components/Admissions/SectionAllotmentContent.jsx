@@ -63,7 +63,7 @@ const SectionAllotmentContent = () => {
             }
 
             // Fetch sections using the portal token
-            const response = await fetch("https://www.studypathportal.in/api/sections/", {
+            const response = await fetch("http://api.studypathportal.in/api/sections/master/", {
                 headers: { "Authorization": `Bearer ${portalToken}` }
             });
 
