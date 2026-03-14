@@ -54,28 +54,53 @@ const SectionAllotmentContent = () => {
 
     const fetchExamSections = async () => {
         try {
-            // Retrieve synchronized token from localStorage
-            const portalToken = localStorage.getItem("portalToken");
+            // First log in to the external portal API
+            let tokenRes;
+            try {
+                tokenRes = await fetch("https://api.studypathportal.in/api/token/", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username: "malay@pathfinder.edu.in", password: "000000" }) // Placeholder logic: needs legit credentials
+                });
+            } catch (err) {
+                console.warn("External Portal Login failed:", err.message);
+            }
 
-            if (!portalToken) {
-                console.warn("No portal token found. Please re-login to synchronize with the student portal.");
+            // We continue regardless, as we might already have a saved token or can fetch the local API
+            const portalToken = tokenRes && tokenRes.ok ? (await tokenRes.json()).access : localStorage.getItem("portalToken");
+
+            if (portalToken) {
+                localStorage.setItem("portalToken", portalToken); // Save it
+            } else {
+                console.warn("No portal token found. Trying to fetch sections without it.");
+            }
+
+            // Fetch sections from the student portal backend safely catching connect errors
+            let response;
+            try {
+                response = await fetch("https://api.studypathportal.in/api/sections/master/", {
+                    headers: portalToken ? { "Authorization": `Bearer ${portalToken}` } : {}
+                });
+            } catch (networkErr) {
+                console.warn("Section API unreachable, returning empty list:", networkErr.message);
+                setExamSections([]);
                 return;
             }
 
-            // Fetch sections using the portal token
-            const response = await fetch("http://api.studypathportal.in/api/sections/master/", {
-                headers: { "Authorization": `Bearer ${portalToken}` }
-            });
-
             if (response.ok) {
                 const data = await response.json();
-                setExamSections(data);
+                // Assumes format: { count: 1, sections: [...] }
+                if (data && data.sections) {
+                    setExamSections(data.sections);
+                } else if (Array.isArray(data)) {
+                    setExamSections(data);
+                }
             } else if (response.status === 401) {
                 console.error("Portal token expired or invalid.");
             }
         } catch (err) {
-            console.error("Error fetching exam sections:", err);
-            // Fallback to static sections handled by render logic
+            console.warn("Error fetching exam sections, falling back to static render.");
+            setExamSections([]);
         }
     };
 
@@ -363,9 +388,23 @@ const SectionAllotmentContent = () => {
                                     >
                                         <option value="">Select Section</option>
                                         {examSections.length > 0 ? (
-                                            examSections.map((section) => (
-                                                <option key={section.id} value={section.name}>{section.name}</option>
-                                            ))
+                                            examSections
+                                                .filter(section => {
+                                                    // Super Admin sees everything
+                                                    if (isSuperAdmin) return true;
+                                                    
+                                                    // Normalize student center name
+                                                    const studentCentre = (selectedDetail?.centre || "").trim().toUpperCase();
+                                                    
+                                                    // Check if this center is allowed for this section
+                                                    const isOnline = section.online_exam_centres?.some(c => (c.name || "").trim().toUpperCase() === studentCentre);
+                                                    const isOffline = section.offline_exam_centres?.some(c => (c.name || "").trim().toUpperCase() === studentCentre);
+                                                    
+                                                    return isOnline || isOffline;
+                                                })
+                                                .map((section) => (
+                                                    <option key={section.id} value={section.name}>{section.name}</option>
+                                                ))
                                         ) : (
                                             <>
                                                 <option value="A">Section A</option>
@@ -384,8 +423,22 @@ const SectionAllotmentContent = () => {
                                         className={`w-full p-3 rounded-[4px] border font-black uppercase tracking-widest text-[11px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-purple-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-purple-500'}`}
                                     >
                                         <option value="">Select Section</option>
-                                        <option value="A">Section A</option>
-                                        <option value="B">Section B</option>
+                                        {examSections.length > 0 ? (
+                                            examSections
+                                                .filter(section => {
+                                                    if (isSuperAdmin) return true;
+                                                    const studentCentre = (selectedDetail?.centre || "").trim().toUpperCase();
+                                                    return section.study_material_centres?.some(c => (c.name || "").trim().toUpperCase() === studentCentre);
+                                                })
+                                                .map((section) => (
+                                                    <option key={section.id} value={section.name}>{section.name}</option>
+                                                ))
+                                        ) : (
+                                            <>
+                                                <option value="A">Section A</option>
+                                                <option value="B">Section B</option>
+                                            </>
+                                        )}
                                     </select>
                                 </div>
                                 <div className="space-y-2">
@@ -412,12 +465,13 @@ const SectionAllotmentContent = () => {
                 </div>
             )}
 
-            <style jsx>{`
+            <style dangerouslySetInnerHTML={{
+                __html: `
                 .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: ${isDarkMode ? '#0f1215' : '#f3f4f6'}; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDarkMode ? '#1f2937' : '#d1d5db'}; border-radius: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: ${isDarkMode ? '#374151' : '#9ca3af'}; }
-            `}</style>
+            `}} />
         </div>
     );
 };
