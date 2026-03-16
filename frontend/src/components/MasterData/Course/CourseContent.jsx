@@ -279,7 +279,7 @@ const CourseContent = () => {
 
         // Resolve reference names back to IDs
         const resolvedData = importData.map((item, index) => {
-            const resolvedItem = { ...item };
+            const resolvedItem = { ...item, createdBy: user?._id };
             const rowNum = index + 2; // +2 because header is row 1 and index is 0-based
 
             // Resolve Department
@@ -594,8 +594,9 @@ const CourseContent = () => {
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-gray-800 text-gray-300">
-                            <th className="p-4 border-b border-gray-700 w-[35%]">Course Information</th>
-                            <th className="p-4 border-b border-gray-700 w-[55%]">Other Details</th>
+                            <th className="p-4 border-b border-gray-700 w-[30%]">Course Information</th>
+                            <th className="p-4 border-b border-gray-700 w-[30%]">Other Details</th>
+                            <th className="p-4 border-b border-gray-700 w-[20%]">Created By</th>
                             <th className="p-4 border-b border-gray-700 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -638,33 +639,49 @@ const CourseContent = () => {
                                         </div>
                                     </td>
                                     <td className="p-4">
-                                        <div className="flex items-center justify-between gap-6 mr-4">
-                                            <div className="flex flex-col gap-3">
-                                                <div className="flex gap-2">
-                                                    <span className={`px-2 py-1 rounded text-[11px] font-semibold ${course.courseType === 'INSTATION' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'}`}>
-                                                        {course.courseType}
-                                                    </span>
-                                                    <span className={`px-2 py-1 rounded text-[11px] font-semibold ${course.programme === 'CRP' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-pink-500/20 text-pink-400 border border-pink-500/30'}`}>
-                                                        {course.programme}
-                                                    </span>
+                                        <div className="flex flex-col gap-3">
+                                            <div className="flex gap-2">
+                                                <span className={`px-2 py-1 rounded text-[11px] font-semibold ${course.courseType === 'INSTATION' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'}`}>
+                                                    {course.courseType}
+                                                </span>
+                                                <span className={`px-2 py-1 rounded text-[11px] font-semibold ${course.programme === 'CRP' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-pink-500/20 text-pink-400 border border-pink-500/30'}`}>
+                                                    {course.programme}
+                                                </span>
+                                            </div>
+                                            <div className="flex gap-4 text-xs text-gray-400">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider">Duration</span>
+                                                    <span className="text-gray-200 font-medium">{course.courseDuration} Months</span>
                                                 </div>
-                                                <div className="flex gap-4 text-xs text-gray-400">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[10px] text-gray-500 uppercase tracking-wider">Duration</span>
-                                                        <span className="text-gray-200 font-medium">{course.courseDuration} Months</span>
-                                                    </div>
-                                                    <div className="flex flex-col border-l border-gray-700/50 pl-4">
-                                                        <span className="text-[10px] text-gray-500 uppercase tracking-wider">Period</span>
-                                                        <span className="text-gray-200 font-medium">{course.coursePeriod}</span>
-                                                    </div>
+                                                <div className="flex flex-col border-l border-gray-700/50 pl-4">
+                                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider">Period</span>
+                                                    <span className="text-gray-200 font-medium">{course.coursePeriod}</span>
                                                 </div>
                                             </div>
-                                            <div className="text-right">
+                                            <div className="">
                                                 <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Total Course Fee</div>
-                                                <div className="text-2xl font-black text-green-400 drop-shadow-[0_0_10px_rgba(74,222,128,0.2)]">
+                                                <div className="text-xl font-black text-green-400 drop-shadow-[0_0_10px_rgba(74,222,128,0.2)]">
                                                     ₹{Math.ceil(course.feesStructure?.reduce((sum, fee) => sum + (Number(fee.value) || 0), 0) || 0).toLocaleString('en-IN')}
                                                 </div>
                                             </div>
+                                        </div>
+                                    </td>
+                                    <td className="p-4">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wider">Created By</span>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-6 h-6 rounded-full bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center">
+                                                    <span className="text-[10px] font-bold text-cyan-400">
+                                                        {(course.createdBy?.name || "SYS")[0].toUpperCase()}
+                                                    </span>
+                                                </div>
+                                                <span className="text-xs font-semibold text-gray-300">
+                                                    {course.createdBy?.name || "System Generated"}
+                                                </span>
+                                            </div>
+                                            <span className="text-[10px] text-gray-500">
+                                                {course.createdAt ? new Date(course.createdAt).toLocaleDateString() : "-"}
+                                            </span>
                                         </div>
                                     </td>
                                     <td className="p-4 text-right">
@@ -788,6 +805,12 @@ const CourseContent = () => {
                                     <p className="font-bold text-green-400">
                                         ₹{Math.ceil(course.feesStructure?.reduce((sum, fee) => sum + (Number(fee.value) || 0), 0) || 0).toLocaleString('en-IN')}
                                     </p>
+                                </div>
+                                <div className="col-span-2 mt-2 pt-2 border-t border-gray-800">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-gray-500 uppercase tracking-[0.2em] text-[9px]">Created By:</span>
+                                        <span className="text-cyan-400 font-bold">{course.createdBy?.name || "System"}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

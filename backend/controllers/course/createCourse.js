@@ -34,6 +34,7 @@ export const createCourse = async (req, res) => {
             class: classId && classId !== "" ? classId : undefined,
             courseType: courseType && courseType !== "" ? courseType : undefined,
             programme: programme && programme !== "" ? programme : undefined,
+            createdBy: req.user?._id
         };
 
         // Create new course

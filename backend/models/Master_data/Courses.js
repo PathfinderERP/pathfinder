@@ -58,6 +58,11 @@ const courseSchema = new mongoose.Schema({
         type: String,
         enum: ["CRP", "NCRP"],
         required: false,
+    },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: false // Optional for backward compatibility
     }
 }, { timestamps: true });
 

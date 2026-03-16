@@ -12,6 +12,9 @@ export const updateCourse = async (req, res) => {
             }
         });
 
+        // Ensure createdBy is never overwritten
+        delete updateData.createdBy;
+
         const updatedCourse = await Course.findByIdAndUpdate(
             req.params.id,
             updateData,

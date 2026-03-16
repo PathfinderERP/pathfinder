@@ -14,7 +14,8 @@ export const getCourses = async (req, res) => {
         const courses = await Course.find(filter)
             .populate("examTag", "name")
             .populate("class", "name")
-            .populate("department", "departmentName");
+            .populate("department", "departmentName")
+            .populate("createdBy", "name");
             
         res.status(200).json(courses);
     } catch (err) {
