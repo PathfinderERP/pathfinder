@@ -22,6 +22,8 @@ const StudentAdmissionPage = () => {
     const [departments, setDepartments] = useState([]);
     const [boards, setBoards] = useState([]);
     const [admissionType, setAdmissionType] = useState("NORMAL"); // "NORMAL" | "BOARD"
+    const [isBoardLocked, setIsBoardLocked] = useState(false);
+
     const [selectedBoard, setSelectedBoard] = useState("");
     const [selectedSubjectIds, setSelectedSubjectIds] = useState([]);
     const [selectedCourse, setSelectedCourse] = useState(null);
@@ -44,7 +46,8 @@ const StudentAdmissionPage = () => {
         transactionId: "",
         accountHolderName: "",
         chequeDate: "",
-        receivedDate: new Date().toISOString().split('T')[0]
+        receivedDate: new Date().toISOString().split('T')[0],
+        customBoardDuration: "" // Manual override for Board duration
     });
 
     const [feeBreakdown, setFeeBreakdown] = useState({
@@ -71,6 +74,12 @@ const StudentAdmissionPage = () => {
 
     useEffect(() => {
         fetchData();
+        const searchParams = new URLSearchParams(window.location.search);
+        if (searchParams.get('type') === 'BOARD') {
+            setAdmissionType('BOARD');
+            setIsBoardLocked(true);
+        }
+
         // eslint-disable-next-line
     }, []);
 
@@ -78,7 +87,7 @@ const StudentAdmissionPage = () => {
         // Trigger calculation when inputs change
         calculateFees();
         // eslint-disable-next-line
-    }, [formData.courseId, formData.downPayment, formData.numberOfInstallments, formData.feeWaiver, admissionType, selectedSubjectIds, selectedBoard, boards]);
+    }, [formData.courseId, formData.downPayment, formData.numberOfInstallments, formData.feeWaiver, admissionType, selectedSubjectIds, selectedBoard, boards, formData.customBoardDuration]);
 
     // Pre-select all matching fields when student and master data are loaded
     useEffect(() => {
@@ -223,6 +232,12 @@ const StudentAdmissionPage = () => {
                         }
                     }
 
+                    // Override default duration if manual input is provided
+                    const manualDur = parseInt(formData.customBoardDuration);
+                    if (!isNaN(manualDur) && manualDur > 0) {
+                        courseDurationMonths = manualDur;
+                    }
+
                     // Total base fees = monthly fees × duration
                     baseFees = monthlyFees * courseDurationMonths;
 
@@ -245,7 +260,7 @@ const StudentAdmissionPage = () => {
 
         // Calculate Total Inclusive Fees BEFORE waiver (Standard GST 18%)
         const totalInclusiveBeforeWaiver = baseFees * 1.18;
-        
+
         // Total Fees after waiver (deducted from total inclusive amount)
         const previousBalance = student?.carryForwardBalance || 0;
         const totalFees = parseFloat(Math.max(0, (totalInclusiveBeforeWaiver - feeWaiver + previousBalance)).toFixed(3));
@@ -253,7 +268,7 @@ const StudentAdmissionPage = () => {
         // Back-calculate Taxable Amount and GST from the new total (exclusive of previous balance)
         const totalForGst = Math.max(0, totalFees - previousBalance);
         const taxableAmount = parseFloat((totalForGst / 1.18).toFixed(3));
-        
+
         // Calculate CGST (9%) and SGST (9%)
         const cgstAmount = parseFloat((taxableAmount * 0.09).toFixed(3));
         const sgstAmount = parseFloat((taxableAmount * 0.09).toFixed(3));
@@ -272,8 +287,9 @@ const StudentAdmissionPage = () => {
         }
 
         // For Board courses, use course duration months; for Normal, use installments
+        // For Board courses, use course duration - 1 for installments (since DP is Month 1)
         const numberOfInstallments = admissionType === "BOARD"
-            ? courseDurationMonths
+            ? Math.max(0, courseDurationMonths - 1)
             : (parseInt(formData.numberOfInstallments) || 1);
 
         // ── Ceiling-based installment logic ──
@@ -398,8 +414,8 @@ const StudentAdmissionPage = () => {
                     selectedSubjectIds,
                     billingMonth,
                     ...currentFormData,
-                    // For Board courses, set numberOfInstallments to course duration
-                    numberOfInstallments: admissionType === "BOARD" ? feeBreakdown.courseDurationMonths : formData.numberOfInstallments
+                    // For Board courses, set numberOfInstallments to course duration - 1 (since DP covers Month 1)
+                    numberOfInstallments: admissionType === "BOARD" ? Math.max(1, feeBreakdown.courseDurationMonths - 1) : formData.numberOfInstallments
                 })
             });
 
@@ -635,6 +651,20 @@ const StudentAdmissionPage = () => {
                                         />
                                         <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">Select the month for billing</p>
                                     </div>
+
+                                    <div>
+                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Manual Duration (Months)</label>
+                                        <input
+                                            type="number"
+                                            name="customBoardDuration"
+                                            value={formData.customBoardDuration}
+                                            onChange={handleInputChange}
+                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                            placeholder="Override default duration..."
+                                            min="1"
+                                        />
+                                        <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">Leave blank to use board default</p>
+                                    </div>
                                 </>
                             )}
 
@@ -848,13 +878,15 @@ const StudentAdmissionPage = () => {
                                 </div>
                             )}
 
-                            {admissionType === "BOARD" && feeBreakdown.courseDurationMonths && (
+                            {admissionType === "BOARD" && (
                                 <div>
-                                    <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course Duration</label>
-                                    <div className={`w-full border rounded-lg p-2 font-bold ${isDarkMode ? 'bg-gray-800 border-gray-700 text-cyan-400' : 'bg-gray-100 border-gray-300 text-cyan-600'}`}>
-                                        {feeBreakdown.courseDurationMonths} Months
+                                    <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course Duration (Months) *</label>
+                                    <div className="flex gap-2">
+                                        <div className={`flex-1 border rounded-lg p-2 font-bold ${isDarkMode ? 'bg-gray-800 border-gray-700 text-cyan-400' : 'bg-gray-100 border-gray-300 text-cyan-600'}`}>
+                                            {feeBreakdown.courseDurationMonths} Months
+                                        </div>
                                     </div>
-                                    <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">Monthly billing for entire duration</p>
+                                    <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">Includes 1 Down Payment + {Math.max(0, feeBreakdown.courseDurationMonths - 1)} Installments</p>
                                 </div>
                             )}
                         </div>
@@ -1021,7 +1053,7 @@ const StudentAdmissionPage = () => {
                                 onClick={() => navigate("/admissions")}
                                 className={`w-full py-3 font-semibold rounded-lg ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
                             >
-                                {formData.paymentMethod === "CHEQUE" ? "Close & View Admissions" : "Go to Admissions List"}
+                                {formData.paymentMethod === "CHEQUE" ? "Close & View Admissions" : "Go to Counselling List"}
                             </button>
 
                             <button

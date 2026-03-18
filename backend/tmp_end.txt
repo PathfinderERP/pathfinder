@@ -1,0 +1,10 @@
+        }
+
+        await admission.save();
+
+        res.status(200).json({ message: "Payment collected", admission });
+
+    } catch (error) {
+        res.status(500).json({ message: "Server error" });
+    }
+};

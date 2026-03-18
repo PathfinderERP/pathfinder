@@ -74,6 +74,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             permissionModule: "admissions",
             subItems: [
                 { name: "Counselled Students", path: "/admissions", permissionSection: "allLeads" },
+                { name: "Board Course Admission", path: "/board-admissions", permissionSection: "boardCourseAdmission" },
                 { name: "Enrolled Students", path: "/enrolled-students", permissionSection: "enrolledStudents" },
                 { name: "Section Allotment", path: "/admissions/section-allotment", permissionSection: "sectionAllotment" },
                 // { name: "Walk-in Registration", path: "/student-registration", permissionSection: "allLeads" },
@@ -256,6 +257,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Department", path: "/master-data/department", permissionSection: "department" },
                 { name: "Designation", path: "/master-data/designation", permissionSection: "designation" },
                 { name: "Board", path: "/master-data/board", permissionSection: "board" },
+                { name: "Board Course Subject", path: "/master-data/board-course-subject", permissionSection: "boardCourse" },
                 { name: "Subject", path: "/master-data/subject", permissionSection: "subject" },
                 { name: "Centre", path: "/master-data/centre", permissionSection: "centre" },
                 { name: "Batch", path: "/master-data/batch", permissionSection: "batch" },

@@ -1,5 +1,6 @@
 import Payment from "../../models/Payment/Payment.js";
 import Admission from "../../models/Admission/Admission.js";
+import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 
@@ -24,14 +25,31 @@ export const generateBill = async (req, res) => {
 
         console.log(`🧾 Generating bill for Admission: ${admissionId}, Installment: ${installmentNum}`);
 
-        // Find the admission
-        const admission = await Admission.findById(admissionId)
+        // Find the admission - Try standard first, then Board
+        let admission = await Admission.findById(admissionId)
             .populate('student')
             .populate('course')
             .populate('board')
             .populate('department')
             .populate('examTag')
             .populate('class');
+        
+        let isBoardAdmission = false;
+
+        if (!admission) {
+            admission = await BoardCourseAdmission.findById(admissionId)
+                .populate('studentId')
+                .populate('boardId');
+            if (admission) {
+                isBoardAdmission = true;
+                // Normalize Board Admission fields to match logic below
+                admission.student = admission.studentId;
+                admission.centre = admission.centre || "General";
+                admission.boardCourseName = admission.boardCourseName || (admission.boardId?.boardCourse || "Board Course");
+                admission.academicSession = admission.academicSession || "N/A";
+                admission.admissionNumber = admission.admissionNumber || "PENDING";
+            }
+        }
 
         if (!admission) {
             console.error(`❌ Admission not found: ${admissionId}`);
@@ -65,8 +83,9 @@ export const generateBill = async (req, res) => {
         let installment;
         let isDownPayment = false;
 
-        // Check if this is the down payment (installment 0)
-        if (installmentNum === 0) {
+        if (isBoardAdmission) {
+            installment = admission.installments.find(i => i.monthNumber === installmentNum);
+        } else if (installmentNum === 0) {
             // Down payment is not in paymentBreakdown, create a virtual installment object
             isDownPayment = true;
             installment = {
@@ -84,16 +103,16 @@ export const generateBill = async (req, res) => {
             installment = admission.paymentBreakdown.find(
                 p => p.installmentNumber === installmentNum
             );
+        }
 
-            if (!installment) {
-                console.error(`❌ Installment #${installmentNum} not found in admission`);
-                return res.status(404).json({ message: "Installment not found" });
-            }
+        if (!installment) {
+            console.error(`❌ Installment #${installmentNum} not found in admission`);
+            return res.status(404).json({ message: "Installment not found" });
+        }
 
-            if (installment.status !== "PAID" && installment.status !== "PENDING_CLEARANCE") {
-                console.error(`❌ Installment #${installmentNum} is not PAID or PENDING_CLEARANCE. Status: ${installment.status}`);
-                return res.status(400).json({ message: "Cannot generate bill for unpaid installment" });
-            }
+        if (installment.status !== "PAID" && installment.status !== "PENDING_CLEARANCE") {
+            console.error(`❌ Installment #${installmentNum} is not PAID or PENDING_CLEARANCE. Status: ${installment.status}`);
+            return res.status(400).json({ message: "Cannot generate bill for unpaid installment" });
         }
 
         // Check if payment record exists
@@ -107,8 +126,8 @@ export const generateBill = async (req, res) => {
             installmentNumber: installmentNum
         };
 
-        if (admission.admissionType === 'BOARD') {
-            if (installmentNum === 0) {
+        if (isBoardAdmission || admission.admissionType === 'BOARD') {
+            if (installmentNum === 0 && !isBoardAdmission) {
                 // Down payments for Board courses might have billingMonth set (the start month)
                 // We search primarily by admission and installmentNumber 0
             } else if (billingMonth) {
@@ -120,9 +139,9 @@ export const generateBill = async (req, res) => {
         let payment = await Payment.findOne(query);
 
         // Determine the actual total amount paid for this bill from source of truth
-        // For installment 0, we trust admission.downPayment. 
+        // For installment 0 (standard), we trust admission.downPayment. 
         // For others, we trust installment.paidAmount.
-        const actualPaidTotal = (installmentNum === 0) ? admission.downPayment : (installment.paidAmount || 0);
+        const actualPaidTotal = (installmentNum === 0 && !isBoardAdmission) ? admission.downPayment : (installment.paidAmount || 0);
 
         // If payment record is missing but installment is PAID, create it (Self-healing)
         if (!payment) {
@@ -139,21 +158,22 @@ export const generateBill = async (req, res) => {
             payment = new Payment({
                 admission: admissionId,
                 installmentNumber: installmentNum,
-                amount: installment.amount,
+                amount: isBoardAdmission ? (installment.payableAmount || installment.standardAmount) : installment.amount,
                 paidAmount: totalAmount,
                 dueDate: installment.dueDate,
-                paidDate: installment.paidDate || new Date(),
+                paidDate: installment.paidDate || (isBoardAdmission && installment.paymentTransactions?.length > 0 ? installment.paymentTransactions[installment.paymentTransactions.length - 1].date : new Date()),
                 status: installment.status || "PAID",
                 paymentMethod: installment.paymentMethod || "CASH",
-                transactionId: installment.transactionId,
-                remarks: installment.remarks,
-                recordedBy: req.user?.id, 
+                transactionId: installment.transactionId || (isBoardAdmission && installment.paymentTransactions?.length > 0 ? installment.paymentTransactions[installment.paymentTransactions.length - 1].transactionId : ""),
+                remarks: installment.remarks || (isBoardAdmission ? `Board Installment Month ${installment.monthNumber}` : ""),
+                recordedBy: req.user?.id || req.user?._id, 
                 cgst,
                 sgst,
                 courseFee,
                 totalAmount,
                 accountHolderName: installment.accountHolderName,
-                chequeDate: installment.chequeDate
+                chequeDate: installment.chequeDate,
+                billingMonth: billingMonth || (isBoardAdmission ? new Date(installment.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : undefined)
             });
 
             await payment.save();

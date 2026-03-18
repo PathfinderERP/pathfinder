@@ -5,6 +5,101 @@ import CentreSchema from "../../models/Master_data/Centre.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 import { updateCentreTargetAchieved } from "../../services/centreTargetService.js";
 
+// Global rebalance logic for Board admissions
+export const rebalanceBoardHistory = async (admissionId) => {
+    const admission = await Admission.findById(admissionId);
+    if (!admission || admission.admissionType !== "BOARD") return null;
+
+    const payments = await Payment.find({ admission: admissionId });
+    
+    // 1. Deduplicate payments by billId
+    const uniquePayments = [];
+    const seenBills = new Set();
+    for (const p of payments) {
+        const id = (p.billId || p._id).toString();
+        if (!seenBills.has(id)) {
+            seenBills.add(id);
+            uniquePayments.push(p);
+        }
+    }
+
+    const duration = admission.courseDurationMonths || 1;
+    // Course-wide adjustments
+    const monthlyDiscount = Math.round((admission.discountAmount || 0) / duration);
+    const monthlyPrevBal = Math.round((admission.previousBalance || 0) / duration);
+
+    // 2. Group payments strictly by their designated month
+    const monthPaymentMap = {};
+    uniquePayments.forEach(p => {
+        if (p.status !== "PAID" && p.status !== "PENDING_CLEARANCE") return;
+        const mKey = p.billingMonth || "DOWN_PAYMENT";
+        monthPaymentMap[mKey] = (monthPaymentMap[mKey] || 0) + (p.paidAmount || 0);
+    });
+
+    admission.monthlySubjectHistory.sort((a, b) => a.month.localeCompare(b.month));
+
+    let carryForwardCredit = 0; 
+    let grandTotalMoney = 0;
+
+    for (let i = 0; i < admission.monthlySubjectHistory.length; i++) {
+        const entry = admission.monthlySubjectHistory[i];
+        
+        // A. Assign EXACT receipt money to this month (No splitting)
+        let moneyPaidThisMonth = monthPaymentMap[entry.month] || 0;
+        if (i === 0 && monthPaymentMap["DOWN_PAYMENT"]) {
+            moneyPaidThisMonth += monthPaymentMap["DOWN_PAYMENT"];
+        }
+        entry.paidAmount = Math.round(moneyPaidThisMonth);
+        grandTotalMoney += entry.paidAmount;
+
+        // B. Calculate GROSS Monthly Bill
+        const subSum = entry.subjects.reduce((sum, s) => sum + (s.price || 0), 0);
+        const grossBill = Math.max(0, Math.round(subSum * 1.18));
+        entry.totalAmount = grossBill;
+
+        // C. Apply monthly adjustments to the credit bucket
+        carryForwardCredit += (monthlyDiscount - monthlyPrevBal);
+
+        // D. Logical Waterfall for Status (Carries both Surplus AND Deficit)
+        const totalAvailableForThisMonth = entry.paidAmount + carryForwardCredit;
+        
+        if (totalAvailableForThisMonth >= grossBill - 0.5) {
+            entry.isPaid = true;
+            // Carry surplus forward
+            carryForwardCredit = totalAvailableForThisMonth - grossBill;
+            
+            const bills = uniquePayments.filter(p => p.billingMonth === entry.month);
+            if (bills.some(p => p.status === "PENDING_CLEARANCE")) {
+                entry.status = "PENDING_CLEARANCE";
+                entry.isPaid = false;
+            } else {
+                entry.status = "PAID";
+            }
+        } else {
+            entry.isPaid = false;
+            entry.status = (totalAvailableForThisMonth > 0.1) ? "PARTIAL" : "PENDING";
+            // Carry deficit forward (negative carryForwardCredit)
+            carryForwardCredit = totalAvailableForThisMonth - grossBill;
+        }
+    }
+
+    // 3. Update overall admission totals
+    admission.totalPaidAmount = grandTotalMoney;
+    admission.totalFees = admission.monthlySubjectHistory.reduce((sum, h) => sum + h.totalAmount, 0) - (admission.discountAmount || 0) + (admission.previousBalance || 0);
+    admission.remainingAmount = Math.max(0, admission.totalFees - admission.totalPaidAmount);
+    
+    if (admission.remainingAmount <= 0.5) {
+        admission.paymentStatus = "COMPLETED";
+    } else if (admission.totalPaidAmount > 0) {
+        admission.paymentStatus = "PARTIAL";
+    } else {
+        admission.paymentStatus = "PENDING";
+    }
+
+    await admission.save();
+    return admission;
+};
+
 export const generateMonthlyBill = async (req, res) => {
     try {
         const { admissionId } = req.params;
@@ -184,9 +279,9 @@ export const generateMonthlyBill = async (req, res) => {
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
 
-            const subNames = validSelectedSubjects.map(s => s.subName).join('+');
+            const subNames = validSelectedSubjects.map(s => s.name).join('+');
             const sessionStr = admission.academicSession || '';
-            const boardName = board.boardCourse || 'Board Course';
+            const boardName = admission.board?.boardCourse || 'Board Course';
             const specificBoardCourseName = `${boardName} ${sessionStr} ${subNames}`.trim();
 
             // Find the index of the billing month in history to use as installment number
@@ -257,6 +352,8 @@ export const generateMonthlyBill = async (req, res) => {
             }
         }
 
+        await rebalanceBoardHistory(admissionId);
+
         const updatedAdmission = await Admission.findById(admission._id)
             .populate('student')
             .populate('board')
@@ -283,57 +380,52 @@ export const generateMonthlyBreakdown = async (admission) => {
         return [];
     }
 
-    // Fetch ALL payments for this admission to sync status
     const payments = await Payment.find({ admission: admission._id });
-
     const breakdown = [];
     const startDate = new Date(admission.admissionDate || admission.createdAt);
-    startDate.setDate(1); // Set to 1st to avoid month overflow
+    startDate.setDate(1);
 
-    for (let i = 0; i < admission.courseDurationMonths; i++) {
+    let carryForward = 0;
+    const durationCount = admission.courseDurationMonths;
+
+    for (let i = 0; i < durationCount; i++) {
         const monthDate = new Date(startDate);
         monthDate.setMonth(monthDate.getMonth() + i);
         const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
 
-        const actualHistoryEntry = admission.monthlySubjectHistory.find(h => h.month === monthKey);
-
-        // Find payment for this month. 
-        // Logic: Match by billingMonth OR if it's the first month (i=0), match the 'Down Payment' (installment 0)
+        const histEntry = admission.monthlySubjectHistory.find(h => h.month === monthKey);
         let paymentEntry = payments.find(p => p.billingMonth === monthKey);
 
-        // Fallback for first month's downpayment if billingMonth was not set correctly
         if (!paymentEntry && i === 0) {
-            paymentEntry = payments.find(p => p.installmentNumber === 0 && (!p.billingMonth || p.billingMonth === monthKey));
+            paymentEntry = payments.find(p => p.installmentNumber === 0);
         }
 
-        // Logical Inheritance for DISPLAY ONLY: If no history entry, look at the most recent previous one for subjects/amount
-        let displayHistory = actualHistoryEntry;
-        if (!displayHistory) {
-            for (let j = i - 1; j >= 0; j--) {
-                const prevDate = new Date(startDate);
-                prevDate.setMonth(prevDate.getMonth() + j);
-                const prevKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-                const prevEntry = admission.monthlySubjectHistory.find(h => h.month === prevKey);
-                if (prevEntry) {
-                    displayHistory = prevEntry;
-                    break;
-                }
-            }
-        }
+        const displayPaidAmount = histEntry ? (histEntry.paidAmount || 0) : 0;
+        
+        // Match rebalancer logic: add this month's share of discount/arrears
+        const monthlyDiscount = Math.round((admission.discountAmount || 0) / durationCount);
+        const monthlyPrevBal = Math.round((admission.previousBalance || 0) / durationCount);
+        carryForward += (monthlyDiscount - monthlyPrevBal);
 
-        const isPaidStatus = (actualHistoryEntry?.isPaid === true) || (paymentEntry?.status === "PAID");
-
+        const totalAvailable = displayPaidAmount + carryForward;
+        const monthlyBill = histEntry ? (histEntry.totalAmount || 0) : 0;
+        
         breakdown.push({
             month: monthKey,
             monthName: monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-            subjects: displayHistory ? displayHistory.subjects : [],
-            totalAmount: displayHistory ? displayHistory.totalAmount : 0,
-            isPaid: isPaidStatus,
-            paymentStatus: isPaidStatus ? "PAID" : (paymentEntry?.status || actualHistoryEntry?.status || "PENDING"),
+            subjects: histEntry ? histEntry.subjects : [],
+            totalAmount: monthlyBill,
+            paidAmount: displayPaidAmount,
+            carryForward: carryForward - displayPaidAmount, // Previous excess + discount
+            isPaid: histEntry ? histEntry.isPaid : false,
+            paymentStatus: histEntry ? (histEntry.status || "PENDING") : "PENDING",
             billId: paymentEntry?.billId || null,
             receivedDate: paymentEntry?.receivedDate || paymentEntry?.paidDate,
             dueDate: monthDate
         });
+
+        // Update carryForward for next month
+        carryForward = totalAvailable - monthlyBill;
     }
 
     return breakdown;

@@ -6,7 +6,7 @@ const paymentBreakdownSchema = new mongoose.Schema({
     amount: { type: Number, required: true },
     status: {
         type: String,
-        enum: ["PENDING", "PAID", "OVERDUE", "PENDING_CLEARANCE"],
+        enum: ["PENDING", "PAID", "PARTIAL", "OVERDUE", "PENDING_CLEARANCE"],
         default: "PENDING"
     },
     paidDate: { type: Date },
@@ -93,7 +93,7 @@ const admissionSchema = new mongoose.Schema({
         isPaid: { type: Boolean, default: false },
         status: {
             type: String,
-            enum: ["PENDING", "PAID", "PENDING_CLEARANCE", "REJECTED"],
+            enum: ["PENDING", "PAID", "PARTIAL", "PENDING_CLEARANCE", "REJECTED"],
             default: "PENDING"
         }
     }],

@@ -78,6 +78,10 @@ export const PERMISSION_MODULES = {
             telecallingConsole: {
                 label: "Telecalling Console",
                 operations: ["view", "create", "edit", "delete"]
+            },
+            boardCourseAdmission: {
+                label: "Board Course Admission",
+                operations: ["create", "edit", "delete"]
             }
         }
     },
@@ -370,6 +374,10 @@ export const PERMISSION_MODULES = {
             },
             board: {
                 label: "Board",
+                operations: ["create", "edit", "delete"]
+            },
+            boardCourse: {
+                label: "Board Course Master",
                 operations: ["create", "edit", "delete"]
             },
             subject: {

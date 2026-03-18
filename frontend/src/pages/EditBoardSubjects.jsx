@@ -385,11 +385,26 @@ const EditBoardSubjects = () => {
                                 </div>
                             </div>
 
-                            {/* Monthly Amount */}
-                            <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-cyan-900/20 border-cyan-500/30' : 'bg-cyan-50 border-cyan-200'}`}>
-                                <div className="flex justify-between items-center">
-                                    <span className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Monthly Amount (with GST)</span>
-                                    <span className={`text-xl font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'}`}>₹{paymentAmount.toLocaleString()}</span>
+                            {/* Monthly Amount Selection */}
+                            <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-cyan-900/10 border-cyan-500/20' : 'bg-cyan-50 border-cyan-200'}`}>
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Recommended Monthly</span>
+                                    <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{calculateMonthlyFees().toLocaleString()}</span>
+                                </div>
+                                <div>
+                                    <label className={`block mb-1 text-[10px] uppercase font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Amount to Pay *</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
+                                        <input
+                                            type="number"
+                                            value={paymentAmount}
+                                            onChange={(e) => setPaymentAmount(e.target.value)}
+                                            className={`w-full pl-7 pr-3 py-2 border rounded-lg font-bold text-lg focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                            required
+                                            min="0"
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-1 italic">Enter any amount. Excess will credit to future months; deficit will show as due.</p>
                                 </div>
                             </div>
 
@@ -541,21 +556,36 @@ const EditBoardSubjects = () => {
                                         </div>
                                     )}
 
-                                    <div className={`mt-3 pt-2 border-t flex justify-between items-center ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                                        <div>
-                                            <span className={`block text-[10px] uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Total Amount</span>
-                                            <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{month.totalAmount?.toLocaleString() || 0}</span>
+                                    <div className={`mt-3 pt-2 border-t space-y-2 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                                        <div className="flex justify-between items-center bg-gray-500/5 p-1 px-2 rounded">
+                                            <span className={`text-[10px] uppercase font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Monthly Total</span>
+                                            <span className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{month.totalAmount?.toLocaleString() || 0}</span>
                                         </div>
+                                        
+                                        <div className="flex justify-between items-center px-2">
+                                            <span className={`text-[10px] uppercase font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Amount Paid</span>
+                                            <span className={`text-xs font-bold ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>₹{month.paidAmount?.toLocaleString() || 0}</span>
+                                        </div>
+
+                                        {!month.isPaid && (
+                                            <div className="flex justify-between items-center px-2 border-t border-dashed border-gray-700 pt-1">
+                                                <span className={`text-[10px] uppercase font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Balance Due</span>
+                                                <span className={`text-xs font-bold ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>₹{Math.max(0, (month.totalAmount || 0) - (month.paidAmount || 0) - (month.carryForward || 0)).toLocaleString()}</span>
+                                            </div>
+                                        )}
+
                                         {month.isPaid && (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleViewBill(month);
-                                                }}
-                                                className={`text-xs font-bold py-1.5 px-3 rounded border flex items-center gap-1 transition-all ${isDarkMode ? 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/30' : 'bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border-cyan-200'}`}
-                                            >
-                                                <FaFileInvoice /> View Bill
-                                            </button>
+                                            <div className="pt-1 flex justify-center">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleViewBill(month);
+                                                    }}
+                                                    className={`w-full text-[10px] font-bold py-1 px-3 rounded border flex items-center justify-center gap-1 transition-all ${isDarkMode ? 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/30' : 'bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border-cyan-200'}`}
+                                                >
+                                                    <FaFileInvoice size={10} /> View Bill
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                 </div>

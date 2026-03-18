@@ -22,6 +22,9 @@ import EnrolledStudents from "./pages/EnrolledStudents";
 import BatchAllocation from "./pages/BatchAllocation";
 import StudentAdmission from "./pages/StudentAdmission";
 import StudentAdmissionPage from "./pages/StudentAdmissionPage";
+import BoardAdmissions from "./pages/BoardAdmissions";
+import BoardCourseAdmissionPage from "./pages/BoardCourseAdmissionPage";
+import ManageBoardAdmission from "./pages/ManageBoardAdmission";
 import SectionAllotment from "./pages/SectionAllotment";
 import TelecallingConsole from "./pages/TelecallingConsole";
 import MasterData from "./pages/MasterData";
@@ -53,6 +56,7 @@ import MasterDataSubject from "./pages/MasterDataSubject";
 import MasterDataFollowUpFeedback from "./pages/MasterDataFollowUpFeedback";
 import ZoneManagement from "./pages/ZoneManagement";
 import EditBoardSubjects from "./pages/EditBoardSubjects";
+import MasterDataBoardCourseSubject from "./pages/MasterDataBoardCourseSubject.jsx";
 import MarketingCRM from "./pages/MarketingCRM";
 
 // ... [existing imports]
@@ -167,6 +171,9 @@ function App() {
         <Route path="/ceo-control-tower" element={<ProtectedRoute><CEOControlTower /></ProtectedRoute>} />
         <Route path="/marketing-crm" element={<ProtectedRoute><MarketingCRM /></ProtectedRoute>} />
         <Route path="/admissions" element={<ProtectedRoute><Admissions /></ProtectedRoute>} />
+        <Route path="/board-admissions" element={<ProtectedRoute><BoardAdmissions /></ProtectedRoute>} />
+        <Route path="/board-course-admission/:studentId" element={<ProtectedRoute><BoardCourseAdmissionPage /></ProtectedRoute>} />
+        <Route path="/manage-board-admission/:id" element={<ProtectedRoute><ManageBoardAdmission /></ProtectedRoute>} />
 
         <Route path="/admissions/telecalling-console" element={<ProtectedRoute><TelecallingConsole /></ProtectedRoute>} />
         <Route path="/admissions/section-allotment" element={<ProtectedRoute><SectionAllotment /></ProtectedRoute>} />
@@ -280,6 +287,7 @@ function App() {
         <Route path="/master-data/expenditure-type" element={<ProtectedRoute><MasterDataExpenditureType /></ProtectedRoute>} />
         <Route path="/master-data/account" element={<ProtectedRoute><MasterDataAccount /></ProtectedRoute>} />
         <Route path="/master-data/board" element={<ProtectedRoute><MasterDataBoard /></ProtectedRoute>} />
+        <Route path="/master-data/board-course-subject" element={<ProtectedRoute><MasterDataBoardCourseSubject /></ProtectedRoute>} />
         <Route path="/master-data/subject" element={<ProtectedRoute><MasterDataSubject /></ProtectedRoute>} />
         <Route path="/master-data/zone" element={<ProtectedRoute><ZoneManagement /></ProtectedRoute>} />
 

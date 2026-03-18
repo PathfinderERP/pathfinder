@@ -7,6 +7,7 @@ import { generateBillId } from "../../utils/billIdGenerator.js";
 import Board from "../../models/Master_data/Boards.js"; // Corrected filename
 import Subject from "../../models/Master_data/Subject.js"; // Import Subject model
 import { updateCentreTargetAchieved } from "../../services/centreTargetService.js";
+import { rebalanceBoardHistory } from "./generateMonthlyBill.js";
 
 export const createAdmission = async (req, res) => {
     try {
@@ -31,7 +32,8 @@ export const createAdmission = async (req, res) => {
             accountHolderName = "",
             chequeDate = "",
             receivedDate = "",
-            billingMonth = "" // For Board Admissions
+            billingMonth = "", // For Board Admissions
+            customBoardDuration = "" // New: Custom duration override
         } = req.body;
 
         // Validate required fields (Common)
@@ -121,6 +123,12 @@ export const createAdmission = async (req, res) => {
                 }
             }
 
+            // Override duration with custom value if provided
+            const manualDur = parseInt(customBoardDuration);
+            if (!isNaN(manualDur) && manualDur > 0) {
+                durationMonths = manualDur;
+            }
+
             // For Board courses, baseFees is the TOTAL fees (monthly * duration)
             baseFees = monthlyFees * durationMonths;
             feeSnapshot = validSelectedSubjects.map(sub => ({ feesType: sub.subName, value: sub.price }));
@@ -143,7 +151,7 @@ export const createAdmission = async (req, res) => {
         const taxableAmount = parseFloat((totalForGst / 1.18).toFixed(3));
         const cgstAmount = parseFloat((taxableAmount * 0.09).toFixed(3));
         const sgstAmount = parseFloat((taxableAmount * 0.09).toFixed(3));
-        
+
         const remainingAmount = totalFees - downPayment;
 
         // Use Math.ceil tolerance: allow down payment up to the ceiling of totalFees
@@ -185,14 +193,12 @@ export const createAdmission = async (req, res) => {
         // Check for existing admission to reuse Admission Number
         const existingAdmission = await Admission.findOne({ student: studentId }).sort({ createdAt: -1 });
         const admissionNumber = existingAdmission ? existingAdmission.admissionNumber : undefined;
-
         // Initialize monthly subject history for Board admissions
         const monthlyHistory = [];
         if (admissionType === "BOARD" && durationMonths > 0) {
-            // Start from the selected billing month or admission date
             const startMonthStr = billingMonth; // e.g. "2026-01"
             const [startYear, startMonth] = startMonthStr.split('-').map(Number);
-
+            
             for (let i = 0; i < durationMonths; i++) {
                 const mDate = new Date(startYear, startMonth - 1 + i, 1);
                 const mKey = `${mDate.getFullYear()}-${String(mDate.getMonth() + 1).padStart(2, '0')}`;
@@ -201,8 +207,7 @@ export const createAdmission = async (req, res) => {
                     month: mKey,
                     subjects: selectedSubjectsData,
                     totalAmount: monthlyPaymentAmount,
-                    // The first month is marked as paid/covered by downpayment
-                    isPaid: (mKey === startMonthStr && downPayment >= monthlyPaymentAmount)
+                    status: "PENDING"
                 });
             }
         }
@@ -313,6 +318,10 @@ export const createAdmission = async (req, res) => {
 
             const payment = new Payment(paymentData);
             await payment.save();
+        }
+
+        if (admission.admissionType === "BOARD") {
+            await rebalanceBoardHistory(admission._id);
         }
 
         const populatedAdmission = await Admission.findById(admission._id)
