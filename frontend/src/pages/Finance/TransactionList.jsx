@@ -42,6 +42,8 @@ const TransactionList = () => {
     const [minAmount, setMinAmount] = useState("");
     const [maxAmount, setMaxAmount] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
+    const [centreSearch, setCentreSearch] = useState("");
+    const [departmentSearch, setDepartmentSearch] = useState("");
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -215,6 +217,8 @@ const TransactionList = () => {
         setMinAmount("");
         setMaxAmount("");
         setSearchTerm("");
+        setCentreSearch("");
+        setDepartmentSearch("");
         toast.info("Filters reset");
     };
 
@@ -226,7 +230,7 @@ const TransactionList = () => {
 
         const wb = XLSX.utils.book_new();
 
-        const headers = ["Date", "Received Date", "Enroll No.", "Receipt No", "Student Name", "Session", "Department", "Course Name", "Transaction Type", "PaymentID", "Centre", "Payment Mode", "Revenue (Base)", "GST Amount", "Total (Inc. GST)", "Status"];
+        const headers = ["Date", "Received Date", "Enroll No.", "Receipt No", "Student Name", "Session", "Department", "Course Name", "Transaction Type", "Transaction ID", "Centre", "Payment Mode", "Revenue (Base)", "GST Amount", "Total (Inc. GST)", "Status", "Taken By"];
         const data = detailedReport.map(item => [
             new Date(item.paymentDate).toLocaleDateString("en-IN"),
             item.receivedDate ? new Date(item.receivedDate).toLocaleDateString("en-IN") : "-",
@@ -243,7 +247,8 @@ const TransactionList = () => {
             item.revenueWithoutGst ? item.revenueWithoutGst.toFixed(2) : "-",
             item.gstAmount ? item.gstAmount.toFixed(2) : "-",
             item.amount,
-            item.status
+            item.status,
+            item.takenBy || "System"
         ]);
 
         const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
@@ -410,17 +415,37 @@ const TransactionList = () => {
                             <FaChevronDown size={10} className={`transform transition-transform ${isCentreDropdownOpen ? 'rotate-180' : ''}`} />
                         </div>
                         {isCentreDropdownOpen && (
-                            <div className="absolute top-full left-0 mt-1 w-60 z-50 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-                                {centres.map(c => (
-                                    <div
-                                        key={c._id}
-                                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
-                                        onClick={() => toggleCentreSelection(c._id)}
-                                    >
-                                        <input type="checkbox" checked={selectedCentres.includes(c._id)} readOnly className="rounded" />
-                                        <span className="text-sm text-gray-700 truncate">{c.centreName}</span>
+                            <div className="absolute top-full left-0 mt-1 w-64 z-[9999] bg-white border border-gray-200 rounded-lg shadow-2xl max-h-80 flex flex-col overflow-hidden">
+                                <div className="p-2 border-b border-gray-100 bg-gray-50 sticky top-0 z-10">
+                                    <div className="relative">
+                                        <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search Centre..."
+                                            value={centreSearch}
+                                            onChange={(e) => setCentreSearch(e.target.value)}
+                                            className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-300 rounded focus:border-blue-500 outline-none font-bold uppercase"
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
                                     </div>
-                                ))}
+                                </div>
+                                <div className="overflow-y-auto max-h-60 custom-scrollbar">
+                                    {centres
+                                        .filter(c => c.centreName.toLowerCase().includes(centreSearch.toLowerCase()))
+                                        .map(c => (
+                                            <div
+                                                key={c._id}
+                                                className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 transition-colors border-b border-gray-50 last:border-0"
+                                                onClick={() => toggleCentreSelection(c._id)}
+                                            >
+                                                <input type="checkbox" checked={selectedCentres.includes(c._id)} readOnly className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5" />
+                                                <span className="text-xs text-gray-700 truncate font-bold uppercase">{c.centreName}</span>
+                                            </div>
+                                        ))}
+                                    {centres.filter(c => c.centreName.toLowerCase().includes(centreSearch.toLowerCase())).length === 0 && (
+                                        <div className="p-4 text-center text-[10px] text-gray-400 font-black uppercase">No centres matched</div>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -492,17 +517,37 @@ const TransactionList = () => {
                             <FaChevronDown size={10} className={`transform transition-transform ${isDepartmentDropdownOpen ? 'rotate-180' : ''}`} />
                         </div>
                         {isDepartmentDropdownOpen && (
-                            <div className="absolute top-full left-0 mt-1 w-60 z-50 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-                                {departments.map(d => (
-                                    <div
-                                        key={d._id}
-                                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
-                                        onClick={() => toggleDepartmentSelection(d._id)}
-                                    >
-                                        <input type="checkbox" checked={selectedDepartments.includes(d._id)} readOnly className="rounded" />
-                                        <span className="text-sm text-gray-700 truncate">{d.departmentName}</span>
+                            <div className="absolute top-full left-0 mt-1 w-64 z-[9999] bg-white border border-gray-200 rounded-lg shadow-2xl max-h-80 flex flex-col overflow-hidden">
+                                <div className="p-2 border-b border-gray-100 bg-gray-50 sticky top-0 z-10">
+                                    <div className="relative">
+                                        <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search Department..."
+                                            value={departmentSearch}
+                                            onChange={(e) => setDepartmentSearch(e.target.value)}
+                                            className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-300 rounded focus:border-blue-500 outline-none font-bold uppercase"
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
                                     </div>
-                                ))}
+                                </div>
+                                <div className="overflow-y-auto max-h-60 custom-scrollbar">
+                                    {departments
+                                        .filter(d => d.departmentName.toLowerCase().includes(departmentSearch.toLowerCase()))
+                                        .map(d => (
+                                            <div
+                                                key={d._id}
+                                                className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 transition-colors border-b border-gray-50 last:border-0"
+                                                onClick={() => toggleDepartmentSelection(d._id)}
+                                            >
+                                                <input type="checkbox" checked={selectedDepartments.includes(d._id)} readOnly className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5" />
+                                                <span className="text-xs text-gray-700 truncate font-bold uppercase">{d.departmentName}</span>
+                                            </div>
+                                        ))}
+                                    {departments.filter(d => d.departmentName.toLowerCase().includes(departmentSearch.toLowerCase())).length === 0 && (
+                                        <div className="p-4 text-center text-[10px] text-gray-400 font-black uppercase">No departments matched</div>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -613,18 +658,19 @@ const TransactionList = () => {
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Payment Mode</th>
                                     <th className="p-4 text-xs font-black text-orange-500 uppercase tracking-wider">Revenue (Base)</th>
                                     <th className="p-4 text-xs font-black text-purple-500 uppercase tracking-wider">GST (18%)</th>
-                                    <th className="p-4 text-xs font-black text-gray-800 uppercase tracking-wider">Total (Inc. GST)</th>
+                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Total (Inc. GST)</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th className="p-4 text-xs font-black text-blue-500 uppercase tracking-wider">Taken By</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="12" className="p-8 text-center text-gray-500">Loading transactions...</td>
+                                        <td colSpan="18" className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest text-[10px]">Loading transactions...</td>
                                     </tr>
                                 ) : detailedReport.length === 0 ? (
                                     <tr>
-                                        <td colSpan="12" className="p-8 text-center text-gray-500">No transactions found</td>
+                                        <td colSpan="18" className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest text-[10px]">No transactions found</td>
                                     </tr>
                                 ) : (
                                     paginatedData.map((item, index) => (
@@ -654,12 +700,16 @@ const TransactionList = () => {
                                             <td className="p-4 text-sm font-bold text-purple-600 text-xs">₹{item.gstAmount ? item.gstAmount.toLocaleString() : "-"}</td>
                                             <td className="p-4 text-sm font-black text-gray-900 border-l border-gray-100">₹{item.amount.toLocaleString()}</td>
                                             <td className="p-4">
-                                                <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${item.status === 'PAID' ? 'bg-green-100 text-green-600' :
-                                                    item.status === 'PENDING' ? 'bg-yellow-100 text-yellow-600' :
-                                                        'bg-gray-100 text-gray-600'
-                                                    }`}>
-                                                    {item.status || "completed"}
-                                                </span>
+                                                    <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest ${item.status === 'PAID' ? 'bg-green-100 text-green-600 shadow-sm shadow-green-200' :
+                                                        item.status === 'PENDING' || item.status === 'PENDING_CLEARANCE' ? 'bg-yellow-100 text-yellow-600 shadow-sm shadow-yellow-200' :
+                                                            item.status === 'REJECTED' ? 'bg-red-100 text-red-600 shadow-sm shadow-red-200' :
+                                                                'bg-gray-100 text-gray-600 shadow-sm shadow-gray-200'
+                                                        }`}>
+                                                        {item.status || "PAID"}
+                                                    </span>
+                                            </td>
+                                            <td className="p-4 text-[10px] font-black text-blue-600 uppercase italic tracking-tighter whitespace-nowrap">
+                                                {item.takenBy || "System"}
                                             </td>
                                         </tr>
                                     ))

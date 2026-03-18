@@ -76,6 +76,11 @@ const paymentSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"
     },
+    // Who cleared/rejected/processed this payment
+    processedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+    },
 
     // Bill Details
     billId: {

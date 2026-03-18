@@ -23,10 +23,13 @@ export const getTransactionReport = async (req, res) => {
             search
         } = req.query;
 
-        // Base Match for Payment (paidAmount > 0 AND status is PAID or PARTIAL)
+        // Base Match for Payment (paidAmount > 0 AND status is PAID or PARTIAL, or any status for CHEQUE)
         let baseAttributesMatch = {
             paidAmount: { $gt: 0 },
-            status: { $in: ["PAID", "PARTIAL"] }
+            $or: [
+                { status: { $in: ["PAID", "PARTIAL"] } },
+                { paymentMethod: "CHEQUE", status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] } }
+            ]
         };
 
         if (minAmount || maxAmount) {
@@ -316,6 +319,14 @@ export const getTransactionReport = async (req, res) => {
                 }
             },
             {
+                $lookup: {
+                    from: "users",
+                    localField: "recordedBy",
+                    foreignField: "_id",
+                    as: "collectorInfo"
+                }
+            },
+            {
                 $project: {
                     transactionId: "$transactionId",
                     paymentDate: "$effectivePaidDate",
@@ -334,7 +345,8 @@ export const getTransactionReport = async (req, res) => {
                     receiptNo: "$billId",
                     installmentNumber: "$installmentNumber",
                     revenueWithoutGst: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] },
-                    gstAmount: { $ifNull: [{ $add: ["$cgst", "$sgst"] }, { $subtract: ["$paidAmount", { $divide: ["$paidAmount", 1.18] }] }] }
+                    gstAmount: { $ifNull: [{ $add: ["$cgst", "$sgst"] }, { $subtract: ["$paidAmount", { $divide: ["$paidAmount", 1.18] }] }] },
+                    takenBy: { $ifNull: [{ $arrayElemAt: ["$collectorInfo.name", 0] }, "System"] }
                 }
             }
         ]).option({ allowDiskUse: true });

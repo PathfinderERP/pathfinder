@@ -44,36 +44,121 @@ const revertPaymentVariance = async (payment, admission) => {
 // Get all pending cheques
 export const getPendingCheques = async (req, res) => {
     try {
-        const cheques = await Payment.find({
-            paymentMethod: "CHEQUE",
-            status: "PENDING_CLEARANCE"
-        })
+        const { centre, course, department, search, status, startDate, endDate, chequeStartDate, chequeEndDate } = req.query;
+
+        // Build query for retrieving payments
+        const query = {
+            paymentMethod: "CHEQUE"
+        };
+
+        // Date filter for processing Date (updatedAt)
+        if (startDate || endDate) {
+            query.updatedAt = {};
+            if (startDate) query.updatedAt.$gte = new Date(startDate);
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                query.updatedAt.$lte = end;
+            }
+        }
+
+        // Date filter for Cheque Date
+        if (chequeStartDate || chequeEndDate) {
+            query.chequeDate = {};
+            if (chequeStartDate) query.chequeDate.$gte = new Date(chequeStartDate);
+            if (chequeEndDate) {
+                const end = new Date(chequeEndDate);
+                end.setHours(23, 59, 59, 999);
+                query.chequeDate.$lte = end;
+            }
+        }
+
+        // If status specified, validate and apply
+        if (status) {
+            const allowedStatuses = ["PENDING_CLEARANCE", "PAID", "REJECTED", "CANCELLED"];
+            const statusArray = Array.isArray(status) ? status : [status];
+            const validStatusFilters = statusArray.filter(s => allowedStatuses.includes(s));
+            if (validStatusFilters.length > 0) {
+                query.status = { $in: validStatusFilters };
+            } else {
+                query.status = { $in: ["PENDING_CLEARANCE", "PAID"] };
+            }
+        } else {
+            query.status = { $in: ["PENDING_CLEARANCE", "PAID"] };
+        }
+
+        let cheques = await Payment.find(query)
             .populate({
                 path: "admission",
                 populate: [
                     { path: "student" },
-                    { path: "course", select: "courseName" }
+                    { path: "course", select: "courseName" },
+                    { path: "department", select: "departmentName" }
                 ]
             })
-            .sort({ createdAt: -1 });
+            .populate({
+                path: "processedBy",
+                select: "name"
+            })
+            .sort({ updatedAt: -1 });
 
-        // Center Visibility Restriction
-        let filteredCheques = cheques;
+        // Filter results based on query params (since some data is in populated fields)
+        if (centre || course || department || search) {
+            const requestedCentres = centre ? (Array.isArray(centre) ? centre : [centre]) : [];
+            const requestedCourses = course ? (Array.isArray(course) ? course : [course]) : [];
+            const requestedDepts = department ? (Array.isArray(department) ? department : [department]) : [];
+            const normalizedRequestedCentres = requestedCentres.map(c => (c || "").trim().toLowerCase()).filter(Boolean);
+
+            cheques = cheques.filter(c => {
+                const adm = c.admission;
+                if (!adm) return false;
+
+                let matchesCentre = true;
+                if (normalizedRequestedCentres.length > 0) {
+                    const admCentre = (adm.centre || "").trim().toLowerCase();
+                    matchesCentre = normalizedRequestedCentres.includes(admCentre);
+                }
+
+                let matchesCourse = true;
+                if (requestedCourses.length > 0) {
+                    matchesCourse = requestedCourses.includes(adm.course?.courseName);
+                }
+
+                let matchesDept = true;
+                if (requestedDepts.length > 0) {
+                    matchesDept = requestedDepts.includes(adm.department?.departmentName);
+                }
+
+                let matchesSearch = true;
+                if (search) {
+                    const s = search.toLowerCase();
+                    const studentName = (adm.student?.studentsDetails?.[0]?.studentName || "").toLowerCase();
+                    const admNo = (adm.admissionNumber || "").toLowerCase();
+                    const chNo = (c.transactionId || "").toLowerCase();
+                    matchesSearch = studentName.includes(s) || admNo.includes(s) || chNo.includes(s);
+                }
+
+                return matchesCentre && matchesCourse && matchesDept && matchesSearch;
+            });
+        }
+
+        // Center Visibility Restriction for non-admins
         if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
             const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
-            const userCentreNames = currentUser ? currentUser.centres.map(c => (c.centreName || "").trim()).filter(Boolean) : [];
-            filteredCheques = cheques.filter(c => {
-                const centerName = (c.admission?.centre || "").trim();
+            const userCentreNames = currentUser ? currentUser.centres.map(c => (c.centreName || "").trim().toLowerCase()).filter(Boolean) : [];
+            cheques = cheques.filter(c => {
+                const centerName = (c.admission?.centre || "").trim().toLowerCase();
                 return userCentreNames.includes(centerName);
             });
         }
 
-        const formattedCheques = filteredCheques.map(c => ({
+        const formattedCheques = cheques.map(c => ({
             paymentId: c._id,
             admissionId: c.admission?._id,
             admissionNumber: c.admission?.admissionNumber,
             studentName: c.admission?.student?.studentsDetails?.[0]?.studentName,
             centre: c.admission?.centre,
+            department: c.admission?.department?.departmentName,
             courseName: c.admission?.course?.courseName,
             installmentNumber: c.installmentNumber,
             amount: c.paidAmount,
@@ -81,7 +166,8 @@ export const getPendingCheques = async (req, res) => {
             chequeDate: c.chequeDate,
             bankName: c.accountHolderName,
             status: c.status,
-            createdAt: c.createdAt
+            createdAt: c.createdAt,
+            processedBy: c.processedBy?.name || "System"
         }));
 
         res.status(200).json(formattedCheques);
@@ -113,6 +199,7 @@ export const clearCheque = async (req, res) => {
         // 1. Update Payment record
         payment.status = "PAID";
         payment.paidDate = new Date();
+        payment.processedBy = req.user.id || req.user._id;
 
         // Generate Bill ID
         let centre = await CentreSchema.findOne({ centreName: admission.centre });
@@ -196,6 +283,7 @@ export const rejectCheque = async (req, res) => {
         // 1. Update Payment record
         payment.status = "REJECTED";
         payment.remarks = (payment.remarks ? payment.remarks + "; " : "") + `REJECTED: ${reason || 'Cheque bounced'}`;
+        payment.processedBy = req.user.id || req.user._id;
         await payment.save();
 
         // 2. Update Admission paymentBreakdown or Down Payment
@@ -263,13 +351,48 @@ export const rejectCheque = async (req, res) => {
 // Get all cheques (Pending & Cleared) with filters
 export const getAllCheques = async (req, res) => {
     try {
-        const { centre, course, department, search } = req.query;
+        const { centre, course, department, search, status, startDate, endDate, chequeStartDate, chequeEndDate } = req.query;
 
         // Build query for retrieving payments
         const query = {
-            paymentMethod: "CHEQUE",
-            status: { $in: ["PENDING_CLEARANCE", "PAID", "REJECTED", "CANCELLED"] }
+            paymentMethod: "CHEQUE"
         };
+
+        // Date filter for processing Date (updatedAt)
+        if (startDate || endDate) {
+            query.updatedAt = {};
+            if (startDate) query.updatedAt.$gte = new Date(startDate);
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                query.updatedAt.$lte = end;
+            }
+        }
+
+        // Date filter for Cheque Date
+        if (chequeStartDate || chequeEndDate) {
+            query.chequeDate = {};
+            if (chequeStartDate) query.chequeDate.$gte = new Date(chequeStartDate);
+            if (chequeEndDate) {
+                const end = new Date(chequeEndDate);
+                end.setHours(23, 59, 59, 999);
+                query.chequeDate.$lte = end;
+            }
+        }
+
+        // If status specified, validate and apply
+        if (status) {
+            const allowedStatuses = ["PAID", "REJECTED", "CANCELLED", "PENDING_CLEARANCE"];
+            const statusArray = Array.isArray(status) ? status : [status];
+            const validStatusFilters = statusArray.filter(s => allowedStatuses.includes(s));
+            if (validStatusFilters.length > 0) {
+                query.status = { $in: validStatusFilters };
+            } else {
+                query.status = { $in: ["PAID", "REJECTED", "CANCELLED"] };
+            }
+        } else {
+            query.status = { $in: ["PAID", "REJECTED", "CANCELLED"] };
+        }
 
         let cheques = await Payment.find(query)
             .populate({
@@ -279,6 +402,10 @@ export const getAllCheques = async (req, res) => {
                     { path: "course", select: "courseName" },
                     { path: "department", select: "departmentName" } // Ensure retrieval of department name
                 ]
+            })
+            .populate({
+                path: "processedBy",
+                select: "name"
             })
             .sort({ createdAt: -1 });
 
@@ -352,7 +479,10 @@ export const getAllCheques = async (req, res) => {
             status: c.status === "PAID" ? "Cleared" : (c.status === "REJECTED" ? "Rejected" : (c.status === "CANCELLED" ? "Cancelled" : "Pending")), // Map backend status to UI status
             centre: c.admission?.centre || "N/A",
             course: c.admission?.course?.courseName || "N/A",
-            department: c.admission?.department?.departmentName || "N/A"
+            department: c.admission?.department?.departmentName || "N/A",
+            remarks: c.remarks || "N/A",
+            processedBy: c.processedBy?.name || "System",
+            processedDate: c.updatedAt
         }));
 
         res.status(200).json(formattedCheques);
@@ -394,6 +524,7 @@ export const cancelCheque = async (req, res) => {
         // 1. Update Payment record
         payment.status = "CANCELLED"; // Or "REJECTED" if you want to reuse that enum
         payment.remarks = (payment.remarks ? payment.remarks + "; " : "") + `CANCELLED: ${reason}`;
+        payment.processedBy = req.user.id || req.user._id;
         await payment.save();
 
         // 2. Update Admission paymentBreakdown or Down Payment
