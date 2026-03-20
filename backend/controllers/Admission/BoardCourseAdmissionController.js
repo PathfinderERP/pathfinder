@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import Boards from "../../models/Master_data/Boards.js";
 import Subject from "../../models/Master_data/Subject.js";
@@ -5,7 +6,8 @@ import Students from "../../models/Students.js";
 import Payment from "../../models/Payment/Payment.js";
 import Centre from "../../models/Master_data/Centre.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
-import mongoose from "mongoose";
+import BoardCourseSubject from "../../models/Master_data/BoardCourseSubject.js";
+import Class from "../../models/Master_data/Class.js";
 
 // Helper to calculate next months due date
 const getNextMonthDate = (startDate, monthsToAdd) => {
@@ -16,8 +18,10 @@ const getNextMonthDate = (startDate, monthsToAdd) => {
 
 export const createBoardAdmission = async (req, res) => {
     try {
-        const {
+        let {
             studentId,
+            studentName,
+            mobileNum,
             boardId,
             selectedSubjectIds,
             totalDurationMonths,
@@ -28,28 +32,54 @@ export const createBoardAdmission = async (req, res) => {
             centre,
             remarks,
             paymentMethod,
-            transactionId
+            transactionId,
+            bankName,
+            accountHolderName,
+            chequeDate,
+            admissionFee = 0,
+            examFee = 0,
+            paidExamFee = 0,
+            programme,
+            lastClass
         } = req.body;
 
-        // 1. Fetch Board and Subjects to get current prices
-        const board = await Boards.findById(boardId).populate('subjects.subjectId');
-        if (!board) return res.status(404).json({ message: "Board not found" });
-
-        const activeSubjects = board.subjects.filter(s => 
-            selectedSubjectIds.includes(s.subjectId._id.toString())
-        );
-
-        if (activeSubjects.length === 0) {
-            return res.status(400).json({ message: "No valid subjects selected" });
+        // Fallback: Fetch student details only if name/mobile/centre not provided
+        if (studentId && (!studentName || !mobileNum || !centre)) {
+            const student = await Students.findById(studentId);
+            if (student && student.studentsDetails?.[0]) {
+                const officialDetails = student.studentsDetails[0];
+                studentName = studentName || officialDetails.studentName;
+                mobileNum = mobileNum || officialDetails.mobileNum;
+                centre = centre || officialDetails.centre;
+            }
         }
 
-        const totalSubjectMonthlyFee = activeSubjects.reduce((sum, s) => sum + s.price, 0);
+        // 1. Fetch Board and Master Subjects from BoardCourseSubject
+        const board = await Boards.findById(boardId);
+        if (!board) return res.status(404).json({ message: "Board not found" });
+
+        const classRecord = await Class.findOne({ name: lastClass });
+        if (!classRecord) return res.status(404).json({ message: "Target class not found" });
+
+        const masterMapping = await BoardCourseSubject.findOne({ boardId, classId: classRecord._id }).populate('subjects.subjectId');
+        if (!masterMapping) return res.status(404).json({ message: "No subjects configured for this board and class" });
+
+        const activeSubjects = masterMapping.subjects.filter(s => {
+            const sid = (s.subjectId?._id || s.subjectId)?.toString();
+            return selectedSubjectIds.includes(sid);
+        });
+
+        if (activeSubjects.length === 0) {
+            return res.status(400).json({ message: "No valid subjects selected from master data" });
+        }
+
+        const totalSubjectMonthlyFee = activeSubjects.reduce((sum, s) => sum + s.amount, 0);
         const monthlyWaiver = totalWaiver / totalDurationMonths;
         const expectedMonthly = totalSubjectMonthlyFee - monthlyWaiver;
 
         // 2. Prepare Installments
         let installments = [];
-        let runningBalance = 0; 
+        let runningBalance = 0;
         let adjustmentApplied = false;
 
         for (let i = 1; i <= totalDurationMonths; i++) {
@@ -59,8 +89,8 @@ export const createBoardAdmission = async (req, res) => {
                 dueDate: dueDate,
                 standardAmount: totalSubjectMonthlyFee,
                 subjects: activeSubjects.map(as => ({
-                    subjectId: as.subjectId._id,
-                    price: as.price
+                    subjectId: as.subjectId?._id || as.subjectId,
+                    price: as.amount
                 })),
                 waiverAmount: monthlyWaiver,
                 paidAmount: 0,
@@ -69,7 +99,7 @@ export const createBoardAdmission = async (req, res) => {
 
             const netMonthly = inst.standardAmount - inst.waiverAmount;
 
-            // Month 1 Logic: Always handles Down Payment
+            // Month 1 Logic: Always handles Down Payment + Admission Fee
             if (i === 1) {
                 inst.paidAmount = downPayment;
                 if (downPayment > 0) {
@@ -78,14 +108,19 @@ export const createBoardAdmission = async (req, res) => {
                         date: new Date(),
                         paymentMethod: paymentMethod || "CASH",
                         transactionId: transactionId || "DP-" + Date.now(),
+                        bankName: bankName,
+                        accountHolderName: accountHolderName,
+                        chequeDate: chequeDate,
                         receivedBy: req.user?._id
                     });
                 }
                 inst.adjustmentAmount = 0;
-                inst.payableAmount = Math.max(0, netMonthly);
+                // Month 1 payable includes tuition + Admission Fee (Exam fee is separate)
+                inst.payableAmount = Math.max(0, netMonthly + Number(admissionFee));
                 inst.status = "PAID"; // Locked at admission
-                
-                runningBalance += (inst.paidAmount - netMonthly);
+
+                // Balance: What was paid minus what was owed (Tuition + Admission)
+                runningBalance += (inst.paidAmount - inst.payableAmount);
                 installments.push(inst);
                 continue;
             }
@@ -113,22 +148,25 @@ export const createBoardAdmission = async (req, res) => {
                 runningBalance += (inst.paidAmount - netMonthly);
                 // If we pay this month, the adjustment we applied is now "consumed" or "refined"
                 // So we can allow the new balance to apply to the next month
-                adjustmentApplied = false; 
+                adjustmentApplied = false;
             }
-            
+
             installments.push(inst);
         }
 
-        // Construct Board Course Name: Board + Subjects + Session
-        const subjectNames = activeSubjects.map(s => s.subjectId.subName).join(' + ');
-        const boardCourseName = `${board.boardCourse} (${subjectNames}) [${academicSession || 'N/A'}]`;
+        // Construct Board Course Name: Board + Class + Programme + Session + Subjects
+        const subjectNames = activeSubjects.map(s => (s.subjectId.subName || s.subjectId.name || 'Subject')).join(' + ');
+        const boardCourseName = `${board.boardCourse} + Class ${lastClass || ''} + ${programme || ''} + ${academicSession || ''} + ${subjectNames}`;
+        
 
         const newAdmission = new BoardCourseAdmission({
             studentId,
+            studentName,
+            mobileNum,
             boardId,
             selectedSubjects: activeSubjects.map(s => ({
                 subjectId: s.subjectId._id,
-                priceAtAdmission: s.price
+                priceAtAdmission: s.amount
             })),
             totalDurationMonths,
             totalWaiver,
@@ -137,17 +175,24 @@ export const createBoardAdmission = async (req, res) => {
             academicSession,
             boardCourseName,
             installments,
-            totalExpectedAmount: (expectedMonthly * totalDurationMonths),
-            totalPaidAmount: downPayment,
+            admissionFee,
+            examFee,
+            examFeePaid: Number(paidExamFee),
+            examFeeStatus: Number(paidExamFee) >= Number(examFee) && Number(examFee) > 0 ? "PAID" : "PENDING",
+            totalExpectedAmount: (expectedMonthly * totalDurationMonths) + Number(admissionFee) + Number(examFee),
+            totalPaidAmount: Number(downPayment) + Number(paidExamFee),
             centre,
+            programme,
+            lastClass,
             remarks,
             createdBy: req.user?._id
         });
 
         await newAdmission.save();
-        
-        // --- Create Payment Record for Down Payment (Billing) ---
-        if (downPayment > 0) {
+
+        // --- Create Unified Payment Record for Admission/Initial Payment + Exam Fee ---
+        const totalPaidToday = Number(downPayment) + Number(paidExamFee);
+        if (totalPaidToday > 0) {
             try {
                 let centreObj = await Centre.findOne({ centreName: centre });
                 if (!centreObj) {
@@ -156,43 +201,51 @@ export const createBoardAdmission = async (req, res) => {
                 const centreCode = centreObj ? centreObj.enterCode : 'GEN';
                 const billId = await generateBillId(centreCode);
 
-                const taxableAmount = Number(downPayment) / 1.18;
-                const cgst = (Number(downPayment) - taxableAmount) / 2;
+                const taxableAmount = totalPaidToday / 1.18;
+                const cgst = (totalPaidToday - taxableAmount) / 2;
                 const sgst = cgst;
+
+                // Adjust Course Name for bill: Append "+ Examination" only if exam fee was paid
+                const billCourseName = Number(paidExamFee) > 0 
+                    ? `${boardCourseName} + Examination` 
+                    : boardCourseName;
 
                 const paymentRecord = new Payment({
                     admission: newAdmission._id,
                     installmentNumber: 1,
-                    amount: installments[0].payableAmount,
-                    paidAmount: Number(downPayment),
+                    amount: installments[0].payableAmount + (Number(paidExamFee) > 0 ? Number(paidExamFee) : 0),
+                    paidAmount: totalPaidToday,
                     dueDate: installments[0].dueDate,
                     paidDate: new Date(),
                     receivedDate: new Date(),
-                    status: "PAID", // DP is always recorded as PAID
+                    status: "PAID",
                     paymentMethod: paymentMethod || "CASH",
                     transactionId: transactionId || "DP-" + Date.now(),
+                    bankName: bankName,
+                    accountHolderName: accountHolderName,
+                    chequeDate: chequeDate,
                     billingMonth: new Date(installments[0].dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
                     recordedBy: req.user?._id,
                     billId: billId,
                     courseFee: taxableAmount,
                     cgst: cgst,
                     sgst: sgst,
-                    totalAmount: Number(downPayment),
-                    boardCourseName: boardCourseName,
-                    remarks: `Board Admission Down Payment / Month 1`
+                    totalAmount: totalPaidToday,
+                    boardCourseName: billCourseName,
+                    remarks: `Board Admission Initial Payment (Incl. ${Number(paidExamFee) > 0 ? 'Exam Fee' : 'Tuition'})`
                 });
                 await paymentRecord.save();
             } catch (pErr) {
-                console.error("Error creating DP payment record:", pErr);
+                console.error("Error creating unified payment record:", pErr);
             }
         }
-        
+
         // Update student enrollment status if needed
         await Students.findByIdAndUpdate(studentId, { isEnrolled: true });
 
-        res.status(201).json({ 
-            message: "Board Course Admission created successfully", 
-            admission: newAdmission 
+        res.status(201).json({
+            message: "Board Course Admission created successfully",
+            admission: newAdmission
         });
 
     } catch (error) {
@@ -207,7 +260,8 @@ export const getBoardAdmissions = async (req, res) => {
             .populate('studentId')
             .populate('boardId')
             .populate('selectedSubjects.subjectId')
-            .populate('installments.subjects.subjectId');
+            .populate('installments.subjects.subjectId')
+            .sort({ createdAt: -1 });
         res.status(200).json(admissions);
     } catch (error) {
         res.status(500).json({ message: "Server error", error: error.message }); console.error("COLLECT ERROR:", error)
@@ -236,13 +290,27 @@ export const updateBoardSubjects = async (req, res) => {
         const admission = await BoardCourseAdmission.findById(id);
         if (!admission) return res.status(404).json({ message: "Admission not found" });
 
-        const board = await Boards.findById(admission.boardId).populate('subjects.subjectId');
-        
-        const newActiveSubjects = board.subjects.filter(s => 
-            selectedSubjectIds.includes(s.subjectId._id.toString())
-        );
+        // Auto-fix for old records missing name/mobile (avoids validation error on save)
+        if (!admission.studentName || !admission.mobileNum) {
+            const student = await Students.findById(admission.studentId);
+            if (student && student.studentsDetails?.[0]) {
+                admission.studentName = admission.studentName || student.studentsDetails[0].studentName;
+                admission.mobileNum = admission.mobileNum || student.studentsDetails[0].mobileNum;
+            }
+        }
 
-        const newTotalSubjectMonthlyFee = newActiveSubjects.reduce((sum, s) => sum + s.price, 0);
+        const board = await Boards.findById(admission.boardId);
+        const classRecord = await Class.findOne({ name: admission.lastClass });
+        const masterMapping = await BoardCourseSubject.findOne({ boardId: admission.boardId, classId: classRecord._id }).populate('subjects.subjectId');
+
+        if (!masterMapping) return res.status(404).json({ message: "Master subjects not found for this board/class" });
+
+        const newActiveSubjects = masterMapping.subjects.filter(s => {
+            const sid = (s.subjectId?._id || s.subjectId)?.toString();
+            return selectedSubjectIds.includes(sid);
+        });
+
+        const newTotalSubjectMonthlyFee = newActiveSubjects.reduce((sum, s) => sum + s.amount, 0);
         const expectedMonthly = newTotalSubjectMonthlyFee - admission.monthlyWaiver;
 
         // Start month for the update (default to first pending if not provided)
@@ -252,37 +320,34 @@ export const updateBoardSubjects = async (req, res) => {
         // Safety check: Cannot update subjects if any payment has been made for the target month
         const targetInst = admission.installments.find(i => i.monthNumber === startMonth);
         if (targetInst && targetInst.paidAmount > 0) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 message: `Cannot update subjects for Month ${startMonth} as payments have already been recorded. Please select a future month.`
             });
         }
 
         // Recalculate all installments from startMonth onwards
-        // We need to maintain the chain of adjustments.
-        // adjustment for month N = (paid in N-1) - (payable in N-1) + adjustment from N-1... wait.
-        // Simplified: adjustment for month N is the running over/under payment from all previous months.
-        
         let runningBalance = 0;
         let adjustmentApplied = false;
 
         // Recalculate all installments from the beginning to ensure correct balance chain
         for (let i = 0; i < admission.installments.length; i++) {
             const inst = admission.installments[i];
-            const netMonthly = (inst.standardAmount || 0) - (inst.waiverAmount || 0);
-            
+
             // Only update subjects/standard fee if we are at or after startMonth
             if (inst.monthNumber >= startMonth) {
                 inst.subjects = newActiveSubjects.map(s => ({
-                    subjectId: s.subjectId._id,
-                    price: s.price
+                    subjectId: s.subjectId?._id || s.subjectId,
+                    price: s.amount
                 }));
                 inst.standardAmount = newTotalSubjectMonthlyFee;
             }
 
+            const currentNetMonthly = (inst.monthNumber >= startMonth ? newTotalSubjectMonthlyFee : inst.standardAmount) - inst.waiverAmount;
+
+            // Apply running balance adjustment only to the FIRST unpaid/partial month
             if (inst.monthNumber === 1) {
                 inst.adjustmentAmount = 0;
             } else {
-                // Apply running balance adjustment only to the FIRST unpaid/partial month
                 if (!adjustmentApplied && Math.abs(runningBalance) > 0.5) {
                     inst.adjustmentAmount = -runningBalance;
                     adjustmentApplied = true;
@@ -290,8 +355,10 @@ export const updateBoardSubjects = async (req, res) => {
                     inst.adjustmentAmount = 0;
                 }
             }
-            
-            const fullPayable = ((inst.monthNumber >= startMonth ? newTotalSubjectMonthlyFee : inst.standardAmount) - inst.waiverAmount) + inst.adjustmentAmount;
+
+            // Month 1 includes admissionFee
+            const extraFees = inst.monthNumber === 1 ? (Number(admission.admissionFee) || 0) : 0;
+            const fullPayable = currentNetMonthly + extraFees + inst.adjustmentAmount;
             inst.payableAmount = Math.max(0, fullPayable);
 
             // Update status based on payment vs new calculation
@@ -303,7 +370,7 @@ export const updateBoardSubjects = async (req, res) => {
 
             // Carry forward balance only if month was already paid or handled
             if (inst.paidAmount > 0.5) {
-                runningBalance += (inst.paidAmount - ((inst.monthNumber >= startMonth ? newTotalSubjectMonthlyFee : inst.standardAmount) - inst.waiverAmount));
+                runningBalance += (inst.paidAmount - (currentNetMonthly + extraFees));
                 adjustmentApplied = false; // Reset to allow next month to take the refined balance
             }
         }
@@ -311,13 +378,13 @@ export const updateBoardSubjects = async (req, res) => {
         // Update top-level records
         admission.selectedSubjects = newActiveSubjects.map(s => ({
             subjectId: s.subjectId._id,
-            priceAtAdmission: s.price
+            priceAtAdmission: s.amount
         }));
 
         // Refresh dynamic course name if subjects changed
-        const subjectNames = newActiveSubjects.map(s => s.subjectId.subName).join(' + ');
-        admission.boardCourseName = `${board.boardCourse} (${subjectNames}) [${admission.academicSession || 'N/A'}]`;
-        
+        const subjectNames = newActiveSubjects.map(s => (s.subjectId.subName || s.subjectId.name || 'Subject')).join(' + ');
+        admission.boardCourseName = `${board.boardCourse} + Class ${admission.lastClass || ''} + ${admission.programme || ''} + ${admission.academicSession || ''} + ${subjectNames}`;
+
         // Recalculate total expected amount (already paid + future payables)
         // This keeps the financial history consistent
         let recalculatedExpected = admission.totalPaidAmount;
@@ -329,9 +396,13 @@ export const updateBoardSubjects = async (req, res) => {
             }
         });
 
-        // Correct totalExpectedAmount calculation: sum of (standard - waiver) for ALL months
-        admission.totalExpectedAmount = admission.installments.reduce((sum, inst) => 
-            sum + (inst.standardAmount - inst.waiverAmount), 0);
+        // Correct totalExpectedAmount calculation: sum of (standard - waiver) for ALL months + one-time fees
+        admission.totalExpectedAmount = admission.installments.reduce((sum, inst) =>
+            sum + (inst.standardAmount - inst.waiverAmount), 0) + (Number(admission.admissionFee) || 0) + (Number(admission.examFee) || 0);
+
+        // Correct totalPaidAmount calculation: sum of all paid installment amounts + examFeePaid
+        admission.totalPaidAmount = admission.installments.reduce((sum, inst) =>
+            sum + (inst.paidAmount || 0), 0) + (Number(admission.examFeePaid) || 0);
 
         await admission.save();
         res.status(200).json({ message: "Subjects updated from month " + startMonth, admission });
@@ -342,10 +413,92 @@ export const updateBoardSubjects = async (req, res) => {
     }
 };
 
+export const collectBoardExamFee = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { amount, paymentMethod: rawPaymentMethod, transactionId, bankName, accountHolderName, chequeDate } = req.body;
+
+        const methodMap = { 'ONLINE': 'UPI', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
+        const paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
+
+        const admission = await BoardCourseAdmission.findById(id);
+        if (!admission) return res.status(404).json({ message: "Admission not found" });
+
+        const paidAmount = Number(amount);
+        admission.examFeePaid += paidAmount;
+
+        if (admission.examFeePaid >= admission.examFee && admission.examFee > 0) {
+            admission.examFeeStatus = "PAID";
+        } else if (admission.examFeePaid > 0) {
+            admission.examFeeStatus = "PARTIAL"; // I'll add this to the enum if needed, but the model has PENDING/PAID. 
+        }
+
+        // --- Create Payment Record for Exam Fee ---
+        try {
+            let centreObj = await Centre.findOne({ centreName: admission.centre });
+            if (!centreObj) {
+                centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } });
+            }
+            const centreCode = centreObj ? centreObj.enterCode : 'GEN';
+            const billId = await generateBillId(centreCode);
+
+            const taxableAmount = paidAmount / 1.18;
+            const cgst = (paidAmount - taxableAmount) / 2;
+            const sgst = cgst;
+
+            const paymentRecord = new Payment({
+                admission: admission._id,
+                installmentNumber: 0, // Special marker for standalone fees
+                amount: admission.examFee,
+                paidAmount: paidAmount,
+                dueDate: new Date(),
+                paidDate: new Date(),
+                receivedDate: new Date(),
+                status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
+                paymentMethod: paymentMethod,
+                transactionId: transactionId,
+                bankName: bankName,
+                accountHolderName: accountHolderName,
+                chequeDate: chequeDate,
+                billingMonth: new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+                recordedBy: req.user?._id || req.user?._id,
+                billId: billId,
+                courseFee: taxableAmount,
+                cgst: cgst,
+                sgst: sgst,
+                totalAmount: paidAmount,
+                boardCourseName: `${admission.boardCourseName || ''} + Examination`,
+                remarks: `Board Examination Fee Payment`
+            });
+            await paymentRecord.save();
+        } catch (paymentErr) {
+            console.error("Error creating payment record for exam fee:", paymentErr);
+        }
+
+        // Update total paid amount
+        admission.totalPaidAmount += paidAmount;
+        await admission.save();
+
+        res.status(200).json({ message: "Exam fee payment collected", admission });
+    } catch (error) {
+        console.error("Collect Board Exam Fee Error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
 export const collectBoardInstallment = async (req, res) => {
     try {
         const { id } = req.params;
-        const { installmentId, amount, paymentMethod: rawPaymentMethod, transactionId } = req.body;
+        const { 
+            installmentId, 
+            amount, 
+            paidExamFee = 0,
+            paymentMethod: rawPaymentMethod, 
+            transactionId, 
+            bankName, 
+            accountHolderName, 
+            chequeDate 
+        } = req.body;
         // Normalize payment method to match Payment schema enum
         const methodMap = { 'ONLINE': 'UPI', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
         const paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
@@ -366,6 +519,9 @@ export const collectBoardInstallment = async (req, res) => {
             date: new Date(),
             paymentMethod,
             transactionId,
+            bankName,
+            accountHolderName,
+            chequeDate,
             receivedBy: req.user?._id
         });
 
@@ -373,6 +529,16 @@ export const collectBoardInstallment = async (req, res) => {
             inst.status = "PAID";
         } else {
             inst.status = "PENDING";
+        }
+
+        // Handle Exam Fee if paid alongside installment
+        if (Number(paidExamFee) > 0) {
+            admission.examFeePaid += Number(paidExamFee);
+            if (admission.examFeePaid >= admission.examFee && admission.examFee > 0) {
+                admission.examFeeStatus = "PAID";
+            } else if (admission.examFeePaid > 0) {
+                admission.examFeeStatus = "PARTIAL";
+            }
         }
 
         // --- CASCADE ADJUSTMENTS TO FUTURE MONTHS ---
@@ -396,7 +562,8 @@ export const collectBoardInstallment = async (req, res) => {
             }
 
             // 2. Calculate what SHOULD be payable
-            const fullPayable = netMonthly + current.adjustmentAmount;
+            const extraFees = current.monthNumber === 1 ? (Number(admission.admissionFee) || 0) : 0;
+            const fullPayable = netMonthly + extraFees + current.adjustmentAmount;
             current.payableAmount = Math.max(0, fullPayable);
 
             // 3. Update status
@@ -408,13 +575,14 @@ export const collectBoardInstallment = async (req, res) => {
 
             // Carry forward balance if this month has a payment
             if (current.paidAmount > 0.5) {
-                runningBalance += (current.paidAmount - netMonthly);
+                runningBalance += (current.paidAmount - (netMonthly + extraFees));
                 adjustmentApplied = false; // Allow next month to take the refined balance
             }
         }
 
         // Recalculate total paid from all installments for accuracy
-        admission.totalPaidAmount = admission.installments.reduce((sum, item) => sum + (item.paidAmount || 0), 0);
+        // Recalculate total paid from all installments + Exam Fees
+        admission.totalPaidAmount = admission.installments.reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0);
 
         // --- Create Payment Record for Billing ---
         try {
@@ -425,30 +593,40 @@ export const collectBoardInstallment = async (req, res) => {
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
             const billId = await generateBillId(centreCode);
 
-            const taxableAmount = Number(amount) / 1.18;
-            const cgst = (Number(amount) - taxableAmount) / 2;
+            const totalPaidToday = Number(amount) + Number(paidExamFee);
+            if (totalPaidToday <= 0) return; // Nothing to record
+
+            const taxableAmount = totalPaidToday / 1.18;
+            const cgst = (totalPaidToday - taxableAmount) / 2;
             const sgst = cgst;
 
+            const billCourseName = Number(paidExamFee) > 0 
+                ? `${admission.boardCourseName || ''} + Examination`
+                : (admission.boardCourseName || '');
+
             const paymentRecord = new Payment({
-                admission: admission._id, // Duck-typing for Board Admission
+                admission: admission._id,
                 installmentNumber: inst.monthNumber,
-                amount: inst.payableAmount,
-                paidAmount: Number(amount),
+                amount: inst.payableAmount + (Number(paidExamFee) > 0 ? Number(paidExamFee) : 0),
+                paidAmount: totalPaidToday,
                 dueDate: inst.dueDate,
                 paidDate: new Date(),
                 receivedDate: new Date(),
                 status: inst.status,
                 paymentMethod: paymentMethod,
                 transactionId: transactionId,
+                bankName: bankName,
+                accountHolderName: accountHolderName,
+                chequeDate: chequeDate,
                 billingMonth: new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
                 recordedBy: req.user?._id,
                 billId: billId,
                 courseFee: taxableAmount,
                 cgst: cgst,
                 sgst: sgst,
-                totalAmount: Number(amount),
-                boardCourseName: admission.boardCourseName,
-                remarks: `Board Installment Month ${inst.monthNumber}`
+                totalAmount: totalPaidToday,
+                boardCourseName: billCourseName,
+                remarks: `Board Installment Month ${inst.monthNumber} ${Number(paidExamFee) > 0 ? '(Incl. Exam Fee)' : ''}`
             });
             await paymentRecord.save();
         } catch (paymentErr) {

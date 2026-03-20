@@ -15,13 +15,17 @@ const ManageBoardAdmission = () => {
     const [admission, setAdmission] = useState(null);
     const [boards, setBoards] = useState([]);
     const [selectedBoard, setSelectedBoard] = useState(null);
+    const [masterSubjects, setMasterSubjects] = useState([]);
     const [selectedSubjectIds, setSelectedSubjectIds] = useState([]);
     const [effectiveFromMonth, setEffectiveFromMonth] = useState(null);
     const [paymentModal, setPaymentModal] = useState({ show: false, installment: null });
     const [showBillGenerator, setShowBillGenerator] = useState(false);
     const [selectedInstForBill, setSelectedInstForBill] = useState(null);
+    const [examPayments, setExamPayments] = useState([]);
+    const [examPaymentModal, setExamPaymentModal] = useState(false);
     const [paymentForm, setPaymentForm] = useState({
         amount: 0,
+        paidExamFee: 0,
         paymentMethod: "CASH",
         transactionId: ""
     });
@@ -32,30 +36,67 @@ const ManageBoardAdmission = () => {
         fetchData();
     }, [id]);
 
+    useEffect(() => {
+        if (!paymentModal.show) {
+            setPaymentForm({ amount: 0, paidExamFee: 0, paymentMethod: "CASH", transactionId: "" });
+        } else if (paymentModal.installment) {
+            setPaymentForm(prev => ({
+                ...prev,
+                amount: Math.max(0, paymentModal.installment.payableAmount - (paymentModal.installment.paidAmount || 0))
+            }));
+        }
+    }, [paymentModal.show, paymentModal.installment]);
+
     const fetchData = async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const [admissionRes, boardsRes] = await Promise.all([
+            const [admissionRes, boardsRes, classesRes] = await Promise.all([
                 fetch(`${apiUrl}/board-admission/${id}`, {
                     headers: { "Authorization": `Bearer ${token}` }
                 }),
                 fetch(`${apiUrl}/board`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                }),
+                fetch(`${apiUrl}/class`, {
                     headers: { "Authorization": `Bearer ${token}` }
                 })
             ]);
 
             const admissionData = await admissionRes.json();
             const boardsData = await boardsRes.json();
+            const classesData = await (classesRes.ok ? classesRes.json() : Promise.resolve([]));
 
             if (admissionRes.ok) {
                 setAdmission(admissionData);
                 setSelectedSubjectIds(admissionData.selectedSubjects.map(s => s.subjectId._id));
+                
+                // Fetch bills/payments for this admission to find exam fee payments
+                const billsRes = await fetch(`${apiUrl}/payment/bills/${id}`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (billsRes.ok) {
+                    const billsData = await billsRes.json();
+                    setExamPayments(billsData.data?.filter(p => p.installmentNumber === 0) || []);
+                }
             }
             if (boardsRes.ok) {
                 setBoards(boardsData);
                 if (admissionData) {
-                    setSelectedBoard(boardsData.find(b => b._id === admissionData.boardId._id));
+                    const boardObj = boardsData.find(b => b._id === (admissionData.boardId?._id || admissionData.boardId));
+                    setSelectedBoard(boardObj);
+
+                    // Fetch BoardCourseSubject Master Data based on Board and Class
+                    const classObj = classesData.find(c => (c.name || c.className) === admissionData.lastClass);
+                    if (boardObj && classObj) {
+                        const mRes = await fetch(`${apiUrl}/board-course-subject/by-board-class?boardId=${boardObj._id}&classId=${classObj._id}`, {
+                            headers: { "Authorization": `Bearer ${token}` }
+                        });
+                        if (mRes.ok) {
+                            const mData = await mRes.json();
+                            setMasterSubjects(mData.subjects || []);
+                        }
+                    }
                 }
             }
         } catch (error) {
@@ -97,6 +138,13 @@ const ManageBoardAdmission = () => {
 
     const handleCollectPayment = async (e) => {
         e.preventDefault();
+        
+        const maxAmount = paymentModal.installment.payableAmount - paymentModal.installment.paidAmount;
+        if (Number(paymentForm.amount) > maxAmount) {
+            toast.error(`Cannot pay more than the remaining balance (₹${maxAmount})`);
+            return;
+        }
+
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -109,6 +157,7 @@ const ManageBoardAdmission = () => {
                 body: JSON.stringify({
                     installmentId: paymentModal.installment._id,
                     amount: paymentForm.amount,
+                    paidExamFee: paymentForm.paidExamFee,
                     paymentMethod: paymentForm.paymentMethod,
                     transactionId: paymentForm.transactionId
                 })
@@ -129,11 +178,63 @@ const ManageBoardAdmission = () => {
         }
     };
 
+    const handleCollectExamPayment = async (e) => {
+        e.preventDefault();
+        
+        const maxAmount = Math.max(0, admission.examFee - (admission.examFeePaid || 0));
+        if (Number(paymentForm.amount) > maxAmount) {
+            toast.error(`Cannot pay more than the remaining balance (₹${maxAmount})`);
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${apiUrl}/board-admission/collect-exam-fee/${id}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    amount: paymentForm.amount,
+                    paymentMethod: paymentForm.paymentMethod,
+                    transactionId: paymentForm.transactionId
+                })
+            });
+
+            if (response.ok) {
+                toast.success("Exam fee payment collected");
+                setExamPaymentModal(false);
+                fetchData();
+            } else {
+                const data = await response.json();
+                toast.error(data.message || "Payment failed");
+            }
+        } catch (error) {
+            toast.error("Payment failed");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const calculateCurrentMonthly = () => {
-        if (!selectedBoard) return 0;
-        return selectedBoard.subjects
-            .filter(s => selectedSubjectIds.includes(s.subjectId._id))
-            .reduce((sum, s) => sum + (s.price || 0), 0);
+        if (!masterSubjects.length) return 0;
+        return masterSubjects
+            .filter(s => selectedSubjectIds.includes(s.subjectId?._id || s.subjectId))
+            .reduce((sum, s) => sum + (s.amount || 0), 0);
+    };
+
+    const getDynamicCourseName = () => {
+        if (!admission || !masterSubjects.length) return "";
+        const boardName = selectedBoard?.boardCourse || admission.boardId?.boardCourse || "";
+        const subNames = masterSubjects
+            .filter(s => selectedSubjectIds.includes(s.subjectId?._id || s.subjectId))
+            .map(s => (s.subjectId?.subName || s.subjectId?.name || "Subject"))
+            .sort()
+            .join(" + ");
+        
+        return `${boardName} + Class ${admission.lastClass || ''} + ${admission.programme || ''} + ${admission.academicSession || ''} + ${subNames || 'No Subjects'}`;
     };
 
     if (loading && !admission) return <div className="p-10 text-center">Loading...</div>;
@@ -149,9 +250,17 @@ const ManageBoardAdmission = () => {
                 >
                     <FaArrowLeft />
                 </button>
-                <div>
-                    <h2 className="text-2xl font-black uppercase tracking-tight text-cyan-500">Manage Board Admission</h2>
-                    <p className="text-[10px] uppercase font-bold text-gray-500">Student: {admission?.studentId?.studentsDetails?.[0]?.studentName}</p>
+                <div className="flex-1 flex justify-between items-center">
+                    <div>
+                        <h2 className="text-2xl font-black uppercase tracking-tight text-cyan-500">Manage Board Admission</h2>
+                        <p className="text-[10px] uppercase font-bold text-gray-500 line-clamp-1">Student: {admission?.studentId?.studentsDetails?.[0]?.studentName || admission?.studentName}</p>
+                    </div>
+                    <div className={`px-6 py-3 rounded-xl border-2 border-dashed transition-all duration-500 ${isDarkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50'} max-w-[65%]`}>
+                        <p className="text-[9px] font-black uppercase text-cyan-500 mb-1 tracking-widest">Enrolled Course Logic</p>
+                        <h4 className={`text-xs font-black uppercase tracking-tight leading-relaxed ${isDarkMode ? 'text-cyan-100' : 'text-cyan-900'} line-clamp-2`}>
+                            {getDynamicCourseName() || "Select Subjects..."}
+                        </h4>
+                    </div>
                 </div>
             </div>
 
@@ -265,13 +374,18 @@ const ManageBoardAdmission = () => {
                                             /* Pending — show only PAY NOW */
                                             <button
                                                 onClick={() => {
+                                                    if (!isNextToPay) {
+                                                        toast.warning("Please pay previous installments first.");
+                                                        return;
+                                                    }
                                                     setPaymentModal({ show: true, installment: inst });
                                                     setPaymentForm({ ...paymentForm, amount: inst.payableAmount - inst.paidAmount });
                                                 }}
+                                                disabled={!isNextToPay}
                                                 className={`px-6 py-2.5 rounded-lg font-black text-[11px] uppercase transition-all shadow-lg ${
                                                     isNextToPay 
                                                     ? 'bg-cyan-500 text-black hover:bg-cyan-400 hover:-translate-y-0.5 shadow-[0_5px_15px_rgba(6,182,212,0.3)]' 
-                                                    : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                                                    : 'bg-gray-700/50 text-gray-500 cursor-not-allowed border border-gray-800'
                                                 }`}
                                             >
                                                 PAY NOW
@@ -298,38 +412,39 @@ const ManageBoardAdmission = () => {
                         </p>
 
                         <div className="space-y-3 mb-6">
-                            {selectedBoard?.subjects.map((s) => (
+                            {(masterSubjects.length > 0 ? masterSubjects : []).map((s) => (
                                 <div 
-                                    key={s.subjectId._id}
+                                    key={s.subjectId?._id}
                                     onClick={() => {
                                         if (!effectiveFromMonth) return;
                                         if (effectiveFromMonth.paidAmount > 0) {
                                             toast.warning("Cannot modify subjects for a month that has payments recorded.");
                                             return;
                                         }
-                                        const exists = selectedSubjectIds.includes(s.subjectId._id);
+                                        const sid = s.subjectId?._id || s.subjectId;
+                                        const exists = selectedSubjectIds.includes(sid);
                                         setSelectedSubjectIds(exists 
-                                            ? selectedSubjectIds.filter(id => id !== s.subjectId._id)
-                                            : [...selectedSubjectIds, s.subjectId._id]
+                                            ? selectedSubjectIds.filter(id => id !== sid)
+                                            : [...selectedSubjectIds, sid]
                                         );
                                     }}
                                     className={`p-4 rounded-lg border cursor-pointer transition-all flex justify-between items-center group ${
-                                        selectedSubjectIds.includes(s.subjectId._id)
+                                        selectedSubjectIds.includes(s.subjectId?._id || s.subjectId)
                                             ? 'border-cyan-500 bg-cyan-500/10 shadow-[0_0_15px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/50'
                                             : isDarkMode ? 'border-gray-800 bg-[#131619] opacity-60 hover:opacity-100 hover:border-gray-700' : 'border-gray-100 bg-gray-50 opacity-60 hover:opacity-100 hover:border-gray-200'
                                     }`}
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-                                            selectedSubjectIds.includes(s.subjectId._id) ? 'bg-cyan-500 border-cyan-500' : 'border-gray-500'
+                                            selectedSubjectIds.includes(s.subjectId?._id || s.subjectId) ? 'bg-cyan-500 border-cyan-500' : 'border-gray-500'
                                         }`}>
-                                            {selectedSubjectIds.includes(s.subjectId._id) && <FaCheckCircle className="text-black text-[10px]" />}
+                                            {selectedSubjectIds.includes(s.subjectId?._id || s.subjectId) && <FaCheckCircle className="text-black text-[10px]" />}
                                         </div>
-                                        <span className={`text-xs font-black uppercase transition-colors ${selectedSubjectIds.includes(s.subjectId._id) ? 'text-cyan-400' : 'text-gray-500'}`}>
-                                            {s.subjectId.subName}
+                                        <span className={`text-xs font-black uppercase transition-colors ${selectedSubjectIds.includes(s.subjectId?._id || s.subjectId) ? 'text-cyan-400' : 'text-gray-500'}`}>
+                                            {s.subjectId?.subName}
                                         </span>
                                     </div>
-                                    <span className={`text-[10px] font-black ${selectedSubjectIds.includes(s.subjectId._id) ? 'text-cyan-500' : 'text-gray-500'}`}>₹{s.price}</span>
+                                    <span className={`text-[10px] font-black ${selectedSubjectIds.includes(s.subjectId?._id || s.subjectId) ? 'text-cyan-500' : 'text-gray-500'}`}>₹{s.amount}</span>
                                 </div>
                             ))}
                         </div>
@@ -453,12 +568,31 @@ const ManageBoardAdmission = () => {
                                 <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Amount to Collect</label>
                                 <input
                                     type="number"
+                                    max={paymentModal.installment.payableAmount - paymentModal.installment.paidAmount}
                                     value={paymentForm.amount}
                                     onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
                                     className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
                                     required
                                 />
                             </div>
+
+                            {/* Optional Exam Fee Payment */}
+                            {admission && (admission.examFee - (admission.examFeePaid || 0)) > 0 && (
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase text-amber-500 mb-2">
+                                        Pay Examination Fee (Optional) 
+                                        <span className="ml-2 opacity-50">Remaining: ₹{admission.examFee - (admission.examFeePaid || 0)}</span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        max={admission.examFee - (admission.examFeePaid || 0)}
+                                        value={paymentForm.paidExamFee}
+                                        onChange={(e) => setPaymentForm({ ...paymentForm, paidExamFee: e.target.value })}
+                                        className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-amber-500/30 text-amber-500' : 'bg-amber-50 border-amber-200 text-amber-600'}`}
+                                        placeholder="Add examination fee amount..."
+                                    />
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Payment Method</label>
                                 <select
@@ -505,8 +639,127 @@ const ManageBoardAdmission = () => {
                     onClose={() => setShowBillGenerator(false)} 
                 />
             )}
+            {/* Examination Fee Tracker Section */}
+            {admission && admission.examFee > 0 && (
+                <div className={`mt-8 p-6 rounded-xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-2xl' : 'bg-white border-gray-200 shadow-sm'}`}>
+                    <div className="flex justify-between items-center mb-6">
+                        <h4 className="text-sm font-black uppercase flex items-center gap-2 text-cyan-500">
+                            <FaMoneyBillWave />
+                            Examination Fee Management
+                        </h4>
+                        <div className="flex items-center gap-3">
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
+                                admission.examFeeStatus === 'PAID' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-orange-500/20 text-orange-500'
+                            }`}>
+                                {admission.examFeeStatus}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                            <p className="text-[10px] font-black text-gray-500 uppercase mb-1">Total Exam Fee</p>
+                            <p className="text-lg font-black">₹{admission.examFee}</p>
+                        </div>
+                        <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                            <p className="text-[10px] font-black text-gray-500 uppercase mb-1">Paid Amount</p>
+                            <p className="text-lg font-black text-emerald-500">₹{admission.examFeePaid || 0}</p>
+                        </div>
+                        <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                            <p className="text-[10px] font-black text-gray-500 uppercase mb-1">Remaining Balance</p>
+                            <p className="text-lg font-black text-orange-500">₹{Math.max(0, admission.examFee - (admission.examFeePaid || 0))}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {admission.examFeePaid < admission.examFee && (
+                                <button
+                                    onClick={() => {
+                                        setExamPaymentModal(true);
+                                        setPaymentForm({ ...paymentForm, amount: admission.examFee - (admission.examFeePaid || 0) });
+                                    }}
+                                    className="flex-1 py-4 bg-cyan-500 text-black font-black uppercase text-xs rounded-lg hover:bg-cyan-400 transition-all shadow-lg"
+                                >
+                                    PAY NOW
+                                </button>
+                            )}
+                            {examPayments.length > 0 && (
+                                <div className="flex flex-col gap-1 flex-1">
+                                    {examPayments.map((p, idx) => (
+                                        <button
+                                            key={p.billId}
+                                            onClick={() => {
+                                                setSelectedInstForBill(p);
+                                                setShowBillGenerator(true);
+                                            }}
+                                            className="w-full py-2 border border-emerald-500/50 text-emerald-500 rounded-lg font-black text-[10px] uppercase hover:bg-emerald-500 hover:text-black transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <FaFileInvoice />
+                                            VIEW BILL {examPayments.length > 1 ? `#${idx + 1}` : ''}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            {/* Exam Payment Modal */}
+            {examPaymentModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className={`w-full max-w-md p-8 rounded-2xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <div className="flex justify-between items-center mb-8">
+                            <h4 className="text-xl font-black uppercase tracking-tight">Examination Fee Payment</h4>
+                            <button onClick={() => setExamPaymentModal(false)}><FaTimes /></button>
+                        </div>
+
+                        <form onSubmit={handleCollectExamPayment} className="space-y-6">
+                            <div>
+                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Amount to Pay (Max: ₹{Math.max(0, admission.examFee - (admission.examFeePaid || 0))})</label>
+                                <input
+                                    type="number"
+                                    max={Math.max(0, admission.examFee - (admission.examFeePaid || 0))}
+                                    value={paymentForm.amount}
+                                    onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                                    className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Payment Method</label>
+                                <select
+                                    value={paymentForm.paymentMethod}
+                                    onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
+                                    className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
+                                >
+                                    <option value="CASH">CASH</option>
+                                    <option value="UPI">UPI</option>
+                                    <option value="BANK_TRANSFER">BANK TRANSFER</option>
+                                    <option value="CHEQUE">CHEQUE</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Transaction ID / Reference</label>
+                                <input
+                                    type="text"
+                                    value={paymentForm.transactionId}
+                                    onChange={(e) => setPaymentForm({ ...paymentForm, transactionId: e.target.value })}
+                                    className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                className="w-full py-4 bg-cyan-500 text-black font-black uppercase text-sm tracking-widest hover:bg-cyan-400 transition-all rounded-lg"
+                            >
+                                CONFIRM PAYMENT
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
+
 
 export default ManageBoardAdmission;

@@ -41,9 +41,14 @@ const BillGenerator = ({ admission, installment, onClose }) => {
         setGenerating(true);
         try {
             const token = localStorage.getItem('token');
-            const billingMonthParam = installment.billingMonth ? `?billingMonth=${installment.billingMonth}` : '';
+            const queryParams = new URLSearchParams();
+            if (installment.billingMonth) queryParams.append('billingMonth', installment.billingMonth);
+            if (installment.billId) queryParams.append('billId', installment.billId);
+            
+            const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
             const response = await fetch(
-                `${apiUrl}/payment/generate-bill/${admission._id}/${installment.installmentNumber}${billingMonthParam}`,
+                `${apiUrl}/payment/generate-bill/${admission._id}/${installment.installmentNumber}${queryString}`,
                 {
                     method: 'POST',
                     headers: {

@@ -1,5 +1,22 @@
 import BoardCourseSubject from "../../models/Master_data/BoardCourseSubject.js";
 
+export const getByBoardAndClass = async (req, res) => {
+    try {
+        const { boardId, classId } = req.query;
+        if (!boardId || !classId) {
+            return res.status(400).json({ message: "boardId and classId are required" });
+        }
+        const entry = await BoardCourseSubject.findOne({ boardId, classId })
+            .populate("boardId")
+            .populate("classId")
+            .populate("subjects.subjectId");
+        if (!entry) return res.status(200).json(null); // No config found
+        res.status(200).json(entry);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const createBoardCourseSubject = async (req, res) => {
     try {
         const { boardId, classId, subjects } = req.body;

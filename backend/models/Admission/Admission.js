@@ -18,6 +18,7 @@ const paymentBreakdownSchema = new mongoose.Schema({
         default: null
     },
     transactionId: { type: String },
+    bankName: { type: String },
     accountHolderName: { type: String },
     chequeDate: { type: Date },
     remarks: { type: String }
@@ -167,6 +168,7 @@ const admissionSchema = new mongoose.Schema({
         default: "CASH"
     },
     downPaymentTransactionId: { type: String },
+    downPaymentBankName: { type: String },
     downPaymentAccountHolderName: { type: String },
     downPaymentChequeDate: { type: Date },
     remainingAmount: {

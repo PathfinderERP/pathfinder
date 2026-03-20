@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { FaFilter, FaPlus, FaSearch, FaDownload, FaEye, FaEdit, FaTrash, FaSync, FaSun, FaMoon, FaUserGraduate } from "react-icons/fa";
 import { useTheme } from "../../context/ThemeContext";
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import StudentDetailsModal from './StudentDetailsModal';
 import EditStudentModal from './EditStudentModal';
@@ -15,6 +15,9 @@ import { hasPermission } from '../../config/permissions';
 
 const BoardAdmissionsContent = () => {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const initialTab = searchParams.get("tab") || "Counselling";
+    
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -42,9 +45,115 @@ const BoardAdmissionsContent = () => {
     const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'allLeads', 'edit');
     const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'allLeads', 'delete');
 
-    const [activeTab, setActiveTab] = useState("Potential"); // "Potential" | "Enrolled"
+    const [activeTab, setActiveTab] = useState(initialTab); // "Counselling" | "Enrolled"
     const [boardAdmissions, setBoardAdmissions] = useState([]);
+    const [counselledStudents, setCounselledStudents] = useState([]);
     const [enrolledLoading, setEnrolledLoading] = useState(false);
+    const [counsellingLoading, setCounsellingLoading] = useState(false);
+    const [boards, setBoards] = useState([]);
+    const [showCounsellingModal, setShowCounsellingModal] = useState(false);
+    const [counsellingForm, setCounsellingForm] = useState({
+        studentId: "",
+        studentName: "",
+        mobileNum: "",
+        whatsappNumber: "",
+        studentEmail: "",
+        dateOfBirth: "",
+        gender: "",
+        centre: "",
+        board: "",
+        state: "",
+        schoolName: "",
+        pincode: "",
+        address: "",
+        guardianName: "",
+        guardianMobile: "",
+        guardianEmail: "",
+        occupation: "",
+        lastClass: "",
+        examStatus: "",
+        markAgregate: "",
+        scienceMathParcent: "",
+        examName: "",
+        boardId: "",
+        selectedSubjectIds: [],
+        remarks: ""
+    });
+
+    const [examTags, setExamTags] = useState([]);
+    const [classes, setClasses] = useState([]);
+    const [boardCourseSubjects, setBoardCourseSubjects] = useState([]);
+    const indianStates = [
+        "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana",
+        "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur",
+        "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana",
+        "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands", "Chandigarh",
+        "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry"
+    ];
+
+    const fetchExamTags = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/examTag/`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) setExamTags(data);
+        } catch (error) { console.error("Error fetching exam tags:", error); }
+    };
+
+    const fetchClasses = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/class/`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) setClasses(data);
+        } catch (error) { console.error("Error fetching classes:", error); }
+    };
+
+    const fetchBoardCourseSubjects = React.useCallback(async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/board-course-subject`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) setBoardCourseSubjects(data);
+        } catch (error) {
+            console.error("Error fetching board course subjects:", error);
+        }
+    }, []);
+
+    const fetchBoards = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/board`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) setBoards(data);
+        } catch (error) {
+            console.error("Error fetching boards:", error);
+        }
+    };
+
+    const fetchCounselledStudents = async () => {
+        setCounsellingLoading(true);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/board-admission/counsel/all`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) setCounselledStudents(data);
+        } catch (error) {
+            console.error("Error fetching counselled students:", error);
+        } finally {
+            setCounsellingLoading(false);
+        }
+    };
 
     const fetchBoardAdmissions = async () => {
         setEnrolledLoading(true);
@@ -139,14 +248,36 @@ const BoardAdmissionsContent = () => {
         fetchStudents();
         fetchDepartments();
         fetchBoardAdmissions();
+        fetchCounselledStudents();
+        fetchBoards();
+        fetchBoardCourseSubjects();
+        fetchExamTags();
+        fetchClasses();
         toast.info("Refreshed data and filters");
     };
 
+    // Handle Tab Click to update URL
+    const handleTabChange = (tabName) => {
+        setActiveTab(tabName);
+        setSearchParams({ tab: tabName });
+    };
+
+    useEffect(() => {
+        if (activeTab === "Enrolled") {
+            fetchBoardAdmissions();
+        } else if (activeTab === "Counselling") {
+            fetchCounselledStudents();
+        }
+    }, [activeTab]);
+    
     useEffect(() => {
         fetchAllowedCentres();
         fetchStudents();
         fetchDepartments();
-        fetchBoardAdmissions();
+        fetchBoards();
+        fetchExamTags();
+        fetchClasses();
+        fetchBoardCourseSubjects();
     }, [fetchAllowedCentres, fetchStudents, fetchDepartments]);
 
     useEffect(() => {
@@ -160,14 +291,46 @@ const BoardAdmissionsContent = () => {
             const studentCentre = s.studentsDetails?.[0]?.centre;
             return allowedCentres.includes(studentCentre);
           })
-        : boardAdmissions.filter(ba => {
-            if (isSuperAdmin) return true;
-            if (allowedCentres.length === 0) return false;
-            const studentCentre = ba.studentId?.studentsDetails?.[0]?.centre;
-            return allowedCentres.includes(studentCentre);
-          });
+        : activeTab === "Enrolled"
+            ? boardAdmissions.filter(ba => {
+                if (isSuperAdmin) return true;
+                if (allowedCentres.length === 0) return false;
+                const studentCentre = ba.studentId?.studentsDetails?.[0]?.centre;
+                return allowedCentres.includes(studentCentre);
+              })
+            : counselledStudents.filter(cs => {
+                // Hide if student is already in enrolledBoard list (Strong check: ID, UID, or Name+Mobile)
+                const isAlreadyEnrolled = boardAdmissions.some(ba => {
+                    // 1. Direct ID Check
+                    const baId = (ba.studentId?._id || ba.studentId || "").toString();
+                    const csId = (cs.studentId?._id || cs.studentId || "").toString();
+                    if (baId && csId && baId === csId) return true;
 
-    const uniqueCentres = [...new Set(visibleStudents.map(s => (activeTab === "Potential" ? s : s.studentId).studentsDetails?.[0]?.centre).filter(Boolean))];
+                    // 2. UID Check (derived from ID)
+                    const baUID = baId.slice(-8).toUpperCase();
+                    const csUID = csId.slice(-8).toUpperCase();
+                    if (baUID && csUID && baUID === csUID) return true;
+
+                    // 3. Fallback Name + Mobile check (strict stringification to prevent type mismatch)
+                    // We specifically check the document's explicitly stored studentName and mobileNum, NOT the nested student profile.
+                    // This bypasses any database Mongoose populate references mismatches (from old buggy enrollments).
+                    const baName = String(ba.studentName || "").toLowerCase().trim();
+                    const csName = String(cs.studentName || "").toLowerCase().trim();
+                    const baMobile = String(ba.mobileNum || "").trim();
+                    const csMobile = String(cs.mobileNum || "").trim();
+                    
+                    return baName && baMobile && baName === csName && baMobile === csMobile;
+                });
+                if (isAlreadyEnrolled) return false;
+
+                if (isSuperAdmin) return true;
+                if (allowedCentres.length === 0) return false;
+                const studentIdObj = cs.studentId;
+                const studentCentre = (studentIdObj?.studentsDetails?.[0]?.centre) || cs.centre;
+                return allowedCentres.includes(studentCentre);
+              });
+
+    const uniqueCentres = [...new Set(visibleStudents.map(s => (activeTab === "Potential" ? s : s.studentId)?.studentsDetails?.[0]?.centre).filter(Boolean))];
     const uniqueBoards = [...new Set(students.map(s => s.studentsDetails?.[0]?.board).filter(Boolean))];
 
     const filteredStudents = activeTab === "Potential" 
@@ -228,22 +391,39 @@ const BoardAdmissionsContent = () => {
 
             return matchesSearch && matchesCentre && matchesBoard && matchesExamTag && matchesDepartment && matchesDate;
         })
-        : visibleStudents.filter(ba => {
-            const details = ba.studentId?.studentsDetails?.[0] || {};
-            const studentName = details.studentName || "";
-            const mobile = details.mobileNum || "";
-            const boardName = ba.boardId?.boardCourse || "";
+        : activeTab === "Enrolled"
+            ? visibleStudents.filter(ba => {
+                const details = ba.studentId?.studentsDetails?.[0] || {};
+                const studentName = ba.studentName || details.studentName || "";
+                const mobile = ba.mobileNum || details.mobileNum || "";
+                const boardName = ba.boardId?.boardCourse || "";
 
-            const queries = searchQuery.toLowerCase().split(',').map(q => q.trim()).filter(Boolean);
-            const matchesSearch = queries.length === 0 || queries.some(query =>
-                studentName.toLowerCase().includes(query) ||
-                mobile.includes(query) ||
-                boardName.toLowerCase().includes(query)
-            );
+                const queries = searchQuery.toLowerCase().split(',').map(q => q.trim()).filter(Boolean);
+                const matchesSearch = queries.length === 0 || queries.some(query =>
+                    studentName.toLowerCase().includes(query) ||
+                    mobile.includes(query) ||
+                    boardName.toLowerCase().includes(query)
+                );
 
-            const matchesCentre = filterCentre.length === 0 || filterCentre.includes(details.centre);
-            return matchesSearch && matchesCentre;
-        });
+                const matchesCentre = filterCentre.length === 0 || filterCentre.includes(details.centre);
+                return matchesSearch && matchesCentre;
+            })
+            : visibleStudents.filter(cs => {
+                const details = cs.studentId?.studentsDetails?.[0] || {};
+                const studentName = cs.studentName || details.studentName || "";
+                const mobile = cs.mobileNum || details.mobileNum || "";
+                const boardName = cs.boardId?.boardCourse || "";
+
+                const queries = searchQuery.toLowerCase().split(',').map(q => q.trim()).filter(Boolean);
+                const matchesSearch = queries.length === 0 || queries.some(query =>
+                    studentName.toLowerCase().includes(query) ||
+                    mobile.includes(query) ||
+                    boardName.toLowerCase().includes(query)
+                );
+
+                const matchesCentre = filterCentre.length === 0 || filterCentre.includes(details.centre);
+                return matchesSearch && matchesCentre;
+            });
 
     const totalStudents = filteredStudents.length;
     const conversionRate = students.length > 0 ? (students.filter(s => s.isEnrolled).length / students.length * 100).toFixed(1) : "0.0";
@@ -253,6 +433,138 @@ const BoardAdmissionsContent = () => {
         const today = new Date();
         return d.toDateString() === today.toDateString();
     }).length;
+
+    const handleOpenNewCounselling = () => {
+        setCounsellingForm({
+            studentId: "",
+            studentName: "",
+            mobileNum: "",
+            whatsappNumber: "",
+            studentEmail: "",
+            dateOfBirth: "",
+            gender: "",
+            centre: allowedCentres[0] || "",
+            programme: "",
+            board: "",
+            state: "",
+            schoolName: "",
+            pincode: "",
+            address: "",
+            guardianName: "",
+            guardianMobile: "",
+            guardianEmail: "",
+            occupation: "",
+            lastClass: "",
+            examStatus: "",
+            markAgregate: "",
+            scienceMathParcent: "",
+            examName: "",
+            boardId: "",
+            selectedSubjectIds: [],
+            remarks: ""
+        });
+        setShowCounsellingModal(true);
+    };
+
+    const handleOpenCounsellingModal = (student) => {
+        const details = student?.studentsDetails?.[0] || {};
+        const exam = student?.examSchema?.[0] || {};
+        const sessionExam = student?.sessionExamCourse?.[0] || {};
+        
+        setCounsellingForm({
+            studentId: student._id,
+            studentName: details.studentName || "",
+            mobileNum: details.mobileNum || "",
+            whatsappNumber: details.whatsappNumber || "",
+            studentEmail: details.studentEmail || "",
+            dateOfBirth: details.dateOfBirth ? new Date(details.dateOfBirth).toISOString().split('T')[0] : "",
+            gender: details.gender || "",
+            centre: details.centre || allowedCentres[0] || "",
+            programme: details.programme || "",
+            board: details.board || "",
+            state: details.state || "",
+            schoolName: details.schoolName || "",
+            pincode: details.pincode || "",
+            address: details.address || "",
+            guardianName: details.guardianName || "",
+            guardianMobile: details.guardianMobile || "",
+            guardianEmail: details.guardianEmail || "",
+            occupation: details.occupation || "",
+            lastClass: details.lastClass || "",
+            examStatus: details.examStatus || "",
+            markAgregate: details.markAgregate || "",
+            scienceMathParcent: details.scienceMathParcent || "",
+            examName: sessionExam.examTag || exam.examName || details.programme || "",
+            boardId: "",
+            selectedSubjectIds: [],
+            remarks: ""
+        });
+        setShowCounsellingModal(true);
+    };
+
+    const handleAddToCounselling = async () => {
+        const { 
+            studentId, studentName, mobileNum, whatsappNumber, studentEmail, dateOfBirth, gender,
+            centre, programme, board, state, schoolName, pincode, address,
+            guardianName, guardianMobile, guardianEmail, occupation,
+            lastClass, examStatus, markAgregate, scienceMathParcent, examName,
+            boardId, selectedSubjectIds, remarks 
+        } = counsellingForm;
+
+        if (!studentId && (!studentName || !mobileNum || !centre)) {
+            return toast.error("Please provide student details (Name, Mobile, Centre)");
+        }
+        if (!programme) return toast.error("Please select a programme (CRP/NCRP)");
+        if (!lastClass) return toast.error("Please specify the student's last class");
+        if (!boardId) return toast.error("Please select a board");
+        if (selectedSubjectIds.length === 0) return toast.error("Please select at least one subject");
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/board-admission/counsel/create`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    studentId, studentName, mobileNum, whatsappNumber, studentEmail, dateOfBirth, gender,
+                    centre, programme, board, state, schoolName, pincode, address,
+                    guardianName, guardianMobile, guardianEmail, occupation,
+                    lastClass, examStatus, markAgregate, scienceMathParcent, examName,
+                    boardId, selectedSubjectIds, remarks
+                })
+            });
+
+            if (response.ok) {
+                toast.success("Board counselling recorded!");
+                setShowCounsellingModal(false);
+                fetchCounselledStudents();
+            } else {
+                const data = await response.json();
+                toast.error(data.message || "Failed to record counselling");
+            }
+        } catch (error) {
+            toast.error("An error occurred");
+        }
+    };
+
+    const handleDeleteCounselling = async (id) => {
+        if (!window.confirm("Are you sure you want to remove this from counselling?")) return;
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/board-admission/counsel/${id}`, {
+                method: "DELETE",
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (response.ok) {
+                toast.success("Counselling record removed");
+                fetchCounselledStudents();
+            }
+        } catch (error) {
+            toast.error("Failed to delete record");
+        }
+    };
 
     const chartData = React.useMemo(() => {
         const data = [];
@@ -285,6 +597,7 @@ const BoardAdmissionsContent = () => {
         setSelectedStudent(null);
         fetchStudents();
         fetchBoardAdmissions();
+        fetchCounselledStudents();
     };
 
     return (
@@ -303,15 +616,15 @@ const BoardAdmissionsContent = () => {
                     {chartData.length > 0 && (
                         <div className={`hidden md:block h-[50px] w-[200px] rounded-[4px] border p-1 relative overflow-hidden group ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                             <div className="absolute top-1 left-2 text-[10px] text-gray-400 font-bold uppercase z-10">Trend</div>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={chartData}>
+                            <ResponsiveContainer width="100%" height="100%" minHeight={40}>
+                                <AreaChart data={chartData || []}>
                                     <defs>
                                         <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.8} />
                                             <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
                                         </linearGradient>
                                     </defs>
-                                    <Area type="monotone" dataKey="count" stroke="#06b6d4" fillOpacity={1} fill="url(#colorCount)" strokeWidth={2} />
+                                    <Area type="monotone" dataKey="count" stroke="#06b6d4" fillOpacity={1} fill="url(#colorCount)" strokeWidth={2} isAnimationActive={false} />
                                 </AreaChart>
                             </ResponsiveContainer>
                         </div>
@@ -330,6 +643,14 @@ const BoardAdmissionsContent = () => {
                         </div>
                     </div>
 
+                    <button 
+                        onClick={handleOpenNewCounselling}
+                        className={`p-3 rounded-[4px] border transition-all text-[10px] font-black uppercase tracking-widest flex items-center gap-2 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-cyan-500 hover:bg-cyan-500 hover:text-black' : 'bg-white border-gray-200 text-indigo-500 hover:bg-indigo-500 hover:text-white'}`}
+                    >
+                        <FaPlus />
+                        <span>Add Counselling</span>
+                    </button>
+
                     <button onClick={toggleTheme} className={`p-3 rounded-[4px] border transition-all text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}>
                         {isDarkMode ? <FaSun /> : <FaMoon />}
                     </button>
@@ -337,17 +658,17 @@ const BoardAdmissionsContent = () => {
             </div>
 
             <div className="flex gap-1 mb-8 p-1 bg-black/20 rounded-lg w-fit">
-                {["Potential", "Enrolled"].map((tab) => (
+                {["Counselling", "Enrolled"].map((tab) => (
                     <button
                         key={tab}
-                        onClick={() => setActiveTab(tab)}
+                        onClick={() => handleTabChange(tab)}
                         className={`px-6 py-2 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
                             activeTab === tab
                                 ? "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20"
                                 : "text-gray-500 hover:text-white"
                         }`}
                     >
-                        {tab === "Potential" ? "BOARD RECORDS" : "ENROLLED BOARD"}
+                        {tab === "Counselling" ? "COUNSELLED" : "ENROLLED BOARD"}
                     </button>
                 ))}
             </div>
@@ -370,27 +691,36 @@ const BoardAdmissionsContent = () => {
             <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} rounded-[4px] border overflow-hidden transition-all`}>
                 <div className="p-6 border-b flex justify-between items-center border-gray-200 dark:border-gray-800">
                     <h3 className={`text-[10px] font-black uppercase tracking-[0.3em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {activeTab === "Potential" ? "Board Records" : "Enrolled Board Students"}
+                        {activeTab === "Potential" ? "Board Records" : activeTab === "Counselling" ? "Counselled Students" : "Enrolled Board Students"}
                     </h3>
-                    <span className="text-[10px] font-black px-3 py-1 rounded-[4px] bg-cyan-500/10 text-cyan-500">{filteredStudents.length} {activeTab === "Potential" ? "Candidates" : "Admissions"}</span>
+                    <span className="text-[10px] font-black px-3 py-1 rounded-[4px] bg-cyan-500/10 text-cyan-500">
+                        {filteredStudents.length} {activeTab === "Potential" ? "Candidates" : activeTab === "Counselling" ? "Counselled" : "Admissions"}
+                    </span>
                 </div>
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-left border-collapse min-w-[1200px]">
                         <thead>
-                            <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-[#131619] text-gray-500 border-gray-800' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
-                                <th className="p-4">{activeTab === "Potential" ? "Reg. Date" : "Addon Date"}</th>
+                            <tr className={`text-[11px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-[#131619] text-gray-500 border-gray-800' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                                <th className="p-4">{activeTab === "Potential" ? "Reg. Date" : activeTab === "Counselling" ? "Counsel Date" : "Addon Date"}</th>
                                 <th className="p-4">Student Name</th>
-                                <th className="p-4">{activeTab === "Potential" ? "Board" : "Admission No"}</th>
-                                <th className="p-4">{activeTab === "Potential" ? "Programme" : "Course Name"}</th>
+                                <th className="p-4">
+                                    {activeTab === "Potential" ? "Board" : activeTab === "Counselling" ? "Counselling For" : "Admission No"}
+                                </th>
+                                <th className="p-4">
+                                    {activeTab === "Potential" ? "Programme" : activeTab === "Counselling" ? "Remarks" : "Course Name"}
+                                </th>
                                 {activeTab === "Potential" && <th className="p-4">Exam Tag</th>}
                                 <th className="p-4">Centre</th>
                                 <th className="p-4">Mobile</th>
+                                {activeTab === "Counselling" && <th className="p-4">Counselled By</th>}
                                 {activeTab === "Enrolled" && <th className="p-4">Fees Status</th>}
                                 <th className="p-4 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
-                            {(loading || enrolledLoading) ? (
+                            {(activeTab === "Potential" ? loading : 
+                              activeTab === "Counselling" ? counsellingLoading : 
+                              enrolledLoading) ? (
                                 <tr><td colSpan="9" className="p-12 text-center text-[10px] font-black uppercase text-gray-500">Loading...</td></tr>
                             ) : filteredStudents.length === 0 ? (
                                 <tr><td colSpan="9" className="p-12 text-center text-[10px] font-black uppercase text-gray-500">No {activeTab === "Potential" ? "Board Students" : "Enrolled Students"} Found</td></tr>
@@ -404,28 +734,45 @@ const BoardAdmissionsContent = () => {
                                     return (
                                         <tr key={item._id} className={`transition-all group ${isDarkMode ? 'hover:bg-cyan-500/[0.03]' : 'hover:bg-gray-50'}`}>
                                             <td className="p-4 font-bold text-[10px] text-gray-400">
-                                                {new Date(item.createdAt).toLocaleDateString('en-GB')}
+                                                {new Date(item.counselledDate || item.createdAt).toLocaleDateString('en-GB')}
                                             </td>
                                             <td className="p-4">
                                                 <div className="flex flex-col">
-                                                    <span className={`text-[11px] font-black uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{details.studentName}</span>
-                                                    <span className="text-[9px] text-gray-500 font-bold uppercase">UID: {student?._id.slice(-8)}</span>
+                                                    <span className={`text-[11px] font-black uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                        {item.studentName || details.studentName || "N/A"}
+                                                    </span>
+                                                    <span className="text-[9px] text-gray-500 font-bold uppercase">UID: {(student?._id || item.studentId || "").toString().slice(-8).toUpperCase()}</span>
                                                 </div>
                                             </td>
                                             <td className="p-4">
-                                                <span className="text-[10px] font-black uppercase text-purple-400">
-                                                    {activeTab === "Potential" ? (details.board || "N/A") : (item.admissionNumber || "PENDING")}
+                                                <span className={`text-[11px] font-black italic tracking-wider ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
+                                                    {activeTab === "Potential" ? (details.board || "N/A") : 
+                                                     activeTab === "Counselling" ? `${item.boardId?.boardCourse || "N/A"}${item.lastClass ? ` | ${item.lastClass}` : ""}` :
+                                                     (item.admissionNumber || "PENDING")}
                                                 </span>
                                             </td>
                                             <td className="p-4">
-                                                <span className="text-[10px] font-black uppercase text-cyan-400">
-                                                    {activeTab === "Potential" ? (details.programme || "N/A") : (item.boardCourseName || item.boardId?.boardCourse || "N/A")}
+                                                <span className={`text-[11px] font-bold uppercase ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                                    {activeTab === "Potential" ? (details.programme || "N/A") : 
+                                                     activeTab === "Counselling" ? (item.remarks || "No Remarks") :
+                                                     `${item.boardCourseName || item.boardId?.boardCourse || "N/A"}${item.lastClass ? ` | ${item.lastClass}` : ""}`}
                                                 </span>
                                             </td>
-                                            {activeTab === "Potential" && <td className="p-4"><span className="text-[10px] font-bold uppercase text-gray-400">{sessionExam.examTag || exam.examName || "N/A"}</span></td>}
-                                            <td className="p-4"><span className="text-[10px] font-bold uppercase text-gray-400">{details.centre || "N/A"}</span></td>
-                                            <td className="p-4"><span className="text-[10px] font-bold text-gray-400">{details.mobileNum || "N/A"}</span></td>
+                                            {activeTab === "Potential" && <td className="p-4"><span className="text-[11px] font-bold uppercase text-gray-400">{sessionExam.examTag || exam.examName || "N/A"}</span></td>}
+                                            <td className="p-4"><span className={`text-[11px] font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{item.centre || details.centre || "N/A"}</span></td>
+                                            <td className="p-4"><span className={`text-[11px] font-black tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>{item.mobileNum || details.mobileNum || "N/A"}</span></td>
                                             
+                                            {activeTab === "Counselling" && (
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center text-[10px] text-cyan-500 font-black border border-cyan-500/20">
+                                                            {(item.counselledBy?.name || "A").charAt(0)}
+                                                        </div>
+                                                        <span className="text-[10px] font-black uppercase text-gray-500 truncate max-w-[100px]">{item.counselledBy?.name || "Admin"}</span>
+                                                    </div>
+                                                </td>
+                                            )}
+
                                             {activeTab === "Enrolled" && (
                                                 <td className="p-4">
                                                     <div className="flex flex-col gap-1">
@@ -439,16 +786,39 @@ const BoardAdmissionsContent = () => {
                                                 <div className="flex justify-end gap-2">
                                                     {activeTab === "Potential" ? (
                                                         <>
-                                                            <button onClick={() => handleViewStudent(student)} className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-cyan-500 text-gray-400 hover:text-white transition-all"><FaEye size={12} /></button>
+                                                            <button onClick={() => handleViewStudent(student)} title="View Details" className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-cyan-500 text-gray-400 hover:text-white transition-all"><FaEye size={12} /></button>
+                                                            <button 
+                                                                onClick={() => handleOpenCounsellingModal(student)} 
+                                                                className="px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border border-cyan-500/20 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black transition-all text-[9px] font-black uppercase tracking-widest"
+                                                            >
+                                                                <span>Counsel</span>
+                                                            </button>
                                                             {canCreate && (
                                                                 <button 
                                                                     onClick={() => navigate(`/board-course-admission/${student._id}`)}
                                                                     className="px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border border-green-500/20 bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-black transition-all text-[9px] font-black uppercase tracking-widest"
                                                                 >
                                                                     <FaUserGraduate size={10} />
-                                                                    <span>Admit Board</span>
+                                                                    <span>Enroll</span>
                                                                 </button>
                                                             )}
+                                                        </>
+                                                    ) : activeTab === "Counselling" ? (
+                                                        <>
+                                                            <button onClick={() => handleViewStudent(student)} title="View Details" className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-cyan-500 text-gray-400 hover:text-white transition-all"><FaEye size={12} /></button>
+                                                            <button 
+                                                                onClick={() => navigate(`/board-course-admission/${item._id}`)}
+                                                                className="px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border border-green-500/20 bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-black transition-all text-[9px] font-black uppercase tracking-widest"
+                                                            >
+                                                                <FaUserGraduate size={10} />
+                                                                <span>Enroll Now</span>
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleDeleteCounselling(item._id)} 
+                                                                className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-all"
+                                                            >
+                                                                <FaTrash size={10} />
+                                                            </button>
                                                         </>
                                                     ) : (
                                                         <button 
@@ -496,6 +866,367 @@ const BoardAdmissionsContent = () => {
                     onSuccess={handleUpdateSuccess}
                     isDarkMode={isDarkMode}
                 />
+            )}
+
+            {showCounsellingModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className={`w-full max-w-4xl rounded-xl border p-8 shadow-2xl ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <div className="flex items-center justify-between mb-8 overflow-hidden">
+                            <div>
+                                <h3 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Board Course Counselling</h3>
+                                <p className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mt-1 italic">Adding details for board enrolment workflow</p>
+                            </div>
+                            <button onClick={() => setShowCounsellingModal(false)} className="text-gray-500 hover:text-white transition-colors p-2"><FaSync className="rotate-45" /></button>
+                        </div>
+
+                        <div className="space-y-8 max-h-[75vh] overflow-y-auto px-1 custom-scrollbar">
+                            {/* Section 1: Personal & Identification */}
+                            <div>
+                                <h4 className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-4 border-l-4 border-cyan-500 pl-3">I. Personal Identification</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Student Name *</label>
+                                        <input 
+                                            type="text"
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            placeholder="FULL LEGAL NAME"
+                                            value={counsellingForm.studentName}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, studentName: e.target.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Mobile Number *</label>
+                                        <input 
+                                            type="text"
+                                            maxLength="10"
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            placeholder="10-DIGIT MOBILE"
+                                            value={counsellingForm.mobileNum}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, mobileNum: e.target.value.replace(/\D/g, ''), whatsappNumber: e.target.value.replace(/\D/g, '')})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">WhatsApp Number</label>
+                                        <input 
+                                            type="text"
+                                            maxLength="10"
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            placeholder="MESSAGING CONTACT"
+                                            value={counsellingForm.whatsappNumber}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, whatsappNumber: e.target.value.replace(/\D/g, '')})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Email Address</label>
+                                        <input 
+                                            type="email"
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            placeholder="E.G. MAIL@DOMAIN.COM"
+                                            value={counsellingForm.studentEmail}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, studentEmail: e.target.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Date of Birth</label>
+                                        <input 
+                                            type="date"
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            value={counsellingForm.dateOfBirth}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, dateOfBirth: e.target.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Gender</label>
+                                        <select 
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            value={counsellingForm.gender}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, gender: e.target.value})}
+                                        >
+                                            <option value="">SELECT GENDER</option>
+                                            <option value="Male">MALE</option>
+                                            <option value="Female">FEMALE</option>
+                                            <option value="Other">OTHER</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Centre *</label>
+                                        <select 
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            value={counsellingForm.centre}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, centre: e.target.value})}
+                                        >
+                                            <option value="">SELECT CENTRE</option>
+                                            {allowedCentres.map(c => <option key={c} value={c}>{c.toUpperCase()}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Programme *</label>
+                                        <select 
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            value={counsellingForm.programme}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, programme: e.target.value})}
+                                        >
+                                            <option value="">SELECT PROGRAMME</option>
+                                            <option value="CRP">CRP</option>
+                                            <option value="NCRP">NCRP</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">State</label>
+                                        <select 
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            value={counsellingForm.state}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, state: e.target.value})}
+                                        >
+                                            <option value="">SELECT STATE</option>
+                                            {indianStates.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Pincode</label>
+                                        <input 
+                                            type="text"
+                                            maxLength="6"
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            placeholder="ZIP CODE"
+                                            value={counsellingForm.pincode}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, pincode: e.target.value.replace(/\D/g, '')})}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="mt-4">
+                                    <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Full Address</label>
+                                    <textarea 
+                                        className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase h-16 resize-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                        placeholder="COMPLETE PHYSICAL LOCATION"
+                                        value={counsellingForm.address}
+                                        onChange={(e) => setCounsellingForm({...counsellingForm, address: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Section 2: Guardian Details */}
+                            <div>
+                                <h4 className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-4 border-l-4 border-cyan-500 pl-3">II. Guardian Oversight</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Guardian Name</label>
+                                        <input 
+                                            type="text"
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            placeholder="NAME"
+                                            value={counsellingForm.guardianName}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, guardianName: e.target.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Guardian Mobile</label>
+                                        <input 
+                                            type="text"
+                                            maxLength="10"
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            placeholder="PRIMARY CONTACT"
+                                            value={counsellingForm.guardianMobile}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, guardianMobile: e.target.value.replace(/\D/g, '')})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Guardian Email</label>
+                                        <input 
+                                            type="email"
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            placeholder="EMAIL"
+                                            value={counsellingForm.guardianEmail}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, guardianEmail: e.target.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Occupation</label>
+                                        <input 
+                                            type="text"
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            placeholder="SECTOR"
+                                            value={counsellingForm.occupation}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, occupation: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section 3: Academic Matrix */}
+                            <div>
+                                <h4 className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-4 border-l-4 border-cyan-500 pl-3">III. Academic Performance Matrix</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Last Class *</label>
+                                        <select 
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            value={counsellingForm.lastClass}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, lastClass: e.target.value})}
+                                        >
+                                            <option value="">SELECT</option>
+                                            {classes.map(c => <option key={c._id} value={c.name || c.className}>{(c.name || c.className).toUpperCase()}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Exam Identifier</label>
+                                        <select 
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            value={counsellingForm.examName}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, examName: e.target.value})}
+                                        >
+                                            <option value="">SELECT TAG</option>
+                                            {examTags.map(tag => <option key={tag._id} value={tag.name}>{tag.name.toUpperCase()}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Result Status</label>
+                                        <input 
+                                            type="text"
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            placeholder="PASSED/APPEARING"
+                                            value={counsellingForm.examStatus}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, examStatus: e.target.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Aggregate %</label>
+                                        <input 
+                                            type="text"
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            placeholder="TOTAL SCORE"
+                                            value={counsellingForm.markAgregate}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, markAgregate: e.target.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">STEM %</label>
+                                        <input 
+                                            type="text"
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            placeholder="SCI & MATH"
+                                            value={counsellingForm.scienceMathParcent}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, scienceMathParcent: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="mt-4">
+                                    <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Current Institution</label>
+                                    <input 
+                                        type="text"
+                                        className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                        placeholder="SCHOOL / COLLEGE NAME"
+                                        value={counsellingForm.schoolName}
+                                        onChange={(e) => setCounsellingForm({...counsellingForm, schoolName: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Section 4: Board & Course Logistics */}
+                            <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20 shadow-lg shadow-cyan-500/5' : 'bg-cyan-50 border-cyan-100 shadow-sm'}`}>
+                                <h4 className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-4 border-l-4 border-cyan-500 pl-3">IV. Board & Course Logistics</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-[9px] font-black uppercase tracking-widest text-cyan-600 mb-1.5">Primary Target Board *</label>
+                                            <select 
+                                                className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                                value={counsellingForm.boardId}
+                                                onChange={(e) => setCounsellingForm({...counsellingForm, boardId: e.target.value, lastClass: "", selectedSubjectIds: []})}
+                                            >
+                                                <option value="">CHOOSE BOARD SYSTEM...</option>
+                                                {boards
+                                                    .filter(b => boardCourseSubjects.some(bcs => (bcs.boardId?._id || bcs.boardId) === b._id))
+                                                    .map(b => <option key={b._id} value={b._id}>{b.boardCourse.toUpperCase()}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[9px] font-black uppercase tracking-widest text-cyan-600 mb-1.5">Target Class *</label>
+                                            <select 
+                                                className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                                value={counsellingForm.lastClass}
+                                                onChange={(e) => setCounsellingForm({...counsellingForm, lastClass: e.target.value, selectedSubjectIds: []})}
+                                                disabled={!counsellingForm.boardId}
+                                            >
+                                                <option value="">CHOOSE TARGET CLASS...</option>
+                                                {boardCourseSubjects
+                                                    .filter(bcs => (bcs.boardId?._id || bcs.boardId) === counsellingForm.boardId)
+                                                    .map(bcs => {
+                                                        const clsName = bcs.classId?.name || bcs.classId?.className || "";
+                                                        return (
+                                                            <option key={bcs.classId?._id} value={clsName}>
+                                                                {clsName.toUpperCase()}
+                                                            </option>
+                                                        );
+                                                    })
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="lg:col-span-1">
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Strategy & Remarks</label>
+                                        <textarea 
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase h-[105px] transition-all resize-none ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 focus:border-indigo-500'}`}
+                                            placeholder="ENTER COUNSELLING NOTES AND STRATEGY..."
+                                            value={counsellingForm.remarks}
+                                            onChange={(e) => setCounsellingForm({...counsellingForm, remarks: e.target.value})}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-cyan-600 mb-1.5">Module Selection (Subjects) *</label>
+                                        <div className={`grid grid-cols-1 gap-2 h-fit max-h-[160px] overflow-y-auto custom-scrollbar p-1 border rounded ${isDarkMode ? 'border-gray-800 bg-black/20' : 'border-gray-100 bg-gray-50'}`}>
+                                            {counsellingForm.boardId && counsellingForm.lastClass ? (
+                                                boardCourseSubjects.find(bcs => 
+                                                    (bcs.boardId?._id || bcs.boardId) === counsellingForm.boardId && 
+                                                    (bcs.classId?.name || bcs.classId?.className) === counsellingForm.lastClass
+                                                )?.subjects.map(s => (
+                                                    <div 
+                                                        key={s.subjectId?._id}
+                                                        onClick={() => {
+                                                            const sid = s.subjectId?._id;
+                                                            const ids = counsellingForm.selectedSubjectIds.includes(sid)
+                                                                ? counsellingForm.selectedSubjectIds.filter(id => id !== sid)
+                                                                : [...counsellingForm.selectedSubjectIds, sid];
+                                                            setCounsellingForm({...counsellingForm, selectedSubjectIds: ids});
+                                                        }}
+                                                        className={`p-2.5 rounded-[4px] border cursor-pointer transition-all flex items-center justify-between group ${
+                                                            counsellingForm.selectedSubjectIds.includes(s.subjectId?._id)
+                                                                ? 'bg-cyan-500 border-cyan-500 text-black shadow-md shadow-cyan-500/20'
+                                                                : isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-500 hover:border-gray-600' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                                                        }`}
+                                                    >
+                                                        <span className="text-[9px] font-black uppercase truncate w-3/4">{s.subjectId?.subName}</span>
+                                                        <span className={`text-[8px] font-black ${counsellingForm.selectedSubjectIds.includes(s.subjectId?._id) ? 'text-black/60' : 'text-cyan-500'}`}>₹{s.amount}</span>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="p-8 text-center flex flex-col items-center justify-center h-full">
+                                                    <p className="text-[9px] font-black text-gray-600 uppercase tracking-widest italic leading-relaxed">
+                                                        {!counsellingForm.boardId ? "Step 1: Select Board" : "Step 2: Select Class"}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="pt-4 pb-2">
+                                <button 
+                                    onClick={handleAddToCounselling}
+                                    className="w-full py-4 bg-cyan-500 text-black font-black text-[12px] uppercase tracking-[0.3em] rounded-[4px] hover:bg-cyan-400 shadow-2xl shadow-cyan-500/30 transition-all transform active:scale-[0.98]"
+                                >
+                                    AUTHORIZE & RECORD COUNSELLING
+                                </button>
+                                <p className="text-[8px] text-center text-gray-500 font-bold uppercase tracking-[0.2em] mt-4 italic">
+                                    Secure entry into board flow <span className="mx-2">|</span> ID: {counsellingForm.studentId || "NEW_LEAD"}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

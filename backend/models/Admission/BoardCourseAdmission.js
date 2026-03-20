@@ -6,9 +6,29 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
         ref: "Student",
         required: true
     },
+    studentName: {
+        type: String,
+        required: true
+    },
+    mobileNum: {
+        type: String,
+        required: true
+    },
     boardId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Boards",
+        required: true
+    },
+    centre: {
+        type: String,
+        required: true
+    },
+    programme: {
+        type: String,
+        enum: ['CRP', 'NCRP']
+    },
+    lastClass: {
+        type: String,
         required: true
     },
     selectedSubjects: [{
@@ -32,6 +52,23 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
     monthlyWaiver: {
         type: Number,
         default: 0
+    },
+    admissionFee: {
+        type: Number,
+        default: 0
+    },
+    examFee: {
+        type: Number,
+        default: 0
+    },
+    examFeePaid: {
+        type: Number,
+        default: 0
+    },
+    examFeeStatus: {
+        type: String,
+        enum: ["PENDING", "PARTIAL", "PAID"],
+        default: "PENDING"
     },
     admissionDate: {
         type: Date,
@@ -74,6 +111,9 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
             date: Date,
             paymentMethod: String,
             transactionId: String,
+            bankName: String,
+            accountHolderName: String,
+            chequeDate: Date,
             receivedBy: mongoose.Schema.Types.ObjectId
         }]
     }],

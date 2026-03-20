@@ -29,6 +29,7 @@ export const createAdmission = async (req, res) => {
             feeWaiver = 0, // Discount amount
             paymentMethod = "CASH", // For down payment
             transactionId = "",
+            bankName = "",
             accountHolderName = "",
             chequeDate = "",
             receivedDate = "",
@@ -250,6 +251,7 @@ export const createAdmission = async (req, res) => {
             downPaymentReceivedDate: receivedDate ? new Date(receivedDate) : new Date(),
             downPaymentMethod: paymentMethod,
             downPaymentTransactionId: transactionId,
+            downPaymentBankName: bankName,
             downPaymentAccountHolderName: accountHolderName,
             downPaymentChequeDate: chequeDate
         });
@@ -299,6 +301,7 @@ export const createAdmission = async (req, res) => {
                 status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
                 paymentMethod: paymentMethod,
                 transactionId: transactionId,
+                bankName: bankName,
                 accountHolderName: accountHolderName,
                 chequeDate: chequeDate,
                 billingMonth: billingMonth || null,

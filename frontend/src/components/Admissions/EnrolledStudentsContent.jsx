@@ -1385,7 +1385,7 @@ const EnrolledStudentsContent = () => {
                                                         </div>
                                                         <div>
                                                             <div className="flex items-center gap-2">
-                                                                <p className={`font-black uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{student.studentName || "N/A"}</p>
+                                                                <p className={`font-black uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{latestAdmission?.studentName || student.studentName || "N/A"}</p>
                                                                 {studentItem.student.status === 'Deactivated' && (
                                                                     <span className="px-2 py-0.5 bg-red-500 text-white text-[8px] font-black rounded-[4px] uppercase tracking-tighter">
                                                                         Deactivated
@@ -1396,7 +1396,7 @@ const EnrolledStudentsContent = () => {
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className={`p-4 text-[11px] font-black tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{student.mobileNum || "N/A"}</td>
+                                                <td className={`p-4 text-[11px] font-black tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{latestAdmission?.mobileNum || student.mobileNum || "N/A"}</td>
                                                 <td className="p-4">
                                                     <div className={`font-black uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                         {latestAdmission?.course?.courseName ||
