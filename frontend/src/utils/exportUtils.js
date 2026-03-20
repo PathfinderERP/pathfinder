@@ -37,15 +37,25 @@ export const downloadCSV = (data, headers, filename = 'export') => {
 export const downloadExcel = (data, headers, filename = 'export') => {
     if (!data || data.length === 0) return;
 
-    // Process data to match headers labels
-    const processedData = data.map(row => {
-        const entry = {};
-        headers.forEach(header => {
-            const value = header.key.split('.').reduce((obj, key) => obj?.[key], row) || '';
-            entry[header.label] = value;
+    let processedData = data;
+    let actualFilename = filename;
+
+    // Check if second argument is a string (filename) instead of headers array
+    if (typeof headers === 'string') {
+        actualFilename = headers;
+    } else if (Array.isArray(headers)) {
+        processedData = data.map(row => {
+            const entry = {};
+            headers.forEach(header => {
+                // Support both flat and nested keys
+                const value = header.key.includes('.') 
+                    ? header.key.split('.').reduce((obj, key) => obj?.[key], row) 
+                    : row[header.key];
+                entry[header.label] = value || '';
+            });
+            return entry;
         });
-        return entry;
-    });
+    }
 
     // Create worksheet
     const worksheet = XLSX.utils.json_to_sheet(processedData);
@@ -59,7 +69,7 @@ export const downloadExcel = (data, headers, filename = 'export') => {
     const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
 
     // Save file
-    saveAs(blob, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    saveAs(blob, `${actualFilename}_${new Date().toISOString().split('T')[0]}.xlsx`);
 };
 
 

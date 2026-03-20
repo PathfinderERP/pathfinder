@@ -23,6 +23,8 @@ const BoardAdmissionsContent = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [filterCentre, setFilterCentre] = useState([]);
     const [filterBoard, setFilterBoard] = useState([]);
+    const [filterSubject, setFilterSubject] = useState([]);
+    const [filterProgramme, setFilterProgramme] = useState([]);
     const [filterExamTag, setFilterExamTag] = useState([]);
     const [filterDepartment, setFilterDepartment] = useState([]);
     const [departments, setDepartments] = useState([]);
@@ -191,6 +193,70 @@ const BoardAdmissionsContent = () => {
             setLoading(false);
         }
     }, []);
+
+    const filteredBoardAdmissions = React.useMemo(() => {
+        return boardAdmissions.filter(admission => {
+            // Search Query
+            const searchLower = searchQuery.toLowerCase();
+            const studentName = (admission.studentId?.studentsDetails?.[0]?.studentName || admission.studentName || "").toLowerCase();
+            const admissionNo = (admission.admissionNumber || "").toLowerCase();
+            const mobile = (admission.studentId?.studentsDetails?.[0]?.mobileNum || admission.mobileNum || "").toLowerCase();
+            const courseName = (admission.boardCourseName || "").toLowerCase();
+            
+            const matchesSearch = !searchQuery || 
+                studentName.includes(searchLower) || 
+                admissionNo.includes(searchLower) || 
+                mobile.includes(searchLower) ||
+                courseName.includes(searchLower);
+
+            // Centre Filter
+            const matchesCentre = filterCentre.length === 0 || filterCentre.includes(admission.centre);
+
+            // Board Filter
+            const bName = admission.boardId?.boardCourse || admission.boardId;
+            const matchesBoard = filterBoard.length === 0 || filterBoard.includes(bName);
+
+            // Subject Filter
+            const admissionSubjects = admission.selectedSubjects?.map(s => s.subjectId?.subName || s.name) || [];
+            const matchesSubject = filterSubject.length === 0 || filterSubject.some(sub => admissionSubjects.includes(sub));
+
+            // Programme Filter
+            const matchesProgramme = filterProgramme.length === 0 || filterProgramme.includes(admission.programme);
+
+            // Date Filter
+            const admissionDate = new Date(admission.admissionDate || admission.createdAt);
+            const matchesStartDate = !startDate || admissionDate >= new Date(startDate);
+            const matchesEndDate = !endDate || admissionDate <= new Date(new Date(endDate).setHours(23,59,59,999));
+
+            return matchesSearch && matchesCentre && matchesBoard && matchesSubject && matchesProgramme && matchesStartDate && matchesEndDate;
+        });
+    }, [boardAdmissions, searchQuery, filterCentre, filterBoard, filterSubject, filterProgramme, startDate, endDate]);
+
+    const handleExportEnrolled = () => {
+        const exportData = filteredBoardAdmissions.map(adm => ({
+            "Admission No": adm.admissionNumber,
+            "Admission Date": new Date(adm.admissionDate || adm.createdAt).toLocaleDateString('en-GB'),
+            "Student Name": adm.studentId?.studentsDetails?.[0]?.studentName || adm.studentName,
+            "UID": adm.studentId?._id || "N/A",
+            "Mobile": adm.studentId?.studentsDetails?.[0]?.mobileNum || adm.mobileNum,
+            "Email": adm.studentId?.studentsDetails?.[0]?.studentEmail || adm.studentEmail,
+            "Centre": adm.centre,
+            "Board": adm.boardId?.boardCourse || "N/A",
+            "Class": adm.lastClass,
+            "Programme": adm.programme,
+            "Session": adm.academicSession,
+            "Course Name": adm.boardCourseName,
+            "Total Expected": adm.totalExpectedAmount,
+            "Total Paid": adm.totalPaidAmount,
+            "Admission Fee": adm.admissionFee,
+            "Exam Fee": adm.examFee,
+            "Exam Fee Paid": adm.examFeePaid,
+            "Exam Fee Status": adm.examFeeStatus,
+            "Subjects": adm.selectedSubjects?.map(s => s.subjectId?.subName || s.name).join(', '),
+            "Remarks": adm.remarks
+        }));
+        downloadExcel(exportData, `Enrolled_Board_Admissions_${new Date().toLocaleDateString()}`);
+    };
 
     const fetchAllowedCentres = React.useCallback(async () => {
         try {
@@ -674,17 +740,96 @@ const BoardAdmissionsContent = () => {
             </div>
 
             <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border mb-8`}>
-                <div className="flex gap-4 flex-wrap items-center">
-                    <div className="flex-1 relative min-w-[300px]">
-                        <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
-                        <input
-                            type="text"
-                            placeholder={activeTab === "Potential" ? "SEARCH BOARD STUDENTS..." : "SEARCH ENROLLED BOARD..."}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className={`w-full pl-12 pr-4 py-3 rounded-[4px] border text-[10px] font-black tracking-widest uppercase outline-none ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
-                        />
+                <div className="flex flex-col gap-6">
+                    <div className="flex gap-4 flex-wrap items-center">
+                        <div className="flex-1 relative min-w-[300px]">
+                            <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                            <input
+                                type="text"
+                                placeholder={activeTab === "Potential" ? "SEARCH BOARD STUDENTS..." : "SEARCH ENROLLED BOARD..."}
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className={`w-full pl-12 pr-4 py-3 rounded-[4px] border text-[10px] font-black tracking-widest uppercase outline-none ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                            />
+                        </div>
+                        {activeTab === "Enrolled" && (
+                            <button
+                                onClick={handleExportEnrolled}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-[4px] border text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500 hover:text-black' : 'bg-green-50 border-green-200 text-green-600 hover:bg-green-600 hover:text-white'}`}
+                            >
+                                <FaDownload /> Export to Excel
+                            </button>
+                        )}
                     </div>
+
+                    {activeTab === "Enrolled" && (
+                        <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-gray-800/10 dark:border-gray-800">
+                            <MultiSelectFilter
+                                label="Boards"
+                                options={[...new Set(boards.map(b => b.boardCourse).filter(Boolean))]}
+                                selectedValues={filterBoard}
+                                onChange={setFilterBoard}
+                                isDarkMode={isDarkMode}
+                            />
+                            <MultiSelectFilter
+                                label="Subjects"
+                                options={[...new Set(boardCourseSubjects.flatMap(bcs => bcs.subjects.map(s => s.subjectId?.subName || s.name)).filter(Boolean))]}
+                                selectedValues={filterSubject}
+                                onChange={setFilterSubject}
+                                isDarkMode={isDarkMode}
+                            />
+                            <MultiSelectFilter
+                                label="Centres"
+                                options={[...new Set(boardAdmissions.map(a => a.centre).filter(Boolean))]}
+                                selectedValues={filterCentre}
+                                onChange={setFilterCentre}
+                                isDarkMode={isDarkMode}
+                            />
+                            <MultiSelectFilter
+                                label="Programmes"
+                                options={[...new Set(boardAdmissions.map(a => a.programme).filter(Boolean))]}
+                                selectedValues={filterProgramme}
+                                onChange={setFilterProgramme}
+                                isDarkMode={isDarkMode}
+                            />
+                            
+                            <div className="flex items-center gap-2 ml-auto">
+                                <div className="relative">
+                                    <input
+                                        type="date"
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                        className={`pl-8 pr-2 py-2 rounded border text-[10px] font-bold outline-none ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                    />
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[8px] font-black uppercase text-gray-500">From</span>
+                                </div>
+                                <div className="relative">
+                                    <input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(e) => setEndDate(e.target.value)}
+                                        className={`pl-8 pr-2 py-2 rounded border text-[10px] font-bold outline-none ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                    />
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[8px] font-black uppercase text-gray-500">To</span>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setSearchQuery("");
+                                        setFilterCentre([]);
+                                        setFilterBoard([]);
+                                        setFilterSubject([]);
+                                        setFilterProgramme([]);
+                                        setStartDate("");
+                                        setEndDate("");
+                                    }}
+                                    className={`p-2 rounded hover:bg-gray-800 text-gray-500 transition-colors`}
+                                    title="Reset All Filters"
+                                >
+                                    <FaSync size={12} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -694,7 +839,7 @@ const BoardAdmissionsContent = () => {
                         {activeTab === "Potential" ? "Board Records" : activeTab === "Counselling" ? "Counselled Students" : "Enrolled Board Students"}
                     </h3>
                     <span className="text-[10px] font-black px-3 py-1 rounded-[4px] bg-cyan-500/10 text-cyan-500">
-                        {filteredStudents.length} {activeTab === "Potential" ? "Candidates" : activeTab === "Counselling" ? "Counselled" : "Admissions"}
+                        {activeTab === "Enrolled" ? filteredBoardAdmissions.length : filteredStudents.length} {activeTab === "Potential" ? "Candidates" : activeTab === "Counselling" ? "Counselled" : "Admissions"}
                     </span>
                 </div>
                 <div className="overflow-x-auto custom-scrollbar">
@@ -722,10 +867,10 @@ const BoardAdmissionsContent = () => {
                               activeTab === "Counselling" ? counsellingLoading : 
                               enrolledLoading) ? (
                                 <tr><td colSpan="9" className="p-12 text-center text-[10px] font-black uppercase text-gray-500">Loading...</td></tr>
-                            ) : filteredStudents.length === 0 ? (
+                             ) : (activeTab === "Enrolled" ? filteredBoardAdmissions : filteredStudents).length === 0 ? (
                                 <tr><td colSpan="9" className="p-12 text-center text-[10px] font-black uppercase text-gray-500">No {activeTab === "Potential" ? "Board Students" : "Enrolled Students"} Found</td></tr>
                             ) : (
-                                filteredStudents.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item) => {
+                                (activeTab === "Enrolled" ? filteredBoardAdmissions : filteredStudents).slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item) => {
                                     const student = activeTab === "Potential" ? item : item.studentId;
                                     const details = student?.studentsDetails?.[0] || {};
                                     const exam = student?.examSchema?.[0] || {};
@@ -841,7 +986,7 @@ const BoardAdmissionsContent = () => {
                 <div className="p-6 border-t border-gray-200 dark:border-gray-800">
                     <Pagination
                         currentPage={currentPage}
-                        totalItems={filteredStudents.length}
+                        totalItems={activeTab === "Enrolled" ? filteredBoardAdmissions.length : filteredStudents.length}
                         itemsPerPage={itemsPerPage}
                         onPageChange={setCurrentPage}
                         theme={isDarkMode ? 'dark' : 'light'}

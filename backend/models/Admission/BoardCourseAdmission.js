@@ -142,24 +142,34 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
 // Generate admission number before saving
 boardCourseAdmissionSchema.pre('save', async function () {
     if (!this.admissionNumber) {
-        const now = new Date();
-        const year = now.getFullYear().toString().slice(-2);
-        const prefix = `PATH${year}`;
+        try {
+            const now = new Date();
+            const year = now.getFullYear().toString().slice(-2);
+            const prefix = `PATH${year}`;
 
-        // Find the latest admission number for the current year (across both models or just this one?)
-        // The user said "also the enrollment id will generate", implying consistency.
-        // We'll search in this collection for now. 
-        const lastRecord = await this.constructor.findOne({
-            admissionNumber: new RegExp(`^${prefix}`)
-        }).sort({ admissionNumber: -1 });
+            // Check BOTH Admission and BoardCourseAdmission for the latest number
+            const Admission = mongoose.model("Admission");
+            const [lastNormal, lastBoard] = await Promise.all([
+                Admission.findOne({ admissionNumber: new RegExp(`^${prefix}`) }).sort({ admissionNumber: -1 }).lean(),
+                this.constructor.findOne({ admissionNumber: new RegExp(`^${prefix}`) }).sort({ admissionNumber: -1 }).lean()
+            ]);
 
-        let sequence = 1;
-        if (lastRecord && lastRecord.admissionNumber) {
-            const lastSeq = parseInt(lastRecord.admissionNumber.slice(6), 10);
-            if (!isNaN(lastSeq)) sequence = lastSeq + 1;
+            let seqNormal = 0;
+            let seqBoard = 0;
+
+            if (lastNormal && lastNormal.admissionNumber) {
+                seqNormal = parseInt(lastNormal.admissionNumber.slice(6), 10) || 0;
+            }
+            if (lastBoard && lastBoard.admissionNumber) {
+                seqBoard = parseInt(lastBoard.admissionNumber.slice(6), 10) || 0;
+            }
+
+            const nextSequence = Math.max(seqNormal, seqBoard) + 1;
+            this.admissionNumber = `${prefix}${String(nextSequence).padStart(6, '0')}`;
+        } catch (error) {
+            console.error("Error generating Board Admission sequence:", error);
+            throw error;
         }
-
-        this.admissionNumber = `${prefix}${String(sequence).padStart(6, '0')}`;
     }
 });
 

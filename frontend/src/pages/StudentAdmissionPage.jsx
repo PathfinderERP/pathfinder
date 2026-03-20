@@ -483,7 +483,7 @@ const StudentAdmissionPage = () => {
                 </div>
 
                 {/* Admission Type Toggle */}
-                <div className={`p-1 rounded-lg flex items-center gap-1 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
+                {/* <div className={`p-1 rounded-lg flex items-center gap-1 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
                     <button
                         type="button"
                         onClick={() => { setAdmissionType("NORMAL"); setFormData(prev => ({ ...prev, courseId: "", examTagId: "", departmentId: "" })); }}
@@ -498,7 +498,7 @@ const StudentAdmissionPage = () => {
                     >
                         Board Course
                     </button>
-                </div>
+                </div> */}
             </div>
 
             {/* Student Info Card */}

@@ -233,22 +233,44 @@ const admissionSchema = new mongoose.Schema({
 // Generate admission number before saving
 admissionSchema.pre('save', async function () {
     if (!this.admissionNumber) {
-        const now = new Date();
-        const year = now.getFullYear().toString().slice(-2);
-        const prefix = `PATH${year}`;
+        try {
+            const now = new Date();
+            const year = now.getFullYear().toString().slice(-2);
+            const prefix = `PATH${year}`;
 
-        // Find the latest admission number for the current year
-        const lastRecord = await this.constructor.findOne({
-            admissionNumber: new RegExp(`^${prefix}`)
-        }).sort({ admissionNumber: -1 });
+            // Check BOTH Admission and BoardCourseAdmission for the latest number
+            // Use mongoose.model() to access other models without circular imports
+            let BoardCourseAdmission;
+            try {
+                BoardCourseAdmission = mongoose.model("BoardCourseAdmission");
+            } catch (e) {
+                // If BoardCourseAdmission is not registered yet, we assume its max is 0
+                BoardCourseAdmission = null;
+            }
 
-        let sequence = 1;
-        if (lastRecord && lastRecord.admissionNumber) {
-            const lastSeq = parseInt(lastRecord.admissionNumber.slice(6), 10);
-            if (!isNaN(lastSeq)) sequence = lastSeq + 1;
+            const [lastNormal, lastBoard] = await Promise.all([
+                this.constructor.findOne({ admissionNumber: new RegExp(`^${prefix}`) }).sort({ admissionNumber: -1 }).lean(),
+                BoardCourseAdmission 
+                    ? BoardCourseAdmission.findOne({ admissionNumber: new RegExp(`^${prefix}`) }).sort({ admissionNumber: -1 }).lean()
+                    : Promise.resolve(null)
+            ]);
+
+            let seqNormal = 0;
+            let seqBoard = 0;
+
+            if (lastNormal && lastNormal.admissionNumber) {
+                seqNormal = parseInt(lastNormal.admissionNumber.slice(6), 10) || 0;
+            }
+            if (lastBoard && lastBoard.admissionNumber) {
+                seqBoard = parseInt(lastBoard.admissionNumber.slice(6), 10) || 0;
+            }
+
+            const nextSequence = Math.max(seqNormal, seqBoard) + 1;
+            this.admissionNumber = `${prefix}${String(nextSequence).padStart(6, '0')}`;
+        } catch (error) {
+            console.error("Error generating Normal Admission sequence:", error);
+            throw error;
         }
-
-        this.admissionNumber = `${prefix}${String(sequence).padStart(6, '0')}`;
     }
 });
 
