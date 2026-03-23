@@ -33,6 +33,9 @@ const BoardCourseAdmissionPage = () => {
     const [admissionFee, setAdmissionFee] = useState(0);
     const [examFee, setExamFee] = useState(0);
     const [paidExamFee, setPaidExamFee] = useState(0);
+    const [additionalThingsName, setAdditionalThingsName] = useState("");
+    const [additionalThingsAmount, setAdditionalThingsAmount] = useState(0);
+    const [paidAdditionalThings, setPaidAdditionalThings] = useState(0);
     const [counselData, setCounselData] = useState(null);
     const [boardCourseSubjects, setBoardCourseSubjects] = useState([]); // Subjects for SPECIFIC Board+Class
     const [allBoardCourseSubjects, setAllBoardCourseSubjects] = useState([]); // All Board+Class mappings
@@ -49,7 +52,11 @@ const BoardCourseAdmissionPage = () => {
             .sort()
             .join(" + ");
         
-        return `${boardName} Class ${lastClass || ''} ${programme || ''} ${academicSession || ''} : ${subNames || 'No Subjects'}`;
+        let name = `${boardName} Class ${lastClass || ''} ${programme || ''} ${academicSession || ''} : ${subNames || 'No Subjects'}`;
+        if (additionalThingsName && additionalThingsName.trim() !== "") {
+            name += ` + ${additionalThingsName.trim()}`;
+        }
+        return name;
     };
 
     useEffect(() => {
@@ -318,6 +325,9 @@ const BoardCourseAdmissionPage = () => {
                     admissionFee: Number(admissionFee),
                     examFee: Number(examFee),
                     paidExamFee: Number(paidExamFee),
+                    additionalThingsName: additionalThingsName.trim(),
+                    additionalThingsAmount: Number(additionalThingsAmount),
+                    paidAdditionalThings: Number(paidAdditionalThings),
                     remarks,
                     academicSession,
                     programme,
@@ -690,21 +700,62 @@ const BoardCourseAdmissionPage = () => {
                                             />
                                         </div>
                                     </div>
-                                </div>
-                                <div className="pt-4 border-t border-cyan-500/20">
-                                    <label className="block text-[11px] font-black uppercase text-cyan-400 mb-3 leading-tight italic tracking-wider">Exam Fee Collected Today (Registration payment)</label>
-                                    <div className="relative">
-                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400 font-black text-lg">₹</span>
+
+                                    <div>
+                                        <label className={`block text-[11px] font-black uppercase mb-2 leading-tight ${isDarkMode ? 'text-gray-400' : 'text-cyan-800/80'}`}>Additional Things (Name)</label>
                                         <input
-                                            type="number"
-                                            value={paidExamFee}
-                                            onChange={(e) => setPaidExamFee(e.target.value)}
-                                            className={`w-full pl-10 pr-6 py-4 rounded-lg border outline-none font-black text-xl transition-all ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/30 text-white focus:border-cyan-500' : 'bg-cyan-50 border-cyan-200 focus:border-cyan-500 shadow-sm'}`}
-                                            placeholder="0"
+                                            type="text"
+                                            value={additionalThingsName}
+                                            onChange={(e) => setAdditionalThingsName(e.target.value)}
+                                            placeholder="e.g. CAPSUL/MOCK"
+                                            className={`w-full px-3 py-3 rounded-lg border outline-none font-black text-base transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 focus:border-cyan-500'}`}
                                         />
                                     </div>
-                                    <p className="text-[10px] text-gray-500 font-black mt-3 uppercase italic opacity-80 tracking-widest leading-relaxed">
-                                        * Note: A separate payment receipt will be generated for the examination fee collection.
+                                    <div>
+                                        <label className={`block text-[11px] font-black uppercase mb-2 leading-tight ${isDarkMode ? 'text-gray-400' : 'text-cyan-800/80'}`}>Additional Things (Amount)</label>
+                                        <div className="relative">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">₹</span>
+                                            <input
+                                                type="number"
+                                                value={additionalThingsAmount}
+                                                onChange={(e) => setAdditionalThingsAmount(e.target.value)}
+                                                className={`w-full pl-8 pr-3 py-3 rounded-lg border outline-none font-black text-base transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500 text-right' : 'bg-white border-gray-200 focus:border-cyan-500 text-right'}`}
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="pt-4 border-t border-cyan-500/20 grid grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-[11px] font-black uppercase text-cyan-400 mb-3 leading-tight italic tracking-wider">Exam Fee Collected Today</label>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400 font-black text-lg">₹</span>
+                                            <input
+                                                type="number"
+                                                value={paidExamFee}
+                                                onChange={(e) => setPaidExamFee(e.target.value)}
+                                                className={`w-full pl-10 pr-6 py-4 rounded-lg border outline-none font-black text-xl transition-all ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/30 text-white focus:border-cyan-500' : 'bg-cyan-50 border-cyan-200 focus:border-cyan-500 shadow-sm'}`}
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[11px] font-black uppercase text-cyan-400 mb-3 leading-tight italic tracking-wider">Additional Fee Collected Today</label>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400 font-black text-lg">₹</span>
+                                            <input
+                                                type="number"
+                                                value={paidAdditionalThings}
+                                                onChange={(e) => setPaidAdditionalThings(e.target.value)}
+                                                className={`w-full pl-10 pr-6 py-4 rounded-lg border outline-none font-black text-xl transition-all ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/30 text-white focus:border-cyan-500' : 'bg-cyan-50 border-cyan-200 focus:border-cyan-500 shadow-sm'}`}
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="mt-3">
+                                    <p className="text-[10px] text-gray-500 font-black uppercase italic opacity-80 tracking-widest leading-relaxed">
+                                        * Note: A separate payment receipt will be generated for the examination & additional fee collection.
                                     </p>
                                 </div>
                             </div>
@@ -720,7 +771,7 @@ const BoardCourseAdmissionPage = () => {
                                 </div>
                                 <div className="flex justify-between items-center pt-2">
                                     <span className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.2em] leading-none">Expected Amount</span>
-                                    <span className={`text-lg font-black italic leading-none ${isDarkMode ? 'text-white' : 'text-cyan-600'}`}>₹{((monthlyFee - monthlyWaiver) * durationMonths + Number(admissionFee) + Number(examFee)).toFixed(0)}</span>
+                                    <span className={`text-lg font-black italic leading-none ${isDarkMode ? 'text-white' : 'text-cyan-600'}`}>₹{((monthlyFee - monthlyWaiver) * durationMonths + Number(admissionFee) + Number(examFee) + Number(additionalThingsAmount)).toFixed(0)}</span>
                                 </div>
                             </div>
 
@@ -744,7 +795,7 @@ const BoardCourseAdmissionPage = () => {
 
                                 <div className={`flex justify-between items-center pt-4 border-t-2 border-dashed ${isDarkMode ? 'border-cyan-500/30' : 'border-cyan-200'}`}>
                                     <span className={`text-[12px] font-black uppercase italic tracking-[0.3em] leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>TOTAL PAYMENT</span>
-                                    <span className={`text-3xl font-black italic leading-none ${isDarkMode ? 'text-white bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent' : 'text-cyan-600'}`}>₹{Number(downPayment) + Number(paidExamFee)}</span>
+                                    <span className={`text-3xl font-black italic leading-none ${isDarkMode ? 'text-white bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent' : 'text-cyan-600'}`}>₹{Number(downPayment) + Number(paidExamFee) + Number(paidAdditionalThings)}</span>
                                 </div>
                                 
                                 <div className="flex justify-between items-center pt-4">

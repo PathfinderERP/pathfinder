@@ -40,6 +40,9 @@ export const createBoardAdmission = async (req, res) => {
             admissionFee = 0,
             examFee = 0,
             paidExamFee = 0,
+            additionalThingsName = "",
+            additionalThingsAmount = 0,
+            paidAdditionalThings = 0,
             programme,
             lastClass
         } = req.body;
@@ -157,7 +160,11 @@ export const createBoardAdmission = async (req, res) => {
 
         // Construct Board Course Name: Board + Class + Programme + Session + Subjects
         const subjectNames = activeSubjects.map(s => (s.subjectId.subName || s.subjectId.name || 'Subject')).join(' + ');
-        const boardCourseName = `${board.boardCourse} Class ${lastClass || ''} ${programme || ''} ${academicSession || ''} : ${subjectNames}`;
+        let boardCourseName = `${board.boardCourse} Class ${lastClass || ''} ${programme || ''} ${academicSession || ''} : ${subjectNames}`;
+        
+        if (additionalThingsName && additionalThingsName.trim() !== "") {
+            boardCourseName += ` + ${additionalThingsName.trim()}`;
+        }
         
 
         const newAdmission = new BoardCourseAdmission({
@@ -180,8 +187,12 @@ export const createBoardAdmission = async (req, res) => {
             examFee,
             examFeePaid: Number(paidExamFee),
             examFeeStatus: Number(paidExamFee) >= Number(examFee) && Number(examFee) > 0 ? "PAID" : "PENDING",
-            totalExpectedAmount: (expectedMonthly * totalDurationMonths) + Number(admissionFee) + Number(examFee),
-            totalPaidAmount: Number(downPayment) + Number(paidExamFee),
+            additionalThingsName: additionalThingsName.trim(),
+            additionalThingsAmount: Number(additionalThingsAmount),
+            additionalThingsPaid: Number(paidAdditionalThings),
+            additionalThingsStatus: Number(paidAdditionalThings) >= Number(additionalThingsAmount) && Number(additionalThingsAmount) > 0 ? "PAID" : "PENDING",
+            totalExpectedAmount: (expectedMonthly * totalDurationMonths) + Number(admissionFee) + Number(examFee) + Number(additionalThingsAmount),
+            totalPaidAmount: Number(downPayment) + Number(paidExamFee) + Number(paidAdditionalThings),
             centre,
             programme,
             lastClass,
@@ -192,7 +203,7 @@ export const createBoardAdmission = async (req, res) => {
         await newAdmission.save();
 
         // --- Create Unified Payment Record for Admission/Initial Payment + Exam Fee ---
-        const totalPaidToday = Number(downPayment) + Number(paidExamFee);
+        const totalPaidToday = Number(downPayment) + Number(paidExamFee) + Number(paidAdditionalThings);
         if (totalPaidToday > 0) {
             try {
                 let centreObj = await Centre.findOne({ centreName: centre });
@@ -500,6 +511,7 @@ export const collectBoardInstallment = async (req, res) => {
             installmentId, 
             amount, 
             paidExamFee = 0,
+            paidAdditionalThings = 0,
             paymentMethod: rawPaymentMethod, 
             transactionId, 
             bankName, 
@@ -547,6 +559,16 @@ export const collectBoardInstallment = async (req, res) => {
                 admission.examFeeStatus = "PAID";
             } else if (admission.examFeePaid > 0) {
                 admission.examFeeStatus = "PARTIAL";
+            }
+        }
+
+        // Handle Additional Things if paid alongside installment
+        if (Number(paidAdditionalThings) > 0) {
+            admission.additionalThingsPaid += Number(paidAdditionalThings);
+            if (admission.additionalThingsPaid >= admission.additionalThingsAmount && admission.additionalThingsAmount > 0) {
+                admission.additionalThingsStatus = "PAID";
+            } else if (admission.additionalThingsPaid > 0) {
+                admission.additionalThingsStatus = "PARTIAL";
             }
         }
 
@@ -607,9 +629,8 @@ export const collectBoardInstallment = async (req, res) => {
             admission.totalDurationMonths = (admission.totalDurationMonths || 0) + 1;
         }
 
-        // Recalculate total paid from all installments for accuracy
-        // Recalculate total paid from all installments + Exam Fees
-        admission.totalPaidAmount = admission.installments.reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0);
+        // Recalculate total paid from all installments + Exam Fees + Additional Things
+        admission.totalPaidAmount = admission.installments.reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0) + (admission.additionalThingsPaid || 0);
 
         // --- Create Payment Record for Billing ---
         try {
@@ -620,21 +641,25 @@ export const collectBoardInstallment = async (req, res) => {
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
             const billId = await generateBillId(centreCode);
 
-            const totalPaidToday = Number(amount) + Number(paidExamFee);
+            const totalPaidToday = Number(amount) + Number(paidExamFee) + Number(paidAdditionalThings);
             if (totalPaidToday <= 0) return; // Nothing to record
 
             const taxableAmount = totalPaidToday / 1.18;
             const cgst = (totalPaidToday - taxableAmount) / 2;
             const sgst = cgst;
 
-            const billCourseName = Number(paidExamFee) > 0 
-                ? `${admission.boardCourseName || ''} + Examination`
-                : (admission.boardCourseName || '');
+            let billCourseName = admission.boardCourseName || '';
+            if (Number(paidExamFee) > 0) {
+                billCourseName += ' + Examination';
+            }
+            if (Number(paidAdditionalThings) > 0 && admission.additionalThingsName) {
+                billCourseName += ` + ${admission.additionalThingsName}`;
+            }
 
             const paymentRecord = new Payment({
                 admission: admission._id,
                 installmentNumber: inst.monthNumber,
-                amount: inst.payableAmount + (Number(paidExamFee) > 0 ? Number(paidExamFee) : 0),
+                amount: inst.payableAmount + (Number(paidExamFee) > 0 ? Number(paidExamFee) : 0) + (Number(paidAdditionalThings) > 0 ? Number(paidAdditionalThings) : 0),
                 paidAmount: totalPaidToday,
                 dueDate: inst.dueDate,
                 paidDate: new Date(),
@@ -653,7 +678,7 @@ export const collectBoardInstallment = async (req, res) => {
                 sgst: sgst,
                 totalAmount: totalPaidToday,
                 boardCourseName: billCourseName,
-                remarks: `Board Installment Month ${inst.monthNumber} ${Number(paidExamFee) > 0 ? '(Incl. Exam Fee)' : ''}`
+                remarks: `Board Installment Month ${inst.monthNumber} ${Number(paidExamFee) > 0 || Number(paidAdditionalThings) > 0 ? '(Incl. Extra Fees)' : ''}`
             });
             await paymentRecord.save();
         } catch (paymentErr) {
@@ -666,5 +691,77 @@ export const collectBoardInstallment = async (req, res) => {
 
     } catch (error) {
         res.status(500).json({ message: "Server error", error: error.message }); console.error("COLLECT ERROR:", error)
+    }
+};
+
+export const collectBoardAdditionalFee = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { amount, paymentMethod: rawPaymentMethod, transactionId, bankName, accountHolderName, chequeDate } = req.body;
+
+        const methodMap = { 'ONLINE': 'UPI', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
+        const paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
+
+        const admission = await BoardCourseAdmission.findById(id);
+        if (!admission) return res.status(404).json({ message: "Admission not found" });
+
+        const paidAmount = Number(amount);
+        admission.additionalThingsPaid += paidAmount;
+
+        if (admission.additionalThingsPaid >= admission.additionalThingsAmount && admission.additionalThingsAmount > 0) {
+            admission.additionalThingsStatus = "PAID";
+        } else if (admission.additionalThingsPaid > 0) {
+            admission.additionalThingsStatus = "PARTIAL";
+        }
+
+        // --- Create Payment Record for Additional Fee ---
+        try {
+            let centreObj = await Centre.findOne({ centreName: admission.centre });
+            if (!centreObj) {
+                centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } });
+            }
+            const centreCode = centreObj ? centreObj.enterCode : 'GEN';
+            const billId = await generateBillId(centreCode);
+
+            const taxableAmount = paidAmount / 1.18;
+            const cgst = (paidAmount - taxableAmount) / 2;
+            const sgst = cgst;
+
+            const paymentRecord = new Payment({
+                admission: admission._id,
+                installmentNumber: 0, // Special marker for standalone fees
+                amount: admission.additionalThingsAmount,
+                paidAmount: paidAmount,
+                dueDate: new Date(),
+                paidDate: new Date(),
+                receivedDate: new Date(),
+                status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
+                paymentMethod: paymentMethod,
+                transactionId: transactionId,
+                bankName: bankName,
+                accountHolderName: accountHolderName,
+                chequeDate: chequeDate,
+                billingMonth: new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+                recordedBy: req.user?._id,
+                billId: billId,
+                courseFee: taxableAmount,
+                cgst: cgst,
+                sgst: sgst,
+                totalAmount: paidAmount,
+                boardCourseName: `${admission.boardCourseName || ''} + ${admission.additionalThingsName || 'Additional Fee'}`,
+                remarks: `Board Additional Fee Payment (${admission.additionalThingsName || 'Additional'})`
+            });
+            await paymentRecord.save();
+        } catch (paymentErr) {
+            console.error("Error creating payment record for additional fee:", paymentErr);
+        }
+
+        admission.totalPaidAmount += paidAmount;
+        await admission.save();
+
+        res.status(200).json({ message: "Additional fee payment collected", admission });
+    } catch (error) {
+        console.error("Collect Board Additional Fee Error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
     }
 };

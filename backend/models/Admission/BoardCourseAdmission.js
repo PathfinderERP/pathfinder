@@ -70,6 +70,23 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
         enum: ["PENDING", "PARTIAL", "PAID"],
         default: "PENDING"
     },
+    additionalThingsName: {
+        type: String,
+        default: ""
+    },
+    additionalThingsAmount: {
+        type: Number,
+        default: 0
+    },
+    additionalThingsPaid: {
+        type: Number,
+        default: 0
+    },
+    additionalThingsStatus: {
+        type: String,
+        enum: ["PENDING", "PARTIAL", "PAID"],
+        default: "PENDING"
+    },
     admissionDate: {
         type: Date,
         default: Date.now

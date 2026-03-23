@@ -384,6 +384,8 @@ const BoardAdmissionsContent = () => {
         fetchExamTags();
         fetchClasses();
         fetchBoardCourseSubjects();
+        fetchCounselledStudents();
+        fetchBoardAdmissions();
     }, [fetchAllowedCentres, fetchStudents, fetchDepartments]);
 
     useEffect(() => {
@@ -646,6 +648,7 @@ const BoardAdmissionsContent = () => {
                 toast.success("Board counselling recorded!");
                 setShowCounsellingModal(false);
                 fetchCounselledStudents();
+                fetchBoardAdmissions(); // keep enrolled-exclusion filter fresh
             } else {
                 const data = await response.json();
                 toast.error(data.message || "Failed to record counselling");
