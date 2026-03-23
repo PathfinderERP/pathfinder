@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FaCalendarAlt, FaDownload, FaFileUpload, FaFileExcel, FaPlus, FaFilter, FaSearch, FaChevronLeft, FaChevronRight, FaMoon, FaSun, FaHistory, FaChartLine, FaTrash, FaRedo, FaPhoneAlt, FaEnvelope, FaEdit, FaStar, FaExclamationTriangle, FaCheckCircle } from "react-icons/fa";
+import { FaCalendarAlt, FaDownload, FaFileUpload, FaFileExcel, FaPlus, FaFilter, FaSearch, FaChevronLeft, FaChevronRight, FaMoon, FaSun, FaHistory, FaChartLine, FaTrash, FaRedo, FaPhoneAlt, FaEnvelope, FaEdit, FaStar, FaExclamationTriangle, FaCheckCircle, FaUserGraduate, FaGraduationCap, FaTimes } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { saveAs } from "file-saver";
@@ -428,8 +428,21 @@ const LeadManagementContent = () => {
         setShowEditModal(true);
     };
 
+    const [showCounselingChoiceModal, setShowCounselingChoiceModal] = useState(false);
+
     const handleCounseling = (lead) => {
-        navigate("/student-registration", { state: { leadData: lead } });
+        setSelectedLead(lead);
+        setShowCounselingChoiceModal(true);
+    };
+
+    const handleNormalCounseling = () => {
+        navigate("/student-registration", { state: { leadData: selectedLead } });
+        setShowCounselingChoiceModal(false);
+    };
+
+    const handleBoardCounseling = () => {
+        navigate("/board-admissions?tab=Counselling", { state: { leadData: selectedLead } });
+        setShowCounselingChoiceModal(false);
     };
 
     const handleExport = async () => {
@@ -1404,6 +1417,58 @@ const LeadManagementContent = () => {
                     />
                 )
             }
+
+            {showCounselingChoiceModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className={`w-full max-w-md p-6 rounded-[2px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-xl'}`}>
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 className={`text-xl font-black italic tracking-tighter uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    Select <span className="text-cyan-500">Course Type</span>
+                                </h3>
+                                <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                    Choose the counselling pipeline for this lead
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setShowCounselingChoiceModal(false)}
+                                className={`p-2 rounded-[2px] transition-colors ${isDarkMode ? 'hover:bg-gray-800 text-gray-500 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`}
+                            >
+                                <FaTimes />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <button
+                                onClick={handleNormalCounseling}
+                                className={`w-full p-4 rounded-[2px] border text-left flex items-start gap-4 transition-all group hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/30 hover:bg-cyan-500/20' : 'bg-cyan-50 border-cyan-200 hover:bg-cyan-100'}`}
+                            >
+                                <div className="p-3 bg-cyan-500 rounded-[2px] text-black">
+                                    <FaUserGraduate size={20} />
+                                </div>
+                                <div>
+                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Normal Course Counselling</h4>
+                                    <p className={`text-[10px] font-bold mt-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Standard admission workflow for pathway courses.</p>
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={handleBoardCounseling}
+                                className={`w-full p-4 rounded-[2px] border text-left flex items-start gap-4 transition-all group hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-indigo-500/10 border-indigo-500/30 hover:bg-indigo-500/20' : 'bg-indigo-50 border-indigo-200 hover:bg-indigo-100'}`}
+                            >
+                                <div className="p-3 bg-indigo-500 rounded-[2px] text-white group-hover:bg-indigo-600 transition-colors">
+                                    <FaGraduationCap size={20} />
+                                </div>
+                                <div>
+                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Board Course Counselling</h4>
+                                    <p className={`text-[10px] font-bold mt-1 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>Specialized workflow for board pattern enrollments.</p>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div >
     );
 };

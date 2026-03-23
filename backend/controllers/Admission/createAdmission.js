@@ -136,8 +136,8 @@ export const createAdmission = async (req, res) => {
             selectedSubjectsData = validSelectedSubjects.map(sub => ({ subject: sub._id, name: sub.subName, price: sub.price }));
 
             // Construct Name: "BoardName Session Subject1+Subject2..."
-            const subNames = validSelectedSubjects.map(s => s.subName).join('+');
-            boardCourseNameString = `${board.boardCourse} ${academicSession} ${subNames}`; // Use boardCourse instead of name
+            const subNames = validSelectedSubjects.map(s => s.subName).join(' + ');
+            boardCourseNameString = `${board.boardCourse} ${academicSession} : ${subNames}`; 
 
             // Store duration and course info helper
             course = { courseDurationMonths: durationMonths, monthlyFees: monthlyFees };

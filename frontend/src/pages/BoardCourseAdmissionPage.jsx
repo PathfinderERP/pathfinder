@@ -49,7 +49,7 @@ const BoardCourseAdmissionPage = () => {
             .sort()
             .join(" + ");
         
-        return `${boardName} + Class ${lastClass || ''} + ${programme || ''} + ${academicSession || ''} + ${subNames || 'No Subjects'}`;
+        return `${boardName} Class ${lastClass || ''} ${programme || ''} ${academicSession || ''} : ${subNames || 'No Subjects'}`;
     };
 
     useEffect(() => {

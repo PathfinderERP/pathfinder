@@ -69,8 +69,8 @@ export const updateBoardSubjects = async (req, res) => {
         admission.billingMonth = billingMonth;
 
         // Construct updated course name
-        const subNames = validSelectedSubjects.map(s => s.subName).join('+');
-        admission.boardCourseName = `${board.boardCourse} ${admission.academicSession} ${subNames}`;
+        const subNames = validSelectedSubjects.map(s => s.subName).join(' + ');
+        admission.boardCourseName = `${board.boardCourse} ${admission.academicSession} : ${subNames}`;
 
         // Update totalPaidAmount and monthly history isPaid status
         const paymentMethodStr = paymentMethod.toUpperCase();

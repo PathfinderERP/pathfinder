@@ -253,7 +253,7 @@ const ManageBoardAdmission = () => {
             .sort()
             .join(" + ");
         
-        return `${boardName} + Class ${admission.lastClass || ''} + ${admission.programme || ''} + ${admission.academicSession || ''} + ${subNames || 'No Subjects'}`;
+        return `${boardName} Class ${admission.lastClass || ''} ${admission.programme || ''} ${admission.academicSession || ''} : ${subNames || 'No Subjects'}`;
     };
 
     if (loading && !admission) return <div className="p-10 text-center">Loading...</div>;
@@ -345,8 +345,8 @@ const ManageBoardAdmission = () => {
                                                     <p className={`text-sm font-black uppercase ${isPaid ? 'text-emerald-400' : (isNextToPay ? 'text-cyan-400' : (isDarkMode ? 'text-gray-300' : 'text-gray-700'))}`}>
                                                         {new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
                                                     </p>
-                                                    <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">
-                                                        Payable: <span className="text-gray-300">₹{inst.payableAmount.toFixed(0)}</span>
+                                                    <p className="text-[11px] font-bold uppercase tracking-wider">
+                                                        Payable: <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>₹{inst.payableAmount.toFixed(0)}</span>
                                                     </p>
                                                 </div>
                                             </div>
@@ -356,7 +356,7 @@ const ManageBoardAdmission = () => {
                                                     <p className={`text-sm font-black tracking-widest ${isPaid ? 'text-emerald-500' : 'text-gray-500'}`}>
                                                         {inst.status}
                                                     </p>
-                                                    <p className="text-[11px] text-gray-400 font-bold">Paid: ₹{inst.paidAmount}</p>
+                                                    <p className={`text-[11px] font-bold ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Paid: ₹{inst.paidAmount}</p>
                                                 </div>
                                                 <div className="w-[1px] h-10 bg-gray-700/50 mx-2"></div>
                                                 {isPaid ? (
@@ -456,7 +456,7 @@ const ManageBoardAdmission = () => {
                                 <div className="p-4 rounded bg-black/20 space-y-2 mb-6 text-xs font-bold uppercase">
                                     <div className="flex justify-between items-center text-gray-400">
                                         <span>Base Total</span>
-                                        <span className="text-white">₹{calculateCurrentMonthly()}</span>
+                                        <span className={isDarkMode ? "text-white" : "text-gray-900"}>₹{calculateCurrentMonthly()}</span>
                                     </div>
                                     <div className="flex justify-between items-center text-red-500/80">
                                         <span>Waiver</span>
@@ -564,7 +564,20 @@ const ManageBoardAdmission = () => {
                                         required
                                     />
                                 </div>
-                                <div>
+                                {admission.examFee > admission.examFeePaid && (
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2">Examination Fee</label>
+                                        <input
+                                            type="number"
+                                            max={admission.examFee - admission.examFeePaid}
+                                            value={paymentForm.paidExamFee}
+                                            onChange={(e) => setPaymentForm({ ...paymentForm, paidExamFee: e.target.value })}
+                                            className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-cyan-50 border-cyan-100'}`}
+                                        />
+                                        <p className="text-[8px] text-gray-500 mt-1 font-bold">BAL: ₹{admission.examFee - admission.examFeePaid}</p>
+                                    </div>
+                                )}
+                                <div className={admission.examFee > admission.examFeePaid ? "col-span-2" : "col-span-1"}>
                                     <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Method</label>
                                     <select
                                         value={paymentForm.paymentMethod}
@@ -717,7 +730,7 @@ const ManageBoardAdmission = () => {
                             <p className="text-lg font-black text-orange-500">₹{Math.max(0, admission.examFee - (admission.examFeePaid || 0))}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                            {admission.examFeePaid < admission.examFee && (
+                            {admission.programme === 'NCRP' && admission.examFeePaid < admission.examFee && (
                                 <button
                                     onClick={() => {
                                         setExamPaymentModal(true);

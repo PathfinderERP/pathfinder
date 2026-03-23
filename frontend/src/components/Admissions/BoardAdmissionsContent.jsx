@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { FaFilter, FaPlus, FaSearch, FaDownload, FaEye, FaEdit, FaTrash, FaSync, FaSun, FaMoon, FaUserGraduate } from "react-icons/fa";
 import { useTheme } from "../../context/ThemeContext";
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import StudentDetailsModal from './StudentDetailsModal';
 import EditStudentModal from './EditStudentModal';
@@ -16,6 +16,7 @@ import { hasPermission } from '../../config/permissions';
 const BoardAdmissionsContent = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
     const initialTab = searchParams.get("tab") || "Counselling";
     
     const [students, setStudents] = useState([]);
@@ -193,6 +194,45 @@ const BoardAdmissionsContent = () => {
             setLoading(false);
         }
     }, []);
+
+    // Effect to catch incoming leadData from Lead Management redirection
+    useEffect(() => {
+        if (location.state && location.state.leadData && !showCounsellingModal) {
+            const leadData = location.state.leadData;
+            setCounsellingForm({
+                studentId: "",
+                studentName: leadData.studentName || "",
+                mobileNum: leadData.mobileNum || "",
+                whatsappNumber: leadData.secondaryMobile || leadData.whatsappNumber || "",
+                studentEmail: leadData.email || "",
+                dateOfBirth: leadData.dob ? new Date(leadData.dob).toISOString().split('T')[0] : "",
+                gender: leadData.gender || "",
+                centre: leadData.centre || allowedCentres[0] || "",
+                programme: leadData.programme || "",
+                board: leadData.board || "",
+                state: leadData.state || "",
+                schoolName: leadData.schoolName || "",
+                pincode: leadData.pincode || "",
+                address: leadData.address || "",
+                guardianName: leadData.fatherName || leadData.parentName || leadData.guardianName || "",
+                guardianMobile: leadData.fatherMobile || leadData.parentMobile || leadData.guardianMobile || "",
+                guardianEmail: leadData.guardianEmail || "",
+                occupation: leadData.fatherOccupation || leadData.parentOccupation || leadData.occupation || "",
+                lastClass: leadData.className || leadData.lastClass || "",
+                examStatus: "",
+                markAgregate: "",
+                scienceMathParcent: "",
+                examName: leadData.examName || "",
+                boardId: "",
+                selectedSubjectIds: [],
+                remarks: leadData.remarks || ""
+            });
+            setShowCounsellingModal(true);
+            
+            // Optional: prevent loop if modal is closed and re-opened
+            navigate(location.pathname + location.search, { replace: true, state: {} });
+        }
+    }, [location.state, showCounsellingModal, allowedCentres, navigate, location.pathname, location.search]);
 
     const filteredBoardAdmissions = React.useMemo(() => {
         return boardAdmissions.filter(admission => {
@@ -769,28 +809,28 @@ const BoardAdmissionsContent = () => {
                                 options={[...new Set(boards.map(b => b.boardCourse).filter(Boolean))]}
                                 selectedValues={filterBoard}
                                 onChange={setFilterBoard}
-                                isDarkMode={isDarkMode}
+                                theme={theme}
                             />
                             <MultiSelectFilter
                                 label="Subjects"
                                 options={[...new Set(boardCourseSubjects.flatMap(bcs => bcs.subjects.map(s => s.subjectId?.subName || s.name)).filter(Boolean))]}
                                 selectedValues={filterSubject}
                                 onChange={setFilterSubject}
-                                isDarkMode={isDarkMode}
+                                theme={theme}
                             />
                             <MultiSelectFilter
                                 label="Centres"
                                 options={[...new Set(boardAdmissions.map(a => a.centre).filter(Boolean))]}
                                 selectedValues={filterCentre}
                                 onChange={setFilterCentre}
-                                isDarkMode={isDarkMode}
+                                theme={theme}
                             />
                             <MultiSelectFilter
                                 label="Programmes"
                                 options={[...new Set(boardAdmissions.map(a => a.programme).filter(Boolean))]}
                                 selectedValues={filterProgramme}
                                 onChange={setFilterProgramme}
-                                isDarkMode={isDarkMode}
+                                theme={theme}
                             />
                             
                             <div className="flex items-center gap-2 ml-auto">
@@ -892,7 +932,7 @@ const BoardAdmissionsContent = () => {
                                             <td className="p-4">
                                                 <span className={`text-[11px] font-black italic tracking-wider ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
                                                     {activeTab === "Potential" ? (details.board || "N/A") : 
-                                                     activeTab === "Counselling" ? `${item.boardId?.boardCourse || "N/A"}${item.lastClass ? ` | ${item.lastClass}` : ""}` :
+                                                     activeTab === "Counselling" ? `${item.boardId?.boardCourse || "N/A"} Class ${item.lastClass || ""}` :
                                                      (item.admissionNumber || "PENDING")}
                                                 </span>
                                             </td>
@@ -900,7 +940,7 @@ const BoardAdmissionsContent = () => {
                                                 <span className={`text-[11px] font-bold uppercase ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
                                                     {activeTab === "Potential" ? (details.programme || "N/A") : 
                                                      activeTab === "Counselling" ? (item.remarks || "No Remarks") :
-                                                     `${item.boardCourseName || item.boardId?.boardCourse || "N/A"}${item.lastClass ? ` | ${item.lastClass}` : ""}`}
+                                                     (item.boardCourseName || item.boardId?.boardCourse || "N/A")}
                                                 </span>
                                             </td>
                                             {activeTab === "Potential" && <td className="p-4"><span className="text-[11px] font-bold uppercase text-gray-400">{sessionExam.examTag || exam.examName || "N/A"}</span></td>}

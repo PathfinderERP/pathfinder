@@ -157,7 +157,7 @@ export const createBoardAdmission = async (req, res) => {
 
         // Construct Board Course Name: Board + Class + Programme + Session + Subjects
         const subjectNames = activeSubjects.map(s => (s.subjectId.subName || s.subjectId.name || 'Subject')).join(' + ');
-        const boardCourseName = `${board.boardCourse} + Class ${lastClass || ''} + ${programme || ''} + ${academicSession || ''} + ${subjectNames}`;
+        const boardCourseName = `${board.boardCourse} Class ${lastClass || ''} ${programme || ''} ${academicSession || ''} : ${subjectNames}`;
         
 
         const newAdmission = new BoardCourseAdmission({
@@ -390,7 +390,7 @@ export const updateBoardSubjects = async (req, res) => {
 
         // Refresh dynamic course name if subjects changed
         const subjectNames = newActiveSubjects.map(s => (s.subjectId.subName || s.subjectId.name || 'Subject')).join(' + ');
-        admission.boardCourseName = `${board.boardCourse} + Class ${admission.lastClass || ''} + ${admission.programme || ''} + ${admission.academicSession || ''} + ${subjectNames}`;
+        admission.boardCourseName = `${board.boardCourse} Class ${admission.lastClass || ''} ${admission.programme || ''} ${admission.academicSession || ''} : ${subjectNames}`;
 
         // Recalculate total expected amount (already paid + future payables)
         // This keeps the financial history consistent
@@ -587,6 +587,24 @@ export const collectBoardInstallment = async (req, res) => {
                 runningBalance += (current.paidAmount - (netMonthly + extraFees));
                 adjustmentApplied = false; // Allow next month to take the refined balance
             }
+        }
+
+        // --- NEW LOIC: Create extra installment if underpaid on the LAST month ---
+        if (Math.abs(runningBalance) > 1 && runningBalance < 0) {
+            const lastInst = admission.installments[admission.installments.length - 1];
+            admission.installments.push({
+                monthNumber: (lastInst?.monthNumber || 0) + 1,
+                dueDate: lastInst ? getNextMonthDate(lastInst.dueDate, 1) : getNextMonthDate(admission.billingStartDate, admission.installments.length),
+                standardAmount: 0,
+                subjects: [],
+                waiverAmount: 0,
+                adjustmentAmount: -runningBalance,
+                payableAmount: -runningBalance,
+                paidAmount: 0,
+                status: "PENDING",
+                paymentTransactions: []
+            });
+            admission.totalDurationMonths = (admission.totalDurationMonths || 0) + 1;
         }
 
         // Recalculate total paid from all installments for accuracy
