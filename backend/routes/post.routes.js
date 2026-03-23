@@ -6,9 +6,9 @@ import { upload } from "../utils/r2Upload.js";
 const router = express.Router();
 
 // All routes are protected via requireAuth to allow all active users
-router.post("/", requireAuth, upload.array("images", 5), createPost);
+router.post("/", requireAuth, upload.array("images", 10), createPost);
 router.get("/", requireAuth, getAllPosts);
-router.put("/:id", requireAuth, upload.array("images", 5), updatePost);
+router.put("/:id", requireAuth, upload.array("images", 10), updatePost);
 router.delete("/:id", requireAuth, deletePost);
 router.post("/:id/like", requireAuth, likePost);
 router.post("/:id/vote", requireAuth, votePoll);
