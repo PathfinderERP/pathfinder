@@ -49,6 +49,7 @@ import Header from "./Dashboard/Header";
 import { useTheme } from "../context/ThemeContext";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import AIAssistant from "./common/AIAssistant";
 
 const Layout = ({ children, activePage }) => {
     const { theme } = useTheme();
@@ -110,6 +111,9 @@ const Layout = ({ children, activePage }) => {
                     className="fixed inset-0 bg-black/50 z-40 lg:hidden"
                 ></div>
             )}
+
+            {/* AI Assistant */}
+            <AIAssistant />
         </div>
     );
 };
