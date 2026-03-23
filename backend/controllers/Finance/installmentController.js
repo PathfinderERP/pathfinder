@@ -1,4 +1,5 @@
 import Admission from "../../models/Admission/Admission.js";
+import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import Student from "../../models/Students.js";
 import Payment from "../../models/Payment/Payment.js";
 import User from "../../models/User.js";
@@ -21,14 +22,17 @@ export const searchStudent = async (req, res) => {
             ]
         }).limit(10);
 
-        // Also search by admission number in Admission collection
-        const admissions = await Admission.find({
-            admissionNumber: { $regex: searchTerm, $options: "i" },
-            admissionStatus: "ACTIVE"
-        })
-            .populate("student")
-            .populate("course", "courseName")
-            .limit(10);
+        // Also search by admission number in both Admission collections
+        const [admissions, boardAdmissions] = await Promise.all([
+            Admission.find({
+                admissionNumber: { $regex: searchTerm, $options: "i" },
+                admissionStatus: "ACTIVE"
+            }).populate("student").populate("course", "courseName").limit(10),
+            BoardCourseAdmission.find({
+                admissionNumber: { $regex: searchTerm, $options: "i" },
+                status: "ACTIVE"
+            }).populate("studentId").limit(10)
+        ]);
 
         // Combine results
         const results = [];
@@ -46,7 +50,7 @@ export const searchStudent = async (req, res) => {
             }
         });
 
-        // Add from admissions
+        // Add from normal admissions
         admissions.forEach(admission => {
             if (admission.student && admission.student.studentsDetails && admission.student.studentsDetails[0]) {
                 results.push({
@@ -58,6 +62,23 @@ export const searchStudent = async (req, res) => {
                     mobile: admission.student.studentsDetails[0].mobileNum,
                     course: admission.course?.courseName,
                     type: "admission"
+                });
+            }
+        });
+
+        // Add from special board admissions (The "VB" student type)
+        boardAdmissions.forEach(admission => {
+            const student = admission.studentId;
+            if (student && student.studentsDetails && student.studentsDetails[0]) {
+                results.push({
+                    studentId: student._id,
+                    admissionId: admission._id,
+                    admissionNumber: admission.admissionNumber,
+                    studentName: student.studentsDetails[0].studentName,
+                    email: student.studentsDetails[0].studentEmail,
+                    mobile: student.studentsDetails[0].mobileNum,
+                    course: admission.boardCourseName,
+                    type: "board-admission"
                 });
             }
         });
@@ -232,12 +253,17 @@ export const getFeeDueList = async (req, res) => {
         if (course) filter.course = course;
         if (department) filter.department = department;
 
-        // Fetch admissions with populated data
-        const admissions = await Admission.find(filter)
-            .populate("student")
-            .populate("course", "courseName")
-            .populate("department", "departmentName")
-            .sort({ createdAt: -1 });
+        // Fetch admissions from both collections
+        const [admissions, boardAdmissionsSpecial] = await Promise.all([
+            Admission.find(filter).populate("student").populate("course", "courseName").populate("department", "departmentName").sort({ createdAt: -1 }),
+            BoardCourseAdmission.find({ 
+                ...filter, 
+                status: "ACTIVE",
+                admissionStatus: undefined, 
+                course: undefined, 
+                department: undefined 
+            }).populate("studentId").sort({ createdAt: -1 })
+        ]);
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -262,12 +288,134 @@ export const getFeeDueList = async (req, res) => {
                 if (!matches) continue;
             }
 
-            for (const payment of admission.paymentBreakdown) {
-                if (payment.status === "PENDING" || payment.status === "OVERDUE") {
-                    const dueDate = new Date(payment.dueDate);
+            // --- Handle Normal Admissions (Standard Installments) ---
+            if (admission.admissionType !== "BOARD") {
+                for (const payment of admission.paymentBreakdown) {
+                    if (payment.status === "PENDING" || payment.status === "OVERDUE") {
+                        const dueDate = new Date(payment.dueDate);
+                        dueDate.setHours(0, 0, 0, 0);
+
+                        // Filter by date range if provided
+                        if (startDate && dueDate < new Date(startDate)) continue;
+                        if (endDate && dueDate > new Date(endDate)) continue;
+
+                        const diffTime = today - dueDate;
+                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+                        if (diffDays >= 0) {
+                            const monthsOverdue = Math.floor(diffDays / 30);
+
+                            // Categorize
+                            if (diffDays >= 7) criticalCount++;
+                            else if (diffDays > 0) overdueCount++;
+                            else dueTodayCount++;
+
+                            if (minAmount && payment.amount < parseFloat(minAmount)) continue;
+                            if (maxAmount && payment.amount > parseFloat(maxAmount)) continue;
+
+                            dueList.push({
+                                admissionId: admission._id,
+                                admissionNumber: admission.admissionNumber,
+                                studentId: student._id,
+                                studentName: studentInfo.studentName,
+                                phoneNumber: studentInfo.mobileNum,
+                                email: studentInfo.studentEmail,
+                                course: admission.course?.courseName || "N/A",
+                                department: admission.department?.departmentName || "N/A",
+                                centre: admission.centre,
+                                installmentNumber: payment.installmentNumber,
+                                dueDate: payment.dueDate,
+                                amount: payment.amount,
+                                daysOverdue: diffDays,
+                                monthsOverdue: monthsOverdue,
+                                status: diffDays === 0 ? "DUE TODAY" : (diffDays >= 7 ? "CRITICAL" : "OVERDUE"),
+                                admissionType: "NORMAL"
+                            });
+                        }
+                    }
+                }
+            } else {
+                // --- Handle Board Admissions (Monthly Subject History) ---
+                if (admission.monthlySubjectHistory && admission.monthlySubjectHistory.length > 0) {
+                    for (const record of admission.monthlySubjectHistory) {
+                        // Billing month is unpaid if balanceDue > 0
+                        if (record.balanceDue > 0) {
+                            // Assume due date is 10th of the billing month for now, or use a default
+                            // Usually billingMonth is like "January 2026"
+                            const [monthName, yearVal] = record.billingMonth.split(" ");
+                            const monthIdx = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].indexOf(monthName);
+                            
+                            if (monthIdx === -1) continue;
+
+                            // Default due date: 10th of that month
+                            const dueDate = new Date(parseInt(yearVal), monthIdx, 10);
+                            dueDate.setHours(0, 0, 0, 0);
+
+                            // Filter by date range if provided
+                            if (startDate && dueDate < new Date(startDate)) continue;
+                            if (endDate && dueDate > new Date(endDate)) continue;
+
+                            const diffTime = today - dueDate;
+                            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+                            // Only count if it's actually due (today or past due)
+                            if (diffDays >= 0) {
+                                const monthsOverdue = Math.floor(diffDays / 30);
+
+                                // Categorize
+                                if (diffDays >= 15) criticalCount++; // Board dues might have different thresholds? Let's stay consistent or slightly generous
+                                else if (diffDays > 0) overdueCount++;
+                                else dueTodayCount++;
+
+                                if (minAmount && record.balanceDue < parseFloat(minAmount)) continue;
+                                if (maxAmount && record.balanceDue > parseFloat(maxAmount)) continue;
+
+                                dueList.push({
+                                    admissionId: admission._id,
+                                    admissionNumber: admission.admissionNumber,
+                                    studentId: student._id,
+                                    studentName: studentInfo.studentName,
+                                    phoneNumber: studentInfo.mobileNum,
+                                    email: studentInfo.studentEmail,
+                                    course: admission.boardCourseName || "Board Course",
+                                    department: "BOARD",
+                                    centre: admission.centre,
+                                    installmentNumber: record.billingMonth, // Using month as identifier
+                                    dueDate: dueDate,
+                                    amount: record.balanceDue,
+                                    daysOverdue: diffDays,
+                                    monthsOverdue: monthsOverdue,
+                                    status: diffDays === 0 ? "DUE TODAY" : (diffDays >= 15 ? "CRITICAL" : "OVERDUE"),
+                                    admissionType: "BOARD",
+                                    billingMonth: record.billingMonth
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- Handle BoardCourseAdmission Collection (The "VB" student type) ---
+        for (const admission of boardAdmissionsSpecial) {
+            const student = admission.studentId;
+            if (!student || !student.studentsDetails || !student.studentsDetails[0]) continue;
+            const studentInfo = student.studentsDetails[0];
+
+            if (searchTerm) {
+                const searchLower = searchTerm.toLowerCase();
+                const matches = studentInfo.studentName?.toLowerCase().includes(searchLower) ||
+                    admission.admissionNumber?.toLowerCase().includes(searchLower) ||
+                    studentInfo.studentEmail?.toLowerCase().includes(searchLower);
+                if (!matches) continue;
+            }
+
+            for (const inst of (admission.installments || [])) {
+                const balance = (inst.payableAmount || 0) - (inst.paidAmount || 0);
+                if (balance > 0.5) {
+                    const dueDate = new Date(inst.dueDate);
                     dueDate.setHours(0, 0, 0, 0);
 
-                    // Filter by date range if provided
                     if (startDate && dueDate < new Date(startDate)) continue;
                     if (endDate && dueDate > new Date(endDate)) continue;
 
@@ -276,14 +424,12 @@ export const getFeeDueList = async (req, res) => {
 
                     if (diffDays >= 0) {
                         const monthsOverdue = Math.floor(diffDays / 30);
-
-                        // Categorize
-                        if (diffDays >= 7) criticalCount++;
+                        if (diffDays >= 15) criticalCount++;
                         else if (diffDays > 0) overdueCount++;
                         else dueTodayCount++;
 
-                        if (minAmount && payment.amount < parseFloat(minAmount)) continue;
-                        if (maxAmount && payment.amount > parseFloat(maxAmount)) continue;
+                        if (minAmount && balance < parseFloat(minAmount)) continue;
+                        if (maxAmount && balance > parseFloat(maxAmount)) continue;
 
                         dueList.push({
                             admissionId: admission._id,
@@ -292,15 +438,16 @@ export const getFeeDueList = async (req, res) => {
                             studentName: studentInfo.studentName,
                             phoneNumber: studentInfo.mobileNum,
                             email: studentInfo.studentEmail,
-                            course: admission.course?.courseName || "N/A",
-                            department: admission.department?.departmentName || "N/A",
+                            course: admission.boardCourseName || "Board Course",
+                            department: "BOARD",
                             centre: admission.centre,
-                            installmentNumber: payment.installmentNumber,
-                            dueDate: payment.dueDate,
-                            amount: payment.amount,
+                            installmentNumber: inst.monthNumber,
+                            dueDate: inst.dueDate,
+                            amount: balance,
                             daysOverdue: diffDays,
                             monthsOverdue: monthsOverdue,
-                            status: diffDays === 0 ? "DUE TODAY" : (diffDays >= 7 ? "CRITICAL" : "OVERDUE")
+                            status: diffDays === 0 ? "DUE TODAY" : (diffDays >= 15 ? "CRITICAL" : "OVERDUE"),
+                            admissionType: "BOARD_SPECIAL"
                         });
                     }
                 }

@@ -123,9 +123,11 @@ export const getTransactionReport = async (req, res) => {
             const coIds = typeof courseIds === 'string' ? courseIds.split(',') : courseIds;
             const validIds = coIds.filter(id => mongoose.Types.ObjectId.isValid(id.trim()));
             if (validIds.length > 0) {
-                // Course is ObjectId
                 const objectIds = validIds.map(id => new mongoose.Types.ObjectId(id.trim()));
-                admissionMatch["admissionInfo.course"] = { $in: objectIds };
+                admissionMatch.$or = [
+                    { "admissionInfo.course": { $in: objectIds } },
+                    { "admissionInfo.board": { $in: objectIds } }
+                ];
             }
         }
 
@@ -162,10 +164,62 @@ export const getTransactionReport = async (req, res) => {
             // 1. Match Payments
             { $match: paymentMatch },
 
-            // 2. Lookup Admission Details
-            { $lookup: { from: "admissions", localField: "admission", foreignField: "_id", as: "admissionInfo" } },
+            // 2. Lookup Admission Details from both potential collections
+            {
+                $lookup: {
+                    from: "admissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoNormal"
+                }
+            },
+            {
+                $lookup: {
+                    from: "boardcourseadmissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoBoard"
+                }
+            },
+            {
+                $addFields: {
+                    admissionInfo: {
+                        $ifNull: [
+                            { $arrayElemAt: ["$admissionInfoNormal", 0] },
+                            { $arrayElemAt: ["$admissionInfoBoard", 0] }
+                        ]
+                    }
+                }
+            },
             { $unwind: "$admissionInfo" },
-            { $lookup: { from: "students", localField: "admissionInfo.student", foreignField: "_id", as: "studentInfo" } },
+
+            // Lookup Student Details (handle difference between 'student' and 'studentId' fields)
+            {
+                $lookup: {
+                    from: "students",
+                    localField: "admissionInfo.student",
+                    foreignField: "_id",
+                    as: "studentInfoNormal"
+                }
+            },
+            {
+                $lookup: {
+                    from: "students",
+                    localField: "admissionInfo.studentId",
+                    foreignField: "_id",
+                    as: "studentInfoBoard"
+                }
+            },
+            {
+                $addFields: {
+                    studentInfo: {
+                        $ifNull: [
+                            { $arrayElemAt: ["$studentInfoNormal", 0] },
+                            { $arrayElemAt: ["$studentInfoBoard", 0] }
+                        ]
+                    }
+                }
+            },
             { $unwind: { path: "$studentInfo", preserveNullAndEmptyArrays: true } },
 
             // Lookup Course for Dept Filter (and general info)
@@ -239,7 +293,7 @@ export const getTransactionReport = async (req, res) => {
                     courseRevenue: [
                         {
                             $group: {
-                                _id: { $ifNull: ["$admissionInfo.course", "$admissionInfo.boardCourseName"] },
+                                _id: { $ifNull: ["$admissionInfo.course", "$boardCourseName"] },
                                 revenue: { $sum: "$paidAmount" },
                                 revenueWithoutGst: { $sum: { $divide: ["$paidAmount", 1.18] } },
                                 count: { $sum: 1 }
@@ -271,10 +325,63 @@ export const getTransactionReport = async (req, res) => {
         const detailedData = await Payment.aggregate([
             { $match: paymentMatch },
             { $sort: { paidDate: -1 } }, // Sort early to minimize memory usage
-            { $lookup: { from: "admissions", localField: "admission", foreignField: "_id", as: "admissionInfo" } },
+            // 2. Lookup Admission Details from both potential collections
+            {
+                $lookup: {
+                    from: "admissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoNormal"
+                }
+            },
+            {
+                $lookup: {
+                    from: "boardcourseadmissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoBoard"
+                }
+            },
+            {
+                $addFields: {
+                    admissionInfo: {
+                        $ifNull: [
+                            { $arrayElemAt: ["$admissionInfoNormal", 0] },
+                            { $arrayElemAt: ["$admissionInfoBoard", 0] }
+                        ]
+                    }
+                }
+            },
             { $unwind: "$admissionInfo" },
             { $match: admissionMatch },
-            { $lookup: { from: "students", localField: "admissionInfo.student", foreignField: "_id", as: "studentInfo" } },
+
+            // Lookup Student Details (handle difference between 'student' and 'studentId' fields)
+            {
+                $lookup: {
+                    from: "students",
+                    localField: "admissionInfo.student",
+                    foreignField: "_id",
+                    as: "studentInfoNormal"
+                }
+            },
+            {
+                $lookup: {
+                    from: "students",
+                    localField: "admissionInfo.studentId",
+                    foreignField: "_id",
+                    as: "studentInfoBoard"
+                }
+            },
+            {
+                $addFields: {
+                    studentInfo: {
+                        $ifNull: [
+                            { $arrayElemAt: ["$studentInfoNormal", 0] },
+                            { $arrayElemAt: ["$studentInfoBoard", 0] }
+                        ]
+                    }
+                }
+            },
             { $unwind: { path: "$studentInfo", preserveNullAndEmptyArrays: true } },
             { $lookup: { from: "courses", localField: "admissionInfo.course", foreignField: "_id", as: "courseInfo" } },
             { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
@@ -338,7 +445,7 @@ export const getTransactionReport = async (req, res) => {
                     studentName: { $arrayElemAt: ["$studentInfo.studentsDetails.studentName", 0] },
                     centre: "$admissionInfo.centre",
                     course: { $ifNull: ["$courseInfo.courseName", "$admissionInfo.boardCourseName", "$boardCourseName"] },
-                    department: "$departmentDetails.departmentName",
+                    department: { $ifNull: ["$departmentDetails.departmentName", "BOARD"] },
                     session: "$admissionInfo.academicSession",
                     admissionNumber: "$admissionInfo.admissionNumber",
                     receivedDate: { $ifNull: ["$receivedDate", "$paidDate"] },

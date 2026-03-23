@@ -3,10 +3,11 @@ import Admission from "../../models/Admission/Admission.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
 import User from "../../models/User.js";
 import Student from "../../models/Students.js";
+import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 
 // Helper function to revert installment amount or carry-forward adjustments
-const revertPaymentVariance = async (payment, admission) => {
+const revertPaymentVariance = async (payment, admission, isBoardAdmission = false) => {
     try {
         const variance = (payment.amount || 0) - (payment.paidAmount || 0);
         if (variance === 0) return;
@@ -15,16 +16,16 @@ const revertPaymentVariance = async (payment, admission) => {
 
         if (payment.isCarryForward) {
             // Revert Carry Forward Balance on Student
-            const studentId = admission.student._id || admission.student;
+            const studentId = isBoardAdmission ? admission.studentId : (admission.student?._id || admission.student);
             await Student.findByIdAndUpdate(
                 studentId,
                 { $inc: { carryForwardBalance: -variance } }
             );
             console.log(`Reverted student carry forward balance by ${-variance}`);
-        } else {
-            // Revert Next Installment Adjustment
+        } else if (!isBoardAdmission) {
+            // Revert Next Installment Adjustment (Only for Normal Admissions)
             const nextInstallmentNumber = (payment.installmentNumber || 0) + 1;
-            const nextInstallment = admission.paymentBreakdown.find(
+            const nextInstallment = admission.paymentBreakdown?.find(
                 p => p.installmentNumber === nextInstallmentNumber
             );
 
@@ -35,10 +36,52 @@ const revertPaymentVariance = async (payment, admission) => {
                 console.log(`Reverted next installment amount for Inst #${nextInstallmentNumber}. New amount: ${nextInstallment.amount}`);
             }
         }
+        // For Board Admissions, variance/adjustment is handled differently via cascading,
+        // which will be triggered by saving the document after amount adjustments.
     } catch (error) {
         console.error("Error in revertPaymentVariance:", error);
-        // We don't throw here to avoid blocking the main rejection flow, but it's logged.
     }
+};
+
+// Robust helper to populate admissions from either collection
+const populateAdmissions = async (cheques) => {
+    const admissionIds = [...new Set(cheques.map(c => c.admission).filter(Boolean))];
+    if (admissionIds.length === 0) return cheques;
+
+    // Try Normal Admissions
+    const normalAdmissions = await Admission.find({ _id: { $in: admissionIds } })
+        .populate("student")
+        .populate({ path: "course", select: "courseName" })
+        .populate({ path: "department", select: "departmentName" })
+        .lean();
+    
+    const normalMap = new Map(normalAdmissions.map(a => [a._id.toString(), a]));
+
+    // Identify IDs that were not found in Normal Admissions
+    const remainingIds = admissionIds.filter(id => !normalMap.has(id.toString()));
+
+    // Try Board Admissions
+    let boardMap = new Map();
+    if (remainingIds.length > 0) {
+        const boardAdmissions = await BoardCourseAdmission.find({ _id: { $in: remainingIds } })
+            .populate('boardId') // Boards model
+            .lean();
+        boardMap = new Map(boardAdmissions.map(a => [a._id.toString(), a]));
+    }
+
+    // Attach to cheques
+    cheques.forEach(c => {
+        const id = c.admission?.toString();
+        if (normalMap.has(id)) {
+            c.admission = normalMap.get(id);
+            c.isBoardAdmission = false;
+        } else if (boardMap.has(id)) {
+            c.admission = boardMap.get(id);
+            c.isBoardAdmission = true;
+        }
+    });
+
+    return cheques;
 };
 
 // Get all pending cheques
@@ -89,18 +132,14 @@ export const getPendingCheques = async (req, res) => {
 
         let cheques = await Payment.find(query)
             .populate({
-                path: "admission",
-                populate: [
-                    { path: "student" },
-                    { path: "course", select: "courseName" },
-                    { path: "department", select: "departmentName" }
-                ]
-            })
-            .populate({
                 path: "processedBy",
                 select: "name"
             })
-            .sort({ updatedAt: -1 });
+            .sort({ updatedAt: -1 })
+            .lean();
+
+        // Manual Population
+        await populateAdmissions(cheques);
 
         // Filter results based on query params (since some data is in populated fields)
         if (centre || course || department || search) {
@@ -121,18 +160,20 @@ export const getPendingCheques = async (req, res) => {
 
                 let matchesCourse = true;
                 if (requestedCourses.length > 0) {
-                    matchesCourse = requestedCourses.includes(adm.course?.courseName);
+                    const courseName = c.isBoardAdmission ? adm.boardCourseName : adm.course?.courseName;
+                    matchesCourse = requestedCourses.includes(courseName);
                 }
 
                 let matchesDept = true;
                 if (requestedDepts.length > 0) {
-                    matchesDept = requestedDepts.includes(adm.department?.departmentName);
+                    const deptName = c.isBoardAdmission ? "Board" : adm.department?.departmentName;
+                    matchesDept = requestedDepts.includes(deptName);
                 }
 
                 let matchesSearch = true;
                 if (search) {
                     const s = search.toLowerCase();
-                    const studentName = (adm.student?.studentsDetails?.[0]?.studentName || "").toLowerCase();
+                    const studentName = (c.isBoardAdmission ? adm.studentName : (adm.student?.studentsDetails?.[0]?.studentName || "")).toLowerCase();
                     const admNo = (adm.admissionNumber || "").toLowerCase();
                     const chNo = (c.transactionId || "").toLowerCase();
                     matchesSearch = studentName.includes(s) || admNo.includes(s) || chNo.includes(s);
@@ -142,33 +183,30 @@ export const getPendingCheques = async (req, res) => {
             });
         }
 
-        // Center Visibility Restriction for non-admins
-        if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
-            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
-            const userCentreNames = currentUser ? currentUser.centres.map(c => (c.centreName || "").trim().toLowerCase()).filter(Boolean) : [];
-            cheques = cheques.filter(c => {
-                const centerName = (c.admission?.centre || "").trim().toLowerCase();
-                return userCentreNames.includes(centerName);
-            });
-        }
-
-        const formattedCheques = cheques.map(c => ({
-            paymentId: c._id,
-            admissionId: c.admission?._id,
-            admissionNumber: c.admission?.admissionNumber,
-            studentName: c.admission?.student?.studentsDetails?.[0]?.studentName,
-            centre: c.admission?.centre,
-            department: c.admission?.department?.departmentName,
-            courseName: c.admission?.course?.courseName,
-            installmentNumber: c.installmentNumber,
-            amount: c.paidAmount,
-            chequeNumber: c.transactionId,
-            chequeDate: c.chequeDate,
-            bankName: c.accountHolderName,
-            status: c.status,
-            createdAt: c.createdAt,
-            processedBy: c.processedBy?.name || "System"
-        }));
+        const formattedCheques = cheques.map(c => {
+            const adm = c.admission;
+            const isBoard = c.isBoardAdmission;
+            
+            return {
+                paymentId: c._id,
+                admissionId: adm?._id,
+                admissionNumber: adm?.admissionNumber,
+                studentName: isBoard 
+                    ? adm?.studentName 
+                    : adm?.student?.studentsDetails?.[0]?.studentName,
+                centre: adm?.centre,
+                department: isBoard ? "Board" : adm?.department?.departmentName,
+                courseName: isBoard ? adm?.boardCourseName : adm?.course?.courseName,
+                installmentNumber: c.installmentNumber,
+                amount: c.paidAmount,
+                chequeNumber: c.transactionId,
+                chequeDate: c.chequeDate,
+                bankName: c.accountHolderName,
+                status: c.status,
+                createdAt: c.createdAt,
+                processedBy: c.processedBy?.name || "System"
+            };
+        });
 
         res.status(200).json(formattedCheques);
     } catch (error) {
@@ -191,7 +229,15 @@ export const clearCheque = async (req, res) => {
             return res.status(400).json({ message: "Only pending cheques can be cleared" });
         }
 
-        const admission = await Admission.findById(payment.admission);
+        // Try Normal Admission first, then Board Admission
+        let admission = await Admission.findById(payment.admission);
+        let isBoardAdmission = false;
+
+        if (!admission) {
+            admission = await BoardCourseAdmission.findById(payment.admission);
+            isBoardAdmission = true;
+        }
+
         if (!admission) {
             return res.status(404).json({ message: "Admission record not found" });
         }
@@ -208,43 +254,64 @@ export const clearCheque = async (req, res) => {
 
         await payment.save();
 
-        // 2. Update Admission paymentBreakdown or Down Payment
-        if (payment.installmentNumber === 0) {
-            admission.downPaymentStatus = "PAID";
-        } else {
-            const installment = admission.paymentBreakdown.find(
-                p => p.installmentNumber === payment.installmentNumber
-            );
-
-            if (installment) {
-                installment.status = "PAID";
-                installment.paidDate = payment.paidDate;
+        if (isBoardAdmission) {
+            // 2. Update Board Admission installments
+            const inst = admission.installments.find(i => i.monthNumber === payment.installmentNumber);
+            if (inst) {
+                // If paidAmount (already recorded) >= payableAmount, mark as PAID
+                if (inst.paidAmount >= (inst.payableAmount || 0) - 0.5) {
+                    inst.status = "PAID";
+                }
+                
+                // Also check and update the specific transaction status if needed (though Payment doc is the source)
             }
-        }
 
-        // 3. Update Admission totalPaidAmount
-        admission.totalPaidAmount = admission.paymentBreakdown.reduce(
-            (sum, p) => sum + (p.status === "PAID" ? (p.paidAmount || 0) : 0),
-            0
-        ) + (admission.downPaymentStatus === "PAID" ? admission.downPayment : 0);
-
-        // Recalculate remaining amount
-        admission.remainingAmount = Math.max(0, admission.totalFees - admission.totalPaidAmount);
-
-        // Update overall payment status
-        if (admission.totalPaidAmount >= admission.totalFees) {
-            admission.paymentStatus = "COMPLETED";
-            admission.remainingAmount = 0; // Ensure it's exactly 0 when completed
+            // 3. Recalculate Board Admission totalPaidAmount
+            admission.totalPaidAmount = admission.installments.reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0);
+            
+            // Note: Board Admissions use a different status management (ACTIVE/COMPLETED)
+            if (admission.totalPaidAmount >= (admission.totalExpectedAmount || 0) - 0.5) {
+                admission.status = "COMPLETED";
+            }
         } else {
-            admission.paymentStatus = "PARTIAL";
-        }
+            // 2. Update Normal Admission paymentBreakdown or Down Payment
+            if (payment.installmentNumber === 0) {
+                admission.downPaymentStatus = "PAID";
+            } else {
+                const installment = (admission.paymentBreakdown || []).find(
+                    p => p.installmentNumber === payment.installmentNumber
+                );
 
-        // 4. Update Board Course monthly history if applicable
-        if (admission.admissionType === 'BOARD' && payment.billingMonth) {
-            const historyEntry = admission.monthlySubjectHistory.find(h => h.month === payment.billingMonth);
-            if (historyEntry) {
-                historyEntry.isPaid = true;
-                historyEntry.status = "PAID";
+                if (installment) {
+                    installment.status = "PAID";
+                    installment.paidDate = payment.paidDate;
+                }
+            }
+
+            // 3. Update Normal Admission totalPaidAmount
+            admission.totalPaidAmount = (admission.paymentBreakdown || []).reduce(
+                (sum, p) => sum + (p.status === "PAID" ? (p.paidAmount || 0) : 0),
+                0
+            ) + (admission.downPaymentStatus === "PAID" ? (admission.downPayment || 0) : 0);
+
+            // Recalculate remaining amount
+            admission.remainingAmount = Math.max(0, admission.totalFees - admission.totalPaidAmount);
+
+            // Update overall payment status
+            if (admission.totalPaidAmount >= admission.totalFees - 0.5) {
+                admission.paymentStatus = "COMPLETED";
+                admission.remainingAmount = 0;
+            } else {
+                admission.paymentStatus = "PARTIAL";
+            }
+
+            // 4. Update Board-type Normal Admission monthly history if applicable
+            if (admission.admissionType === 'BOARD' && payment.billingMonth) {
+                const historyEntry = admission.monthlySubjectHistory?.find(h => h.month === payment.billingMonth);
+                if (historyEntry) {
+                    historyEntry.isPaid = true;
+                    historyEntry.status = "PAID";
+                }
             }
         }
 
@@ -272,13 +339,21 @@ export const rejectCheque = async (req, res) => {
             return res.status(404).json({ message: "Payment record not found" });
         }
 
-        const admission = await Admission.findById(payment.admission);
+        // Try Normal Admission first, then Board Admission
+        let admission = await Admission.findById(payment.admission);
+        let isBoardAdmission = false;
+
+        if (!admission) {
+            admission = await BoardCourseAdmission.findById(payment.admission);
+            isBoardAdmission = true;
+        }
+
         if (!admission) {
             return res.status(404).json({ message: "Admission record not found" });
         }
 
         // Revert any variance adjustments made during payment recording
-        await revertPaymentVariance(payment, admission);
+        await revertPaymentVariance(payment, admission, isBoardAdmission);
 
         // 1. Update Payment record
         payment.status = "REJECTED";
@@ -286,56 +361,124 @@ export const rejectCheque = async (req, res) => {
         payment.processedBy = req.user.id || req.user._id;
         await payment.save();
 
-        // 2. Update Admission paymentBreakdown or Down Payment
-        if (payment.installmentNumber === 0) {
-            admission.downPaymentStatus = "REJECTED";
-            admission.downPaymentTransactionId = null;
-            admission.remarks = (admission.remarks ? admission.remarks + "; " : "") + `Down payment cheque rejected: ${reason}`;
-        } else {
-            const installment = admission.paymentBreakdown.find(
-                p => p.installmentNumber === payment.installmentNumber
-            );
-
-            if (installment) {
-                // Reset to OVERDUE or PENDING depending on date
+        if (isBoardAdmission) {
+            // 2. Update Board Admission installments
+            const inst = admission.installments.find(i => i.monthNumber === payment.installmentNumber);
+            if (inst) {
+                // Subtract the rejected amount
+                inst.paidAmount = Math.max(0, (inst.paidAmount || 0) - (payment.paidAmount || 0));
+                
+                // Reset to PENDING or OVERDUE
                 const today = new Date();
-                if (new Date(installment.dueDate) < today) {
-                    installment.status = "OVERDUE";
+                if (new Date(inst.dueDate) < today) {
+                    inst.status = "PENDING"; // Often labeled as pending until cleared, or "OVERDUE" if expired
+                    // Note: Board schema uses ["PENDING", "PARTIALLY_PAID", "PARTIAL", "PAID"]
+                    if (inst.paidAmount > 0) inst.status = "PARTIAL";
+                    else inst.status = "PENDING";
                 } else {
-                    installment.status = "PENDING";
+                    if (inst.paidAmount > 0) inst.status = "PARTIAL";
+                    else inst.status = "PENDING";
                 }
-                installment.paidAmount = 0;
-                installment.paymentMethod = null;
-                installment.transactionId = null;
-                installment.remarks = (installment.remarks ? installment.remarks + "; " : "") + `Cheque rejected: ${reason}`;
+                
+                // Find and remove the transaction from the array if possible
+                if (payment.transactionId) {
+                    inst.paymentTransactions = inst.paymentTransactions.filter(t => t.transactionId !== payment.transactionId);
+                }
             }
-        }
 
-        // 3. Recalculate totalPaidAmount
-        admission.totalPaidAmount = admission.paymentBreakdown.reduce(
-            (sum, p) => sum + (p.status === "PAID" ? (p.paidAmount || 0) : 0),
-            0
-        ) + (admission.downPaymentStatus === "PAID" ? admission.downPayment : 0);
+            // 3. Recalculate Board Admission totals
+            // Check if it was an exam fee (some cheques might be for exam fees)
+            const isExamFee = payment.remarks?.toLowerCase().includes("exam");
+            if (isExamFee) {
+                 admission.examFeePaid = Math.max(0, (admission.examFeePaid || 0) - (payment.paidAmount || 0));
+                 if (admission.examFeePaid > 0) admission.examFeeStatus = "PARTIAL";
+                 else admission.examFeeStatus = "PENDING";
+            }
 
-        // Recalculate remaining amount
-        admission.remainingAmount = Math.max(0, admission.totalFees - admission.totalPaidAmount);
+            admission.totalPaidAmount = admission.installments.reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0);
+            
+            // Re-trigger cascade if needed (handled by the controller logic usually)
+            // For now, we manually recalculate the chain for board admissions to be safe
+            let runningBalance = 0;
+            let adjustmentApplied = false;
+            for (let i = 0; i < admission.installments.length; i++) {
+                const current = admission.installments[i];
+                const netMonthly = (current.standardAmount || 0) - (current.waiverAmount || 0);
+                const extraFees = current.monthNumber === 1 ? (Number(admission.admissionFee) || 0) : 0;
+                
+                if (current.monthNumber > 1 && !adjustmentApplied && Math.abs(runningBalance) > 0.5) {
+                    current.adjustmentAmount = -runningBalance;
+                    adjustmentApplied = true;
+                } else if (current.monthNumber > 1) {
+                    current.adjustmentAmount = 0;
+                }
 
-        // Update payment status
-        if (admission.totalPaidAmount >= admission.totalFees) {
-            admission.paymentStatus = "COMPLETED";
-            admission.remainingAmount = 0;
-        } else if (admission.totalPaidAmount > 0) {
-            admission.paymentStatus = "PARTIAL";
+                current.payableAmount = Math.max(0, netMonthly + extraFees + (current.adjustmentAmount || 0));
+                
+                if (current.paidAmount >= current.payableAmount - 0.5 && current.payableAmount > 0) {
+                    current.status = "PAID";
+                } else if (current.paidAmount > 0.5) {
+                    current.status = "PARTIAL";
+                } else {
+                    current.status = "PENDING";
+                }
+
+                if (current.paidAmount > 0.5) {
+                    runningBalance += (current.paidAmount - (netMonthly + extraFees));
+                    adjustmentApplied = false;
+                }
+            }
         } else {
-            admission.paymentStatus = "PENDING";
-        }
+            // 2. Update Normal Admission paymentBreakdown or Down Payment
+            if (payment.installmentNumber === 0) {
+                admission.downPaymentStatus = "REJECTED";
+                admission.downPaymentTransactionId = null;
+                admission.remarks = (admission.remarks ? admission.remarks + "; " : "") + `Down payment cheque rejected: ${reason}`;
+            } else {
+                const installment = (admission.paymentBreakdown || []).find(
+                    p => p.installmentNumber === payment.installmentNumber
+                );
 
-        // 4. Update Board Course monthly history if applicable
-        if (admission.admissionType === 'BOARD' && payment.billingMonth) {
-            const historyEntry = admission.monthlySubjectHistory.find(h => h.month === payment.billingMonth);
-            if (historyEntry) {
-                historyEntry.isPaid = false;
-                historyEntry.status = "REJECTED";
+                if (installment) {
+                    const today = new Date();
+                    if (new Date(installment.dueDate) < today) {
+                        installment.status = "OVERDUE";
+                    } else {
+                        installment.status = "PENDING";
+                    }
+                    installment.paidAmount = 0;
+                    installment.paymentMethod = null;
+                    installment.transactionId = null;
+                    installment.remarks = (installment.remarks ? installment.remarks + "; " : "") + `Cheque rejected: ${reason}`;
+                }
+            }
+
+            // 3. Recalculate Normal Admission totalPaidAmount
+            admission.totalPaidAmount = (admission.paymentBreakdown || []).reduce(
+                (sum, p) => sum + (p.status === "PAID" ? (p.paidAmount || 0) : 0),
+                0
+            ) + (admission.downPaymentStatus === "PAID" ? (admission.downPayment || 0) : 0);
+
+            // Recalculate remaining amount
+            admission.remainingAmount = Math.max(0, admission.totalFees - admission.totalPaidAmount);
+
+            // Update payment status
+            if (admission.totalPaidAmount >= admission.totalFees - 0.5) {
+                admission.paymentStatus = "COMPLETED";
+                admission.remainingAmount = 0;
+            } else if (admission.totalPaidAmount > 0) {
+                admission.paymentStatus = "PARTIAL";
+            } else {
+                admission.paymentStatus = "PENDING";
+            }
+
+            // 4. Update Board-type Normal Admission monthly history if applicable
+            if (admission.admissionType === 'BOARD' && payment.billingMonth) {
+                const historyEntry = admission.monthlySubjectHistory?.find(h => h.month === payment.billingMonth);
+                if (historyEntry) {
+                    historyEntry.isPaid = false;
+                    historyEntry.status = "REJECTED";
+                }
             }
         }
 
@@ -396,18 +539,14 @@ export const getAllCheques = async (req, res) => {
 
         let cheques = await Payment.find(query)
             .populate({
-                path: "admission",
-                populate: [
-                    { path: "student" },
-                    { path: "course", select: "courseName" },
-                    { path: "department", select: "departmentName" } // Ensure retrieval of department name
-                ]
-            })
-            .populate({
                 path: "processedBy",
                 select: "name"
             })
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
+
+        // Manual Population
+        await populateAdmissions(cheques);
 
         // Filter results based on query params (since some data is in populated fields)
         if (centre || course || department || search) {
@@ -432,19 +571,21 @@ export const getAllCheques = async (req, res) => {
                 // Course multi-select matching
                 let matchesCourse = true;
                 if (requestedCourses.length > 0) {
-                    matchesCourse = requestedCourses.includes(adm.course?.courseName);
+                    const courseName = c.isBoardAdmission ? adm.boardCourseName : adm.course?.courseName;
+                    matchesCourse = requestedCourses.includes(courseName);
                 }
 
                 // Department multi-select matching
                 let matchesDept = true;
                 if (requestedDepts.length > 0) {
-                    matchesDept = requestedDepts.includes(adm.department?.departmentName);
+                    const deptName = c.isBoardAdmission ? "Board" : adm.department?.departmentName;
+                    matchesDept = requestedDepts.includes(deptName);
                 }
 
                 let matchesSearch = true;
                 if (search) {
                     const searchLower = search.toLowerCase();
-                    const studentName = adm.student?.studentsDetails?.[0]?.studentName?.toLowerCase() || "";
+                    const studentName = (c.isBoardAdmission ? adm.studentName : (adm.student?.studentsDetails?.[0]?.studentName || "")).toLowerCase();
                     const admissionNo = adm.admissionNumber?.toLowerCase() || "";
                     const chequeNo = c.transactionId?.toLowerCase() || "";
 
@@ -457,33 +598,30 @@ export const getAllCheques = async (req, res) => {
             });
         }
 
-        // Center Visibility Restriction (Enforce if not SuperAdmin)
-        if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
-            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
-            const userCentreNames = currentUser ? currentUser.centres.map(c => (c.centreName || "").trim()).filter(Boolean) : [];
-            cheques = cheques.filter(c => {
-                const centerName = (c.admission?.centre || "").trim();
-                return userCentreNames.includes(centerName);
-            });
-        }
+        const formattedCheques = cheques.map(c => {
+            const adm = c.admission;
+            const isBoard = c.isBoardAdmission;
 
-        const formattedCheques = cheques.map(c => ({
-            id: c._id,
-            paymentId: c._id,
-            studentName: c.admission?.student?.studentsDetails?.[0]?.studentName || "Unknown",
-            admissionNo: c.admission?.admissionNumber || "N/A",
-            chequeNumber: c.transactionId || "N/A",
-            bankName: c.accountHolderName || "N/A",
-            amount: c.paidAmount,
-            chequeDate: c.chequeDate,
-            status: c.status === "PAID" ? "Cleared" : (c.status === "REJECTED" ? "Rejected" : (c.status === "CANCELLED" ? "Cancelled" : "Pending")), // Map backend status to UI status
-            centre: c.admission?.centre || "N/A",
-            course: c.admission?.course?.courseName || "N/A",
-            department: c.admission?.department?.departmentName || "N/A",
-            remarks: c.remarks || "N/A",
-            processedBy: c.processedBy?.name || "System",
-            processedDate: c.updatedAt
-        }));
+            return {
+                id: c._id,
+                paymentId: c._id,
+                studentName: isBoard 
+                    ? adm?.studentName 
+                    : (adm?.student?.studentsDetails?.[0]?.studentName || "Unknown"),
+                admissionNo: adm?.admissionNumber || "N/A",
+                chequeNumber: c.transactionId || "N/A",
+                bankName: c.accountHolderName || "N/A",
+                amount: c.paidAmount,
+                chequeDate: c.chequeDate,
+                status: c.status === "PAID" ? "Cleared" : (c.status === "REJECTED" ? "Rejected" : (c.status === "CANCELLED" ? "Cancelled" : "Pending")),
+                centre: adm?.centre || "N/A",
+                course: isBoard ? adm?.boardCourseName : (adm?.course?.courseName || "N/A"),
+                department: isBoard ? "Board" : (adm?.department?.departmentName || "N/A"),
+                remarks: c.remarks || "N/A",
+                processedBy: c.processedBy?.name || "System",
+                processedDate: c.updatedAt
+            };
+        });
 
         res.status(200).json(formattedCheques);
     } catch (error) {
@@ -503,7 +641,15 @@ export const cancelCheque = async (req, res) => {
             return res.status(404).json({ message: "Payment record not found" });
         }
 
-        const admission = await Admission.findById(payment.admission);
+        // Try Normal Admission first, then Board Admission
+        let admission = await Admission.findById(payment.admission);
+        let isBoardAdmission = false;
+
+        if (!admission) {
+            admission = await BoardCourseAdmission.findById(payment.admission);
+            isBoardAdmission = true;
+        }
+
         if (!admission) {
             return res.status(404).json({ message: "Admission record not found" });
         }
@@ -519,77 +665,123 @@ export const cancelCheque = async (req, res) => {
         }
 
         // Revert any variance adjustments made during payment recording
-        await revertPaymentVariance(payment, admission);
+        await revertPaymentVariance(payment, admission, isBoardAdmission);
 
         // 1. Update Payment record
-        payment.status = "CANCELLED"; // Or "REJECTED" if you want to reuse that enum
+        payment.status = "CANCELLED";
         payment.remarks = (payment.remarks ? payment.remarks + "; " : "") + `CANCELLED: ${reason}`;
         payment.processedBy = req.user.id || req.user._id;
         await payment.save();
 
-        // 2. Update Admission paymentBreakdown or Down Payment
-        if (payment.installmentNumber === 0) {
-            // If it was a down payment
-            if (admission.downPaymentStatus === "PAID" || admission.downPaymentStatus === "PENDING_CLEARANCE") {
-                admission.downPaymentStatus = "REJECTED"; // Logic similar to rejection, or add CANCELLED status enum
-                // Note: Schema has ["PENDING", "PAID", "PENDING_CLEARANCE", "REJECTED"] for downPaymentStatus.
-                // We'll use REJECTED to signify it's invalid now, or consider adding CANCELLED if strictly needed.
-                // Using REJECTED for now to be safe with existing enum validation.
-            }
-            admission.remarks = (admission.remarks ? admission.remarks + "; " : "") + `Down payment cheque cancelled: ${reason}`;
-        } else {
-            // If it was an installment
-            const installment = admission.paymentBreakdown.find(
-                p => p.installmentNumber === payment.installmentNumber
-            );
-
-            if (installment) {
-                // Revert to PENDING or OVERDUE
-                const today = new Date();
-                if (new Date(installment.dueDate) < today) {
-                    installment.status = "OVERDUE";
-                } else {
-                    installment.status = "PENDING";
+        if (isBoardAdmission) {
+            // 2. Update Board Admission installments
+            const inst = admission.installments.find(i => i.monthNumber === payment.installmentNumber);
+            if (inst) {
+                // Subtract the cancelled amount
+                inst.paidAmount = Math.max(0, (inst.paidAmount || 0) - (payment.paidAmount || 0));
+                
+                // Reset status
+                if (inst.paidAmount > 0.5) inst.status = "PARTIAL";
+                else inst.status = "PENDING";
+                
+                // Remove transaction
+                if (payment.transactionId) {
+                    inst.paymentTransactions = inst.paymentTransactions.filter(t => t.transactionId !== payment.transactionId);
                 }
-                installment.paidAmount = 0;
-                installment.paymentMethod = null;
-                installment.transactionId = null;
-                installment.remarks = (installment.remarks ? installment.remarks + "; " : "") + `Cheque cancelled: ${reason}`;
-
-                // If it was marked as paid, we need to subtract from totalPaidAmount?
-                // Yes, logic below handles totalPaidAmount recalculation.
             }
-        }
 
-        // 3. Recalculate totalPaidAmount
-        // This is crucial to ensure financial accuracy
-        admission.totalPaidAmount = admission.paymentBreakdown.reduce(
-            (sum, p) => sum + (p.status === "PAID" ? (p.paidAmount || 0) : 0),
-            0
-        ) + (admission.downPaymentStatus === "PAID" ? admission.downPayment : 0);
+            // 3. Recalculate Board Admission totals
+            const isExamFee = payment.remarks?.toLowerCase().includes("exam");
+            if (isExamFee) {
+                 admission.examFeePaid = Math.max(0, (admission.examFeePaid || 0) - (payment.paidAmount || 0));
+                 if (admission.examFeePaid > 0) admission.examFeeStatus = "PARTIAL";
+                 else admission.examFeeStatus = "PENDING";
+            }
 
-        // Recalculate remaining amount
-        admission.remainingAmount = Math.max(0, admission.totalFees - admission.totalPaidAmount);
+            admission.totalPaidAmount = admission.installments.reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0);
+            
+            // Recalculate cascade
+            let runningBalance = 0;
+            let adjustmentApplied = false;
+            for (let i = 0; i < admission.installments.length; i++) {
+                const current = admission.installments[i];
+                const netMonthly = (current.standardAmount || 0) - (current.waiverAmount || 0);
+                const extraFees = current.monthNumber === 1 ? (Number(admission.admissionFee) || 0) : 0;
+                
+                if (current.monthNumber > 1 && !adjustmentApplied && Math.abs(runningBalance) > 0.5) {
+                    current.adjustmentAmount = -runningBalance;
+                    adjustmentApplied = true;
+                } else if (current.monthNumber > 1) {
+                    current.adjustmentAmount = 0;
+                }
 
-        // Update paymentStatus
-        if (admission.totalPaidAmount >= admission.totalFees) {
-            admission.paymentStatus = "COMPLETED";
-            admission.remainingAmount = 0; // Ensure it's exactly 0 when completed
+                current.payableAmount = Math.max(0, netMonthly + extraFees + (current.adjustmentAmount || 0));
+                
+                if (current.paidAmount >= current.payableAmount - 0.5 && current.payableAmount > 0) {
+                    current.status = "PAID";
+                } else if (current.paidAmount > 0.5) {
+                    current.status = "PARTIAL";
+                } else {
+                    current.status = "PENDING";
+                }
+
+                if (current.paidAmount > 0.5) {
+                    runningBalance += (current.paidAmount - (netMonthly + extraFees));
+                    adjustmentApplied = false;
+                }
+            }
         } else {
-            // If it was completed, it might go back to partial or pending
-            if (admission.totalPaidAmount > 0) {
+            // 2. Update Normal Admission paymentBreakdown or Down Payment
+            if (payment.installmentNumber === 0) {
+                if (admission.downPaymentStatus === "PAID" || admission.downPaymentStatus === "PENDING_CLEARANCE") {
+                    admission.downPaymentStatus = "REJECTED"; 
+                }
+                admission.remarks = (admission.remarks ? admission.remarks + "; " : "") + `Down payment cheque cancelled: ${reason}`;
+            } else {
+                const installment = (admission.paymentBreakdown || []).find(
+                    p => p.installmentNumber === payment.installmentNumber
+                );
+
+                if (installment) {
+                    const today = new Date();
+                    if (new Date(installment.dueDate) < today) {
+                        installment.status = "OVERDUE";
+                    } else {
+                        installment.status = "PENDING";
+                    }
+                    installment.paidAmount = 0;
+                    installment.paymentMethod = null;
+                    installment.transactionId = null;
+                    installment.remarks = (installment.remarks ? installment.remarks + "; " : "") + `Cheque cancelled: ${reason}`;
+                }
+            }
+
+            // 3. Recalculate Normal Admission totalPaidAmount
+            admission.totalPaidAmount = (admission.paymentBreakdown || []).reduce(
+                (sum, p) => sum + (p.status === "PAID" ? (p.paidAmount || 0) : 0),
+                0
+            ) + (admission.downPaymentStatus === "PAID" ? (admission.downPayment || 0) : 0);
+
+            // Recalculate remaining amount
+            admission.remainingAmount = Math.max(0, admission.totalFees - admission.totalPaidAmount);
+
+            // Update paymentStatus
+            if (admission.totalPaidAmount >= admission.totalFees - 0.5) {
+                admission.paymentStatus = "COMPLETED";
+                admission.remainingAmount = 0;
+            } else if (admission.totalPaidAmount > 0) {
                 admission.paymentStatus = "PARTIAL";
             } else {
                 admission.paymentStatus = "PENDING";
             }
-        }
 
-        // 4. Update Board Course monthly history if applicable
-        if (admission.admissionType === 'BOARD' && payment.billingMonth) {
-            const historyEntry = admission.monthlySubjectHistory.find(h => h.month === payment.billingMonth);
-            if (historyEntry) {
-                historyEntry.isPaid = false;
-                historyEntry.status = "PENDING";
+            // 4. Update Board-type Normal Admission monthly history if applicable
+            if (admission.admissionType === 'BOARD' && payment.billingMonth) {
+                const historyEntry = admission.monthlySubjectHistory?.find(h => h.month === payment.billingMonth);
+                if (historyEntry) {
+                    historyEntry.isPaid = false;
+                    historyEntry.status = "PENDING";
+                }
             }
         }
 

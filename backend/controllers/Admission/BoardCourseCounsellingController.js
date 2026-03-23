@@ -130,7 +130,7 @@ export const getBoardCourseCounselling = async (req, res) => {
             return res.status(200).json(record);
         }
 
-        const counselling = await BoardCourseCounselling.find({})
+        const counselling = await BoardCourseCounselling.find({ status: "PENDING" })
             .populate({
                 path: 'studentId',
                 populate: {

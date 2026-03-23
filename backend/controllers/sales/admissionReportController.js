@@ -1,4 +1,5 @@
 import Admission from "../../models/Admission/Admission.js";
+import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import LeadManagement from "../../models/LeadManagement.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Course from "../../models/Master_data/Courses.js";
@@ -115,6 +116,7 @@ export const getAdmissionReport = async (req, res) => {
             // --- DAILY REPORTING ENGINE ---
             const dailyAdmitted = await Admission.aggregate([
                 { $match: admissionQuery },
+                { $unionWith: { coll: "boardcourseadmissions", pipeline: [{ $match: admissionQuery }] } },
                 {
                     $group: {
                         _id: { $dateToString: { format: "%Y-%m-%d", date: "$admissionDate" } },
@@ -181,12 +183,42 @@ export const getAdmissionReport = async (req, res) => {
         const detailedTrendRaw = await Admission.aggregate([
             { $match: admissionQuery },
             {
+                $project: {
+                    admissionDate: 1,
+                    centre: 1,
+                    course: 1,
+                    class: 1,
+                    boardCourseName: 1,
+                    admissionType: 1
+                }
+            },
+            {
+                $unionWith: {
+                    coll: "boardcourseadmissions",
+                    pipeline: [
+                        { $match: admissionQuery },
+                        {
+                            $project: {
+                                admissionDate: 1,
+                                centre: 1,
+                                course: "$boardId",
+                                class: "$lastClass",
+                                boardCourseName: 1,
+                                admissionType: { $literal: "BOARD" }
+                            }
+                        }
+                    ]
+                }
+            },
+            {
                 $group: {
                     _id: {
                         month: { $month: "$admissionDate" },
                         centre: "$centre",
                         course: "$course",
-                        class: "$class"
+                        class: "$class",
+                        boardCourseName: "$boardCourseName",
+                        admissionType: "$admissionType"
                     },
                     count: { $sum: 1 }
                 }
@@ -213,8 +245,8 @@ export const getAdmissionReport = async (req, res) => {
                 $project: {
                     month: "$_id.month",
                     centre: "$_id.centre",
-                    courseName: "$courseInfo.courseName",
-                    className: "$classInfo.name",
+                    courseName: { $ifNull: ["$courseInfo.courseName", "$_id.boardCourseName", "Generic Admission"] },
+                    className: { $ifNull: ["$classInfo.name", { $cond: [{ $eq: ["$_id.admissionType", "BOARD"] }, "Board", "N/A"] }] },
                     count: "$count",
                     _id: 0
                 }
@@ -226,6 +258,7 @@ export const getAdmissionReport = async (req, res) => {
         // 2. Admission Status (Admitted vs In Counselling) per month
         const monthlyAdmitted = await Admission.aggregate([
             { $match: admissionQuery },
+            { $unionWith: { coll: "boardcourseadmissions", pipeline: [{ $match: admissionQuery }] } },
             {
                 $group: {
                     _id: { $month: "$admissionDate" },

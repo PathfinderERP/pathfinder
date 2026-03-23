@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
+import BoardCourseCounselling from "../../models/Admission/BoardCourseCounselling.js";
 import Boards from "../../models/Master_data/Boards.js";
 import Subject from "../../models/Master_data/Subject.js";
 import Students from "../../models/Students.js";
@@ -73,7 +74,7 @@ export const createBoardAdmission = async (req, res) => {
             return res.status(400).json({ message: "No valid subjects selected from master data" });
         }
 
-        const totalSubjectMonthlyFee = activeSubjects.reduce((sum, s) => sum + s.amount, 0);
+        const totalSubjectMonthlyFee = (programme === "NCRP") ? 0 : activeSubjects.reduce((sum, s) => sum + s.amount, 0);
         const monthlyWaiver = totalWaiver / totalDurationMonths;
         const expectedMonthly = totalSubjectMonthlyFee - monthlyWaiver;
 
@@ -90,7 +91,7 @@ export const createBoardAdmission = async (req, res) => {
                 standardAmount: totalSubjectMonthlyFee,
                 subjects: activeSubjects.map(as => ({
                     subjectId: as.subjectId?._id || as.subjectId,
-                    price: as.amount
+                    price: (programme === "NCRP") ? 0 : as.amount
                 })),
                 waiverAmount: monthlyWaiver,
                 paidAmount: 0,
@@ -218,7 +219,7 @@ export const createBoardAdmission = async (req, res) => {
                     dueDate: installments[0].dueDate,
                     paidDate: new Date(),
                     receivedDate: new Date(),
-                    status: "PAID",
+                    status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
                     paymentMethod: paymentMethod || "CASH",
                     transactionId: transactionId || "DP-" + Date.now(),
                     bankName: bankName,
@@ -242,6 +243,12 @@ export const createBoardAdmission = async (req, res) => {
 
         // Update student enrollment status if needed
         await Students.findByIdAndUpdate(studentId, { isEnrolled: true });
+        
+        // Mark board counselling records as ENROLLED
+        await BoardCourseCounselling.updateMany(
+            { studentId, boardId },
+            { status: "ENROLLED" }
+        );
 
         res.status(201).json({
             message: "Board Course Admission created successfully",
@@ -525,7 +532,9 @@ export const collectBoardInstallment = async (req, res) => {
             receivedBy: req.user?._id
         });
 
-        if (inst.paidAmount > 0.5 || inst.payableAmount <= 0.5) {
+        if (paymentMethod === "CHEQUE") {
+            inst.status = "PENDING"; // Or we could add PENDING_CLEARANCE to the enum if needed
+        } else if (inst.paidAmount > 0.5 || inst.payableAmount <= 0.5) {
             inst.status = "PAID";
         } else {
             inst.status = "PENDING";
@@ -612,7 +621,7 @@ export const collectBoardInstallment = async (req, res) => {
                 dueDate: inst.dueDate,
                 paidDate: new Date(),
                 receivedDate: new Date(),
-                status: inst.status,
+                status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : inst.status,
                 paymentMethod: paymentMethod,
                 transactionId: transactionId,
                 bankName: bankName,

@@ -261,6 +261,7 @@ const BoardCourseAdmissionPage = () => {
     };
 
     const calculateMonthlyFee = () => {
+        if (programme === "NCRP") return 0;
         // Use Board Course Subject master prices, NOT the old Board.subjects prices
         return boardCourseSubjects
             .filter(s => selectedSubjectIds.includes(s.subjectId?._id?.toString() || s.subjectId?.toString()))
@@ -666,7 +667,7 @@ const BoardCourseAdmissionPage = () => {
                                 <h5 className="text-xs font-black text-cyan-500 uppercase tracking-[0.2em] mb-4">Board & Enrollment Fee Config</h5>
                                 <div className="grid grid-cols-2 gap-6">
                                     <div>
-                                        <label className="block text-[11px] font-black uppercase text-gray-400 mb-2 leading-tight">Board Registration / Admission Fee</label>
+                                        <label className={`block text-[11px] font-black uppercase mb-2 leading-tight ${isDarkMode ? 'text-gray-400' : 'text-cyan-800/80'}`}>Board Registration / Admission Fee</label>
                                         <div className="relative">
                                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">₹</span>
                                             <input
@@ -678,7 +679,7 @@ const BoardCourseAdmissionPage = () => {
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-[11px] font-black uppercase text-gray-400 mb-2 leading-tight">Total Examination & Practical Fee</label>
+                                        <label className={`block text-[11px] font-black uppercase mb-2 leading-tight ${isDarkMode ? 'text-gray-400' : 'text-cyan-800/80'}`}>Total Examination & Practical Fee</label>
                                         <div className="relative">
                                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">₹</span>
                                             <input
@@ -709,51 +710,51 @@ const BoardCourseAdmissionPage = () => {
                             </div>
 
                             <div className="pt-4 space-y-3">
-                                <div className="flex justify-between items-center pb-2 border-b border-gray-800">
+                                <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                                     <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest leading-none">Monthly Fees</span>
-                                    <span className="text-sm font-black italic text-white leading-none">₹{monthlyFee}</span>
+                                    <span className={`text-sm font-black italic leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{monthlyFee}</span>
                                 </div>
-                                <div className="flex justify-between items-center pb-2 border-b border-gray-800">
+                                <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                                     <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest leading-none">Monthly Waiver</span>
                                     <span className="text-sm font-black text-red-500 italic leading-none">- ₹{monthlyWaiver.toFixed(0)}</span>
                                 </div>
                                 <div className="flex justify-between items-center pt-2">
                                     <span className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.2em] leading-none">Expected Amount</span>
-                                    <span className="text-lg font-black text-white italic leading-none">₹{((monthlyFee - monthlyWaiver) * durationMonths + Number(admissionFee) + Number(examFee)).toFixed(0)}</span>
+                                    <span className={`text-lg font-black italic leading-none ${isDarkMode ? 'text-white' : 'text-cyan-600'}`}>₹{((monthlyFee - monthlyWaiver) * durationMonths + Number(admissionFee) + Number(examFee)).toFixed(0)}</span>
                                 </div>
                             </div>
 
-                            <div className={`mt-8 p-6 rounded-2xl bg-gradient-to-br from-black/40 to-black/20 space-y-4 border border-white/5`}>
+                            <div className={`mt-8 p-6 rounded-2xl space-y-4 border ${isDarkMode ? 'bg-gradient-to-br from-black/40 to-black/20 border-white/5' : 'bg-white border-gray-200 shadow-md'}`}>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-[11px] font-bold text-gray-500 uppercase italic leading-none">Month 1 Owed (Tuit + Adm)</span>
+                                    <span className={`text-[11px] font-bold uppercase italic leading-none ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>Month 1 Owed (Tuit + Adm)</span>
                                     <span className="text-lg font-black text-amber-500 italic leading-none">
                                         ₹{(netMonthly + Number(admissionFee)).toFixed(0)}
                                     </span>
                                 </div>
                                 
-                                <div className="flex justify-between items-center pt-3 border-t border-white/10">
-                                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.1em] leading-none">Paid Today (Tuit/Adm)</span>
+                                <div className={`flex justify-between items-center pt-3 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`}>
+                                    <span className={`text-[11px] font-bold uppercase tracking-[0.1em] leading-none ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Paid Today (Tuit/Adm)</span>
                                     <span className="text-xl font-black text-green-500 italic leading-none">₹{downPayment}</span>
                                 </div>
                                 
                                 <div className="flex justify-between items-center">
-                                    <span className="text-[11px] font-bold text-cyan-500 uppercase tracking-[0.1em] leading-none">Paid Today (Exam)</span>
-                                    <span className="text-xl font-black text-cyan-400 italic leading-none">₹{paidExamFee}</span>
+                                    <span className={`text-[11px] font-bold uppercase tracking-[0.1em] leading-none ${isDarkMode ? 'text-cyan-500' : 'text-cyan-600'}`}>Paid Today (Exam)</span>
+                                    <span className={`text-xl font-black italic leading-none ${isDarkMode ? 'text-cyan-400' : 'text-cyan-500'}`}>₹{paidExamFee}</span>
                                 </div>
 
-                                <div className="flex justify-between items-center pt-4 border-t-2 border-dashed border-cyan-500/30">
-                                    <span className="text-[12px] font-black text-white uppercase italic tracking-[0.3em] leading-none">TOTAL PAYMENT</span>
-                                    <span className="text-3xl font-black text-white bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent italic leading-none">₹{Number(downPayment) + Number(paidExamFee)}</span>
+                                <div className={`flex justify-between items-center pt-4 border-t-2 border-dashed ${isDarkMode ? 'border-cyan-500/30' : 'border-cyan-200'}`}>
+                                    <span className={`text-[12px] font-black uppercase italic tracking-[0.3em] leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>TOTAL PAYMENT</span>
+                                    <span className={`text-3xl font-black italic leading-none ${isDarkMode ? 'text-white bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent' : 'text-cyan-600'}`}>₹{Number(downPayment) + Number(paidExamFee)}</span>
                                 </div>
                                 
                                 <div className="flex justify-between items-center pt-4">
-                                    <span className="text-[11px] font-bold text-gray-400 uppercase leading-none">Month 2 Payable</span>
+                                    <span className={`text-[11px] font-bold uppercase leading-none ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Month 2 Payable</span>
                                     <span className={`text-lg font-black italic leading-none ${(netMonthly + (netMonthly + Number(admissionFee) - downPayment)) < 0 ? 'text-green-500' : 'text-cyan-500'}`}>
                                         ₹{Math.max(0, netMonthly + (netMonthly + Number(admissionFee) - downPayment)).toFixed(0)}
                                     </span>
                                 </div>
                                 
-                                <p className="text-[10px] text-gray-500 font-bold uppercase italic mt-4 leading-relaxed bg-black/30 p-2 rounded">
+                                <p className={`text-[10px] font-bold uppercase italic mt-4 leading-relaxed p-2 rounded ${isDarkMode ? 'text-gray-500 bg-black/30' : 'text-gray-600 bg-gray-50'}`}>
                                     {downPayment > (netMonthly + Number(admissionFee))
                                         ? `* Excess of ₹${(downPayment - (netMonthly + Number(admissionFee))).toFixed(0)} will be adjusted next month.`
                                         : downPayment < (netMonthly + Number(admissionFee))
