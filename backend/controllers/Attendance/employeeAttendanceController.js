@@ -26,6 +26,7 @@ export const markAttendance = async (req, res) => {
     try {
         const { latitude, longitude, type } = req.body; // type: 'checkIn' or 'checkOut'
         const userId = req.user.id;
+        const userRole = req.user.role; // Extract user role
         const today = startOfDay(new Date());
 
         // 1. Get Employee Details with all centres populated
@@ -36,18 +37,24 @@ export const markAttendance = async (req, res) => {
         if (!employee) return res.status(404).json({ message: "Employee profile not found" });
 
         // Collect all potential centres (primary + additional)
-        const allCentres = [];
-        if (employee.primaryCentre) allCentres.push(employee.primaryCentre);
-        if (employee.centres && Array.isArray(employee.centres)) {
-            employee.centres.forEach(c => {
-                if (c && !allCentres.find(existing => existing._id.toString() === c._id.toString())) {
-                    allCentres.push(c);
-                }
-            });
+        let allCentres = [];
+        
+        if (userRole === 'superAdmin') {
+            // SuperAdmins can check-in from ANY centre in the system
+            allCentres = await Centre.find({});
+        } else {
+            if (employee.primaryCentre) allCentres.push(employee.primaryCentre);
+            if (employee.centres && Array.isArray(employee.centres)) {
+                employee.centres.forEach(c => {
+                    if (c && !allCentres.find(existing => existing._id.toString() === c._id.toString())) {
+                        allCentres.push(c);
+                    }
+                });
+            }
         }
 
         if (allCentres.length === 0) {
-            return res.status(400).json({ message: "No centres assigned to your profile. Please contact admin." });
+            return res.status(400).json({ message: "No centres available for attendance verification." });
         }
 
         // 2. Geolocation Check against all assigned centres
@@ -132,7 +139,7 @@ export const markAttendance = async (req, res) => {
                     await attendance.save();
 
                     return res.status(200).json({
-                        message: `Attendance Reset! You have checked in again at ${matchingCentre.centreName}.`,
+                        message: `Attendance marked from ${matchingCentre.centreName} center`,
                         attendance,
                         centreName: matchingCentre.centreName
                     });
@@ -175,7 +182,7 @@ export const markAttendance = async (req, res) => {
 
         await attendance.save();
         res.status(200).json({
-            message: `Successfully ${type === 'checkIn' ? 'checked in' : 'checked out'} at ${matchingCentre.centreName}. Status: ${attendance.status}`,
+            message: `Attendance marked from ${matchingCentre.centreName} center`,
             attendance,
             centreName: matchingCentre.centreName
         });
