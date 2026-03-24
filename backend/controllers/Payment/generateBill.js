@@ -33,7 +33,7 @@ export const generateBill = async (req, res) => {
             .populate('department')
             .populate('examTag')
             .populate('class');
-        
+
         let isBoardAdmission = false;
 
         if (!admission) {
@@ -183,7 +183,7 @@ export const generateBill = async (req, res) => {
                 paymentMethod: installment.paymentMethod || "CASH",
                 transactionId: installment.transactionId || (isBoardAdmission && installment.paymentTransactions?.length > 0 ? installment.paymentTransactions[installment.paymentTransactions.length - 1].transactionId : ""),
                 remarks: installment.remarks || (isBoardAdmission ? `Board Installment Month ${installment.monthNumber}` : ""),
-                recordedBy: req.user?.id || req.user?._id, 
+                recordedBy: req.user?.id || req.user?._id,
                 cgst,
                 sgst,
                 courseFee,
@@ -217,7 +217,7 @@ export const generateBill = async (req, res) => {
         const billData = {
             billId: payment.billId,
             billDate: payment.paidDate || new Date(),
-            gstNumber: generateGSTNumber(), 
+            gstNumber: generateGSTNumber(),
             centre: {
                 name: centre.centreName,
                 address: centre.address || 'N/A',
@@ -378,7 +378,9 @@ export const getBillsByAdmission = async (req, res) => {
             sgst: payment.sgst,
             totalAmount: payment.totalAmount,
             paymentMethod: payment.paymentMethod,
-            transactionId: payment.transactionId
+            transactionId: payment.transactionId,
+            remarks: payment.remarks,
+            boardCourseName: payment.boardCourseName
         }));
 
         res.status(200).json({

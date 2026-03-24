@@ -25,6 +25,16 @@ const ManageBoardAdmission = () => {
     const [admissionPayments, setAdmissionPayments] = useState([]);
     const [examPaymentModal, setExamPaymentModal] = useState(false);
     const [additionalFeePaymentModal, setAdditionalFeePaymentModal] = useState(false);
+    const [ncrpPaymentModal, setNcrpPaymentModal] = useState(false);
+    const [ncrpPaymentForm, setNcrpPaymentForm] = useState({
+        paidExamFee: 0,
+        paidAdditionalThings: 0,
+        paymentMethod: "CASH",
+        transactionId: "",
+        bankName: "",
+        accountHolderName: "",
+        chequeDate: new Date().toISOString().split('T')[0]
+    });
     const [paymentForm, setPaymentForm] = useState({
         amount: 0,
         paidExamFee: 0,
@@ -62,7 +72,7 @@ const ManageBoardAdmission = () => {
             if (admissionRes.ok) {
                 setAdmission(admissionData);
                 setSelectedSubjectIds(admissionData.selectedSubjects.map(s => s.subjectId._id));
-                
+
                 // Fetch bills/payments for this admission to find exam fee payments
                 const billsRes = await fetch(`${apiUrl}/payment/bills/${id}`, {
                     headers: { "Authorization": `Bearer ${token}` }
@@ -70,9 +80,19 @@ const ManageBoardAdmission = () => {
                 if (billsRes.ok) {
                     const billsData = await billsRes.json();
                     const allPayments = billsData.data || [];
-                    setExamPayments(allPayments.filter(p => p.installmentNumber === 0 && p.remarks?.toLowerCase().includes("exam")));
-                    setAdditionalFeePayments(allPayments.filter(p => p.installmentNumber === 0 && p.remarks?.toLowerCase().includes("additional")));
-                    setAdmissionPayments(allPayments.filter(p => p.installmentNumber === 1));
+                    setExamPayments(allPayments.filter(p => 
+                        p.remarks?.toLowerCase()?.includes("exam") || 
+                        p.boardCourseName?.toLowerCase()?.includes("examination")
+                    ));
+                    setAdditionalFeePayments(allPayments.filter(p => 
+                        p.remarks?.toLowerCase()?.includes("additional") || 
+                        (admissionData?.additionalThingsName && p.boardCourseName?.toLowerCase()?.includes(admissionData.additionalThingsName.toLowerCase()))
+                    ));
+                    setAdmissionPayments(allPayments.filter(p => 
+                        p.remarks?.toLowerCase()?.includes("initial") || 
+                        p.remarks?.toLowerCase()?.includes("admission") ||
+                        p.installmentNumber === 1
+                    ));
                 }
             }
             if (boardsRes.ok) {
@@ -106,11 +126,11 @@ const ManageBoardAdmission = () => {
 
     useEffect(() => {
         if (!paymentModal.show && !examPaymentModal && !additionalFeePaymentModal) {
-            setPaymentForm({ 
-                amount: 0, 
-                paidExamFee: 0, 
+            setPaymentForm({
+                amount: 0,
+                paidExamFee: 0,
                 paidAdditionalThings: 0,
-                paymentMethod: "CASH", 
+                paymentMethod: "CASH",
                 transactionId: "",
                 bankName: "",
                 accountHolderName: "",
@@ -134,9 +154,9 @@ const ManageBoardAdmission = () => {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${token}`
                 },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     selectedSubjectIds,
-                    effectiveFromMonth: effectiveFromMonth?.monthNumber 
+                    effectiveFromMonth: effectiveFromMonth?.monthNumber
                 })
             });
 
@@ -156,7 +176,7 @@ const ManageBoardAdmission = () => {
 
     const handleCollectPayment = async (e) => {
         e.preventDefault();
-        
+
         const maxAmount = paymentModal.installment.payableAmount - paymentModal.installment.paidAmount;
         if (Number(paymentForm.amount) > maxAmount) {
             toast.error(`Cannot pay more than the remaining balance (₹${maxAmount})`);
@@ -202,7 +222,7 @@ const ManageBoardAdmission = () => {
 
     const handleCollectExamPayment = async (e) => {
         e.preventDefault();
-        
+
         const maxAmount = Math.max(0, admission.examFee - (admission.examFeePaid || 0));
         if (Number(paymentForm.amount) > maxAmount) {
             toast.error(`Cannot pay more than the remaining balance (₹${maxAmount})`);
@@ -243,9 +263,40 @@ const ManageBoardAdmission = () => {
         }
     };
 
+    // NCRP unified fee payment handler
+    const handleCollectNcrpFees = async (e) => {
+        e.preventDefault();
+        const totalToPay = Number(ncrpPaymentForm.paidExamFee || 0) + Number(ncrpPaymentForm.paidAdditionalThings || 0);
+        if (totalToPay <= 0) {
+            toast.error("Please enter at least one fee amount.");
+            return;
+        }
+        setLoading(true);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${apiUrl}/board-admission/collect-ncrp-fees/${id}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+                body: JSON.stringify(ncrpPaymentForm)
+            });
+            if (response.ok) {
+                toast.success("NCRP fee payment collected!");
+                setNcrpPaymentModal(false);
+                setNcrpPaymentForm({ paidExamFee: 0, paidAdditionalThings: 0, paymentMethod: "CASH", transactionId: "", bankName: "", accountHolderName: "", chequeDate: new Date().toISOString().split('T')[0] });
+                fetchData();
+            } else {
+                const data = await response.json();
+                toast.error(data.message || "Payment failed");
+            }
+        } catch {
+            toast.error("Payment failed");
+        } finally {
+            setLoading(false);
+        }
+    };
     const handleCollectAdditionalPayment = async (e) => {
         e.preventDefault();
-        
+
         const maxAmount = Math.max(0, admission.additionalThingsAmount - (admission.additionalThingsPaid || 0));
         if (Number(paymentForm.amount) > maxAmount) {
             toast.error(`Cannot pay more than the remaining balance (₹${maxAmount})`);
@@ -301,7 +352,7 @@ const ManageBoardAdmission = () => {
             .map(s => (s.subjectId?.subName || s.subjectId?.name || "Subject"))
             .sort()
             .join(" + ");
-        
+
         return `${boardName} Class ${admission.lastClass || ''} ${admission.programme || ''} ${admission.academicSession || ''} : ${subNames || 'No Subjects'}`;
     };
 
@@ -310,7 +361,7 @@ const ManageBoardAdmission = () => {
     return (
         <div className={`flex-1 p-6 overflow-y-auto ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-gray-50 text-gray-900'}`}>
             <ToastContainer />
-            
+
             <div className="flex items-center gap-4 mb-8">
                 <button
                     onClick={() => navigate(-1)}
@@ -342,111 +393,109 @@ const ManageBoardAdmission = () => {
                                     <FaSync className="text-cyan-500" />
                                     Installment Tracker
                                 </h4>
-                                
+
                                 <div className="relative space-y-4 pl-4 before:absolute before:inset-0 before:ml-[34px] before:w-[2px] before:bg-gray-800 before:z-0">
                                     {admission.installments.map((inst, index) => {
                                         const isPaid = inst.status === "PAID";
                                         const isCurrent = effectiveFromMonth?._id === inst._id;
                                         const isNextToPay = !isPaid && (index === 0 || admission.installments[index - 1].status === "PAID");
-                                        
-                                        return (
-                                        <div 
-                                            key={inst._id} 
-                                            onClick={() => {
-                                                if (!isPaid) {
-                                                    setEffectiveFromMonth(inst);
-                                                    let subIds = inst.subjects?.map(s => 
-                                                        (typeof s.subjectId === 'object' && s.subjectId !== null) 
-                                                        ? s.subjectId._id.toString() 
-                                                        : s.subjectId?.toString()
-                                                    ) || [];
-                                                    if (subIds.length === 0) {
-                                                        subIds = admission.selectedSubjects?.map(s => 
-                                                            (typeof s.subjectId === 'object' && s.subjectId !== null)
-                                                            ? s.subjectId._id.toString()
-                                                            : s.subjectId?.toString()
-                                                        ) || [];
-                                                    }
-                                                    setSelectedSubjectIds(subIds.filter(Boolean));
-                                                }
-                                            }}
-                                            className={`relative z-10 p-5 rounded-xl border flex items-center justify-between cursor-pointer transition-all shadow-sm ${
-                                                isCurrent
-                                                ? 'border-cyan-500 ring-2 ring-cyan-500/50 bg-cyan-900/20 scale-[1.02]'
-                                                : isPaid 
-                                                    ? (isDarkMode ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-green-50 border-green-200 opacity-90')
-                                                    : isNextToPay
-                                                        ? (isDarkMode ? 'bg-[#1a222c] border-cyan-500/30' : 'bg-white border-cyan-200 shadow-sm')
-                                                        : (isDarkMode ? 'bg-gray-800/40 border-gray-800/50 hover:border-gray-600 opacity-70' : 'bg-gray-50 border-gray-100 hover:border-gray-200 opacity-70')
-                                            }`}
-                                        >
-                                            <div className="flex items-center gap-5">
-                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-all shadow-lg ${
-                                                    isPaid 
-                                                    ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]' 
-                                                    : isNextToPay
-                                                        ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.4)]'
-                                                        : isDarkMode ? 'bg-gray-800 text-gray-500 border border-gray-700' : 'bg-white text-gray-400 border border-gray-200'
-                                                }`}>
-                                                    {isPaid ? <FaCheck /> : inst.monthNumber}
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <p className={`text-sm font-black uppercase ${isPaid ? 'text-emerald-400' : (isNextToPay ? 'text-cyan-400' : (isDarkMode ? 'text-gray-300' : 'text-gray-700'))}`}>
-                                                        {new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-                                                    </p>
-                                                    <p className="text-[11px] font-bold uppercase tracking-wider">
-                                                        Payable: <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>₹{inst.payableAmount.toFixed(0)}</span>
-                                                    </p>
-                                                </div>
-                                            </div>
 
-                                            <div className="flex items-center gap-6" onClick={(e) => e.stopPropagation()}>
-                                                <div className="text-right">
-                                                    <p className={`text-sm font-black tracking-widest ${isPaid ? 'text-emerald-500' : 'text-gray-500'}`}>
-                                                        {inst.status}
-                                                    </p>
-                                                    <p className={`text-[11px] font-bold ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Paid: ₹{inst.paidAmount}</p>
+                                        return (
+                                            <div
+                                                key={inst._id}
+                                                onClick={() => {
+                                                    if (!isPaid) {
+                                                        setEffectiveFromMonth(inst);
+                                                        let subIds = inst.subjects?.map(s =>
+                                                            (typeof s.subjectId === 'object' && s.subjectId !== null)
+                                                                ? s.subjectId._id.toString()
+                                                                : s.subjectId?.toString()
+                                                        ) || [];
+                                                        if (subIds.length === 0) {
+                                                            subIds = admission.selectedSubjects?.map(s =>
+                                                                (typeof s.subjectId === 'object' && s.subjectId !== null)
+                                                                    ? s.subjectId._id.toString()
+                                                                    : s.subjectId?.toString()
+                                                            ) || [];
+                                                        }
+                                                        setSelectedSubjectIds(subIds.filter(Boolean));
+                                                    }
+                                                }}
+                                                className={`relative z-10 p-5 rounded-xl border flex items-center justify-between cursor-pointer transition-all shadow-sm ${isCurrent
+                                                        ? 'border-cyan-500 ring-2 ring-cyan-500/50 bg-cyan-900/20 scale-[1.02]'
+                                                        : isPaid
+                                                            ? (isDarkMode ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-green-50 border-green-200 opacity-90')
+                                                            : isNextToPay
+                                                                ? (isDarkMode ? 'bg-[#1a222c] border-cyan-500/30' : 'bg-white border-cyan-200 shadow-sm')
+                                                                : (isDarkMode ? 'bg-gray-800/40 border-gray-800/50 hover:border-gray-600 opacity-70' : 'bg-gray-50 border-gray-100 hover:border-gray-200 opacity-70')
+                                                    }`}
+                                            >
+                                                <div className="flex items-center gap-5">
+                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-all shadow-lg ${isPaid
+                                                            ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+                                                            : isNextToPay
+                                                                ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.4)]'
+                                                                : isDarkMode ? 'bg-gray-800 text-gray-500 border border-gray-700' : 'bg-white text-gray-400 border border-gray-200'
+                                                        }`}>
+                                                        {isPaid ? <FaCheck /> : inst.monthNumber}
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className={`text-sm font-black uppercase ${isPaid ? 'text-emerald-400' : (isNextToPay ? 'text-cyan-400' : (isDarkMode ? 'text-gray-300' : 'text-gray-700'))}`}>
+                                                            {new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                                                        </p>
+                                                        <p className="text-[11px] font-bold uppercase tracking-wider">
+                                                            Payable: <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>₹{inst.payableAmount.toFixed(0)}</span>
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <div className="w-[1px] h-10 bg-gray-700/50 mx-2"></div>
-                                                {isPaid ? (
-                                                    <button
-                                                        onClick={() => {
-                                                            const transformedInst = {
-                                                                ...inst,
-                                                                installmentNumber: inst.monthNumber,
-                                                                billingMonth: new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-                                                            };
-                                                            setSelectedInstForBill(transformedInst);
-                                                            setShowBillGenerator(true);
-                                                        }}
-                                                        className="px-5 py-2.5 border border-emerald-500/50 text-emerald-500 rounded-lg font-black text-[11px] uppercase hover:bg-emerald-500 hover:text-black transition-all flex items-center gap-2 group"
-                                                    >
-                                                        <FaFileInvoice className="text-emerald-500 group-hover:text-black" />
-                                                        BILL
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => {
-                                                            if (!isNextToPay) {
-                                                                toast.warning("Please pay previous installments first.");
-                                                                return;
-                                                            }
-                                                            setPaymentModal({ show: true, installment: inst });
-                                                            setPaymentForm({ ...paymentForm, amount: inst.payableAmount - inst.paidAmount });
-                                                        }}
-                                                        disabled={!isNextToPay}
-                                                        className={`px-6 py-2.5 rounded-lg font-black text-[11px] uppercase transition-all shadow-lg ${
-                                                            isNextToPay 
-                                                            ? 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-[0_5px_15px_rgba(6,182,212,0.3)]' 
-                                                            : 'bg-gray-700/50 text-gray-500 cursor-not-allowed border border-gray-800'
-                                                        }`}
-                                                    >
-                                                        PAY NOW
-                                                    </button>
-                                                )}
+
+                                                <div className="flex items-center gap-6" onClick={(e) => e.stopPropagation()}>
+                                                    <div className="text-right">
+                                                        <p className={`text-sm font-black tracking-widest ${isPaid ? 'text-emerald-500' : 'text-gray-500'}`}>
+                                                            {inst.status}
+                                                        </p>
+                                                        <p className={`text-[11px] font-bold ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Paid: ₹{inst.paidAmount}</p>
+                                                    </div>
+                                                    <div className="w-[1px] h-10 bg-gray-700/50 mx-2"></div>
+                                                    {isPaid ? (
+                                                        <button
+                                                            onClick={() => {
+                                                                const transformedInst = {
+                                                                    ...inst,
+                                                                    installmentNumber: inst.monthNumber,
+                                                                    billingMonth: new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+                                                                };
+                                                                setSelectedInstForBill(transformedInst);
+                                                                setShowBillGenerator(true);
+                                                            }}
+                                                            className="px-5 py-2.5 border border-emerald-500/50 text-emerald-500 rounded-lg font-black text-[11px] uppercase hover:bg-emerald-500 hover:text-black transition-all flex items-center gap-2 group"
+                                                        >
+                                                            <FaFileInvoice className="text-emerald-500 group-hover:text-black" />
+                                                            BILL
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => {
+                                                                if (!isNextToPay) {
+                                                                    toast.warning("Please pay previous installments first.");
+                                                                    return;
+                                                                }
+                                                                setPaymentModal({ show: true, installment: inst });
+                                                                setPaymentForm({ ...paymentForm, amount: inst.payableAmount - inst.paidAmount });
+                                                            }}
+                                                            disabled={!isNextToPay}
+                                                            className={`px-6 py-2.5 rounded-lg font-black text-[11px] uppercase transition-all shadow-lg ${isNextToPay
+                                                                    ? 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-[0_5px_15px_rgba(6,182,212,0.3)]'
+                                                                    : 'bg-gray-700/50 text-gray-500 cursor-not-allowed border border-gray-800'
+                                                                }`}
+                                                        >
+                                                            PAY NOW
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )})}
+                                        )
+                                    })}
                                 </div>
                             </div>
                         </div>
@@ -459,14 +508,14 @@ const ManageBoardAdmission = () => {
                                     Subject Management
                                 </h4>
                                 <p className="text-[9px] text-gray-500 font-bold uppercase mb-6">
-                                    {effectiveFromMonth 
-                                        ? `Updating for Month ${effectiveFromMonth.monthNumber} & future` 
+                                    {effectiveFromMonth
+                                        ? `Updating for Month ${effectiveFromMonth.monthNumber} & future`
                                         : "Click a month to update its subjects"}
                                 </p>
 
                                 <div className="space-y-3 mb-6">
                                     {masterSubjects.map((s) => (
-                                        <div 
+                                        <div
                                             key={s.subjectId?._id}
                                             onClick={() => {
                                                 if (!effectiveFromMonth) return;
@@ -476,21 +525,19 @@ const ManageBoardAdmission = () => {
                                                 }
                                                 const sid = s.subjectId?._id || s.subjectId;
                                                 const exists = selectedSubjectIds.includes(sid);
-                                                setSelectedSubjectIds(exists 
+                                                setSelectedSubjectIds(exists
                                                     ? selectedSubjectIds.filter(id => id !== sid)
                                                     : [...selectedSubjectIds, sid]
                                                 );
                                             }}
-                                            className={`p-4 rounded-lg border cursor-pointer transition-all flex justify-between items-center group ${
-                                                selectedSubjectIds.includes(s.subjectId?._id || s.subjectId)
+                                            className={`p-4 rounded-lg border cursor-pointer transition-all flex justify-between items-center group ${selectedSubjectIds.includes(s.subjectId?._id || s.subjectId)
                                                     ? 'border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500/50'
                                                     : isDarkMode ? 'border-gray-800 bg-[#131619] opacity-60 hover:opacity-100' : 'border-gray-100 bg-gray-50 opacity-60 hover:opacity-100'
-                                            }`}
+                                                }`}
                                         >
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-                                                    selectedSubjectIds.includes(s.subjectId?._id || s.subjectId) ? 'bg-cyan-500 border-cyan-500' : 'border-gray-500'
-                                                }`}>
+                                                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${selectedSubjectIds.includes(s.subjectId?._id || s.subjectId) ? 'bg-cyan-500 border-cyan-500' : 'border-gray-500'
+                                                    }`}>
                                                     {selectedSubjectIds.includes(s.subjectId?._id || s.subjectId) && <FaCheckCircle className="text-black text-[10px]" />}
                                                 </div>
                                                 <span className={`text-xs font-black uppercase ${selectedSubjectIds.includes(s.subjectId?._id || s.subjectId) ? 'text-cyan-400' : 'text-gray-500'}`}>
@@ -522,11 +569,10 @@ const ManageBoardAdmission = () => {
                                 <button
                                     onClick={handleUpdateSubjects}
                                     disabled={!effectiveFromMonth || effectiveFromMonth.paidAmount > 0}
-                                    className={`w-full py-3 font-black text-xs uppercase rounded transition-all ${
-                                        effectiveFromMonth && effectiveFromMonth.paidAmount === 0
-                                        ? 'bg-cyan-500 text-black hover:bg-cyan-400' 
-                                        : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                                    }`}
+                                    className={`w-full py-3 font-black text-xs uppercase rounded transition-all ${effectiveFromMonth && effectiveFromMonth.paidAmount === 0
+                                            ? 'bg-cyan-500 text-black hover:bg-cyan-400'
+                                            : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                                        }`}
                                 >
                                     {!effectiveFromMonth ? "SELECT A MONTH" : "UPDATE SUBJECTS"}
                                 </button>
@@ -560,7 +606,7 @@ const ManageBoardAdmission = () => {
                         </h4>
                         <div className="relative min-w-[600px] px-8 mb-6">
                             <div className={`absolute top-5 left-8 right-8 h-1 -translate-y-1/2 z-0 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}></div>
-                            <div 
+                            <div
                                 className="absolute top-5 left-8 h-1 bg-emerald-500 -translate-y-1/2 z-0 transition-all duration-1000 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
                                 style={{ width: `${(Math.max(0, admission.installments.filter(i => i.status === "PAID").length - 1) / Math.max(1, admission.installments.length - 1)) * 100}%` }}
                             ></div>
@@ -570,13 +616,12 @@ const ManageBoardAdmission = () => {
                                     const isNextToPay = !isPaid && (index === 0 || admission.installments[index - 1].status === "PAID");
                                     return (
                                         <div key={inst._id} className="flex flex-col items-center gap-3 relative group w-10">
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-all duration-500 z-10 ${
-                                                isPaid 
-                                                ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.5)] ring-4 ' + (isDarkMode ? 'ring-[#1a1f24]' : 'ring-white')
-                                                : isNextToPay
-                                                    ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)] ring-4 ' + (isDarkMode ? 'ring-[#1a1f24]' : 'ring-white') + ' scale-110'
-                                                    : isDarkMode ? 'bg-gray-800 text-gray-500 ring-4 ring-[#1a1f24]' : 'bg-white text-gray-400 border-2 border-gray-200 ring-4 ring-white'
-                                            }`}>
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-all duration-500 z-10 ${isPaid
+                                                    ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.5)] ring-4 ' + (isDarkMode ? 'ring-[#1a1f24]' : 'ring-white')
+                                                    : isNextToPay
+                                                        ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)] ring-4 ' + (isDarkMode ? 'ring-[#1a1f24]' : 'ring-white') + ' scale-110'
+                                                        : isDarkMode ? 'bg-gray-800 text-gray-500 ring-4 ring-[#1a1f24]' : 'bg-white text-gray-400 border-2 border-gray-200 ring-4 ring-white'
+                                                }`}>
                                                 {isPaid ? <FaCheck /> : inst.monthNumber}
                                             </div>
                                             <div className="absolute top-12 whitespace-nowrap text-center text-[10px] font-black uppercase text-gray-500">
@@ -613,7 +658,7 @@ const ManageBoardAdmission = () => {
                                         required
                                     />
                                 </div>
-                                {admission.examFee > admission.examFeePaid && (
+                                {admission.programme === 'NCRP' && admission.examFee > admission.examFeePaid && (
                                     <div>
                                         <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2">Examination Fee</label>
                                         <input
@@ -626,7 +671,7 @@ const ManageBoardAdmission = () => {
                                         <p className="text-[8px] text-gray-500 mt-1 font-bold">BAL: ₹{admission.examFee - admission.examFeePaid}</p>
                                     </div>
                                 )}
-                                {admission.additionalThingsAmount > admission.additionalThingsPaid && (
+                                {admission.programme === 'NCRP' && admission.additionalThingsAmount > admission.additionalThingsPaid && (
                                     <div>
                                         <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2 truncate" title={admission.additionalThingsName}>{admission.additionalThingsName || "Additional Fee"}</label>
                                         <input
@@ -716,15 +761,15 @@ const ManageBoardAdmission = () => {
             )}
 
             {showBillGenerator && (
-                <BillGenerator 
+                <BillGenerator
                     admission={{
                         ...admission,
                         // Transformation to match what BillGenerator expects
                         admissionNo: admission.studentId?.admissionNumber,
                         boardCourseName: selectedBoard?.boardCourse || 'Board Course'
-                    }} 
-                    installment={selectedInstForBill} 
-                    onClose={() => setShowBillGenerator(false)} 
+                    }}
+                    installment={selectedInstForBill}
+                    onClose={() => setShowBillGenerator(false)}
                 />
             )}
             {/* Admission Fee & General Payments Section (For NCRP or any student to see initial bill) */}
@@ -761,6 +806,34 @@ const ManageBoardAdmission = () => {
                 </div>
             )}
 
+            {/* NCRP Unified PAY NOW button - shown above fee sections when any fee is still pending */}
+            {admission && admission.programme === 'NCRP' &&
+                ((admission.examFee > 0 && admission.examFeePaid < admission.examFee) ||
+                 (admission.additionalThingsAmount > 0 && admission.additionalThingsPaid < admission.additionalThingsAmount)) && (
+                <div className={`mt-4 p-5 rounded-xl border-2 border-cyan-500/40 flex items-center justify-between ${isDarkMode ? 'bg-cyan-500/5' : 'bg-cyan-50'}`}>
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-cyan-500 mb-0.5">NCRP — Outstanding Fees</p>
+                        <p className={`text-xs font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            {[admission.examFee > (admission.examFeePaid||0) ? `Exam: ₹${admission.examFee - (admission.examFeePaid||0)}` : null, admission.additionalThingsAmount > (admission.additionalThingsPaid||0) ? `${admission.additionalThingsName||'Additional'}: ₹${admission.additionalThingsAmount - (admission.additionalThingsPaid||0)}` : null].filter(Boolean).join('  +  ')}
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => {
+                            setNcrpPaymentForm({
+                                paidExamFee: Math.max(0, admission.examFee - (admission.examFeePaid || 0)),
+                                paidAdditionalThings: Math.max(0, admission.additionalThingsAmount - (admission.additionalThingsPaid || 0)),
+                                paymentMethod: 'CASH', transactionId: '', bankName: '', accountHolderName: '',
+                                chequeDate: new Date().toISOString().split('T')[0]
+                            });
+                            setNcrpPaymentModal(true);
+                        }}
+                        className="px-8 py-3 bg-cyan-500 text-black font-black uppercase text-xs rounded-lg hover:bg-cyan-400 transition-all shadow-lg tracking-widest flex items-center gap-2"
+                    >
+                        <FaMoneyBillWave /> PAY NOW
+                    </button>
+                </div>
+            )}
+
             {/* Examination Fee Tracker Section */}
             {admission && admission.examFee > 0 && (
                 <div className={`mt-8 p-6 rounded-xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-2xl' : 'bg-white border-gray-200 shadow-sm'}`}>
@@ -770,9 +843,8 @@ const ManageBoardAdmission = () => {
                             Examination Fee Management
                         </h4>
                         <div className="flex items-center gap-3">
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-                                admission.examFeeStatus === 'PAID' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-orange-500/20 text-orange-500'
-                            }`}>
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${admission.examFeeStatus === 'PAID' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-orange-500/20 text-orange-500'
+                                }`}>
                                 {admission.examFeeStatus}
                             </span>
                         </div>
@@ -792,7 +864,8 @@ const ManageBoardAdmission = () => {
                             <p className="text-lg font-black text-orange-500">₹{Math.max(0, admission.examFee - (admission.examFeePaid || 0))}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                            {admission.programme === 'NCRP' && admission.examFeePaid < admission.examFee && (
+                            {/* NCRP: hide individual pay button, show nothing — unified button is at the top of this section */}
+                            {admission.programme !== 'NCRP' && admission.examFeePaid < admission.examFee && (
                                 <button
                                     onClick={() => {
                                         setExamPaymentModal(true);
@@ -824,7 +897,7 @@ const ManageBoardAdmission = () => {
                     </div>
                 </div>
             )}
-            
+
             {/* Exam Payment Modal */}
             {examPaymentModal && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -932,9 +1005,8 @@ const ManageBoardAdmission = () => {
                             {admission.additionalThingsName || "Additional Fee"} Management
                         </h4>
                         <div className="flex items-center gap-3">
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-                                admission.additionalThingsStatus === 'PAID' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-orange-500/20 text-orange-500'
-                            }`}>
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${admission.additionalThingsStatus === 'PAID' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-orange-500/20 text-orange-500'
+                                }`}>
                                 {admission.additionalThingsStatus}
                             </span>
                         </div>
@@ -954,7 +1026,8 @@ const ManageBoardAdmission = () => {
                             <p className="text-lg font-black text-orange-500">₹{Math.max(0, admission.additionalThingsAmount - (admission.additionalThingsPaid || 0))}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                            {admission.programme === 'NCRP' && admission.additionalThingsPaid < admission.additionalThingsAmount && (
+                            {/* NCRP: unified pay button is at top — hide individual one */}
+                            {admission.programme !== 'NCRP' && admission.additionalThingsPaid < admission.additionalThingsAmount && (
                                 <button
                                     onClick={() => {
                                         setAdditionalFeePaymentModal(true);
@@ -986,7 +1059,7 @@ const ManageBoardAdmission = () => {
                     </div>
                 </div>
             )}
-            
+
             {/* Additional Fee Payment Modal */}
             {additionalFeePaymentModal && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -1084,6 +1157,113 @@ const ManageBoardAdmission = () => {
                     </div>
                 </div>
             )}
+            {/* NCRP Unified Payment Modal */}
+            {ncrpPaymentModal && admission && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className={`w-full max-w-lg p-8 rounded-2xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h4 className="text-xl font-black uppercase tracking-tight text-cyan-500">NCRP Fee Payment</h4>
+                                <p className="text-[10px] text-gray-500 font-bold uppercase mt-0.5">Enter amounts below — one bill will be generated</p>
+                            </div>
+                            <button onClick={() => setNcrpPaymentModal(false)}><FaTimes /></button>
+                        </div>
+
+                        <form onSubmit={handleCollectNcrpFees} className="space-y-5">
+                            {/* Fee Amount Fields */}
+                            <div className="grid grid-cols-2 gap-4">
+                                {admission.examFee > 0 && (
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2">
+                                            Exam Fee <span className="text-gray-500">(bal: ₹{Math.max(0, admission.examFee - (admission.examFeePaid||0))})</span>
+                                        </label>
+                                        <input
+                                            type="number" min="0"
+                                            max={Math.max(0, admission.examFee - (admission.examFeePaid||0))}
+                                            value={ncrpPaymentForm.paidExamFee}
+                                            onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, paidExamFee: e.target.value })}
+                                            className={`w-full p-3 rounded border outline-none font-bold text-lg ${isDarkMode ? 'bg-[#131619] border-cyan-800 text-cyan-400' : 'bg-cyan-50 border-cyan-200'}`}
+                                        />
+                                    </div>
+                                )}
+                                {admission.additionalThingsAmount > 0 && (
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2 truncate" title={admission.additionalThingsName}>
+                                            {admission.additionalThingsName || 'Additional'} <span className="text-gray-500">(bal: ₹{Math.max(0, admission.additionalThingsAmount - (admission.additionalThingsPaid||0))})</span>
+                                        </label>
+                                        <input
+                                            type="number" min="0"
+                                            max={Math.max(0, admission.additionalThingsAmount - (admission.additionalThingsPaid||0))}
+                                            value={ncrpPaymentForm.paidAdditionalThings}
+                                            onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, paidAdditionalThings: e.target.value })}
+                                            className={`w-full p-3 rounded border outline-none font-bold text-lg ${isDarkMode ? 'bg-[#131619] border-cyan-800 text-cyan-400' : 'bg-cyan-50 border-cyan-200'}`}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Total Preview */}
+                            <div className={`flex justify-between items-center px-4 py-3 rounded-lg border ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-200'}`}>
+                                <span className="text-[10px] font-black uppercase text-gray-500">Total to Pay</span>
+                                <span className="text-xl font-black text-emerald-500">
+                                    ₹{Number(ncrpPaymentForm.paidExamFee || 0) + Number(ncrpPaymentForm.paidAdditionalThings || 0)}
+                                </span>
+                            </div>
+
+                            {/* Payment Method */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Payment Method</label>
+                                    <select
+                                        value={ncrpPaymentForm.paymentMethod}
+                                        onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, paymentMethod: e.target.value })}
+                                        className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
+                                    >
+                                        <option value="CASH">CASH</option>
+                                        <option value="UPI">UPI</option>
+                                        <option value="CHEQUE">CHEQUE</option>
+                                        <option value="BANK_TRANSFER">BANK TRANSFER</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">
+                                        {ncrpPaymentForm.paymentMethod === 'CHEQUE' ? 'Cheque No.' : 'Transaction ID'}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={ncrpPaymentForm.transactionId}
+                                        onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, transactionId: e.target.value })}
+                                        className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
+                                        required={ncrpPaymentForm.paymentMethod === 'UPI' || ncrpPaymentForm.paymentMethod === 'CHEQUE'}
+                                    />
+                                </div>
+                            </div>
+
+                            {ncrpPaymentForm.paymentMethod === 'CHEQUE' && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2">Bank Name</label>
+                                        <input type="text" value={ncrpPaymentForm.bankName} onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, bankName: e.target.value })} className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`} required />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2">Cheque Date</label>
+                                        <input type="date" value={ncrpPaymentForm.chequeDate} onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, chequeDate: e.target.value })} className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`} required />
+                                    </div>
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={Number(ncrpPaymentForm.paidExamFee||0) + Number(ncrpPaymentForm.paidAdditionalThings||0) <= 0}
+                                className="w-full py-4 bg-cyan-500 text-black font-black uppercase text-sm tracking-widest hover:bg-cyan-400 transition-all rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                CONFIRM &amp; GENERATE BILL
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };

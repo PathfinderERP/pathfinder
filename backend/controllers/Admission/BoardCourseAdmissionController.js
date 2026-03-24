@@ -161,11 +161,11 @@ export const createBoardAdmission = async (req, res) => {
         // Construct Board Course Name: Board + Class + Programme + Session + Subjects
         const subjectNames = activeSubjects.map(s => (s.subjectId.subName || s.subjectId.name || 'Subject')).join(' + ');
         let boardCourseName = `${board.boardCourse} Class ${lastClass || ''} ${programme || ''} ${academicSession || ''} : ${subjectNames}`;
-        
+
         if (additionalThingsName && additionalThingsName.trim() !== "") {
             boardCourseName += ` + ${additionalThingsName.trim()}`;
         }
-        
+
 
         const newAdmission = new BoardCourseAdmission({
             studentId,
@@ -254,7 +254,7 @@ export const createBoardAdmission = async (req, res) => {
 
         // Update student enrollment status if needed
         await Students.findByIdAndUpdate(studentId, { isEnrolled: true });
-        
+
         // Mark board counselling records as ENROLLED
         await BoardCourseCounselling.updateMany(
             { studentId, boardId },
@@ -512,12 +512,11 @@ export const collectBoardInstallment = async (req, res) => {
             amount,
             paidExamFee = 0,
             paidAdditionalThings = 0,
-            paymentMethod: rawPaymentMethod, 
-            transactionId, 
-            bankName, 
-            accountHolderName, 
-            chequeDate 
-
+            paymentMethod: rawPaymentMethod,
+            transactionId,
+            bankName,
+            accountHolderName,
+            chequeDate
         } = req.body;
         // Normalize payment method to match Payment schema enum
         const methodMap = { 'ONLINE': 'UPI', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
@@ -657,7 +656,6 @@ export const collectBoardInstallment = async (req, res) => {
                 billCourseName += ` + ${admission.additionalThingsName}`;
             }
 
-
             const paymentRecord = new Payment({
                 admission: admission._id,
                 installmentNumber: inst.monthNumber,
@@ -767,3 +765,111 @@ export const collectBoardAdditionalFee = async (req, res) => {
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
+
+// NCRP: Collect Exam Fee + Additional Fee together in ONE bill
+export const collectNcrpFees = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const {
+            paidExamFee = 0,
+            paidAdditionalThings = 0,
+            paymentMethod: rawPaymentMethod,
+            transactionId,
+            bankName,
+            accountHolderName,
+            chequeDate
+        } = req.body;
+
+        const methodMap = { 'ONLINE': 'UPI', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
+        const paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
+
+        const admission = await BoardCourseAdmission.findById(id);
+        if (!admission) return res.status(404).json({ message: "Admission not found" });
+
+        const examPaid = Number(paidExamFee) || 0;
+        const additionalPaid = Number(paidAdditionalThings) || 0;
+        const totalPaidToday = examPaid + additionalPaid;
+
+        if (totalPaidToday <= 0) return res.status(400).json({ message: "No payment amount specified" });
+
+        // Update Exam Fee
+        if (examPaid > 0) {
+            admission.examFeePaid = (admission.examFeePaid || 0) + examPaid;
+            if (admission.examFeePaid >= admission.examFee && admission.examFee > 0) {
+                admission.examFeeStatus = "PAID";
+            } else {
+                admission.examFeeStatus = "PARTIAL";
+            }
+        }
+
+        // Update Additional Fee
+        if (additionalPaid > 0) {
+            admission.additionalThingsPaid = (admission.additionalThingsPaid || 0) + additionalPaid;
+            if (admission.additionalThingsPaid >= admission.additionalThingsAmount && admission.additionalThingsAmount > 0) {
+                admission.additionalThingsStatus = "PAID";
+            } else {
+                admission.additionalThingsStatus = "PARTIAL";
+            }
+        }
+
+        // Create ONE combined payment record with a single bill
+        try {
+            let centreObj = await Centre.findOne({ centreName: admission.centre });
+            if (!centreObj) {
+                centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } });
+            }
+            const centreCode = centreObj ? centreObj.enterCode : 'GEN';
+            const billId = await generateBillId(centreCode);
+
+            const taxableAmount = totalPaidToday / 1.18;
+            const cgst = (totalPaidToday - taxableAmount) / 2;
+            const sgst = cgst;
+
+            let billCourseName = admission.boardCourseName || '';
+            if (examPaid > 0) billCourseName += ' + Examination';
+            if (additionalPaid > 0 && admission.additionalThingsName) billCourseName += ` + ${admission.additionalThingsName}`;
+
+            const parts = [];
+            if (examPaid > 0) parts.push(`Exam Fee ₹${examPaid}`);
+            if (additionalPaid > 0) parts.push(`${admission.additionalThingsName || 'Additional Fee'} ₹${additionalPaid}`);
+            const remarks = `NCRP Fee Payment: ${parts.join(' + ')}`;
+
+            const paymentRecord = new Payment({
+                admission: admission._id,
+                installmentNumber: 0,
+                amount: totalPaidToday,
+                paidAmount: totalPaidToday,
+                dueDate: new Date(),
+                paidDate: new Date(),
+                receivedDate: new Date(),
+                status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
+                paymentMethod,
+                transactionId,
+                bankName,
+                accountHolderName,
+                chequeDate,
+                billingMonth: new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+                recordedBy: req.user?._id,
+                billId,
+                courseFee: taxableAmount,
+                cgst,
+                sgst,
+                totalAmount: totalPaidToday,
+                boardCourseName: billCourseName,
+                remarks
+            });
+            await paymentRecord.save();
+        } catch (paymentErr) {
+            console.error("Error creating NCRP payment record:", paymentErr);
+        }
+
+        admission.totalPaidAmount = (admission.totalPaidAmount || 0) + totalPaidToday;
+        await admission.save();
+
+        res.status(200).json({ message: "NCRP fee payment collected successfully", admission });
+    } catch (error) {
+        console.error("Collect NCRP Fees Error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
