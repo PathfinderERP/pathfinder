@@ -218,8 +218,8 @@ export const createBoardAdmission = async (req, res) => {
                 const sgst = cgst;
 
                 // Adjust Course Name for bill: Append "+ Examination" only if exam fee was paid
-                const billCourseName = Number(paidExamFee) > 0 
-                    ? `${boardCourseName} + Examination` 
+                const billCourseName = Number(paidExamFee) > 0
+                    ? `${boardCourseName} + Examination`
                     : boardCourseName;
 
                 const paymentRecord = new Payment({
@@ -507,9 +507,9 @@ export const collectBoardExamFee = async (req, res) => {
 export const collectBoardInstallment = async (req, res) => {
     try {
         const { id } = req.params;
-        const { 
-            installmentId, 
-            amount, 
+        const {
+            installmentId,
+            amount,
             paidExamFee = 0,
             paidAdditionalThings = 0,
             paymentMethod: rawPaymentMethod, 
@@ -517,6 +517,7 @@ export const collectBoardInstallment = async (req, res) => {
             bankName, 
             accountHolderName, 
             chequeDate 
+
         } = req.body;
         // Normalize payment method to match Payment schema enum
         const methodMap = { 'ONLINE': 'UPI', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
@@ -655,6 +656,7 @@ export const collectBoardInstallment = async (req, res) => {
             if (Number(paidAdditionalThings) > 0 && admission.additionalThingsName) {
                 billCourseName += ` + ${admission.additionalThingsName}`;
             }
+
 
             const paymentRecord = new Payment({
                 admission: admission._id,
