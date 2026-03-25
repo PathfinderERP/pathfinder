@@ -1272,7 +1272,7 @@ const EmployeesAttendance = () => {
                                                             : (isDarkMode ? 'border-gray-800 hover:border-cyan-500/30' : 'border-gray-200 hover:border-cyan-500/30')}
                                                 `}
                                                 >
-                                                    <div className="flex items-center gap-6 w-full md:w-auto">
+                                                    <div className="flex items-center gap-6 w-[280px] shrink-0">
                                                         <div className={`w-12 h-12 rounded-[2px] border flex items-center justify-center overflow-hidden flex-shrink-0 group-hover:scale-105 transition-transform ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                                             {att.employeeId?.profileImage ? (
                                                                 <img
@@ -1291,26 +1291,43 @@ const EmployeesAttendance = () => {
                                                                 {att.employeeId?.name?.charAt(0)}
                                                             </span>
                                                         </div>
-                                                        <div className="flex flex-col">
-                                                            <h4 className={`font-black uppercase text-sm group-hover:text-cyan-400 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{att.employeeId?.name}</h4>
+                                                        <div className="flex flex-col min-w-0">
+                                                            <h4 className={`font-black uppercase text-sm group-hover:text-cyan-400 transition-colors truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{att.employeeId?.name}</h4>
                                                             <div className="flex items-center gap-2 mt-1">
-                                                                <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>{att.employeeId?.employeeId}</span>
-                                                                <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wide">{att.employeeId?.department?.departmentName || 'N/A'}</span>
+                                                                <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest shrink-0 ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>{att.employeeId?.employeeId}</span>
+                                                                <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wide truncate">{att.employeeId?.department?.departmentName || 'N/A'}</span>
                                                             </div>
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex items-center gap-8 md:gap-12 w-full md:w-auto justify-between md:justify-end">
-                                                        <div className="text-center">
+                                                    <div className="hidden xl:flex items-center flex-1 min-w-0 divide-x divide-gray-800/10">
+                                                        <div className="flex flex-col items-start px-8 w-1/2 min-w-0">
+                                                            <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Assigned Hub</p>
+                                                            <span className={`text-[10px] font-black uppercase truncate w-full ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                                                {att.employeeId?.primaryCentre?.centreName || 'HQ Central'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex flex-col items-start px-8 w-1/2 min-w-0">
+                                                            <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">System Role</p>
+                                                            <div className="flex">
+                                                                <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest bg-cyan-500/10 text-cyan-500 border border-cyan-500/20`}>
+                                                                    {att.user?.role || 'Staff Member'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-6 shrink-0 ml-auto">
+                                                        <div className="w-[70px] text-center">
                                                             <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Check In</p>
                                                             <p className="text-emerald-500 font-black text-sm">{att.checkIn?.time ? format(new Date(att.checkIn.time), 'HH:mm') : '--:--'}</p>
                                                         </div>
-                                                        <div className="text-center">
+                                                        <div className="w-[70px] text-center">
                                                             <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Check Out</p>
                                                             <p className="text-red-500 font-black text-sm">{att.checkOut?.time ? format(new Date(att.checkOut.time), 'HH:mm') : '--:--'}</p>
                                                         </div>
-                                                        <div className="text-center">
-                                                            <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Live Duration</p>
+                                                        <div className="w-[100px] text-center">
+                                                            <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Duration</p>
                                                             <LiveTimer checkIn={att.checkIn?.time} checkOut={att.checkOut?.time} />
                                                         </div>
                                                         {(() => {
