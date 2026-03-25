@@ -52,7 +52,7 @@ const SMSTestPanel = () => {
         <div className="bg-[#1a1f24] p-6 rounded-xl border border-gray-800">
             <div className="flex items-center gap-2 mb-4">
                 <FaMobileAlt className="text-cyan-400 text-xl" />
-                <h3 className="text-lg font-bold text-white">Test SMS Gateway (Only for Admin)</h3>
+                <h3 className="text-lg font-bold text-white">Test SMS Gateway he (Only for Admin)</h3>
             </div>
 
             <p className="text-sm text-gray-400 mb-4">
