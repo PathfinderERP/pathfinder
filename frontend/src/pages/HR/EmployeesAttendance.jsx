@@ -506,9 +506,14 @@ const EmployeesAttendance = () => {
         department: [],
         designation: [],
         role: [],
+        status: [],
         month: new Date().getMonth() + 1,
         year: new Date().getFullYear()
     });
+
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(10);
+    const [jumpToPage, setJumpToPage] = useState('');
 
 
 
@@ -518,7 +523,7 @@ const EmployeesAttendance = () => {
 
     useEffect(() => {
         fetchAttendanceData();
-    }, [filters.month, filters.year, filters.centreId, filters.department, filters.designation, filters.role, viewMode, selectedDate]);
+    }, [filters.month, filters.year, filters.centreId, filters.department, filters.designation, filters.role, filters.status, viewMode, selectedDate]);
 
     const fetchMetadata = async () => {
         try {
@@ -549,7 +554,8 @@ const EmployeesAttendance = () => {
                 centreId: filters.centreId.join(','),
                 department: filters.department.join(','),
                 designation: filters.designation.join(','),
-                role: filters.role.join(',')
+                role: filters.role.join(','),
+                status: filters.status.join(',')
             }).toString();
 
             // Fetch Stats and List in parallel
@@ -581,6 +587,7 @@ const EmployeesAttendance = () => {
             if (!isBackground) toast.error("Failed to load attendance records");
         } finally {
             if (!isBackground) setLoading(false);
+            setCurrentPage(1); // Reset to first page on new fetch
         }
     };
 
@@ -706,6 +713,7 @@ const EmployeesAttendance = () => {
             department: [],
             designation: [],
             role: [],
+            status: [],
             month: new Date().getMonth() + 1,
             year: new Date().getFullYear()
         });
@@ -970,6 +978,24 @@ const EmployeesAttendance = () => {
                         <MultiSelectDropdown icon={<FaBuilding />} label="CENTRE" options={centres} selectedValues={filters.centreId} valKey="_id" labelKey="centreName" onToggle={(vals) => setFilters(prev => ({ ...prev, centreId: vals }))} isDarkMode={isDarkMode} />
                         <MultiSelectDropdown icon={<FaSitemap />} label="DEPT" options={departments} selectedValues={filters.department} valKey="_id" labelKey="departmentName" onToggle={(vals) => setFilters(prev => ({ ...prev, department: vals }))} isDarkMode={isDarkMode} />
                         <MultiSelectDropdown icon={<FaUserTie />} label="ROLE" options={[{ id: 'hr', name: 'HR' }, { id: 'admin', name: 'Admin' }, { id: 'teacher', name: 'Teacher' }]} selectedValues={filters.role} valKey="id" labelKey="name" onToggle={(vals) => setFilters(prev => ({ ...prev, role: vals }))} isDarkMode={isDarkMode} />
+                        <MultiSelectDropdown 
+                            icon={<FaCheck />} 
+                            label="STATUS" 
+                            options={[
+                                { id: 'Present', name: 'Present' },
+                                { id: 'Overtime', name: 'Overtime' },
+                                { id: 'Early Leave', name: 'Early Exit' },
+                                { id: 'Half Day', name: 'Half Day' },
+                                { id: 'Short Leave', name: 'Short Shift' },
+                                { id: 'Forgot Checkout', name: 'Forgot Checkout' },
+                                { id: 'Absent', name: 'Absent' }
+                            ]} 
+                            selectedValues={filters.status} 
+                            valKey="id" 
+                            labelKey="name" 
+                            onToggle={(vals) => setFilters(prev => ({ ...prev, status: vals }))} 
+                            isDarkMode={isDarkMode} 
+                        />
                     </div>
 
                     {/* Dashboard Stats & Behavioral Highlights */}
@@ -1221,101 +1247,191 @@ const EmployeesAttendance = () => {
                             </div>
 
                             <div className="grid grid-cols-1 gap-3">
-                                {loading ? (
-                                    <div className="text-center py-20 text-gray-500 font-bold animate-pulse">LOADING ANALYTICS DATA...</div>
-                                ) : groupedRecords.map((att) => (
-                                    <div
-                                        key={att._id}
-                                        onClick={() => fetchUserAnalysis(att)}
-                                        className={`
-                                        border rounded-[2px] p-4 flex flex-col md:flex-row items-center justify-between gap-6 transition-all group cursor-pointer
-                                        ${isDarkMode ? 'bg-[#131619]' : 'bg-white shadow-sm hover:shadow-md'}
-                                        ${selectedUser?.employeeId?._id === att.employeeId?._id
-                                                ? 'border-cyan-500/50 bg-cyan-500/5'
-                                                : (isDarkMode ? 'border-gray-800 hover:border-cyan-500/30' : 'border-gray-200 hover:border-cyan-500/30')}
-                                    `}
-                                    >
-                                        <div className="flex items-center gap-6 w-full md:w-auto">
-                                            <div className={`w-12 h-12 rounded-[2px] border flex items-center justify-center overflow-hidden flex-shrink-0 group-hover:scale-105 transition-transform ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
-                                                {att.employeeId?.profileImage ? (
-                                                    <img
-                                                        src={att.employeeId.profileImage}
-                                                        alt=""
-                                                        className="w-full h-full object-cover"
-                                                        onError={(e) => {
-                                                            e.target.style.display = 'none';
-                                                            e.target.nextSibling.style.display = 'block';
-                                                        }}
-                                                    />
-                                                ) : null}
-                                                <span
-                                                    className={`font-black text-lg group-hover:text-cyan-500 ${att.employeeId?.profileImage ? 'hidden' : 'block'} ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}
+                                {(() => {
+                                    const filteredList = groupedRecords.filter(att => 
+                                        att.employeeId?.name?.toLowerCase().includes(filters.search.toLowerCase()) ||
+                                        att.employeeId?.employeeId?.toLowerCase().includes(filters.search.toLowerCase())
+                                    );
+                                    
+                                    const totalPages = Math.ceil(filteredList.length / itemsPerPage);
+                                    const indexOfLastItem = currentPage * itemsPerPage;
+                                    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+                                    const currentItems = filteredList.slice(indexOfFirstItem, indexOfLastItem);
+
+                                    return (
+                                        <>
+                                            {currentItems.map((att) => (
+                                                <div
+                                                    key={att._id}
+                                                    onClick={() => fetchUserAnalysis(att)}
+                                                    className={`
+                                                    border rounded-[2px] p-4 flex flex-col md:flex-row items-center justify-between gap-6 transition-all group cursor-pointer
+                                                    ${isDarkMode ? 'bg-[#131619]' : 'bg-white shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-0.5'}
+                                                    ${selectedUser?.employeeId?._id === att.employeeId?._id
+                                                            ? 'border-cyan-500/50 bg-cyan-500/5'
+                                                            : (isDarkMode ? 'border-gray-800 hover:border-cyan-500/30' : 'border-gray-200 hover:border-cyan-500/30')}
+                                                `}
                                                 >
-                                                    {att.employeeId?.name?.charAt(0)}
-                                                </span>
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <h4 className={`font-black uppercase text-sm group-hover:text-cyan-400 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{att.employeeId?.name}</h4>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>{att.employeeId?.employeeId}</span>
-                                                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wide">{att.employeeId?.department?.departmentName || 'N/A'}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-8 md:gap-12 w-full md:w-auto justify-between md:justify-end">
-                                            <div className="text-center">
-                                                <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Check In</p>
-                                                <p className="text-emerald-500 font-black text-sm">{att.checkIn?.time ? format(new Date(att.checkIn.time), 'HH:mm') : '--:--'}</p>
-                                            </div>
-                                            <div className="text-center">
-                                                <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Check Out</p>
-                                                <p className="text-red-500 font-black text-sm">{att.checkOut?.time ? format(new Date(att.checkOut.time), 'HH:mm') : '--:--'}</p>
-                                            </div>
-                                            <div className="text-center">
-                                                <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Live Duration</p>
-                                                <LiveTimer checkIn={att.checkIn?.time} checkOut={att.checkOut?.time} />
-                                            </div>
-                                            {(() => {
-                                                const hours = att.workingHours || 0;
-                                                const s = att.status;
-                                                const recordDate = format(new Date(att.date), 'yyyy-MM-dd');
-                                                const todayStr = format(new Date(), 'yyyy-MM-dd');
-                                                const isPastDate = recordDate < todayStr;
-
-                                                let badgeClass = "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
-                                                let label = att.status;
-
-                                                if (s === "Absent" || (isPastDate && att.checkIn?.time && !att.checkOut?.time)) {
-                                                    badgeClass = "bg-red-500/10 text-red-500 border border-red-500/20";
-                                                    label = "Absent";
-                                                } else if (hours < 4 && att.checkOut) {
-                                                    badgeClass = "bg-red-500/10 text-red-500 border border-red-500/20";
-                                                    label = "Absent";
-                                                } else if (s === "Half Day" || (hours < 4.5 && att.checkOut)) {
-                                                    badgeClass = "bg-orange-500/10 text-orange-500 border border-orange-500/20";
-                                                } else if (s === "Early Leave" || (hours < 8.5 && att.checkOut)) {
-                                                    badgeClass = "bg-pink-500/10 text-pink-500 border border-pink-500/20";
-                                                } else if (hours < 9 && att.checkOut) {
-                                                    badgeClass = "bg-lime-500/10 text-lime-400 border border-lime-500/20";
-                                                    label = "Short Leave";
-                                                } else if (s === "Overtime" || (hours > 9.05 && att.checkOut)) {
-                                                    badgeClass = "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20";
-                                                    label = "Overtime ★";
-                                                } else if (!att.checkOut && !isPastDate) {
-                                                    badgeClass = "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
-                                                    label = "Present Today";
-                                                }
-
-                                                return (
-                                                    <div className={`px-4 py-1.5 rounded-[2px] text-[9px] font-black uppercase tracking-widest min-w-[80px] text-center ${badgeClass}`}>
-                                                        {label}
+                                                    <div className="flex items-center gap-6 w-full md:w-auto">
+                                                        <div className={`w-12 h-12 rounded-[2px] border flex items-center justify-center overflow-hidden flex-shrink-0 group-hover:scale-105 transition-transform ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                                            {att.employeeId?.profileImage ? (
+                                                                <img
+                                                                    src={att.employeeId.profileImage}
+                                                                    alt=""
+                                                                    className="w-full h-full object-cover"
+                                                                    onError={(e) => {
+                                                                        e.target.style.display = 'none';
+                                                                        e.target.nextSibling.style.display = 'block';
+                                                                    }}
+                                                                />
+                                                            ) : null}
+                                                            <span
+                                                                className={`font-black text-lg group-hover:text-cyan-500 ${att.employeeId?.profileImage ? 'hidden' : 'block'} ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}
+                                                            >
+                                                                {att.employeeId?.name?.charAt(0)}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <h4 className={`font-black uppercase text-sm group-hover:text-cyan-400 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{att.employeeId?.name}</h4>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>{att.employeeId?.employeeId}</span>
+                                                                <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wide">{att.employeeId?.department?.departmentName || 'N/A'}</span>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                );
-                                            })()}
-                                        </div>
-                                    </div>
-                                ))}
+
+                                                    <div className="flex items-center gap-8 md:gap-12 w-full md:w-auto justify-between md:justify-end">
+                                                        <div className="text-center">
+                                                            <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Check In</p>
+                                                            <p className="text-emerald-500 font-black text-sm">{att.checkIn?.time ? format(new Date(att.checkIn.time), 'HH:mm') : '--:--'}</p>
+                                                        </div>
+                                                        <div className="text-center">
+                                                            <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Check Out</p>
+                                                            <p className="text-red-500 font-black text-sm">{att.checkOut?.time ? format(new Date(att.checkOut.time), 'HH:mm') : '--:--'}</p>
+                                                        </div>
+                                                        <div className="text-center">
+                                                            <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Live Duration</p>
+                                                            <LiveTimer checkIn={att.checkIn?.time} checkOut={att.checkOut?.time} />
+                                                        </div>
+                                                        {(() => {
+                                                            const hours = att.workingHours || 0;
+                                                            const s = att.status;
+                                                            const recordDate = format(new Date(att.date), 'yyyy-MM-dd');
+                                                            const todayStr = format(new Date(), 'yyyy-MM-dd');
+                                                            const isPastDate = recordDate < todayStr;
+
+                                                            let badgeClass = "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
+                                                            let label = att.status;
+
+                                                            if (s === "Absent" || (isPastDate && att.checkIn?.time && !att.checkOut?.time)) {
+                                                                badgeClass = "bg-red-500/10 text-red-500 border border-red-500/20";
+                                                                label = "Absent";
+                                                            } else if (hours < 4 && att.checkOut) {
+                                                                badgeClass = "bg-red-500/10 text-red-500 border border-red-500/20";
+                                                                label = "Absent";
+                                                            } else if (s === "Half Day" || (hours < 4.5 && att.checkOut)) {
+                                                                badgeClass = "bg-orange-500/10 text-orange-500 border border-orange-500/20";
+                                                            } else if (s === "Early Leave" || (hours < 8.5 && att.checkOut)) {
+                                                                badgeClass = "bg-pink-500/10 text-pink-500 border border-pink-500/20";
+                                                            } else if (hours < 9 && att.checkOut) {
+                                                                badgeClass = "bg-lime-500/10 text-lime-400 border border-lime-500/20";
+                                                                label = "Short Leave";
+                                                            } else if (s === "Overtime" || (hours > 9.05 && att.checkOut)) {
+                                                                badgeClass = "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20";
+                                                                label = "Overtime ★";
+                                                            } else if (!att.checkOut && !isPastDate) {
+                                                                badgeClass = "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
+                                                                label = "Present Today";
+                                                            }
+
+                                                            return (
+                                                                <div className={`px-4 py-1.5 rounded-[2px] text-[9px] font-black uppercase tracking-widest min-w-[80px] text-center ${badgeClass}`}>
+                                                                    {label}
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {/* Premium Pagination Controls */}
+                                            {totalPages > 1 && (
+                                                <div className={`mt-8 p-4 border rounded-[2px] flex flex-wrap items-center justify-between gap-6 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                            Showing <span className="text-cyan-500">{indexOfFirstItem + 1}</span> to <span className="text-cyan-500">{Math.min(indexOfLastItem, filteredList.length)}</span> of <span className="text-cyan-500">{filteredList.length}</span> Records
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-4">
+                                                        {/* Custom Typing Page Number */}
+                                                        <div className="flex items-center gap-3 mr-4">
+                                                            <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>Jump to</span>
+                                                            <div className="relative group">
+                                                                <input 
+                                                                    type="text"
+                                                                    value={jumpToPage}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value.replace(/[^0-9]/g, '');
+                                                                        setJumpToPage(val);
+                                                                    }}
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter') {
+                                                                            const pageNum = parseInt(jumpToPage);
+                                                                            if (pageNum >= 1 && pageNum <= totalPages) {
+                                                                                setCurrentPage(pageNum);
+                                                                                setJumpToPage('');
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                    placeholder="..."
+                                                                    className={`w-12 text-center py-1.5 border rounded-[2px] text-[10px] font-black transition-all outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-black/20 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                                                />
+                                                                <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 hidden group-hover:block whitespace-nowrap px-2 py-1 bg-black text-white text-[8px] font-black uppercase rounded-[2px] z-50">Press Enter</div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className={`flex border rounded-[2px] overflow-hidden ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                                            <button 
+                                                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                                                disabled={currentPage === 1}
+                                                                className={`px-4 py-2 text-[10px] font-black uppercase transition-all hover:bg-cyan-500 hover:text-black disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-500 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}
+                                                            >
+                                                                Prev
+                                                            </button>
+                                                            {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+                                                                // Simple windowing logic
+                                                                let pageNum = i + 1;
+                                                                if (totalPages > 5 && currentPage > 3) {
+                                                                    pageNum = currentPage - 2 + i;
+                                                                    if (pageNum > totalPages - 2) pageNum = totalPages - 4 + i;
+                                                                }
+                                                                if (pageNum > totalPages) return null;
+
+                                                                return (
+                                                                    <button
+                                                                        key={pageNum}
+                                                                        onClick={() => setCurrentPage(pageNum)}
+                                                                        className={`px-4 py-2 text-[10px] font-black border-l transition-all shadow-inner ${isDarkMode ? 'border-gray-800' : 'border-gray-200'} ${currentPage === pageNum ? 'bg-cyan-500 text-black shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]' : (isDarkMode ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-gray-500 hover:bg-gray-50')}`}
+                                                                    >
+                                                                        {pageNum}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                            <button 
+                                                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                                                disabled={currentPage === totalPages}
+                                                                className={`px-4 py-2 text-[10px] font-black border-l uppercase transition-all hover:bg-cyan-500 hover:text-black disabled:opacity-30 disabled:hover:bg-transparent ${isDarkMode ? 'border-gray-800 text-gray-400' : 'border-gray-200 text-gray-500'}`}
+                                                            >
+                                                                Next
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
                             </div>
                         </div>
 

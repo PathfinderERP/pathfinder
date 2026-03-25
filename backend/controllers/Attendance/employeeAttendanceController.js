@@ -291,6 +291,17 @@ export const getAllAttendance = async (req, res) => {
             query.date = { $gte: dayStart, $lte: dayEnd };
         }
 
+        // Status Filter
+        const { status: statusFilter } = req.query;
+        if (statusFilter) {
+            const statusArray = Array.isArray(statusFilter) ? statusFilter : statusFilter.split(',').filter(Boolean);
+            if (statusArray.length > 0) {
+                // If filtering by 'Short Leave', we may need special logic if it's not a stored status
+                // But generally, we'll try to match the stored status first
+                query.status = { $in: statusArray };
+            }
+        }
+
         // Multi-select Filters (Handle both single string and array)
         if (centreId) {
             const centres = Array.isArray(centreId) ? centreId : centreId.split(',').filter(Boolean);
@@ -324,11 +335,12 @@ export const getAllAttendance = async (req, res) => {
             return attObj;
         });
 
-        // Post-query filtering for Employee details (department, designation, role)
-        if (department || designation || role) {
+        // Post-query filtering for Employee details (department, designation, role) and custom status logic
+        if (department || designation || role || statusFilter) {
             const depts = department ? (Array.isArray(department) ? department : department.split(',').filter(Boolean)) : [];
             const desigs = designation ? (Array.isArray(designation) ? designation : designation.split(',').filter(Boolean)) : [];
             const roles = role ? (Array.isArray(role) ? role : role.split(',').filter(Boolean)) : [];
+            const statuses = statusFilter ? (Array.isArray(statusFilter) ? statusFilter : statusFilter.split(',').filter(Boolean)) : [];
 
             attendances = attendances.filter(att => {
                 const emp = att.employeeId;
@@ -338,6 +350,24 @@ export const getAllAttendance = async (req, res) => {
                 if (depts.length > 0 && !depts.includes(emp.department?._id?.toString())) matches = false;
                 if (desigs.length > 0 && !desigs.includes(emp.designation?._id?.toString())) matches = false;
                 if (roles.length > 0 && !roles.includes(usr?.role)) matches = false;
+
+                // Handle complex status logic (Short Leave, Forgot Checkout) that might not be exact DB matches
+                if (statuses.length > 0) {
+                    const hours = att.workingHours || 0;
+                    const s = att.status;
+                    const target = emp?.workingHours || 9;
+                    
+                    const matchesAnyStatus = statuses.some(st => {
+                        if (st === 'Short Leave') return (hours >= (target - 0.5) && hours < target);
+                        if (st === 'Forgot Checkout') return (s === 'Forgot to Checkout' || (att.checkIn?.time && !att.checkOut?.time));
+                        if (st === 'Overtime') return s === 'Overtime' || (hours > target + 0.05);
+                        if (st === 'Early Leave') return s === 'Early Leave' || (hours > 4 && hours < target - 0.5);
+                        if (st === 'Half Day') return s === 'Half Day' || (hours >= 4 && hours < target / 2);
+                        return s === st;
+                    });
+                    
+                    if (!matchesAnyStatus) matches = false;
+                }
 
                 return matches;
             });
