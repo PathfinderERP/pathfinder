@@ -69,6 +69,7 @@ import razorpayPOSRoutes from "./routes/payment/razorpayPOS.routes.js";
 import allocationRoutes from "./routes/Inventory/allocation.routes.js";
 import marketingOperationsRoutes from "./routes/Operations/marketing.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
+import razorpaySMSRoutes from "./routes/payment/razorpaySMS.routes.js";
 
 import studentPortalRoutes from "./routes/studentPortal.routes.js";
 
@@ -179,6 +180,7 @@ app.use("/api/student-portal", studentPortalRoutes);
 app.use("/api/inventory/allocation", allocationRoutes);
 app.use("/api/operations/marketing", marketingOperationsRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/payment/sms", razorpaySMSRoutes);
 
 
 

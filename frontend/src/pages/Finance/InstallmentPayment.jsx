@@ -10,6 +10,7 @@ import BillGenerator from "../../components/Finance/BillGenerator";
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Pagination from "../../components/common/Pagination";
 import RazorpayPOSModal from "../../components/Finance/RazorpayPOSModal";
+import RazorpaySMSModal from "../../components/Finance/RazorpaySMSModal";
 
 const EditScheduleModal = ({ admission, onClose, onSave }) => {
     // Initialize with existing unpaid installments
@@ -487,6 +488,7 @@ const InstallmentPayment = () => {
     const [activeInstallment, setActiveInstallment] = useState(null);
     const [activeAdmissionId, setActiveAdmissionId] = useState(null);
     const [showPOSModal, setShowPOSModal] = useState(false);
+    const [showSMSModal, setShowSMSModal] = useState(false);
     const [payFormData, setPayFormData] = useState({
         paidAmount: 0,
         paymentMethod: "CASH",
@@ -1417,8 +1419,8 @@ const InstallmentPayment = () => {
 
                                 <div>
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 block">Payment Method</label>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {["CASH", "UPI", "CARD", "BANK_TRANSFER", "CHEQUE", "RAZORPAY_POS"].map(method => (
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                        {["CASH", "UPI", "CARD", "BANK_TRANSFER", "CHEQUE", "RAZORPAY_POS", "RAZORPAY_SMS"].map(method => (
                                             <button
                                                 key={method}
                                                 type="button"
@@ -1520,6 +1522,8 @@ const InstallmentPayment = () => {
                                     onClick={() => {
                                         if (payFormData.paymentMethod === 'RAZORPAY_POS') {
                                             setShowPOSModal(true);
+                                        } else if (payFormData.paymentMethod === 'RAZORPAY_SMS') {
+                                            setShowSMSModal(true);
                                         } else {
                                             handleRecordPayment();
                                         }
@@ -1596,6 +1600,27 @@ const InstallmentPayment = () => {
                             ...prev,
                             transactionId: posData.p2pRequestId,
                             remarks: (prev.remarks ? prev.remarks + " | " : "") + "Razorpay POS Authorized"
+                        }));
+                        // Proceed to record the payment in our DB
+                        handleRecordPayment();
+                    }}
+                />
+
+                {/* Razorpay SMS Modal */}
+                <RazorpaySMSModal
+                    isOpen={showSMSModal}
+                    onClose={() => setShowSMSModal(false)}
+                    amount={payFormData.paidAmount}
+                    installmentNumber={activeInstallment?.installmentNumber}
+                    admissionId={activeAdmissionId}
+                    studentInfo={selectedStudent}
+                    admissionType="NORMAL"
+                    onPaymentSuccess={(smsData) => {
+                        // Update payFormData with SMS transaction details
+                        setPayFormData(prev => ({
+                            ...prev,
+                            transactionId: smsData.id,
+                            remarks: (prev.remarks ? prev.remarks + " | " : "") + "Razorpay SMS Pay Completed"
                         }));
                         // Proceed to record the payment in our DB
                         handleRecordPayment();

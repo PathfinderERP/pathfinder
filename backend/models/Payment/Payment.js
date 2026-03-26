@@ -51,7 +51,7 @@ const paymentSchema = new mongoose.Schema({
     // Payment Method Details
     paymentMethod: {
         type: String,
-        enum: ["CASH", "UPI", "CARD", "BANK_TRANSFER", "CHEQUE"],
+        enum: ["CASH", "UPI", "CARD", "BANK_TRANSFER", "CHEQUE", "RAZORPAY_POS", "RAZORPAY_SMS"],
         default: null
     },
 

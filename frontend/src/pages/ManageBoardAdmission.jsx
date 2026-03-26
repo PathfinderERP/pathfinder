@@ -4,6 +4,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import { FaPrint, FaSave, FaSync, FaCheckCircle, FaTrash, FaCheck, FaExclamationTriangle, FaFileInvoice, FaArrowLeft, FaMoneyBillWave, FaPlus, FaTimes } from 'react-icons/fa';
 import BillGenerator from '../components/Finance/BillGenerator';
 import { useTheme } from '../context/ThemeContext';
+import RazorpaySMSModal from '../components/Finance/RazorpaySMSModal';
 
 const ManageBoardAdmission = () => {
     const { id } = useParams();
@@ -32,9 +33,9 @@ const ManageBoardAdmission = () => {
         paymentMethod: "CASH",
         transactionId: "",
         bankName: "",
-        accountHolderName: "",
         chequeDate: new Date().toISOString().split('T')[0]
     });
+
     const [paymentForm, setPaymentForm] = useState({
         amount: 0,
         paidExamFee: 0,
@@ -45,6 +46,8 @@ const ManageBoardAdmission = () => {
         accountHolderName: "",
         chequeDate: new Date().toISOString().split('T')[0]
     });
+
+    const [showSMSModal, setShowSMSModal] = useState(false);
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -177,11 +180,7 @@ const ManageBoardAdmission = () => {
     const handleCollectPayment = async (e) => {
         e.preventDefault();
 
-        const maxAmount = paymentModal.installment.payableAmount - paymentModal.installment.paidAmount;
-        if (Number(paymentForm.amount) > maxAmount) {
-            toast.error(`Cannot pay more than the remaining balance (₹${maxAmount})`);
-            return;
-        }
+        setLoading(true);
 
         setLoading(true);
         try {
@@ -223,11 +222,7 @@ const ManageBoardAdmission = () => {
     const handleCollectExamPayment = async (e) => {
         e.preventDefault();
 
-        const maxAmount = Math.max(0, admission.examFee - (admission.examFeePaid || 0));
-        if (Number(paymentForm.amount) > maxAmount) {
-            toast.error(`Cannot pay more than the remaining balance (₹${maxAmount})`);
-            return;
-        }
+        setLoading(true);
 
         setLoading(true);
         try {
@@ -297,11 +292,7 @@ const ManageBoardAdmission = () => {
     const handleCollectAdditionalPayment = async (e) => {
         e.preventDefault();
 
-        const maxAmount = Math.max(0, admission.additionalThingsAmount - (admission.additionalThingsPaid || 0));
-        if (Number(paymentForm.amount) > maxAmount) {
-            toast.error(`Cannot pay more than the remaining balance (₹${maxAmount})`);
-            return;
-        }
+        setLoading(true);
 
         setLoading(true);
         try {
@@ -645,25 +636,33 @@ const ManageBoardAdmission = () => {
                             <button onClick={() => setPaymentModal({ show: false, installment: null })}><FaTimes /></button>
                         </div>
 
-                        <form onSubmit={handleCollectPayment} className="space-y-6">
+                        <form 
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                if (paymentForm.paymentMethod === 'RAZORPAY_SMS') {
+                                    setShowSMSModal(true);
+                                } else {
+                                    handleCollectPayment(e);
+                                }
+                            }} 
+                            className="space-y-6"
+                        >
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Amount</label>
                                     <input
                                         type="number"
-                                        max={paymentModal.installment.payableAmount - paymentModal.installment.paidAmount}
                                         value={paymentForm.amount}
                                         onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
                                         className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
                                         required
                                     />
                                 </div>
-                                {admission.programme === 'NCRP' && admission.examFee > admission.examFeePaid && (
+                                {admission.examFee > 0 && (admission.examFeePaid < admission.examFee) && (
                                     <div>
                                         <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2">Examination Fee</label>
                                         <input
                                             type="number"
-                                            max={admission.examFee - admission.examFeePaid}
                                             value={paymentForm.paidExamFee}
                                             onChange={(e) => setPaymentForm({ ...paymentForm, paidExamFee: e.target.value })}
                                             className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-cyan-50 border-cyan-100'}`}
@@ -671,12 +670,11 @@ const ManageBoardAdmission = () => {
                                         <p className="text-[8px] text-gray-500 mt-1 font-bold">BAL: ₹{admission.examFee - admission.examFeePaid}</p>
                                     </div>
                                 )}
-                                {admission.programme === 'NCRP' && admission.additionalThingsAmount > admission.additionalThingsPaid && (
+                                {admission.additionalThingsAmount > 0 && (admission.additionalThingsPaid < admission.additionalThingsAmount) && (
                                     <div>
                                         <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2 truncate" title={admission.additionalThingsName}>{admission.additionalThingsName || "Additional Fee"}</label>
                                         <input
                                             type="number"
-                                            max={admission.additionalThingsAmount - admission.additionalThingsPaid}
                                             value={paymentForm.paidAdditionalThings || 0}
                                             onChange={(e) => setPaymentForm({ ...paymentForm, paidAdditionalThings: e.target.value })}
                                             className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-cyan-50 border-cyan-100'}`}
@@ -684,7 +682,7 @@ const ManageBoardAdmission = () => {
                                         <p className="text-[8px] text-gray-500 mt-1 font-bold">BAL: ₹{admission.additionalThingsAmount - admission.additionalThingsPaid}</p>
                                     </div>
                                 )}
-                                <div className={(admission.examFee > admission.examFeePaid || admission.additionalThingsAmount > admission.additionalThingsPaid) ? "col-span-2" : "col-span-1"}>
+                                <div className={(admission.examFee > 0 && admission.examFeePaid < admission.examFee) || (admission.additionalThingsAmount > 0 && admission.additionalThingsPaid < admission.additionalThingsAmount) ? "col-span-2" : "col-span-1"}>
                                     <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Method</label>
                                     <select
                                         value={paymentForm.paymentMethod}
@@ -695,6 +693,7 @@ const ManageBoardAdmission = () => {
                                         <option value="UPI">UPI</option>
                                         <option value="CHEQUE">CHEQUE</option>
                                         <option value="BANK_TRANSFER">BANK TRANSFER</option>
+                                        <option value="RAZORPAY_SMS">RAZORPAY SMS PAY</option>
                                     </select>
                                 </div>
                             </div>
@@ -907,13 +906,26 @@ const ManageBoardAdmission = () => {
                             <button onClick={() => setExamPaymentModal(false)}><FaTimes /></button>
                         </div>
 
-                        <form onSubmit={handleCollectExamPayment} className="space-y-6">
+                        <form 
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                if (paymentForm.paymentMethod === 'RAZORPAY_SMS') {
+                                    const amt = Number(paymentForm.amount);
+                                    setPaymentForm(prev => ({ ...prev, amount: 0, paidExamFee: amt, paidAdditionalThings: 0 }));
+                                    setPaymentModal({ show: false, installment: null });
+                                    setExamPaymentModal(false);
+                                    setShowSMSModal(true);
+                                } else {
+                                    handleCollectExamPayment(e);
+                                }
+                            }} 
+                            className="space-y-6"
+                        >
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Amount</label>
                                     <input
                                         type="number"
-                                        max={Math.max(0, admission.examFee - (admission.examFeePaid || 0))}
                                         value={paymentForm.amount}
                                         onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
                                         className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
@@ -931,6 +943,7 @@ const ManageBoardAdmission = () => {
                                         <option value="UPI">UPI</option>
                                         <option value="CHEQUE">CHEQUE</option>
                                         <option value="BANK_TRANSFER">BANK TRANSFER</option>
+                                        <option value="RAZORPAY_SMS">RAZORPAY SMS PAY</option>
                                     </select>
                                 </div>
                             </div>
@@ -1069,13 +1082,26 @@ const ManageBoardAdmission = () => {
                             <button onClick={() => setAdditionalFeePaymentModal(false)}><FaTimes /></button>
                         </div>
 
-                        <form onSubmit={handleCollectAdditionalPayment} className="space-y-6">
+                        <form 
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                if (paymentForm.paymentMethod === 'RAZORPAY_SMS') {
+                                    const amt = Number(paymentForm.amount);
+                                    setPaymentForm(prev => ({ ...prev, amount: 0, paidExamFee: 0, paidAdditionalThings: amt }));
+                                    setPaymentModal({ show: false, installment: null });
+                                    setAdditionalFeePaymentModal(false);
+                                    setShowSMSModal(true);
+                                } else {
+                                    handleCollectAdditionalPayment(e);
+                                }
+                            }} 
+                            className="space-y-6"
+                        >
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Amount</label>
                                     <input
                                         type="number"
-                                        max={Math.max(0, admission.additionalThingsAmount - (admission.additionalThingsPaid || 0))}
                                         value={paymentForm.amount}
                                         onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
                                         className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
@@ -1093,6 +1119,7 @@ const ManageBoardAdmission = () => {
                                         <option value="UPI">UPI</option>
                                         <option value="CHEQUE">CHEQUE</option>
                                         <option value="BANK_TRANSFER">BANK TRANSFER</option>
+                                        <option value="RAZORPAY_SMS">RAZORPAY SMS PAY</option>
                                     </select>
                                 </div>
                             </div>
@@ -1169,7 +1196,26 @@ const ManageBoardAdmission = () => {
                             <button onClick={() => setNcrpPaymentModal(false)}><FaTimes /></button>
                         </div>
 
-                        <form onSubmit={handleCollectNcrpFees} className="space-y-5">
+                        <form 
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                if (ncrpPaymentForm.paymentMethod === 'RAZORPAY_SMS') {
+                                    setPaymentForm({
+                                        ...paymentForm,
+                                        amount: 0,
+                                        paidExamFee: Number(ncrpPaymentForm.paidExamFee),
+                                        paidAdditionalThings: Number(ncrpPaymentForm.paidAdditionalThings),
+                                        paymentMethod: 'RAZORPAY_SMS'
+                                    });
+                                    setPaymentModal({ show: false, installment: null });
+                                    setNcrpPaymentModal(false);
+                                    setShowSMSModal(true);
+                                } else {
+                                    handleCollectNcrpFees(e);
+                                }
+                            }} 
+                            className="space-y-5"
+                        >
                             {/* Fee Amount Fields */}
                             <div className="grid grid-cols-2 gap-4">
                                 {admission.examFee > 0 && (
@@ -1179,7 +1225,6 @@ const ManageBoardAdmission = () => {
                                         </label>
                                         <input
                                             type="number" min="0"
-                                            max={Math.max(0, admission.examFee - (admission.examFeePaid||0))}
                                             value={ncrpPaymentForm.paidExamFee}
                                             onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, paidExamFee: e.target.value })}
                                             className={`w-full p-3 rounded border outline-none font-bold text-lg ${isDarkMode ? 'bg-[#131619] border-cyan-800 text-cyan-400' : 'bg-cyan-50 border-cyan-200'}`}
@@ -1193,7 +1238,6 @@ const ManageBoardAdmission = () => {
                                         </label>
                                         <input
                                             type="number" min="0"
-                                            max={Math.max(0, admission.additionalThingsAmount - (admission.additionalThingsPaid||0))}
                                             value={ncrpPaymentForm.paidAdditionalThings}
                                             onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, paidAdditionalThings: e.target.value })}
                                             className={`w-full p-3 rounded border outline-none font-bold text-lg ${isDarkMode ? 'bg-[#131619] border-cyan-800 text-cyan-400' : 'bg-cyan-50 border-cyan-200'}`}
@@ -1223,6 +1267,7 @@ const ManageBoardAdmission = () => {
                                         <option value="UPI">UPI</option>
                                         <option value="CHEQUE">CHEQUE</option>
                                         <option value="BANK_TRANSFER">BANK TRANSFER</option>
+                                        <option value="RAZORPAY_SMS">RAZORPAY SMS PAY</option>
                                     </select>
                                 </div>
                                 <div>
@@ -1264,6 +1309,27 @@ const ManageBoardAdmission = () => {
                 </div>
             )}
 
+            {/* Razorpay SMS Modal */}
+            <RazorpaySMSModal
+                isOpen={showSMSModal}
+                onClose={() => setShowSMSModal(false)}
+                amount={paymentForm.amount}
+                paidExamFee={paymentForm.paidExamFee}
+                paidAdditionalThings={paymentForm.paidAdditionalThings}
+                installmentNumber={paymentModal.installment?.monthNumber || 0}
+                installmentId={paymentModal.installment?._id}
+                admissionId={id}
+                admissionType="BOARD"
+                studentInfo={{
+                    name: admission?.studentName,
+                    mobile: admission?.mobileNum
+                }}
+                onPaymentSuccess={() => {
+                    setShowSMSModal(false);
+                    setPaymentModal({ show: false, installment: null });
+                    fetchData(); // Refresh data using the existing fetchData function
+                }}
+            />
         </div>
     );
 };

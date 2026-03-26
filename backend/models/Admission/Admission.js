@@ -14,7 +14,7 @@ const paymentBreakdownSchema = new mongoose.Schema({
     paidAmount: { type: Number, default: 0 },
     paymentMethod: {
         type: String,
-        enum: ["CASH", "UPI", "CARD", "BANK_TRANSFER", "CHEQUE"],
+        enum: ["CASH", "UPI", "CARD", "BANK_TRANSFER", "CHEQUE", "RAZORPAY_POS", "RAZORPAY_SMS"],
         default: null
     },
     transactionId: { type: String },
@@ -164,7 +164,7 @@ const admissionSchema = new mongoose.Schema({
     downPaymentReceivedDate: { type: Date }, // Actual date when down payment was received
     downPaymentMethod: {
         type: String,
-        enum: ["CASH", "UPI", "CARD", "BANK_TRANSFER", "CHEQUE"],
+        enum: ["CASH", "UPI", "CARD", "BANK_TRANSFER", "CHEQUE", "RAZORPAY_POS", "RAZORPAY_SMS"],
         default: "CASH"
     },
     downPaymentTransactionId: { type: String },
