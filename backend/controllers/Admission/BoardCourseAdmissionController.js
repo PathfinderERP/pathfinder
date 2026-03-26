@@ -274,7 +274,17 @@ export const createBoardAdmission = async (req, res) => {
 
 export const getBoardAdmissions = async (req, res) => {
     try {
-        const admissions = await BoardCourseAdmission.find()
+        const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
+        let query = {};
+
+        if (!isSuperAdmin) {
+            // Get centre names for the user's assigned centre IDs
+            const centres = await Centre.find({ _id: { $in: req.user.centres } });
+            const centreNames = centres.map(c => c.centreName);
+            query.centre = { $in: centreNames };
+        }
+
+        const admissions = await BoardCourseAdmission.find(query)
             .populate('studentId')
             .populate('boardId')
             .populate('selectedSubjects.subjectId')
@@ -282,7 +292,7 @@ export const getBoardAdmissions = async (req, res) => {
             .sort({ createdAt: -1 });
         res.status(200).json(admissions);
     } catch (error) {
-        res.status(500).json({ message: "Server error", error: error.message }); console.error("COLLECT ERROR:", error)
+        res.status(500).json({ message: "Server error", error: error.message }); console.error("GET ADMISSIONS ERROR:", error)
     }
 };
 

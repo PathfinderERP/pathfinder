@@ -1,6 +1,8 @@
 import BoardCourseCounselling from "../../models/Admission/BoardCourseCounselling.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import Student from "../../models/Students.js";
+import Centre from "../../models/Master_data/Centre.js";
+
 
 export const createBoardCourseCounselling = async (req, res) => {
     try {
@@ -130,7 +132,16 @@ export const getBoardCourseCounselling = async (req, res) => {
             return res.status(200).json(record);
         }
 
-        const counselling = await BoardCourseCounselling.find({ status: "PENDING" })
+        const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
+        let query = { status: "PENDING" };
+
+        if (!isSuperAdmin) {
+            const centres = await Centre.find({ _id: { $in: req.user.centres } });
+            const centreNames = centres.map(c => c.centreName);
+            query.centre = { $in: centreNames };
+        }
+
+        const counselling = await BoardCourseCounselling.find(query)
             .populate({
                 path: 'studentId',
                 populate: {

@@ -804,32 +804,40 @@ const BoardAdmissionsContent = () => {
                         )}
                     </div>
 
-                    {activeTab === "Enrolled" && (
+                    {activeTab !== "Potential" && (
                         <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-gray-800/10 dark:border-gray-800">
                             <MultiSelectFilter
                                 label="Boards"
-                                options={[...new Set(boards.map(b => b.boardCourse).filter(Boolean))]}
+                                options={activeTab === "Enrolled" 
+                                    ? [...new Set(boardAdmissions.map(a => a.boardId?.boardCourse).filter(Boolean))]
+                                    : [...new Set(counselledStudents.map(cs => cs.boardId?.boardCourse).filter(Boolean))]
+                                }
                                 selectedValues={filterBoard}
                                 onChange={setFilterBoard}
                                 theme={theme}
                             />
-                            <MultiSelectFilter
-                                label="Subjects"
-                                options={[...new Set(boardCourseSubjects.flatMap(bcs => bcs.subjects.map(s => s.subjectId?.subName || s.name)).filter(Boolean))]}
-                                selectedValues={filterSubject}
-                                onChange={setFilterSubject}
-                                theme={theme}
-                            />
+                            {activeTab === "Enrolled" && (
+                                <MultiSelectFilter
+                                    label="Subjects"
+                                    options={[...new Set(boardAdmissions.flatMap(a => a.selectedSubjects?.map(s => s.subjectId?.subName || s.name)).filter(Boolean))]}
+                                    selectedValues={filterSubject}
+                                    onChange={setFilterSubject}
+                                    theme={theme}
+                                />
+                            )}
                             <MultiSelectFilter
                                 label="Centres"
-                                options={[...new Set(boardAdmissions.map(a => a.centre).filter(Boolean))]}
+                                options={uniqueCentres}
                                 selectedValues={filterCentre}
                                 onChange={setFilterCentre}
                                 theme={theme}
                             />
                             <MultiSelectFilter
                                 label="Programmes"
-                                options={[...new Set(boardAdmissions.map(a => a.programme).filter(Boolean))]}
+                                options={activeTab === "Enrolled"
+                                    ? [...new Set(boardAdmissions.map(a => a.programme).filter(Boolean))]
+                                    : [...new Set(counselledStudents.map(cs => cs.programme).filter(Boolean))]
+                                }
                                 selectedValues={filterProgramme}
                                 onChange={setFilterProgramme}
                                 theme={theme}

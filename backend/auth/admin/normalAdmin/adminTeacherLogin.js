@@ -30,25 +30,37 @@ export default async function adminTeacherLogin(req, res) {
 
         let portalToken = null;
         try {
-            const portalResponse = await fetch("http://api.studypathportal.in/api/token/", {
+            // Attempt 1: Using user's current password
+            let portalResponse = await fetch("https://api.studypathportal.in/api/token/", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ username: email, password: password })
             });
+
+            if (!portalResponse.ok && password !== "000000") {
+                // Attempt 2: Using default password fallback
+                portalResponse = await fetch("https://api.studypathportal.in/api/token/", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username: email, password: "000000" })
+                });
+            }
+
             if (portalResponse.ok) {
                 const portalData = await portalResponse.json();
                 portalToken = portalData.access;
+            } else {
+                console.warn(`External portal login failed for ${email} on all password attempts.`);
             }
         } catch (portalError) {
-            console.error("External portal login failed:", portalError.message);
-            // We don't block the main login if the external portal is down
+            console.error("External portal login networking error:", portalError.message);
         }
 
 
         res.status(200).json({
             message: "Login successfully",
             token,
-            // portalToken, // Added portal token
+            portalToken, // Now active to provide token to frontend
             user: {
                 id: user._id,
                 name: user.name,
