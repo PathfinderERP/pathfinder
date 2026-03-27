@@ -20,19 +20,16 @@ const GENERATE_BILL = false; // Set to true if payment records/bills are needed
  * PASTE STUDENT DATA HERE
  */
 const student_data_list = [
-    // Example Entry:
-    // {
-    //     enroll: "PATH2600XXXX",
-    //     name: "STUDENT NAME",
-    //     email: "email@example.com",
-    //     phone: "9876543210",
-    //     centre: "BAGNAN",
-    //     courseName: "Foundation Class VII (Instation) 2026-2027",
-    //     totalFees: 30000,
-    //     paid: 5000,
-    //     session: "2026-2027",
-    //     counselledBy: "Counsellor Name"
-    // }
+    {
+        enroll: "PATH24010767",
+        name: "ANUBHAV SINHA",
+        email: "anusinha1984may@gmail.com",
+        phone: "9748013567",
+        centre: "DUMDUM",
+        courseName: "JEE MAINS & ADVANCED+WBJEE 2Years 2025-2027",
+        session: "2024-2026", // Consistent with PATH24
+        counselledBy: "SOUMITA MONDAL CHATTERJEE CLLR"
+    }
 ];
 
 async function insertAllStudents() {

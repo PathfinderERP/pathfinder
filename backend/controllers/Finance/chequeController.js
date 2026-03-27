@@ -204,7 +204,8 @@ export const getPendingCheques = async (req, res) => {
                 bankName: c.accountHolderName,
                 status: c.status,
                 createdAt: c.createdAt,
-                processedBy: c.processedBy?.name || "System"
+                processedBy: c.processedBy?.name || "System",
+                clearedOrRejectedDate: c.clearedOrRejectedDate
             };
         });
 
@@ -219,6 +220,11 @@ export const getPendingCheques = async (req, res) => {
 export const clearCheque = async (req, res) => {
     try {
         const { paymentId } = req.params;
+        const { clearedDate } = req.body;
+
+        if (!clearedDate) {
+            return res.status(400).json({ message: "Cleared Date is required to clear the cheque" });
+        }
 
         const payment = await Payment.findById(paymentId);
         if (!payment) {
@@ -245,6 +251,7 @@ export const clearCheque = async (req, res) => {
         // 1. Update Payment record
         payment.status = "PAID";
         payment.paidDate = new Date();
+        payment.clearedOrRejectedDate = new Date(clearedDate);
         payment.processedBy = req.user.id || req.user._id;
 
         // Generate Bill ID
@@ -332,7 +339,11 @@ export const clearCheque = async (req, res) => {
 export const rejectCheque = async (req, res) => {
     try {
         const { paymentId } = req.params;
-        const { reason } = req.body;
+        const { reason, rejectedDate } = req.body;
+
+        if (!rejectedDate) {
+            return res.status(400).json({ message: "Rejected Date is required to reject the cheque" });
+        }
 
         const payment = await Payment.findById(paymentId);
         if (!payment) {
@@ -359,6 +370,7 @@ export const rejectCheque = async (req, res) => {
         payment.status = "REJECTED";
         payment.remarks = (payment.remarks ? payment.remarks + "; " : "") + `REJECTED: ${reason || 'Cheque bounced'}`;
         payment.processedBy = req.user.id || req.user._id;
+        payment.clearedOrRejectedDate = new Date(rejectedDate);
         await payment.save();
 
         if (isBoardAdmission) {
@@ -619,7 +631,8 @@ export const getAllCheques = async (req, res) => {
                 department: isBoard ? "Board" : (adm?.department?.departmentName || "N/A"),
                 remarks: c.remarks || "N/A",
                 processedBy: c.processedBy?.name || "System",
-                processedDate: c.updatedAt
+                processedDate: c.updatedAt,
+                clearedOrRejectedDate: c.clearedOrRejectedDate
             };
         });
 

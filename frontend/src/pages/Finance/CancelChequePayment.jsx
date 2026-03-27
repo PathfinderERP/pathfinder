@@ -158,7 +158,7 @@ const CancelChequePayment = () => {
             "Bank": c.bankName,
             "Amount": c.amount,
             "Cheque Date": c.chequeDate ? new Date(c.chequeDate).toLocaleDateString('en-IN') : "N/A",
-            "Cleared/Rejected Date": c.processedDate ? new Date(c.processedDate).toLocaleDateString('en-IN') : "N/A",
+            "Cleared/Rejected Date": c.clearedOrRejectedDate ? new Date(c.clearedOrRejectedDate).toLocaleDateString('en-IN') : "N/A",
             "Status": c.status,
             "Centre": c.centre,
             "Course": c.course,
@@ -507,7 +507,7 @@ const CancelChequePayment = () => {
                                             {cheque.chequeDate ? new Date(cheque.chequeDate).toLocaleDateString('en-IN') : "N/A"}
                                         </td>
                                         <td className="p-6 text-gray-300 font-bold text-xs">
-                                            {cheque.processedDate ? new Date(cheque.processedDate).toLocaleDateString('en-IN') : "N/A"}
+                                            {cheque.clearedOrRejectedDate ? new Date(cheque.clearedOrRejectedDate).toLocaleDateString('en-IN') : "N/A"}
                                         </td>
                                         <td className="p-6 text-center">
                                             <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border shadow-sm ${

@@ -16,6 +16,11 @@ const ChequeManagement = () => {
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [rejectingId, setRejectingId] = useState(null);
     const [rejectReason, setRejectReason] = useState("");
+    const [rejectDate, setRejectDate] = useState(new Date().toISOString().split('T')[0]);
+
+    const [showClearModal, setShowClearModal] = useState(false);
+    const [clearingId, setClearingId] = useState(null);
+    const [clearDate, setClearDate] = useState(new Date().toISOString().split('T')[0]);
 
     const [filters, setFilters] = useState({
         centre: [],
@@ -136,22 +141,32 @@ const ChequeManagement = () => {
         setStats(statsObj);
     };
 
-    const handleClearCheque = async (paymentId) => {
-        if (!window.confirm("Are you sure you want to clear this cheque and generate the bill?")) return;
+    const handleClearCheque = async () => {
+        if (!clearDate) {
+            toast.error("Please provide a cleared date");
+            return;
+        }
 
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(
-                `${import.meta.env.VITE_API_URL}/finance/installment/clear-cheque/${paymentId}`,
+                `${import.meta.env.VITE_API_URL}/finance/installment/clear-cheque/${clearingId}`,
                 {
                     method: "POST",
-                    headers: { Authorization: `Bearer ${token}` }
+                    headers: { 
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}` 
+                    },
+                    body: JSON.stringify({ clearedDate: clearDate })
                 }
             );
 
             if (response.ok) {
                 const result = await response.json();
                 toast.success(`Cheque cleared! Bill ID: ${result.billId}`);
+                setShowClearModal(false);
+                setClearingId(null);
+                setClearDate(new Date().toISOString().split('T')[0]);
                 fetchCheques();
             } else {
                 const err = await response.json();
@@ -164,6 +179,10 @@ const ChequeManagement = () => {
     };
 
     const handleRejectCheque = async () => {
+        if (!rejectDate) {
+            toast.error("Please provide a rejection date");
+            return;
+        }
         if (!rejectReason) {
             toast.error("Please provide a reason for rejection");
             return;
@@ -179,7 +198,7 @@ const ChequeManagement = () => {
                         "Content-Type": "application/json",
                         Authorization: `Bearer ${token}`
                     },
-                    body: JSON.stringify({ reason: rejectReason })
+                    body: JSON.stringify({ reason: rejectReason, rejectedDate: rejectDate })
                 }
             );
 
@@ -231,6 +250,7 @@ const ChequeManagement = () => {
             "Bank": c.bankName,
             "Amount": c.amount,
             "Cheque Date": c.chequeDate ? new Date(c.chequeDate).toLocaleDateString('en-IN') : "N/A",
+            "Cleared/Rejected Date": c.clearedOrRejectedDate ? new Date(c.clearedOrRejectedDate).toLocaleDateString('en-IN') : "N/A",
             "Status": c.status === "PAID" ? "Cleared" : (c.status === "REJECTED" ? "Rejected" : "Pending"),
             "Centre": c.centre,
             "Course": c.courseName,
@@ -472,6 +492,7 @@ const ChequeManagement = () => {
                                 <th className="p-6">Bank Name</th>
                                 <th className="p-6">Amount</th>
                                 <th className="p-6">Cheque Date</th>
+                                <th className="p-6">Cleared/Rejected Date</th>
                                 <th className="p-6">Status</th>
                                 <th className="p-6">Processed By</th>
                                 <th className="p-6 text-right">Actions</th>
@@ -509,6 +530,9 @@ const ChequeManagement = () => {
                                         <td className="p-6 text-gray-300 font-bold text-xs">
                                             {cheque.chequeDate ? new Date(cheque.chequeDate).toLocaleDateString('en-IN') : "N/A"}
                                         </td>
+                                        <td className="p-6 text-gray-300 font-bold text-xs">
+                                            {cheque.clearedOrRejectedDate ? new Date(cheque.clearedOrRejectedDate).toLocaleDateString('en-IN') : "---"}
+                                        </td>
                                         <td className="p-6">{getStatusBadge(cheque.status)}</td>
                                         <td className="p-6">
                                             <div className="text-gray-500 font-black text-[10px] uppercase italic">
@@ -519,7 +543,11 @@ const ChequeManagement = () => {
                                             {cheque.status === "PENDING_CLEARANCE" && canManageCheques && (
                                                 <div className="flex justify-end gap-2">
                                                     <button
-                                                        onClick={() => handleClearCheque(cheque.paymentId)}
+                                                        onClick={() => {
+                                                            setClearingId(cheque.paymentId);
+                                                            setClearDate(new Date().toISOString().split('T')[0]);
+                                                            setShowClearModal(true);
+                                                        }}
                                                         className="px-4 py-2 bg-emerald-500/10 text-emerald-500 font-black text-[10px] uppercase rounded-lg hover:bg-emerald-500 hover:text-black transition-all border border-emerald-500/20"
                                                     >
                                                         Clear
@@ -527,6 +555,7 @@ const ChequeManagement = () => {
                                                     <button
                                                         onClick={() => {
                                                             setRejectingId(cheque.paymentId);
+                                                            setRejectDate(new Date().toISOString().split('T')[0]);
                                                             setShowRejectModal(true);
                                                         }}
                                                         className="px-4 py-2 bg-red-500/10 text-red-500 font-black text-[10px] uppercase rounded-lg hover:bg-red-500 hover:text-white transition-all border border-red-500/20"
@@ -557,12 +586,22 @@ const ChequeManagement = () => {
                                 </div>
                             </div>
                             <div className="p-8">
-                                <textarea
-                                    value={rejectReason}
-                                    onChange={(e) => setRejectReason(e.target.value)}
-                                    placeholder="e.g. Insufficient Funds, Signature Mismatch..."
-                                    className="w-full bg-black/40 border border-gray-800 rounded-xl p-4 text-gray-200 font-bold text-xs uppercase tracking-widest outline-none focus:border-red-500/50 transition-all min-h-[120px] resize-none"
-                                />
+                                <div className="mb-4">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Rejected Date</label>
+                                    <input
+                                        type="date"
+                                        value={rejectDate}
+                                        onChange={(e) => setRejectDate(e.target.value)}
+                                        className="w-full bg-black/40 border border-gray-800 rounded-xl py-2.5 px-4 text-gray-400 font-bold text-[10px] outline-none focus:border-red-500/50 transition-all uppercase mb-4"
+                                    />
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Reason</label>
+                                    <textarea
+                                        value={rejectReason}
+                                        onChange={(e) => setRejectReason(e.target.value)}
+                                        placeholder="e.g. Insufficient Funds, Signature Mismatch..."
+                                        className="w-full bg-black/40 border border-gray-800 rounded-xl p-4 text-gray-200 font-bold text-xs uppercase tracking-widest outline-none focus:border-red-500/50 transition-all min-h-[120px] resize-none"
+                                    />
+                                </div>
                             </div>
                             <div className="p-8 border-t border-gray-800 flex gap-4 bg-black/40">
                                 <button
@@ -579,6 +618,51 @@ const ChequeManagement = () => {
                                     className="flex-1 py-3 bg-red-500 text-black font-black uppercase text-xs tracking-widest rounded-xl hover:bg-red-400 transition-all shadow-lg shadow-red-500/20"
                                 >
                                     Confirm Bounce
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Clear Modal */}
+                {showClearModal && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                        <div className="bg-[#131619] border border-gray-800 w-full max-w-md rounded-[2rem] overflow-hidden animate-in fade-in zoom-in duration-300 shadow-2xl">
+                            <div className="p-8 border-b border-gray-800 flex items-center gap-4 bg-gradient-to-r from-emerald-500/10 to-transparent">
+                                <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500 text-xl">
+                                    <FaCheckCircle />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-black text-white italic uppercase">Clear Cheque</h2>
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Confirm clearing details</p>
+                                </div>
+                            </div>
+                            <div className="p-8">
+                                <div className="mb-4">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Cleared Date</label>
+                                    <input
+                                        type="date"
+                                        value={clearDate}
+                                        onChange={(e) => setClearDate(e.target.value)}
+                                        className="w-full bg-black/40 border border-gray-800 rounded-xl py-2.5 px-4 text-gray-400 font-bold text-[10px] outline-none focus:border-emerald-500/50 transition-all uppercase"
+                                    />
+                                </div>
+                            </div>
+                            <div className="p-8 border-t border-gray-800 flex gap-4 bg-black/40">
+                                <button
+                                    onClick={() => {
+                                        setShowClearModal(false);
+                                        setClearDate(new Date().toISOString().split('T')[0]);
+                                    }}
+                                    className="flex-1 py-3 bg-gray-800 text-gray-300 font-black uppercase text-xs tracking-widest rounded-xl hover:bg-gray-700 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleClearCheque}
+                                    className="flex-1 py-3 bg-emerald-500 text-black font-black uppercase text-xs tracking-widest rounded-xl hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20"
+                                >
+                                    Confirm Clear
                                 </button>
                             </div>
                         </div>

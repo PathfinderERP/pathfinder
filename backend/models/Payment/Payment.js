@@ -35,6 +35,9 @@ const paymentSchema = new mongoose.Schema({
     receivedDate: {
         type: Date
     },
+    clearedOrRejectedDate: {
+        type: Date
+    },
 
     status: {
         type: String,
