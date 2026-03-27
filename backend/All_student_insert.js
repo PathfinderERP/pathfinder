@@ -21,14 +21,14 @@ const GENERATE_BILL = false; // Set to true if payment records/bills are needed
  */
 const student_data_list = [
     {
-        enroll: "PATH24010767",
-        name: "ANUBHAV SINHA",
-        email: "anusinha1984may@gmail.com",
-        phone: "9748013567",
-        centre: "DUMDUM",
-        courseName: "JEE MAINS & ADVANCED+WBJEE 2Years 2025-2027",
-        session: "2024-2026", // Consistent with PATH24
-        counselledBy: "SOUMITA MONDAL CHATTERJEE CLLR"
+        enroll: "PATH25002082",
+        name: "SANIA SEIKH",
+        email: "saniaseikh12@gmail.com",
+        phone: "8617493147",
+        centre: "BURDWAN",
+        courseName: "NEET REPEATER (NS) 2025-2026",
+        session: "2025-2026",
+        counselledBy: "Burdwan Pathfinder CI"
     }
 ];
 

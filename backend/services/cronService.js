@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { sendOverdueReminders, checkOverduePayments } from "./paymentReminderService.js";
 import { performAutoCheckout } from "./attendanceAutoCheckout.js";
 import { checkAndSendBirthdayGreetings } from "./birthdayNotificationService.js";
+import { recoverPendingPosPayments } from "./posRecoveryService.js";
 
 // Run every day at 9:00 AM to check overdue payments and send reminders
 export const startPaymentReminderCron = () => {
@@ -49,9 +50,20 @@ export const startPaymentReminderCron = () => {
         }
     });
 
+    // POS Payment Recovery — runs every 2 minutes to catch payments authorized on terminal
+    // but missed by the frontend (e.g., timer expired before polling captured the SUCCESS status)
+    cron.schedule('*/2 * * * *', async () => {
+        try {
+            await recoverPendingPosPayments();
+        } catch (error) {
+            console.error('❌ Error in POS recovery cron job:', error);
+        }
+    });
+
     console.log('✅ Cron jobs initialized and scheduled:');
     console.log('   - 📧 Daily Birthday Greetings: 8:00 AM IST matched');
     console.log('   - 🔔 Payment Reminders: 9:00 AM');
     console.log('   - 🕒 Attendance Auto-Checkout: 11:59 PM');
     console.log('   - 🔄 Status updates: Every hour');
+    console.log('   - 💳 POS Recovery: Every 2 minutes');
 };
