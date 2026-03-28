@@ -159,6 +159,25 @@ export const getTransactionReport = async (req, res) => {
                 ]
             };
         }
+ 
+        // Pre-build the consolidated filters for aggregation stages
+        let aggregateFilters = [];
+        if (Object.keys(admissionMatch).length > 0) aggregateFilters.push(admissionMatch);
+        if (Object.keys(searchMatch).length > 0) aggregateFilters.push(searchMatch);
+        if (departmentIds) {
+            const dIds = typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds;
+            const validDIds = dIds.filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim()));
+            if (validDIds.length > 0) {
+                aggregateFilters.push({
+                    $or: [
+                        { "courseInfo.department": { $in: validDIds } },
+                        { "admissionInfo.department": { $in: validDIds } }
+                    ]
+                });
+            }
+        }
+ 
+        const aggregateMatchStage = aggregateFilters.length > 0 ? { $match: { $and: aggregateFilters } } : { $match: {} };
 
         const reportData = await Payment.aggregate([
             // 1. Match Payments
@@ -227,31 +246,7 @@ export const getTransactionReport = async (req, res) => {
             { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
 
             // 3. Match Admission, Search & Dept Filters
-            {
-                $match: {
-                    $and: [
-                        Object.keys(admissionMatch).length > 0 ? admissionMatch : {},
-                        Object.keys(searchMatch).length > 0 ? searchMatch : {},
-                        departmentIds ? {
-                            $or: [
-                                { "courseInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim())) } },
-                                { "admissionInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim())) } }
-                            ]
-                        } : {}
-                    ].filter(part => Object.keys(part).length > 0).length > 0 ? {
-                        $and: [
-                            Object.keys(admissionMatch).length > 0 ? admissionMatch : {},
-                            Object.keys(searchMatch).length > 0 ? searchMatch : {},
-                            departmentIds ? {
-                                $or: [
-                                    { "courseInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim())) } },
-                                    { "admissionInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim())) } }
-                                ]
-                            } : {}
-                        ].filter(part => Object.keys(part).length > 0)
-                    } : {}
-                }
-            },
+            aggregateMatchStage,
 
             // Add Fallback Date for Grouping
             {
@@ -398,31 +393,7 @@ export const getTransactionReport = async (req, res) => {
             { $unwind: { path: "$studentInfo", preserveNullAndEmptyArrays: true } },
             { $lookup: { from: "courses", localField: "admissionInfo.course", foreignField: "_id", as: "courseInfo" } },
             { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
-            {
-                $match: {
-                    $and: [
-                        Object.keys(admissionMatch).length > 0 ? admissionMatch : {},
-                        Object.keys(searchMatch).length > 0 ? searchMatch : {},
-                        departmentIds ? {
-                            $or: [
-                                { "courseInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim())) } },
-                                { "admissionInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim())) } }
-                            ]
-                        } : {}
-                    ].filter(part => Object.keys(part).length > 0).length > 0 ? {
-                        $and: [
-                            Object.keys(admissionMatch).length > 0 ? admissionMatch : {},
-                            Object.keys(searchMatch).length > 0 ? searchMatch : {},
-                            departmentIds ? {
-                                $or: [
-                                    { "courseInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim())) } },
-                                    { "admissionInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim())) } }
-                                ]
-                            } : {}
-                        ].filter(part => Object.keys(part).length > 0)
-                    } : {}
-                }
-            },
+            aggregateMatchStage,
             {
                 $lookup: {
                     from: "departments",
