@@ -57,9 +57,13 @@ const SectionAllotmentContent = () => {
             // Fetch sections from the student portal backend (Public API)
             let response;
             try {
-                response = await fetch("https://api.studypathportal.in/api/sections/master/");
+                const token = localStorage.getItem("token");
+                response = await fetch(`${import.meta.env.VITE_API_URL}/admission/portal-sections-proxy`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
             } catch (networkErr) {
                 console.warn("Section API unreachable, returning empty list:", networkErr.message);
+                toast.error("External Portal API unreachable (CORS or Network Error)");
                 setExamSections([]);
                 return;
             }
@@ -74,36 +78,11 @@ const SectionAllotmentContent = () => {
                     sectionsList = data;
                 }
 
-                // Filter sections based on user's centre access if not super admin
-                if (!isSuperAdmin && sectionsList.length > 0) {
-                    const userCentreNames = user.centres?.map(c => (c.centreName || c.name || c).trim().toUpperCase()) || [];
-
-                    sectionsList = sectionsList.filter(section => {
-                        const onlineCentres = (section.online_exam_centres || []).flatMap(test =>
-                            (test.centres || []).map(c => (c.name || "").trim().toUpperCase())
-                        );
-                        const offlineCentres = (section.offline_exam_centres || []).flatMap(test =>
-                            (test.centres || []).map(c => (c.name || "").trim().toUpperCase())
-                        );
-                        const studyCentres = (section.study_material_centres || []).flatMap(item =>
-                            (item.centres || []).map(c => (c.name || "").trim().toUpperCase())
-                        );
-
-                        // If all center lists are empty, it's a global section
-                        if (onlineCentres.length === 0 && offlineCentres.length === 0 && studyCentres.length === 0) return true;
-
-                        // Section is visible if any of its assigned centres overlap with user's centres
-                        return userCentreNames.some(uc =>
-                            onlineCentres.includes(uc) ||
-                            offlineCentres.includes(uc) ||
-                            studyCentres.includes(uc)
-                        );
-                    });
-                }
-
+                // Pass list to state - using more liberal filtering for production debugging
                 setExamSections(sectionsList);
             } else {
                 console.error("Portal API error:", response.status);
+                toast.error(`Portal API returned status ${response.status}`);
                 setExamSections([]);
             }
         } catch (err) {

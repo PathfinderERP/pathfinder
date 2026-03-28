@@ -11,7 +11,7 @@ import { requireAuth, requireGranularPermission, requireAnyGranularPermission } 
 import { searchAdmission, transferCourse } from "../../controllers/Admission/courseTransfer.js";
 import { generateMonthlyBill, getMonthlyBreakdown, updateBoardSubjects } from "../../controllers/Admission/generateMonthlyBill.js";
 
-import { getStudentSections, allotSection } from "../../controllers/Admission/sectionAllotmentController.js";
+import { getStudentSections, allotSection, getPortalSections } from "../../controllers/Admission/sectionAllotmentController.js";
 import { divideRemainingInstallments } from "../../controllers/Admission/divideRemainingInstallments.js";
 import { manualFeeAdjustment } from "../../controllers/Admission/manualFeeAdjustment.js";
 import { updateEnrollmentNumber } from "../../controllers/Admission/updateEnrollmentNumber.js";
@@ -22,6 +22,7 @@ const router = express.Router();
 // Read routes - Accessible to authenticated users
 router.get("/", requireAuth, getAdmissions);
 router.get("/section-allotment", requireGranularPermission("admissions", "sectionAllotment", "view"), getStudentSections); // Section Allotment List
+router.get("/portal-sections-proxy", requireAuth, getPortalSections); // Proxy for external sections
 router.get("/search", requireAuth, searchAdmission); // New Search Route
 router.get("/:id", requireAuth, getAdmissionById);
 
