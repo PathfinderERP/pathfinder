@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaUpload, FaPaperPlane, FaImage, FaPoll, FaAt, FaThumbsUp, FaComment, FaCheckCircle, FaChartBar, FaEnvelope, FaBuilding, FaTrash, FaEllipsisV, FaEdit, FaChevronLeft, FaChevronRight, FaTimes, FaExpand, FaEye, FaHistory, FaVideo, FaUser, FaPhone, FaBriefcase, FaMapMarkerAlt, FaDownload, FaPlay } from "react-icons/fa";
+import { FaUpload, FaPaperPlane, FaImage, FaPoll, FaAt, FaThumbsUp, FaComment, FaCheckCircle, FaChartBar, FaEnvelope, FaBuilding, FaTrash, FaEllipsisV, FaEdit, FaChevronLeft, FaChevronRight, FaTimes, FaExpand, FaEye, FaHistory, FaVideo, FaUser, FaPhone, FaBriefcase, FaMapMarkerAlt, FaDownload, FaPlay, FaRegSmile } from "react-icons/fa";
+import EmojiPicker, { Theme } from "emoji-picker-react";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import PdfDocumentHub from "./PdfDocumentHub";
@@ -26,7 +27,10 @@ const SocialFeed = () => {
     const [showTagList, setShowTagList] = useState(false);
     const [activeUsers, setActiveUsers] = useState([]);
     const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const emojiPickerRef = useRef(null);
     const navigate = useNavigate();
+    const creationTextareaRef = useRef(null);
 
     // Participant Modal State (for both likes and votes)
     const [participantModalData, setParticipantModalData] = useState(null);
@@ -37,7 +41,17 @@ const SocialFeed = () => {
         recordSocialVisit();
         fetchSocialActivity();
         const interval = setInterval(fetchSocialActivity, 60000); // Refresh activity every minute
-        return () => clearInterval(interval);
+
+        const handleClickOutside = (event) => {
+            if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
+                setShowEmojiPicker(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
     }, []);
 
     const fetchPosts = async () => {
@@ -357,6 +371,7 @@ const SocialFeed = () => {
                                 </div>
                                 <div className="flex-1">
                                     <textarea
+                                        ref={creationTextareaRef}
                                         className={`w-full bg-transparent border-none ${theme === 'dark' ? 'text-white' : 'text-gray-900'} placeholder-gray-500 focus:ring-0 text-lg resize-none min-h-[100px]`}
                                         placeholder="What's on your mind?"
                                         value={content}
@@ -493,6 +508,45 @@ const SocialFeed = () => {
                                                     </div>
                                                 </button>
                                             ))}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="relative" ref={emojiPickerRef}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                        className={`flex items-center gap-1.5 sm:gap-2 transition-colors ${showEmojiPicker ? 'text-cyan-400' : 'text-gray-400 hover:text-cyan-400'}`}
+                                    >
+                                        <FaRegSmile size={16} />
+                                        <span className="text-[10px] font-bold hidden xs:inline">Emoji</span>
+                                    </button>
+                                    {showEmojiPicker && (
+                                        <div className="absolute top-10 left-0 z-50 shadow-2xl border border-gray-800 rounded-xl overflow-hidden scale-90 sm:scale-100 origin-top-left">
+                                            <EmojiPicker
+                                                theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
+                                                onEmojiClick={(emojiData) => {
+                                                    const textarea = creationTextareaRef.current;
+                                                    if (textarea) {
+                                                        const start = textarea.selectionStart;
+                                                        const end = textarea.selectionEnd;
+                                                        const newText = content.substring(0, start) + emojiData.emoji + content.substring(end);
+                                                        setContent(newText);
+                                                        
+                                                        // Move cursor after the emoji in the next tick
+                                                        setTimeout(() => {
+                                                            textarea.focus();
+                                                            textarea.setSelectionRange(start + emojiData.emoji.length, start + emojiData.emoji.length);
+                                                        }, 0);
+                                                    } else {
+                                                        setContent(prev => prev + emojiData.emoji);
+                                                    }
+                                                }}
+                                                lazyLoadEmojis={true}
+                                                skinTonesDisabled
+                                                searchDisabled={window.innerWidth < 640}
+                                                width={300}
+                                                height={400}
+                                            />
                                         </div>
                                     )}
                                 </div>
@@ -863,6 +917,19 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
     const [imagePreviews, setImagePreviews] = useState([]);
     const [removedImages, setRemovedImages] = useState([]);
     const [isUpdating, setIsUpdating] = useState(false);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const editEmojiRef = useRef(null);
+    const editTextareaRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (editEmojiRef.current && !editEmojiRef.current.contains(event.target)) {
+                setShowEmojiPicker(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     const isLikedByMe = post.likes.some(u => u === currentUser._id || u._id === currentUser._id);
     const hasVoted = post.poll?.options.some(opt => opt.votes.some(v => (v._id || v) === currentUser._id));
@@ -984,6 +1051,7 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                 {isEditing ? (
                     <div className="space-y-4">
                         <textarea
+                            ref={editTextareaRef}
                             value={editContent}
                             onChange={(e) => setEditContent(e.target.value)}
                             className={`w-full border rounded-xl p-4 placeholder-gray-500 focus:outline-none focus:border-cyan-500/50 min-h-[120px] transition-all ${theme === 'dark' ? 'bg-[#131619] border-gray-800 text-gray-100' : 'bg-white border-gray-200 text-gray-900'}`}
@@ -1036,6 +1104,46 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                                 <span className="text-[10px] mt-1 font-bold uppercase">ADD</span>
                                 <input type="file" multiple hidden onChange={handleEditImageChange} accept="image/*,video/*" />
                             </label>
+
+                            <div className="relative" ref={editEmojiRef}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                    className={`w-24 h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center transition-all ${showEmojiPicker ? 'border-cyan-500 text-cyan-500 bg-cyan-500/5' : 'border-gray-800 text-gray-500 hover:border-cyan-500/50 hover:text-cyan-500'}`}
+                                >
+                                    <FaRegSmile size={20} />
+                                    <span className="text-[10px] mt-1 font-bold uppercase">Emoji</span>
+                                </button>
+                                {showEmojiPicker && (
+                                    <div className="absolute top-0 left-full ml-4 z-50 shadow-2xl border border-gray-800 rounded-xl overflow-hidden scale-90 sm:scale-100 origin-top-left">
+                                        <EmojiPicker
+                                            theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
+                                            onEmojiClick={(emojiData) => {
+                                                const textarea = editTextareaRef.current;
+                                                if (textarea) {
+                                                    const start = textarea.selectionStart;
+                                                    const end = textarea.selectionEnd;
+                                                    const newText = editContent.substring(0, start) + emojiData.emoji + editContent.substring(end);
+                                                    setEditContent(newText);
+                                                    
+                                                    // Move cursor after the emoji in the next tick
+                                                    setTimeout(() => {
+                                                        textarea.focus();
+                                                        textarea.setSelectionRange(start + emojiData.emoji.length, start + emojiData.emoji.length);
+                                                    }, 0);
+                                                } else {
+                                                    setEditContent(prev => prev + emojiData.emoji);
+                                                }
+                                            }}
+                                            lazyLoadEmojis={true}
+                                            skinTonesDisabled
+                                            searchDisabled={window.innerWidth < 640}
+                                            width={300}
+                                            height={400}
+                                        />
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex justify-end gap-3">
