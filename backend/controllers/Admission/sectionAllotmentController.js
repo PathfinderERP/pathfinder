@@ -149,10 +149,10 @@ export const allotSection = async (req, res) => {
             return res.status(404).json({ message: "Admission record not found" });
         }
 
-        // Update fields
+        // Update fields with array support
         admission.sectionAllotment = {
-            examSection: examSection || admission.sectionAllotment?.examSection,
-            studySection: studySection || admission.sectionAllotment?.studySection,
+            examSection: Array.isArray(examSection) ? examSection : (examSection ? [examSection] : []),
+            studySection: Array.isArray(studySection) ? studySection : (studySection ? [studySection] : []),
             omrCode: omrCode || admission.sectionAllotment?.omrCode,
             rm: rm || admission.sectionAllotment?.rm
         };

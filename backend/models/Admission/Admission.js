@@ -223,8 +223,8 @@ const admissionSchema = new mongoose.Schema({
     },
     // Section Allotment
     sectionAllotment: {
-        examSection: { type: String, default: null },
-        studySection: { type: String, default: null },
+        examSection: [String],
+        studySection: [String],
         omrCode: { type: String, default: null },
         rm: { type: String, default: null } // Relationship Manager
     }

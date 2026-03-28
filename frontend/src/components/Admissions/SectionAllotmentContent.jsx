@@ -30,8 +30,8 @@ const SectionAllotmentContent = () => {
 
     // Form Data for Modal
     const [formData, setFormData] = useState({
-        examSection: "",
-        studySection: "",
+        examSection: [],
+        studySection: [],
         omrCode: "",
         rm: ""
     });
@@ -149,9 +149,17 @@ const SectionAllotmentContent = () => {
 
     const handleAllotClick = (admission) => {
         setSelectedDetail(admission);
+        
+        // Helper to map DB strings/arrays to multi-select objects
+        const mapToOptions = (val) => {
+            if (!val) return [];
+            const arr = Array.isArray(val) ? val : [val];
+            return arr.map(v => ({ value: v, label: v }));
+        };
+
         setFormData({
-            examSection: admission.sectionAllotment?.examSection || "",
-            studySection: admission.sectionAllotment?.studySection || "",
+            examSection: mapToOptions(admission.sectionAllotment?.examSection),
+            studySection: mapToOptions(admission.sectionAllotment?.studySection),
             omrCode: admission.sectionAllotment?.omrCode || "",
             rm: admission.sectionAllotment?.rm || ""
         });
@@ -166,13 +174,21 @@ const SectionAllotmentContent = () => {
         e.preventDefault();
         try {
             const token = localStorage.getItem("token");
+            
+            // Map multi-select objects back to arrays of strings
+            const payload = {
+                ...formData,
+                examSection: formData.examSection.map(o => o.value),
+                studySection: formData.studySection.map(o => o.value)
+            };
+
             const response = await fetch(`${import.meta.env.VITE_API_URL}/admission/section-allotment/${selectedDetail._id}`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${token}`
                 },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(payload)
             });
 
             if (response.ok) {
@@ -320,14 +336,30 @@ const SectionAllotmentContent = () => {
                                                     <p className="text-[8px] font-bold text-gray-500 uppercase tracking-tighter mt-0.5">{admission.centre.toUpperCase()} | {admission.course?.courseName || 'GENERIC'}</p>
                                                 </td>
                                                 <td className="p-4 text-center">
-                                                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-[4px] font-black text-xs ${admission.sectionAllotment?.examSection ? (isDarkMode ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border border-cyan-200') : (isDarkMode ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-400')}`}>
-                                                        {admission.sectionAllotment?.examSection || '-'}
-                                                    </span>
+                                                    <div className="flex flex-wrap justify-center gap-1 max-w-[150px] mx-auto">
+                                                        {(Array.isArray(admission.sectionAllotment?.examSection) ? admission.sectionAllotment.examSection : (admission.sectionAllotment?.examSection ? [admission.sectionAllotment.examSection] : [])).length > 0 ? (
+                                                            (Array.isArray(admission.sectionAllotment?.examSection) ? admission.sectionAllotment.examSection : [admission.sectionAllotment.examSection]).map((sec, idx) => (
+                                                                <span key={idx} className={`px-2 py-0.5 rounded-[4px] font-black text-[9px] ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border border-cyan-200'}`}>
+                                                                    {sec}
+                                                                </span>
+                                                            ))
+                                                        ) : (
+                                                            <span className={isDarkMode ? 'text-gray-700' : 'text-gray-300'}>-</span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="p-4 text-center">
-                                                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-[4px] font-black text-xs ${admission.sectionAllotment?.studySection ? (isDarkMode ? 'bg-purple-500/10 text-purple-500 border border-purple-500/20' : 'bg-purple-50 text-purple-600 border-purple-200') : (isDarkMode ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-400')}`}>
-                                                        {admission.sectionAllotment?.studySection || '-'}
-                                                    </span>
+                                                    <div className="flex flex-wrap justify-center gap-1 max-w-[150px] mx-auto">
+                                                        {(Array.isArray(admission.sectionAllotment?.studySection) ? admission.sectionAllotment.studySection : (admission.sectionAllotment?.studySection ? [admission.sectionAllotment.studySection] : [])).length > 0 ? (
+                                                            (Array.isArray(admission.sectionAllotment?.studySection) ? admission.sectionAllotment.studySection : [admission.sectionAllotment.studySection]).map((sec, idx) => (
+                                                                <span key={idx} className={`px-2 py-0.5 rounded-[4px] font-black text-[9px] ${isDarkMode ? 'bg-purple-500/10 text-purple-500 border border-purple-500/20' : 'bg-purple-50 text-purple-600 border border-purple-200'}`}>
+                                                                    {sec}
+                                                                </span>
+                                                            ))
+                                                        ) : (
+                                                            <span className={isDarkMode ? 'text-gray-700' : 'text-gray-300'}>-</span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex justify-center">
@@ -366,73 +398,52 @@ const SectionAllotmentContent = () => {
                         <form onSubmit={handleSave} className="p-8 space-y-6">
                             <div className="grid grid-cols-1 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Exam Section</label>
-                                    <select
-                                        name="examSection"
-                                        value={formData.examSection}
-                                        onChange={handleInputChange}
-                                        className={`w-full p-3 rounded-[4px] border font-black uppercase tracking-widest text-[11px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
-                                    >
-                                        <option value="">Select Section</option>
-                                        {examSections.length > 0 ? (
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Exam Section(s)</label>
+                                    <CustomMultiSelect
+                                        options={examSections.length > 0 ? (
                                             examSections
                                                 .filter(section => {
-                                                    // Super Admin sees everything
                                                     if (isSuperAdmin) return true;
-
-                                                    // Normalize student center name
                                                     const studentCentre = (selectedDetail?.centre || "").trim().toUpperCase();
-
-                                                    // Extract all allowed centre names from nested online/offline arrays
                                                     const allowedOnline = (section.online_exam_centres || []).flatMap(t => (t.centres || []).map(c => (c.name || "").trim().toUpperCase()));
                                                     const allowedOffline = (section.offline_exam_centres || []).flatMap(t => (t.centres || []).map(c => (c.name || "").trim().toUpperCase()));
-
-                                                    // If no centres are assigned, it's global; otherwise check for match
                                                     if (allowedOnline.length === 0 && allowedOffline.length === 0) return true;
                                                     return allowedOnline.includes(studentCentre) || allowedOffline.includes(studentCentre);
                                                 })
-                                                .map((section) => (
-                                                    <option key={section.id} value={section.name}>{section.name}</option>
-                                                ))
-                                        ) : (
-                                            <>
-                                                <option value="A">Section A</option>
-                                                <option value="B">Section B</option>
-                                                <option value="C">Section C</option>
-                                            </>
-                                        )}
-                                    </select>
+                                                .map((section) => ({ value: section.name, label: section.name }))
+                                        ) : [
+                                            { value: 'A', label: 'Section A' },
+                                            { value: 'B', label: 'Section B' },
+                                            { value: 'C', label: 'Section C' }
+                                        ]}
+                                        value={formData.examSection}
+                                        onChange={(val) => setFormData({ ...formData, examSection: val })}
+                                        placeholder="SEARCH & SELECT..."
+                                        theme={isDarkMode ? "dark" : "light"}
+                                    />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Study Section</label>
-                                    <select
-                                        name="studySection"
-                                        value={formData.studySection}
-                                        onChange={handleInputChange}
-                                        className={`w-full p-3 rounded-[4px] border font-black uppercase tracking-widest text-[11px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-purple-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-purple-500'}`}
-                                    >
-                                        <option value="">Select Section</option>
-                                        {examSections.length > 0 ? (
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Study Section(s)</label>
+                                    <CustomMultiSelect
+                                        options={examSections.length > 0 ? (
                                             examSections
                                                 .filter(section => {
                                                     if (isSuperAdmin) return true;
                                                     const studentCentre = (selectedDetail?.centre || "").trim().toUpperCase();
-                                                    // Extract nested centres for study material
                                                     const allowedStudy = (section.study_material_centres || []).flatMap(i => (i.centres || []).map(c => (c.name || "").trim().toUpperCase()));
-
                                                     if (allowedStudy.length === 0) return true;
                                                     return allowedStudy.includes(studentCentre);
                                                 })
-                                                .map((section) => (
-                                                    <option key={section.id} value={section.name}>{section.name}</option>
-                                                ))
-                                        ) : (
-                                            <>
-                                                <option value="A">Section A</option>
-                                                <option value="B">Section B</option>
-                                            </>
-                                        )}
-                                    </select>
+                                                .map((section) => ({ value: section.name, label: section.name }))
+                                        ) : [
+                                            { value: 'A', label: 'Section A' },
+                                            { value: 'B', label: 'Section B' }
+                                        ]}
+                                        value={formData.studySection}
+                                        onChange={(val) => setFormData({ ...formData, studySection: val })}
+                                        placeholder="SEARCH & SELECT..."
+                                        theme={isDarkMode ? "dark" : "light"}
+                                    />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">OMR Code</label>
