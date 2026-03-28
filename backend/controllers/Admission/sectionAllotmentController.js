@@ -180,3 +180,35 @@ export const getPortalSections = async (req, res) => {
         res.status(500).json({ message: "Portal endpoint unreachable via proxy" });
     }
 };
+
+// Bulk Allot Sections for multiple students
+export const bulkAllotSections = async (req, res) => {
+    try {
+        const { admissionIds, examSection, studySection } = req.body;
+
+        if (!Array.isArray(admissionIds) || admissionIds.length === 0) {
+            return res.status(400).json({ message: "No students selected" });
+        }
+
+        // Normalize sections to arrays
+        const examSections = Array.isArray(examSection) ? examSection : (examSection ? [examSection] : []);
+        const studySections = Array.isArray(studySection) ? studySection : (studySection ? [studySection] : []);
+
+        const updateData = {};
+        if (examSections.length >= 0) updateData["sectionAllotment.examSection"] = examSections;
+        if (studySections.length >= 0) updateData["sectionAllotment.studySection"] = studySections;
+
+        const updateResult = await Admission.updateMany(
+            { _id: { $in: admissionIds } },
+            { $set: updateData }
+        );
+
+        res.status(200).json({ 
+            message: `Successfully updated ${updateResult.modifiedCount} students`,
+            count: updateResult.modifiedCount
+        });
+    } catch (error) {
+        console.error("Error bulk allotting sections:", error);
+        res.status(500).json({ message: "Server error during bulk update" });
+    }
+};

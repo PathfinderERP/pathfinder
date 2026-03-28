@@ -14,6 +14,8 @@ const SectionAllotmentContent = () => {
     const [search, setSearch] = useState("");
     const [selectedDetail, setSelectedDetail] = useState(null); // For Modal
     const [showModal, setShowModal] = useState(false);
+    const [isBulk, setIsBulk] = useState(false);
+    const [selectedIds, setSelectedIds] = useState([]);
     const [examSections, setExamSections] = useState([]); // Dynamic Exam Sections
 
     // Filter Lists
@@ -149,6 +151,7 @@ const SectionAllotmentContent = () => {
 
     const handleAllotClick = (admission) => {
         setSelectedDetail(admission);
+        setIsBulk(false);
         
         // Helper to map DB strings/arrays to multi-select objects
         const mapToOptions = (val) => {
@@ -164,6 +167,34 @@ const SectionAllotmentContent = () => {
             rm: admission.sectionAllotment?.rm || ""
         });
         setShowModal(true);
+    };
+
+    const handleBulkAllotClick = () => {
+        if (selectedIds.length === 0) {
+            toast.warning("No students selected");
+            return;
+        }
+        setIsBulk(true);
+        setSelectedDetail(null);
+        setFormData({
+            examSection: [],
+            studySection: [],
+            omrCode: "",
+            rm: ""
+        });
+        setShowModal(true);
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.length === students.length && students.length > 0) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(students.map(s => s._id));
+        }
+    };
+
+    const toggleSelectStudent = (id) => {
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
     };
 
     const handleInputChange = (e) => {
@@ -182,21 +213,27 @@ const SectionAllotmentContent = () => {
                 studySection: formData.studySection.map(o => o.value)
             };
 
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/admission/section-allotment/${selectedDetail._id}`, {
+            const url = isBulk 
+                ? `${import.meta.env.VITE_API_URL}/admission/bulk-section-allotment`
+                : `${import.meta.env.VITE_API_URL}/admission/section-allotment/${selectedDetail._id}`;
+
+            const response = await fetch(url, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${token}`
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(isBulk ? { ...payload, admissionIds: selectedIds } : payload)
             });
 
             if (response.ok) {
-                toast.success("Section allotted successfully");
+                toast.success(isBulk ? "Bulk allotment successful" : "Section allotted successfully");
                 setShowModal(false);
+                setSelectedIds([]);
                 fetchData();
             } else {
-                toast.error("Failed to update");
+                const errData = await response.json();
+                toast.error(errData.message || "Failed to update");
             }
         } catch (err) {
             toast.error("Server error");
@@ -219,6 +256,15 @@ const SectionAllotmentContent = () => {
                 </div>
 
                 <div className="flex items-center gap-4">
+                    {selectedIds.length > 0 && (
+                        <button
+                            onClick={handleBulkAllotClick}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-[4px] border border-cyan-500/50 bg-cyan-500 text-white text-[10px] font-black uppercase tracking-widest transition-all hover:bg-cyan-600 active:scale-95 shadow-lg shadow-cyan-500/20`}
+                        >
+                            <FaLayerGroup size={14} />
+                            Bulk Allot ({selectedIds.length})
+                        </button>
+                    )}
                     <button
                         onClick={toggleTheme}
                         className={`p-2.5 rounded-[4px] border transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 text-yellow-400 hover:bg-white/10' : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'}`}
@@ -300,6 +346,14 @@ const SectionAllotmentContent = () => {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className={`${isDarkMode ? 'bg-[#131619] border-b border-gray-800' : 'bg-gray-50 border-b border-gray-200'}`}>
+                                    <th className="p-4 w-4">
+                                        <input 
+                                            type="checkbox" 
+                                            className="w-4 h-4 rounded border-gray-300 text-cyan-500 focus:ring-cyan-500 cursor-pointer accent-cyan-500"
+                                            checked={students.length > 0 && selectedIds.length === students.length}
+                                            onChange={toggleSelectAll}
+                                        />
+                                    </th>
                                     <th className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Reg Number</th>
                                     <th className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Entity Identification</th>
                                     <th className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Exam Section</th>
@@ -327,7 +381,15 @@ const SectionAllotmentContent = () => {
                                     students.map((admission) => {
                                         const student = admission.student?.studentsDetails?.[0] || {};
                                         return (
-                                            <tr key={admission._id} className={`transition-all ${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'}`}>
+                                            <tr key={admission._id} className={`transition-all ${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'} ${selectedIds.includes(admission._id) ? (isDarkMode ? 'bg-cyan-500/5' : 'bg-cyan-50') : ''}`}>
+                                                <td className="p-4">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        className="w-4 h-4 rounded border-gray-300 text-cyan-500 focus:ring-cyan-500 cursor-pointer accent-cyan-500"
+                                                        checked={selectedIds.includes(admission._id)}
+                                                        onChange={() => toggleSelectStudent(admission._id)}
+                                                    />
+                                                </td>
                                                 <td className="p-4">
                                                     <span className={`px-2 py-0.5 rounded-[4px] text-[10px] font-black tracking-widest ${isDarkMode ? 'bg-[#131619] text-cyan-400 border border-cyan-400/20' : 'bg-gray-100 text-cyan-700 border border-cyan-200'}`}>{admission.admissionNumber}</span>
                                                 </td>
@@ -387,8 +449,8 @@ const SectionAllotmentContent = () => {
                     <div className={`${isDarkMode ? 'bg-[#1e2329] border-gray-700' : 'bg-white border-gray-200'} rounded-[4px] w-full max-w-sm border shadow-2xl overflow-hidden`}>
                         <div className={`flex justify-between items-center p-6 border-b ${isDarkMode ? 'border-gray-700 bg-[#1e2329]' : 'border-gray-100 bg-gray-50'}`}>
                             <div>
-                                <h3 className={`text-xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Choose Section</h3>
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Strategic Allotment</p>
+                                <h3 className={`text-xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{isBulk ? "Bulk Allotment" : "Choose Section"}</h3>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{isBulk ? `Strategic update for ${selectedIds.length} students` : "Strategic Allotment"}</p>
                             </div>
                             <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-white transition-colors">
                                 <FaTimes size={18} />
@@ -403,7 +465,7 @@ const SectionAllotmentContent = () => {
                                         options={examSections.length > 0 ? (
                                             examSections
                                                 .filter(section => {
-                                                    if (isSuperAdmin) return true;
+                                                    if (isSuperAdmin || isBulk) return true; // Show all for bulk as centres vary
                                                     const studentCentre = (selectedDetail?.centre || "").trim().toUpperCase();
                                                     const allowedOnline = (section.online_exam_centres || []).flatMap(t => (t.centres || []).map(c => (c.name || "").trim().toUpperCase()));
                                                     const allowedOffline = (section.offline_exam_centres || []).flatMap(t => (t.centres || []).map(c => (c.name || "").trim().toUpperCase()));
@@ -412,9 +474,7 @@ const SectionAllotmentContent = () => {
                                                 })
                                                 .map((section) => ({ value: section.name, label: section.name }))
                                         ) : [
-                                            { value: 'A', label: 'Section A' },
-                                            { value: 'B', label: 'Section B' },
-                                            { value: 'C', label: 'Section C' }
+                                            { value: 'A', label: 'Section A' }
                                         ]}
                                         value={formData.examSection}
                                         onChange={(val) => setFormData({ ...formData, examSection: val })}
@@ -428,7 +488,7 @@ const SectionAllotmentContent = () => {
                                         options={examSections.length > 0 ? (
                                             examSections
                                                 .filter(section => {
-                                                    if (isSuperAdmin) return true;
+                                                    if (isSuperAdmin || isBulk) return true;
                                                     const studentCentre = (selectedDetail?.centre || "").trim().toUpperCase();
                                                     const allowedStudy = (section.study_material_centres || []).flatMap(i => (i.centres || []).map(c => (c.name || "").trim().toUpperCase()));
                                                     if (allowedStudy.length === 0) return true;
@@ -436,8 +496,7 @@ const SectionAllotmentContent = () => {
                                                 })
                                                 .map((section) => ({ value: section.name, label: section.name }))
                                         ) : [
-                                            { value: 'A', label: 'Section A' },
-                                            { value: 'B', label: 'Section B' }
+                                            { value: 'A', label: 'Section A' }
                                         ]}
                                         value={formData.studySection}
                                         onChange={(val) => setFormData({ ...formData, studySection: val })}
@@ -445,17 +504,19 @@ const SectionAllotmentContent = () => {
                                         theme={isDarkMode ? "dark" : "light"}
                                     />
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">OMR Code</label>
-                                    <input
-                                        type="text"
-                                        name="omrCode"
-                                        value={formData.omrCode}
-                                        onChange={handleInputChange}
-                                        className={`w-full p-3 rounded-[4px] border font-black uppercase tracking-widest text-[11px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
-                                        placeholder="Enter OMR Code"
-                                    />
-                                </div>
+                                {!isBulk && (
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">OMR Code</label>
+                                        <input
+                                            type="text"
+                                            name="omrCode"
+                                            value={formData.omrCode}
+                                            onChange={handleInputChange}
+                                            className={`w-full p-3 rounded-[4px] border font-black uppercase tracking-widest text-[11px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            placeholder="Enter OMR Code"
+                                        />
+                                    </div>
+                                )}
                             </div>
 
                             <button
