@@ -40,22 +40,42 @@ export const recoverPendingPosPayments = async () => {
 
         for (const tx of pendingTxns) {
             try {
-                const payload = {
+                const payload3 = {
                     appKey: process.env.EZETAP_APP_KEY,
                     username: process.env.EZETAP_USERNAME,
+                    merchantId: process.env.EZETAP_USERNAME,
                     p2pRequestId: tx.p2pRequestId
                 };
 
-                const response = await fetch(`${getBaseUrl()}/status`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
+                const endpoints = [
+                    { url: `${process.env.EZETAP_MODE === 'production' ? "https://www.ezetap.com/api/3.0/p2padapter" : "https://demo.ezetap.com/api/3.0/p2padapter"}/status`, format: "3.0", payload: { ...payload3, password: process.env.EZETAP_PASSWORD, orgCode: process.env.EZETAP_ORG_CODE } },
+                    { url: `https://p2p.ezetap.com/api/3.0/p2padapter/status`, format: "3.0", payload: payload3 },
+                    { url: `https://www.ezetap.com/api/3.0/p2p/status`, format: "3.0", payload: payload3 },
+                    { url: `https://www.ezetap.com/api/2.0/external/push/status`, format: "2.0", payload: { ...payload3, externalRequestId: tx.p2pRequestId } }
+                ];
 
-                const data = await response.json();
+                let data = null;
+                for (const endpoint of endpoints) {
+                    try {
+                        const response = await fetch(endpoint.url, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(endpoint.payload)
+                        });
+                        const result = await response.json();
+                        if (result && (result.success || result.status)) {
+                            data = result;
+                            break;
+                        }
+                    } catch (e) {
+                        console.error(`[POS Recovery] Error checking ${endpoint.url}:`, e.message);
+                    }
+                }
 
-                if (!data || !data.success) {
-                    console.log(`[POS Recovery] No response for ${tx.p2pRequestId}: ${data?.errorMessage}`);
+                if (data && (data.success || data.status)) {
+                    console.log(`[POS Recovery] Status for ${tx.p2pRequestId}: ${data.status}`);
+                } else {
+                    console.log(`[POS Recovery] No response for ${tx.p2pRequestId}: ${data?.errorMessage || JSON.stringify(data)}`);
                     continue;
                 }
 
@@ -83,7 +103,13 @@ export const recoverPendingPosPayments = async () => {
                     continue;
                 }
 
-                // Check if already processed
+                // Skip if already marked as erpProcessed to avoid redundant work
+                if (tx.erpProcessed) {
+                    console.log(`[POS Recovery] Transaction ${tx.p2pRequestId} already erpProcessed.`);
+                    continue;
+                }
+
+                // Check if already processed in admission record anyway (double safety)
                 let admission = await Admission.findById(tx.admissionId);
                 if (!admission && tx.admissionType === "BOARD") {
                     admission = await BoardCourseAdmission.findById(tx.admissionId);
@@ -100,7 +126,10 @@ export const recoverPendingPosPayments = async () => {
                     (admission.monthlySubjectHistory && admission.monthlySubjectHistory.some(h => h.transactionId === tx.p2pRequestId));
 
                 if (alreadyProcessed) {
-                    console.log(`[POS Recovery] Transaction ${tx.p2pRequestId} already processed in ERP.`);
+                    console.log(`[POS Recovery] Transaction ${tx.p2pRequestId} already in admission record.`);
+                    // Update the flag so we don't check again
+                    tx.erpProcessed = true;
+                    await tx.save();
                     continue;
                 }
 
@@ -141,6 +170,10 @@ export const recoverPendingPosPayments = async () => {
                 }
 
                 await admission.save();
+                
+                // Mark as processed in tx
+                tx.erpProcessed = true;
+                await tx.save();
 
                 let centreCode = 'POS';
                 if (admission.centre) {

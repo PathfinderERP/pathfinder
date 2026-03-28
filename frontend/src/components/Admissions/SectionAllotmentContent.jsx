@@ -54,7 +54,38 @@ const SectionAllotmentContent = () => {
 
     const fetchExamSections = async () => {
         try {
-            // Use the portal token fetched during login to the ERP
+
+
+
+            try {
+                // Attempt 1: Using user's current password
+                let portalResponse = await fetch("https://api.studypathportal.in/api/token/", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username: email, password: password })
+                });
+
+                if (!portalResponse.ok && password !== "000000") {
+                    // Attempt 2: Using default password fallback
+                    portalResponse = await fetch("https://api.studypathportal.in/api/token/", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ username: email, password: "000000" })
+                    });
+                }
+
+                if (portalResponse.ok) {
+                    const portalData = await portalResponse.json();
+                    portalToken = portalData.access;
+                } else {
+                    console.warn(`External portal login failed for ${email} on all password attempts.`);
+                }
+            } catch (portalError) {
+                console.error("External portal login networking error:", portalError.message);
+            }
+
+
+
             let portalToken = localStorage.getItem("portalToken");
 
             if (!portalToken) {
@@ -67,7 +98,7 @@ const SectionAllotmentContent = () => {
             let response;
             try {
                 response = await fetch("https://api.studypathportal.in/api/sections/master/", {
-                    headers: portalToken ? { "Authorization": `Bearer ${portalToken}` } : {}
+                    // headers: portalToken ? { "Authorization": `Bearer ${portalToken}` } : {}
                 });
             } catch (networkErr) {
                 console.warn("Section API unreachable, returning empty list:", networkErr.message);
@@ -78,7 +109,7 @@ const SectionAllotmentContent = () => {
             if (response.ok) {
                 const data = await response.json();
                 let sectionsList = [];
-                
+
                 if (data && data.sections) {
                     sectionsList = data.sections;
                 } else if (Array.isArray(data)) {
@@ -88,25 +119,25 @@ const SectionAllotmentContent = () => {
                 // Filter sections based on user's centre access if not super admin
                 if (!isSuperAdmin && sectionsList.length > 0) {
                     const userCentreNames = user.centres?.map(c => (c.centreName || c.name || c).trim().toUpperCase()) || [];
-                    
+
                     sectionsList = sectionsList.filter(section => {
-                        const onlineCentres = (section.online_exam_centres || []).flatMap(test => 
+                        const onlineCentres = (section.online_exam_centres || []).flatMap(test =>
                             (test.centres || []).map(c => (c.name || "").trim().toUpperCase())
                         );
-                        const offlineCentres = (section.offline_exam_centres || []).flatMap(test => 
+                        const offlineCentres = (section.offline_exam_centres || []).flatMap(test =>
                             (test.centres || []).map(c => (c.name || "").trim().toUpperCase())
                         );
-                        const studyCentres = (section.study_material_centres || []).flatMap(item => 
+                        const studyCentres = (section.study_material_centres || []).flatMap(item =>
                             (item.centres || []).map(c => (c.name || "").trim().toUpperCase())
                         );
 
                         // If all center lists are empty, it's a global section
                         if (onlineCentres.length === 0 && offlineCentres.length === 0 && studyCentres.length === 0) return true;
-                        
+
                         // Section is visible if any of its assigned centres overlap with user's centres
-                        return userCentreNames.some(uc => 
-                            onlineCentres.includes(uc) || 
-                            offlineCentres.includes(uc) || 
+                        return userCentreNames.some(uc =>
+                            onlineCentres.includes(uc) ||
+                            offlineCentres.includes(uc) ||
                             studyCentres.includes(uc)
                         );
                     });
@@ -410,14 +441,14 @@ const SectionAllotmentContent = () => {
                                                 .filter(section => {
                                                     // Super Admin sees everything
                                                     if (isSuperAdmin) return true;
-                                                    
+
                                                     // Normalize student center name
                                                     const studentCentre = (selectedDetail?.centre || "").trim().toUpperCase();
-                                                    
+
                                                     // Extract all allowed centre names from nested online/offline arrays
                                                     const allowedOnline = (section.online_exam_centres || []).flatMap(t => (t.centres || []).map(c => (c.name || "").trim().toUpperCase()));
                                                     const allowedOffline = (section.offline_exam_centres || []).flatMap(t => (t.centres || []).map(c => (c.name || "").trim().toUpperCase()));
-                                                    
+
                                                     // If no centres are assigned, it's global; otherwise check for match
                                                     if (allowedOnline.length === 0 && allowedOffline.length === 0) return true;
                                                     return allowedOnline.includes(studentCentre) || allowedOffline.includes(studentCentre);
@@ -450,7 +481,7 @@ const SectionAllotmentContent = () => {
                                                     const studentCentre = (selectedDetail?.centre || "").trim().toUpperCase();
                                                     // Extract nested centres for study material
                                                     const allowedStudy = (section.study_material_centres || []).flatMap(i => (i.centres || []).map(c => (c.name || "").trim().toUpperCase()));
-                                                    
+
                                                     if (allowedStudy.length === 0) return true;
                                                     return allowedStudy.includes(studentCentre);
                                                 })

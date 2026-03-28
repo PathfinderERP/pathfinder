@@ -75,8 +75,8 @@ const BoardAdmissionsContent = () => {
         occupation: "",
         lastClass: "",
         examStatus: "",
-        markAgregate: "",
-        scienceMathParcent: "",
+        markAggregate: "",
+        scienceMathPercent: "",
         examName: "",
         boardId: "",
         selectedSubjectIds: [],
@@ -220,8 +220,8 @@ const BoardAdmissionsContent = () => {
                 occupation: leadData.fatherOccupation || leadData.parentOccupation || leadData.occupation || "",
                 lastClass: leadData.className || leadData.lastClass || "",
                 examStatus: "",
-                markAgregate: "",
-                scienceMathParcent: "",
+                markAggregate: "",
+                scienceMathPercent: "",
                 examName: leadData.examName || "",
                 boardId: "",
                 selectedSubjectIds: [],
@@ -564,8 +564,8 @@ const BoardAdmissionsContent = () => {
             occupation: "",
             lastClass: "",
             examStatus: "",
-            markAgregate: "",
-            scienceMathParcent: "",
+            markAggregate: "",
+            scienceMathPercent: "",
             examName: "",
             boardId: "",
             selectedSubjectIds: [],
@@ -600,8 +600,8 @@ const BoardAdmissionsContent = () => {
             occupation: details.occupation || "",
             lastClass: details.lastClass || "",
             examStatus: details.examStatus || "",
-            markAgregate: details.markAgregate || "",
-            scienceMathParcent: details.scienceMathParcent || "",
+            markAggregate: details.markAggregate || details.markAgregate || "",
+            scienceMathPercent: details.scienceMathPercent || details.scienceMathParcent || "",
             examName: sessionExam.examTag || exam.examName || details.programme || "",
             boardId: "",
             selectedSubjectIds: [],
@@ -615,7 +615,7 @@ const BoardAdmissionsContent = () => {
             studentId, studentName, mobileNum, whatsappNumber, studentEmail, dateOfBirth, gender,
             centre, programme, board, state, schoolName, pincode, address,
             guardianName, guardianMobile, guardianEmail, occupation,
-            lastClass, examStatus, markAgregate, scienceMathParcent, examName,
+            lastClass, examStatus, markAggregate, scienceMathPercent, examName,
             boardId, selectedSubjectIds, remarks
         } = counsellingForm;
 
@@ -639,7 +639,7 @@ const BoardAdmissionsContent = () => {
                     studentId, studentName, mobileNum, whatsappNumber, studentEmail, dateOfBirth, gender,
                     centre, programme, board, state, schoolName, pincode, address,
                     guardianName, guardianMobile, guardianEmail, occupation,
-                    lastClass, examStatus, markAgregate, scienceMathParcent, examName,
+                    lastClass, examStatus, markAggregate, scienceMathPercent, examName,
                     boardId, selectedSubjectIds, remarks
                 })
             });

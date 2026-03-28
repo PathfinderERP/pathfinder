@@ -18,8 +18,8 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
         programme: student.studentsDetails?.[0]?.programme || '',
         pincode: student.studentsDetails?.[0]?.pincode || '',
         class: student.examSchema?.[0]?.class || '',
-        scienceMathParcent: student.examSchema?.[0]?.scienceMathParcent || '',
-        markAgregate: student.examSchema?.[0]?.markAgregate || '',
+        scienceMathPercent: student.examSchema?.[0]?.scienceMathPercent || student.examSchema?.[0]?.scienceMathParcent || '',
+        markAggregate: student.examSchema?.[0]?.markAggregate || student.examSchema?.[0]?.markAgregate || '',
         examTag: student.sessionExamCourse?.[0]?.examTag || '',
         targetExams: student.sessionExamCourse?.[0]?.targetExams || '',
         session: student.sessionExamCourse?.[0]?.session || '',
@@ -239,8 +239,8 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
                     examName: student.examSchema?.[0]?.examName || '',
                     class: formData.class || null,
                     examStatus: student.examSchema?.[0]?.examStatus || '',
-                    markAgregate: formData.markAgregate || null,
-                    scienceMathParcent: formData.scienceMathParcent || null,
+                    markAggregate: formData.markAggregate || null,
+                    scienceMathPercent: formData.scienceMathPercent || null,
                 }],
                 sessionExamCourse: [{
                     examTag: formData.examTag || null,
@@ -514,8 +514,8 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
                                 <label className={labelClass}>SCIENCE/MATH %</label>
                                 <input
                                     type="text"
-                                    name="scienceMathParcent"
-                                    value={formData.scienceMathParcent}
+                                    name="scienceMathPercent"
+                                    value={formData.scienceMathPercent}
                                     onChange={handleChange}
                                     className={inputClass}
                                 />
@@ -524,8 +524,8 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
                                 <label className={labelClass}>AGGREGATE SCORE</label>
                                 <input
                                     type="text"
-                                    name="markAgregate"
-                                    value={formData.markAgregate}
+                                    name="markAggregate"
+                                    value={formData.markAggregate}
                                     onChange={handleChange}
                                     className={inputClass}
                                 />

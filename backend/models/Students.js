@@ -18,8 +18,8 @@ const ExamSchema = new mongoose.Schema({
   examName: { type: String },
   class: { type: String },
   examStatus: { type: String },
-  markAgregate: { type: String },
-  scienceMathParcent: { type: String },
+  markAggregate: { type: String },
+  scienceMathPercent: { type: String },
 });
 
 
@@ -52,7 +52,6 @@ const StudentsDetailsSchema = new mongoose.Schema({
   programme: { type: String, enum: ['CRP', 'NCRP'] },
 
   guardians: { type: [GuardianSchema] },
-  examSchema: { type: [ExamSchema] },
 });
 
 const StudentSchema = new mongoose.Schema({

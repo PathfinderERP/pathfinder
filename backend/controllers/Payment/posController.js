@@ -131,153 +131,136 @@ export const getPosPaymentStatus = async (req, res) => {
         const payload = {
             appKey: process.env.EZETAP_APP_KEY,
             username: process.env.EZETAP_USERNAME,
+            password: process.env.EZETAP_PASSWORD,
+            orgCode: process.env.EZETAP_ORG_CODE,
+            p2pRequestId: tx.p2pRequestId,
+            requestId: tx.p2pRequestId, // Fallback key name
+            externalRefNumber: tx.externalRefNumber
+        };
+
+        // CLEAN minimalist payload for 3.0
+        const payload3 = {
+            appKey: process.env.EZETAP_APP_KEY,
+            username: process.env.EZETAP_USERNAME,
+            merchantId: process.env.EZETAP_USERNAME, // Backup identifier
             p2pRequestId: tx.p2pRequestId
         };
 
-        const response = await fetch(`${getBaseUrl()}/status`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
+        // Try standard, P2P specific, and Legacy endpoints
+        const endpoints = [
+            { url: `${getBaseUrl()}/status`, format: "3.0", payload: { ...payload3, password: process.env.EZETAP_PASSWORD, orgCode: process.env.EZETAP_ORG_CODE } },
+            { url: `https://p2p.ezetap.com/api/3.0/p2padapter/status`, format: "3.0", payload: payload3 },
+            { url: `https://www.ezetap.com/api/3.0/p2p/status`, format: "3.0", payload: payload3 },
+            { url: `https://www.ezetap.com/api/2.0/external/push/status`, format: "2.0", payload: { appKey: process.env.EZETAP_APP_KEY, username: process.env.EZETAP_USERNAME, externalRequestId: tx.p2pRequestId } }
+        ];
 
-        const data = await response.json();
+        let finalData = null;
+        let lastError = null;
 
-        if (data && data.success) {
-            const apiStatus = data.status || "WAITING";
-            
-            // Merge response data for frontend visibility (timings, receipts, etc)
-            const responseData = {
-                ...data,
+        for (const endpoint of endpoints) {
+            console.log(`[POS Status] Probing: ${endpoint.url}`);
+            try {
+                const response = await fetch(endpoint.url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(endpoint.payload)
+                });
+
+                const data = await response.json();
+                
+                if (data && (data.success || data.status)) {
+                    finalData = data;
+                    break;
+                }
+                
+                // Keep track of errors but continue probing
+                lastError = data;
+                console.log(`[POS Status] Skipping ${endpoint.url}: ${data.errorCode || 'No response'}`);
+            } catch (err) {
+                console.error(`[POS Status] Endpoint ${endpoint.url} error:`, err.message);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // FINAL STATUS LOGIC
+        // ─────────────────────────────────────────────────────────────────────────────
+        const data = finalData || lastError || { success: false, errorMessage: "No response from terminal" };
+        const apiStatus = data.status || "WAITING";
+        const isSuccess = ["AUTHORIZED", "SUCCESS"].includes(apiStatus);
+        const isFailure = ["FAILED", "DECLINED", "EXPIRED", "CANCELLED"].includes(apiStatus);
+
+        // If it's not a definitive success or failure, we keep the frontend WAITING.
+        // This avoids 400 errors when Ezetap crashes or returns weird Java Exceptions.
+        if (!isSuccess && !isFailure) {
+            console.log(`[POS Status] Treating Ezetap response (${apiStatus} / ${data.errorCode}) as WAITING for ${tx.p2pRequestId}`);
+            return res.status(200).json({
                 success: true,
                 p2pRequestId: tx.p2pRequestId,
-                status: apiStatus
-            };
-
-            // If transaction reaches a final state, persist it to DB
-            if (["AUTHORIZED", "SUCCESS", "FAILED", "DECLINED", "CANCELLED"].includes(apiStatus)) {
-                const isSuccess = ["AUTHORIZED", "SUCCESS"].includes(apiStatus);
-                const wasWaiting = tx.status === "WAITING";
-                
-                tx.status = apiStatus;
-                await tx.save();
-
-                if (isSuccess && wasWaiting) {
-                    console.log(`[POS] Payment ${tx.p2pRequestId} successful. Automating ERP update...`);
-                    try {
-                        const { admissionId, admissionType, amount } = tx;
-                        
-                        if (admissionId) {
-                            let admission = await Admission.findById(admissionId);
-                            if (!admission && admissionType === "BOARD") {
-                                admission = await BoardCourseAdmission.findById(admissionId);
-                            }
-
-                            if (admission) {
-                                console.log(`[POS] Found Admission: ${admission._id}`);
-                                
-                                const alreadyProcessed = 
-                                    (admission.downPaymentTransactionId === tx.p2pRequestId) ||
-                                    (admission.paymentBreakdown && admission.paymentBreakdown.some(p => p.transactionId === tx.p2pRequestId)) ||
-                                    (admission.monthlySubjectHistory && admission.monthlySubjectHistory.some(h => h.transactionId === tx.p2pRequestId));
-
-                                if (alreadyProcessed) {
-                                    console.log(`[POS] Transaction ${tx.p2pRequestId} already processed.`);
-                                } else {
-                                    let installmentNum = 1;
-                                    let instObj = null;
-                                    let isDownPayment = (admission.totalPaidAmount || 0) < 1 || admission.downPaymentStatus === "PENDING";
-
-                                    if (isDownPayment) {
-                                        admission.downPaymentStatus = "PAID";
-                                        admission.downPaymentTransactionId = tx.p2pRequestId;
-                                        admission.downPaymentMethod = "RAZORPAY_POS";
-                                        admission.downPaymentReceivedDate = new Date();
-                                        installmentNum = 0;
-                                    } else {
-                                        if (admission.paymentBreakdown && admission.paymentBreakdown.length > 0) {
-                                            instObj = admission.paymentBreakdown.find(i => i.status !== "PAID" && i.status !== "PENDING_CLEARANCE");
-                                            if (instObj) installmentNum = instObj.installmentNumber;
-                                        } else if (admission.monthlySubjectHistory && admission.monthlySubjectHistory.length > 0) {
-                                            instObj = admission.monthlySubjectHistory.find(h => h.status !== "PAID");
-                                            if (instObj) installmentNum = 99;
-                                        }
-
-                                        if (instObj) {
-                                            instObj.status = "PAID";
-                                            instObj.paidAmount = amount;
-                                            instObj.paidDate = new Date();
-                                            instObj.paymentMethod = "RAZORPAY_POS";
-                                            instObj.transactionId = tx.p2pRequestId;
-                                        }
-                                    }
-
-                                    admission.totalPaidAmount = (admission.totalPaidAmount || 0) + amount;
-                                    if (admission.totalFees) {
-                                        admission.remainingAmount = Math.max(0, (admission.totalFees || 0) - admission.totalPaidAmount);
-                                        admission.paymentStatus = (admission.totalPaidAmount >= admission.totalFees) ? "COMPLETED" : "PARTIAL";
-                                    }
-
-                                    await admission.save();
-
-                                    let centreCode = 'POS';
-                                    if (admission.centre) {
-                                        const centre = await CentreSchema.findOne({ centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } });
-                                        if (centre) centreCode = centre.enterCode || 'POS';
-                                    }
-                                    
-                                    const billId = await generateBillId(centreCode);
-                                    const taxableAmount = amount / 1.18;
-                                    const cgst = (amount - taxableAmount) / 2;
-                                    const sgst = cgst;
-
-                                    const paymentDoc = {
-                                        admission: admission._id,
-                                        installmentNumber: installmentNum,
-                                        amount: amount,
-                                        paidAmount: amount,
-                                        dueDate: (instObj && instObj.dueDate) ? instObj.dueDate : new Date(),
-                                        paidDate: new Date(),
-                                        receivedDate: new Date(),
-                                        status: "PAID",
-                                        paymentMethod: "RAZORPAY_POS",
-                                        transactionId: tx.p2pRequestId,
-                                        recordedBy: null,
-                                        billId: billId,
-                                        cgst: parseFloat(cgst.toFixed(2)),
-                                        sgst: parseFloat(sgst.toFixed(2)),
-                                        courseFee: parseFloat(taxableAmount.toFixed(2)),
-                                        totalAmount: amount,
-                                        remarks: `POS Sync: ${tx.externalRefNumber}`,
-                                        billingMonth: new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-                                    };
-
-                                    if (admission.boardCourseName) paymentDoc.boardCourseName = admission.boardCourseName;
-
-                                    const newPayment = new Payment(paymentDoc);
-                                    await newPayment.save();
-
-                                    if (admission.centre) await updateCentreTargetAchieved(admission.centre, new Date());
-                                    console.log(`[POS] Sync complete: ${tx.p2pRequestId} -> Bill ${billId}`);
-                                }
-                            }
-                        }
-                    } catch (autoError) {
-                        console.error("[POS] Automation Error:", autoError);
-                    }
-                }
-            }
-
-            return res.status(200).json(responseData);
-        } else {
-            return res.status(400).json({
-                success: false,
-                errorMessage: data?.errorMessage || "Failed to fetch status from terminal"
+                status: "WAITING",
+                apiMessageText: data.apiMessageText || "Connecting to terminal... please wait",
+                errorMessage: data.errorMessage || data.errorCode
             });
         }
 
+        console.log(`[POS Status] Final Ezetap Status for ${tx.p2pRequestId}: ${apiStatus}`);
+
+        // Update DB status
+        if (tx.status !== apiStatus) {
+            tx.status = apiStatus;
+            await tx.save();
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // ERP SYNC (Async - won't block the response)
+        // ─────────────────────────────────────────────────────────────────────────────
+        if (isSuccess && !tx.erpProcessed) {
+            // Decouple sync so frontend gets response immediately
+            (async () => {
+                console.log(`[POS] Async syncing ERP for ${tx.p2pRequestId}...`);
+                try {
+                    const txDoc = await PosTransaction.findOne({ p2pRequestId: tx.p2pRequestId });
+                    if (!txDoc || txDoc.erpProcessed) return;
+
+                    const { admissionId, admissionType, amount } = txDoc;
+                    if (!admissionId) return;
+
+                    let admission = await Admission.findById(admissionId);
+                    if (!admission && admissionType === "BOARD") {
+                        admission = await BoardCourseAdmission.findById(admissionId);
+                    }
+
+                    if (admission) {
+                        const alreadyProcessed = (admission.downPaymentTransactionId === txDoc.p2pRequestId); // Check only DP for now
+                        if (!alreadyProcessed) {
+                            if ((admission.totalPaidAmount || 0) < 1 || admission.downPaymentStatus === "PENDING") {
+                                admission.downPaymentStatus = "PAID";
+                                admission.downPaymentTransactionId = txDoc.p2pRequestId;
+                                admission.downPaymentReceivedDate = new Date();
+                                admission.totalPaidAmount = (admission.totalPaidAmount || 0) + amount;
+                                await admission.save();
+                                console.log(`[POS] ERP Sync Successful for ${txDoc.p2pRequestId}`);
+                            }
+                        }
+                        txDoc.erpProcessed = true;
+                        await txDoc.save();
+                    }
+                } catch (e) {
+                    console.error("[POS] Async Sync Error:", e.message);
+                }
+            })();
+        }
+
+        // Return status immediately
+        return res.status(200).json({
+            ...data,
+            success: true,
+            p2pRequestId: tx.p2pRequestId,
+            status: apiStatus
+        });
+
     } catch (error) {
-        console.error("[POS] Status Error:", error);
-        res.status(500).json({ success: false, errorMessage: "Server error fetching status" });
+        console.error("[POS] Critical Status Error:", error);
+        res.status(500).json({ success: false, errorMessage: "Server fault during status check" });
     }
 };
 

@@ -1723,8 +1723,8 @@ const EnrolledStudentsContent = () => {
                                                                 <p className="text-gray-500 text-[9px] font-bold uppercase">GRADE {exam.class}</p>
                                                             </div>
                                                             <div className="text-right">
-                                                                <p className="text-cyan-500 font-black text-[11px] tracking-widest italic">{exam.markAgregate}%</p>
-                                                                <p className="text-gray-500 text-[8px] font-bold uppercase tracking-tighter">S/M: {exam.scienceMathParcent}%</p>
+                                                                <p className="text-cyan-500 font-black text-[11px] tracking-widest italic">{exam.markAggregate || exam.markAgregate || "0"}%</p>
+                                                                <p className="text-gray-500 text-[8px] font-bold uppercase tracking-tighter">S/M: {exam.scienceMathPercent || exam.scienceMathParcent || "0"}%</p>
                                                             </div>
                                                         </div>
                                                     ))}
@@ -2724,6 +2724,8 @@ const EnrolledStudentsContent = () => {
                 amount={paymentData.paidAmount}
                 invoiceId={`POS-${Date.now()}`}
                 studentInfo={selectedStudent}
+                admissionId={selectedAdmission?._id}
+                admissionType={selectedAdmission?.admissionType || "NORMAL"}
                 onPaymentSuccess={(posData) => {
                     setPaymentData(prev => ({
                         ...prev,

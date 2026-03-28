@@ -379,6 +379,10 @@ const StudentAdmissionPage = () => {
             remarks: (formData.remarks ? formData.remarks + " | " : "") + "Razorpay POS Authorized"
         } : formData;
 
+        console.log("📤 [Admission Submit] Final Payload Form Data:", JSON.stringify(currentFormData, null, 2));
+        console.log("📤 [Admission Submit] Student ID:", studentId);
+        console.log("📤 [Admission Submit] Admission Type:", admissionType);
+
         // Basic validation for board admission
         if (admissionType === "BOARD" && (!selectedBoard || selectedSubjectIds.length === 0)) {
             toast.error("Please select a board and at least one subject for Board Admission.");
@@ -1082,6 +1086,7 @@ const StudentAdmissionPage = () => {
                 amount={formData.downPayment}
                 invoiceId={`ADM-${Date.now()}`}
                 studentInfo={student}
+                admissionType={admissionType || "NORMAL"}
                 onPaymentSuccess={(posData) => {
                     setShowPOSModal(false);
                     handleSubmit(null, posData);

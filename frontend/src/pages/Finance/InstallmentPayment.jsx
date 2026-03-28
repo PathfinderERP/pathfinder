@@ -1594,6 +1594,8 @@ const InstallmentPayment = () => {
                     amount={payFormData.paidAmount}
                     invoiceId={`INV-${Date.now()}`}
                     studentInfo={selectedStudent}
+                    admissionId={activeAdmissionId}
+                    admissionType="NORMAL"
                     onPaymentSuccess={(posData) => {
                         // Update payFormData with POS transaction details
                         setPayFormData(prev => ({

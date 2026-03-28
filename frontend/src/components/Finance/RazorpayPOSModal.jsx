@@ -275,12 +275,27 @@ const RazorpayPOSModal = ({ isOpen, onClose, amount, invoiceId, onPaymentSuccess
                                 Request ID: {p2pRequestId}
                             </div>
                             
-                            <button
-                                onClick={handleCancel}
-                                className="text-gray-500 hover:text-red-500 font-black uppercase text-[10px] tracking-widest transition-colors"
-                            >
-                                Cancel Request
-                            </button>
+                            <div className="flex flex-col gap-4 w-full">
+                                <button
+                                    onClick={handleCancel}
+                                    className="text-gray-500 hover:text-red-500 font-black uppercase text-[10px] tracking-widest transition-colors"
+                                >
+                                    Cancel Request
+                                </button>
+
+                                {timeLeft < 150 && (
+                                    <button
+                                        onClick={() => {
+                                            if (window.confirm("Only use this if the machine has ALREADY generated a success bill. This will sync the payment without waiting for Ezetap status.")) {
+                                                onPaymentSuccess({ status: 'AUTHORIZED', p2pRequestId, forced: true });
+                                            }
+                                        }}
+                                        className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-black uppercase text-xs tracking-widest py-4 rounded-2xl shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all animate-in fade-in zoom-in duration-500"
+                                    >
+                                        I have Paid on Machine (Manual Sync)
+                                    </button>
+                                )}
+                            </div>
                         </>
                     )}
 

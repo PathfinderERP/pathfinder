@@ -14,6 +14,7 @@ const posTransactionSchema = mongoose.Schema({
         enum: ["INITIATING", "WAITING", "AUTHORIZED", "SUCCESS", "FAILED", "DECLINED", "CANCELLED", "EXPIRED"], 
         default: "WAITING" 
     },
+    erpProcessed: { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now }
 });
 

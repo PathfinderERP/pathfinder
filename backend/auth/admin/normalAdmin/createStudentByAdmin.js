@@ -41,13 +41,20 @@ export const createStudentByAdmin = async (req, res) => {
     }
 
     console.log("✅ All required fields validated");
-    console.log("Creating student document...");
+    
+    // Auto-map misspelled fields if they come from the old frontend
+    const examSchemaProcessed = (examSchema || []).map(exam => ({
+      ...exam,
+      markAggregate: exam.markAggregate || exam.markAgregate || "",
+      scienceMathPercent: exam.scienceMathPercent || exam.scienceMathParcent || ""
+    }));
 
-    // Create new student document
+    console.log("Creating student document...");
+    
     const newStudent = new Student({
       studentsDetails,
       guardians,
-      examSchema,
+      examSchema: examSchemaProcessed,
       section: section || [],
       sessionExamCourse,
       course,

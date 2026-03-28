@@ -73,8 +73,8 @@ const StudentRegistrationForm = () => {
         examName: "",
         class: "",
         examStatus: "",
-        markAgregate: "",
-        scienceMathParcent: "",
+        markAggregate: "",
+        scienceMathPercent: "",
 
         // Session Exam Course
         session: "",
@@ -396,8 +396,8 @@ const StudentRegistrationForm = () => {
                                 examName: formData.examName,
                                 class: formData.class,
                                 examStatus: formData.examStatus,
-                                markAgregate: formData.markAgregate,
-                                scienceMathParcent: formData.scienceMathParcent,
+                                markAggregate: formData.markAggregate,
+                                scienceMathPercent: formData.scienceMathPercent,
                             }
                         ]
                     }
@@ -421,8 +421,8 @@ const StudentRegistrationForm = () => {
                         examName: formData.examName,
                         class: formData.class,
                         examStatus: formData.examStatus,
-                        markAgregate: formData.markAgregate,
-                        scienceMathParcent: formData.scienceMathParcent,
+                        markAggregate: formData.markAggregate,
+                        scienceMathPercent: formData.scienceMathPercent,
                     }
                 ],
                 sessionExamCourse: [
@@ -742,11 +742,11 @@ const StudentRegistrationForm = () => {
                                             </div>
                                             <div>
                                                 <label className={labelClass}>AGGREGATE SCORE (%)</label>
-                                                <input type="text" name="markAgregate" value={formData.markAgregate} onChange={handleChange} placeholder="TOTAL PERCENTAGE" className={inputClass} />
+                                                <input type="text" name="markAggregate" value={formData.markAggregate} onChange={handleChange} placeholder="TOTAL PERCENTAGE" className={inputClass} />
                                             </div>
                                             <div>
                                                 <label className={labelClass}>STEM PERFORMANCE (%)</label>
-                                                <input type="text" name="scienceMathParcent" value={formData.scienceMathParcent} onChange={handleChange} placeholder="SCIENCE & MATH SCORE" className={inputClass} />
+                                                <input type="text" name="scienceMathPercent" value={formData.scienceMathPercent} onChange={handleChange} placeholder="SCIENCE & MATH SCORE" className={inputClass} />
                                             </div>
                                         </div>
                                     </div>
