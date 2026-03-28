@@ -54,52 +54,10 @@ const SectionAllotmentContent = () => {
 
     const fetchExamSections = async () => {
         try {
-
-
-
-            try {
-                // Attempt 1: Using user's current password
-                let portalResponse = await fetch("https://api.studypathportal.in/api/token/", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ username: email, password: password })
-                });
-
-                if (!portalResponse.ok && password !== "000000") {
-                    // Attempt 2: Using default password fallback
-                    portalResponse = await fetch("https://api.studypathportal.in/api/token/", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ username: email, password: "000000" })
-                    });
-                }
-
-                if (portalResponse.ok) {
-                    const portalData = await portalResponse.json();
-                    portalToken = portalData.access;
-                } else {
-                    console.warn(`External portal login failed for ${email} on all password attempts.`);
-                }
-            } catch (portalError) {
-                console.error("External portal login networking error:", portalError.message);
-            }
-
-
-
-            let portalToken = localStorage.getItem("portalToken");
-
-            if (!portalToken) {
-                console.error("Portal access unavailable. Student portal token was not received during login.");
-                setExamSections([]);
-                return;
-            }
-
-            // Fetch sections from the student portal backend
+            // Fetch sections from the student portal backend (Public API)
             let response;
             try {
-                response = await fetch("https://api.studypathportal.in/api/sections/master/", {
-                    // headers: portalToken ? { "Authorization": `Bearer ${portalToken}` } : {}
-                });
+                response = await fetch("https://api.studypathportal.in/api/sections/master/");
             } catch (networkErr) {
                 console.warn("Section API unreachable, returning empty list:", networkErr.message);
                 setExamSections([]);
@@ -144,8 +102,9 @@ const SectionAllotmentContent = () => {
                 }
 
                 setExamSections(sectionsList);
-            } else if (response.status === 401) {
-                console.error("Portal token expired or invalid.");
+            } else {
+                console.error("Portal API error:", response.status);
+                setExamSections([]);
             }
         } catch (err) {
             console.warn("Error fetching exam sections:", err);
