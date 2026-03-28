@@ -23,6 +23,7 @@ const UpcomingClass = () => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const isAdmin = user.role === "admin" || user.role === "superAdmin";
     const isCoordinator = user.role === "Class_Coordinator";
+    const isAcademicAdmin = isAdmin || isCoordinator || ["centerIncharge", "zonalManager", "zonalHead", "counsellor"].includes(user.role);
 
     useEffect(() => {
         const userObj = JSON.parse(localStorage.getItem("user") || "{}");
@@ -161,7 +162,7 @@ const UpcomingClass = () => {
                                             <td className="p-4">{cls.endTime}</td>
                                             <td className="p-4">{cls.subjectId?.subjectName || cls.subjectId?.name || "-"}</td>
                                             <td className="p-4 text-center">
-                                                {(canEdit || isAdmin || isCoordinator) ? (
+                                                {isAcademicAdmin ? (
                                                     <button
                                                         onClick={() => handleStartClass(cls._id)}
                                                         className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-xs uppercase transition shadow-lg shadow-green-900/20 mx-auto"

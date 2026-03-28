@@ -21,14 +21,16 @@ const GENERATE_BILL = false; // Set to true if payment records/bills are needed
  */
 const student_data_list = [
     {
-        enroll: "PATH25002082",
-        name: "SANIA SEIKH",
-        email: "saniaseikh12@gmail.com",
-        phone: "8617493147",
-        centre: "BURDWAN",
-        courseName: "NEET REPEATER (NS) 2025-2026",
+        enroll: "PATH24004789",
+        name: "TASNIM TABASSUM",
+        email: "path24004789@pathfinder.com",
+        phone: "7029161368",
+        centre: "HAZRA H.O",
+        courseName: "NEET MOCK 2025-2026",
         session: "2025-2026",
-        counselledBy: "Burdwan Pathfinder CI"
+        totalFees: 6000,
+        paid: 2000,
+        counselledBy: "Direct Admission"
     }
 ];
 
