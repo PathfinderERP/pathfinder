@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 const RazorpayPOSModal = ({ isOpen, onClose, amount, invoiceId, onPaymentSuccess, studentInfo, admissionId, admissionType }) => {
     const [status, setStatus] = useState('IDLE'); // IDLE, INITIATING, WAITING, SUCCESS, FAILED
     const [p2pRequestId, setP2pRequestId] = useState(null);
+    const [manualTxnId, setManualTxnId] = useState("");
     const [deviceId, setDeviceId] = useState(localStorage.getItem('ezetap_device_id') || '');
     const [mode, setMode] = useState('CARD'); // CARD or UPI
     const [error, setError] = useState(null);
@@ -18,6 +19,7 @@ const RazorpayPOSModal = ({ isOpen, onClose, amount, invoiceId, onPaymentSuccess
         if (!isOpen) {
             setStatus('IDLE');
             setP2pRequestId(null);
+            setManualTxnId("");
             setError(null);
             setTerminalInfo(null);
             setTimeLeft(180);
@@ -64,7 +66,13 @@ const RazorpayPOSModal = ({ isOpen, onClose, amount, invoiceId, onPaymentSuccess
                         clearInterval(pollInterval);
                         setStatus('SUCCESS');
                         setTimerExpired(false);
-                        onPaymentSuccess(data);
+                        // Wrap response to ensure p2pRequestId and method are always present
+                        onPaymentSuccess({
+                            ...data,
+                            p2pRequestId: p2pRequestId,
+                            method: "RAZORPAY_POS",
+                            transactionId: data.transactionId || data.txnId || data.externalTransactionId || p2pRequestId
+                        });
                     } else if (data.status === 'FAILED' || data.status === 'DECLINED' || data.status === 'EXPIRED' || data.status === 'CANCELLED') {
                         clearInterval(pollInterval);
                         setStatus('FAILED');
@@ -130,7 +138,7 @@ const RazorpayPOSModal = ({ isOpen, onClose, amount, invoiceId, onPaymentSuccess
 
     const handleCancel = async () => {
         if (!p2pRequestId) return;
-        
+
         try {
             const token = localStorage.getItem("token");
             await fetch(`${apiUrl}/payment/pos/cancel`, {
@@ -171,7 +179,7 @@ const RazorpayPOSModal = ({ isOpen, onClose, amount, invoiceId, onPaymentSuccess
                             </div>
                             <h3 className="text-xl font-bold text-white mb-2">Initiate POS Payment</h3>
                             <p className="text-gray-400 text-sm mb-8">Ready to send ₹{parseFloat(amount).toLocaleString()} to the POS machine.</p>
-                            
+
                             <div className="w-full mb-8">
                                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 block text-left">Payment Mode</label>
                                 <div className="grid grid-cols-2 gap-4">
@@ -239,7 +247,7 @@ const RazorpayPOSModal = ({ isOpen, onClose, amount, invoiceId, onPaymentSuccess
                                 </svg>
                                 <FaMobileAlt className="text-4xl text-cyan-500 z-10" />
                             </div>
-                            
+
                             <div className="mb-4">
                                 <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter mb-1">Waiting for <span className="text-cyan-500">POS</span></h3>
                                 {!timerExpired ? (
@@ -261,7 +269,7 @@ const RazorpayPOSModal = ({ isOpen, onClose, amount, invoiceId, onPaymentSuccess
                             ) : (
                                 <p className="text-gray-400 text-xs mb-6 max-w-xs uppercase font-black tracking-widest opacity-60">Please complete the transaction on the machine before the timer ends.</p>
                             )}
-                            
+
                             {terminalInfo && (
                                 <div className="w-full bg-cyan-500/5 border border-cyan-500/10 rounded-2xl p-4 mb-6 animate-in slide-in-from-top-2 duration-500 shadow-[0_0_40px_rgba(6,182,200,0.05)]">
                                     <div className="text-[9px] font-black text-cyan-500/50 uppercase tracking-widest mb-1">Live Terminal Feedback</div>
@@ -274,7 +282,7 @@ const RazorpayPOSModal = ({ isOpen, onClose, amount, invoiceId, onPaymentSuccess
                                 <span className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(6,182,212,1)]"></span>
                                 Request ID: {p2pRequestId}
                             </div>
-                            
+
                             <div className="flex flex-col gap-4 w-full">
                                 <button
                                     onClick={handleCancel}
@@ -284,16 +292,43 @@ const RazorpayPOSModal = ({ isOpen, onClose, amount, invoiceId, onPaymentSuccess
                                 </button>
 
                                 {timeLeft < 150 && (
-                                    <button
-                                        onClick={() => {
-                                            if (window.confirm("Only use this if the machine has ALREADY generated a success bill. This will sync the payment without waiting for Ezetap status.")) {
-                                                onPaymentSuccess({ status: 'AUTHORIZED', p2pRequestId, forced: true });
-                                            }
-                                        }}
-                                        className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-black uppercase text-xs tracking-widest py-4 rounded-2xl shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all animate-in fade-in zoom-in duration-500"
-                                    >
-                                        I have Paid on Machine (Manual Sync)
-                                    </button>
+                                    <div className="w-full space-y-4 animate-in fade-in zoom-in slide-in-from-bottom-4 duration-700 delay-300">
+                                        <div className="text-center space-y-1">
+                                            <label className="text-[10px] font-black text-amber-500 uppercase tracking-widest block">
+                                                Manual Transaction Sync
+                                            </label>
+                                            <div className="text-[8px] text-gray-500 uppercase font-black tracking-widest opacity-60">
+                                                Enter ID from Machine Receipt
+                                            </div>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={manualTxnId}
+                                            onChange={(e) => setManualTxnId(e.target.value)}
+                                            placeholder="EZETAP TXN ID"
+                                            className="w-full bg-black/60 border border-amber-500/30 rounded-2xl py-4 px-6 text-white text-md font-black outline-none focus:border-amber-500/60 transition-all font-mono text-center shadow-[0_0_30px_rgba(245,158,11,0.05)] placeholder:text-gray-700"
+                                        />
+                                        <button
+                                            onClick={() => {
+                                                if (!manualTxnId.trim()) {
+                                                    toast.warning("Please enter the Transaction ID manually.");
+                                                    return;
+                                                }
+                                                if (window.confirm("Only use this if the machine has ALREADY generated a success bill. This will sync the payment without waiting for machine status.")) {
+                                                    onPaymentSuccess({ 
+                                                        status: 'AUTHORIZED', 
+                                                        p2pRequestId, 
+                                                        transactionId: manualTxnId.trim(),
+                                                        method: "RAZORPAY_POS",
+                                                        forced: true 
+                                                    });
+                                                }
+                                            }}
+                                            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black uppercase text-xs tracking-widest py-4 rounded-2xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                        >
+                                            Confirm & Sync Bill
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         </>

@@ -1,12 +1,32 @@
 import Admission from "../../models/Admission/Admission.js";
 import Payment from "../../models/Payment/Payment.js";
 import Student from "../../models/Students.js";
+import CentreSchema from "../../models/Master_data/Centre.js";
+import { generateBillId } from "../../utils/billIdGenerator.js";
 import { updateCentreTargetAchieved } from "../../services/centreTargetService.js";
 
 export const updatePaymentInstallment = async (req, res) => {
     try {
         const { admissionId, installmentNumber } = req.params;
-        const { paidAmount, paymentMethod, transactionId, remarks, accountHolderName, chequeDate, carryForward, receivedDate } = req.body;
+        const { 
+            paidAmount, 
+            paymentMethod, 
+            transactionId, 
+            p2pRequestId, 
+            remarks, 
+            accountHolderName, 
+            chequeDate, 
+            carryForward, 
+            receivedDate 
+        } = req.body;
+
+        console.log(`📡 [Payment Update] Admission: ${admissionId}, Inst: ${installmentNumber}. Method: ${paymentMethod}, TxnID: ${transactionId}, P2P: ${p2pRequestId}`);
+        
+        const finalTransactionId = (paymentMethod === "RAZORPAY_POS" && (!transactionId || transactionId === 'N/A' || transactionId === 'null')) 
+            ? (p2pRequestId || transactionId) 
+            : (transactionId || p2pRequestId);
+
+        console.log(`✅ [Payment Update] Resolved final ID: ${finalTransactionId}`);
 
         const admission = await Admission.findById(admissionId).populate('student');
         if (!admission) {
@@ -36,7 +56,7 @@ export const updatePaymentInstallment = async (req, res) => {
         installment.paidDate = new Date();
         installment.receivedDate = receivedDate ? new Date(receivedDate) : new Date();
         installment.paymentMethod = paymentMethod;
-        installment.transactionId = transactionId;
+        installment.transactionId = finalTransactionId;
         installment.accountHolderName = accountHolderName; // New
         installment.chequeDate = chequeDate; // New
         installment.remarks = remarks;
@@ -162,13 +182,28 @@ export const updatePaymentInstallment = async (req, res) => {
             const totalAmount = paidAmountFloat;
 
 
+            // Fetch Centre Info for Bill ID
+            let centreObj = await CentreSchema.findOne({ centreName: admission.centre });
+            if (!centreObj) {
+                centreObj = await CentreSchema.findOne({ centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } });
+            }
+            const centreCode = centreObj ? centreObj.enterCode : 'GEN';
+
             // Check if payment record already exists
             let payment = await Payment.findOne({
                 admission: admissionId,
                 installmentNumber: parseInt(installmentNumber)
             });
 
+            // Generate bill ID only if PAID (unless it's a CHEQUE which needs an ID for clearance)
+            let newBillId = null;
+            if (!payment || !payment.billId) {
+                newBillId = await generateBillId(centreCode);
+                console.log(`Generated new bill ID: ${newBillId} for transaction: ${finalTransactionId}`);
+            }
+
             if (!payment) {
+                console.log(`Creating NEW payment record for admission ${admissionId}, installment ${installmentNumber}. Method: ${paymentMethod}, TxnID: ${finalTransactionId}`);
                 // Create new payment record
                 payment = new Payment({
                     admission: admissionId,
@@ -180,7 +215,7 @@ export const updatePaymentInstallment = async (req, res) => {
                     receivedDate: installment.receivedDate,
                     status: installment.status,
                     paymentMethod: paymentMethod,
-                    transactionId: transactionId,
+                    transactionId: finalTransactionId,
                     accountHolderName: accountHolderName, // New
                     chequeDate: chequeDate, // New
                     remarks: remarks,
@@ -189,17 +224,19 @@ export const updatePaymentInstallment = async (req, res) => {
                     sgst: parseFloat(sgst.toFixed(2)),
                     courseFee: parseFloat(courseFee.toFixed(2)),
                     totalAmount: parseFloat(totalAmount.toFixed(2)),
-                    isCarryForward: carryForward || false
+                    isCarryForward: carryForward || false,
+                    billId: newBillId
                 });
                 await payment.save();
             } else {
+                console.log(`Updating EXISTING payment record ${payment._id}. Method: ${paymentMethod}, TxnID: ${finalTransactionId}`);
                 // Update existing payment record
                 payment.paidAmount = paidAmount;
                 payment.paidDate = installment.paidDate;
                 payment.receivedDate = installment.receivedDate;
                 payment.status = installment.status;
                 payment.paymentMethod = paymentMethod;
-                payment.transactionId = transactionId;
+                payment.transactionId = finalTransactionId;
                 payment.accountHolderName = accountHolderName; // New
                 payment.chequeDate = chequeDate; // New
                 payment.remarks = remarks;
@@ -208,6 +245,12 @@ export const updatePaymentInstallment = async (req, res) => {
                 payment.courseFee = parseFloat(courseFee.toFixed(2));
                 payment.totalAmount = parseFloat(totalAmount.toFixed(2));
                 payment.isCarryForward = carryForward || false;
+                
+                // CRUCIAL: Also update bill ID if we generated a new one
+                if (newBillId) {
+                    payment.billId = newBillId;
+                }
+                
                 await payment.save();
             }
         }

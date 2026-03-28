@@ -169,15 +169,21 @@ export const allotSection = async (req, res) => {
 // Proxy to fetch sections from external portal (to bypass CORS/CSP)
 export const getPortalSections = async (req, res) => {
     try {
+        console.log("Proxying request to Study Path Portal Sections API...");
         const response = await fetch("https://api.studypathportal.in/api/sections/master/");
+        
         if (response.ok) {
             const data = await response.json();
+            console.log(`Successfully fetched ${Array.isArray(data) ? data.length : (data.sections ? data.sections.length : 'unknown')} sections from portal.`);
             return res.status(200).json(data);
         }
-        res.status(response.status).json({ message: "External portal API error" });
+        
+        const errorText = await response.text();
+        console.error(`External portal API error: ${response.status} - ${errorText}`);
+        res.status(response.status).json({ message: "External portal API error", detail: errorText });
     } catch (err) {
         console.error("Portal proxy error:", err.message);
-        res.status(500).json({ message: "Portal endpoint unreachable via proxy" });
+        res.status(500).json({ message: "Portal endpoint unreachable via proxy", error: err.message });
     }
 };
 

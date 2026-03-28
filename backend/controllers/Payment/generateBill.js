@@ -150,6 +150,12 @@ export const generateBill = async (req, res) => {
         let actualPaidTotal = 0;
         if (payment && payment.paidAmount > 0) {
             actualPaidTotal = payment.paidAmount;
+            // SELF-HEALING: If Transaction ID is missing in Payment record, but present in Admission record, fix it!
+            if (!payment.transactionId && installment.transactionId) {
+                console.log(`🏥 Self-healing: Extracting missing Transaction ID from Admission: ${installment.transactionId}`);
+                payment.transactionId = installment.transactionId;
+                await payment.save();
+            }
         } else if (installmentNum === 0 && !isBoardAdmission) {
             actualPaidTotal = admission.downPayment;
         } else if (installmentNum === 0 && isBoardAdmission) {
@@ -243,7 +249,8 @@ export const generateBill = async (req, res) => {
             payment: {
                 installmentNumber: payment.installmentNumber,
                 paymentMethod: payment.paymentMethod,
-                transactionId: payment.transactionId,
+                // Fallback to Admission record's transactionId if not in Payment record
+                transactionId: payment.transactionId || (installment ? (installment.transactionId || 'N/A') : 'N/A'),
                 paidDate: payment.paidDate,
                 receivedDate: payment.receivedDate,
                 accountHolderName: payment.accountHolderName,

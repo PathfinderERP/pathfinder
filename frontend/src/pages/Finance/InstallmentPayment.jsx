@@ -515,9 +515,11 @@ const InstallmentPayment = () => {
         setShowPayModal(true);
     };
 
-    const handleRecordPayment = async () => {
+    const handleRecordPayment = async (overrideData = null) => {
+        const dataToSubmit = overrideData || payFormData;
+        
         // Validation for UPI
-        if (payFormData.paymentMethod === 'UPI' && !payFormData.transactionId.trim()) {
+        if (dataToSubmit.paymentMethod === 'UPI' && !dataToSubmit.transactionId?.trim()) {
             toast.error("Transaction ID is mandatory for UPI payments");
             return;
         }
@@ -532,13 +534,13 @@ const InstallmentPayment = () => {
                         "Content-Type": "application/json",
                         Authorization: `Bearer ${token}`
                     },
-                    body: JSON.stringify(payFormData)
+                    body: JSON.stringify(dataToSubmit)
                 }
             );
 
             if (response.ok) {
                 const data = await response.json();
-                toast.success(payFormData.paymentMethod === "CHEQUE" ? "Cheque recorded! Pending clearance." : "Payment successful!");
+                toast.success(dataToSubmit.paymentMethod === "CHEQUE" ? "Cheque recorded! Pending clearance." : "Payment successful!");
                 setShowPayModal(false);
 
                 // Show bill generator (Acknowledgement for cheques, Bill for others)
@@ -548,11 +550,12 @@ const InstallmentPayment = () => {
                     installment: {
                         installmentNumber: activeInstallment.installmentNumber,
                         amount: activeInstallment.amount,
-                        paidAmount: payFormData.paidAmount,
+                        paidAmount: dataToSubmit.paidAmount,
                         paidDate: new Date(),
-                        receivedDate: payFormData.receivedDate,
-                        paymentMethod: payFormData.paymentMethod,
-                        status: payFormData.paymentMethod === "CHEQUE" ? "PENDING_CLEARANCE" : "PAID"
+                        receivedDate: dataToSubmit.receivedDate,
+                        paymentMethod: dataToSubmit.paymentMethod,
+                        transactionId: dataToSubmit.transactionId,
+                        status: dataToSubmit.paymentMethod === "CHEQUE" ? "PENDING_CLEARANCE" : "PAID"
                     }
                 });
 
@@ -1597,14 +1600,29 @@ const InstallmentPayment = () => {
                     admissionId={activeAdmissionId}
                     admissionType="NORMAL"
                     onPaymentSuccess={(posData) => {
-                        // Update payFormData with POS transaction details
-                        setPayFormData(prev => ({
-                            ...prev,
-                            transactionId: posData.p2pRequestId,
-                            remarks: (prev.remarks ? prev.remarks + " | " : "") + "Razorpay POS Authorized"
-                        }));
-                        // Proceed to record the payment in our DB
-                        handleRecordPayment();
+                        console.log("POS Success Callback Data:", posData);
+                        // Exhaustive extraction of any potential transaction identifier
+                        const finalTransactionId = posData.externalTransactionId || 
+                                                 posData.txnId || 
+                                                 posData.transactionId || 
+                                                 posData.receiptNumber || 
+                                                 posData.p2pRequestId ||
+                                                 posData.origP2pRequestId;
+                        
+                        console.log("Extracted Transaction ID:", finalTransactionId);
+
+                        const updatedData = {
+                            ...payFormData,
+                            paymentMethod: "RAZORPAY_POS",
+                            transactionId: finalTransactionId,
+                            p2pRequestId: posData.p2pRequestId,
+                            remarks: (payFormData.remarks ? payFormData.remarks + " | " : "") + 
+                                    `POS payment completed (Req: ${posData.p2pRequestId || 'N/A'})`
+                        };
+
+                        console.log("Submitting payment record with data:", updatedData);
+                        setPayFormData(updatedData);
+                        handleRecordPayment(updatedData);
                     }}
                 />
 
@@ -1618,14 +1636,19 @@ const InstallmentPayment = () => {
                     studentInfo={selectedStudent}
                     admissionType="NORMAL"
                     onPaymentSuccess={(smsData) => {
-                        // Update payFormData with SMS transaction details
-                        setPayFormData(prev => ({
-                            ...prev,
-                            transactionId: smsData.id,
-                            remarks: (prev.remarks ? prev.remarks + " | " : "") + "Razorpay SMS Pay Completed"
-                        }));
-                        // Proceed to record the payment in our DB
-                        handleRecordPayment();
+                        console.log("SMS Success Callback Data:", smsData);
+                        const finalId = smsData.id || smsData.paymentId;
+                        const updatedData = {
+                            ...payFormData,
+                            paymentMethod: "RAZORPAY_SMS",
+                            transactionId: finalId,
+                            remarks: (payFormData.remarks ? payFormData.remarks + " | " : "") + 
+                                    `SMS payment completed (ID: ${finalId})`
+                        };
+
+                        console.log("Submitting SMS payment record with data:", updatedData);
+                        setPayFormData(updatedData);
+                        handleRecordPayment(updatedData);
                     }}
                 />
             </div>
@@ -1633,4 +1656,4 @@ const InstallmentPayment = () => {
     );
 };
 
-export default InstallmentPayment
+export default InstallmentPayment;

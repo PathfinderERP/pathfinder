@@ -554,7 +554,12 @@ const BillGenerator = ({ admission, installment, onClose }) => {
                                             </span>
                                         </div>
                                         {billData.payment.paymentMethod?.toUpperCase() !== 'CASH' && (
-                                            <div><span className="text-gray-400">Transaction ID:</span> <span className="text-white font-medium">{billData.payment.transactionId || 'N/A'}</span></div>
+                                            <div>
+                                                <span className="text-gray-400">Transaction ID:</span> 
+                                                <span className="text-white font-medium ml-1">
+                                                    {billData.payment.transactionId || (installment?.transactionId || 'N/A')}
+                                                </span>
+                                            </div>
                                         )}
                                         <div><span className="text-gray-400">Payment Date:</span> <span className="text-white font-medium">{new Date(billData.payment.paidDate).toLocaleDateString('en-IN')}</span></div>
                                         {['CHEQUE', 'BANK_TRANSFER'].includes(billData.payment.paymentMethod) && (
