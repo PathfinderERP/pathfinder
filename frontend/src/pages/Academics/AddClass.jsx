@@ -37,8 +37,8 @@ const AddClass = () => {
         // New Academic Fields
         acadClassId: "",
         acadSubjectId: "",
-        chapterId: "",
-        topicIds: [], // We'll manage topics as selected objects with add/remove
+        chapterName: "",
+        topicName: "",
         message: ""
     });
 
@@ -56,10 +56,6 @@ const AddClass = () => {
 
     // Cascading Dropdown States
     const [acadSubjects, setAcadSubjects] = useState([]);
-    const [acadChapters, setAcadChapters] = useState([]);
-    const [acadTopics, setAcadTopics] = useState([]);
-    const [selectedTopics, setSelectedTopics] = useState([]); // List of { id, name }
-    const [currentTopicId, setCurrentTopicId] = useState("");
 
     const [loading, setLoading] = useState(false);
     const API_URL = import.meta.env.VITE_API_URL;
@@ -206,99 +202,43 @@ const AddClass = () => {
         } catch (e) { console.error(e); }
     };
 
-    const fetchAcadChapters = async (subjectId) => {
-        if (!subjectId) { setAcadChapters([]); return; }
-        try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`${API_URL}/academics/chapter/list/subject/${subjectId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const data = await res.json();
-            if (res.ok) setAcadChapters(data);
-        } catch (e) { console.error(e); }
-    };
-
-    const fetchAcadTopics = async (chapterId) => {
-        if (!chapterId) { setAcadTopics([]); return; }
-        try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`${API_URL}/academics/topic/list/chapter/${chapterId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const data = await res.json();
-            if (res.ok) setAcadTopics(data);
-        } catch (e) { console.error(e); }
-    };
-
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
 
         // Trigger cascades
         if (name === "acadClassId") {
-            setFormData(prev => ({ ...prev, [name]: value, acadSubjectId: "", chapterId: "", topicIds: [] }));
-            setAcadSubjects([]); setAcadChapters([]); setAcadTopics([]); setSelectedTopics([]);
+            setFormData(prev => ({ ...prev, [name]: value, acadSubjectId: "" }));
+            setAcadSubjects([]);
             fetchAcadSubjects(value);
         }
-        if (name === "acadSubjectId") {
-            setFormData(prev => ({ ...prev, [name]: value, chapterId: "", topicIds: [] }));
-            setAcadChapters([]); setAcadTopics([]); setSelectedTopics([]);
-            fetchAcadChapters(value);
-        }
-        if (name === "chapterId") {
-            setFormData(prev => ({ ...prev, [name]: value, topicIds: [] }));
-            setAcadTopics([]); setSelectedTopics([]);
-            fetchAcadTopics(value);
-        }
-    };
-
-    const handleAddTopic = () => {
-        if (!currentTopicId) return;
-        const topicObj = acadTopics.find(t => t._id === currentTopicId);
-        if (topicObj && !selectedTopics.find(t => t._id === currentTopicId)) {
-            setSelectedTopics([...selectedTopics, topicObj]);
-            setFormData(prev => ({ ...prev, topicIds: [...prev.topicIds, currentTopicId] }));
-        }
-        setCurrentTopicId("");
-    };
-
-    const handleRemoveTopic = (id) => {
-        const updated = selectedTopics.filter(t => t._id !== id);
-        setSelectedTopics(updated);
-        setFormData(prev => ({ ...prev, topicIds: updated.map(t => t._id) }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-        // Ensure topicIds are set in formData correctly (already done via handleAdd/Remove)
-        const payload = {
-            ...formData,
-            topicIds: selectedTopics.map(t => t._id)
-        };
 
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${API_URL}/academics/class-schedule/create`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json();
-            if (response.ok) {
-                toast.success("Class scheduled successfully");
-                setFormData({
-                    className: "", date: "", classMode: "", startTime: "", endTime: "",
-                    subjectId: "", teacherId: "", session: "", examId: "", courseId: "", centreId: "", batchIds: [],
-                    acadClassId: "", acadSubjectId: "", chapterId: "", topicIds: [], message: ""
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify(formData)
                 });
-                setSelectedTopics([]);
-                // Reset cascades
-                setAcadSubjects([]); setAcadChapters([]); setAcadTopics([]);
-            } else {
+                const data = await response.json();
+                if (response.ok) {
+                    toast.success("Class scheduled successfully");
+                    setFormData({
+                        className: "", date: "", classMode: "", startTime: "", endTime: "",
+                        subjectId: "", teacherId: "", session: "", examId: "", courseId: "", centreId: "", batchIds: [],
+                        acadClassId: "", acadSubjectId: "", chapterName: "", topicName: "", message: ""
+                    });
+                    // Reset cascades
+                    setAcadSubjects([]);
+                } else {
                 toast.error(data.message || "Failed to schedule class");
             }
         } catch (error) {
@@ -521,45 +461,28 @@ const AddClass = () => {
                             disabled={!formData.acadClassId}
                         />
 
-                        <SearchableSelect
-                            label="Chapter"
-                            name="chapterId"
-                            value={formData.chapterId}
-                            options={acadChapters}
-                            displayPath="chapterName"
-                            onChange={handleChange}
-                            placeholder="Select a chapter"
-                            isDarkMode={isDarkMode}
-                            required
-                            disabled={!formData.acadSubjectId}
-                        />
+                        <div className="md:col-span-1">
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Chapter Name</label>
+                            <input
+                                type="text"
+                                name="chapterName"
+                                value={formData.chapterName}
+                                onChange={handleChange}
+                                placeholder="Enter Chapter Name manually"
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                            />
+                        </div>
 
                         <div className="md:col-span-1">
                             <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Topic Names</label>
-                            <div className="flex gap-2 items-start">
-                                <div className="flex-1">
-                                    <SearchableSelect
-                                        label=""
-                                        value={currentTopicId}
-                                        options={acadTopics}
-                                        displayPath="topicName"
-                                        onChange={(e) => setCurrentTopicId(e.target.value)}
-                                        placeholder="Select topics"
-                                        isDarkMode={isDarkMode}
-                                        disabled={!formData.chapterId}
-                                    />
-                                </div>
-                                <button type="button" onClick={handleAddTopic} className="bg-blue-600 px-5 h-[46px] rounded-lg text-white hover:bg-blue-700 disabled:opacity-50 transition-all font-bold flex items-center justify-center shrink-0"><FaPlus /></button>
-                            </div>
-
-                            <div className="mt-4 flex flex-wrap gap-2">
-                                {selectedTopics.map(t => (
-                                    <span key={t._id} className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-tight flex items-center gap-2 transition-all shadow-sm ${isDarkMode ? 'bg-cyan-900/40 text-cyan-200 border border-cyan-800' : 'bg-cyan-50 text-cyan-700 border border-cyan-100'}`}>
-                                        {t.topicName}
-                                        <button type="button" onClick={() => handleRemoveTopic(t._id)} className={`${isDarkMode ? 'text-red-400 hover:text-red-200' : 'text-red-500 hover:text-red-700'}`}><FaTrash size={10} /></button>
-                                    </span>
-                                ))}
-                            </div>
+                            <input
+                                type="text"
+                                name="topicName"
+                                value={formData.topicName}
+                                onChange={handleChange}
+                                placeholder="Enter Topic Name manually"
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                            />
                         </div>
 
 

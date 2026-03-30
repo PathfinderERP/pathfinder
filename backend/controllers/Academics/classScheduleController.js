@@ -25,7 +25,12 @@ export const createClassSchedule = async (req, res) => {
             centreId,
             batchId,
             batchIds,
-            coordinatorId
+            coordinatorId,
+            acadClassId,
+            acadSubjectId,
+            chapterName,
+            topicName,
+            message
         } = req.body;
 
         // Center authorization check
@@ -49,7 +54,12 @@ export const createClassSchedule = async (req, res) => {
             courseId,
             centreId,
             batchIds: batchIds || [batchId], // Fallback if old frontend still sends batchId
-            coordinatorId
+            coordinatorId: coordinatorId || undefined,
+            acadClassId: acadClassId || undefined,
+            acadSubjectId: acadSubjectId || undefined,
+            chapterName,
+            topicName,
+            message
         });
 
         await newClass.save();
@@ -288,7 +298,12 @@ export const updateClassSchedule = async (req, res) => {
             courseId,
             centreId,
             batchIds,
-            coordinatorId
+            coordinatorId,
+            acadClassId,
+            acadSubjectId,
+            chapterName,
+            topicName,
+            message
         } = req.body;
 
         const currentClass = await ClassSchedule.findById(id);
@@ -325,7 +340,12 @@ export const updateClassSchedule = async (req, res) => {
                 courseId,
                 centreId,
                 batchIds,
-                coordinatorId
+                coordinatorId: coordinatorId || undefined,
+                acadClassId: acadClassId || undefined,
+                acadSubjectId: acadSubjectId || undefined,
+                chapterName,
+                topicName,
+                message
             },
             { new: true }
         );

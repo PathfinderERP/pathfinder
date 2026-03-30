@@ -77,15 +77,14 @@ const classScheduleSchema = new mongoose.Schema({
         ref: "AcademicsSubject",
         required: false
     },
-    chapterId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "AcademicsChapter",
-        required: false
+    chapterName: {
+        type: String,
+        default: ""
     },
-    topicIds: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "AcademicsTopic"
-    }],
+    topicName: {
+        type: String,
+        default: ""
+    },
     message: {
         type: String,
         default: ""
