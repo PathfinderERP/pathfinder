@@ -7,6 +7,8 @@ import Batch from "../../models/Master_data/Batch.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
 import AcademicsClass from "../../models/Academics/Academics_class.js";
 import Session from "../../models/Master_data/Session.js";
+import xlsx from "xlsx";
+import fs from "fs";
 
 // Create a new class schedule
 export const createClassSchedule = async (req, res) => {
@@ -511,5 +513,198 @@ export const getClassDropdownData = async (req, res) => {
     } catch (error) {
         console.error("Error fetching dropdown data:", error);
         res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+export const importClassesExcel = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: "Please upload an excel file" });
+        }
+
+        const workbook = xlsx.readFile(req.file.path);
+        const sheetName = workbook.SheetNames[0];
+        const rows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        if (rows.length === 0) {
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ message: "The uploaded excel file is empty." });
+        }
+
+        const errors = [];
+        const classesToInsert = [];
+
+        // Center authorization logic
+        const userRole = req.user.role;
+        const userCentres = req.user.centres ? req.user.centres.map(c => c.toString()) : [];
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const rowNumber = i + 2; // +2 considering header and 0-indexing
+
+            // 1. Check Mandatory string fields
+            const requiredFields = ['Class Name', 'Date', 'Class Mode', 'Start Time', 'End Time', 'Center', 'Batch', 'Subject', 'Teacher', 'Session', 'Course'];
+            let missingFields = [];
+            for (let field of requiredFields) {
+                if (!row[field]) missingFields.push(field);
+            }
+            if (missingFields.length > 0) {
+                errors.push(`Row ${rowNumber}: Missing mandatory fields -> ${missingFields.join(", ")}`);
+                continue;
+            }
+
+            // 2. Validate enums
+            const classMode = String(row['Class Mode']).trim();
+            if (!["Online", "Offline"].includes(classMode)) {
+                errors.push(`Row ${rowNumber}: Class Mode must be exactly 'Online' or 'Offline'`);
+                continue;
+            }
+
+            // 3. Database Lookups
+            // Convert Excel serial date to JS Date if necessary
+            let dateObj;
+            if (typeof row['Date'] === 'number') {
+                dateObj = new Date(Math.round((row['Date'] - 25569) * 86400 * 1000));
+            } else {
+                dateObj = new Date(row['Date']);
+            }
+            
+            if (isNaN(dateObj.getTime())) {
+                errors.push(`Row ${rowNumber}: Invalid date format`);
+                continue;
+            }
+
+            // Center
+            const centreRegex = new RegExp(`^${String(row['Center']).trim()}$`, "i");
+            const centre = await Centre.findOne({ $or: [{ centreName: centreRegex }, { name: centreRegex }] });
+            if (!centre) {
+                errors.push(`Row ${rowNumber}: Center '${row['Center']}' not found`);
+                continue;
+            }
+            if (userRole !== 'superAdmin' && !userCentres.includes(centre._id.toString())) {
+                errors.push(`Row ${rowNumber}: You are not authorized to create classes for center '${row['Center']}'`);
+                continue;
+            }
+
+            // Course
+            const courseRegex = new RegExp(`^${String(row['Course']).trim()}$`, "i");
+            const course = await Course.findOne({ $or: [{ courseName: courseRegex }, { name: courseRegex }] });
+            if (!course) {
+                errors.push(`Row ${rowNumber}: Course '${row['Course']}' not found`);
+                continue;
+            }
+
+            // Exam (Optional)
+            let examId = undefined;
+            if (row['Exam']) {
+                const examRegex = new RegExp(`^${String(row['Exam']).trim()}$`, "i");
+                const exam = await ExamTag.findOne({ $or: [{ name: examRegex }, { tagName: examRegex }] });
+                if (!exam) {
+                    errors.push(`Row ${rowNumber}: Exam '${row['Exam']}' not found`);
+                    continue;
+                }
+                examId = exam._id;
+            }
+
+            // Subject
+            const subjectRegex = new RegExp(`^${String(row['Subject']).trim()}$`, "i");
+            const subject = await AcademicsSubject.findOne({ $or: [{ subjectName: subjectRegex }, { name: subjectRegex }] });
+            if (!subject) {
+                errors.push(`Row ${rowNumber}: Subject '${row['Subject']}' not found in AcademicsSubject`);
+                continue;
+            }
+
+            // Teacher
+            const teacherRegex = new RegExp(`^${String(row['Teacher']).trim()}$`, "i");
+            const teacher = await User.findOne({ name: teacherRegex, role: 'teacher' });
+            if (!teacher) {
+                errors.push(`Row ${rowNumber}: Teacher exactly matching '${row['Teacher']}' not found in the users list`);
+                continue;
+            }
+
+            // Session
+            const sessionRegex = new RegExp(`^${String(row['Session']).trim()}$`, "i");
+            const sessionDoc = await Session.findOne({ sessionName: sessionRegex });
+            if (!sessionDoc) {
+                errors.push(`Row ${rowNumber}: Session '${row['Session']}' not found`);
+                continue;
+            }
+
+            // Batches (Comma Separated)
+            const batchNames = String(row['Batch']).split(',').map(b => b.trim()).filter(b => b);
+            const batchDocs = await Batch.find({ 
+                $or: [
+                    { batchName: { $in: batchNames.map(b => new RegExp(`^${b}$`, "i")) } },
+                    { name: { $in: batchNames.map(b => new RegExp(`^${b}$`, "i")) } }
+                ] 
+            });
+            if (batchDocs.length === 0) {
+                errors.push(`Row ${rowNumber}: None of the Batches '${row['Batch']}' were found`);
+                continue;
+            }
+            const batchIds = batchDocs.map(b => b._id);
+
+            // Optional Lookups
+            let coordinatorId = undefined;
+            if (row['Coordinator']) {
+                const coordRegex = new RegExp(`^${String(row['Coordinator']).trim()}$`, "i");
+                const coordinator = await User.findOne({ name: coordRegex, role: 'Class_Coordinator' });
+                if (!coordinator) {
+                    errors.push(`Row ${rowNumber}: Coordinator exactly matching '${row['Coordinator']}' not found`);
+                    continue;
+                }
+                coordinatorId = coordinator._id;
+            }
+
+            let acadClassId = undefined;
+            if (row['Academic Class']) {
+                const acadRegex = new RegExp(`^${String(row['Academic Class']).trim()}$`, "i");
+                const acadClass = await AcademicsClass.findOne({ className: acadRegex });
+                if (!acadClass) {
+                    errors.push(`Row ${rowNumber}: Academic Class '${row['Academic Class']}' not found`);
+                    continue;
+                }
+                acadClassId = acadClass._id;
+            }
+
+            classesToInsert.push({
+                className: String(row['Class Name']).trim(),
+                date: dateObj,
+                classMode: classMode,
+                startTime: String(row['Start Time']).trim(),
+                endTime: String(row['End Time']).trim(),
+                subjectId: subject._id,
+                teacherId: teacher._id,
+                session: sessionDoc.sessionName, // Schema stores string or ObjectId, existing script usually passes string
+                examId: examId,
+                courseId: course._id,
+                centreId: centre._id,
+                batchIds: batchIds,
+                coordinatorId: coordinatorId,
+                acadClassId: acadClassId,
+                acadSubjectId: subject._id, // Assume acad subject is the same lookup if available
+                chapterName: row['Chapter Name'] ? String(row['Chapter Name']).trim() : "",
+                topicName: row['Topic Names'] ? String(row['Topic Names']).trim() : "",
+                message: row['Message'] ? String(row['Message']).trim() : ""
+            });
+        }
+
+        // Clean up uploaded file
+        fs.unlinkSync(req.file.path);
+
+        if (errors.length > 0) {
+            return res.status(400).json({ message: "Validation Failed for Excel details.", errors });
+        }
+
+        await ClassSchedule.insertMany(classesToInsert);
+
+        res.status(200).json({ message: `Successfully imported ${classesToInsert.length} classes!` });
+    } catch (error) {
+        console.error("Error importing excels:", error);
+        // Ensure to delete file in case of crash
+        if (req.file && fs.existsSync(req.file.path)) {
+            try { fs.unlinkSync(req.file.path); } catch(e) {}
+        }
+        res.status(500).json({ message: "Server error during import", error: error.message });
     }
 };

@@ -375,15 +375,14 @@ const AddClass = () => {
                         />
 
                         <SearchableSelect
-                            label="Exam"
+                            label="Exam (Optional)"
                             name="examId"
                             value={formData.examId}
                             options={dropdownData.exams}
                             displayPath="name"
                             onChange={handleChange}
-                            placeholder="Select a exam"
+                            placeholder="Select an exam"
                             isDarkMode={isDarkMode}
-                            required
                         />
 
                         <SearchableSelect

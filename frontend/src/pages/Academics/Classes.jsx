@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaSearch, FaTimes, FaEdit, FaTrash, FaPlus, FaCheck } from "react-icons/fa";
+import { FaSearch, FaTimes, FaEdit, FaTrash, FaPlus, FaCheck, FaFileExcel, FaDownload, FaUpload } from "react-icons/fa";
+import * as XLSX from "xlsx";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useNavigate } from "react-router-dom";
@@ -12,6 +13,8 @@ const Classes = () => {
     const navigate = useNavigate();
     const [classes, setClasses] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [showTemplateInfo, setShowTemplateInfo] = useState(false);
+    const fileInputRef = useRef(null);
     const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
 
@@ -107,6 +110,99 @@ const Classes = () => {
             }
         } catch (error) {
             console.error("Error fetching dropdowns:", error);
+        }
+    };
+
+    const handleDownloadTemplate = () => {
+        const templateData = [
+            {
+                "Class Name": "Math Foundation 101",
+                "Date": "2024-12-01",
+                "Class Mode": "Offline",
+                "Start Time": "10:00",
+                "End Time": "12:00",
+                "Center": "HAZRA H.O",
+                "Batch": "Batch 1, Batch 2",
+                "Subject": "MATHS",
+                "Teacher": "ANITA PAUL",
+                "Session": "2024-2025",
+                "Exam": "",
+                "Course": "Foundation Course",
+                "Coordinator": "Optional Coordinator Name",
+                "Academic Class": "Class 11",
+                "Chapter Name": "Algebra",
+                "Topic Names": "Polynomials",
+                "Message": "Welcome to Math 101"
+            }
+        ];
+        const ws = XLSX.utils.json_to_sheet(templateData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Template");
+        XLSX.writeFile(wb, "Class_Schedule_Template.xlsx");
+        setShowTemplateInfo(false);
+    };
+
+    const handleExportClasses = () => {
+        if (classes.length === 0) {
+            toast.info("No classes to export.");
+            return;
+        }
+
+        const exportData = classes.map(cls => ({
+            "Class Name": cls.className || "-",
+            "Date": cls.date ? new Date(cls.date).toLocaleDateString('en-GB') : "-",
+            "Class Mode": cls.classMode || "-",
+            "Start Time": cls.startTime || "-",
+            "End Time": cls.endTime || "-",
+            "Center": cls.centreId?.centreName || cls.centreId?.name || "-",
+            "Batch": cls.batchIds ? cls.batchIds.map(b => b.batchName || b.name).join(", ") : (cls.batchId?.batchName || "-"),
+            "Subject": cls.subjectId?.subjectName || cls.subjectId?.name || "-",
+            "Teacher": cls.teacherId?.name || "-",
+            "Session": cls.session || "-",
+            "Coordinator": cls.coordinatorId?.name || "-",
+            "Status": cls.status || "-"
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Classes");
+        XLSX.writeFile(wb, "Classes_Export.xlsx");
+    };
+
+    const handleImportClasses = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            const token = localStorage.getItem("token");
+            toast.info("Importing classes...");
+            const response = await fetch(`${API_URL}/academics/class-schedule/import`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(data.message || "Classes imported successfully!");
+                fetchClasses();
+            } else {
+                if (data.errors && data.errors.length > 0) {
+                    toast.error(`Import Failed:\n${data.errors.join("\n")}`, { autoClose: false });
+                } else {
+                    toast.error(data.message || "Failed to import classes");
+                }
+            }
+        } catch (error) {
+            toast.error("An error occurred during import.");
+        }
+
+        // Reset file input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
         }
     };
 
@@ -568,14 +664,49 @@ const Classes = () => {
                         <div>
                             <h2 className={`text-xl font-bold uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Class List</h2>
                         </div>
-                        {canCreate && (
+                        <div className="flex flex-wrap gap-2">
+                            {canCreate && (
+                                <>
+                                    <button
+                                        onClick={() => setShowTemplateInfo(true)}
+                                        className={`${isDarkMode ? 'bg-[#131619] text-cyan-400 border border-cyan-500/30 hover:bg-[#1a202c]' : 'bg-cyan-50 text-cyan-600 border border-cyan-200 hover:bg-cyan-100'} px-4 py-2 rounded-lg flex items-center gap-2 font-bold transition-all text-xs uppercase`}
+                                        title="Download Template for Import"
+                                    >
+                                        <FaFileExcel /> Template
+                                    </button>
+
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleImportClasses}
+                                        accept=".xlsx, .xls"
+                                        className="hidden"
+                                    />
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className={`${isDarkMode ? 'bg-[#131619] text-green-400 border border-green-500/30 hover:bg-[#1a202c]' : 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'} px-4 py-2 rounded-lg flex items-center gap-2 font-bold transition-all text-xs uppercase`}
+                                        title="Import Classes from Excel"
+                                    >
+                                        <FaUpload /> Import
+                                    </button>
+                                </>
+                            )}
                             <button
-                                onClick={() => navigate("/academics/class/add")}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 font-bold shadow-lg shadow-blue-900/40 transition-all uppercase text-sm"
+                                onClick={handleExportClasses}
+                                className={`${isDarkMode ? 'bg-[#131619] text-yellow-400 border border-yellow-500/30 hover:bg-[#1a202c]' : 'bg-yellow-50 text-yellow-600 border border-yellow-200 hover:bg-yellow-100'} px-4 py-2 rounded-lg flex items-center gap-2 font-bold transition-all text-xs uppercase`}
+                                title="Export Current List to Excel"
                             >
-                                <FaPlus /> Add Class
+                                <FaDownload /> Export
                             </button>
-                        )}
+                            {canCreate && (
+                                <button
+                                    onClick={() => navigate("/academics/class/add")}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 font-bold shadow-lg shadow-blue-900/40 transition-all uppercase text-sm"
+                                >
+                                    <FaPlus /> Add Class
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Search & Pagination Control */}
@@ -1027,6 +1158,52 @@ const Classes = () => {
                     </div>
                 )}
             </div>
+            {/* Template Info Modal */}
+            {showTemplateInfo && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className={`w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#1e2530] border border-gray-700' : 'bg-white'}`}>
+                        <div className={`px-6 py-4 border-b flex justify-between items-center ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                            <h2 className={`text-xl font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                <FaFileExcel className="text-cyan-500" /> Excel Import Guidelines
+                            </h2>
+                            <button onClick={() => setShowTemplateInfo(false)} className={`p-2 rounded-lg hover:bg-gray-500/20 transition-colors ${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>
+                                <FaTimes />
+                            </button>
+                        </div>
+                        <div className={`p-6 max-h-[70vh] overflow-y-auto ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                            <p className="mb-4">Before downloading and filling out the template, please ensure you follow these strict matching rules to avoid import failures:</p>
+                            
+                            <ul className="space-y-3 mb-6 list-disc list-inside">
+                                <li><strong>Teacher</strong>: Must exactly match a Teacher's Name registered in User Management (Case-Insensitive).</li>
+                                <li><strong>Subject</strong>: Must exactly match an Academics Subject Name.</li>
+                                <li><strong>Center</strong>: Must match an active Center Name (e.g., HAZRA H.O).</li>
+                                <li><strong>Course</strong>: Must exactly match a master Course Name.</li>
+                                <li><strong>Batch</strong>: Must match a Batch Name. If multiple batches, separate them with a comma (e.g., <code className="bg-gray-500/20 px-1 rounded">Batch A, Batch B</code>).</li>
+                                <li><strong>Exam (Optional)</strong>: If provided, must exactly match an Exam Tag Name (e.g., JEE MAINS).</li>
+                                <li><strong>Session</strong>: Must exactly match a Session Name (e.g., 2024-2025).</li>
+                                <li><strong>Class Mode</strong>: Must be exactly <code className="bg-gray-500/20 px-1 rounded">Online</code> or <code className="bg-gray-500/20 px-1 rounded">Offline</code>.</li>
+                            </ul>
+                            <div className={`p-4 rounded-xl border-l-4 ${isDarkMode ? 'bg-yellow-900/20 border-yellow-600 text-yellow-300' : 'bg-yellow-50 border-yellow-500 text-yellow-800'}`}>
+                                <p className="text-sm font-semibold">⚠️ All of the above fields are MANDATORY and CANNOT be blank.</p>
+                            </div>
+                        </div>
+                        <div className={`px-6 py-4 border-t flex justify-end gap-3 bg-opacity-50 ${isDarkMode ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-gray-50'}`}>
+                            <button
+                                onClick={() => setShowTemplateInfo(false)}
+                                className={`px-5 py-2.5 rounded-xl font-bold transition-all ${isDarkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDownloadTemplate}
+                                className="px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg bg-cyan-600 hover:bg-cyan-500 text-white flex items-center gap-2"
+                            >
+                                <FaDownload /> Understood, Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </Layout>
     );
 };
