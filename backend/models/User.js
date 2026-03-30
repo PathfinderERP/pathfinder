@@ -150,7 +150,11 @@ userSchema.pre('save', async function () {
                     reimbursement: { create: true, edit: true, delete: true },
                     resign: { create: true, edit: true, delete: true }
                 },
+                academics: {
+                    teacherRoutine: { view: true, create: true, edit: true, delete: true }
+                },
                 leadManagement: {
+
                     leads: { view: true, create: true, edit: true, delete: true },
                     dashboard: { view: true }
                 },

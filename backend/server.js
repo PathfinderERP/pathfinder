@@ -65,6 +65,8 @@ import dashboardRoutes from "./routes/dashboard.routes.js";
 import ceoRoutes from "./routes/ceoControlTower.js";
 import postRoutes from "./routes/post.routes.js";
 import communityRoutes from "./routes/community.routes.js";
+import teacherRoutineRoutes from "./routes/Academics/teacherRoutine.routes.js";
+
 
 import allocationRoutes from "./routes/Inventory/allocation.routes.js";
 import marketingOperationsRoutes from "./routes/Operations/marketing.routes.js";
@@ -137,6 +139,8 @@ app.use("/api/academics/topic", academicsTopicRoutes);
 app.use("/api/academics/rm", rmRoutes);
 app.use("/api/academics/hod", hodRoutes);
 app.use("/api/academics/coordinator", coordinatorRoutes);
+app.use("/api/academics/teacher-routine", teacherRoutineRoutes);
+
 
 // HR Routes
 // Moved to top and logged to ensure loading

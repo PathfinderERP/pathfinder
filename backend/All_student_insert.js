@@ -20,18 +20,33 @@ const GENERATE_BILL = false; // Set to true if payment records/bills are needed
  * PASTE STUDENT DATA HERE
  */
 const student_data_list = [
+
+
     {
-        enroll: "PATH26001582",
-        name: "Abhirup Pal",
-        email: "abhiruppal@example.com",
-        phone: "0000000000",
-        centre: "CHANDANNAGAR",
-        courseName: "Foundation Class VIII (Out-station) 2026-2027",
-        session: "2026-2027",
-        totalFees: 20000,
+        enroll: "PATH20001612",
+        name: "AYAN PAUL",
+        email: "ayanpal@gmail.com",
+        phone: "9339606840",
+        centre: "KATWA",
+        courseName: "TAAT WITH HS Board (JEE) 26-28",
+        session: "2026-2028",
+        totalFees: 0,
+        paid: 0,
+        counselledBy: "Direct Admission"
+    },
+    {
+        enroll: "PATH25003818",
+        name: "Mayukh Kumar Banik",
+        phone: "9051551715",
+        centre: "HAZRA H.O",
+        courseName: "JEE MAINS & ADV. (NS)+WBJEE 2Years 2025-2027",
+        session: "2025-2027",
+        totalFees: 0,
         paid: 0,
         counselledBy: "Direct Admission"
     }
+
+
 ];
 
 async function insertAllStudents() {
@@ -51,7 +66,7 @@ async function insertAllStudents() {
 
             try {
                 // 1. Resolve Course Details
-                const course = await Course.findOne({ 
+                const course = await Course.findOne({
                     $or: [
                         { courseName: data.courseName },
                         { _id: mongoose.isValidObjectId(data.courseId) ? data.courseId : null }

@@ -118,8 +118,10 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 },
                 { name: "Section Leader Board", path: "/academics/section-leader-board", permissionSection: "sectionLeaderBoard" },
                 { name: "Exam Leader Board", path: "/academics/exam-leader-board", permissionSection: "examLeaderBoard" },
+                { name: "Teacher Routine Schedule", path: "/academics/teacher-routine", permissionSection: "teacherRoutine" },
             ]
         },
+
         {
             name: "Finance & Fees",
             icon: <FaMoneyBillWave />,

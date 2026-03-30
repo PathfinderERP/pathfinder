@@ -90,6 +90,8 @@ import ChapterList from "./pages/Academics/ClassManagement/ChapterList";
 import TopicList from "./pages/Academics/ClassManagement/TopicList";
 import SectionLeaderBoard from "./pages/Academics/SectionLeaderBoard";
 import ExamLeaderBoard from "./pages/Academics/ExamLeaderBoard";
+import TeacherRoutineSchedule from "./pages/Academics/TeacherRoutineSchedule";
+
 
 // HR Pages
 import EmployeeList from "./pages/HR/EmployeeList";
@@ -273,6 +275,8 @@ function App() {
         <Route path="/academics/create-topic" element={<ProtectedRoute><TopicList /></ProtectedRoute>} />
         <Route path="/academics/section-leader-board" element={<ProtectedRoute><SectionLeaderBoard /></ProtectedRoute>} />
         <Route path="/academics/exam-leader-board" element={<ProtectedRoute><ExamLeaderBoard /></ProtectedRoute>} />
+        <Route path="/academics/teacher-routine" element={<ProtectedRoute><TeacherRoutineSchedule /></ProtectedRoute>} />
+
         <Route path="/master-data" element={<ProtectedRoute><MasterData /></ProtectedRoute>} />
         <Route path="/master-data/class" element={<ProtectedRoute><MasterDataClass /></ProtectedRoute>} />
         <Route path="/master-data/exam-tag" element={<ProtectedRoute><MasterDataExamTag /></ProtectedRoute>} />
