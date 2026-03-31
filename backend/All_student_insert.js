@@ -22,30 +22,20 @@ const GENERATE_BILL = false; // Set to true if payment records/bills are needed
 const student_data_list = [
 
 
+
+
     {
-        enroll: "PATH20001612",
-        name: "AYAN PAUL",
-        email: "ayanpal@gmail.com",
-        phone: "9339606840",
-        centre: "KATWA",
-        courseName: "TAAT WITH HS Board (JEE) 26-28",
-        session: "2026-2028",
-        totalFees: 0,
-        paid: 0,
-        counselledBy: "Direct Admission"
-    },
-    {
-        enroll: "PATH25003818",
-        name: "Mayukh Kumar Banik",
-        phone: "9051551715",
+        enroll: "PATH26001523",
+        name: "AVIK ROY",
+        email: "purbanag17@gmail.com",
+        phone: "9152569033",
         centre: "HAZRA H.O",
-        courseName: "JEE MAINS & ADV. (NS)+WBJEE 2Years 2025-2027",
-        session: "2025-2027",
+        courseName: "Foundation Class VII (Instation) 2026-2027",
+        session: "2026-2027",
         totalFees: 0,
         paid: 0,
         counselledBy: "Direct Admission"
     }
-
 
 ];
 

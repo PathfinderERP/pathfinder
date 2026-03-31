@@ -5,7 +5,9 @@ const MultiSelectFilter = ({ options: rawOptions, selectedValues, onChange, plac
     const isDark = theme === 'dark';
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [dropdownStyle, setDropdownStyle] = useState({});
     const dropdownRef = useRef(null);
+    const triggerRef = useRef(null);
 
     // Ensure options is always a valid array of { value, label } objects
     const options = Array.isArray(rawOptions)
@@ -19,20 +21,70 @@ const MultiSelectFilter = ({ options: rawOptions, selectedValues, onChange, plac
         (option.label || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    // Calculate dropdown position based on trigger element
+    const openDropdown = () => {
+        if (triggerRef.current) {
+            const rect = triggerRef.current.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const dropdownHeight = Math.min(400, filteredOptions.length * 42 + 100);
+
+            if (spaceBelow < dropdownHeight && rect.top > dropdownHeight) {
+                // Open upward if not enough space below
+                setDropdownStyle({
+                    position: 'fixed',
+                    bottom: window.innerHeight - rect.top + 4,
+                    left: rect.left,
+                    width: Math.max(rect.width, 240),
+                    zIndex: 9999,
+                });
+            } else {
+                // Open downward (default)
+                setDropdownStyle({
+                    position: 'fixed',
+                    top: rect.bottom + 4,
+                    left: rect.left,
+                    width: Math.max(rect.width, 240),
+                    zIndex: 9999,
+                });
+            }
+        }
+        setIsOpen(prev => !prev);
+    };
+
     // Close dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+            if (
+                dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+                triggerRef.current && !triggerRef.current.contains(event.target)
+            ) {
                 setIsOpen(false);
                 setSearchTerm('');
             }
         };
 
+        // Recalculate on scroll/resize
+        const handleScroll = () => {
+            if (isOpen && triggerRef.current) {
+                const rect = triggerRef.current.getBoundingClientRect();
+                setDropdownStyle(prev => ({
+                    ...prev,
+                    top: rect.bottom + 4,
+                    left: rect.left,
+                    width: Math.max(rect.width, 240),
+                }));
+            }
+        };
+
         if (isOpen) {
             document.addEventListener('mousedown', handleClickOutside);
+            window.addEventListener('scroll', handleScroll, true);
+            window.addEventListener('resize', handleScroll);
         }
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('scroll', handleScroll, true);
+            window.removeEventListener('resize', handleScroll);
         };
     }, [isOpen]);
 
@@ -52,10 +104,10 @@ const MultiSelectFilter = ({ options: rawOptions, selectedValues, onChange, plac
     };
 
     return (
-        <div className="relative" ref={dropdownRef}>
+        <div className="relative" ref={triggerRef}>
             <div
                 className={`${isDark ? 'bg-[#131619] text-gray-300 border-gray-700' : 'bg-gray-50 text-gray-700 border-gray-200'} px-4 py-2 rounded-lg border cursor-pointer flex items-center justify-between gap-2 min-w-[200px] transition-colors`}
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={openDropdown}
             >
                 <div className="flex items-center gap-2 overflow-hidden">
                     <span className={`whitespace-nowrap font-medium text-xs uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{label}:</span>
@@ -85,7 +137,11 @@ const MultiSelectFilter = ({ options: rawOptions, selectedValues, onChange, plac
             </div>
 
             {isOpen && (
-                <div className={`absolute top-full left-0 mt-2 w-full min-w-[240px] border rounded-lg shadow-xl z-50 overflow-hidden flex flex-col max-h-[400px] ${isDark ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+                <div
+                    ref={dropdownRef}
+                    style={dropdownStyle}
+                    className={`border rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[400px] ${isDark ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}
+                >
                     <div className={`p-2 border-b ${isDark ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                         <input
                             type="text"

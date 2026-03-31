@@ -44,6 +44,7 @@ const TransactionList = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [centreSearch, setCentreSearch] = useState("");
     const [departmentSearch, setDepartmentSearch] = useState("");
+    const [billFilter, setBillFilter] = useState("all"); // "all" | "no_bill" | "with_bill"
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -204,8 +205,6 @@ const TransactionList = () => {
     const handleResetFilters = () => {
         setSelectedCentres([]);
         setSelectedCourses([]);
-        setSelectedCentres([]);
-        setSelectedCourses([]);
         setSelectedExamTag("");
         setSelectedSession("");
         setTimePeriod("All Time");
@@ -219,19 +218,28 @@ const TransactionList = () => {
         setSearchTerm("");
         setCentreSearch("");
         setDepartmentSearch("");
+        setBillFilter("all");
         toast.info("Filters reset");
     };
 
+    // --- Derived filtered data (client-side bill filter: all / no_bill / with_bill) ---
+    const filteredReport = billFilter === "no_bill"
+        ? detailedReport.filter(item => !item.receiptNo || item.receiptNo === "-" || item.receiptNo.trim() === "")
+        : billFilter === "with_bill"
+            ? detailedReport.filter(item => item.receiptNo && item.receiptNo !== "-" && item.receiptNo.trim() !== "")
+            : detailedReport;
+
     const handleDownloadExcel = () => {
-        if (!detailedReport.length) {
+        if (!filteredReport.length) {
             toast.warn("No data to download");
             return;
         }
 
         const wb = XLSX.utils.book_new();
 
+        const sheetTitle = billFilter === "no_bill" ? "No Bill No. Records" : billFilter === "with_bill" ? "Only Bills" : "Transaction List";
         const headers = ["Date", "Received Date", "Enroll No.", "Receipt No", "Student Name", "Session", "Department", "Course Name", "Transaction Type", "Transaction ID", "Centre", "Payment Mode", "Revenue (Base)", "GST Amount", "Total (Inc. GST)", "Status", "Taken By"];
-        const data = detailedReport.map(item => [
+        const data = filteredReport.map(item => [
             new Date(item.paymentDate).toLocaleDateString("en-IN"),
             item.receivedDate ? new Date(item.receivedDate).toLocaleDateString("en-IN") : "-",
             item.admissionNumber,
@@ -253,11 +261,16 @@ const TransactionList = () => {
 
         const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
         ws['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 25 }, { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 }];
-        XLSX.utils.book_append_sheet(wb, ws, "Transaction List");
+        XLSX.utils.book_append_sheet(wb, ws, sheetTitle);
 
         const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
         const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
-        saveAs(blob, `Transaction_List_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        const fileName = billFilter === "no_bill"
+            ? `No_Bill_Transactions_${new Date().toISOString().slice(0, 10)}.xlsx`
+            : billFilter === "with_bill"
+                ? `Only_Bills_${new Date().toISOString().slice(0, 10)}.xlsx`
+                : `Transaction_List_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        saveAs(blob, fileName);
     };
 
     const toggleCentreSelection = (id) => {
@@ -284,11 +297,11 @@ const TransactionList = () => {
         );
     };
 
-    // Pagination Logic
-    const totalPages = Math.ceil(detailedReport.length / itemsPerPage);
+    // Pagination Logic (uses filteredReport so No Bill filter affects pagination too)
+    const totalPages = Math.ceil(filteredReport.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    const paginatedData = detailedReport.slice(startIndex, endIndex);
+    const paginatedData = filteredReport.slice(startIndex, endIndex);
 
     const handlePageChange = (newPage) => {
         if (newPage >= 1 && newPage <= totalPages) {
@@ -569,6 +582,32 @@ const TransactionList = () => {
                         </div>
                     </div>
 
+                    {/* Bill Filter Segmented Control */}
+                    <div className="flex items-center rounded-lg border border-gray-300 overflow-hidden text-xs font-black uppercase tracking-widest">
+                        {[
+                            { key: "all",       label: "All",          color: "bg-gray-700 text-white",   hover: "hover:bg-gray-100" },
+                            { key: "no_bill",   label: "No Bill No.",  color: "bg-red-500 text-white",    hover: "hover:bg-red-50 hover:text-red-600" },
+                            { key: "with_bill", label: "Only Bills",   color: "bg-green-500 text-white",  hover: "hover:bg-green-50 hover:text-green-600" }
+                        ].map(({ key, label, color, hover }, i) => (
+                            <button
+                                key={key}
+                                onClick={() => { setBillFilter(key); setCurrentPage(1); setPageInput("1"); }}
+                                className={`px-4 py-2 transition-all duration-150 ${
+                                    billFilter === key
+                                        ? color
+                                        : `bg-white text-gray-500 ${hover}`
+                                } ${i > 0 ? "border-l border-gray-300" : ""}`}
+                            >
+                                {label}
+                                {billFilter === key && billFilter !== "all" && (
+                                    <span className="ml-1.5 bg-white/30 px-1 py-0.5 rounded-full text-[9px]">
+                                        {filteredReport.length}
+                                    </span>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+
                     <button
                         onClick={handleDownloadExcel}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-bold transition-colors shadow-sm flex items-center gap-2 uppercase text-sm tracking-wide ml-auto"
@@ -668,9 +707,11 @@ const TransactionList = () => {
                                     <tr>
                                         <td colSpan="18" className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest text-[10px]">Loading transactions...</td>
                                     </tr>
-                                ) : detailedReport.length === 0 ? (
+                                ) : filteredReport.length === 0 ? (
                                     <tr>
-                                        <td colSpan="18" className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest text-[10px]">No transactions found</td>
+                                        <td colSpan="18" className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest text-[10px]">
+                                            {billFilter === "no_bill" ? "No records without a bill number found" : billFilter === "with_bill" ? "No records with a bill number found" : "No transactions found"}
+                                        </td>
                                     </tr>
                                 ) : (
                                     paginatedData.map((item, index) => (
@@ -719,7 +760,7 @@ const TransactionList = () => {
                     </div>
 
                     {/* Pagination Controls */}
-                    {detailedReport.length > 0 && (
+                    {filteredReport.length > 0 && (
                         <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex flex-wrap items-center justify-between gap-4">
                             {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
@@ -772,8 +813,11 @@ const TransactionList = () => {
                             {/* Right: Showing info */}
                             <div className="text-sm text-gray-600">
                                 Showing <span className="font-semibold">{startIndex + 1}</span> to{" "}
-                                <span className="font-semibold">{Math.min(endIndex, detailedReport.length)}</span> of{" "}
-                                <span className="font-semibold">{detailedReport.length}</span> entries
+                                <span className="font-semibold">{Math.min(endIndex, filteredReport.length)}</span> of{" "}
+                                <span className="font-semibold">{filteredReport.length}</span> entries
+                                {billFilter !== "all" && detailedReport.length !== filteredReport.length && (
+                                    <span className="ml-2 text-gray-400 font-bold text-xs">({detailedReport.length} total)</span>
+                                )}
                             </div>
                         </div>
                     )}
