@@ -65,6 +65,13 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
     const handlePaymentSubmit = async (e) => {
         e.preventDefault();
 
+        // Validation: Prevent paying more than total remaining balance
+        const currentRemaining = (admission.totalFees || 0) - (admission.totalPaidAmount || 0);
+        if (paymentData.paidAmount > currentRemaining) {
+            toast.error(`Blocked: ₹${paymentData.paidAmount.toLocaleString()} exceeds total remaining balance of ₹${currentRemaining.toLocaleString()}.`);
+            return;
+        }
+
         // Check if payment method requires transaction ID
         const onlinePaymentMethods = ["UPI", "CARD", "BANK_TRANSFER"];
         const isOnlinePayment = onlinePaymentMethods.includes(paymentData.paymentMethod);
@@ -525,8 +532,10 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                                         <td className={`p-4 text-[11px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{formatDate(payment.dueDate)}</td>
                                                         <td className={`p-4 text-[11px] font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                             ₹{payment.amount?.toLocaleString()}
-                                                            {payment.remarks && payment.remarks.includes("Includes") && (
-                                                                <div className="text-[9px] text-amber-500 font-black mt-1 uppercase tracking-tighter opacity-70 italic">{payment.remarks}</div>
+                                                            {payment.remarks && (payment.remarks.includes("Includes") || payment.remarks.includes("Credit")) && (
+                                                                <div className={`text-[9px] font-black mt-1 uppercase tracking-tighter opacity-70 italic ${payment.remarks.includes("Credit") ? "text-emerald-500" : "text-amber-500"}`}>
+                                                                    {payment.remarks}
+                                                                </div>
                                                             )}
                                                         </td>
                                                         <td className="p-4 text-[11px] font-black text-emerald-500">₹{payment.paidAmount?.toLocaleString() || 0}</td>
@@ -548,16 +557,18 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                                                         SETTLE NOW
                                                                     </button>
                                                                 ) : (
-                                                                    <button
-                                                                        onClick={() => admission.student?.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
-                                                                        disabled={admission.student?.status === 'Deactivated'}
-                                                                        className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center gap-2 ml-auto ${admission.student?.status === 'Deactivated' ? 'bg-gray-800/10 dark:bg-white/5 text-gray-500 cursor-not-allowed opacity-30 shadow-none' : 'bg-gray-100 dark:bg-white/5 text-cyan-500 hover:bg-cyan-500 hover:text-white border border-cyan-500/20'}`}
-                                                                    >
-                                                                        <FaFileInvoice /> {payment.status === "PENDING_CLEARANCE" ? "RECEIPT" : "DOCKET"}
-                                                                    </button>
+                                                                    (isPaid || payment.status === "PENDING_CLEARANCE") && payment.paidAmount > 0 && (
+                                                                        <button
+                                                                            onClick={() => admission.student?.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
+                                                                            disabled={admission.student?.status === 'Deactivated'}
+                                                                            className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center gap-2 ml-auto ${admission.student?.status === 'Deactivated' ? 'bg-gray-800/10 dark:bg-white/5 text-gray-500 cursor-not-allowed opacity-30 shadow-none' : 'bg-gray-100 dark:bg-white/5 text-cyan-500 hover:bg-cyan-500 hover:text-white border border-cyan-500/20'}`}
+                                                                        >
+                                                                            <FaFileInvoice /> {payment.status === "PENDING_CLEARANCE" ? "RECEIPT" : "DOCKET"}
+                                                                        </button>
+                                                                    )
                                                                 )
                                                             ) : (
-                                                                (isPaid || payment.status === "PENDING_CLEARANCE") && (
+                                                                (isPaid || payment.status === "PENDING_CLEARANCE") && payment.paidAmount > 0 && (
                                                                     <button
                                                                         onClick={() => admission.student?.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
                                                                         disabled={admission.student?.status === 'Deactivated'}
@@ -676,7 +687,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                     } else if (diff < 0) {
                                         return (
                                             <div className="mt-3 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-[4px] text-[10px] text-emerald-500 font-bold uppercase tracking-wider">
-                                                SURPLUS DETECTED: ₹{Math.abs(diff).toLocaleString()} WILL BE CREDITED TO NEXT CYCLE.
+                                                SURPLUS DETECTED: ₹{Math.abs(diff).toLocaleString()} WILL BE DISTRIBUTED TO SUBSEQUENT CYCLES.
                                             </div>
                                         );
                                     }

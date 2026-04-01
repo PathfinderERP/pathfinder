@@ -39,6 +39,16 @@ export const updatePaymentInstallment = async (req, res) => {
             });
         }
 
+        // Validation: Cannot pay more than the absolute remaining balance for the entire admission
+        const currentRemaining = (admission.totalFees || 0) - (admission.totalPaidAmount || 0);
+        const paidAmountFloat = parseFloat(paidAmount) || 0;
+
+        if (paidAmountFloat > currentRemaining) {
+            return res.status(400).json({
+                message: `Payment rejected: ₹${paidAmountFloat.toLocaleString()} exceeds total course balance of ₹${currentRemaining.toLocaleString()}.`
+            });
+        }
+
         // Find the installment
         const installment = admission.paymentBreakdown.find(
             p => p.installmentNumber === parseInt(installmentNumber)
@@ -50,7 +60,6 @@ export const updatePaymentInstallment = async (req, res) => {
 
         // Update installment
         const originalAmount = installment.amount;
-        const paidAmountFloat = parseFloat(paidAmount);
 
         installment.paidAmount = paidAmountFloat;
         installment.paidDate = new Date();
@@ -117,26 +126,93 @@ export const updatePaymentInstallment = async (req, res) => {
             }
         } else if (difference < 0) {
             // Excess Payment (Overpayment)
-            const excess = Math.abs(difference);
+            let excess = Math.abs(difference);
             console.log(`Excess payment detected. Credit: ${excess}.`);
 
-            if (hasNextInstallment) {
-                const nextInstallment = admission.paymentBreakdown[nextInstallmentIndex];
-                // Reduce next installment amount
-                // Ensure next amount doesn't go negative? Or allow it (credit flows further)?
-                // For simplicity, just subtract. if next becomes negative, logic handles it next time?
-                // Ideally, keep amount >= 0. But if credit > next, next is 0 and we have more credit?
-                // Let's just subtract for now.
-                nextInstallment.amount -= excess;
-                nextInstallment.remarks = (nextInstallment.remarks ? nextInstallment.remarks + "; " : "") + `Credit of ₹${excess} from Inst #${installmentNumber}`;
-                console.log(`Updated Next Inst #${nextInstallment.installmentNumber}: Reduced to ₹${nextInstallment.amount}`);
-            } else {
-                // Last installment overpayment
-                // Just accept it. Pending amount will be 0 (clamped in frontend) or negative (if we want to show surplus).
-                // User complained about "value in minus" in Pending. 
-                // We'll fix frontend to clamp pending at 0.
+            // Fetch Centre Info early for auto-settled bill IDs
+            let centreObj = await CentreSchema.findOne({ centreName: admission.centre });
+            if (!centreObj) {
+                centreObj = await CentreSchema.findOne({ centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } });
+            }
+            const centreCode = centreObj ? centreObj.enterCode : 'GEN';
+
+            // Sort subsequent installments by number to distribute in order
+            const subsequentInstallments = admission.paymentBreakdown
+                .filter(p => p.installmentNumber > parseInt(installmentNumber) && !["PAID", "COMPLETED"].includes(p.status))
+                .sort((a, b) => a.installmentNumber - b.installmentNumber);
+
+            for (const nextInst of subsequentInstallments) {
+                if (excess <= 0) break;
+                
+                const deductFromThis = Math.min(excess, nextInst.amount);
+                if (deductFromThis > 0) {
+                    nextInst.amount -= deductFromThis;
+                    excess -= deductFromThis;
+                    
+                    // Update remarks to show credit source
+                    const creditNote = `Credit of ₹${deductFromThis} from Inst #${installmentNumber}`;
+                    nextInst.remarks = nextInst.remarks ? `${nextInst.remarks}; ${creditNote}` : creditNote;
+                    
+                    // If the installment amount reaches 0, it is fully settled by this payment
+                    if (nextInst.amount === 0) {
+                        nextInst.status = "PAID";
+                        nextInst.paidAmount = 0;
+                        nextInst.paidDate = new Date();
+                        nextInst.receivedDate = receivedDate ? new Date(receivedDate) : new Date();
+                        nextInst.paymentMethod = paymentMethod;
+                        nextInst.transactionId = `${finalTransactionId} (Auto-Credit)`;
+                        
+                        // Create a reference Payment record for the auto-settled installment
+                        try {
+                            const billId = await generateBillId(centreCode);
+                            const autoPayment = new Payment({
+                                admission: admissionId,
+                                installmentNumber: nextInst.installmentNumber,
+                                amount: 0,
+                                paidAmount: 0,
+                                dueDate: nextInst.dueDate,
+                                paidDate: nextInst.paidDate,
+                                receivedDate: nextInst.receivedDate,
+                                status: "PAID",
+                                paymentMethod: paymentMethod,
+                                transactionId: nextInst.transactionId,
+                                accountHolderName: accountHolderName,
+                                chequeDate: chequeDate,
+                                remarks: `Auto-settled via surplus from Inst #${installmentNumber}`,
+                                recordedBy: req.user?._id,
+                                cgst: 0,
+                                sgst: 0,
+                                courseFee: 0,
+                                totalAmount: 0,
+                                isCarryForward: false,
+                                billId: billId
+                            });
+                            await autoPayment.save();
+                            console.log(`Auto-settled Inst #${nextInst.installmentNumber} with Bill ID: ${billId}`);
+                        } catch (err) {
+                            console.error(`Error creating auto-payment record for Inst #${nextInst.installmentNumber}:`, err);
+                        }
+                    }
+                    
+                    console.log(`Adjusted Inst #${nextInst.installmentNumber}: Deducted ₹${deductFromThis}, New Bal: ₹${nextInst.amount}, Remaining Excess: ₹${excess}`);
+                }
+            }
+
+            if (excess > 0) {
+                console.log(`Surplus of ₹${excess} remains after covering all future milestones.`);
             }
         }
+
+        // Logical Edge Case: Final sweep to ensure ANY pending installment with 0 amount is auto-settled
+        // This handles cases where manual adjustments or previous errors left 0-balance milestones pending.
+        admission.paymentBreakdown.forEach(p => {
+            if (p.status === "PENDING" && p.amount === 0) {
+                p.status = "PAID";
+                p.paidDate = new Date();
+                p.paymentMethod = paymentMethod || "CASH";
+                p.transactionId = finalTransactionId ? `${finalTransactionId} (System)` : "SYSTEM_INTERNAL";
+            }
+        });
 
         // Update total paid amount
         admission.totalPaidAmount = admission.paymentBreakdown.reduce(

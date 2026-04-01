@@ -713,7 +713,14 @@ const EnrolledStudentsContent = () => {
 
 
     const handlePaymentSubmit = async (e) => {
-        e.preventDefault();
+        if (e && e.preventDefault) e.preventDefault();
+
+        // Validation: Prevent paying more than total remaining balance
+        const remainingBalance = (selectedAdmission.totalFees || 0) - (selectedAdmission.totalPaidAmount || 0);
+        if (paymentData.paidAmount > remainingBalance) {
+            toast.error(`Blocked: ₹${paymentData.paidAmount.toLocaleString()} exceeds total remaining balance of ₹${remainingBalance.toLocaleString()}.`);
+            return;
+        }
 
         const onlinePaymentMethods = ["UPI", "CARD", "BANK_TRANSFER"];
         const isOnlinePayment = onlinePaymentMethods.includes(paymentData.paymentMethod);
@@ -2321,13 +2328,15 @@ const EnrolledStudentsContent = () => {
                                                                                                     Pay Now
                                                                                                 </button>
                                                                                             ) : (
-                                                                                                <button
-                                                                                                    onClick={() => selectedStudent.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
-                                                                                                    disabled={selectedStudent.status === 'Deactivated'}
-                                                                                                    className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center justify-center gap-2 mx-auto ${selectedStudent.status === 'Deactivated' ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed') : (isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm')}`}
-                                                                                                >
-                                                                                                    <FaFileInvoice size={10} /> {payment.status === "PENDING_CLEARANCE" ? "REC" : "BILL"}
-                                                                                                </button>
+                                                                                                (isPaid || payment.status === "PENDING_CLEARANCE") && payment.paidAmount > 0 && (
+                                                                                                    <button
+                                                                                                        onClick={() => selectedStudent.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
+                                                                                                        disabled={selectedStudent.status === 'Deactivated'}
+                                                                                                        className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center justify-center gap-2 mx-auto ${selectedStudent.status === 'Deactivated' ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed') : (isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm')}`}
+                                                                                                    >
+                                                                                                        <FaFileInvoice size={10} /> {payment.status === "PENDING_CLEARANCE" ? "REC" : "BILL"}
+                                                                                                    </button>
+                                                                                                )
                                                                                             )}
                                                                                         </td>
                                                                                     )}
@@ -2365,7 +2374,7 @@ const EnrolledStudentsContent = () => {
                                     <div className={`p-6 rounded-[4px] border transition-all hover:scale-[1.02] ${isDarkMode ? 'bg-black/20 border-yellow-500/20' : 'bg-white border-yellow-200'}`}>
                                         <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1.5">Remaining</p>
                                         <p className="text-4xl font-black italic tracking-tighter text-yellow-500">
-                                            ₹{studentAdmissions.reduce((sum, ad) => sum + ((ad.totalFees || 0) - (ad.totalPaidAmount || 0)), 0).toLocaleString()}
+                                            ₹{studentAdmissions.reduce((sum, ad) => sum + Math.max(0, (ad.totalFees || 0) - (ad.totalPaidAmount || 0)), 0).toLocaleString()}
                                         </p>
                                     </div>
                                 </div>
@@ -2437,7 +2446,7 @@ const EnrolledStudentsContent = () => {
                                             <FaCheckCircle className="text-green-500 text-xl" />
                                             <div>
                                                 <p className="text-green-500 font-black uppercase tracking-widest text-[10px]">EXCESS LIQUIDATION DETECTED</p>
-                                                <p className="text-gray-500 text-[9px] font-bold uppercase tracking-widest mt-1">Excess of ₹{Math.abs(diff).toLocaleString()} will be credited to the next cycle.</p>
+                                                <p className="text-gray-500 text-[9px] font-bold uppercase tracking-widest mt-1">Excess of ₹{Math.abs(diff).toLocaleString()} will be distributed to subsequent cycles.</p>
                                             </div>
                                         </div>
                                     );
