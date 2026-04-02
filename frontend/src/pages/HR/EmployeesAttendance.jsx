@@ -701,6 +701,7 @@ const EmployeesAttendance = () => {
             'Date': format(new Date(att.date), 'dd MMM yyyy'),
             'Employee ID': att.employeeId?.employeeId || 'N/A',
             'Name': att.employeeId?.name || 'N/A',
+            'Centre': att.employeeId?.primaryCentre?.centreName || (Array.isArray(att.employeeId?.centres) && att.employeeId.centres.length > 0 ? att.employeeId.centres.map(c => c.centreName || c).join(", ") : 'N/A'),
             'Department': att.employeeId?.department?.departmentName || 'N/A',
             'Designation': att.employeeId?.designation?.name || 'N/A',
             'Check In': att.checkIn?.time ? format(new Date(att.checkIn.time), 'HH:mm') : '--:--',

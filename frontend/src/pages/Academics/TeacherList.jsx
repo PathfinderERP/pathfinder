@@ -406,7 +406,9 @@ const TeacherList = () => {
     const prepareExportData = (data) => {
         return data.map(t => ({
             ...t,
-            centre: Array.isArray(t.centres) ? t.centres.map(c => c.centreName || c).join(", ") : t.centre || ""
+            centre: Array.isArray(t.centres) 
+                ? t.centres.map(c => c.centreName || c).join(", ") 
+                : (t.centre?.centreName || t.centre || "")
         }));
     };
 
