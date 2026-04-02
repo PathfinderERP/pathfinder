@@ -9,7 +9,7 @@ const teacherRoutineSchema = new mongoose.Schema({
     centreId: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "CentreSchema",
-        required: true
+        required: false
     }],
     className: {
         type: String,
@@ -31,12 +31,12 @@ const teacherRoutineSchema = new mongoose.Schema({
     classId: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Class",
-        required: true
+        required: false
     }],
     subjectId: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Subject",
-        required: true
+        required: false
     }],
 
     courseId: {

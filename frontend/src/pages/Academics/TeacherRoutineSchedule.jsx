@@ -644,7 +644,6 @@ const TeacherRoutineSchedule = () => {
                                             label="Operation Hub"
                                             name="centreId"
                                             value={formData.centreId}
-                                            required
                                             options={centres}
                                             displayPath="centreName"
                                             onChange={handleChange}
@@ -676,7 +675,6 @@ const TeacherRoutineSchedule = () => {
                                             label="Academic Class"
                                             name="classId"
                                             value={formData.classId}
-                                            required
                                             options={classes}
                                             displayPath="name"
                                             onChange={handleChange}
@@ -699,7 +697,6 @@ const TeacherRoutineSchedule = () => {
                                             label="Subject Stream"
                                             name="subjectId"
                                             value={formData.subjectId}
-                                            required
                                             options={subjects}
                                             displayPath="subName"
                                             onChange={handleChange}

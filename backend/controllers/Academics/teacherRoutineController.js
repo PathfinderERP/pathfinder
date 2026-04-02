@@ -137,11 +137,11 @@ export const getGroupedTeacherRoutines = async (req, res) => {
             const teacherData = groupedMap.get(teacherId);
             teacherData.days[routine.day].push({
                 _id: routine._id,
-                centre: routine.centreId?.map(c => c.centreName).join(", "),
+                centre: routine.centreId?.map(c => c?.centreName).filter(Boolean).join(", "),
                 startTime: routine.startTime,
                 endTime: routine.endTime,
-                class: routine.classId?.map(c => c.name).join(", "),
-                subject: routine.subjectId?.map(s => s.subName).join(", "),
+                class: routine.classId?.map(c => c?.name).filter(Boolean).join(", "),
+                subject: routine.subjectId?.map(s => s?.subName).filter(Boolean).join(", "),
                 amount: routine.amount,
                 classHours: routine.classHours,
                 centreIds: routine.centreId?.map(c => c._id),
