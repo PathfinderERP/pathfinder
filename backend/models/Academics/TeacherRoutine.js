@@ -6,10 +6,14 @@ const teacherRoutineSchema = new mongoose.Schema({
         ref: "User", // Teachers are stored in User model
         required: true
     },
-    centreId: {
+    centreId: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "CentreSchema",
         required: true
+    }],
+    className: {
+        type: String,
+        required: false
     },
     day: {
         type: String,
@@ -18,22 +22,22 @@ const teacherRoutineSchema = new mongoose.Schema({
     },
     startTime: {
         type: String,
-        required: true
+        required: false
     },
     endTime: {
         type: String,
-        required: true
+        required: false
     },
-    classId: {
+    classId: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Class",
         required: true
-    },
-    subjectId: {
+    }],
+    subjectId: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Subject",
         required: true
-    },
+    }],
 
     courseId: {
         type: mongoose.Schema.Types.ObjectId,

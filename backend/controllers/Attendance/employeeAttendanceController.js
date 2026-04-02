@@ -266,29 +266,33 @@ export const getAllAttendance = async (req, res) => {
 
         let query = {};
 
-        // Date Filtering based on viewMode (Synced with dashboard-stats logic)
-        const referenceDate = date ? new Date(date) : new Date();
-        const vMode = req.query.viewMode || 'month';
+        // Date Filtering (Priority: Custom Range > View Mode)
+        const { fromDate, toDate } = req.query;
+        if (fromDate && toDate) {
+            query.date = { $gte: startOfDay(new Date(fromDate)), $lte: endOfDay(new Date(toDate)) };
+        } else {
+            const referenceDate = date ? new Date(date) : new Date();
+            const vMode = req.query.viewMode || 'month';
 
-        if (vMode === 'day') {
-            const dayStart = startOfDay(referenceDate);
-            const dayEnd = endOfDay(referenceDate);
-            query.date = { $gte: dayStart, $lte: dayEnd };
-        } else if (vMode === 'week') {
-            const weekStart = startOfWeek(referenceDate, { weekStartsOn: 1 });
-            const weekEnd = endOfWeek(referenceDate, { weekStartsOn: 1 });
-            query.date = { $gte: weekStart, $lte: weekEnd };
-        } else if (vMode === 'month') {
-            const monthVal = month || (referenceDate.getMonth() + 1);
-            const yearVal = year || referenceDate.getFullYear();
-            const monthStart = new Date(yearVal, monthVal - 1, 1);
-            const monthEnd = endOfMonth(monthStart);
-            query.date = { $gte: monthStart, $lte: monthEnd };
-        } else if (date) {
-            // Fallback for direct date query if viewMode is missing
-            const dayStart = startOfDay(new Date(date));
-            const dayEnd = endOfDay(new Date(date));
-            query.date = { $gte: dayStart, $lte: dayEnd };
+            if (vMode === 'day') {
+                const dayStart = startOfDay(referenceDate);
+                const dayEnd = endOfDay(referenceDate);
+                query.date = { $gte: dayStart, $lte: dayEnd };
+            } else if (vMode === 'week') {
+                const weekStart = startOfWeek(referenceDate, { weekStartsOn: 1 });
+                const weekEnd = endOfWeek(referenceDate, { weekStartsOn: 1 });
+                query.date = { $gte: weekStart, $lte: weekEnd };
+            } else if (vMode === 'month') {
+                const monthVal = month || (referenceDate.getMonth() + 1);
+                const yearVal = year || referenceDate.getFullYear();
+                const monthStart = new Date(yearVal, monthVal - 1, 1);
+                const monthEnd = endOfMonth(monthStart);
+                query.date = { $gte: monthStart, $lte: monthEnd };
+            } else if (date) {
+                const dayStart = startOfDay(new Date(date));
+                const dayEnd = endOfDay(new Date(date));
+                query.date = { $gte: dayStart, $lte: dayEnd };
+            }
         }
 
         // Status Filter
@@ -430,15 +434,25 @@ export const getAttendanceAnalysis = async (req, res) => {
             // distinct absent logic requires checking 'expected' days per month, skipping for brevity/speed unless requested
         });
 
-        // 2. Filter for Selected Month for Detailed Daily View
-        const monthStart = new Date(selectedYear, selectedMonth - 1, 1);
-        const monthEnd = endOfMonth(monthStart);
+        // 2. Filter for specific period (Priority: Custom Range > Selection)
+        const { fromDate, toDate } = req.query;
+        let periodStart, periodEnd;
 
-        const monthAttendances = yearAttendances.filter(a =>
-            new Date(a.date) >= monthStart && new Date(a.date) <= monthEnd
+        if (fromDate && toDate) {
+            periodStart = startOfDay(new Date(fromDate));
+            periodEnd = endOfDay(new Date(toDate));
+        } else {
+            const selectedMonth = parseInt(month) || (referenceDate.getMonth() + 1);
+            const selectedYear = parseInt(year) || referenceDate.getFullYear();
+            periodStart = new Date(selectedYear, selectedMonth - 1, 1);
+            periodEnd = endOfMonth(periodStart);
+        }
+
+        const filteredAttendances = yearAttendances.filter(a =>
+            new Date(a.date) >= periodStart && new Date(a.date) <= periodEnd
         );
 
-        // 3. Calculate Detailed Month Stats
+        // 3. Calculate Detailed Period Stats
         let totalHours = 0;
         let minHours = Infinity;
         let maxHours = 0;
@@ -450,15 +464,14 @@ export const getAttendanceAnalysis = async (req, res) => {
         const statusDistribution = { Present: 0, Late: 0, 'Half Day': 0, Absent: 0, 'Early Leave': 0, Overtime: 0 };
         const snapshotStr = format(referenceDate, 'yyyy-MM-dd');
         let todayRecord = null;
-        const targetHours = 9; // Default target for calculations if unknown
-
-        const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-        const dailyData = daysInMonth.map(day => {
+        
+        const daysInInterval = eachDayOfInterval({ start: periodStart, end: periodEnd });
+        const dailyData = daysInInterval.map(day => {
             const dayStr = format(day, 'yyyy-MM-dd');
             // Stop calculations for future dates, but we need the chart to show up to today
             if (day > new Date()) return null;
 
-            const att = monthAttendances.find(a => format(new Date(a.date), 'yyyy-MM-dd') === dayStr);
+            const att = filteredAttendances.find(a => format(new Date(a.date), 'yyyy-MM-dd') === dayStr);
             const isPastDay = startOfDay(day) < todayStart;
 
             if (att) {
@@ -527,7 +540,7 @@ export const getAttendanceAnalysis = async (req, res) => {
         if (minHours === Infinity) minHours = 0;
 
         // Averages
-        const avgHours = monthAttendances.length ? (totalHours / monthAttendances.length).toFixed(2) : 0;
+        const avgHours = filteredAttendances.length ? (totalHours / filteredAttendances.length).toFixed(2) : 0;
 
         const formatMinutesToTime = (totalMins, count) => {
             if (!count) return '--:--';
@@ -542,7 +555,7 @@ export const getAttendanceAnalysis = async (req, res) => {
 
         res.status(200).json({
             summary: {
-                totalDays: monthAttendances.length,
+                totalDays: filteredAttendances.length,
                 presentDays: statusDistribution.Present + statusDistribution.Late + statusDistribution['Half Day'] + statusDistribution['Early Leave'] + statusDistribution.Overtime,
                 absentDays: statusDistribution.Absent,
                 totalHours: parseFloat(totalHours.toFixed(2)),
@@ -594,20 +607,27 @@ export const getAttendanceDashboardStats = async (req, res) => {
         const employees = await Employee.find(empQuery).select('_id workingHours');
         const totalEmployees = employees.length;
 
-        // 2. Build Attendance Filter (Date Range based on viewMode)
+        // 2. Build Attendance Filter (Priority: Custom Range > View Mode)
         let startDate, endDate;
-        const referenceDate = date ? new Date(date) : new Date();
+        const { fromDate, toDate } = req.query;
 
-        if (viewMode === 'day') {
-            startDate = startOfDay(referenceDate);
-            endDate = endOfDay(referenceDate);
-        } else if (viewMode === 'week') {
-            startDate = startOfWeek(referenceDate, { weekStartsOn: 1 });
-            endDate = endOfWeek(referenceDate, { weekStartsOn: 1 });
+        if (fromDate && toDate) {
+            startDate = startOfDay(new Date(fromDate));
+            endDate = endOfDay(new Date(toDate));
         } else {
-            // Default to month
-            startDate = startOfMonth(new Date(year, month - 1, 1));
-            endDate = endOfMonth(new Date(year, month - 1, 1));
+            const referenceDate = date ? new Date(date) : new Date();
+
+            if (viewMode === 'day') {
+                startDate = startOfDay(referenceDate);
+                endDate = endOfDay(referenceDate);
+            } else if (viewMode === 'week') {
+                startDate = startOfWeek(referenceDate, { weekStartsOn: 1 });
+                endDate = endOfWeek(referenceDate, { weekStartsOn: 1 });
+            } else {
+                // Default to month
+                startDate = startOfMonth(new Date(year, month - 1, 1));
+                endDate = endOfMonth(new Date(year, month - 1, 1));
+            }
         }
 
         const attQuery = {

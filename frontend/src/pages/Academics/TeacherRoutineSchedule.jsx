@@ -68,14 +68,15 @@ const TeacherRoutineSchedule = () => {
 
     const [formData, setFormData] = useState({
         teacherId: "",
-        centreId: "",
+        centreId: [], // Now array
         day: "",
         startTime: "",
         endTime: "",
-        classId: "",
-        subjectId: "",
+        classId: [], 
+        subjectId: [], 
         amount: 0,
-        classHours: 0
+        classHours: 0,
+        className: "" // New field
     });
 
     const fetchGroupedRoutines = useCallback(async () => {
@@ -147,7 +148,7 @@ const TeacherRoutineSchedule = () => {
                 setEditId(null);
                 fetchGroupedRoutines();
                 setFormData({
-                    teacherId: "", centreId: "", day: "", startTime: "", endTime: "", classId: "", subjectId: "", amount: 0, classHours: 0
+                    teacherId: "", centreId: [], day: "", startTime: "", endTime: "", classId: [], subjectId: [], amount: 0, classHours: 0, className: ""
                 });
             } else {
                 const data = await response.json();
@@ -161,14 +162,15 @@ const TeacherRoutineSchedule = () => {
     const handleEdit = (session, teacherId, day) => {
         setFormData({
             teacherId: teacherId,
-            centreId: session.centreId || "",
+            centreId: session.centreIds || [], // Array
             day: day,
             startTime: session.startTime,
             endTime: session.endTime,
-            classId: session.classId || "",
-            subjectId: session.subjectId || "",
+            classId: session.classIds || [],
+            subjectId: session.subjectIds || [],
             amount: session.amount || 0,
-            classHours: session.classHours || 0
+            classHours: session.classHours || 0,
+            className: session.className || ""
         });
         setEditId(session._id);
         setShowModal(true);
@@ -240,7 +242,8 @@ const TeacherRoutineSchedule = () => {
         required = false,
         displayPath = "name",
         valuePath = "_id",
-        filterFunc = null
+        filterFunc = null,
+        multiple = false
     }) => {
         const [isOpen, setIsOpen] = useState(false);
         const [search, setSearch] = useState("");
@@ -263,10 +266,21 @@ const TeacherRoutineSchedule = () => {
             return matchesSearch;
         });
 
-        const selectedOption = options.find(opt => (typeof opt === 'string' ? opt : opt[valuePath]) === value);
-        const displayLabel = selectedOption 
-            ? (typeof selectedOption === 'string' ? selectedOption : selectedOption[displayPath])
-            : placeholder;
+        let displayLabel = placeholder;
+        if (multiple) {
+            if (Array.isArray(value) && value.length > 0) {
+                const selectedLabels = options
+                    .filter(opt => value.includes(typeof opt === 'string' ? opt : opt[valuePath]))
+                    .map(opt => typeof opt === 'string' ? opt : opt[displayPath]);
+                displayLabel = selectedLabels.join(", ");
+                if (displayLabel.length > 25) displayLabel = `${value.length} items selected`;
+            }
+        } else {
+            const selectedOption = options.find(opt => (typeof opt === 'string' ? opt : opt[valuePath]) === value);
+            if (selectedOption) {
+                displayLabel = typeof selectedOption === 'string' ? selectedOption : selectedOption[displayPath];
+            }
+        }
 
         return (
             <div className="group/field" ref={dropdownRef}>
@@ -281,7 +295,7 @@ const TeacherRoutineSchedule = () => {
                         onClick={() => { setIsOpen(!isOpen); setSearch(""); }}
                         className={`w-full p-4 pl-5 rounded border-2 font-bold text-sm transition-all outline-none appearance-none text-left flex justify-between items-center ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-100 text-gray-900 focus:border-cyan-500/30'}`}
                     >
-                        <span className={value ? '' : 'text-gray-400'}>
+                        <span className={`truncate mr-2 ${((multiple && value?.length > 0) || (!multiple && value)) ? '' : 'text-gray-400'}`}>
                             {displayLabel}
                         </span>
                         <div className="opacity-30">▼</div>
@@ -304,16 +318,30 @@ const TeacherRoutineSchedule = () => {
                                     filteredOptions.map((opt, i) => {
                                         const val = typeof opt === 'string' ? opt : opt[valuePath];
                                         const labelText = typeof opt === 'string' ? opt : opt[displayPath];
-                                        const isSelected = value === val;
+                                        const isSelected = multiple ? (Array.isArray(value) && value.includes(val)) : value === val;
                                         return (
-                                            <button
-                                                key={i}
-                                                type="button"
-                                                onClick={() => { onChange({ target: { name, value: val } }); setIsOpen(false); setSearch(""); }}
-                                                className={`w-full text-left px-5 py-3.5 text-xs font-black uppercase tracking-widest transition-all ${isSelected ? (isDarkMode ? 'bg-cyan-500/20 text-cyan-400' : 'bg-cyan-50 text-cyan-600') : (isDarkMode ? 'text-gray-400 hover:bg-white/5 hover:text-white' : 'text-gray-500 hover:bg-gray-50 hover:text-cyan-600')}`}
-                                            >
-                                                {labelText}
-                                            </button>
+                                            <div key={i} className="flex items-center">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { 
+                                                        if (multiple) {
+                                                            const currentVal = Array.isArray(value) ? value : [];
+                                                            const newValue = currentVal.includes(val) 
+                                                                ? currentVal.filter(v => v !== val) 
+                                                                : [...currentVal, val];
+                                                            onChange({ target: { name, value: newValue } });
+                                                        } else {
+                                                            onChange({ target: { name, value: val } }); 
+                                                            setIsOpen(false); 
+                                                            setSearch(""); 
+                                                        }
+                                                    }}
+                                                    className={`w-full text-left px-5 py-3.5 text-xs font-black uppercase tracking-widest transition-all flex items-center justify-between ${isSelected ? (isDarkMode ? 'bg-cyan-500/20 text-cyan-400' : 'bg-cyan-50 text-cyan-600') : (isDarkMode ? 'text-gray-400 hover:bg-white/5 hover:text-white' : 'text-gray-500 hover:bg-gray-50 hover:text-cyan-600')}`}
+                                                >
+                                                    <span>{labelText}</span>
+                                                    {multiple && isSelected && <span>✓</span>}
+                                                </button>
+                                            </div>
                                         );
                                     })
                                 ) : (
@@ -323,7 +351,7 @@ const TeacherRoutineSchedule = () => {
                         </div>
                     )}
                 </div>
-                {required && !value && <input type="text" value="" required className="opacity-0 absolute h-0 w-0" onChange={()=>{}} />}
+                {required && (!value || (Array.isArray(value) && value.length === 0)) && <input type="text" value="" required className="opacity-0 absolute h-0 w-0" onChange={()=>{}} />}
             </div>
         );
     };
@@ -352,20 +380,24 @@ const TeacherRoutineSchedule = () => {
                                 <FaSync className={loading ? 'animate-spin' : ''} />
                             </button>
                             <ExcelImportExport 
-                                data={groupedData.map(item => {
-                                    const row = {
-                                        teacherName: item.teacher.name,
-                                        employeeId: item.teacher.employeeId,
-                                        email: item.teacher.email || 'N/A',
-                                        mobNum: item.teacher.mobNum || 'N/A'
-                                    };
-                                    DAYS.forEach(day => {
-                                        row[day] = item.days[day]
-                                            .map(s => `${s.centre} [${s.startTime}-${s.endTime}] {${s.class}: ${s.subject}} (${s.classHours} hrs)`)
-                                            .join(", ");
-                                    });
-                                    return row;
-                                })}
+                                    data={groupedData.map(item => {
+                                        const row = {
+                                            teacherName: item.teacher.name,
+                                            employeeId: item.teacher.employeeId,
+                                            email: item.teacher.email || 'N/A',
+                                            mobNum: item.teacher.mobNum || 'N/A'
+                                        };
+                                        DAYS.forEach(day => {
+                                            row[day] = item.days[day]
+                                                .map(s => {
+                                                    const timeStr = (s.startTime || s.endTime) ? `[${s.startTime || '--:--'}-${s.endTime || '--:--'}]` : '[TBD]';
+                                                    const classNameStr = s.className ? `${s.className} (${s.class})` : s.class;
+                                                    return `${s.centre} ${timeStr} {${classNameStr}: ${s.subject}} (${s.classHours} hrs)`;
+                                                })
+                                                .join(" | ");
+                                        });
+                                        return row;
+                                    })}
                                 columns={routineColumns}
                                 mapping={routineMapping}
                                 onImport={handleBulkImport}
@@ -426,7 +458,7 @@ const TeacherRoutineSchedule = () => {
                                 </th>
 
                                 {DAYS.map(day => (
-                                    <th key={day} className="p-8 text-center min-w-[200px] border-l border-gray-800/10">
+                                    <th key={day} className="p-8 text-center min-w-[300px] border-l border-gray-800/10">
                                         <span className="text-sm font-black uppercase tracking-[0.2em] opacity-60">{day}</span>
                                     </th>
 
@@ -468,12 +500,12 @@ const TeacherRoutineSchedule = () => {
                                                     <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded border-4 ${isDarkMode ? 'border-[#151921]' : 'border-white'} ${item.teacher.typeOfEmployment === 'Full Time' ? 'bg-green-500' : 'bg-orange-500'}`} title={item.teacher.typeOfEmployment}></div>
                                                 </div>
                                                 <div className="flex-1">
-                                                    <p className="font-extrabold text-xl group-hover:text-cyan-500 transition-colors uppercase leading-tight mb-2 break-words">{item.teacher.name}</p>
+                                                    <p className="font-extrabold text-2xl group-hover:text-cyan-500 transition-colors uppercase leading-tight mb-2 break-all">{item.teacher.name}</p>
                                                     <div className="flex flex-col gap-1.5 ">
-                                                        <span className={`text-[12px] font-black tracking-widest opacity-60 uppercase`}>{item.teacher.employeeId}</span>
-                                                        {item.teacher.email && <span className={`text-[11px] font-bold opacity-40 lowercase`}>{item.teacher.email}</span>}
-                                                        {item.teacher.mobNum && <span className={`text-[11px] font-bold opacity-40`}>{item.teacher.mobNum}</span>}
-                                                        <span className={`w-fit text-[10px] font-black uppercase px-3 py-1 rounded mt-2 ${item.teacher.typeOfEmployment === 'Full Time' ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-orange-500/10 text-orange-500 border border-orange-500/20'}`}>
+                                                        <span className={`text-[14px] font-black tracking-widest opacity-60 uppercase`}>{item.teacher.employeeId}</span>
+                                                        {item.teacher.email && <span className={`text-[12px] font-bold opacity-40 lowercase`}>{item.teacher.email}</span>}
+                                                        {item.teacher.mobNum && <span className={`text-[12px] font-bold opacity-40`}>{item.teacher.mobNum}</span>}
+                                                        <span className={`w-fit text-[12px] font-black uppercase px-3 py-1 rounded mt-2 ${item.teacher.typeOfEmployment === 'Full Time' ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-orange-500/10 text-orange-500 border border-orange-500/20'}`}>
                                                             {item.teacher.typeOfEmployment}
                                                         </span>
                                                     </div>
@@ -485,15 +517,15 @@ const TeacherRoutineSchedule = () => {
 
                                         {/* Day Cells */}
                                         {DAYS.map(day => (
-                                            <td key={day} className="p-4 align-top border-l border-gray-800/10 min-w-[220px]">
-                                                <div className="flex flex-col gap-4 min-h-[140px]">
+                                            <td key={day} className="p-4 align-top border-l border-gray-800/10 min-w-[300px]">
+                                                <div className="flex flex-col gap-4 min-h-[140px] w-full">
                                                     {item.days[day].map((session) => (
                                                         <div key={session._id} className={`group/card p-5 rounded border-2 transition-all relative ${isDarkMode ? 'bg-gray-900/50 border-gray-800 hover:border-cyan-500/30 hover:bg-gray-900 shadow-xl' : 'bg-white border-gray-100 hover:border-cyan-500/20 hover:shadow-2xl hover:scale-[1.02]'}`}>
                                                             {/* Session Header */}
                                                             <div className="flex items-center justify-between gap-2 mb-4">
                                                                 <div className="flex items-center gap-2 opacity-60">
-                                                                    <FaLocationArrow className="text-[12px] text-cyan-500 rotate-45" />
-                                                                    <span className="text-[11px] font-black uppercase tracking-widest truncate">{session.centre}</span>
+                                                                    <FaLocationArrow className="text-[16px] text-cyan-500 flex-shrink-0 rotate-45" />
+                                                                    <span className="text-[14px] font-black uppercase tracking-widest whitespace-normal break-all leading-tight w-full">{session.centre}</span>
                                                                 </div>
                                                                 <div className="flex gap-2 opacity-0 group-hover/card:opacity-100 transition-all scale-75 group-hover/card:scale-100 pointer-events-none group-hover/card:pointer-events-auto">
                                                                     <button onClick={() => handleEdit(session, item.teacher._id, day)} className={`p-2 rounded bg-cyan-500/10 text-cyan-500 hover:bg-cyan-500 hover:text-white transition-all`} title="Edit Profile">
@@ -508,27 +540,32 @@ const TeacherRoutineSchedule = () => {
 
                                                             {/* Session Body */}
                                                             <div className="space-y-1.5">
-                                                                <div className="flex items-center gap-2">
-                                                                    <FaBookOpen className="text-[12px] text-cyan-500" />
-                                                                    <p className="text-base font-black uppercase tracking-tight line-clamp-1">{session.class}</p>
+                                                                <div className="flex items-start gap-2">
+                                                                    <FaBookOpen className="text-[20px] text-cyan-500 flex-shrink-0 mt-1" />
+                                                                    <div className="flex flex-col w-full">
+                                                                        <p className="text-2xl font-black uppercase tracking-tight whitespace-normal break-all leading-tight">{session.className || session.class}</p>
+                                                                        {session.className && session.class && (
+                                                                            <p className="text-[12px] font-bold uppercase opacity-30 mt-1 break-all">({session.class})</p>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
-                                                                <p className={`text-[12px] font-bold opacity-50 uppercase tracking-tighter pl-4`}>{session.subject}</p>
+                                                                <p className={`text-base font-extrabold opacity-70 uppercase tracking-tighter pl-8 whitespace-normal break-all leading-snug w-full`}>{session.subject}</p>
                                                             </div>
 
                                                             <div className="mt-3 flex items-center gap-2">
                                                                 <div className="px-3 py-1 rounded bg-cyan-500/10 border border-cyan-500/20">
-                                                                    <span className="text-[10px] font-black uppercase tracking-widest text-cyan-500">{session.classHours} CLASS HOURS</span>
+                                                                    <span className="text-[12px] font-black uppercase tracking-widest text-cyan-500">{session.classHours} CLASS HOURS</span>
                                                                 </div>
                                                             </div>
 
 
                                                             {/* Session Footer */}
                                                             <div className={`mt-5 pt-4 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} flex items-center justify-between`}>
-                                                                <div className="flex items-center gap-1.5 opacity-60">
-                                                                    <FaClock className="text-[12px]" />
-                                                                    <span className="text-[12px] font-black font-mono">{session.startTime} - {session.endTime}</span>
+                                                                <div className="flex items-center gap-1.5 opacity-80">
+                                                                    <FaClock className="text-[14px]" />
+                                                                    <span className="text-[14px] font-black font-mono">{(session.startTime || session.endTime) ? `${session.startTime || '--:--'} - ${session.endTime || '--:--'}` : 'TBD'}</span>
                                                                 </div>
-                                                                <span className="text-[13px] font-black text-green-500 drop-shadow-[0_0_5px_rgba(34,197,94,0.2)]">₹{session.amount}</span>
+                                                                <span className="text-[16px] font-black text-green-500 drop-shadow-[0_0_5px_rgba(34,197,94,0.2)]">₹{session.amount}</span>
                                                             </div>
 
                                                         </div>
@@ -603,31 +640,33 @@ const TeacherRoutineSchedule = () => {
                                             placeholder="Select Vector"
                                         />
 
-                                        <div className="grid grid-cols-2 gap-6">
-                                            <div className="group/field">
-                                                <label className="block text-[12px] font-black uppercase tracking-[0.2em] mb-3 opacity-50">Operation Hub</label>
-                                                <select name="centreId" required value={formData.centreId} onChange={handleChange} className={`w-full p-4 rounded border-2 font-bold text-sm transition-all outline-none ${isDarkMode ? 'bg-gray-800 border-transparent focus:border-cyan-500/30' : 'bg-gray-100 border-transparent focus:border-cyan-500/30'}`}>
-                                                    <option value="">Hub</option>
-                                                    {centres.map(c => <option key={c._id} value={c._id}>{c.centreName}</option>)}
-                                                </select>
-                                            </div>
-                                            <div className="group/field">
-                                                <label className="block text-[12px] font-black uppercase tracking-[0.2em] mb-3 opacity-50">Timeline Day</label>
-                                                <select name="day" required value={formData.day} onChange={handleChange} className={`w-full p-4 rounded border-2 font-bold text-sm transition-all outline-none ${isDarkMode ? 'bg-gray-800 border-transparent focus:border-cyan-500/30' : 'bg-gray-100 border-transparent focus:border-cyan-500/30'}`}>
-                                                    <option value="">Day</option>
-                                                    {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
-                                                </select>
-                                            </div>
+                                        <SearchableSelect 
+                                            label="Operation Hub"
+                                            name="centreId"
+                                            value={formData.centreId}
+                                            required
+                                            options={centres}
+                                            displayPath="centreName"
+                                            onChange={handleChange}
+                                            multiple={true}
+                                            placeholder="Hub"
+                                        />
+                                        <div className="group/field">
+                                            <label className="block text-[12px] font-black uppercase tracking-[0.2em] mb-3 opacity-50">Timeline Day</label>
+                                            <select name="day" required value={formData.day} onChange={handleChange} className={`w-full p-4 rounded border-2 font-bold text-sm transition-all outline-none ${isDarkMode ? 'bg-gray-800 border-transparent focus:border-cyan-500/30' : 'bg-gray-100 border-transparent focus:border-cyan-500/30'}`}>
+                                                <option value="">Day</option>
+                                                {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
+                                            </select>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-6">
                                             <div className="group/field">
                                                 <label className="block text-[12px] font-black uppercase tracking-[0.2em] mb-3 opacity-50">START VECTOR</label>
-                                                <input type="time" name="startTime" required value={formData.startTime} onChange={handleChange} className={`w-full p-4 rounded border-2 font-black text-sm transition-all outline-none ${isDarkMode ? 'bg-gray-800 border-transparent focus:border-cyan-500/30' : 'bg-gray-100 border-transparent focus:border-cyan-500/30'}`} />
+                                                <input type="time" name="startTime" value={formData.startTime} onChange={handleChange} className={`w-full p-4 rounded border-2 font-black text-sm transition-all outline-none ${isDarkMode ? 'bg-gray-800 border-transparent focus:border-cyan-500/30' : 'bg-gray-100 border-transparent focus:border-cyan-500/30'}`} />
                                             </div>
                                             <div className="group/field">
                                                 <label className="block text-[12px] font-black uppercase tracking-[0.2em] mb-3 opacity-50">END VECTOR</label>
-                                                <input type="time" name="endTime" required value={formData.endTime} onChange={handleChange} className={`w-full p-4 rounded border-2 font-black text-sm transition-all outline-none ${isDarkMode ? 'bg-gray-800 border-transparent focus:border-cyan-500/30' : 'bg-gray-100 border-transparent focus:border-cyan-500/30'}`} />
+                                                <input type="time" name="endTime" value={formData.endTime} onChange={handleChange} className={`w-full p-4 rounded border-2 font-black text-sm transition-all outline-none ${isDarkMode ? 'bg-gray-800 border-transparent focus:border-cyan-500/30' : 'bg-gray-100 border-transparent focus:border-cyan-500/30'}`} />
                                             </div>
                                         </div>
                                     </div>
@@ -641,8 +680,21 @@ const TeacherRoutineSchedule = () => {
                                             options={classes}
                                             displayPath="name"
                                             onChange={handleChange}
+                                            multiple={true}
                                             placeholder="Select Level"
                                         />
+
+                                        <div className="group/field">
+                                            <label className="block text-[12px] font-black uppercase tracking-[0.2em] mb-3 opacity-50">Class Name</label>
+                                            <input 
+                                                type="text" 
+                                                name="className" 
+                                                value={formData.className} 
+                                                onChange={handleChange} 
+                                                placeholder="Custom slot name (optional)"
+                                                className={`w-full p-4 rounded border-2 font-bold text-sm transition-all outline-none ${isDarkMode ? 'bg-gray-800 border-transparent focus:border-cyan-500/30 text-white' : 'bg-gray-100 border-transparent focus:border-cyan-500/30 text-gray-900'}`} 
+                                            />
+                                        </div>
                                         <SearchableSelect 
                                             label="Subject Stream"
                                             name="subjectId"
@@ -651,6 +703,7 @@ const TeacherRoutineSchedule = () => {
                                             options={subjects}
                                             displayPath="subName"
                                             onChange={handleChange}
+                                            multiple={true}
                                             placeholder="Select Subject"
                                         />
                                         <div className="group/field">

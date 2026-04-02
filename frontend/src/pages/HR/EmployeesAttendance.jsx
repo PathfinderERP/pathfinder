@@ -508,7 +508,9 @@ const EmployeesAttendance = () => {
         role: [],
         status: [],
         month: new Date().getMonth() + 1,
-        year: new Date().getFullYear()
+        year: new Date().getFullYear(),
+        fromDate: format(new Date(), 'yyyy-MM-dd'),
+        toDate: format(new Date(), 'yyyy-MM-dd')
     });
 
     const [currentPage, setCurrentPage] = useState(1);
@@ -523,7 +525,7 @@ const EmployeesAttendance = () => {
 
     useEffect(() => {
         fetchAttendanceData();
-    }, [filters.month, filters.year, filters.centreId, filters.department, filters.designation, filters.role, filters.status, viewMode, selectedDate]);
+    }, [filters.month, filters.year, filters.centreId, filters.department, filters.designation, filters.role, filters.status, viewMode, selectedDate, filters.fromDate, filters.toDate]);
 
     const fetchMetadata = async () => {
         try {
@@ -555,7 +557,9 @@ const EmployeesAttendance = () => {
                 department: filters.department.join(','),
                 designation: filters.designation.join(','),
                 role: filters.role.join(','),
-                status: filters.status.join(',')
+                status: filters.status.join(','),
+                fromDate: viewMode === 'range' ? filters.fromDate : '',
+                toDate: viewMode === 'range' ? filters.toDate : ''
             }).toString();
 
             // Fetch Stats and List in parallel
@@ -663,13 +667,22 @@ const EmployeesAttendance = () => {
             // Use the employee's USER ID for the query, assuming the backend needs user ID
             // Based on previous file content, it seemed to pass userId query param
             const targetUserId = user.user?._id || user.user || user.employeeId?.user;
-
             if (!targetUserId) {
                 console.error("No user ID found for analysis", user);
                 return;
             }
+            
+            const queryParams = new URLSearchParams({
+                userId: targetUserId,
+                month: filters.month,
+                year: filters.year,
+                date: selectedDate,
+                fromDate: viewMode === 'range' ? filters.fromDate : '',
+                toDate: viewMode === 'range' ? filters.toDate : '',
+                viewMode
+            }).toString();
 
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee-attendance/analysis?userId=${targetUserId}&month=${filters.month}&year=${filters.year}&date=${selectedDate}`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee-attendance/analysis?${queryParams}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (response.ok) {
@@ -715,7 +728,9 @@ const EmployeesAttendance = () => {
             role: [],
             status: [],
             month: new Date().getMonth() + 1,
-            year: new Date().getFullYear()
+            year: new Date().getFullYear(),
+            fromDate: format(new Date(), 'yyyy-MM-dd'),
+            toDate: format(new Date(), 'yyyy-MM-dd')
         });
         setActiveCaution(null);
         toast.info("Filters reset");
@@ -906,7 +921,7 @@ const EmployeesAttendance = () => {
                                 <FaSyncAlt className={loading ? "animate-spin" : ""} /> Reset
                             </button>
                             <div className={`flex border rounded-[2px] overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
-                                {['day', 'week', 'month'].map(mode => (
+                                {['day', 'week', 'month', 'range'].map(mode => (
                                     <button
                                         key={mode}
                                         onClick={() => setViewMode(mode)}
@@ -938,6 +953,28 @@ const EmployeesAttendance = () => {
                                             {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
                                         </select>
                                     </>
+                                ) : viewMode === 'range' ? (
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[8px] font-black opacity-40 uppercase">From</span>
+                                            <input
+                                                type="date"
+                                                value={filters.fromDate}
+                                                onChange={(e) => setFilters(prev => ({ ...prev, fromDate: e.target.value }))}
+                                                className={`bg-transparent font-black uppercase text-[10px] outline-none cursor-pointer hover:text-cyan-500 transition-colors font-mono ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}
+                                            />
+                                        </div>
+                                        <div className={`w-[1px] h-4 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[8px] font-black opacity-40 uppercase">To</span>
+                                            <input
+                                                type="date"
+                                                value={filters.toDate}
+                                                onChange={(e) => setFilters(prev => ({ ...prev, toDate: e.target.value }))}
+                                                className={`bg-transparent font-black uppercase text-[10px] outline-none cursor-pointer hover:text-cyan-500 transition-colors font-mono ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}
+                                            />
+                                        </div>
+                                    </div>
                                 ) : (
                                     <input
                                         type="date"

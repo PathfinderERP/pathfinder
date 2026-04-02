@@ -11,21 +11,7 @@ export const createTeacherRoutine = async (req, res) => {
     try {
         const {
             teacherId,
-            centreId,
-            day,
-            startTime,
-            endTime,
-            classId,
-            subjectId,
-            courseId,
-            amount,
-            classHours,
-            typeOfEmployment
-        } = req.body;
-
-        const newRoutine = new TeacherRoutine({
-            teacherId,
-            centreId,
+            centreId, // Now an array
             day,
             startTime,
             endTime,
@@ -35,7 +21,28 @@ export const createTeacherRoutine = async (req, res) => {
             amount,
             classHours,
             typeOfEmployment,
-            createdBy: req.user._id
+            className // New string field
+        } = req.body;
+
+        // Ensure centreId, classId and subjectId are arrays
+        const normalizedCentreId = Array.isArray(centreId) ? centreId : [centreId];
+        const normalizedClassId = Array.isArray(classId) ? classId : [classId];
+        const normalizedSubjectId = Array.isArray(subjectId) ? subjectId : [subjectId];
+
+        const newRoutine = new TeacherRoutine({
+            teacherId,
+            centreId: normalizedCentreId,
+            day,
+            startTime,
+            endTime,
+            classId: normalizedClassId,
+            subjectId: normalizedSubjectId,
+            courseId,
+            amount,
+            classHours,
+            typeOfEmployment,
+            createdBy: req.user._id,
+            className
         });
 
         await newRoutine.save();
@@ -130,16 +137,17 @@ export const getGroupedTeacherRoutines = async (req, res) => {
             const teacherData = groupedMap.get(teacherId);
             teacherData.days[routine.day].push({
                 _id: routine._id,
-                centre: routine.centreId?.centreName,
+                centre: routine.centreId?.map(c => c.centreName).join(", "),
                 startTime: routine.startTime,
                 endTime: routine.endTime,
-                class: routine.classId?.name,
-                subject: routine.subjectId?.subName,
+                class: routine.classId?.map(c => c.name).join(", "),
+                subject: routine.subjectId?.map(s => s.subName).join(", "),
                 amount: routine.amount,
                 classHours: routine.classHours,
-                centreId: routine.centreId?._id,
-                classId: routine.classId?._id,
-                subjectId: routine.subjectId?._id
+                centreIds: routine.centreId?.map(c => c._id),
+                classIds: routine.classId?.map(c => c._id),
+                subjectIds: routine.subjectId?.map(s => s._id),
+                className: routine.className
             });
         }
 
@@ -158,6 +166,10 @@ export const updateTeacherRoutine = async (req, res) => {
         const { id } = req.params;
         const updates = req.body;
         updates.updatedBy = req.user._id;
+
+        if (updates.centreId) updates.centreId = Array.isArray(updates.centreId) ? updates.centreId : [updates.centreId];
+        if (updates.classId) updates.classId = Array.isArray(updates.classId) ? updates.classId : [updates.classId];
+        if (updates.subjectId) updates.subjectId = Array.isArray(updates.subjectId) ? updates.subjectId : [updates.subjectId];
 
         const updatedRoutine = await TeacherRoutine.findByIdAndUpdate(id, updates, { new: true });
         if (!updatedRoutine) {
