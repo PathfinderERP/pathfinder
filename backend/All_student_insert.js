@@ -25,12 +25,12 @@ const student_data_list = [
 
 
     {
-        enroll: "PATH26001523",
-        name: "AVIK ROY",
-        email: "purbanag17@gmail.com",
-        phone: "9152569033",
+        enroll: "PATH24000615",
+        name: "Manaswini Mukharjee",
+        email: "swastik@gmail.com",
+        phone: "9432145455",
         centre: "HAZRA H.O",
-        courseName: "Foundation Class VII (Instation) 2026-2027",
+        courseName: "CBSE CLASS X ALL SUBJECT ",
         session: "2026-2027",
         totalFees: 0,
         paid: 0,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Layout from "../../components/Layout";
 import { FaPlus, FaSearch, FaEdit, FaTrash, FaSync, FaChevronLeft, FaChevronRight, FaClock, FaLocationArrow, FaBookOpen, FaUserTie, FaCalendarAlt } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
@@ -74,7 +74,8 @@ const TeacherRoutineSchedule = () => {
         endTime: "",
         classId: "",
         subjectId: "",
-        amount: 0
+        amount: 0,
+        classHours: 0
     });
 
     const fetchGroupedRoutines = useCallback(async () => {
@@ -146,7 +147,7 @@ const TeacherRoutineSchedule = () => {
                 setEditId(null);
                 fetchGroupedRoutines();
                 setFormData({
-                    teacherId: "", centreId: "", day: "", startTime: "", endTime: "", classId: "", subjectId: "", amount: 0
+                    teacherId: "", centreId: "", day: "", startTime: "", endTime: "", classId: "", subjectId: "", amount: 0, classHours: 0
                 });
             } else {
                 const data = await response.json();
@@ -166,7 +167,8 @@ const TeacherRoutineSchedule = () => {
             endTime: session.endTime,
             classId: session.classId || "",
             subjectId: session.subjectId || "",
-            amount: session.amount || 0
+            amount: session.amount || 0,
+            classHours: session.classHours || 0
         });
         setEditId(session._id);
         setShowModal(true);
@@ -227,6 +229,105 @@ const TeacherRoutineSchedule = () => {
         }
     };
 
+    // --- Searchable Select Component ---
+    const SearchableSelect = ({ 
+        label, 
+        name,
+        value, 
+        options, 
+        onChange, 
+        placeholder, 
+        required = false,
+        displayPath = "name",
+        valuePath = "_id",
+        filterFunc = null
+    }) => {
+        const [isOpen, setIsOpen] = useState(false);
+        const [search, setSearch] = useState("");
+        const dropdownRef = useRef(null);
+
+        useEffect(() => {
+            const handler = (e) => {
+                if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                    setIsOpen(false);
+                }
+            };
+            document.addEventListener("mousedown", handler);
+            return () => document.removeEventListener("mousedown", handler);
+        }, []);
+
+        const filteredOptions = options.filter(opt => {
+            const displayVal = typeof opt === 'string' ? opt : opt[displayPath];
+            const matchesSearch = displayVal?.toLowerCase().includes(search.toLowerCase());
+            if (filterFunc) return matchesSearch && filterFunc(opt);
+            return matchesSearch;
+        });
+
+        const selectedOption = options.find(opt => (typeof opt === 'string' ? opt : opt[valuePath]) === value);
+        const displayLabel = selectedOption 
+            ? (typeof selectedOption === 'string' ? selectedOption : selectedOption[displayPath])
+            : placeholder;
+
+        return (
+            <div className="group/field" ref={dropdownRef}>
+                {label && (
+                    <label className={`block text-[12px] font-black uppercase tracking-[0.2em] mb-3 transition-colors ${isDarkMode ? 'text-gray-500 group-focus-within/field:text-cyan-400' : 'text-gray-400 group-focus-within/field:text-cyan-500'}`}>
+                        {label}{required ? '*' : ''}
+                    </label>
+                )}
+                <div className="relative">
+                    <button
+                        type="button"
+                        onClick={() => { setIsOpen(!isOpen); setSearch(""); }}
+                        className={`w-full p-4 pl-5 rounded border-2 font-bold text-sm transition-all outline-none appearance-none text-left flex justify-between items-center ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-100 text-gray-900 focus:border-cyan-500/30'}`}
+                    >
+                        <span className={value ? '' : 'text-gray-400'}>
+                            {displayLabel}
+                        </span>
+                        <div className="opacity-30">▼</div>
+                    </button>
+
+                    {isOpen && (
+                        <div className={`absolute z-[150] w-full mt-2 rounded border shadow-2xl overflow-hidden animate-scale-in ${isDarkMode ? 'bg-[#1a1f26] border-white/10' : 'bg-white border-gray-200'}`}>
+                            <div className={`p-4 border-b ${isDarkMode ? 'border-white/5 bg-gray-900/50' : 'border-gray-100 bg-gray-50/50'}`}>
+                                <input
+                                    type="text"
+                                    autoFocus
+                                    value={search}
+                                    onChange={e => setSearch(e.target.value)}
+                                    placeholder={`Filter options...`}
+                                    className={`w-full px-4 py-2 text-xs font-bold rounded border outline-none transition-all ${isDarkMode ? 'bg-gray-950 border-white/10 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500/30'}`}
+                                />
+                            </div>
+                            <div className="max-h-64 overflow-y-auto">
+                                {filteredOptions.length > 0 ? (
+                                    filteredOptions.map((opt, i) => {
+                                        const val = typeof opt === 'string' ? opt : opt[valuePath];
+                                        const labelText = typeof opt === 'string' ? opt : opt[displayPath];
+                                        const isSelected = value === val;
+                                        return (
+                                            <button
+                                                key={i}
+                                                type="button"
+                                                onClick={() => { onChange({ target: { name, value: val } }); setIsOpen(false); setSearch(""); }}
+                                                className={`w-full text-left px-5 py-3.5 text-xs font-black uppercase tracking-widest transition-all ${isSelected ? (isDarkMode ? 'bg-cyan-500/20 text-cyan-400' : 'bg-cyan-50 text-cyan-600') : (isDarkMode ? 'text-gray-400 hover:bg-white/5 hover:text-white' : 'text-gray-500 hover:bg-gray-50 hover:text-cyan-600')}`}
+                                            >
+                                                {labelText}
+                                            </button>
+                                        );
+                                    })
+                                ) : (
+                                    <div className="px-5 py-8 text-center text-[10px] font-black uppercase tracking-widest opacity-30">No matches found</div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+                {required && !value && <input type="text" value="" required className="opacity-0 absolute h-0 w-0" onChange={()=>{}} />}
+            </div>
+        );
+    };
+
     return (
         <Layout activePage="Academics">
             <div className={`p-4 md:p-8 min-h-screen transition-all duration-500 ${isDarkMode ? 'bg-[#0f1115] text-white' : 'bg-[#f4f7fe] text-gray-900'}`}>
@@ -260,7 +361,7 @@ const TeacherRoutineSchedule = () => {
                                     };
                                     DAYS.forEach(day => {
                                         row[day] = item.days[day]
-                                            .map(s => `${s.centre} [${s.startTime}-${s.endTime}] {${s.class}: ${s.subject}}`)
+                                            .map(s => `${s.centre} [${s.startTime}-${s.endTime}] {${s.class}: ${s.subject}} (${s.classHours} hrs)`)
                                             .join(", ");
                                     });
                                     return row;
@@ -414,6 +515,12 @@ const TeacherRoutineSchedule = () => {
                                                                 <p className={`text-[12px] font-bold opacity-50 uppercase tracking-tighter pl-4`}>{session.subject}</p>
                                                             </div>
 
+                                                            <div className="mt-3 flex items-center gap-2">
+                                                                <div className="px-3 py-1 rounded bg-cyan-500/10 border border-cyan-500/20">
+                                                                    <span className="text-[10px] font-black uppercase tracking-widest text-cyan-500">{session.classHours} CLASS HOURS</span>
+                                                                </div>
+                                                            </div>
+
 
                                                             {/* Session Footer */}
                                                             <div className={`mt-5 pt-4 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} flex items-center justify-between`}>
@@ -485,16 +592,16 @@ const TeacherRoutineSchedule = () => {
                             <form onSubmit={handleSubmit} className="p-10">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                     <div className="space-y-8">
-                                        <div className="group/field">
-                                            <label className={`block text-[12px] font-black uppercase tracking-[0.2em] mb-3 transition-colors ${isDarkMode ? 'text-gray-500 group-focus-within/field:text-cyan-400' : 'text-gray-400 group-focus-within/field:text-cyan-500'}`}>Assign Personnel</label>
-                                            <div className="relative">
-                                                <select name="teacherId" required value={formData.teacherId} onChange={handleChange} className={`w-full p-4 pl-5 rounded border-2 font-bold text-sm transition-all outline-none appearance-none ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-100 text-gray-900 focus:border-cyan-500/30'}`}>
-                                                    <option value="">Select Vector</option>
-                                                    {teachers.map(t => <option key={t._id} value={t._id}>{t.name} [{t.employeeId}]</option>)}
-                                                </select>
-                                                <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none opacity-30">▼</div>
-                                            </div>
-                                        </div>
+                                        <SearchableSelect 
+                                            label="Assign Personnel"
+                                            name="teacherId"
+                                            value={formData.teacherId}
+                                            required
+                                            options={teachers.map(t => ({ ...t, nameAttr: `${t.name} [${t.employeeId}]` }))}
+                                            displayPath="nameAttr"
+                                            onChange={handleChange}
+                                            placeholder="Select Vector"
+                                        />
 
                                         <div className="grid grid-cols-2 gap-6">
                                             <div className="group/field">
@@ -526,20 +633,34 @@ const TeacherRoutineSchedule = () => {
                                     </div>
 
                                     <div className="space-y-8">
+                                        <SearchableSelect 
+                                            label="Academic Class"
+                                            name="classId"
+                                            value={formData.classId}
+                                            required
+                                            options={classes}
+                                            displayPath="name"
+                                            onChange={handleChange}
+                                            placeholder="Select Level"
+                                        />
+                                        <SearchableSelect 
+                                            label="Subject Stream"
+                                            name="subjectId"
+                                            value={formData.subjectId}
+                                            required
+                                            options={subjects}
+                                            displayPath="subName"
+                                            onChange={handleChange}
+                                            placeholder="Select Subject"
+                                        />
                                         <div className="group/field">
-                                            <label className="block text-[12px] font-black uppercase tracking-[0.2em] mb-3 opacity-50">Academic Class</label>
-                                            <select name="classId" required value={formData.classId} onChange={handleChange} className={`w-full p-4 rounded border-2 font-bold text-sm transition-all outline-none ${isDarkMode ? 'bg-gray-900 border-gray-800 focus:border-cyan-500/50' : 'bg-gray-50 border-gray-100 focus:border-cyan-500/30'}`}>
-                                                <option value="">Select Level</option>
-                                                {classes.map(cls => <option key={cls._id} value={cls._id}>{cls.name}</option>)}
-                                            </select>
+                                            <label className="block text-[12px] font-black uppercase tracking-[0.2em] mb-3 opacity-50">Class Hours</label>
+                                            <div className="relative">
+                                                <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-cyan-500/50 italic">H</span>
+                                                <input type="number" name="classHours" value={formData.classHours} onChange={handleChange} step="0.5" className={`w-full pl-12 pr-6 py-4 rounded border-2 font-black text-sm transition-all outline-none ${isDarkMode ? 'bg-gray-900 border-gray-800 text-cyan-500 focus:border-cyan-500' : 'bg-gray-50 border-gray-100 text-cyan-600 focus:border-cyan-400'}`} />
+                                            </div>
                                         </div>
-                                        <div className="group/field">
-                                            <label className="block text-[12px] font-black uppercase tracking-[0.2em] mb-3 opacity-50">Subject Stream</label>
-                                            <select name="subjectId" required value={formData.subjectId} onChange={handleChange} className={`w-full p-4 rounded border-2 font-bold text-sm transition-all outline-none ${isDarkMode ? 'bg-gray-900 border-gray-800 focus:border-cyan-500/50' : 'bg-gray-50 border-gray-100 focus:border-cyan-500/30'}`}>
-                                                <option value="">Select Subject</option>
-                                                {subjects.map(s => <option key={s._id} value={s._id}>{s.subName}</option>)}
-                                            </select>
-                                        </div>
+
                                         <div className="group/field">
                                             <label className="block text-[12px] font-black uppercase tracking-[0.2em] mb-3 opacity-50">Compensation Pulse</label>
                                             <div className="relative">

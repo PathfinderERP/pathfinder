@@ -44,6 +44,10 @@ const teacherRoutineSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    classHours: {
+        type: Number,
+        default: 0
+    },
     typeOfEmployment: {
         type: String,
         enum: ["Full Time", "Part Time"],

@@ -31,20 +31,33 @@ const CarryForward = () => {
             const token = localStorage.getItem("token");
             const headers = { "Authorization": `Bearer ${token}` };
 
-            const [studentsRes, classesRes, admissionsRes] = await Promise.all([
+            const [studentsRes, classesRes, admissionsRes, boardAdmissionsRes] = await Promise.all([
                 fetch(`${apiUrl}/normalAdmin/getAllStudents`, { headers }),
                 fetch(`${apiUrl}/class`, { headers }),
-                fetch(`${apiUrl}/admission`, { headers })
+                fetch(`${apiUrl}/admission`, { headers }),
+                fetch(`${apiUrl}/board-admission/all`, { headers })
             ]);
-
-            if (studentsRes.ok && admissionsRes.ok) {
+            
+            if (studentsRes.ok && admissionsRes.ok && boardAdmissionsRes.ok) {
                 const studentsData = await studentsRes.json();
                 const admissionsData = await admissionsRes.json();
-                setAllAdmissions(admissionsData);
+                const boardAdmissionsData = await boardAdmissionsRes.json();
+                
+                // Merge all admissions for searching
+                const combinedAdmissions = [
+                    ...admissionsData.map(a => ({ ...a, type: 'Normal' })),
+                    ...boardAdmissionsData.map(a => ({ 
+                        ...a, 
+                        type: 'Board',
+                        course: a.boardId ? { ...a.boardId, courseName: a.boardCourseName } : { courseName: a.boardCourseName },
+                        department: { departmentName: 'Board Course' }
+                    }))
+                ];
+                setAllAdmissions(combinedAdmissions);
 
                 // Count admissions per student and group them
                 const studentAdmissionMap = {};
-                admissionsData.forEach(admission => {
+                combinedAdmissions.forEach(admission => {
                     const studentId = admission.student?._id || admission.student;
                     if (studentId) {
                         if (!studentAdmissionMap[studentId]) {
@@ -401,12 +414,22 @@ const CarryForward = () => {
                                             <span>Email: {searchedStudent.studentsDetails?.[0]?.studentEmail}</span>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={() => navigate(`/admission/${searchedStudent._id}`)}
-                                        className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
-                                    >
-                                        Enroll New Course <FaArrowRight />
-                                    </button>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => navigate(`/admission/${searchedStudent._id}`)}
+                                            className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+                                            title="Enroll in a Normal Course"
+                                        >
+                                            Enroll Normal Course <FaArrowRight />
+                                        </button>
+                                        <button
+                                            onClick={() => navigate(`/board-course-admission/${searchedStudent._id}`)}
+                                            className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+                                            title="Enroll in a Board Course"
+                                        >
+                                            Enroll Board Course <FaArrowRight />
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* Student's Admissions */}
@@ -473,8 +496,16 @@ const CarryForward = () => {
                                     <button
                                         onClick={handleEnrollNewCourse}
                                         className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+                                        title="Enroll in a Normal Course"
                                     >
-                                        Enroll New Course <FaArrowRight />
+                                        Enroll Normal Course <FaArrowRight />
+                                    </button>
+                                    <button
+                                        onClick={() => navigate(`/board-course-admission/${selectedStudent._id}`)}
+                                        className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+                                        title="Enroll in a Board Course"
+                                    >
+                                        Enroll Board Course <FaArrowRight />
                                     </button>
                                     <button
                                         onClick={closeStudentModal}

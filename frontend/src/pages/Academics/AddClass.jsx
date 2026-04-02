@@ -39,7 +39,8 @@ const AddClass = () => {
         acadSubjectId: "",
         chapterName: "",
         topicName: "",
-        message: ""
+        message: "",
+        classHours: 0
     });
 
     const [dropdownData, setDropdownData] = useState({
@@ -234,7 +235,7 @@ const AddClass = () => {
                     setFormData({
                         className: "", date: "", classMode: "", startTime: "", endTime: "",
                         subjectId: "", teacherId: "", session: "", examId: "", courseId: "", centreId: "", batchIds: [],
-                        acadClassId: "", acadSubjectId: "", chapterName: "", topicName: "", message: ""
+                        acadClassId: "", acadSubjectId: "", chapterName: "", topicName: "", message: "", classHours: 0
                     });
                     // Reset cascades
                     setAcadSubjects([]);
@@ -299,6 +300,19 @@ const AddClass = () => {
                                 name="startTime"
                                 value={formData.startTime}
                                 onChange={handleChange}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                required
+                            />
+                        </div>
+                        <div className="md:col-span-1">
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class Hours*</label>
+                            <input
+                                type="number"
+                                name="classHours"
+                                value={formData.classHours}
+                                onChange={handleChange}
+                                step="0.5"
+                                placeholder="e.g. 1.5"
                                 className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
                                 required
                             />

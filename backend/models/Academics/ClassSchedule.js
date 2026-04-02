@@ -23,6 +23,10 @@ const classScheduleSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    classHours: {
+        type: Number,
+        default: 0
+    },
     subjectId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "AcademicsSubject",

@@ -165,6 +165,7 @@ const PreviousClass = () => {
                                     <th className="p-4">Teacher</th>
                                     <th className="p-4">Date</th>
                                     <th className="p-4">Allocated Time</th>
+                                    <th className="p-4 text-center">Class Hours</th>
                                     <th className="p-4">Actual Time</th>
                                     <th className="p-4">Subject</th>
                                     <th className="p-4 text-center">Teacher Attendance</th>
@@ -193,6 +194,7 @@ const PreviousClass = () => {
                                             <td className="p-4 text-xs font-bold text-gray-400">
                                                 {cls.startTime} - {cls.endTime}
                                             </td>
+                                            <td className="p-4 text-center font-bold text-cyan-400">{cls.classHours || 0}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">
                                                 {cls.actualStartTime ? new Date(cls.actualStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
                                                 {" - "}

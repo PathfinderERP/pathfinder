@@ -32,7 +32,8 @@ export const createClassSchedule = async (req, res) => {
             acadSubjectId,
             chapterName,
             topicName,
-            message
+            message,
+            classHours
         } = req.body;
 
         // Center authorization check
@@ -61,7 +62,8 @@ export const createClassSchedule = async (req, res) => {
             acadSubjectId: acadSubjectId || undefined,
             chapterName,
             topicName,
-            message
+            message,
+            classHours
         });
 
         await newClass.save();
@@ -305,7 +307,8 @@ export const updateClassSchedule = async (req, res) => {
             acadSubjectId,
             chapterName,
             topicName,
-            message
+            message,
+            classHours
         } = req.body;
 
         const currentClass = await ClassSchedule.findById(id);
@@ -347,7 +350,8 @@ export const updateClassSchedule = async (req, res) => {
                 acadSubjectId: acadSubjectId || undefined,
                 chapterName,
                 topicName,
-                message
+                message,
+                classHours
             },
             { new: true }
         );
@@ -685,7 +689,8 @@ export const importClassesExcel = async (req, res) => {
                 acadSubjectId: subject._id, // Assume acad subject is the same lookup if available
                 chapterName: row['Chapter Name'] ? String(row['Chapter Name']).trim() : "",
                 topicName: row['Topic Names'] ? String(row['Topic Names']).trim() : "",
-                message: row['Message'] ? String(row['Message']).trim() : ""
+                message: row['Message'] ? String(row['Message']).trim() : "",
+                classHours: row['Class Hours'] ? Number(row['Class Hours']) : 0
             });
         }
 

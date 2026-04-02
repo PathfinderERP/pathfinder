@@ -19,6 +19,7 @@ export const createTeacherRoutine = async (req, res) => {
             subjectId,
             courseId,
             amount,
+            classHours,
             typeOfEmployment
         } = req.body;
 
@@ -32,6 +33,7 @@ export const createTeacherRoutine = async (req, res) => {
             subjectId,
             courseId,
             amount,
+            classHours,
             typeOfEmployment,
             createdBy: req.user._id
         });
@@ -134,6 +136,7 @@ export const getGroupedTeacherRoutines = async (req, res) => {
                 class: routine.classId?.name,
                 subject: routine.subjectId?.subName,
                 amount: routine.amount,
+                classHours: routine.classHours,
                 centreId: routine.centreId?._id,
                 classId: routine.classId?._id,
                 subjectId: routine.subjectId?._id
@@ -272,6 +275,7 @@ export const bulkImportRoutines = async (req, res) => {
                     classId: classId,
                     subjectId: subjectId,
                     amount: data.amount,
+                    classHours: data.classHours || 0,
                     typeOfEmployment: data.typeOfEmployment, // Manual override if provided
                     createdBy: req.user._id
                 });

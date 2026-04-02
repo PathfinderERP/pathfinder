@@ -136,6 +136,7 @@ const UpcomingClass = () => {
                                     <th className="p-4">Date</th>
                                     <th className="p-4">Start Time</th>
                                     <th className="p-4">End Time</th>
+                                    <th className="p-4">Class Hours</th>
                                     <th className="p-4">Subject</th>
                                     <th className="p-4 text-center">Action</th>
                                 </tr>
@@ -160,6 +161,7 @@ const UpcomingClass = () => {
                                             <td className="p-4">{formatDate(cls.date)}</td>
                                             <td className="p-4">{cls.startTime}</td>
                                             <td className="p-4">{cls.endTime}</td>
+                                            <td className={`p-4 font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{cls.classHours || 0}</td>
                                             <td className="p-4">{cls.subjectId?.subjectName || cls.subjectId?.name || "-"}</td>
                                             <td className="p-4 text-center">
                                                 {isAcademicAdmin ? (
