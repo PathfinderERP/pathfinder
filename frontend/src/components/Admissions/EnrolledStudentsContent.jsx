@@ -1838,9 +1838,9 @@ const EnrolledStudentsContent = () => {
                                                             <p className="text-gray-500 text-[8px] font-bold uppercase tracking-[0.2em] mb-1">Approved By</p>
                                                             <div className="flex items-center gap-1.5">
                                                                 <div className="w-4 h-4 rounded-full bg-cyan-500/20 text-cyan-500 flex items-center justify-center text-[7px] font-black">
-                                                                    A
+                                                                    {(item.allocatedBy?.name || 'A').charAt(0).toUpperCase()}
                                                                 </div>
-                                                                <span className="text-[9px] font-bold uppercase text-gray-500">Inventory Auth</span>
+                                                                <span className="text-[9px] font-bold uppercase text-gray-500">{item.allocatedBy?.name || 'System Auth'}</span>
                                                             </div>
                                                         </div>
                                                     )}

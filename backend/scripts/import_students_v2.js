@@ -12,6 +12,7 @@ import Payment from '../models/Payment/Payment.js';
 import Department from '../models/Master_data/Department.js';
 import ExamTag from '../models/Master_data/ExamTag.js';
 import User from '../models/User.js';
+import { generateBillId } from '../utils/billIdGenerator.js';
 
 dotenv.config({ path: path.join(process.cwd(), '..', '.env') });
 
@@ -67,10 +68,10 @@ async function migrate() {
         const defaultDept = departments[0];
         const defaultExamTag = examTags[0];
 
-        const getCentreId = (name) => {
-            if (!name || typeof name !== 'string') return "HAZRA H.O";
+        const getCentreInfo = (name) => {
+            if (!name || typeof name !== 'string') return centres.find(c => c.centreName === "HAZRA H.O");
             const found = centres.find(c => c.centreName && c.centreName.toLowerCase() === name.trim().toLowerCase());
-            return found ? found.centreName : "HAZRA H.O";
+            return found || centres.find(c => c.centreName === "HAZRA H.O");
         };
 
         const getOrCreateSession = async (name) => {
@@ -154,7 +155,7 @@ async function migrate() {
                     console.log(`➕ Adding new course for existing student: ${enrollNo} - ${row['Course Name']}`);
                     const studentId = existingAdmissions[0].student;
                     
-                    await createAdmissionRecord(row, studentId, course, sessionName, enrollNo, dryRun);
+                    await createAdmissionRecord(row, studentId, course, sessionName, enrollNo, dryRun, centres);
                     stats.newCourse++;
                 } else {
                     // New Student and New Admission
@@ -168,7 +169,7 @@ async function migrate() {
                             studentEmail: row['email'],
                             gender: row['Gender'] || "Male",
                             dateOfBirth: parseExcelDate(row['dob']),
-                            centre: getCentreId(row['Centre']),
+                            centre: getCentreInfo(row['Centre'])?.centreName || "HAZRA H.O",
                             board: row['Board'] || "WB",
                             schoolName: row['School'] || "N/A",
                             pincode: String(row['Pincode'] || ""),
@@ -192,7 +193,7 @@ async function migrate() {
                         student = { _id: new mongoose.Types.ObjectId() };
                     }
 
-                    await createAdmissionRecord(row, student._id, course, sessionName, enrollNo, dryRun);
+                    await createAdmissionRecord(row, student._id, course, sessionName, enrollNo, dryRun, centres);
                     stats.imported++;
                 }
 
@@ -219,7 +220,12 @@ async function migrate() {
     }
 }
 
-async function createAdmissionRecord(row, studentId, course, sessionName, enrollNo, dryRun) {
+async function createAdmissionRecord(row, studentId, course, sessionName, enrollNo, dryRun, centres) {
+    const getCentreInfo = (name) => {
+        if (!name || typeof name !== 'string') return centres.find(c => c.centreName === "HAZRA H.O");
+        const found = centres.find(c => c.centreName && c.centreName.toLowerCase() === name.trim().toLowerCase());
+        return found || centres.find(c => c.centreName === "HAZRA H.O");
+    };
     const totalFees = parseFloat(row['Commited Amount_1'] || 0);
     const downPayment = parseFloat(row['Admission Amount_1'] || 0);
     const totalPaid = parseFloat(row['Total Amount Paid Till Date_1'] || 0);
@@ -285,7 +291,11 @@ async function createAdmissionRecord(row, studentId, course, sessionName, enroll
         await admission.save();
 
         // Create Payment records for record keeping
+        const centreObj = getCentreInfo(row['Centre']);
+        const centreCode = centreObj ? centreObj.enterCode : 'GEN';
+
         if (downPayment > 0) {
+            const billId = await generateBillId(centreCode);
             const dpBase = downPayment / 1.18;
             const dpGst = downPayment - dpBase;
             await Payment.create({
@@ -298,7 +308,7 @@ async function createAdmissionRecord(row, studentId, course, sessionName, enroll
                 receivedDate: parsedDate,
                 status: "PAID",
                 paymentMethod: "CASH",
-                billId: `MIG-DP-${enrollNo}`,
+                billId: billId,
                 totalAmount: downPayment,
                 cgst: dpGst / 2,
                 sgst: dpGst / 2,
@@ -307,6 +317,7 @@ async function createAdmissionRecord(row, studentId, course, sessionName, enroll
             });
         }
         if (totalPaid > downPayment) {
+            const billId = await generateBillId(centreCode);
             const instAmount = totalPaid - downPayment;
             const instBase = instAmount / 1.18;
             const instGst = instAmount - instBase;
@@ -320,7 +331,7 @@ async function createAdmissionRecord(row, studentId, course, sessionName, enroll
                 receivedDate: parsedDate,
                 status: "PAID",
                 paymentMethod: "CASH",
-                billId: `MIG-INS-${enrollNo}`,
+                billId: billId,
                 totalAmount: instAmount,
                 cgst: instGst / 2,
                 sgst: instGst / 2,

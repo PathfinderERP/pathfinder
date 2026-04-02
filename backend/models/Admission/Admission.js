@@ -230,23 +230,36 @@ const admissionSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-// Generate admission number before saving
+// Pre-save hook to ensure a unique sequence number is generated across both admission types
 admissionSchema.pre('save', async function () {
     if (!this.admissionNumber) {
         try {
-            const now = new Date();
-            const year = now.getFullYear().toString().slice(-2);
-            const prefix = `PATH${year}`;
-
-            // Check BOTH Admission and BoardCourseAdmission for the latest number
-            // Use mongoose.model() to access other models without circular imports
+            // Check if this student ALREADY has an admission number in ANY admission record (Normal or Board)
             let BoardCourseAdmission;
             try {
                 BoardCourseAdmission = mongoose.model("BoardCourseAdmission");
             } catch (e) {
-                // If BoardCourseAdmission is not registered yet, we assume its max is 0
                 BoardCourseAdmission = null;
             }
+
+            const [existingNormal, existingBoard] = await Promise.all([
+                this.constructor.findOne({ student: this.student, admissionNumber: { $exists: true, $ne: null } }).lean(),
+                BoardCourseAdmission 
+                    ? BoardCourseAdmission.findOne({ studentId: this.student, admissionNumber: { $exists: true, $ne: null } }).lean()
+                    : Promise.resolve(null)
+            ]);
+
+            const sharedId = (existingNormal && existingNormal.admissionNumber) || (existingBoard && existingBoard.admissionNumber);
+
+            if (sharedId) {
+                this.admissionNumber = sharedId;
+                return;
+            }
+
+            // Generate new sequence if student has no existing ID
+            const now = new Date();
+            const year = now.getFullYear().toString().slice(-2);
+            const prefix = `PATH${year}`;
 
             const [lastNormal, lastBoard] = await Promise.all([
                 this.constructor.findOne({ admissionNumber: new RegExp(`^${prefix}`) }).sort({ admissionNumber: -1 }).lean(),

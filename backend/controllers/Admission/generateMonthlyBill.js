@@ -1,4 +1,5 @@
 import Admission from "../../models/Admission/Admission.js";
+import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import Board from "../../models/Master_data/Boards.js";
 import Payment from "../../models/Payment/Payment.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
@@ -435,25 +436,66 @@ export const getMonthlyBreakdown = async (req, res) => {
     try {
         const { admissionId } = req.params;
 
-        const admission = await Admission.findById(admissionId)
+        // Try Admission model first (Legacy/Flexible Board)
+        let admission = await Admission.findById(admissionId)
             .populate('board')
             .populate('monthlySubjectHistory.subjects.subject');
 
-        if (!admission) {
-            return res.status(404).json({ message: "Admission not found" });
+        if (admission) {
+            if (admission.admissionType !== "BOARD") {
+                return res.status(400).json({ message: "This operation is only for Board admissions" });
+            }
+            const breakdown = await generateMonthlyBreakdown(admission);
+            return res.status(200).json({
+                admission,
+                monthlyBreakdown: breakdown,
+                courseDurationMonths: admission.courseDurationMonths
+            });
         }
 
-        if (admission.admissionType !== "BOARD") {
-            return res.status(400).json({ message: "This operation is only for Board admissions" });
+        // Try BoardCourseAdmission model (Structured Board)
+        let boardAdmission = await BoardCourseAdmission.findById(admissionId)
+            .populate('boardId')
+            .populate('installments.subjects.subjectId');
+
+        if (boardAdmission) {
+            const breakdown = boardAdmission.installments.map(inst => {
+                const monthDate = new Date(inst.dueDate);
+                const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
+                
+                // Find payment record to get billId if any
+                // (Note: Structured Board also creates Payment records)
+                return {
+                    month: monthKey,
+                    monthName: monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+                    subjects: inst.subjects.map(s => ({
+                        _id: s.subjectId?._id,
+                        name: s.subjectId?.subName || s.subjectId?.name || "Subject",
+                        price: s.price
+                    })),
+                    totalAmount: inst.standardAmount - inst.waiverAmount,
+                    paidAmount: inst.paidAmount,
+                    carryForward: inst.adjustmentAmount || 0,
+                    isPaid: inst.status === "PAID",
+                    paymentStatus: inst.status,
+                    billId: null, // We could look this up in the Payment collection if needed
+                    receivedDate: inst.paymentTransactions?.[0]?.date || inst.dueDate,
+                    dueDate: inst.dueDate
+                };
+            });
+
+            return res.status(200).json({
+                admission: {
+                    ...boardAdmission.toObject(),
+                    admissionType: 'BOARD', // Ensure consistency
+                    board: boardAdmission.boardId, // Map boardId to board
+                },
+                monthlyBreakdown: breakdown,
+                courseDurationMonths: boardAdmission.totalDurationMonths
+            });
         }
 
-        const breakdown = await generateMonthlyBreakdown(admission);
-
-        res.status(200).json({
-            admission,
-            monthlyBreakdown: breakdown,
-            courseDurationMonths: admission.courseDurationMonths
-        });
+        return res.status(404).json({ message: "Admission record not found in any collection." });
 
     } catch (err) {
         console.error("Get monthly breakdown error:", err);

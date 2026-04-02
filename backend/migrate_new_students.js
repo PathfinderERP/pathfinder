@@ -11,6 +11,7 @@ import Session from './models/Master_data/Session.js';
 import Payment from './models/Payment/Payment.js';
 import Department from './models/Master_data/Department.js';
 import ExamTag from './models/Master_data/ExamTag.js';
+import { generateBillId } from './utils/billIdGenerator.js';
 
 dotenv.config();
 
@@ -70,10 +71,10 @@ async function migrate() {
 
         console.log(`📊 Loaded ${centres.length} centres, ${sessions.length} sessions, ${departments.length} departments`);
 
-        const getCentreId = (name) => {
-            if (!name || typeof name !== 'string') return "HAZRA H.O"; // Default fallback
+        const getCentreInfo = (name) => {
+            if (!name || typeof name !== 'string') return centres.find(c => c.centreName === "HAZRA H.O");
             const found = centres.find(c => c.centreName && c.centreName.toLowerCase() === name.trim().toLowerCase());
-            return found ? found.centreName : "HAZRA H.O";
+            return found || centres.find(c => c.centreName === "HAZRA H.O");
         };
 
         const getOrCreateSession = async (name) => {
@@ -178,7 +179,7 @@ async function migrate() {
                             studentEmail: row['email'] || `${row['Enroll No']}@placeholder.com`,
                             gender: row['Gender'] || "Male",
                             dateOfBirth: parseExcelDate(row['dob']),
-                            centre: getCentreId(row['Centre']),
+                            centre: getCentreInfo(row['Centre'])?.centreName || "HAZRA H.O",
                             board: row['Board'] || "WB",
                             schoolName: row['School'] || "N/A",
                             pincode: row['Pincode'],
@@ -255,7 +256,11 @@ async function migrate() {
                     await admission.save();
 
                     // 4. Create Payment records for Analytics
+                    const centreObj = getCentreInfo(row['Centre']);
+                    const centreCode = centreObj ? centreObj.enterCode : 'GEN';
+
                     if (downPayment > 0) {
+                        const billId = await generateBillId(centreCode);
                         await Payment.create({
                             admission: admission._id,
                             installmentNumber: 0,
@@ -266,11 +271,12 @@ async function migrate() {
                             receivedDate: parsedDate,
                             status: "PAID",
                             paymentMethod: "CASH",
-                            billId: `MIG-DP-${admission.admissionNumber}`,
+                            billId: billId,
                             totalAmount: downPayment
                         });
                     }
                     if (totalPaid > downPayment) {
+                        const billId = await generateBillId(centreCode);
                         await Payment.create({
                             admission: admission._id,
                             installmentNumber: 1,
@@ -281,7 +287,7 @@ async function migrate() {
                             receivedDate: parsedDate,
                             status: "PAID",
                             paymentMethod: "CASH",
-                            billId: `MIG-INS-${admission.admissionNumber}`,
+                            billId: billId,
                             totalAmount: totalPaid - downPayment
                         });
                     }

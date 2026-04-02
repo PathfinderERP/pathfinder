@@ -156,16 +156,29 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-// Generate admission number before saving
+// Pre-save hook to ensure a unique sequence number is generated across both admission types
 boardCourseAdmissionSchema.pre('save', async function () {
     if (!this.admissionNumber) {
         try {
+            // Check if this student ALREADY has an admission number in ANY admission record (Normal or Board)
+            const Admission = mongoose.model("Admission");
+            const [existingNormal, existingBoard] = await Promise.all([
+                Admission.findOne({ student: this.studentId, admissionNumber: { $exists: true, $ne: null } }).lean(),
+                this.constructor.findOne({ studentId: this.studentId, admissionNumber: { $exists: true, $ne: null } }).lean()
+            ]);
+
+            const sharedId = (existingNormal && existingNormal.admissionNumber) || (existingBoard && existingBoard.admissionNumber);
+
+            if (sharedId) {
+                this.admissionNumber = sharedId;
+                return;
+            }
+
+            // Generate new sequence if student has no existing ID
             const now = new Date();
             const year = now.getFullYear().toString().slice(-2);
             const prefix = `PATH${year}`;
 
-            // Check BOTH Admission and BoardCourseAdmission for the latest number
-            const Admission = mongoose.model("Admission");
             const [lastNormal, lastBoard] = await Promise.all([
                 Admission.findOne({ admissionNumber: new RegExp(`^${prefix}`) }).sort({ admissionNumber: -1 }).lean(),
                 this.constructor.findOne({ admissionNumber: new RegExp(`^${prefix}`) }).sort({ admissionNumber: -1 }).lean()

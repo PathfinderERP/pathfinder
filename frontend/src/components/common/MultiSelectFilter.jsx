@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FaChevronDown, FaCheck, FaTimes } from 'react-icons/fa';
 
-const MultiSelectFilter = ({ options: rawOptions, selectedValues, onChange, placeholder, label, theme = 'dark' }) => {
+const MultiSelectFilter = ({ options: rawOptions, selectedValues, onChange, placeholder, label, theme = 'dark', useAbsolute = false }) => {
     const isDark = theme === 'dark';
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -23,6 +23,10 @@ const MultiSelectFilter = ({ options: rawOptions, selectedValues, onChange, plac
 
     // Calculate dropdown position based on trigger element
     const openDropdown = () => {
+        if (useAbsolute) {
+            setIsOpen(prev => !prev);
+            return;
+        }
         if (triggerRef.current) {
             const rect = triggerRef.current.getBoundingClientRect();
             const spaceBelow = window.innerHeight - rect.bottom;
@@ -139,7 +143,15 @@ const MultiSelectFilter = ({ options: rawOptions, selectedValues, onChange, plac
             {isOpen && (
                 <div
                     ref={dropdownRef}
-                    style={dropdownStyle}
+                    style={useAbsolute ? {
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        marginTop: '4px',
+                        width: '100%',
+                        minWidth: '240px',
+                        zIndex: 9999
+                    } : dropdownStyle}
                     className={`border rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[400px] ${isDark ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}
                 >
                     <div className={`p-2 border-b ${isDark ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200'}`}>

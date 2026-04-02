@@ -88,8 +88,6 @@ export const updateCentreTargetAchieved = async (centreName, paymentDateInput) =
         }
         const financialYear = `${fyStart}-${fyEnd}`;
 
-        console.log(`Updating Target for: ${centreName} | ${month} ${year} (${financialYear})`);
-
         // 2. Find Centre ObjectId
         const centreDoc = await CentreSchema.findOne({ centreName: centreName });
         if (!centreDoc) {
@@ -114,7 +112,6 @@ export const updateCentreTargetAchieved = async (centreName, paymentDateInput) =
             // Given the verified constraints, usually we only update if it exists.
             // However, to ensure data visibility, let's see. The UI shows rows from `CentreTarget`.
             // If we don't update, the data won't show.
-            console.log("No Sales Target found for this period. Skipping update.");
             return;
         }
 
@@ -124,8 +121,6 @@ export const updateCentreTargetAchieved = async (centreName, paymentDateInput) =
         // 5. Update Target Record
         targetRecord.achievedAmount = totalAchieved;
         await targetRecord.save();
-
-        console.log(`Updated Target Achievement for ${centreName} (${month} ${year}): ${totalAchieved}`);
 
     } catch (error) {
         console.error("Error updating centre target achievement:", error);

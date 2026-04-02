@@ -683,15 +683,15 @@ const TransactionList = () => {
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-200">
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">#</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Date</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Received Date</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Enroll No.</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Receipt No</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Student Name</th>
+                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[120px]">Date</th>
+                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[120px]">Received Date</th>
+                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[150px]">Enroll No.</th>
+                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[240px]">Receipt No</th>
+                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[180px]">Student Name</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Session</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Department</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Course Name</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Transaction Type</th>
+                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[120px]">Transaction Type</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Transaction ID</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Centre</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Payment Mode</th>
@@ -723,9 +723,9 @@ const TransactionList = () => {
                                             <td className="p-4 text-sm text-gray-600 font-medium">
                                                 {item.receivedDate ? new Date(item.receivedDate).toLocaleDateString('en-GB') : '-'}
                                             </td>
-                                            <td className="p-4 text-sm text-gray-500">{item.admissionNumber}</td>
-                                            <td className="p-4 text-sm text-gray-500">{item.receiptNo || "-"}</td>
-                                            <td className="p-4 text-sm font-bold text-gray-800 uppercase">{item.studentName}</td>
+                                            <td className="p-4 text-sm text-gray-500 font-mono whitespace-nowrap min-w-[150px]">{item.admissionNumber}</td>
+                                            <td className="p-4 text-sm text-blue-600 font-mono font-bold whitespace-nowrap min-w-[240px] uppercase">{item.receiptNo || "-"}</td>
+                                            <td className="p-4 text-sm font-bold text-gray-800 uppercase whitespace-nowrap min-w-[180px]">{item.studentName}</td>
                                             <td className="p-4 text-sm text-gray-600 font-bold">{item.session || "-"}</td>
                                             <td className="p-4 text-sm text-orange-500 font-bold uppercase">{item.department || "-"}</td>
                                             <td className="p-4 text-sm text-gray-600 max-w-xs truncate" title={item.course}>{item.course}</td>

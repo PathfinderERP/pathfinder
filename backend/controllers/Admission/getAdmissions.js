@@ -1,4 +1,5 @@
 import Admission from "../../models/Admission/Admission.js";
+import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
 
 export const getAdmissions = async (req, res) => {
@@ -79,12 +80,14 @@ export const getAdmissions = async (req, res) => {
             }
         }
 
-        const admissions = await Admission.find(query)
+        // Fetch Normal Admissions
+        const normalAdmissions = await Admission.find(query)
             .populate({
                 path: 'student',
-                populate: {
-                    path: 'batches'
-                }
+                populate: [
+                    { path: 'batches' },
+                    { path: 'allocatedItems.allocatedBy', select: 'name' }
+                ]
             })
             .populate('course')
             .populate('class')
@@ -92,9 +95,10 @@ export const getAdmissions = async (req, res) => {
             .populate('examTag')
             .populate('department')
             .populate('createdBy', 'name')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
-        res.status(200).json(admissions);
+        res.status(200).json(normalAdmissions);
     } catch (err) {
         res.status(500).json({ message: "Server error", error: err.message });
     }

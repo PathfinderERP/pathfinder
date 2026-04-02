@@ -56,6 +56,10 @@ const TeacherRoutineSchedule = () => {
     // Filter States
     const [filterCentres, setFilterCentres] = useState([]);
     const [filterTeachers, setFilterTeachers] = useState([]);
+    const [filterSubjects, setFilterSubjects] = useState([]);
+    const [filterDays, setFilterDays] = useState([]);
+    const [filterEmploymentType, setFilterEmploymentType] = useState([]);
+    const [filterTime, setFilterTime] = useState({ start: "", end: "" });
 
     const [showModal, setShowModal] = useState(false);
     const [editId, setEditId] = useState(null);
@@ -200,11 +204,48 @@ const TeacherRoutineSchedule = () => {
         
         const matchesTeacher = filterTeachers.length === 0 || filterTeachers.includes(item.teacher.name);
         
-        const matchesCentre = filterCentres.length === 0 || DAYS.some(day => 
-            item.days[day].some(session => filterCentres.some(fc => session.centre === fc ))
+        const matchesEmploymentType = filterEmploymentType.length === 0 || filterEmploymentType.includes(item.teacher.typeOfEmployment);
+
+        const daysToSearch = filterDays.length === 0 ? DAYS : filterDays;
+        
+        const matchesFilters = daysToSearch.some(day => {
+            const daySessions = item.days[day] || [];
+            if (daySessions.length === 0) return filterDays.length === 0;
+
+            return daySessions.some(session => {
+                const matchesCentre = filterCentres.length === 0 || filterCentres.includes(session.centre);
+                const matchesSubject = filterSubjects.length === 0 || filterSubjects.includes(session.subject);
+                
+                let matchesTime = true;
+                if (filterTime.start || filterTime.end) {
+                    if (!session.startTime) {
+                        matchesTime = false;
+                    } else {
+                        if (filterTime.start && session.startTime < filterTime.start) matchesTime = false;
+                        if (filterTime.end && session.startTime > filterTime.end) matchesTime = false;
+                    }
+                }
+
+                return matchesCentre && matchesSubject && matchesTime;
+            });
+        });
+
+        // Special case: if filtered by centre/subject/time, we only show teachers who have at least one matching session
+        const hasMatchingSession = daysToSearch.some(day => 
+            (item.days[day] || []).some(session => {
+                const c = filterCentres.length === 0 || filterCentres.includes(session.centre);
+                const s = filterSubjects.length === 0 || filterSubjects.includes(session.subject);
+                let t = true;
+                if (filterTime.start && (!session.startTime || session.startTime < filterTime.start)) t = false;
+                if (filterTime.end && (!session.startTime || session.startTime > filterTime.end)) t = false;
+                return c && s && t;
+            })
         );
 
-        return matchesSearch && matchesTeacher && matchesCentre;
+        // If no sessions exist on the selected days, but we filtered by days, we should probably hide them
+        const hasSessionsOnSelectedDays = filterDays.length === 0 || filterDays.some(day => (item.days[day] || []).length > 0);
+
+        return matchesSearch && matchesTeacher && matchesEmploymentType && hasMatchingSession && hasSessionsOnSelectedDays;
     });
 
     const indexOfLastItem = currentPage * itemsPerPage;
@@ -417,28 +458,81 @@ const TeacherRoutineSchedule = () => {
                 </div>
 
                 {/* Glassmorphic Filters */}
-                <div className={`mb-10 p-1 rounded bg-gradient-to-br ${isDarkMode ? 'from-gray-800/40 to-cyan-500/10' : 'from-white to-cyan-500/5'} shadow-xl`}>
+                <div className={`mb-10 p-1 rounded bg-gradient-to-br ${isDarkMode ? 'from-gray-800/40 to-cyan-500/10' : 'from-white to-cyan-500/5'} shadow-xl relative z-[100]`}>
                     <div className={`p-6 rounded ${isDarkMode ? 'bg-[#151921]/90' : 'bg-white/90'} backdrop-blur-xl border border-white/5`}>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                            <div className="relative group">
-                                <FaSearch className={`absolute left-5 top-1/2 -translate-y-1/2 transition-all ${isDarkMode ? 'text-gray-500 group-focus-within:text-cyan-400' : 'text-gray-400 group-focus-within:text-cyan-500'}`} />
-                                <input 
-                                    type="text" placeholder="Search by name or ID..." 
-                                    value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                                    className={`w-full pl-14 pr-6 py-4 rounded border-2 font-semibold text-sm transition-all focus:outline-none ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white focus:border-cyan-500/50 focus:bg-gray-950' : 'bg-gray-50 border-gray-100 text-gray-900 focus:border-cyan-500/30 focus:bg-white focus:shadow-md'}`}
-                                />
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div className="relative group lg:col-span-2 flex gap-4">
+                                <div className="relative flex-1">
+                                    <FaSearch className={`absolute left-5 top-1/2 -translate-y-1/2 transition-all ${isDarkMode ? 'text-gray-500 group-focus-within:text-cyan-400' : 'text-gray-400 group-focus-within:text-cyan-500'}`} />
+                                    <input 
+                                        type="text" placeholder="Search by name or ID..." 
+                                        value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                                        className={`w-full pl-14 pr-6 py-4 rounded border-2 font-semibold text-sm transition-all focus:outline-none ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white focus:border-cyan-500/50 focus:bg-gray-950' : 'bg-gray-50 border-gray-100 text-gray-900 focus:border-cyan-500/30 focus:bg-white focus:shadow-md'}`}
+                                    />
+                                </div>
+                                <button 
+                                    onClick={() => {
+                                        setFilterCentres([]);
+                                        setFilterTeachers([]);
+                                        setFilterSubjects([]);
+                                        setFilterDays([]);
+                                        setFilterEmploymentType([]);
+                                        setFilterTime({ start: "", end: "" });
+                                        setSearchTerm("");
+                                    }}
+                                    className={`px-6 py-4 rounded border font-black text-[10px] tracking-[0.2em] uppercase transition-all ${isDarkMode ? 'bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white' : 'bg-red-50 border-red-100 text-red-600 hover:bg-red-600 hover:text-white'}`}
+                                >
+                                    Reset
+                                </button>
                             </div>
-                            <div className="z-20">
+                            <div className="">
                                 <MultiSelectFilter 
                                     label="Centres" options={centres.map(c => ({ value: c.centreName, label: c.centreName }))}
-                                    selectedValues={filterCentres} onChange={setFilterCentres} theme={theme}
+                                    selectedValues={filterCentres} onChange={setFilterCentres} theme={theme} useAbsolute={true}
                                 />
                             </div>
-                            <div className="z-20">
+                            <div className="">
                                 <MultiSelectFilter 
                                     label="Teachers" options={teachers.map(t => ({ value: t.name, label: t.name }))}
-                                    selectedValues={filterTeachers} onChange={setFilterTeachers} theme={theme}
+                                    selectedValues={filterTeachers} onChange={setFilterTeachers} theme={theme} useAbsolute={true}
                                 />
+                            </div>
+                            
+                            <div className="">
+                                <MultiSelectFilter 
+                                    label="Subjects" options={subjects.map(s => ({ value: s.subName, label: s.subName }))}
+                                    selectedValues={filterSubjects} onChange={setFilterSubjects} theme={theme} useAbsolute={true}
+                                />
+                            </div>
+                            <div className="">
+                                <MultiSelectFilter 
+                                    label="Days" options={DAYS.map(d => ({ value: d, label: d }))}
+                                    selectedValues={filterDays} onChange={setFilterDays} theme={theme} useAbsolute={true}
+                                />
+                            </div>
+                            <div className="">
+                                <MultiSelectFilter 
+                                    label="Employment" options={[{value: 'Full Time', label: 'Full Time'}, {value: 'Part Time', label: 'Part Time'}]}
+                                    selectedValues={filterEmploymentType} onChange={setFilterEmploymentType} theme={theme} useAbsolute={true}
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="flex-1">
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Start Time</label>
+                                    <input 
+                                        type="time" value={filterTime.start} 
+                                        onChange={(e) => setFilterTime(prev => ({ ...prev, start: e.target.value }))}
+                                        className={`w-full p-2.5 rounded border text-xs font-bold ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                    />
+                                </div>
+                                <div className="flex-1">
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>End Time</label>
+                                    <input 
+                                        type="time" value={filterTime.end} 
+                                        onChange={(e) => setFilterTime(prev => ({ ...prev, end: e.target.value }))}
+                                        className={`w-full p-2.5 rounded border text-xs font-bold ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -457,7 +551,7 @@ const TeacherRoutineSchedule = () => {
 
                                 </th>
 
-                                {DAYS.map(day => (
+                                {DAYS.filter(day => filterDays.length === 0 || filterDays.includes(day)).map(day => (
                                     <th key={day} className="p-8 text-center min-w-[300px] border-l border-gray-800/10">
                                         <span className="text-sm font-black uppercase tracking-[0.2em] opacity-60">{day}</span>
                                     </th>
@@ -516,7 +610,7 @@ const TeacherRoutineSchedule = () => {
 
 
                                         {/* Day Cells */}
-                                        {DAYS.map(day => (
+                                        {DAYS.filter(day => filterDays.length === 0 || filterDays.includes(day)).map(day => (
                                             <td key={day} className="p-4 align-top border-l border-gray-800/10 min-w-[300px]">
                                                 <div className="flex flex-col gap-4 min-h-[140px] w-full">
                                                     {item.days[day].map((session) => (

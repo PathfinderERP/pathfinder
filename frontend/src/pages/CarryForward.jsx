@@ -58,7 +58,7 @@ const CarryForward = () => {
                 // Count admissions per student and group them
                 const studentAdmissionMap = {};
                 combinedAdmissions.forEach(admission => {
-                    const studentId = admission.student?._id || admission.student;
+                    const studentId = admission.student?._id || admission.student || admission.studentId?._id || admission.studentId;
                     if (studentId) {
                         if (!studentAdmissionMap[studentId]) {
                             studentAdmissionMap[studentId] = [];
@@ -169,7 +169,7 @@ const CarryForward = () => {
             if (matchingAdmissions.length > 0) {
                 // Get the student from the first matching admission
                 const firstAdmission = matchingAdmissions[0];
-                const studentId = firstAdmission.student?._id || firstAdmission.student;
+                const studentId = firstAdmission.student?._id || firstAdmission.student || firstAdmission.studentId?._id || firstAdmission.studentId;
 
                 // Fetch full student details
                 const studentRes = await fetch(`${apiUrl}/normalAdmin/getStudent/${studentId}`, { headers });
@@ -180,7 +180,7 @@ const CarryForward = () => {
 
                     // Get all admissions for this student
                     const studentAdmissions = allAdmissions.filter(adm => {
-                        const admStudentId = adm.student?._id || adm.student;
+                        const admStudentId = adm.student?._id || adm.student || adm.studentId?._id || adm.studentId;
                         return admStudentId === studentData._id;
                     });
                     setSearchedStudentAdmissions(studentAdmissions);

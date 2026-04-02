@@ -23,8 +23,6 @@ export const generateBill = async (req, res) => {
         const { admissionId, installmentNumber } = req.params;
         const installmentNum = parseInt(installmentNumber);
 
-        console.log(`🧾 Generating bill for Admission: ${admissionId}, Installment: ${installmentNum}`);
-
         // Find the admission - Try standard first, then Board
         let admission = await Admission.findById(admissionId)
             .populate('student')
@@ -122,7 +120,6 @@ export const generateBill = async (req, res) => {
 
         // Check if payment record exists
         const { billingMonth, billId } = req.query;
-        console.log(`🔍 Looking for payment record: Admission ${admissionId}, Installment ${installmentNum}, Month: ${billingMonth}, BillId: ${billId}`);
 
         let query;
         if (billId) {
