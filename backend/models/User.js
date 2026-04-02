@@ -40,15 +40,20 @@ const userSchema = new mongoose.Schema({
 
     // Teacher Specific Fields
     subject: { type: String },
-    teacherDepartment: {
+    teacherDepartment: [{
         type: String,
         enum: ['Foundation', 'All India', 'Board'], // Capitalized to match frontend
         default: null
-    },
+    }],
     boardType: { type: String }, // e.g. JEE, NEET, CBSE
     teacherType: {
         type: String,
         enum: ['Full Time', 'Part Time'],
+        default: null
+    },
+    onlineOfflineType: {
+        type: String,
+        enum: ['Online', 'Offline'],
         default: null
     },
     designation: { type: String },

@@ -54,9 +54,10 @@ const TeacherList = () => {
         employeeId: "",
         subject: "",
         centre: "",
-        teacherDepartment: "",
+        teacherDepartment: [],
         boardType: "",
         teacherType: "",
+        onlineOfflineType: "",
         designation: "",
         isDeptHod: false,
         isBoardHod: false,
@@ -156,9 +157,10 @@ const TeacherList = () => {
             employeeId: teacher.employeeId,
             subject: teacher.subject,
             centre: teacher.centres?.[0]?._id || teacher.centres?.[0] || teacher.centre || "",
-            teacherDepartment: teacher.teacherDepartment,
+            teacherDepartment: Array.isArray(teacher.teacherDepartment) ? teacher.teacherDepartment : (teacher.teacherDepartment ? [teacher.teacherDepartment] : []),
             boardType: teacher.boardType,
             teacherType: teacher.teacherType,
+            onlineOfflineType: teacher.onlineOfflineType || "",
             designation: teacher.designation,
             isDeptHod: teacher.isDeptHod,
             isBoardHod: teacher.isBoardHod,
@@ -209,7 +211,7 @@ const TeacherList = () => {
                 fetchTeachers();
                 setFormData({
                     name: "", email: "", mobNum: "", employeeId: "", subject: "",
-                    centre: "", teacherDepartment: "", boardType: "", teacherType: "", designation: "",
+                    centre: "", teacherDepartment: [], boardType: "", teacherType: "", onlineOfflineType: "", designation: "",
                     isDeptHod: false, isBoardHod: false, isSubjectHod: false
                 });
             } else {
@@ -224,7 +226,7 @@ const TeacherList = () => {
     const openAddModal = () => {
         setFormData({
             name: "", email: "", mobNum: "", employeeId: "", subject: "",
-            centre: "", teacherDepartment: "", boardType: "", teacherType: "", designation: "",
+            centre: "", teacherDepartment: [], boardType: "", teacherType: "", onlineOfflineType: "", designation: "",
             isDeptHod: false, isBoardHod: false, isSubjectHod: false
         });
         setEditId(null);
@@ -240,9 +242,10 @@ const TeacherList = () => {
             employeeId: teacher.employeeId,
             subject: teacher.subject,
             centre: teacher.centres?.[0]?._id || teacher.centres?.[0] || teacher.centre || "",
-            teacherDepartment: teacher.teacherDepartment,
+            teacherDepartment: Array.isArray(teacher.teacherDepartment) ? teacher.teacherDepartment : (teacher.teacherDepartment ? [teacher.teacherDepartment] : []),
             boardType: teacher.boardType,
             teacherType: teacher.teacherType,
+            onlineOfflineType: teacher.onlineOfflineType || "",
             designation: teacher.designation,
             isDeptHod: teacher.isDeptHod,
             isBoardHod: teacher.isBoardHod,
@@ -254,7 +257,16 @@ const TeacherList = () => {
     };
 
     const getOptions = (key) => {
-        const unique = [...new Set(teachers.map(t => t[key]).filter(Boolean))];
+        let values = [];
+        teachers.forEach(t => {
+            const val = t[key];
+            if (Array.isArray(val)) {
+                values.push(...val);
+            } else if (val) {
+                values.push(val);
+            }
+        });
+        const unique = [...new Set(values)].filter(Boolean);
         return unique.map(val => ({ value: val, label: val }));
     };
 
@@ -271,7 +283,10 @@ const TeacherList = () => {
     const boardOptions = getOptions('boardType');
     const desigOptions = getOptions('designation');
     const subjectOptions = getOptions('subject');
-    const typeOptions = getOptions('teacherType');
+    const typeOptions = [
+        ...getOptions('teacherType'),
+        ...getOptions('onlineOfflineType')
+    ].filter((v, i, a) => a.findIndex(t => t.value === v.value) === i);
     const centreOptions = getCentreOptions();
 
     const filteredTeachers = teachers.filter(t => {
@@ -283,11 +298,15 @@ const TeacherList = () => {
         const matchesEmail = filterEmails.length === 0 || filterEmails.includes(t.email);
         const matchesEmpId = filterEmployeeIds.length === 0 || filterEmployeeIds.includes(t.employeeId);
         const matchesMobile = filterMobiles.length === 0 || filterMobiles.includes(t.mobNum);
-        const matchesDept = filterDepartments.length === 0 || filterDepartments.includes(t.teacherDepartment);
+        const matchesDept = filterDepartments.length === 0 || (
+            Array.isArray(t.teacherDepartment)
+                ? t.teacherDepartment.some(d => filterDepartments.includes(d))
+                : filterDepartments.includes(t.teacherDepartment)
+        );
         const matchesBoard = filterBoards.length === 0 || filterBoards.includes(t.boardType);
         const matchesDesig = filterDesignations.length === 0 || filterDesignations.includes(t.designation);
         const matchesSubject = filterSubjects.length === 0 || filterSubjects.includes(t.subject);
-        const matchesType = filterTypes.length === 0 || filterTypes.includes(t.teacherType);
+        const matchesType = filterTypes.length === 0 || filterTypes.includes(t.teacherType) || filterTypes.includes(t.onlineOfflineType);
 
         // Centre filter - check if teacher has any of the selected centres
         const matchesCentre = filterCentres.length === 0 || (
@@ -625,12 +644,22 @@ const TeacherList = () => {
                                         </td>
                                         <td className={`p-4 text-sm ${isDarkMode ? 'text-white' : 'text-gray-800 font-medium'}`}>{teacher.subject || "-"}</td>
                                         <td className={`p-4 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{teacher.designation || "-"}</td>
-                                        <td className={`p-4 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{teacher.teacherDepartment || "-"}</td>
+                                        <td className={`p-4 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                            {Array.isArray(teacher.teacherDepartment) ? (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {teacher.teacherDepartment.map((d, idx) => (
+                                                        <span key={idx} className={`px-2 py-0.5 rounded text-[10px] font-semibold ${isDarkMode ? 'bg-purple-900/50 text-purple-400 border border-purple-800' : 'bg-purple-100 text-purple-700 border border-purple-200'}`}>
+                                                            {d}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : (teacher.teacherDepartment || "-")}
+                                        </td>
                                         <td className={`p-4 text-sm ${isDarkMode ? 'text-white' : 'text-gray-800 font-medium'}`}>{teacher.boardType || "-"}</td>
                                         <td className="p-4">
                                             <span className={`px-2 py-1 rounded text-[10px] font-semibold ${teacher.teacherType === 'Full Time' ? 'bg-green-900/50 text-green-400 border border-green-800' : 'bg-yellow-900/50 text-yellow-400 border border-yellow-800'
                                                 }`}>
-                                                {teacher.teacherType || "-"}
+                                                {teacher.teacherType || teacher.onlineOfflineType || "-"}
                                             </span>
                                         </td>
                                         <td className="p-4 text-sm">
@@ -772,13 +801,19 @@ const TeacherList = () => {
                                     {/* Row 4 */}
                                     <div>
                                         <label className={`block text-sm mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600 font-medium'}`}>Teacher Department <span className="text-red-500">*</span></label>
-                                        <select name="teacherDepartment" required disabled={viewOnly} value={formData.teacherDepartment} onChange={handleChange}
-                                            className={`w-full border rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none disabled:opacity-70 ${isDarkMode ? 'bg-[#13171c] border-gray-700 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}>
-                                            <option value="">Select</option>
-                                            <option value="Foundation">Foundation</option>
-                                            <option value="Board">Board</option>
-                                            <option value="All India">All India</option>
-                                        </select>
+                                        <MultiSelectFilter
+                                            label="Select Dept"
+                                            placeholder="Select Departments"
+                                            options={[
+                                                { value: "Foundation", label: "Foundation" },
+                                                { value: "Board", label: "Board" },
+                                                { value: "All India", label: "All India" }
+                                            ]}
+                                            selectedValues={formData.teacherDepartment || []}
+                                            onChange={(values) => setFormData(prev => ({ ...prev, teacherDepartment: values }))}
+                                            theme={theme}
+                                            useAbsolute={true}
+                                        />
                                     </div>
                                     <div>
                                         <label className={`block text-sm mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600 font-medium'}`}>Board Type</label>
@@ -794,8 +829,8 @@ const TeacherList = () => {
 
                                     {/* Row 5 */}
                                     <div>
-                                        <label className={`block text-sm mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600 font-medium'}`}>Teacher Type <span className="text-red-500">*</span></label>
-                                        <select name="teacherType" required disabled={viewOnly} value={formData.teacherType} onChange={handleChange}
+                                        <label className={`block text-sm mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600 font-medium'}`}>Employment Type</label>
+                                        <select name="teacherType" disabled={viewOnly} value={formData.teacherType} onChange={handleChange}
                                             className={`w-full border rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none disabled:opacity-70 ${isDarkMode ? 'bg-[#13171c] border-gray-700 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}>
                                             <option value="">Select</option>
                                             <option value="Full Time">Full Time</option>
@@ -803,7 +838,13 @@ const TeacherList = () => {
                                         </select>
                                     </div>
                                     <div>
-                                        {/* Blank to balance or something else */}
+                                        <label className={`block text-sm mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600 font-medium'}`}>Teacher Type</label>
+                                        <select name="onlineOfflineType" disabled={viewOnly} value={formData.onlineOfflineType} onChange={handleChange}
+                                            className={`w-full border rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none disabled:opacity-70 ${isDarkMode ? 'bg-[#13171c] border-gray-700 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}>
+                                            <option value="">Select</option>
+                                            <option value="Online">Online</option>
+                                            <option value="Offline">Offline</option>
+                                        </select>
                                     </div>
 
                                     {/* Row 6 */}

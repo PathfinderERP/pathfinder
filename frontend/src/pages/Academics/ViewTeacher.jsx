@@ -138,7 +138,9 @@ const ViewTeacher = () => {
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <FaBuilding className="text-cyan-500/70" />
-                                            <span className={`text-sm sm:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{teacher.teacherDepartment} Dept</span>
+                                            <span className={`text-sm sm:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                {Array.isArray(teacher.teacherDepartment) ? teacher.teacherDepartment.join(", ") : teacher.teacherDepartment} Dept
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -164,7 +166,9 @@ const ViewTeacher = () => {
                         <div className={`grid grid-cols-2 md:grid-cols-4 border-t backdrop-blur-sm ${isDarkMode ? 'border-gray-800 bg-[#131619]/50' : 'border-gray-100 bg-gray-50/50'}`}>
                             <div className={`p-3 sm:p-4 text-center border-r ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                                 <p className="text-[9px] sm:text-[10px] uppercase tracking-widest text-gray-500 mb-1 font-bold">Type</p>
-                                <p className={`text-xs sm:text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{teacher.teacherType || "—"}</p>
+                                <p className={`text-xs sm:text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    {teacher.onlineOfflineType || teacher.teacherType || "—"}
+                                </p>
                             </div>
                             <div className={`p-3 sm:p-4 text-center border-b md:border-b-0 border-r ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                                 <p className="text-[9px] sm:text-[10px] uppercase tracking-widest text-gray-500 mb-1 font-bold">Designation</p>
@@ -194,10 +198,11 @@ const ViewTeacher = () => {
 
                         {/* Academic Role */}
                         <SectionCard title="Academic Role & Hierarchy" icon={<FaBook />}>
-                            <DataField label="Department" value={teacher.teacherDepartment} />
+                            <DataField label="Department" value={Array.isArray(teacher.teacherDepartment) ? teacher.teacherDepartment.join(", ") : teacher.teacherDepartment} />
                             <DataField label="Board/Division" value={teacher.boardType} />
                             <DataField label="Primary Subject" value={teacher.subject} />
                             <DataField label="Employment Type" value={teacher.teacherType} />
+                            <DataField label="Teacher Type" value={teacher.onlineOfflineType} />
                             <DataField label="Designation" value={teacher.designation} />
                             <div className="sm:col-span-2 lg:col-span-3">
                                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Administrative Responsibilities</p>

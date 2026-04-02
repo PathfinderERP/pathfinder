@@ -69,9 +69,10 @@ export const bulkImportTeachers = async (req, res) => {
                     // Academic Fields
                     subject: data.subject,
                     designation: data.designation,
-                    teacherDepartment: data.teacherDepartment || data.depertment, // Handle spelling typo in CSV 'depertment'
+                    teacherDepartment: data.teacherDepartment ? (Array.isArray(data.teacherDepartment) ? data.teacherDepartment : String(data.teacherDepartment).split(',').map(s => s.trim())) : (data.depertment ? [String(data.depertment)] : []),
                     boardType: data.boardType || data.examArea, // 'examArea' in CSV
                     teacherType: data.teacherType || data.type, // 'type' in CSV
+                    onlineOfflineType: data.onlineOfflineType || null,
 
                     centres: assignedCentres,
 
@@ -117,6 +118,7 @@ export const createTeacher = async (req, res) => {
             teacherDepartment,
             boardType,
             teacherType,
+            onlineOfflineType,
             designation,
             centre, // from form
             isDeptHod,
@@ -168,6 +170,7 @@ export const createTeacher = async (req, res) => {
             teacherDepartment,
             boardType,
             teacherType,
+            onlineOfflineType,
             designation,
             centres,
             isDeptHod: isDeptHod || false,
