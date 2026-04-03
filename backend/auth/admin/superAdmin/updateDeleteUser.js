@@ -29,25 +29,52 @@ export const updateUserBySuperAdmin = async (req, res) => {
             }
         }
 
-        // Update fields
-        if (name) user.name = name;
-        if (employeeId) user.employeeId = employeeId;
-        if (email) user.email = email;
-        if (mobNum) user.mobNum = mobNum;
+        // Prepare Employee Sync Data
+        const employeeSyncData = {};
+        if (name && name !== user.name) {
+            user.name = name;
+            employeeSyncData.name = name;
+        }
+        if (employeeId && employeeId !== user.employeeId) {
+            user.employeeId = employeeId;
+            employeeSyncData.employeeId = employeeId;
+        }
+        if (email && email !== user.email) {
+            user.email = email;
+            employeeSyncData.email = email;
+        }
+        if (mobNum) {
+            user.mobNum = mobNum;
+            employeeSyncData.phoneNumber = mobNum; // Employee uses phoneNumber field
+        }
         if (role) user.role = role;
         if (centres !== undefined) user.centres = centres || [];
         if (permissions !== undefined) user.permissions = permissions;
         if (granularPermissions !== undefined) user.granularPermissions = granularPermissions;
         if (canEditUsers !== undefined) user.canEditUsers = canEditUsers;
         if (canDeleteUsers !== undefined) user.canDeleteUsers = canDeleteUsers;
+        
         if (isActive !== undefined) {
             user.isActive = isActive;
-            // Sync with Employee status
-            await Employee.findOneAndUpdate(
-                { user: user._id },
-                { status: isActive ? "Active" : "Inactive" }
-            );
+            employeeSyncData.status = isActive ? "Active" : "Inactive";
         }
+
+        // Sync with Employee if there are changes
+        if (Object.keys(employeeSyncData).length > 0) {
+            try {
+                await Employee.findOneAndUpdate(
+                    { user: user._id },
+                    { $set: employeeSyncData }
+                );
+            } catch (err) {
+                console.error("Error syncing to Employee record:", err);
+                // If it's a duplicate email error in Employee collection, we might want to handle it
+                if (err.code === 11000) {
+                    return res.status(400).json({ message: "Update failed: Email or Employee ID already exists in Employee records" });
+                }
+            }
+        }
+
         if (assignedScript !== undefined) {
             user.assignedScript = assignedScript === "" ? null : assignedScript;
         }

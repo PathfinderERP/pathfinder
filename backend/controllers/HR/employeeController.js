@@ -453,7 +453,7 @@ export const updateEmployee = async (req, res) => {
         // Update the employee document with new data
         Object.assign(employee, updateData);
 
-        // Sync with User status and roles
+        // Sync with User status, roles, email and name
         const userSyncData = {
             isActive: updateData.status ? (updateData.status === "Active") : true,
             isDeptHod: updateData.isDeptHod === 'true' || updateData.isDeptHod === true,
@@ -461,8 +461,19 @@ export const updateEmployee = async (req, res) => {
             isSubjectHod: updateData.isSubjectHod === 'true' || updateData.isSubjectHod === true
         };
         if (updateData.role) userSyncData.role = updateData.role;
+        if (updateData.email) userSyncData.email = updateData.email;
+        if (updateData.name) userSyncData.name = updateData.name;
+        if (updateData.phoneNumber) userSyncData.mobNum = updateData.phoneNumber;
 
-        await User.findByIdAndUpdate(employee.user, userSyncData);
+        try {
+            await User.findByIdAndUpdate(employee.user, userSyncData);
+        } catch (err) {
+            console.error("Error syncing to User record during Employee update:", err);
+            // Handle duplicate email/employee ID in User collection if needed
+            if (err.code === 11000) {
+                return res.status(400).json({ message: "Update failed: Email already exists in User Management" });
+            }
+        }
 
         // Save the employee - this will trigger the pre('save') hook to update currentSalary
         await employee.save();
@@ -727,10 +738,12 @@ export const updateMyProfile = async (req, res) => {
 
         await employee.save();
 
-        // If name was updated in Employee, sync with User
-        if (nameUpdated) {
-            await User.findByIdAndUpdate(userId, { name: employee.name });
+        // Sync with User record
+        const userUpdate = { name: employee.name };
+        if (employee.phoneNumber) {
+            userUpdate.mobNum = employee.phoneNumber;
         }
+        await User.findByIdAndUpdate(userId, userUpdate);
 
         const signedEmployee = await signEmployeeFiles(employee);
 
