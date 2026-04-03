@@ -27,5 +27,7 @@ async function connectDB() {
 connectDB();
 
 
-const user = await Admission.find().populate("student").populate("department").populate("createdBy").populate("course").limit(1);
+const user = await User.find();
 console.log(user);
+
+process.exit(1);

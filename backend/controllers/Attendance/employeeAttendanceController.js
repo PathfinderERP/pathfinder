@@ -1,5 +1,6 @@
 import EmployeeAttendance from "../../models/Attendance/EmployeeAttendance.js";
 import Employee from "../../models/HR/Employee.js";
+import User from "../../models/User.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Holiday from "../../models/Attendance/Holiday.js";
 import { getSignedFileUrl } from "../../utils/r2Upload.js";
@@ -29,24 +30,39 @@ export const markAttendance = async (req, res) => {
         const userRole = req.user.role; // Extract user role
         const today = startOfDay(new Date());
 
-        // 1. Get Employee Details with all centres populated
-        const employee = await Employee.findOne({ user: userId })
-            .populate("primaryCentre")
-            .populate("centres");
+        // 1. Get Employee and User details with all centres populated
+        const [employee, user] = await Promise.all([
+            Employee.findOne({ user: userId }).populate("primaryCentre").populate("centres"),
+            User.findById(userId).populate("centres")
+        ]);
 
         if (!employee) return res.status(404).json({ message: "Employee profile not found" });
 
-        // Collect all potential centres (primary + additional)
+        // Collect all potential centres (User Management + Employee Schema)
         let allCentres = [];
         
         if (userRole === 'superAdmin') {
             // SuperAdmins can check-in from ANY centre in the system
             allCentres = await Centre.find({});
         } else {
-            if (employee.primaryCentre) allCentres.push(employee.primaryCentre);
+            // Add centres from User Management
+            if (user && user.centres && Array.isArray(user.centres)) {
+                user.centres.forEach(c => {
+                    if (c && c._id && !allCentres.find(existing => existing._id.toString() === c._id.toString())) {
+                        allCentres.push(c);
+                    }
+                });
+            }
+
+            // Add centres from Employee Schema
+            if (employee.primaryCentre) {
+                if (!allCentres.find(existing => existing._id.toString() === employee.primaryCentre._id.toString())) {
+                    allCentres.push(employee.primaryCentre);
+                }
+            }
             if (employee.centres && Array.isArray(employee.centres)) {
                 employee.centres.forEach(c => {
-                    if (c && !allCentres.find(existing => existing._id.toString() === c._id.toString())) {
+                    if (c && c._id && !allCentres.find(existing => existing._id.toString() === c._id.toString())) {
                         allCentres.push(c);
                     }
                 });
@@ -211,12 +227,31 @@ export const getMyAttendance = async (req, res) => {
             date: { $gte: start, $lte: end }
         });
 
-        const employee = await Employee.findOne({ user: userId })
-            .populate("primaryCentre", "centreName latitude longitude")
-            .populate("centres", "centreName latitude longitude");
+        const [employee, user] = await Promise.all([
+            Employee.findOne({ user: userId })
+                .populate("primaryCentre", "centreName latitude longitude")
+                .populate("centres", "centreName latitude longitude"),
+            User.findById(userId).populate("centres", "centreName latitude longitude")
+        ]);
 
         if (!employee) {
             return res.status(404).json({ message: "Employee profile not found" });
+        }
+
+        // Collect all assigned centres for representation
+        let allAssignedCentres = [];
+        if (user && user.centres) {
+            allAssignedCentres = [...user.centres];
+        }
+        if (employee.primaryCentre && !allAssignedCentres.find(cen => cen._id.toString() === employee.primaryCentre._id.toString())) {
+            allAssignedCentres.push(employee.primaryCentre);
+        }
+        if (employee.centres) {
+            employee.centres.forEach(cen => {
+                if (cen && cen._id && !allAssignedCentres.find(existing => existing._id.toString() === cen._id.toString())) {
+                    allAssignedCentres.push(cen);
+                }
+            });
         }
 
         // Normalize Working Days (Handle Legacy List format)
@@ -250,7 +285,8 @@ export const getMyAttendance = async (req, res) => {
             workingHours: employee.workingHours, // Added specific working hours
             assignedCentres: {
                 primary: employee.primaryCentre,
-                others: employee.centres || []
+                others: employee.centres || [],
+                all: allAssignedCentres
             }
         });
     } catch (error) {
