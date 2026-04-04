@@ -24,7 +24,7 @@ const MyRegularization = () => {
 
     // Camera and Location States
     const [stream, setStream] = useState(null);
-    const [capturedPhoto, setCapturedPhoto] = useState(null);
+    const [capturedPhotos, setCapturedPhotos] = useState([]);
     const [location, setLocation] = useState({ latitude: null, longitude: null });
     const [locationLoading, setLocationLoading] = useState(false);
     const videoRef = useRef(null);
@@ -105,30 +105,38 @@ const MyRegularization = () => {
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
             canvas.toBlob((blob) => {
-                setCapturedPhoto(blob);
+                setCapturedPhotos(prev => [...prev, blob]);
             }, 'image/jpeg', 0.8);
 
-            stopCamera();
+            // Don't auto stop camera, allow multiple snaps
         }
     };
 
     const handleFileUpload = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            // Validate file type
-            if (!file.type.startsWith('image/')) {
-                toast.error("Please upload an image file");
-                return;
+        const files = Array.from(e.target.files);
+        if (files.length > 0) {
+            const validFiles = files.filter(file => {
+                if (!file.type.startsWith('image/')) {
+                    toast.error(`${file.name} is not an image file`);
+                    return false;
+                }
+                if (file.size > 5 * 1024 * 1024) {
+                    toast.error(`${file.name} exceeds 5MB size limit`);
+                    return false;
+                }
+                return true;
+            });
+
+            if (validFiles.length > 0) {
+                setCapturedPhotos(prev => [...prev, ...validFiles].slice(0, 5)); // limit to 5
+                stopCamera();
+                getLocation();
             }
-            // Validate file size (e.g., 5MB)
-            if (file.size > 5 * 1024 * 1024) {
-                toast.error("File size should be less than 5MB");
-                return;
-            }
-            setCapturedPhoto(file);
-            stopCamera(); // Stop camera if it was running
-            getLocation(); // Still try to get location if possible
         }
+    };
+
+    const removePhoto = (index) => {
+        setCapturedPhotos(prev => prev.filter((_, i) => i !== index));
     };
 
     const getLocation = () => {
@@ -156,8 +164,8 @@ const MyRegularization = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (!capturedPhoto) {
-            toast.error("Please take a geo-tagged photo for verification");
+        if (capturedPhotos.length === 0) {
+            toast.error("Please provide at least one photo for verification");
             return;
         }
 
@@ -176,7 +184,10 @@ const MyRegularization = () => {
             formDataPayload.append('toTime', formData.toTime);
             formDataPayload.append('latitude', location.latitude);
             formDataPayload.append('longitude', location.longitude);
-            formDataPayload.append('photo', capturedPhoto, `attendance_${Date.now()}.jpg`);
+            
+            capturedPhotos.forEach((photo, index) => {
+                formDataPayload.append('photos', photo, `attendance_${Date.now()}_${index}.jpg`);
+            });
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/attendance/regularizations`, {
                 method: "POST",
@@ -189,7 +200,7 @@ const MyRegularization = () => {
             if (response.ok) {
                 toast.success("Request submitted successfully");
                 setFormData({ date: "", type: "On Duty", reason: "", fromTime: "", toTime: "" });
-                setCapturedPhoto(null);
+                setCapturedPhotos([]);
                 setLocation({ latitude: null, longitude: null });
                 setShowForm(false);
                 fetchRequests();
@@ -307,6 +318,42 @@ const MyRegularization = () => {
                                             activeBorder: 'border-rose-500 bg-rose-50 dark:bg-rose-900/10'
                                         },
                                         {
+                                            id: 'Teaching on other Center',
+                                            title: 'Teaching Outside',
+                                            description: 'Teaching on other center',
+                                            icon: FaBriefcase,
+                                            color: 'text-teal-500',
+                                            bg: 'bg-teal-500/10',
+                                            activeBorder: 'border-teal-500 bg-teal-50 dark:bg-teal-900/10'
+                                        },
+                                        {
+                                            id: 'Leafletting',
+                                            title: 'Leafletting',
+                                            description: 'Distribution Event',
+                                            icon: FaMapMarkerAlt,
+                                            color: 'text-indigo-500',
+                                            bg: 'bg-indigo-500/10',
+                                            activeBorder: 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/10'
+                                        },
+                                        {
+                                            id: 'Leafletting on School',
+                                            title: 'School Leafletting',
+                                            description: 'Promotional Visit',
+                                            icon: FaBriefcase,
+                                            color: 'text-cyan-500',
+                                            bg: 'bg-cyan-500/10',
+                                            activeBorder: 'border-cyan-500 bg-cyan-50 dark:bg-cyan-900/10'
+                                        },
+                                        {
+                                            id: 'School Visit',
+                                            title: 'School Visit',
+                                            description: 'Official School Task',
+                                            icon: FaMapMarkerAlt,
+                                            color: 'text-pink-500',
+                                            bg: 'bg-pink-500/10',
+                                            activeBorder: 'border-pink-500 bg-pink-50 dark:bg-pink-900/10'
+                                        },
+                                        {
                                             id: 'Other',
                                             title: 'Other Reason',
                                             description: 'System issue or other',
@@ -378,17 +425,40 @@ const MyRegularization = () => {
                                                 >
                                                     <FaCamera size={24} />
                                                 </button>
-                                            </div>
-                                        ) : capturedPhoto ? (
-                                            <div className="relative w-full h-full">
-                                                <img src={URL.createObjectURL(capturedPhoto)} className="w-full h-full object-cover" alt="Captured" />
                                                 <button
                                                     type="button"
-                                                    onClick={() => { setCapturedPhoto(null); startCamera(); }}
-                                                    className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl"
+                                                    onClick={stopCamera}
+                                                    className="absolute top-4 right-4 bg-red-600 text-white p-2 rounded-full shadow-lg"
                                                 >
-                                                    Retake Photo
+                                                    <FaTimes />
                                                 </button>
+                                            </div>
+                                        ) : capturedPhotos.length > 0 ? (
+                                            <div className="w-full h-full p-4 overflow-y-auto">
+                                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                                    {capturedPhotos.map((photo, idx) => (
+                                                        <div key={idx} className="relative aspect-square">
+                                                            <img src={URL.createObjectURL(photo)} className="w-full h-full object-cover rounded-lg shadow-sm" alt={`Captured ${idx + 1}`} />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removePhoto(idx)}
+                                                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 text-xs hover:bg-red-600 shadow-md"
+                                                            >
+                                                                <FaTimes />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    {capturedPhotos.length < 5 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={startCamera}
+                                                            className="flex flex-col items-center justify-center gap-1 aspect-square bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 hover:border-blue-500 text-gray-400 hover:text-blue-500 transition-colors"
+                                                        >
+                                                            <FaPlus size={20} />
+                                                            <span className="text-[10px] font-bold uppercase">Add Photo</span>
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
                                         ) : (
                                             <button
@@ -406,6 +476,7 @@ const MyRegularization = () => {
                                             ref={fileInputRef}
                                             onChange={handleFileUpload}
                                             accept="image/*"
+                                            multiple
                                             className="hidden"
                                         />
                                     </div>
@@ -528,6 +599,19 @@ const MyRegularization = () => {
                                             {req.reviewRemark && (
                                                 <div className={`mt-2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                                     <span className={`font-bold uppercase ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Admin Remark:</span> {req.reviewRemark}
+                                                </div>
+                                            )}
+                                            {req.photos && req.photos.length > 0 && (
+                                                <div className="flex gap-2 mt-3 flex-wrap">
+                                                    {req.photos.map((photo, idx) => (
+                                                        <img
+                                                            key={idx}
+                                                            src={photo}
+                                                            alt={`Proof ${idx + 1}`}
+                                                            className="w-14 h-14 rounded-lg object-cover border border-gray-200 dark:border-gray-700 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all shadow-sm"
+                                                            onClick={() => window.open(photo, '_blank')}
+                                                        />
+                                                    ))}
                                                 </div>
                                             )}
                                         </div>

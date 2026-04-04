@@ -21,13 +21,13 @@ const GENERATE_BILL = false; // Set to true if payment records/bills are needed
  */
 const student_data_list = [
     {
-        enroll: "PATH25002882",
-        name: "AVIKSHIIT MUKHERJEE",
-        email: "sayantanm1978@gmail.com",
-        phone: "9289739253",
+        enroll: "PATH25024281",
+        name: "MAHENDRA CHOWDHURY",
+        email: "barunchowdhory@gmail.com",
+        phone: "9163062318",
         centre: "HAZRA H.O",
-        courseName: "FOUNDATION CLASS VIII Online (NS) 2025-2026",
-        session: "2025-2026",
+        courseName: "Madhyamik CRP Class X Tuition Fee For All 7 Sub. 2026-2027",
+        session: "2026-2027",
         totalFees: 0,
         paid: 0,
         counselledBy: "Munmun Baidya"

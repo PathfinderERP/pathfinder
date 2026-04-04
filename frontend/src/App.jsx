@@ -111,7 +111,8 @@ import HolidayList from "./pages/HR/Attendance/HolidayList";
 import LeaveType from "./pages/HR/Attendance/LeaveType";
 import LeaveManagement from "./pages/HR/Attendance/LeaveManagement";
 import RegularizeTable from "./pages/HR/Attendance/RegularizeTable";
-import MyRegularization from "./pages/HR/Attendance/MyRegularization";
+import MyRegularization from './pages/HR/Attendance/MyRegularization';
+import TeamRegularization from './pages/HR/Attendance/TeamRegularization';
 import LeaveRequest from "./pages/HR/Attendance/LeaveRequest";
 import EmployeeDetails from "./pages/HR/Employee/EmployeeDetails";
 import TrainingList from "./pages/HR/TrainingList";
@@ -230,6 +231,7 @@ function App() {
         <Route path="/hr/attendance/leave-request" element={<ProtectedRoute><LeaveRequest /></ProtectedRoute>} />
         <Route path="/hr/attendance/regularize-table" element={<ProtectedRoute><RegularizeTable /></ProtectedRoute>} />
         <Route path="/employee/regularization" element={<ProtectedRoute><MyRegularization /></ProtectedRoute>} />
+        <Route path="/employee/team-regularization" element={<ProtectedRoute><TeamRegularization /></ProtectedRoute>} />
         <Route path="/hr/attendance/employee-logs" element={<ProtectedRoute><EmployeesAttendance /></ProtectedRoute>} />
         <Route path="/hr/training" element={<ProtectedRoute><TrainingList /></ProtectedRoute>} />
         <Route path="/employee/training" element={<ProtectedRoute><TrainingCenter /></ProtectedRoute>} />

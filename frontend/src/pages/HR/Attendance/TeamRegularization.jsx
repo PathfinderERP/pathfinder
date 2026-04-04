@@ -3,7 +3,7 @@ import Layout from "../../../components/Layout";
 import { FaCheck, FaTimes, FaSpinner, FaHistory, FaSearch, FaUserEdit, FaPlus, FaCamera, FaMapMarkedAlt, FaExternalLinkAlt } from "react-icons/fa";
 import { toast } from "react-toastify";
 
-const RegularizeTable = () => {
+const TeamRegularization = () => {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({ status: "" });
@@ -16,13 +16,14 @@ const RegularizeTable = () => {
 
     useEffect(() => {
         fetchRequests();
-    }, []);
+    }, [filters.status]);
 
     const fetchRequests = async () => {
         try {
             setLoading(true);
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/attendance/regularizations?status=${filters.status}`, {
+            // Use managerView=true to fetch only reportees
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/attendance/regularizations?status=${filters.status}&managerView=true`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (response.ok) {
@@ -85,12 +86,12 @@ const RegularizeTable = () => {
     };
 
     return (
-        <Layout activePage="HR & Manpower">
+        <Layout activePage="Employee Center">
             <div className="p-6 space-y-6 animate-fade-in">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Attendance Regularization</h1>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Approve or reject employee attendance correction requests</p>
+                        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Team Regularization</h1>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Approve or edit attendance requests for your reporting employees</p>
                     </div>
                 </div>
 
@@ -277,7 +278,7 @@ const RegularizeTable = () => {
                                         </tr>
                                     ))
                                 ) : (
-                                    <tr><td colSpan="7" className="px-6 py-10 text-center text-gray-400 text-sm italic">No regularization requests found</td></tr>
+                                    <tr><td colSpan="10" className="px-6 py-10 text-center text-gray-400 text-sm italic">No reporting employee regularization requests found</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -401,8 +402,9 @@ const RegularizeTable = () => {
                                     <input type="time" value={reviewData.toTime} onChange={(e) => setReviewData({ ...reviewData, toTime: e.target.value })} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800 border dark:border-gray-700 rounded-xl outline-none dark:text-white text-sm" />
                                 </div>
                             </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Admin Remark</label>
+
+                            <div className="space-y-1.5 pt-2">
+                                <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Manager Remark</label>
                                 <textarea rows="3" value={reviewData.remark} onChange={(e) => setReviewData({ ...reviewData, remark: e.target.value })} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border dark:border-gray-700 rounded-xl outline-none dark:text-white text-sm resize-none" placeholder="Reason for approval/rejection..." />
                             </div>
                             <div className="pt-2 flex gap-3">
@@ -459,4 +461,4 @@ const RegularizeTable = () => {
     );
 };
 
-export default RegularizeTable;
+export default TeamRegularization;

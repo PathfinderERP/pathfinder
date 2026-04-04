@@ -17,9 +17,10 @@ export const createRegularization = async (req, res) => {
 
         const regularizationData = { ...req.body, employeeId: empId };
 
-        // Handle Photo Upload
-        if (req.file) {
-            regularizationData.photo = await uploadToR2(req.file, 'regularization/photos');
+        // Handle Multiple Photo Uploads
+        if (req.files && req.files.length > 0) {
+            const photoPromises = req.files.map(file => uploadToR2(file, 'regularization/photos'));
+            regularizationData.photos = await Promise.all(photoPromises);
         }
 
         const regularization = new Regularization(regularizationData);
@@ -33,24 +34,60 @@ export const createRegularization = async (req, res) => {
 
 export const getRegularizations = async (req, res) => {
     try {
-        const { employeeId, status } = req.query;
+        const { employeeId, status, managerView } = req.query;
         let query = {};
-        if (employeeId) query.employeeId = employeeId;
+        
+        if (managerView === 'true') {
+            const managerEmployee = await Employee.findOne({ user: req.user.id });
+            if (!managerEmployee) {
+                return res.status(200).json([]);
+            }
+            const reportees = await Employee.find({ manager: managerEmployee._id }).select('_id');
+            const reporteeIds = reportees.map(e => e._id);
+            query.employeeId = { $in: reporteeIds };
+        } else if (employeeId) {
+            query.employeeId = employeeId;
+        }
+
         if (status) query.status = status;
 
         const regularizations = await Regularization.find(query)
-            .populate('employeeId', 'name employeeId profileImage')
+            .populate({
+                path: 'employeeId',
+                select: 'name employeeId profileImage primaryCentre centerArray centres',
+                populate: { path: 'primaryCentre' }
+            })
             .sort({ createdAt: -1 });
 
-        // Sign photo URLs
+        // Sign photo URLs (Array)
         const signedRegularizations = await Promise.all(regularizations.map(async (reg) => {
             const regObj = reg.toObject();
-            if (regObj.photo) {
-                regObj.photo = await getSignedFileUrl(regObj.photo);
+            if (regObj.photos && regObj.photos.length > 0) {
+                const signedPhotos = await Promise.all(regObj.photos.map(photo => getSignedFileUrl(photo)));
+                regObj.photos = signedPhotos;
             }
             if (regObj.employeeId && regObj.employeeId.profileImage) {
                 regObj.employeeId.profileImage = await getSignedFileUrl(regObj.employeeId.profileImage);
             }
+
+            // Fetch existing attendance for this specific day
+            const startOfRegDay = new Date(regObj.date);
+            startOfRegDay.setHours(0, 0, 0, 0);
+            const endOfRegDay = new Date(regObj.date);
+            endOfRegDay.setHours(23, 59, 59, 999);
+
+            const existingAttendance = await EmployeeAttendance.findOne({
+                employeeId: regObj.employeeId._id,
+                date: {
+                    $gte: startOfRegDay,
+                    $lte: endOfRegDay
+                }
+            }).select('checkIn checkOut workingHours status');
+
+            if (existingAttendance) {
+                regObj.existingAttendance = existingAttendance;
+            }
+
             return regObj;
         }));
 

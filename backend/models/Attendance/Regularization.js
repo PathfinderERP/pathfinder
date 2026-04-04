@@ -28,7 +28,7 @@ const regularizationSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['On Duty', 'Missed Punch', 'Work From Home', 'Other'],
+        enum: ['Online Class', 'On Duty', 'Missed Punch', 'Work From Home', 'Late / Early', 'Teaching on other Center', 'Leafletting', 'Leafletting on School', 'School Visit', 'Other'],
         default: 'On Duty'
     },
     appliedAt: {
@@ -43,9 +43,9 @@ const regularizationSchema = new mongoose.Schema({
         type: String
     },
     // New fields for geo-tagged photo
-    photo: {
+    photos: [{
         type: String
-    },
+    }],
     latitude: {
         type: Number
     },

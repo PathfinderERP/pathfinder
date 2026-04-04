@@ -50,7 +50,7 @@ router.patch('/leave-requests/:id/status', updateLeaveRequestStatus);
 router.delete('/leave-requests/:id', deleteLeaveRequest);
 
 // Regularization Routes
-router.post('/regularizations', upload.single('photo'), createRegularization);
+router.post('/regularizations', upload.array('photos', 5), createRegularization);
 router.get('/regularizations', getRegularizations);
 router.patch('/regularizations/:id/status', updateRegularizationStatus);
 router.delete('/regularizations/:id', deleteRegularization);

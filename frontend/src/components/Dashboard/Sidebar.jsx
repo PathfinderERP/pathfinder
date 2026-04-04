@@ -172,6 +172,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 // { name: "Holiday Calender", path: "/hr/attendance/holiday-management", icon: <FaGlassCheers />, permissionSection: "holidayCalendar" },
                 { name: "Leave Management", path: "/hr/attendance/leave-request", icon: <FaCalendarTimes />, permissionSection: "leaveManagement" },
                 { name: "Regularize Table", path: "/employee/regularization", icon: <FaHandshake />, permissionSection: "regularization" },
+                { name: "Team Regularization", path: "/employee/team-regularization", icon: <FaUsers />, permissionSection: "regularization" },
                 { name: "My Profile", path: "/employee/details", icon: <FaIdCard />, permissionSection: "profile" },
                 { name: "Document Center", path: "/employee/documents", icon: <FaRegFileAlt />, permissionSection: "documents" },
                 { name: "Training Center", path: "/employee/training", icon: <FaChalkboardTeacher />, permissionSection: "training" },
