@@ -22,12 +22,14 @@ const SectionAllotmentContent = () => {
     const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
     const [classes, setClasses] = useState([]);
+    const [departments, setDepartments] = useState([]);
 
     // Filter States
     const [filters, setFilters] = useState({
         centre: [],
         course: [],
-        class: []
+        class: [],
+        department: []
     });
 
     // Form Data for Modal
@@ -98,10 +100,11 @@ const SectionAllotmentContent = () => {
             const token = localStorage.getItem("token");
             const headers = { "Authorization": `Bearer ${token}` };
 
-            const [centreRes, courseRes, classRes] = await Promise.all([
+            const [centreRes, courseRes, classRes, deptRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/course`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/class`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/class`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers })
             ]);
 
             if (centreRes.ok) {
@@ -117,6 +120,7 @@ const SectionAllotmentContent = () => {
             }
             if (courseRes.ok) setCourses(await courseRes.json());
             if (classRes.ok) setClasses(await classRes.json());
+            if (deptRes.ok) setDepartments(await deptRes.json());
 
         } catch (err) {
             console.error("Error fetching dropdowns", err);
@@ -133,6 +137,7 @@ const SectionAllotmentContent = () => {
             if (filters.centre.length) params.append('centre', filters.centre.map(c => c.value).join(','));
             if (filters.course.length) params.append('course', filters.course.map(c => c.value).join(','));
             if (filters.class.length) params.append('class', filters.class.map(c => c.value).join(','));
+            if (filters.department.length) params.append('department', filters.department.map(c => c.value).join(','));
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/admission/section-allotment?${params.toString()}`, {
                 headers: { "Authorization": `Bearer ${token}` }
@@ -290,7 +295,7 @@ const SectionAllotmentContent = () => {
                         <h3 className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Segment Selection Engine</h3>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
                         <div className="space-y-2">
                             <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Master Search</label>
                             <div className="relative">
@@ -334,6 +339,17 @@ const SectionAllotmentContent = () => {
                                 value={filters.class}
                                 onChange={(selected) => setFilters({ ...filters, class: selected })}
                                 placeholder="ALL LEVELS"
+                                theme={isDarkMode ? "dark" : "light"}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Department</label>
+                            <CustomMultiSelect
+                                options={departments.map(d => ({ value: d._id, label: d.departmentName }))}
+                                value={filters.department}
+                                onChange={(selected) => setFilters({ ...filters, department: selected })}
+                                placeholder="ALL DEPARTMENTS"
                                 theme={isDarkMode ? "dark" : "light"}
                             />
                         </div>

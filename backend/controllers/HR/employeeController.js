@@ -412,7 +412,7 @@ export const updateEmployee = async (req, res) => {
         const updateData = { ...req.body };
 
         // Sanitization: Remove fields and strings that cause issues
-        const forbiddenFields = ["currentSalary", "__v", "_id", "employeeId", "user", "createdAt", "updatedAt"];
+        const forbiddenFields = ["currentSalary", "__v", "_id", "employeeId", "user", "createdAt", "updatedAt", "createdBy", "updatedBy", "deactivatedBy", "deactivatedAt"];
         forbiddenFields.forEach(field => delete updateData[field]);
 
         Object.keys(updateData).forEach(key => {

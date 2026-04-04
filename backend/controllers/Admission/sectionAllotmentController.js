@@ -5,7 +5,7 @@ import mongoose from "mongoose";
 // Fetch students for section allotment (with filters and RBAC)
 export const getStudentSections = async (req, res) => {
     try {
-        const { search, centre, course, class: className, examTag } = req.query;
+        const { search, centre, course, class: className, examTag, department } = req.query;
         const user = req.user;
 
         // Base Query
@@ -65,6 +65,12 @@ export const getStudentSections = async (req, res) => {
                 matchQuery.examTag = { $in: examTagIds.map(id => new mongoose.Types.ObjectId(id)) };
             }
         }
+        if (department) {
+            const deptIds = department.split(',').filter(id => id.length === 24);
+            if (deptIds.length > 0) {
+                matchQuery.department = { $in: deptIds.map(id => new mongoose.Types.ObjectId(id)) };
+            }
+        }
 
         // 2. Aggregation Pipeline
         const pipeline = [
@@ -101,6 +107,16 @@ export const getStudentSections = async (req, res) => {
                 }
             },
             { $unwind: { path: "$class", preserveNullAndEmptyArrays: true } },
+
+            {
+                $lookup: {
+                    from: "departments",
+                    localField: "department",
+                    foreignField: "_id",
+                    as: "department"
+                }
+            },
+            { $unwind: { path: "$department", preserveNullAndEmptyArrays: true } },
 
             {
                 $lookup: {
