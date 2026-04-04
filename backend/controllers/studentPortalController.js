@@ -144,21 +144,34 @@ export const getClasses = async (req, res) => {
 // Get Attendance
 export const getAttendance = async (req, res) => {
     try {
-        const studentId = req.user.id;
+        let studentId = req.user.id;
+        
+        // If an admin/teacher requests a specific student's attendance
+        const userRole = req.user.role?.toLowerCase() || "";
+        if (req.query.studentId && ["admin", "superadmin", "teacher", "hod"].includes(userRole)) {
+            studentId = req.query.studentId;
+        }
 
         const attendance = await StudentAttendance.find({ studentId })
             .populate({
                 path: "classScheduleId",
-                select: "date startTime endTime className subjectId",
-                populate: { path: "subjectId", select: "subjectName" }
+                select: "date startTime endTime className classMode subjectId teacherId batchId status",
+                populate: [
+                    { path: "subjectId", select: "subjectName" },
+                    { path: "teacherId", select: "name email designation" }
+                ]
             })
             .sort({ date: -1 });
 
-        res.json(attendance);
+        res.json({
+            success: true,
+            count: attendance.length,
+            data: attendance
+        });
 
     } catch (error) {
         console.error("Get Attendance Error:", error);
-        res.status(500).json({ message: "Server error" });
+        res.status(500).json({ success: false, message: "Server error" });
     }
 };
 
