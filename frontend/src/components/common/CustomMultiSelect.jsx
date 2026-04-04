@@ -3,7 +3,7 @@ import Select from 'react-select';
 
 import { useTheme } from '../../context/ThemeContext';
 
-const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, theme: propTheme }) => {
+const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, theme: propTheme, isDarkMode }) => {
     // Try to get theme from context, but don't crash if context is missing
     let contextTheme = 'light';
     try {
@@ -13,8 +13,8 @@ const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, 
         // Context not found, default to light
     }
 
-    // Use prop theme if provided, otherwise context theme
-    const activeTheme = propTheme || contextTheme;
+    // Use prop isDarkMode, prop theme if provided, otherwise context theme
+    const activeTheme = propTheme || (isDarkMode !== undefined ? (isDarkMode ? 'dark' : 'light') : contextTheme);
     
     // Memoize styles to prevent unnecessary re-renders but update on theme change
     const styles = React.useMemo(() => {
@@ -23,7 +23,7 @@ const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, 
             control: (provided, state) => ({
                 ...provided,
                 backgroundColor: isDark ? '#131619' : '#ffffff',
-                borderColor: state.isFocused ? '#06b6d4' : (isDark ? '#374151' : '#e5e7eb'),
+                borderColor: state.isFocused ? '#06b6d4' : (isDark ? '#374151' : '#d1d5db'),
                 color: isDark ? 'white' : '#111827',
                 boxShadow: state.isFocused ? '0 0 0 1px #06b6d4' : 'none',
                 '&:hover': {
@@ -63,19 +63,21 @@ const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, 
             }),
             multiValue: (provided) => ({
                 ...provided,
-                backgroundColor: isDark ? 'rgba(6, 182, 212, 0.2)' : '#e0f2fe',
+                backgroundColor: isDark ? 'rgba(6, 182, 212, 0.2)' : '#dcfafe',
                 borderRadius: '0.25rem',
+                border: isDark ? 'none' : '1px solid #06b6d4'
             }),
             multiValueLabel: (provided) => ({
                 ...provided,
                 color: isDark ? '#22d3ee' : '#0891b2',
+                fontWeight: '600'
             }),
             multiValueRemove: (provided) => ({
                 ...provided,
                 color: isDark ? '#22d3ee' : '#0891b2',
                 ':hover': {
                     backgroundColor: '#06b6d4',
-                    color: 'black',
+                    color: isDark ? 'black' : 'white',
                 },
             }),
             input: (provided) => ({
@@ -84,7 +86,7 @@ const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, 
             }),
             placeholder: (provided) => ({
                 ...provided,
-                color: '#9ca3af'
+                color: isDark ? '#9ca3af' : '#6b7280'
             })
         };
     }, [activeTheme]);

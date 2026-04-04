@@ -149,7 +149,9 @@ export const createEmployee = async (req, res) => {
                 centres: employeeData.primaryCentre ? [employeeData.primaryCentre] : [],
                 permissions: [],
                 granularPermissions: {}, // Default perms handled by model pre-save hook
-                isActive: employeeData.status ? (employeeData.status === "Active") : true
+                isActive: employeeData.status ? (employeeData.status === "Active") : true,
+                createdBy: req.user.id,
+                updatedBy: req.user.id
             });
             await user.save();
         }
@@ -320,9 +322,17 @@ export const getEmployees = async (req, res) => {
             .populate("manager", "name employeeId")
             .populate({
                 path: "user",
-                select: "role designation teacherDepartment subject centres",
-                populate: { path: "centres", select: "centreName" }
+                select: "role designation teacherDepartment subject centres createdBy updatedBy deactivatedBy deactivatedAt",
+                populate: [
+                    { path: "centres", select: "centreName" },
+                    { path: "createdBy", select: "name" },
+                    { path: "updatedBy", select: "name" },
+                    { path: "deactivatedBy", select: "name" }
+                ]
             })
+            .populate("createdBy", "name")
+            .populate("updatedBy", "name")
+            .populate("deactivatedBy", "name")
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(parseInt(limit));
@@ -355,7 +365,10 @@ export const getEmployeeById = async (req, res) => {
             .populate("centres", "centreName")
             .populate("department", "departmentName")
             .populate("designation", "name")
-            .populate("manager", "name employeeId");
+            .populate("manager", "name employeeId")
+            .populate("createdBy", "name")
+            .populate("updatedBy", "name")
+            .populate("deactivatedBy", "name");
 
         if (!employee) {
             return res.status(404).json({ message: "Employee not found" });
@@ -458,8 +471,23 @@ export const updateEmployee = async (req, res) => {
             isActive: updateData.status ? (updateData.status === "Active") : true,
             isDeptHod: updateData.isDeptHod === 'true' || updateData.isDeptHod === true,
             isBoardHod: updateData.isBoardHod === 'true' || updateData.isBoardHod === true,
-            isSubjectHod: updateData.isSubjectHod === 'true' || updateData.isSubjectHod === true
+            isSubjectHod: updateData.isSubjectHod === 'true' || updateData.isSubjectHod === true,
+            updatedBy: req.user.id
         };
+
+        // Audit deactivation tracking
+        if (updateData.status === "Inactive" || updateData.status === "Resigned" || updateData.status === "Terminated") {
+            employee.deactivatedBy = req.user.id;
+            employee.deactivatedAt = new Date();
+            userSyncData.deactivatedBy = req.user.id;
+            userSyncData.deactivatedAt = new Date();
+        } else if (updateData.status === "Active") {
+            employee.deactivatedBy = null;
+            employee.deactivatedAt = null;
+            userSyncData.deactivatedBy = null;
+            userSyncData.deactivatedAt = null;
+        }
+
         if (updateData.role) userSyncData.role = updateData.role;
         if (updateData.email) userSyncData.email = updateData.email;
         if (updateData.name) userSyncData.name = updateData.name;
@@ -484,7 +512,10 @@ export const updateEmployee = async (req, res) => {
             { path: "centres", select: "centreName" },
             { path: "department", select: "departmentName" },
             { path: "designation", select: "name" },
-            { path: "manager", select: "name employeeId" }
+            { path: "manager", select: "name employeeId" },
+            { path: "createdBy", select: "name" },
+            { path: "updatedBy", select: "name" },
+            { path: "deactivatedBy", select: "name" }
         ]);
 
         const signedEmployee = await signEmployeeFiles(updatedEmployee);

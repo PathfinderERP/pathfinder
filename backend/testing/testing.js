@@ -27,7 +27,27 @@ async function connectDB() {
 connectDB();
 
 
-const user = await User.find();
+const user = await User.aggregate([
+    {
+        $match: {
+            $project: {
+                "name": 1,
+                "email": 1,
+                "mobNum": 1,
+                "role": 1,
+                "centres": 1,
+                "permissions": 1,
+                "granularPermissions": 1,
+                "canEditUsers": 1,
+                "canDeleteUsers": 1,
+                "isActive": 1,
+                "assignedScript": 1,
+                "createdAt": 1,
+                "updatedAt": 1,
+            }
+        }
+    }
+]);
 console.log(user);
 
 process.exit(1);

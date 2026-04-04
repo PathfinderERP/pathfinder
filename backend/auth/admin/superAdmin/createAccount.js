@@ -45,7 +45,9 @@ export async function createAccountBySuperAdmin(req, res) {
             granularPermissions: granularPermissions || {}, // Add granular permissions
             canEditUsers: canEditUsers || false,
             canDeleteUsers: canDeleteUsers || false,
-            assignedScript: role === 'telecaller' ? assignedScript : undefined
+            assignedScript: role === 'telecaller' ? assignedScript : undefined,
+            createdBy: req.user.id,
+            updatedBy: req.user.id
         });
 
         await newUser.save();

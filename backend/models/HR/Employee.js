@@ -251,6 +251,14 @@ const employeeSchema = new mongoose.Schema({
     updatedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"
+    },
+    deactivatedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+    },
+    deactivatedAt: {
+        type: Date,
+        default: null
     }
 }, {
     timestamps: true

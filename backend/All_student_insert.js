@@ -20,23 +20,18 @@ const GENERATE_BILL = false; // Set to true if payment records/bills are needed
  * PASTE STUDENT DATA HERE
  */
 const student_data_list = [
-
-
-
-
     {
-        enroll: "PATH24000615",
-        name: "Manaswini Mukharjee",
-        email: "swastik@gmail.com",
-        phone: "9432145455",
+        enroll: "PATH25002882",
+        name: "AVIKSHIIT MUKHERJEE",
+        email: "sayantanm1978@gmail.com",
+        phone: "9289739253",
         centre: "HAZRA H.O",
-        courseName: "CBSE CLASS X ALL SUBJECT ",
-        session: "2026-2027",
+        courseName: "FOUNDATION CLASS VIII Online (NS) 2025-2026",
+        session: "2025-2026",
         totalFees: 0,
         paid: 0,
-        counselledBy: "Direct Admission"
+        counselledBy: "Munmun Baidya"
     }
-
 ];
 
 async function insertAllStudents() {

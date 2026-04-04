@@ -15,6 +15,10 @@ export const requireAuth = async (req, res, next) => {
         }
 
         const token = authHeader.split(" ")[1];
+        if (!token || token === "null" || token === "undefined") {
+            return res.status(401).json({ message: "No token provided" });
+        }
+
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         const user = await User.findById(decoded.id);
@@ -50,6 +54,10 @@ export const requirePermission = (requiredPermission) => {
             }
 
             const token = authHeader.split(" ")[1];
+            if (!token || token === "null" || token === "undefined") {
+                return res.status(401).json({ message: "No token provided" });
+            }
+
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
             const user = await User.findById(decoded.id);
@@ -98,6 +106,10 @@ export const requireAnyPermission = (requiredPermissions) => {
             }
 
             const token = authHeader.split(" ")[1];
+            if (!token || token === "null" || token === "undefined") {
+                return res.status(401).json({ message: "No token provided" });
+            }
+
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
             const user = await User.findById(decoded.id);
@@ -150,6 +162,10 @@ export const requireGranularPermission = (module, section, action) => {
             }
 
             const token = authHeader.split(" ")[1];
+            if (!token || token === "null" || token === "undefined") {
+                return res.status(401).json({ message: "No token provided" });
+            }
+
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
             const user = await User.findById(decoded.id);
@@ -209,6 +225,10 @@ export const requireAnyGranularPermission = (requiredPermissions) => {
             }
 
             const token = authHeader.split(" ")[1];
+            if (!token || token === "null" || token === "undefined") {
+                return res.status(401).json({ message: "No token provided" });
+            }
+
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
             const user = await User.findById(decoded.id);

@@ -127,6 +127,23 @@ const userSchema = new mongoose.Schema({
     lastSocialVisit: {
         type: Date,
         default: null
+    },
+    // Audit Fields
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    updatedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    deactivatedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    deactivatedAt: {
+        type: Date,
+        default: null
     }
 }, { timestamps: true });
 

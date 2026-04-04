@@ -773,6 +773,38 @@ const UserManagementContent = () => {
                                         })()
                                     )}
                                 </div>
+
+                                {/* Audit Information Section */}
+                                <div className={`flex flex-col gap-1.5 pt-4 mt-4 border-t border-dashed ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} text-[10px] font-bold tracking-tight`}>
+                                    {user.createdBy ? (
+                                        <div className="flex items-center justify-between">
+                                            <span className={isDarkMode ? 'text-gray-200' : 'text-gray-800'}>
+                                                {user.createdBy.name} • <span className={isDarkMode ? 'text-gray-500' : 'text-gray-400'}>{new Date(user.createdAt).toLocaleDateString()}</span>
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center justify-between">
+                                            <span className={`${isDarkMode ? 'text-gray-600' : 'text-gray-400'} uppercase text-[8px]`}>Created At</span>
+                                            <span className={isDarkMode ? 'text-gray-500' : 'text-gray-400'}>
+                                                {new Date(user.createdAt).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                    )}
+                                    {user.updatedBy && (
+                                        <div className="flex items-center justify-between">
+                                            <span className={isDarkMode ? 'text-gray-200' : 'text-gray-800'}>
+                                                {user.updatedBy.name} • <span className={isDarkMode ? 'text-gray-500' : 'text-gray-400'}>{new Date(user.updatedAt).toLocaleDateString()}</span>
+                                            </span>
+                                        </div>
+                                    )}
+                                    {user.deactivatedBy && (
+                                        <div className="flex items-center justify-between text-red-500/80">
+                                            <span className="text-red-500 font-bold">
+                                                {user.deactivatedBy.name} • <span>{new Date(user.deactivatedAt).toLocaleDateString()}</span>
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     ))}

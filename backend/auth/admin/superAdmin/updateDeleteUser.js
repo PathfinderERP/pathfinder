@@ -56,8 +56,26 @@ export const updateUserBySuperAdmin = async (req, res) => {
         
         if (isActive !== undefined) {
             user.isActive = isActive;
+            
+            // Audit deactivation
+            if (isActive === false) {
+                user.deactivatedBy = req.user.id;
+                user.deactivatedAt = new Date();
+                employeeSyncData.deactivatedBy = req.user.id;
+                employeeSyncData.deactivatedAt = new Date();
+            } else {
+                // Clear deactivation fields if reactivating
+                user.deactivatedBy = null;
+                user.deactivatedAt = null;
+                employeeSyncData.deactivatedBy = null;
+                employeeSyncData.deactivatedAt = null;
+            }
+
             employeeSyncData.status = isActive ? "Active" : "Inactive";
         }
+
+        user.updatedBy = req.user.id;
+        employeeSyncData.updatedBy = req.user.id;
 
         // Sync with Employee if there are changes
         if (Object.keys(employeeSyncData).length > 0) {
@@ -87,8 +105,13 @@ export const updateUserBySuperAdmin = async (req, res) => {
 
         await user.save();
 
-        // Populate centres for response
-        await user.populate("centres", "centreName enterCode");
+        // Populate audit fields for response
+        await user.populate([
+            { path: "centres", select: "centreName enterCode" },
+            { path: "createdBy", select: "name" },
+            { path: "updatedBy", select: "name" },
+            { path: "deactivatedBy", select: "name" }
+        ]);
 
         res.status(200).json({
             message: "User updated successfully",
@@ -104,7 +127,11 @@ export const updateUserBySuperAdmin = async (req, res) => {
                 granularPermissions: user.granularPermissions,
                 canEditUsers: user.canEditUsers,
                 canDeleteUsers: user.canDeleteUsers,
-                isActive: user.isActive
+                isActive: user.isActive,
+                createdBy: user.createdBy,
+                updatedBy: user.updatedBy,
+                deactivatedBy: user.deactivatedBy,
+                deactivatedAt: user.deactivatedAt
             }
         });
 
@@ -132,12 +159,32 @@ export const toggleUserStatus = async (req, res) => {
         }
 
         user.isActive = !user.isActive;
+        user.updatedBy = req.user.id;
+
+        // Audit deactivation
+        const syncData = { 
+            status: user.isActive ? "Active" : "Inactive",
+            updatedBy: req.user.id
+        };
+
+        if (user.isActive === false) {
+            user.deactivatedBy = req.user.id;
+            user.deactivatedAt = new Date();
+            syncData.deactivatedBy = req.user.id;
+            syncData.deactivatedAt = new Date();
+        } else {
+            user.deactivatedBy = null;
+            user.deactivatedAt = null;
+            syncData.deactivatedBy = null;
+            syncData.deactivatedAt = null;
+        }
+
         await user.save();
 
         // Sync with Employee status
         await Employee.findOneAndUpdate(
             { user: user._id },
-            { status: user.isActive ? "Active" : "Inactive" }
+            { $set: syncData }
         );
 
         res.status(200).json({

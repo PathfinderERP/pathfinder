@@ -521,7 +521,7 @@ const SocialFeed = () => {
                                         <span className="text-[10px] font-bold hidden xs:inline">Emoji</span>
                                     </button>
                                     {showEmojiPicker && (
-                                        <div className="absolute top-10 left-0 z-50 shadow-2xl border border-gray-800 rounded-xl overflow-hidden scale-90 sm:scale-100 origin-top-left">
+                                        <div className="absolute top-12 left-0 z-[100] shadow-2xl scale-90 sm:scale-100 origin-top-left">
                                             <EmojiPicker
                                                 theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
                                                 onEmojiClick={(emojiData) => {
@@ -541,10 +541,10 @@ const SocialFeed = () => {
                                                         setContent(prev => prev + emojiData.emoji);
                                                     }
                                                 }}
-                                                lazyLoadEmojis={true}
+                                                emojiStyle="native"
                                                 skinTonesDisabled
                                                 searchDisabled={window.innerWidth < 640}
-                                                width={300}
+                                                width={320}
                                                 height={400}
                                             />
                                         </div>

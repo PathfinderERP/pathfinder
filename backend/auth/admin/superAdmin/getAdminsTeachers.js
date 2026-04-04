@@ -23,7 +23,11 @@ export const getAllAdminsBySuperAdmin = async (req, res) => {
       }
     }
 
-    const admins = await User.find(query).populate("centres", "centreName enterCode");
+    const admins = await User.find(query)
+      .populate("centres", "centreName enterCode")
+      .populate("createdBy", "name")
+      .populate("updatedBy", "name")
+      .populate("deactivatedBy", "name");
 
     res.status(200).json({
       message: "List of admin users based on access",
@@ -60,7 +64,11 @@ export const getAllTeachersBySuperAdmin = async (req, res) => {
       }
     }
 
-    const teachers = await User.find(query).populate("centres", "centreName enterCode");
+    const teachers = await User.find(query)
+      .populate("centres", "centreName enterCode")
+      .populate("createdBy", "name")
+      .populate("updatedBy", "name")
+      .populate("deactivatedBy", "name");
 
     res.status(200).json({
       message: "List of all teachers users",
@@ -103,6 +111,9 @@ export const getAllUsersBySuperAdmin = async (req, res) => {
     const users = await User.find(query)
       .populate("centres", "centreName enterCode")
       .populate("assignedScript", "scriptName scriptContent")
+      .populate("createdBy", "name")
+      .populate("updatedBy", "name")
+      .populate("deactivatedBy", "name")
       .select("-password")
       .lean();
 
