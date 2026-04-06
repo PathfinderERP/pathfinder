@@ -7,7 +7,8 @@ import {
     collectBoardInstallment,
     collectBoardExamFee,
     collectBoardAdditionalFee,
-    collectNcrpFees
+    collectNcrpFees,
+    getBoardAdmissionAnalysis
 } from "../../controllers/Admission/BoardCourseAdmissionController.js";
 import {
     createBoardCourseCounselling,
@@ -19,6 +20,7 @@ const router = express.Router();
 
 router.post("/create", requireGranularPermission("admissions", "boardCourseAdmission", "create"), createBoardAdmission);
 router.get("/all", requireGranularPermission("admissions", "boardCourseAdmission", "view"), getBoardAdmissions);
+router.get("/analysis", requireGranularPermission("admissions", "boardCourseAdmission", "view"), getBoardAdmissionAnalysis);
 router.get("/:id", requireGranularPermission("admissions", "boardCourseAdmission", "view"), getBoardAdmissionById);
 router.put("/update-subjects/:id", requireGranularPermission("admissions", "boardCourseAdmission", "edit"), updateBoardSubjects);
 router.post("/collect-installment/:id", requireGranularPermission("admissions", "boardCourseAdmission", "edit"), collectBoardInstallment);

@@ -432,6 +432,7 @@ const Classes = () => {
             coordinatorId: cls.coordinatorId?._id || cls.coordinatorId,
             courseId: cls.courseId?._id || cls.courseId,
             examId: cls.examId?._id || cls.examId,
+            acadClassId: cls.acadClassId?._id || cls.acadClassId,
             date: cls.date ? new Date(cls.date).toISOString().split('T')[0] : ""
         });
         setShowEditModal(true);
@@ -740,6 +741,8 @@ const Classes = () => {
                                     <th className="p-4">Class Mode</th>
                                     <th className="p-4">Center</th>
                                     <th className="p-4">Subject</th>
+                                    <th className="p-4">Chapter</th>
+                                    <th className="p-4">Topic</th>
                                     <th className="p-4">Teacher</th>
                                     <th className="p-4">Coordinator</th>
                                     <th className="p-4">Date</th>
@@ -770,6 +773,8 @@ const Classes = () => {
                                             </td>
                                             <td className="p-4">{cls.centreId?.centreName || cls.centreId?.name || "-"}</td>
                                             <td className="p-4">{cls.subjectId?.subjectName || cls.subjectId?.name || "-"}</td>
+                                            <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterName || "-"}</td>
+                                            <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicName || "-"}</td>
                                             <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
                                             <td className="p-4">{cls.coordinatorId?.name || "-"}</td>
                                             <td className="p-4 font-mono">{formatDate(cls.date)}</td>
@@ -1017,14 +1022,55 @@ const Classes = () => {
                                         </select>
                                     </div>
 
+                                    {/* Course */}
+                                    <div className="flex flex-col gap-2">
+                                        <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course</label>
+                                        <select
+                                            required
+                                            value={editingClassData.courseId}
+                                            onChange={(e) => setEditingClassData({ ...editingClassData, courseId: e.target.value })}
+                                            className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                        >
+                                            <option value="">Select Course</option>
+                                            {dropdownData.courses?.map(c => <option key={c._id} value={c._id}>{c.courseName || c.name}</option>)}
+                                        </select>
+                                    </div>
+
+                                    {/* Session & Academic Class */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="flex flex-col gap-2">
+                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Session</label>
+                                            <select
+                                                required
+                                                value={editingClassData.session}
+                                                onChange={(e) => setEditingClassData({ ...editingClassData, session: e.target.value })}
+                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                            >
+                                                <option value="">Select Session</option>
+                                                {dropdownData.sessions?.map(s => <option key={s._id} value={s.sessionName}>{s.sessionName}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Standard (Class)</label>
+                                            <select
+                                                value={editingClassData.acadClassId}
+                                                onChange={(e) => setEditingClassData({ ...editingClassData, acadClassId: e.target.value })}
+                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                            >
+                                                <option value="">Select Class</option>
+                                                {dropdownData.academicClasses?.map(c => <option key={c._id} value={c._id}>{c.className || c.name}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+
                                     {/* Class Mode */}
                                     <div className="flex flex-col gap-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase">Class Mode</label>
+                                        <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class Mode</label>
                                         <select
                                             required
                                             value={editingClassData.classMode}
                                             onChange={(e) => setEditingClassData({ ...editingClassData, classMode: e.target.value })}
-                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all transition-all shadow-lg text-sm"
+                                            className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                                         >
                                             <option value="Offline">Offline</option>
                                             <option value="Online">Online</option>
@@ -1033,16 +1079,40 @@ const Classes = () => {
 
                                     {/* Subject */}
                                     <div className="flex flex-col gap-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase">Subject</label>
+                                        <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Subject</label>
                                         <select
                                             required
                                             value={editingClassData.subjectId}
                                             onChange={(e) => setEditingClassData({ ...editingClassData, subjectId: e.target.value })}
-                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all transition-all shadow-lg text-sm"
+                                            className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                                         >
                                             <option value="">Select Subject</option>
                                             {dropdownData.subjects?.map(s => <option key={s._id} value={s._id}>{s.subjectName || s.name}</option>)}
                                         </select>
+                                    </div>
+
+                                    {/* Chapter & Topic */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="flex flex-col gap-2">
+                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Chapter</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Enter Chapter"
+                                                value={editingClassData.chapterName || ""}
+                                                onChange={(e) => setEditingClassData({ ...editingClassData, chapterName: e.target.value })}
+                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Topic</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Enter Topic"
+                                                value={editingClassData.topicName || ""}
+                                                onChange={(e) => setEditingClassData({ ...editingClassData, topicName: e.target.value })}
+                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                            />
+                                        </div>
                                     </div>
 
                                     {/* Batches (Multi-select) */}

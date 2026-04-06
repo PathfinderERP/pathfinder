@@ -537,6 +537,8 @@ const OngoingClass = () => {
                                     <th className="p-4">Allocated Time</th>
                                     <th className="p-4">Actual Start</th>
                                     <th className="p-4">Subject</th>
+                                    <th className="p-4">Chapter</th>
+                                    <th className="p-4">Topic</th>
                                     <th className="p-4 text-center">Teacher Attendance</th>
                                     <th className="p-4 text-center">Student Attendance</th>
                                     <th className="p-4 text-center">Study Status</th>
@@ -574,7 +576,9 @@ const OngoingClass = () => {
                                             <td className="p-4">
                                                 {cls.actualStartTime ? new Date(cls.actualStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
                                             </td>
-                                            <td className="p-4">{cls.subjectId?.subjectName || cls.subjectId?.name || "-"}</td>
+                                            <td className="p-4 font-bold text-cyan-400">{cls.subjectId?.subjectName || cls.subjectId?.name || "-"}</td>
+                                            <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterName || "-"}</td>
+                                            <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicName || "-"}</td>
                                             <td className="p-4 text-center">
                                                 {cls.teacherAttendance ? (
                                                     <span className="bg-green-600/20 text-green-400 px-3 py-1 rounded-full text-[10px] font-bold border border-green-600/50 flex items-center justify-center gap-1 mx-auto w-fit">

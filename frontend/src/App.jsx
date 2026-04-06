@@ -157,6 +157,7 @@ import AcademicsOperations from "./pages/Operations/Academics";
 
 
 import Community from "./pages/Community";
+import BoardAnalysis from "./pages/BoardAnalysis";
 
 function App() {
   return (
@@ -177,6 +178,7 @@ function App() {
         <Route path="/board-admissions" element={<ProtectedRoute><BoardAdmissions /></ProtectedRoute>} />
         <Route path="/board-course-admission/:studentId" element={<ProtectedRoute><BoardCourseAdmissionPage /></ProtectedRoute>} />
         <Route path="/manage-board-admission/:id" element={<ProtectedRoute><ManageBoardAdmission /></ProtectedRoute>} />
+        <Route path="/admissions/board-analysis" element={<ProtectedRoute><BoardAnalysis /></ProtectedRoute>} />
 
         <Route path="/admissions/telecalling-console" element={<ProtectedRoute><TelecallingConsole /></ProtectedRoute>} />
         <Route path="/admissions/section-allotment" element={<ProtectedRoute><SectionAllotment /></ProtectedRoute>} />

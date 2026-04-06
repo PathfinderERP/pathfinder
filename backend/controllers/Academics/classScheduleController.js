@@ -346,9 +346,11 @@ export const updateClassSchedule = async (req, res) => {
             }
         }
 
-        const updatedClass = await ClassSchedule.findByIdAndUpdate(
-            id,
-            {
+        let resultClass;
+        if (currentClass.status === "Completed") {
+            // If the class is already completed, create a NEW one instead of updating
+            // This allows the user to reuse the "class structure" every day while keeping the completed one in history
+            resultClass = new ClassSchedule({
                 className,
                 date,
                 classMode,
@@ -367,12 +369,48 @@ export const updateClassSchedule = async (req, res) => {
                 chapterName,
                 topicName,
                 message,
-                classHours
-            },
-            { new: true }
-        );
-
-        res.status(200).json({ message: "Class schedule updated successfully", class: updatedClass });
+                classHours,
+                status: "Upcoming" // Reset status for the new instance
+            });
+            await resultClass.save();
+            return res.status(201).json({ 
+                message: "New class scheduled successfully (Reused template)", 
+                class: resultClass,
+                isNew: true 
+            });
+        } else {
+            // Normal update for Upcoming/Ongoing classes
+            resultClass = await ClassSchedule.findByIdAndUpdate(
+                id,
+                {
+                    className,
+                    date,
+                    classMode,
+                    startTime,
+                    endTime,
+                    subjectId,
+                    teacherId,
+                    session,
+                    examId,
+                    courseId,
+                    centreId,
+                    batchIds,
+                    coordinatorId: coordinatorId || undefined,
+                    acadClassId: acadClassId || undefined,
+                    acadSubjectId: acadSubjectId || undefined,
+                    chapterName,
+                    topicName,
+                    message,
+                    classHours
+                },
+                { new: true }
+            );
+            return res.status(200).json({ 
+                message: "Class schedule updated successfully", 
+                class: resultClass,
+                isNew: false 
+            });
+        }
     } catch (error) {
         console.error("Error updating class schedule:", error);
         res.status(500).json({ message: "Server error", error: error.message });

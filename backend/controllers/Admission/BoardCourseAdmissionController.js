@@ -883,3 +883,98 @@ export const collectNcrpFees = async (req, res) => {
     }
 };
 
+export const getBoardAdmissionAnalysis = async (req, res) => {
+    try {
+        const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
+        let match = {};
+
+        // 1. Role-based filtering
+        if (!isSuperAdmin) {
+            const centres = await Centre.find({ _id: { $in: req.user.centres } });
+            const centreNames = centres.map(c => c.centreName);
+            match.centre = { $in: centreNames };
+        }
+
+        // 2. Query-based filtering (explicit centre selection)
+        if (req.query.centre) {
+            match.centre = req.query.centre;
+        }
+
+        // 3. Aggregate Data
+        const stats = await BoardCourseAdmission.aggregate([
+            { $match: match },
+            {
+                $group: {
+                    _id: null,
+                    totalAdmissions: { $sum: 1 },
+                    totalExpected: { $sum: "$totalExpectedAmount" },
+                    totalPaid: { $sum: "$totalPaidAmount" },
+                    totalWaiver: { $sum: "$totalWaiver" }
+                }
+            }
+        ]);
+
+        const centreStats = await BoardCourseAdmission.aggregate([
+            { $match: match },
+            {
+                $group: {
+                    _id: "$centre",
+                    count: { $sum: 1 },
+                    expected: { $sum: "$totalExpectedAmount" },
+                    paid: { $sum: "$totalPaidAmount" }
+                }
+            },
+            { $sort: { count: -1 } }
+        ]);
+
+        const boardStats = await BoardCourseAdmission.aggregate([
+            { $match: match },
+            {
+                $lookup: {
+                    from: "boards",
+                    localField: "boardId",
+                    foreignField: "_id",
+                    as: "boardInfo"
+                }
+            },
+            { $unwind: "$boardInfo" },
+            {
+                $group: {
+                    _id: "$boardInfo.boardCourse",
+                    count: { $sum: 1 },
+                    expected: { $sum: "$totalExpectedAmount" },
+                    paid: { $sum: "$totalPaidAmount" }
+                }
+            },
+            { $sort: { count: -1 } }
+        ]);
+
+        const monthlyStats = await BoardCourseAdmission.aggregate([
+            { $match: match },
+            {
+                $group: {
+                    _id: {
+                        month: { $month: "$createdAt" },
+                        year: { $year: "$createdAt" }
+                    },
+                    count: { $sum: 1 },
+                    expected: { $sum: "$totalExpectedAmount" },
+                    paid: { $sum: "$totalPaidAmount" }
+                }
+            },
+            { $sort: { "_id.year": 1, "_id.month": 1 } }
+        ]);
+
+        res.status(200).json({
+            success: true,
+            overview: stats[0] || { totalAdmissions: 0, totalExpected: 0, totalPaid: 0, totalWaiver: 0 },
+            byCentre: centreStats,
+            byBoard: boardStats,
+            byMonth: monthlyStats
+        });
+    } catch (error) {
+        console.error("Board Analysis Error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+

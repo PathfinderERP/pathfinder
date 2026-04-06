@@ -585,6 +585,8 @@ const UpcomingClass = () => {
                                     <th className="p-4">End Time</th>
                                     <th className="p-4">Hrs</th>
                                     <th className="p-4">Subject</th>
+                                    <th className="p-4">Chapter</th>
+                                    <th className="p-4">Topic</th>
                                     <th className="p-4 text-center">Action</th>
                                 </tr>
                             </thead>
@@ -655,6 +657,8 @@ const UpcomingClass = () => {
                                             <td className="p-4">
                                                 {cls.subjectId?.subjectName || cls.subjectId?.name || "-"}
                                             </td>
+                                            <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterName || "-"}</td>
+                                            <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicName || "-"}</td>
                                             <td className="p-4 text-center">
                                                 {isAcademicAdmin ? (
                                                     <button
