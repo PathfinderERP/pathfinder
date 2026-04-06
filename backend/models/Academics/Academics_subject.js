@@ -1,14 +1,14 @@
 import mongoose from "mongoose";
 
 const academicsSubjectSchema = new mongoose.Schema({
-    subjectName: {
-        type: String,
-        required: true,
-        trim: true
+    masterSubjectId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Subject',
+        required: true
     },
     classId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'AcademicsClass',
+        ref: 'Class',
         required: true
     }
 }, { timestamps: true });

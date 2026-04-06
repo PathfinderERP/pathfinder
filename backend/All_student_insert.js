@@ -21,16 +21,16 @@ const GENERATE_BILL = false; // Set to true if payment records/bills are needed
  */
 const student_data_list = [
     {
-        enroll: "PATH25024281",
-        name: "MAHENDRA CHOWDHURY",
-        email: "barunchowdhory@gmail.com",
-        phone: "9163062318",
-        centre: "HAZRA H.O",
+        enroll: "PATH24008319",
+        name: "RANGAN MALIK",
+        email: "tinkumalik1984@gmail.com",
+        phone: "6294336365",
+        centre: "BURDWAN",
         courseName: "Madhyamik CRP Class X Tuition Fee For All 7 Sub. 2026-2027",
         session: "2026-2027",
         totalFees: 0,
         paid: 0,
-        counselledBy: "Munmun Baidya"
+        counselledBy: "PIRUMOHAN CHAKRABORTY"
     }
 ];
 

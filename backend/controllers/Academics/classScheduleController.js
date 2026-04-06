@@ -5,8 +5,9 @@ import Course from "../../models/Master_data/Courses.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Batch from "../../models/Master_data/Batch.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
-import AcademicsClass from "../../models/Academics/Academics_class.js";
+import Class from "../../models/Master_data/Class.js";
 import Session from "../../models/Master_data/Session.js";
+import Subject from "../../models/Master_data/Subject.js";
 import xlsx from "xlsx";
 import fs from "fs";
 
@@ -220,9 +221,13 @@ export const getClassSchedules = async (req, res) => {
         }
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
-
-        const classes = await ClassSchedule.find(query)
-            .populate("subjectId", "subjectName topicName")
+    
+        const classSchedules = await ClassSchedule.find(query)
+            .populate({
+                path: "subjectId",
+                populate: { path: "masterSubjectId", select: "subName" }
+            })
+            .populate("acadSubjectId", "subName")
             .populate("teacherId", "name userType")
             .populate("examId", "name tagName")
             .populate("courseId", "courseName name")
@@ -232,6 +237,16 @@ export const getClassSchedules = async (req, res) => {
             .sort({ date: -1 })
             .skip(skip)
             .limit(parseInt(limit));
+    
+        // Flatten names for frontend compatibility
+        const classes = classSchedules.map(cls => {
+            const clsObj = cls.toObject();
+            return {
+                ...clsObj,
+                subjectName: cls.subjectId?.masterSubjectId?.subName || cls.subjectId?.subjectName || "N/A",
+                acadSubjectName: cls.acadSubjectId?.subName || "N/A"
+            };
+        });
 
         const total = await ClassSchedule.countDocuments(query);
 
@@ -522,7 +537,12 @@ export const startStudy = async (req, res) => {
 // Get required data for dropdowns (Helper endpoint)
 export const getClassDropdownData = async (req, res) => {
     try {
-        const subjects = await AcademicsSubject.find();
+        const allSubjects = await AcademicsSubject.find().populate('masterSubjectId', 'subName');
+        const subjects = allSubjects.map(s => ({
+            ...s.toObject(),
+            subjectName: s.masterSubjectId?.subName || "Unnamed Subject"
+        }));
+        const masterSubjects = await Subject.find();
         const courses = await Course.find();
         let teachers, coordinators, centres, batches;
         if (req.user && req.user.role !== 'superAdmin') {
@@ -554,7 +574,7 @@ export const getClassDropdownData = async (req, res) => {
             batches = await Batch.find();
         }
         const exams = await ExamTag.find();
-        const academicClasses = await AcademicsClass.find();
+        const academicClasses = await Class.find();
         const sessions = await Session.find();
 
         res.status(200).json({
@@ -566,6 +586,7 @@ export const getClassDropdownData = async (req, res) => {
             exams,
             sessions,
             academicClasses,
+            masterSubjects,
             coordinators
         });
     } catch (error) {
@@ -664,11 +685,23 @@ export const importClassesExcel = async (req, res) => {
                 examId = exam._id;
             }
 
-            // Subject
-            const subjectRegex = new RegExp(`^${String(row['Subject']).trim()}$`, "i");
-            const subject = await AcademicsSubject.findOne({ $or: [{ subjectName: subjectRegex }, { name: subjectRegex }] });
+            // Subject Lookup
+            const masterSubRegex = new RegExp(`^${String(row['Subject']).trim()}$`, "i");
+            const masterSubRes = await Subject.findOne({ subName: masterSubRegex });
+            if (!masterSubRes) {
+                errors.push(`Row ${rowNumber}: Master Subject '${row['Subject']}' not found`);
+                continue;
+            }
+
+            // AcademicsSubject Mapping Lookup (for Teacher Subject field)
+            const subject = await AcademicsSubject.findOne({ 
+                masterSubjectId: masterSubRes._id
+            });
             if (!subject) {
-                errors.push(`Row ${rowNumber}: Subject '${row['Subject']}' not found in AcademicsSubject`);
+                // If no mapping exists, we might want to fallback or error
+                // For now, let's allow it if we can just use the masterSubRes for acadSubjectId
+                // but subjectId is mandatory in schema. Let's see if we can create one or error.
+                errors.push(`Row ${rowNumber}: Academics Subject mapping for '${row['Subject']}' not found. Please create it in Academic Subject Management.`);
                 continue;
             }
 
@@ -714,10 +747,9 @@ export const importClassesExcel = async (req, res) => {
                 coordinatorId = coordinator._id;
             }
 
-            let acadClassId = undefined;
             if (row['Academic Class']) {
                 const acadRegex = new RegExp(`^${String(row['Academic Class']).trim()}$`, "i");
-                const acadClass = await AcademicsClass.findOne({ className: acadRegex });
+                const acadClass = await Class.findOne({ name: acadRegex });
                 if (!acadClass) {
                     errors.push(`Row ${rowNumber}: Academic Class '${row['Academic Class']}' not found`);
                     continue;
@@ -740,7 +772,7 @@ export const importClassesExcel = async (req, res) => {
                 batchIds: batchIds,
                 coordinatorId: coordinatorId,
                 acadClassId: acadClassId,
-                acadSubjectId: subject._id, // Assume acad subject is the same lookup if available
+                acadSubjectId: masterSubRes._id, // Direct reference to Master Subject as requested
                 chapterName: row['Chapter Name'] ? String(row['Chapter Name']).trim() : "",
                 topicName: row['Topic Names'] ? String(row['Topic Names']).trim() : "",
                 message: row['Message'] ? String(row['Message']).trim() : "",

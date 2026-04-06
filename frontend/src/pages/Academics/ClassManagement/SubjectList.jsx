@@ -10,11 +10,12 @@ const SubjectList = () => {
     const isDarkMode = theme === 'dark';
     const [subjects, setSubjects] = useState([]);
     const [classes, setClasses] = useState([]);
+    const [masterSubjects, setMasterSubjects] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [filterClass, setFilterClass] = useState("");
     const [showModal, setShowModal] = useState(false);
-    const [formData, setFormData] = useState({ subjectName: "", classId: "" });
+    const [formData, setFormData] = useState({ masterSubjectId: "", classId: "" });
     const [editId, setEditId] = useState(null);
     const [page, setPage] = useState(1);
     const [limit] = useState(10);
@@ -34,6 +35,19 @@ const SubjectList = () => {
             if (response.ok) setClasses(data);
         } catch {
             console.error("Error fetching classes");
+        }
+    }, [API_URL]);
+
+    const fetchMasterSubjects = React.useCallback(async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${API_URL}/subject`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) setMasterSubjects(data);
+        } catch {
+            console.error("Error fetching master subjects");
         }
     }, [API_URL]);
 
@@ -72,11 +86,12 @@ const SubjectList = () => {
 
     useEffect(() => {
         fetchClasses();
-    }, [fetchClasses]);
+        fetchMasterSubjects();
+    }, [fetchClasses, fetchMasterSubjects]);
 
     const handleEdit = (sub) => {
         setFormData({
-            subjectName: sub.subjectName,
+            masterSubjectId: sub.masterSubjectId?._id || sub.masterSubjectId,
             classId: sub.classId?._id || sub.classId
         });
         setEditId(sub._id);
@@ -167,7 +182,7 @@ const SubjectList = () => {
             if (response.ok) {
                 toast.success(editId ? "Subject updated" : "Subject created");
                 setShowModal(false);
-                setFormData({ subjectName: "", classId: "" });
+                setFormData({ masterSubjectId: "", classId: "" });
                 setEditId(null);
                 fetchSubjects();
             } else {
@@ -179,7 +194,7 @@ const SubjectList = () => {
     };
 
     const openAddModal = () => {
-        setFormData({ subjectName: "", classId: "" });
+        setFormData({ masterSubjectId: "", classId: "" });
         setEditId(null);
         setShowModal(true);
     };
@@ -214,7 +229,7 @@ const SubjectList = () => {
                         >
                             <option value="">All Classes</option>
                             {classes.map(cls => (
-                                <option key={cls._id} value={cls._id}>{cls.className}</option>
+                                <option key={cls._id} value={cls._id}>{cls.name || cls.className}</option>
                             ))}
                         </select>
                     </div>
@@ -271,7 +286,7 @@ const SubjectList = () => {
                                         </td>
                                         <td className={`p-4 font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{(page - 1) * limit + index + 1}</td>
                                         <td className={`p-4 font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{sub.subjectName}</td>
-                                        <td className={`p-4 font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{sub.classId?.className || "N/A"}</td>
+                                        <td className={`p-4 font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{sub.className || "N/A"}</td>
                                         <td className="p-4 flex gap-4 justify-end">
                                             <button
                                                 onClick={() => handleEdit(sub)}
@@ -349,20 +364,23 @@ const SubjectList = () => {
                                     >
                                         <option value="">Select Class</option>
                                         {classes.map(cls => (
-                                            <option key={cls._id} value={cls._id}>{cls.className}</option>
+                                            <option key={cls._id} value={cls._id}>{cls.name || cls.className}</option>
                                         ))}
                                     </select>
                                 </div>
                                 <div>
-                                    <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Subject Name</label>
-                                    <input
-                                        type="text"
+                                    <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Master Subject</label>
+                                    <select
                                         required
                                         className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
-                                        value={formData.subjectName}
-                                        onChange={(e) => setFormData({ ...formData, subjectName: e.target.value })}
-                                        placeholder="Enter subject name (e.g. Physics)"
-                                    />
+                                        value={formData.masterSubjectId}
+                                        onChange={(e) => setFormData({ ...formData, masterSubjectId: e.target.value })}
+                                    >
+                                        <option value="">Select Master Subject</option>
+                                        {masterSubjects.map(sub => (
+                                            <option key={sub._id} value={sub._id}>{sub.subName}</option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div className="flex justify-end gap-3 mt-4">
                                     <button

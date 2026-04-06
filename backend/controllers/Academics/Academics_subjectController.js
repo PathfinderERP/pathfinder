@@ -1,20 +1,20 @@
 import AcademicsSubject from "../../models/Academics/Academics_subject.js";
-import AcademicsClass from "../../models/Academics/Academics_class.js";
+import Class from "../../models/Master_data/Class.js";
 
 // Create Subject
 export const createSubject = async (req, res) => {
     try {
-        const { subjectName, classId } = req.body;
-        if (!subjectName || !classId) {
-            return res.status(400).json({ message: "Subject Name and Class ID are required" });
+        const { masterSubjectId, classId } = req.body;
+        if (!masterSubjectId || !classId) {
+            return res.status(400).json({ message: "Master Subject ID and Class ID are required" });
         }
 
-        const classExists = await AcademicsClass.findById(classId);
+        const classExists = await Class.findById(classId);
         if (!classExists) {
             return res.status(404).json({ message: "Class not found" });
         }
 
-        const newSubject = new AcademicsSubject({ subjectName, classId });
+        const newSubject = new AcademicsSubject({ masterSubjectId, classId });
         await newSubject.save();
         res.status(201).json({ message: "Subject created successfully", data: newSubject });
     } catch (error) {
@@ -27,9 +27,13 @@ export const getAllSubjects = async (req, res) => {
     try {
         const { page, limit, search = "", classId = "" } = req.query;
 
-        const query = {};
+        let query = {};
         if (search) {
-            query.subjectName = { $regex: search, $options: "i" };
+            const masterSubjects = await mongoose.model("Subject").find({
+                subName: { $regex: search, $options: "i" }
+            });
+            const masterSubjectIds = masterSubjects.map(s => s._id);
+            query.masterSubjectId = { $in: masterSubjectIds };
         }
         if (classId) {
             query.classId = classId;
@@ -37,21 +41,40 @@ export const getAllSubjects = async (req, res) => {
 
         // Backward compatibility: If no pagination, return plain array
         if (!page && !limit) {
-            const subjects = await AcademicsSubject.find(query).populate('classId', 'className').sort({ createdAt: -1 });
-            return res.status(200).json(subjects);
+            const subjects = await AcademicsSubject.find(query)
+                .populate('classId', 'name')
+                .populate('masterSubjectId', 'subName')
+                .sort({ createdAt: -1 });
+
+            // Flatten for frontend
+            const flattenedSub = subjects.map(s => ({
+                ...s.toObject(),
+                subjectName: s.masterSubjectId?.subName || "Unnamed Subject",
+                className: s.classId?.name || "N/A"
+            }));
+
+            return res.status(200).json(flattenedSub);
         }
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const subjects = await AcademicsSubject.find(query)
-            .populate('classId', 'className')
+            .populate('classId', 'name')
+            .populate('masterSubjectId', 'subName')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(parseInt(limit));
 
         const total = await AcademicsSubject.countDocuments(query);
 
+        // Flatten for frontend
+        const flattenedSubjects = subjects.map(s => ({
+            ...s.toObject(),
+            subjectName: s.masterSubjectId?.subName || "Unnamed Subject",
+            className: s.classId?.name || "N/A"
+        }));
+
         res.status(200).json({
-            subjects,
+            subjects: flattenedSubjects,
             total,
             currentPage: parseInt(page),
             totalPages: Math.ceil(total / parseInt(limit))
@@ -83,8 +106,17 @@ export const deleteMultipleSubjects = async (req, res) => {
 export const getSubjectsByClass = async (req, res) => {
     try {
         const { classId } = req.params;
-        const subjects = await AcademicsSubject.find({ classId }).sort({ createdAt: -1 });
-        res.status(200).json(subjects);
+        const subjects = await AcademicsSubject.find({ classId })
+            .populate('masterSubjectId', 'subName')
+            .sort({ createdAt: -1 });
+
+        // Map to flatten subName for frontend compatibility
+        const flattenedSubjects = subjects.map(s => ({
+            ...s.toObject(),
+            subjectName: s.masterSubjectId?.subName || "Unnamed Subject"
+        }));
+
+        res.status(200).json(flattenedSubjects);
     } catch (error) {
         res.status(500).json({ message: "Server Error", error: error.message });
     }
@@ -94,10 +126,10 @@ export const getSubjectsByClass = async (req, res) => {
 export const updateSubject = async (req, res) => {
     try {
         const { id } = req.params;
-        const { subjectName, classId } = req.body;
+        const { masterSubjectId, classId } = req.body;
         const updatedSubject = await AcademicsSubject.findByIdAndUpdate(
             id,
-            { subjectName, classId },
+            { masterSubjectId, classId },
             { new: true }
         );
         if (!updatedSubject) return res.status(404).json({ message: "Subject not found" });

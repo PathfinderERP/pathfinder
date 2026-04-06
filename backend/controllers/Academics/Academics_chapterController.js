@@ -1,6 +1,7 @@
 import AcademicsChapter from "../../models/Academics/Academics_chapter.js";
 import AcademicsSubject from "../../models/Academics/Academics_subject.js";
-import AcademicsClass from "../../models/Academics/Academics_class.js";
+import Class from "../../models/Master_data/Class.js";
+import Subject from "../../models/Master_data/Subject.js";
 
 // Create Chapter
 export const createChapter = async (req, res) => {
@@ -49,19 +50,30 @@ export const getAllChapters = async (req, res) => {
             const chapters = await AcademicsChapter.find(query)
                 .populate({
                     path: 'subjectId',
-                    select: 'subjectName classId',
-                    populate: { path: 'classId', select: 'className' }
+                    populate: [
+                        { path: 'masterSubjectId', select: 'subName' },
+                        { path: 'classId', select: 'name' }
+                    ]
                 })
                 .sort({ createdAt: -1 });
-            return res.status(200).json(chapters);
+
+            const flattenedChapters = chapters.map(c => ({
+                ...c.toObject(),
+                subjectName: c.subjectId?.masterSubjectId?.subName || "N/A",
+                className: c.subjectId?.classId?.name || "N/A"
+            }));
+
+            return res.status(200).json(flattenedChapters);
         }
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const chapters = await AcademicsChapter.find(query)
             .populate({
                 path: 'subjectId',
-                select: 'subjectName classId',
-                populate: { path: 'classId', select: 'className' }
+                populate: [
+                    { path: 'masterSubjectId', select: 'subName' },
+                    { path: 'classId', select: 'name' }
+                ]
             })
             .sort({ createdAt: -1 })
             .skip(skip)
@@ -69,8 +81,14 @@ export const getAllChapters = async (req, res) => {
 
         const total = await AcademicsChapter.countDocuments(query);
 
+        const flattenedChapters = chapters.map(c => ({
+            ...c.toObject(),
+            subjectName: c.subjectId?.masterSubjectId?.subName || "N/A",
+            className: c.subjectId?.classId?.name || "N/A"
+        }));
+
         res.status(200).json({
-            chapters,
+            chapters: flattenedChapters,
             total,
             currentPage: parseInt(page),
             totalPages: Math.ceil(total / parseInt(limit))
@@ -163,13 +181,14 @@ export const bulkImportChapters = async (req, res) => {
                 // 1. Find or Create Class
                 let classId = classCache[normClassName.toLowerCase()];
                 if (!classId) {
-                    let classDoc = await AcademicsClass.findOne({
-                        className: { $regex: new RegExp(`^${normClassName}$`, "i") }
+                    let classDoc = await Class.findOne({
+                        name: { $regex: new RegExp(`^${normClassName}$`, "i") }
                     });
 
                     if (!classDoc) {
-                        classDoc = new AcademicsClass({ className: normClassName });
-                        await classDoc.save();
+                        results.failedCount++;
+                        results.errors.push({ row, error: "Class not found in master data" });
+                        continue;
                     }
                     classId = classDoc._id;
                     classCache[normClassName.toLowerCase()] = classId;
@@ -180,14 +199,25 @@ export const bulkImportChapters = async (req, res) => {
                 let subjectId = subjectCache[subjectKey];
 
                 if (!subjectId) {
+                    // Find the Master Subject first
+                    const mSubject = await Subject.findOne({
+                        subName: { $regex: new RegExp(`^${normSubjectName}$`, "i") }
+                    });
+
+                    if (!mSubject) {
+                        results.failedCount++;
+                        results.errors.push({ row, error: `Master Subject '${normSubjectName}' not found` });
+                        continue;
+                    }
+
                     let subjectDoc = await AcademicsSubject.findOne({
-                        subjectName: { $regex: new RegExp(`^${normSubjectName}$`, "i") },
+                        masterSubjectId: mSubject._id,
                         classId: classId
                     });
 
                     if (!subjectDoc) {
                         subjectDoc = new AcademicsSubject({
-                            subjectName: normSubjectName,
+                            masterSubjectId: mSubject._id,
                             classId: classId
                         });
                         await subjectDoc.save();

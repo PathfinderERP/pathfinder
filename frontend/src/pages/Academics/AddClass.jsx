@@ -52,7 +52,8 @@ const AddClass = () => {
         centres: [],
         batches: [],
         coordinators: [],
-        academicClasses: []
+        academicClasses: [],
+        masterSubjects: []
     });
 
     // Cascading Dropdown States
@@ -62,13 +63,13 @@ const AddClass = () => {
     const API_URL = import.meta.env.VITE_API_URL;
 
     // Searchable Dropdown Component
-    const SearchableSelect = ({ 
-        label, 
-        value, 
-        options, 
-        onChange, 
-        placeholder, 
-        isDarkMode, 
+    const SearchableSelect = ({
+        label,
+        value,
+        options,
+        onChange,
+        placeholder,
+        isDarkMode,
         required = false,
         name,
         disabled = false,
@@ -99,7 +100,7 @@ const AddClass = () => {
         });
 
         const selectedOption = options.find(opt => (typeof opt === 'string' ? opt : opt[valuePath]) === value);
-        const displayLabel = selectedOption 
+        const displayLabel = selectedOption
             ? (typeof selectedOption === 'string' ? selectedOption : selectedOption[displayPath])
             : placeholder;
 
@@ -114,7 +115,7 @@ const AddClass = () => {
                     <button
                         type="button"
                         disabled={disabled}
-                        onClick={() => { if(!disabled) setIsOpen(!isOpen); setSearch(""); }}
+                        onClick={() => { if (!disabled) setIsOpen(!isOpen); setSearch(""); }}
                         className={`w-full rounded-lg p-3 outline-none transition-all border text-left flex justify-between items-center ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
                     >
                         <span className={value ? '' : 'text-gray-400'}>
@@ -164,7 +165,7 @@ const AddClass = () => {
                         </div>
                     )}
                 </div>
-                {required && !value && <input type="text" value="" required className="opacity-0 absolute h-0 w-0" onChange={()=>{}} />}
+                {required && !value && <input type="text" value="" required className="opacity-0 absolute h-0 w-0" onChange={() => { }} />}
             </div>
         );
     };
@@ -222,24 +223,24 @@ const AddClass = () => {
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${API_URL}/academics/class-schedule/create`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`
-                    },
-                    body: JSON.stringify(formData)
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(formData)
+            });
+            const data = await response.json();
+            if (response.ok) {
+                toast.success("Class scheduled successfully");
+                setFormData({
+                    className: "", date: "", classMode: "", startTime: "", endTime: "",
+                    subjectId: "", teacherId: "", session: "", examId: "", courseId: "", centreId: "", batchIds: [],
+                    acadClassId: "", acadSubjectId: "", chapterName: "", topicName: "", message: "", classHours: 0
                 });
-                const data = await response.json();
-                if (response.ok) {
-                    toast.success("Class scheduled successfully");
-                    setFormData({
-                        className: "", date: "", classMode: "", startTime: "", endTime: "",
-                        subjectId: "", teacherId: "", session: "", examId: "", courseId: "", centreId: "", batchIds: [],
-                        acadClassId: "", acadSubjectId: "", chapterName: "", topicName: "", message: "", classHours: 0
-                    });
-                    // Reset cascades
-                    setAcadSubjects([]);
-                } else {
+                // Reset cascades
+                setAcadSubjects([]);
+            } else {
                 toast.error(data.message || "Failed to schedule class");
             }
         } catch (error) {
@@ -389,7 +390,7 @@ const AddClass = () => {
                         />
 
                         <SearchableSelect
-                            label="Exam (Optional)"
+                            label="Exam"
                             name="examId"
                             value={formData.examId}
                             options={dropdownData.exams}
@@ -397,6 +398,7 @@ const AddClass = () => {
                             onChange={handleChange}
                             placeholder="Select an exam"
                             isDarkMode={isDarkMode}
+                            required
                         />
 
                         <SearchableSelect
@@ -454,7 +456,7 @@ const AddClass = () => {
                             name="acadClassId"
                             value={formData.acadClassId}
                             options={dropdownData.academicClasses}
-                            displayPath="className"
+                            displayPath="name"
                             onChange={handleChange}
                             placeholder="Select a class"
                             isDarkMode={isDarkMode}
@@ -465,13 +467,12 @@ const AddClass = () => {
                             label="Subject (Academic)"
                             name="acadSubjectId"
                             value={formData.acadSubjectId}
-                            options={acadSubjects}
-                            displayPath="subjectName"
+                            options={dropdownData.masterSubjects}
+                            displayPath="subName"
                             onChange={handleChange}
                             placeholder="Select a subject"
                             isDarkMode={isDarkMode}
                             required
-                            disabled={!formData.acadClassId}
                         />
 
                         <div className="md:col-span-1">

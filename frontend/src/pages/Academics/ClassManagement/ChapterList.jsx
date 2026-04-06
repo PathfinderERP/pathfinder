@@ -145,8 +145,8 @@ const ChapterList = () => {
     const prepareExportData = () => {
         return chapters.map(c => ({
             "Chapter Name": c.chapterName,
-            "Class Name": c.subjectId?.classId?.className || "N/A",
-            "Subject Name": c.subjectId?.subjectName || "N/A"
+            "Class Name": c.className || "N/A",
+            "Subject Name": c.subjectName || "N/A"
         }));
     };
 
@@ -311,7 +311,7 @@ const ChapterList = () => {
                         >
                             <option value="">All Classes</option>
                             {classes.map(cls => (
-                                <option key={cls._id} value={cls._id}>{cls.className}</option>
+                                <option key={cls._id} value={cls._id}>{cls.name || cls.className}</option>
                             ))}
                         </select>
                         <select
@@ -392,8 +392,8 @@ const ChapterList = () => {
                                         </td>
                                         <td className={`p-4 font-medium text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{(page - 1) * limit + index + 1}</td>
                                         <td className={`p-4 font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{chapter.chapterName}</td>
-                                        <td className={`p-4 font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{chapter.subjectId?.classId?.className || "N/A"}</td>
-                                        <td className={`p-4 font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{chapter.subjectId?.subjectName || "N/A"}</td>
+                                        <td className={`p-4 font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{chapter.className || "N/A"}</td>
+                                        <td className={`p-4 font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{chapter.subjectName || "N/A"}</td>
                                         <td className="p-4 flex gap-4 justify-end">
                                             <button
                                                 onClick={() => handleEdit(chapter)}
@@ -469,7 +469,7 @@ const ChapterList = () => {
                                     >
                                         <option value="">Select Class</option>
                                         {classes.map(cls => (
-                                            <option key={cls._id} value={cls._id}>{cls.className}</option>
+                                            <option key={cls._id} value={cls._id}>{cls.name || cls.className}</option>
                                         ))}
                                     </select>
                                 </div>
