@@ -128,12 +128,26 @@ export const getClasses = async (req, res) => {
                 { batchId: { $in: batchIds } }
             ]
         })
-            .populate("subjectId", "subjectName")
-            .populate("teacherId", "name email")
-            .sort({ date: -1 })
-            .limit(100);
+        .populate({
+            path: "subjectId",
+            populate: { path: "masterSubjectId", select: "subName" }
+        })
+        .populate("acadSubjectId", "subName")
+        .populate("teacherId", "name email")
+        .sort({ date: -1 })
+        .limit(100);
 
-        res.json(schedule);
+        // Flatten for frontend consistency
+        const flattenedSchedule = schedule.map(cls => {
+            const clsObj = cls.toObject();
+            return {
+                ...clsObj,
+                subjectName: cls.subjectId?.masterSubjectId?.subName || cls.subjectId?.subjectName || "N/A",
+                academicSubjectName: cls.acadSubjectId?.subName || "N/A"
+            };
+        });
+
+        res.json(flattenedSchedule);
 
     } catch (error) {
         console.error("Get Classes Error:", error);
@@ -152,25 +166,130 @@ export const getAttendance = async (req, res) => {
             studentId = req.query.studentId;
         }
 
-        const attendance = await StudentAttendance.find({ studentId })
-            .populate({
-                path: "classScheduleId",
-                select: "date startTime endTime className classMode subjectId teacherId batchId status",
-                populate: [
-                    { path: "subjectId", select: "subjectName" },
-                    { path: "teacherId", select: "name email designation" }
-                ]
-            })
-            .sort({ date: -1 });
+        const student = await Student.findById(studentId);
+        if (!student) {
+            return res.status(404).json({ success: false, message: "Student not found" });
+        }
+
+        const batchIds = student.batches || [];
+
+        // 1. Fetch all classes scheduled for the student's batches
+        const classes = await ClassSchedule.find({
+            $or: [
+                { batchIds: { $in: batchIds } },
+                { batchId: { $in: batchIds } }
+            ]
+        })
+        .populate({
+            path: "subjectId",
+            populate: { path: "masterSubjectId", select: "subName" }
+        })
+        .populate("acadSubjectId", "subName")
+        .populate("teacherId", "name email designation")
+        .sort({ date: -1 });
+
+        // 2. Fetch all attendance records for this student
+        const attendanceRecords = await StudentAttendance.find({ studentId });
+
+        // 3. Merge attendance status into the class schedule
+        const detailedAttendance = classes.map(cls => {
+            const record = attendanceRecords.find(r => r.classScheduleId.toString() === cls._id.toString());
+            const clsObj = cls.toObject();
+            
+            return {
+                ...clsObj,
+                subjectName: cls.subjectId?.masterSubjectId?.subName || cls.subjectId?.subjectName || "N/A",
+                academicSubjectName: cls.acadSubjectId?.subName || "N/A",
+                teacherName: cls.teacherId?.name || "N/A",
+                attendanceStatus: record ? record.status : "Not Marked",
+                attendanceMarkedDate: record ? record.createdAt : null
+            };
+        });
 
         res.json({
             success: true,
-            count: attendance.length,
-            data: attendance
+            totalClasses: detailedAttendance.length,
+            presentCount: attendanceRecords.filter(r => r.status === "Present").length,
+            absentCount: attendanceRecords.filter(r => r.status === "Absent").length,
+            data: detailedAttendance
         });
 
     } catch (error) {
-        console.error("Get Attendance Error:", error);
+        console.error("Get Detailed Attendance Error:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+};
+
+// Get Complete Single Student Report (Profile + Admissions + Detailed Attendance)
+export const getSingleStudentReport = async (req, res) => {
+    try {
+        let studentId = req.params.studentId || req.user.id;
+        const userRole = req.user.role?.toLowerCase() || "";
+
+        // Security: Students can ONLY query their own ID
+        if (req.user.role === "student" && studentId.toString() !== req.user.id.toString()) {
+            return res.status(403).json({ message: "Access denied. You can only view your own report." });
+        }
+
+        // 1. Fetch Student Profile
+        const student = await Student.findById(studentId)
+            .populate("course")
+            .populate("batches");
+
+        if (!student) {
+            return res.status(404).json({ message: "Student record not found" });
+        }
+
+        // 2. Fetch Admissions
+        const admissions = await Admission.find({ student: studentId })
+            .populate("course")
+            .populate("class");
+
+        // 3. Fetch Detailed Attendance & Schedule
+        const batchIds = student.batches || [];
+        const classes = await ClassSchedule.find({
+            $or: [
+                { batchIds: { $in: batchIds } },
+                { batchId: { $in: batchIds } }
+            ]
+        })
+        .populate({
+            path: "subjectId",
+            populate: { path: "masterSubjectId", select: "subName" }
+        })
+        .populate("acadSubjectId", "subName")
+        .populate("teacherId", "name email designation")
+        .sort({ date: -1 });
+
+        const attendanceRecords = await StudentAttendance.find({ studentId });
+
+        const detailedAttendance = classes.map(cls => {
+            const record = attendanceRecords.find(r => r.classScheduleId.toString() === cls._id.toString());
+            const clsObj = cls.toObject();
+            return {
+                ...clsObj,
+                subjectName: cls.subjectId?.masterSubjectId?.subName || cls.subjectId?.subjectName || "N/A",
+                academicSubjectName: cls.acadSubjectId?.subName || "N/A",
+                teacherName: cls.teacherId?.name || "N/A",
+                attendanceStatus: record ? record.status : "Not Marked",
+                attendanceMarkedDate: record ? record.createdAt : null
+            };
+        });
+
+        res.json({
+            success: true,
+            profile: student,
+            admissions,
+            attendanceReport: {
+                totalClasses: detailedAttendance.length,
+                presentCount: attendanceRecords.filter(r => r.status === "Present").length,
+                absentCount: attendanceRecords.filter(r => r.status === "Absent").length,
+                classes: detailedAttendance
+            }
+        });
+
+    } catch (error) {
+        console.error("Single Student Report Error:", error);
         res.status(500).json({ success: false, message: "Server error" });
     }
 };

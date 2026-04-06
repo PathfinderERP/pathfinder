@@ -1,5 +1,5 @@
 import express from "express";
-import { login, getProfile, getClasses, getAttendance, getTeachers } from "../controllers/studentPortalController.js";
+import { login, getProfile, getClasses, getAttendance, getTeachers, getSingleStudentReport } from "../controllers/studentPortalController.js";
 import protect from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -11,6 +11,8 @@ router.post("/login", login);
 router.get("/profile", protect, getProfile);
 router.get("/classes", protect, getClasses);
 router.get("/attendance", protect, getAttendance);
+router.get("/report", protect, getSingleStudentReport);
+router.get("/report/:studentId", protect, getSingleStudentReport);
 router.get("/teachers", protect, getTeachers);
 
 export default router;
