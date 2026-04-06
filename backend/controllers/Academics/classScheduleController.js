@@ -189,14 +189,30 @@ export const getClassSchedules = async (req, res) => {
         }
         if (status) query.status = status;
 
+        if (req.query.classMode) {
+            const classModes = req.query.classMode.split(',').filter(m => m.trim());
+            if (classModes.length > 0) query.classMode = { $in: classModes };
+        }
+
         if (fromDate || toDate) {
             query.date = {};
             if (fromDate) query.date.$gte = new Date(fromDate);
             if (toDate) query.date.$lte = new Date(toDate);
         }
 
+        // startTime filter (exact or prefix match e.g. "10:00")
+        if (req.query.startTime) {
+            query.startTime = { $regex: `^${req.query.startTime}`, $options: "i" };
+        }
+
         if (search) {
-            query.className = { $regex: search, $options: "i" };
+            query.$or = [
+                { className: { $regex: search, $options: "i" } },
+                { startTime: { $regex: search, $options: "i" } },
+                { endTime: { $regex: search, $options: "i" } },
+                { classMode: { $regex: search, $options: "i" } },
+                { session: { $regex: search, $options: "i" } },
+            ];
         }
 
         if (req.query.hasFeedback === 'true') {

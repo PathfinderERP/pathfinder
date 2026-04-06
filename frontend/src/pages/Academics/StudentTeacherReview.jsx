@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import Layout from '../../components/Layout';
+import Select from "react-select";
 import {
     FaUser, FaChalkboardTeacher, FaStar, FaSearch, FaFilter,
     FaCalendarAlt, FaComments, FaAward, FaChartLine, FaEye,
-    FaThumbsUp, FaThumbsDown, FaClock, FaBookOpen
+    FaThumbsUp, FaThumbsDown, FaClock, FaBookOpen, FaTimes
 } from 'react-icons/fa';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -123,15 +124,75 @@ const StudentTeacherReview = () => {
     const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
     const [searchTerm, setSearchTerm] = useState("");
-    const [selectedClass, setSelectedClass] = useState("");
-    const [selectedCentre, setSelectedCentre] = useState("");
+    const [selectedClasses, setSelectedClasses] = useState([]);
+    const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [showReviewModal, setShowReviewModal] = useState(false);
 
+    const customSelectStyles = {
+        control: (base, state) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#131619" : "#f8fafc",
+            borderColor: state.isFocused ? "#3b82f6" : isDarkMode ? "#374151" : "#d1d5db",
+            padding: "2px",
+            boxShadow: "none",
+            "&:hover": { borderColor: "#3b82f6" }
+        }),
+        menu: (base) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#1e2530" : "white",
+            zIndex: 50
+        }),
+        option: (base, state) => ({
+            ...base,
+            backgroundColor: state.isFocused ? (isDarkMode ? "#2d3748" : "#edf2f7") : "transparent",
+            color: isDarkMode ? "white" : "black",
+            "&:active": { backgroundColor: "#3b82f6" }
+        }),
+        multiValue: (base) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#2d3748" : "#e2e8f0",
+        }),
+        multiValueLabel: (base) => ({
+            ...base,
+            color: isDarkMode ? "white" : "black",
+        }),
+        multiValueRemove: (base) => ({
+            ...base,
+            color: isDarkMode ? "#a0aec0" : "#718096",
+            "&:hover": { backgroundColor: "#f56565", color: "white" }
+        }),
+        singleValue: (base) => ({
+            ...base,
+            color: isDarkMode ? "white" : "black",
+        }),
+        input: (base) => ({
+            ...base,
+            color: isDarkMode ? "white" : "black",
+        })
+    };
+
+    const classOptions = [
+        { value: "Class 11", label: "Class 11" },
+        { value: "Class 12", label: "Class 12" }
+    ];
+
+    const centreOptions = [
+        { value: "Kolkata Main Campus", label: "Kolkata Main Campus" },
+        { value: "Hazra H.O", label: "Hazra H.O" },
+        { value: "Kolkata Salt Lake", label: "Kolkata Salt Lake" },
+        { value: "Kolkata Gariahat", label: "Kolkata Gariahat" }
+    ];
+
     const filteredStudents = sampleStudents.filter(student => {
         const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesClass = !selectedClass || student.class === selectedClass;
-        const matchesCentre = !selectedCentre || student.centre === selectedCentre;
+        
+        const classList = selectedClasses.map(v => v.value);
+        const matchesClass = classList.length === 0 || classList.includes(student.class);
+        
+        const centreList = selectedCentres.map(v => v.value);
+        const matchesCentre = centreList.length === 0 || centreList.includes(student.centre);
+        
         return matchesSearch && matchesClass && matchesCentre;
     });
 
@@ -223,45 +284,64 @@ const StudentTeacherReview = () => {
                 </div>
 
                 {/* Filters */}
-                <div className={`border rounded-2xl p-6 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                    <div className="flex items-center gap-3 mb-4">
-                        <FaFilter className="text-cyan-500" />
-                        <h3 className={`font-bold text-lg ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Filters</h3>
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} border rounded-2xl p-6 transition-all`}>
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <FaFilter className="text-cyan-500" />
+                            <h3 className={`font-bold text-lg ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Filters</h3>
+                        </div>
+                        <button 
+                            onClick={() => {
+                                setSearchTerm("");
+                                setSelectedClasses([]);
+                                setSelectedCentres([]);
+                            }}
+                            className={`text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-colors ${isDarkMode ? 'text-gray-500 hover:text-red-400' : 'text-gray-400 hover:text-red-500'}`}
+                        >
+                            <FaTimes /> Clear All
+                        </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="relative">
-                            <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search students..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className={`w-full rounded-xl pl-10 pr-4 py-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600'}`}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="relative group">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 block">Search Students</label>
+                            <div className="relative">
+                                <FaSearch className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-gray-500 group-focus-within:text-cyan-400' : 'text-gray-400 group-focus-within:text-cyan-600'}`} />
+                                <input
+                                    type="text"
+                                    placeholder="Search students..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className={`w-full rounded-xl pl-12 pr-4 py-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600'}`}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Class</label>
+                            <Select
+                                isMulti
+                                isSearchable
+                                placeholder="Select Classes"
+                                options={classOptions}
+                                value={selectedClasses}
+                                onChange={setSelectedClasses}
+                                styles={customSelectStyles}
                             />
                         </div>
 
-                        <select
-                            value={selectedClass}
-                            onChange={(e) => setSelectedClass(e.target.value)}
-                            className={`w-full rounded-xl px-4 py-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600'}`}
-                        >
-                            <option value="">All Classes</option>
-                            <option value="Class 11">Class 11</option>
-                            <option value="Class 12">Class 12</option>
-                        </select>
-
-                        <select
-                            value={selectedCentre}
-                            onChange={(e) => setSelectedCentre(e.target.value)}
-                            className={`w-full rounded-xl px-4 py-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600'}`}
-                        >
-                            <option value="">All Centres</option>
-                            <option value="Kolkata Main Campus">Kolkata Main Campus</option>
-                            <option value="Hazra H.O">Hazra H.O</option>
-                            <option value="Kolkata Salt Lake">Kolkata Salt Lake</option>
-                            <option value="Kolkata Gariahat">Kolkata Gariahat</option>
-                        </select>
+                        <div className="flex flex-col">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Centre</label>
+                            <Select
+                                isMulti
+                                isSearchable
+                                placeholder="Select Centres"
+                                options={centreOptions}
+                                value={selectedCentres}
+                                onChange={setSelectedCentres}
+                                styles={customSelectStyles}
+                            />
+                        </div>
                     </div>
                 </div>
 

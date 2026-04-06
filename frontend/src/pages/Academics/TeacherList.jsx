@@ -1,10 +1,8 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
-import { FaEye, FaPlus, FaSearch, FaEdit, FaTrash, FaFilter, FaSync } from "react-icons/fa";
+import Select from "react-select";
+import { FaEye, FaPlus, FaSearch, FaEdit, FaTrash, FaFilter, FaSync, FaTimes } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import MultiSelectFilter from "../../components/common/MultiSelectFilter";
 import usePermission from "../../hooks/usePermission";
 import ExcelImportExport from "../../components/common/ExcelImportExport";
 import {
@@ -145,6 +143,49 @@ const TeacherList = () => {
             ...prev,
             [name]: type === "checkbox" ? checked : value
         }));
+    };
+
+    const customSelectStyles = {
+        control: (base, state) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#131619" : "#f8fafc",
+            borderColor: state.isFocused ? "#3b82f6" : isDarkMode ? "#374151" : "#d1d5db",
+            padding: "2px",
+            boxShadow: "none",
+            "&:hover": { borderColor: "#3b82f6" }
+        }),
+        menu: (base) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#1e2530" : "white",
+            zIndex: 50
+        }),
+        option: (base, state) => ({
+            ...base,
+            backgroundColor: state.isFocused ? (isDarkMode ? "#2d3748" : "#edf2f7") : "transparent",
+            color: isDarkMode ? "white" : "black",
+            "&:active": { backgroundColor: "#3b82f6" }
+        }),
+        multiValue: (base) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#2d3748" : "#e2e8f0",
+        }),
+        multiValueLabel: (base) => ({
+            ...base,
+            color: isDarkMode ? "white" : "black",
+        }),
+        multiValueRemove: (base) => ({
+            ...base,
+            color: isDarkMode ? "#a0aec0" : "#718096",
+            "&:hover": { backgroundColor: "#f56565", color: "white" }
+        }),
+        singleValue: (base) => ({
+            ...base,
+            color: isDarkMode ? "white" : "black",
+        }),
+        input: (base) => ({
+            ...base,
+            color: isDarkMode ? "white" : "black",
+        })
     };
 
     const [editId, setEditId] = useState(null);
@@ -294,25 +335,44 @@ const TeacherList = () => {
             t.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             t.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             t.employeeId?.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesName = filterNames.length === 0 || filterNames.includes(t.name);
-        const matchesEmail = filterEmails.length === 0 || filterEmails.includes(t.email);
-        const matchesEmpId = filterEmployeeIds.length === 0 || filterEmployeeIds.includes(t.employeeId);
-        const matchesMobile = filterMobiles.length === 0 || filterMobiles.includes(t.mobNum);
-        const matchesDept = filterDepartments.length === 0 || (
+        
+        const nameList = filterNames.map(v => v.value);
+        const matchesName = nameList.length === 0 || nameList.includes(t.name);
+        
+        const emailList = filterEmails.map(v => v.value);
+        const matchesEmail = emailList.length === 0 || emailList.includes(t.email);
+        
+        const empIdList = filterEmployeeIds.map(v => v.value);
+        const matchesEmpId = empIdList.length === 0 || empIdList.includes(t.employeeId);
+        
+        const mobileList = filterMobiles.map(v => v.value);
+        const matchesMobile = mobileList.length === 0 || mobileList.includes(t.mobNum);
+        
+        const deptList = filterDepartments.map(v => v.value);
+        const matchesDept = deptList.length === 0 || (
             Array.isArray(t.teacherDepartment)
-                ? t.teacherDepartment.some(d => filterDepartments.includes(d))
-                : filterDepartments.includes(t.teacherDepartment)
+                ? t.teacherDepartment.some(d => deptList.includes(d))
+                : deptList.includes(t.teacherDepartment)
         );
-        const matchesBoard = filterBoards.length === 0 || filterBoards.includes(t.boardType);
-        const matchesDesig = filterDesignations.length === 0 || filterDesignations.includes(t.designation);
-        const matchesSubject = filterSubjects.length === 0 || filterSubjects.includes(t.subject);
-        const matchesType = filterTypes.length === 0 || filterTypes.includes(t.teacherType) || filterTypes.includes(t.onlineOfflineType);
+        
+        const boardList = filterBoards.map(v => v.value);
+        const matchesBoard = boardList.length === 0 || boardList.includes(t.boardType);
+        
+        const desigList = filterDesignations.map(v => v.value);
+        const matchesDesig = desigList.length === 0 || desigList.includes(t.designation);
+        
+        const subjectList = filterSubjects.map(v => v.value);
+        const matchesSubject = subjectList.length === 0 || subjectList.includes(t.subject);
+        
+        const typeList = filterTypes.map(v => v.value);
+        const matchesType = typeList.length === 0 || typeList.includes(t.teacherType) || typeList.includes(t.onlineOfflineType);
 
         // Centre filter - check if teacher has any of the selected centres
-        const matchesCentre = filterCentres.length === 0 || (
+        const centreList = filterCentres.map(v => v.value);
+        const matchesCentre = centreList.length === 0 || (
             Array.isArray(t.centres) && t.centres.some(c => {
                 const centreName = c?.centreName || c;
-                return filterCentres.includes(centreName);
+                return centreList.includes(centreName);
             })
         );
 
@@ -554,16 +614,46 @@ const TeacherList = () => {
                             />
                         </div>
 
-                        <MultiSelectFilter label="Name" placeholder="All Names" options={nameOptions} selectedValues={filterNames} onChange={setFilterNames} theme={theme} />
-                        <MultiSelectFilter label="Email" placeholder="All Emails" options={emailOptions} selectedValues={filterEmails} onChange={setFilterEmails} theme={theme} />
-                        <MultiSelectFilter label="Emp ID" placeholder="All IDs" options={empIdOptions} selectedValues={filterEmployeeIds} onChange={setFilterEmployeeIds} theme={theme} />
-                        <MultiSelectFilter label="Mobile" placeholder="All Mobiles" options={mobileOptions} selectedValues={filterMobiles} onChange={setFilterMobiles} theme={theme} />
-                        <MultiSelectFilter label="Dept" placeholder="All Depts" options={deptOptions} selectedValues={filterDepartments} onChange={setFilterDepartments} theme={theme} />
-                        <MultiSelectFilter label="Board" placeholder="All Boards" options={boardOptions} selectedValues={filterBoards} onChange={setFilterBoards} theme={theme} />
-                        <MultiSelectFilter label="Desig" placeholder="All Desigs" options={desigOptions} selectedValues={filterDesignations} onChange={setFilterDesignations} theme={theme} />
-                        <MultiSelectFilter label="Subject" placeholder="All Subjects" options={subjectOptions} selectedValues={filterSubjects} onChange={setFilterSubjects} theme={theme} />
-                        <MultiSelectFilter label="Type" placeholder="All Types" options={typeOptions} selectedValues={filterTypes} onChange={setFilterTypes} theme={theme} />
-                        <MultiSelectFilter label="Centre" placeholder="All Centres" options={centreOptions} selectedValues={filterCentres} onChange={setFilterCentres} theme={theme} />
+                        <div className="flex flex-col">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Name</label>
+                            <Select isMulti isSearchable styles={customSelectStyles} placeholder="All Names" options={nameOptions} value={filterNames} onChange={setFilterNames} />
+                        </div>
+                        <div className="flex flex-col">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Email</label>
+                            <Select isMulti isSearchable styles={customSelectStyles} placeholder="All Emails" options={emailOptions} value={filterEmails} onChange={setFilterEmails} />
+                        </div>
+                        <div className="flex flex-col">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Emp ID</label>
+                            <Select isMulti isSearchable styles={customSelectStyles} placeholder="All IDs" options={empIdOptions} value={filterEmployeeIds} onChange={setFilterEmployeeIds} />
+                        </div>
+                        <div className="flex flex-col">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Mobile</label>
+                            <Select isMulti isSearchable styles={customSelectStyles} placeholder="All Mobiles" options={mobileOptions} value={filterMobiles} onChange={setFilterMobiles} />
+                        </div>
+                        <div className="flex flex-col">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Dept</label>
+                            <Select isMulti isSearchable styles={customSelectStyles} placeholder="All Depts" options={deptOptions} value={filterDepartments} onChange={setFilterDepartments} />
+                        </div>
+                        <div className="flex flex-col">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Board</label>
+                            <Select isMulti isSearchable styles={customSelectStyles} placeholder="All Boards" options={boardOptions} value={filterBoards} onChange={setFilterBoards} />
+                        </div>
+                        <div className="flex flex-col">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Desig</label>
+                            <Select isMulti isSearchable styles={customSelectStyles} placeholder="All Desigs" options={desigOptions} value={filterDesignations} onChange={setFilterDesignations} />
+                        </div>
+                        <div className="flex flex-col">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Subject</label>
+                            <Select isMulti isSearchable styles={customSelectStyles} placeholder="All Subjects" options={subjectOptions} value={filterSubjects} onChange={setFilterSubjects} />
+                        </div>
+                        <div className="flex flex-col">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Type</label>
+                            <Select isMulti isSearchable styles={customSelectStyles} placeholder="All Types" options={typeOptions} value={filterTypes} onChange={setFilterTypes} />
+                        </div>
+                        <div className="flex flex-col">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Centre</label>
+                            <Select isMulti isSearchable styles={customSelectStyles} placeholder="All Centres" options={centreOptions} value={filterCentres} onChange={setFilterCentres} />
+                        </div>
                     </div>
                 </div>
 

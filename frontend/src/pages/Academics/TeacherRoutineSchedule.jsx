@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaPlus, FaSearch, FaEdit, FaTrash, FaSync, FaChevronLeft, FaChevronRight, FaClock, FaLocationArrow, FaBookOpen, FaUserTie, FaCalendarAlt } from "react-icons/fa";
+import Select from "react-select";
+import { FaPlus, FaSearch, FaEdit, FaTrash, FaSync, FaChevronLeft, FaChevronRight, FaClock, FaLocationArrow, FaBookOpen, FaUserTie, FaCalendarAlt, FaTimes } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import MultiSelectFilter from "../../components/common/MultiSelectFilter";
 import usePermission from "../../hooks/usePermission";
 import ExcelImportExport from "../../components/common/ExcelImportExport";
 import { useTheme } from "../../context/ThemeContext";
@@ -133,6 +132,49 @@ const TeacherRoutineSchedule = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const customSelectStyles = {
+        control: (base, state) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#131619" : "#f8fafc",
+            borderColor: state.isFocused ? "#3b82f6" : isDarkMode ? "#374151" : "#d1d5db",
+            padding: "2px",
+            boxShadow: "none",
+            "&:hover": { borderColor: "#3b82f6" }
+        }),
+        menu: (base) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#1e2530" : "white",
+            zIndex: 50
+        }),
+        option: (base, state) => ({
+            ...base,
+            backgroundColor: state.isFocused ? (isDarkMode ? "#2d3748" : "#edf2f7") : "transparent",
+            color: isDarkMode ? "white" : "black",
+            "&:active": { backgroundColor: "#3b82f6" }
+        }),
+        multiValue: (base) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#2d3748" : "#e2e8f0",
+        }),
+        multiValueLabel: (base) => ({
+            ...base,
+            color: isDarkMode ? "white" : "black",
+        }),
+        multiValueRemove: (base) => ({
+            ...base,
+            color: isDarkMode ? "#a0aec0" : "#718096",
+            "&:hover": { backgroundColor: "#f56565", color: "white" }
+        }),
+        singleValue: (base) => ({
+            ...base,
+            color: isDarkMode ? "white" : "black",
+        }),
+        input: (base) => ({
+            ...base,
+            color: isDarkMode ? "white" : "black",
+        })
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
@@ -198,43 +240,28 @@ const TeacherRoutineSchedule = () => {
     };
 
     const filteredData = groupedData.filter(item => {
-        const matchesSearch = 
-            item.teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.teacher.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch = !searchTerm || 
+            item.teacher.name.toLowerCase().includes(searchLower) ||
+            item.teacher.employeeId.toLowerCase().includes(searchLower) ||
+            (item.teacher.email && item.teacher.email.toLowerCase().includes(searchLower));
         
-        const matchesTeacher = filterTeachers.length === 0 || filterTeachers.includes(item.teacher.name);
+        const teacherValues = filterTeachers.map(v => v.value);
+        const matchesTeacher = teacherValues.length === 0 || teacherValues.includes(item.teacher.name);
         
-        const matchesEmploymentType = filterEmploymentType.length === 0 || filterEmploymentType.includes(item.teacher.typeOfEmployment);
+        const employmentValues = filterEmploymentType.map(v => v.value);
+        const matchesEmploymentType = employmentValues.length === 0 || employmentValues.includes(item.teacher.typeOfEmployment);
 
-        const daysToSearch = filterDays.length === 0 ? DAYS : filterDays;
+        const dayValues = filterDays.map(v => v.value);
+        const daysToSearch = dayValues.length === 0 ? DAYS : dayValues;
         
-        const matchesFilters = daysToSearch.some(day => {
-            const daySessions = item.days[day] || [];
-            if (daySessions.length === 0) return filterDays.length === 0;
+        const centreValues = filterCentres.map(v => v.value);
+        const subjectValues = filterSubjects.map(v => v.value);
 
-            return daySessions.some(session => {
-                const matchesCentre = filterCentres.length === 0 || filterCentres.includes(session.centre);
-                const matchesSubject = filterSubjects.length === 0 || filterSubjects.includes(session.subject);
-                
-                let matchesTime = true;
-                if (filterTime.start || filterTime.end) {
-                    if (!session.startTime) {
-                        matchesTime = false;
-                    } else {
-                        if (filterTime.start && session.startTime < filterTime.start) matchesTime = false;
-                        if (filterTime.end && session.startTime > filterTime.end) matchesTime = false;
-                    }
-                }
-
-                return matchesCentre && matchesSubject && matchesTime;
-            });
-        });
-
-        // Special case: if filtered by centre/subject/time, we only show teachers who have at least one matching session
         const hasMatchingSession = daysToSearch.some(day => 
             (item.days[day] || []).some(session => {
-                const c = filterCentres.length === 0 || filterCentres.includes(session.centre);
-                const s = filterSubjects.length === 0 || filterSubjects.includes(session.subject);
+                const c = centreValues.length === 0 || centreValues.includes(session.centre);
+                const s = subjectValues.length === 0 || subjectValues.includes(session.subject);
                 let t = true;
                 if (filterTime.start && (!session.startTime || session.startTime < filterTime.start)) t = false;
                 if (filterTime.end && (!session.startTime || session.startTime > filterTime.end)) t = false;
@@ -243,7 +270,7 @@ const TeacherRoutineSchedule = () => {
         );
 
         // If no sessions exist on the selected days, but we filtered by days, we should probably hide them
-        const hasSessionsOnSelectedDays = filterDays.length === 0 || filterDays.some(day => (item.days[day] || []).length > 0);
+        const hasSessionsOnSelectedDays = dayValues.length === 0 || dayValues.some(day => (item.days[day] || []).length > 0);
 
         return matchesSearch && matchesTeacher && matchesEmploymentType && hasMatchingSession && hasSessionsOnSelectedDays;
     });
@@ -486,34 +513,64 @@ const TeacherRoutineSchedule = () => {
                                 </button>
                             </div>
                             <div className="">
-                                <MultiSelectFilter 
-                                    label="Centres" options={centres.map(c => ({ value: c.centreName, label: c.centreName }))}
-                                    selectedValues={filterCentres} onChange={setFilterCentres} theme={theme} useAbsolute={true}
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 block">Centres</label>
+                                <Select
+                                    isMulti
+                                    isSearchable
+                                    options={centres.map(c => ({ value: c.centreName, label: c.centreName }))}
+                                    value={filterCentres}
+                                    onChange={setFilterCentres}
+                                    styles={customSelectStyles}
+                                    placeholder="Select Centers"
                                 />
                             </div>
                             <div className="">
-                                <MultiSelectFilter 
-                                    label="Teachers" options={teachers.map(t => ({ value: t.name, label: t.name }))}
-                                    selectedValues={filterTeachers} onChange={setFilterTeachers} theme={theme} useAbsolute={true}
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 block">Teachers</label>
+                                <Select
+                                    isMulti
+                                    isSearchable
+                                    options={teachers.map(t => ({ value: t.name, label: t.name }))}
+                                    value={filterTeachers}
+                                    onChange={setFilterTeachers}
+                                    styles={customSelectStyles}
+                                    placeholder="Select Teachers"
                                 />
                             </div>
                             
                             <div className="">
-                                <MultiSelectFilter 
-                                    label="Subjects" options={subjects.map(s => ({ value: s.subName, label: s.subName }))}
-                                    selectedValues={filterSubjects} onChange={setFilterSubjects} theme={theme} useAbsolute={true}
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 block">Subjects</label>
+                                <Select
+                                    isMulti
+                                    isSearchable
+                                    options={subjects.map(s => ({ value: s.subName || s.subjectName || s.name, label: s.subName || s.subjectName || s.name }))}
+                                    value={filterSubjects}
+                                    onChange={setFilterSubjects}
+                                    styles={customSelectStyles}
+                                    placeholder="Select Subjects"
                                 />
                             </div>
                             <div className="">
-                                <MultiSelectFilter 
-                                    label="Days" options={DAYS.map(d => ({ value: d, label: d }))}
-                                    selectedValues={filterDays} onChange={setFilterDays} theme={theme} useAbsolute={true}
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 block">Days</label>
+                                <Select
+                                    isMulti
+                                    isSearchable
+                                    options={DAYS.map(d => ({ value: d, label: d }))}
+                                    value={filterDays}
+                                    onChange={setFilterDays}
+                                    styles={customSelectStyles}
+                                    placeholder="Select Days"
                                 />
                             </div>
                             <div className="">
-                                <MultiSelectFilter 
-                                    label="Employment" options={[{value: 'Full Time', label: 'Full Time'}, {value: 'Part Time', label: 'Part Time'}]}
-                                    selectedValues={filterEmploymentType} onChange={setFilterEmploymentType} theme={theme} useAbsolute={true}
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 block">Employment</label>
+                                <Select
+                                    isMulti
+                                    isSearchable
+                                    options={[{value: 'Full Time', label: 'Full Time'}, {value: 'Part Time', label: 'Part Time'}]}
+                                    value={filterEmploymentType}
+                                    onChange={setFilterEmploymentType}
+                                    styles={customSelectStyles}
+                                    placeholder="Select Type"
                                 />
                             </div>
                             <div className="flex items-center gap-2">

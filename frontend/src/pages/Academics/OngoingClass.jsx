@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
-import { FaSearch, FaStop, FaClipboardList, FaCheck } from "react-icons/fa";
+import Select from "react-select";
+import { FaSearch, FaStop, FaClipboardList, FaCheck, FaFilter, FaTimes } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import StudentAttendanceModal from "../../components/Academics/StudentAttendanceModal";
@@ -30,6 +31,20 @@ const OngoingClass = () => {
     const [showStudentAttendance, setShowStudentAttendance] = useState(false);
     const [selectedClassId, setSelectedClassId] = useState(null);
 
+    // Filters State
+    const [filters, setFilters] = useState({
+        teacherId: [],
+        centreId: [],
+        subjectId: [],
+        classMode: [],
+        fromDate: "",
+        toDate: "",
+        startTime: "",
+    });
+    const [showFilters, setShowFilters] = useState(false);
+    const [dropdownData, setDropdownData] = useState({ teachers: [], centres: [], subjects: [] });
+    const [dropdownLoading, setDropdownLoading] = useState(false);
+
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const isAdmin = user.role === "admin" || user.role === "superAdmin";
     const isCoordinator = user.role === "Class_Coordinator";
@@ -39,22 +54,58 @@ const OngoingClass = () => {
     const API_URL = import.meta.env.VITE_API_URL;
 
     useEffect(() => {
+        fetchDropdownData();
+    }, []);
+
+    useEffect(() => {
         fetchClasses();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, limit]);
+    }, [page, limit, filters]);
+
+    const fetchDropdownData = async () => {
+        setDropdownLoading(true);
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_URL}/academics/class-schedule/dropdown-data`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setDropdownData({
+                    teachers: data.teachers || [],
+                    centres: data.centres || [],
+                    subjects: data.subjects || [],
+                });
+            }
+        } catch {
+            // ignore
+        } finally {
+            setDropdownLoading(false);
+        }
+    };
+
+    const buildQuery = () => {
+        const params = new URLSearchParams({
+            page,
+            limit,
+            status: "Ongoing",
+            search
+        });
+        if (filters.teacherId?.length > 0) params.append("teacherId", filters.teacherId.map(v => v.value).join(","));
+        if (filters.centreId?.length > 0) params.append("centreId", filters.centreId.map(v => v.value).join(","));
+        if (filters.subjectId?.length > 0) params.append("subjectId", filters.subjectId.map(v => v.value).join(","));
+        if (filters.classMode?.length > 0) params.append("classMode", filters.classMode.map(v => v.value).join(","));
+        if (filters.fromDate) params.append("fromDate", filters.fromDate);
+        if (filters.toDate) params.append("toDate", filters.toDate);
+        if (filters.startTime) params.append("startTime", filters.startTime);
+        return params;
+    };
 
     const fetchClasses = async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const queryParams = new URLSearchParams({
-                page,
-                limit,
-                status: "Ongoing",
-                search
-            });
-
-            const response = await fetch(`${API_URL}/academics/class-schedule/list?${queryParams}`, {
+            const response = await fetch(`${API_URL}/academics/class-schedule/list?${buildQuery()}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const data = await response.json();
@@ -70,6 +121,68 @@ const OngoingClass = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleFilterChange = (name, value) => {
+        setFilters(prev => ({ ...prev, [name]: value }));
+        setPage(1);
+    };
+
+    const clearFilters = () => {
+        setFilters({
+            teacherId: [],
+            centreId: [],
+            subjectId: [],
+            classMode: [],
+            fromDate: "",
+            toDate: "",
+            startTime: "",
+        });
+        setSearch("");
+        setPage(1);
+    };
+
+    const customSelectStyles = {
+        control: (base, state) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#131619" : "#f8fafc",
+            borderColor: state.isFocused ? "#3b82f6" : isDarkMode ? "#374151" : "#d1d5db",
+            padding: "2px",
+            boxShadow: "none",
+            "&:hover": { borderColor: "#3b82f6" }
+        }),
+        menu: (base) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#1e2530" : "white",
+            zIndex: 50
+        }),
+        option: (base, state) => ({
+            ...base,
+            backgroundColor: state.isFocused ? (isDarkMode ? "#2d3748" : "#edf2f7") : "transparent",
+            color: isDarkMode ? "white" : "black",
+            "&:active": { backgroundColor: "#3b82f6" }
+        }),
+        multiValue: (base) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#2d3748" : "#e2e8f0",
+        }),
+        multiValueLabel: (base) => ({
+            ...base,
+            color: isDarkMode ? "white" : "black",
+        }),
+        multiValueRemove: (base) => ({
+            ...base,
+            color: isDarkMode ? "#a0aec0" : "#718096",
+            "&:hover": { backgroundColor: "#f56565", color: "white" }
+        }),
+        singleValue: (base) => ({
+            ...base,
+            color: isDarkMode ? "white" : "black",
+        }),
+        input: (base) => ({
+            ...base,
+            color: isDarkMode ? "white" : "black",
+        })
     };
 
     const handleEndClass = async (id) => {
@@ -251,7 +364,143 @@ const OngoingClass = () => {
 
                 <div className="flex justify-between items-center mb-6">
                     <h1 className={`text-3xl font-bold uppercase italic tracking-wider ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Ongoing Class</h1>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            className={`px-4 py-2 rounded-lg flex items-center gap-2 font-bold transition-all shadow-lg ${showFilters ? 'bg-blue-600 text-white' : isDarkMode ? 'bg-[#1e2530] text-gray-400 border border-gray-700' : 'bg-white text-gray-600 border border-gray-200'}`}
+                        >
+                            <FaFilter className="text-xs" /> {showFilters ? 'Hide Filters' : 'Show Filters'}
+                        </button>
+                    </div>
                 </div>
+
+                {showFilters && (
+                    <div className={`mb-6 p-6 rounded-xl border animate-in fade-in slide-in-from-top-4 duration-300 ${isDarkMode ? 'bg-[#1e2530] border-gray-700' : 'bg-white border-gray-200 shadow-md'}`}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-xs font-black uppercase tracking-widest text-gray-500">Teacher</label>
+                                <Select
+                                    isMulti
+                                    isSearchable
+                                    options={dropdownData.teachers.map(t => ({ value: t._id, label: t.name }))}
+                                    value={filters.teacherId}
+                                    onChange={(val) => handleFilterChange("teacherId", val)}
+                                    styles={customSelectStyles}
+                                    placeholder="Filter by teacher..."
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-black uppercase tracking-widest text-gray-500">Center</label>
+                                <Select
+                                    isMulti
+                                    isSearchable
+                                    options={dropdownData.centres.map(c => ({ value: c._id, label: c.centreName || c.name }))}
+                                    value={filters.centreId}
+                                    onChange={(val) => handleFilterChange("centreId", val)}
+                                    styles={customSelectStyles}
+                                    placeholder="Filter by center..."
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-black uppercase tracking-widest text-gray-500">Subject</label>
+                                <Select
+                                    isMulti
+                                    isSearchable
+                                    options={dropdownData.subjects.map(s => ({ value: s._id, label: s.subjectName || s.name }))}
+                                    value={filters.subjectId}
+                                    onChange={(val) => handleFilterChange("subjectId", val)}
+                                    styles={customSelectStyles}
+                                    placeholder="Filter by subject..."
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-black uppercase tracking-widest text-gray-500">Mode</label>
+                                <Select
+                                    isMulti
+                                    isSearchable
+                                    options={[
+                                        { value: "Online", label: "Online" },
+                                        { value: "Offline", label: "Offline" },
+                                        { value: "Hybrid", label: "Hybrid" }
+                                    ]}
+                                    value={filters.classMode}
+                                    onChange={(val) => handleFilterChange("classMode", val)}
+                                    styles={customSelectStyles}
+                                    placeholder="Filter by mode..."
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-black uppercase tracking-widest text-gray-500">From Date</label>
+                                <input
+                                    type="date"
+                                    value={filters.fromDate}
+                                    onChange={(e) => handleFilterChange("fromDate", e.target.value)}
+                                    className={`w-full p-2.5 rounded-lg border outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f8fafc] border-gray-300 text-gray-900 focus:border-blue-500'}`}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-black uppercase tracking-widest text-gray-500">To Date</label>
+                                <input
+                                    type="date"
+                                    value={filters.toDate}
+                                    onChange={(e) => handleFilterChange("toDate", e.target.value)}
+                                    className={`w-full p-2.5 rounded-lg border outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f8fafc] border-gray-300 text-gray-900 focus:border-blue-500'}`}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-black uppercase tracking-widest text-gray-500">Start Time</label>
+                                <input
+                                    type="time"
+                                    value={filters.startTime}
+                                    onChange={(e) => handleFilterChange("startTime", e.target.value)}
+                                    className={`w-full p-2.5 rounded-lg border outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f8fafc] border-gray-300 text-gray-900 focus:border-blue-500'}`}
+                                />
+                            </div>
+                            <div className="flex items-end gap-2">
+                                <button
+                                    onClick={clearFilters}
+                                    className="flex-1 px-4 py-2.5 bg-red-600/10 text-red-500 hover:bg-red-600 hover:text-white rounded-lg font-bold transition-all border border-red-600/20 flex items-center justify-center gap-2"
+                                >
+                                    <FaTimes /> Clear All
+                                </button>
+                                <button
+                                    onClick={fetchClasses}
+                                    className="flex-1 px-4 py-2.5 bg-blue-600 text-white hover:bg-blue-700 rounded-lg font-bold transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"
+                                >
+                                    <FaSearch size={12} /> Apply
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Active Filter Chips */}
+                        <div className="flex flex-wrap gap-2 mt-6 pt-6 border-t border-gray-700/50">
+                            {filters.teacherId.length > 0 && (
+                                <div className="bg-blue-600/10 text-blue-400 px-3 py-1 rounded-full text-[10px] font-bold border border-blue-600/20 flex items-center gap-2">
+                                    Teacher: {filters.teacherId.map(t => t.label).join(", ")}
+                                    <FaTimes className="cursor-pointer" onClick={() => handleFilterChange("teacherId", [])} />
+                                </div>
+                            )}
+                            {filters.centreId.length > 0 && (
+                                <div className="bg-purple-600/10 text-purple-400 px-3 py-1 rounded-full text-[10px] font-bold border border-purple-600/20 flex items-center gap-2">
+                                    Center: {filters.centreId.map(c => c.label).join(", ")}
+                                    <FaTimes className="cursor-pointer" onClick={() => handleFilterChange("centreId", [])} />
+                                </div>
+                            )}
+                            {filters.subjectId.length > 0 && (
+                                <div className="bg-cyan-600/10 text-cyan-400 px-3 py-1 rounded-full text-[10px] font-bold border border-cyan-600/20 flex items-center gap-2">
+                                    Subject: {filters.subjectId.map(s => s.label).join(", ")}
+                                    <FaTimes className="cursor-pointer" onClick={() => handleFilterChange("subjectId", [])} />
+                                </div>
+                            )}
+                            {filters.classMode.length > 0 && (
+                                <div className="bg-orange-600/10 text-orange-400 px-3 py-1 rounded-full text-[10px] font-bold border border-orange-600/20 flex items-center gap-2">
+                                    Mode: {filters.classMode.map(m => m.label).join(", ")}
+                                    <FaTimes className="cursor-pointer" onClick={() => handleFilterChange("classMode", [])} />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 <div className={`${isDarkMode ? 'bg-[#1e2530] border-gray-700 shadow-2xl' : 'bg-white border-gray-200 shadow-md'} rounded-xl border overflow-hidden p-6 transition-colors`}>
                     <div className="flex justify-between items-center mb-6">
