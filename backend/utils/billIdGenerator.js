@@ -66,8 +66,8 @@ export const generateBillId = async (centreCode) => {
             }
         }
 
-        // Pad with zeros to ensure 6 digits
-        return `${prefix}${nextNumber.toString().padStart(6, '0')}`;
+        // Pad with zeros to ensure 7 digits (New requirement: one more zero)
+        return `${prefix}${nextNumber.toString().padStart(7, '0')}`;
 
     } catch (error) {
         console.error("Critical error in generateBillId utility sequence generation:", error);
