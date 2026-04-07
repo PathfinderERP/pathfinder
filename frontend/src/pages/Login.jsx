@@ -43,14 +43,6 @@ export default function Login() {
         return;
       }
 
-      // Audio Greeting
-      if (window.speechSynthesis) {
-        const utterance = new SpeechSynthesisUtterance(`Welcome ${data.user.name || 'User'}`);
-        utterance.rate = 0.9;
-        utterance.pitch = 1.1;
-        window.speechSynthesis.speak(utterance);
-      }
-
       // Save token and user info
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
