@@ -260,25 +260,25 @@ function App() {
         <Route path="/academics/teacher-list" element={<ProtectedRoute><TeacherList /></ProtectedRoute>} />
         <Route path="/academics/teacher/view/:id" element={<ProtectedRoute><ViewTeacher /></ProtectedRoute>} />
         <Route path="/academics/student-teacher-review" element={<ProtectedRoute><StudentTeacherReview /></ProtectedRoute>} />
-        <Route path="/academics/live-class-review" element={<ProtectedRoute><LiveClassReview /></ProtectedRoute>} />
-        <Route path="/academics/cc-teacher-review" element={<ProtectedRoute><CCTeacherReview /></ProtectedRoute>} />
+        {/* <Route path="/academics/live-class-review" element={<ProtectedRoute><LiveClassReview /></ProtectedRoute>} /> */}
+        {/* <Route path="/academics/cc-teacher-review" element={<ProtectedRoute><CCTeacherReview /></ProtectedRoute>} /> */}
         <Route path="/academics/hod-list" element={<ProtectedRoute><HodList /></ProtectedRoute>} />
-        <Route path="/academics/centre-management" element={<ProtectedRoute><CentreManagement /></ProtectedRoute>} />
-        <Route path="/academics/rm-list" element={<ProtectedRoute><RMList /></ProtectedRoute>} />
-        <Route path="/academics/class-coordinator" element={<ProtectedRoute><ClassCoordinator /></ProtectedRoute>} />
+        {/* <Route path="/academics/centre-management" element={<ProtectedRoute><CentreManagement /></ProtectedRoute>} /> */}
+        {/* <Route path="/academics/rm-list" element={<ProtectedRoute><RMList /></ProtectedRoute>} /> */}
+        {/* <Route path="/academics/class-coordinator" element={<ProtectedRoute><ClassCoordinator /></ProtectedRoute>} /> */}
         <Route path="/academics/classes" element={<ProtectedRoute><Classes /></ProtectedRoute>} />
         <Route path="/academics/class/add" element={<ProtectedRoute><AddClass /></ProtectedRoute>} />
         <Route path="/academics/upcoming-class" element={<ProtectedRoute><UpcomingClass /></ProtectedRoute>} />
         <Route path="/academics/ongoing-class" element={<ProtectedRoute><OngoingClass /></ProtectedRoute>} />
         <Route path="/academics/previous-class" element={<ProtectedRoute><PreviousClass /></ProtectedRoute>} />
-        <Route path="/academics/mental-session-table" element={<ProtectedRoute><MentalSessionTable /></ProtectedRoute>} />
+        {/* <Route path="/academics/mental-session-table" element={<ProtectedRoute><MentalSessionTable /></ProtectedRoute>} /> */}
         <Route path="/academics/class-management" element={<ProtectedRoute><ClassManagement /></ProtectedRoute>} />
         <Route path="/academics/class-list" element={<ProtectedRoute><ClassList /></ProtectedRoute>} />
         <Route path="/academics/create-subject" element={<ProtectedRoute><SubjectList /></ProtectedRoute>} />
         <Route path="/academics/create-chapter" element={<ProtectedRoute><ChapterList /></ProtectedRoute>} />
         <Route path="/academics/create-topic" element={<ProtectedRoute><TopicList /></ProtectedRoute>} />
-        <Route path="/academics/section-leader-board" element={<ProtectedRoute><SectionLeaderBoard /></ProtectedRoute>} />
-        <Route path="/academics/exam-leader-board" element={<ProtectedRoute><ExamLeaderBoard /></ProtectedRoute>} />
+        {/* <Route path="/academics/section-leader-board" element={<ProtectedRoute><SectionLeaderBoard /></ProtectedRoute>} /> */}
+        {/* <Route path="/academics/exam-leader-board" element={<ProtectedRoute><ExamLeaderBoard /></ProtectedRoute>} /> */}
         <Route path="/academics/teacher-routine" element={<ProtectedRoute><TeacherRoutineSchedule /></ProtectedRoute>} />
 
         <Route path="/master-data" element={<ProtectedRoute><MasterData /></ProtectedRoute>} />

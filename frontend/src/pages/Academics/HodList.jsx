@@ -4,6 +4,7 @@ import { FaSearch, FaFilter, FaSync } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useTheme } from "../../context/ThemeContext";
+import { useState, useEffect } from "react"
 
 const HodList = () => {
     const [hods, setHods] = useState([]);
@@ -95,16 +96,16 @@ const HodList = () => {
 
     // Filter Logic
     const filteredHods = hods.filter(hod => {
-        const matchesSearch = 
+        const matchesSearch =
             hod.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             hod.email.toLowerCase().includes(searchTerm.toLowerCase());
-        
+
         const subValues = filterSubjects.map(v => v.value);
         const matchesSubject = subValues.length === 0 || subValues.includes(hod.subject);
-        
+
         const desigValues = filterDesignations.map(v => v.value);
         const matchesDesignation = desigValues.length === 0 || desigValues.includes(hod.designation);
-        
+
         return matchesSearch && matchesSubject && matchesDesignation;
     });
 
@@ -125,7 +126,7 @@ const HodList = () => {
                         <div className="flex items-center gap-2 text-cyan-400">
                             <FaFilter /> <span className="font-bold text-xs uppercase tracking-widest italic">Filter HODs</span>
                         </div>
-                        <button 
+                        <button
                             onClick={() => {
                                 setSearchTerm("");
                                 setFilterSubjects([]);
@@ -136,7 +137,7 @@ const HodList = () => {
                             <FaSync /> Reset Filters
                         </button>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="flex flex-col">
                             <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 ml-1">Search HOD</label>
@@ -151,7 +152,7 @@ const HodList = () => {
                                 />
                             </div>
                         </div>
-                        
+
                         <div className="flex flex-col">
                             <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 ml-1">Subject</label>
                             <Select

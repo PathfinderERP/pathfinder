@@ -12,6 +12,8 @@ import {
     PieChart, Pie, Cell, Legend
 } from "recharts";
 import { useTheme } from "../../context/ThemeContext";
+import MultiSelectFilter from "../../components/common/MultiSelectFilter";
+
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -337,35 +339,35 @@ const TeacherList = () => {
             t.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             t.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             t.employeeId?.toLowerCase().includes(searchTerm.toLowerCase());
-        
+
         const nameList = filterNames.map(v => v.value);
         const matchesName = nameList.length === 0 || nameList.includes(t.name);
-        
+
         const emailList = filterEmails.map(v => v.value);
         const matchesEmail = emailList.length === 0 || emailList.includes(t.email);
-        
+
         const empIdList = filterEmployeeIds.map(v => v.value);
         const matchesEmpId = empIdList.length === 0 || empIdList.includes(t.employeeId);
-        
+
         const mobileList = filterMobiles.map(v => v.value);
         const matchesMobile = mobileList.length === 0 || mobileList.includes(t.mobNum);
-        
+
         const deptList = filterDepartments.map(v => v.value);
         const matchesDept = deptList.length === 0 || (
             Array.isArray(t.teacherDepartment)
                 ? t.teacherDepartment.some(d => deptList.includes(d))
                 : deptList.includes(t.teacherDepartment)
         );
-        
+
         const boardList = filterBoards.map(v => v.value);
         const matchesBoard = boardList.length === 0 || boardList.includes(t.boardType);
-        
+
         const desigList = filterDesignations.map(v => v.value);
         const matchesDesig = desigList.length === 0 || desigList.includes(t.designation);
-        
+
         const subjectList = filterSubjects.map(v => v.value);
         const matchesSubject = subjectList.length === 0 || subjectList.includes(t.subject);
-        
+
         const typeList = filterTypes.map(v => v.value);
         const matchesType = typeList.length === 0 || typeList.includes(t.teacherType) || typeList.includes(t.onlineOfflineType);
 
@@ -468,8 +470,8 @@ const TeacherList = () => {
     const prepareExportData = (data) => {
         return data.map(t => ({
             ...t,
-            centre: Array.isArray(t.centres) 
-                ? t.centres.map(c => c.centreName || c).join(", ") 
+            centre: Array.isArray(t.centres)
+                ? t.centres.map(c => c.centreName || c).join(", ")
                 : (t.centre?.centreName || t.centre || "")
         }));
     };

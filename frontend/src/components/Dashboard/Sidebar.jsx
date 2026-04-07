@@ -89,12 +89,12 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             subItems: [
                 { name: "Teacher List", path: "/academics/teacher-list", permissionSection: "teachers" },
                 { name: "Student Teacher Review", path: "/academics/student-teacher-review", permissionSection: "studentTeacherReview" },
-                { name: "Live Class Review", path: "/academics/live-class-review", permissionSection: "liveClassReview" },
-                { name: "CC Teacher Review", path: "/academics/cc-teacher-review", permissionSection: "ccTeacherReview" },
+                // { name: "Live Class Review", path: "/academics/live-class-review", permissionSection: "liveClassReview" },
+                // { name: "CC Teacher Review", path: "/academics/cc-teacher-review", permissionSection: "ccTeacherReview" },
                 { name: "HoD List", path: "/academics/hod-list", permissionSection: "hodList" },
                 // { name: "Centre Management", path: "/academics/centre-management", permissionSection: "centreManagement" },
-                { name: "RM List", path: "/academics/rm-list", permissionSection: "rmList" },
-                { name: "Class Coordinator", path: "/academics/class-coordinator", permissionSection: "classCoordinator" },
+                // { name: "RM List", path: "/academics/rm-list", permissionSection: "rmList" },
+                // { name: "Class Coordinator", path: "/academics/class-coordinator", permissionSection: "classCoordinator" },
                 {
                     name: "Classes",
                     permissionSection: "classes",
@@ -106,7 +106,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                         { name: "Previous Class", path: "/academics/previous-class", permissionSection: "previousClass" },
                     ]
                 },
-                { name: "Mental Session Table", path: "/academics/mental-session-table", permissionSection: "mentalSessionTable" },
+                // { name: "Mental Session Table", path: "/academics/mental-session-table", permissionSection: "mentalSessionTable" },
                 {
                     name: "Class Management",
                     permissionSection: "classManagement",
@@ -117,8 +117,8 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                         { name: "Create Topic", path: "/academics/create-topic", permissionSection: "classManagement" },
                     ]
                 },
-                { name: "Section Leader Board", path: "/academics/section-leader-board", permissionSection: "sectionLeaderBoard" },
-                { name: "Exam Leader Board", path: "/academics/exam-leader-board", permissionSection: "examLeaderBoard" },
+                // { name: "Section Leader Board", path: "/academics/section-leader-board", permissionSection: "sectionLeaderBoard" },
+                // { name: "Exam Leader Board", path: "/academics/exam-leader-board", permissionSection: "examLeaderBoard" },
                 { name: "Teacher Routine Schedule", path: "/academics/teacher-routine", permissionSection: "teacherRoutine" },
             ]
         },

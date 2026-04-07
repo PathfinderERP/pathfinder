@@ -21,16 +21,16 @@ const GENERATE_BILL = false; // Set to true if payment records/bills are needed
  */
 const student_data_list = [
     {
-        enroll: "PATH24008319",
-        name: "RANGAN MALIK",
-        email: "tinkumalik1984@gmail.com",
-        phone: "6294336365",
-        centre: "BURDWAN",
-        courseName: "Madhyamik CRP Class X Tuition Fee For All 7 Sub. 2026-2027",
-        session: "2026-2027",
-        totalFees: 0,
-        paid: 0,
-        counselledBy: "PIRUMOHAN CHAKRABORTY"
+        enroll: "PATH25004374",
+        name: "ANUBHAV PATRA",
+        email: "ANUBHAV@gmail.com",
+        phone: "0000000000",
+        centre: "BALLY",
+        courseName: "TAAT WITH HS Board (JEE) 26-28",
+        session: "2026-20278",
+        totalFees: 150000,
+        paid: 20,
+        counselledBy: "Manas Ray"
     }
 ];
 
