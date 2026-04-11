@@ -157,7 +157,7 @@ const SectionAllotmentContent = () => {
     const handleAllotClick = (admission) => {
         setSelectedDetail(admission);
         setIsBulk(false);
-        
+
         // Helper to map DB strings/arrays to multi-select objects
         const mapToOptions = (val) => {
             if (!val) return [];
@@ -210,7 +210,7 @@ const SectionAllotmentContent = () => {
         e.preventDefault();
         try {
             const token = localStorage.getItem("token");
-            
+
             // Map multi-select objects back to arrays of strings
             const payload = {
                 ...formData,
@@ -218,7 +218,7 @@ const SectionAllotmentContent = () => {
                 studySection: formData.studySection.map(o => o.value)
             };
 
-            const url = isBulk 
+            const url = isBulk
                 ? `${import.meta.env.VITE_API_URL}/admission/bulk-section-allotment`
                 : `${import.meta.env.VITE_API_URL}/admission/section-allotment/${selectedDetail._id}`;
 
@@ -363,8 +363,8 @@ const SectionAllotmentContent = () => {
                             <thead>
                                 <tr className={`${isDarkMode ? 'bg-[#131619] border-b border-gray-800' : 'bg-gray-50 border-b border-gray-200'}`}>
                                     <th className="p-4 w-4">
-                                        <input 
-                                            type="checkbox" 
+                                        <input
+                                            type="checkbox"
                                             className="w-4 h-4 rounded border-gray-300 text-cyan-500 focus:ring-cyan-500 cursor-pointer accent-cyan-500"
                                             checked={students.length > 0 && selectedIds.length === students.length}
                                             onChange={toggleSelectAll}
@@ -399,8 +399,8 @@ const SectionAllotmentContent = () => {
                                         return (
                                             <tr key={admission._id} className={`transition-all ${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'} ${selectedIds.includes(admission._id) ? (isDarkMode ? 'bg-cyan-500/5' : 'bg-cyan-50') : ''}`}>
                                                 <td className="p-4">
-                                                    <input 
-                                                        type="checkbox" 
+                                                    <input
+                                                        type="checkbox"
                                                         className="w-4 h-4 rounded border-gray-300 text-cyan-500 focus:ring-cyan-500 cursor-pointer accent-cyan-500"
                                                         checked={selectedIds.includes(admission._id)}
                                                         onChange={() => toggleSelectStudent(admission._id)}

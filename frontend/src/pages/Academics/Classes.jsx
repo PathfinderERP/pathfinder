@@ -765,14 +765,14 @@ const Classes = () => {
                                     classes.map((cls) => (
                                         <tr key={cls._id} className={`transition-colors text-sm group ${isDarkMode ? 'hover:bg-[#252b32] text-gray-300' : 'hover:bg-gray-50 text-gray-600'}`}>
                                             <td className={`p-4 font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{cls.className}</td>
-                                            <td className="p-4">{cls.batchId?.batchName || cls.batchId?.name || "-"}</td>
+                                            <td className="p-4">{cls.batchNames || cls.batchId?.batchName || cls.batchId?.name || "-"}</td>
                                             <td className="p-4">
                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${cls.classMode === 'Online' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-orange-500/10 text-orange-400 border border-orange-500/20'}`}>
                                                     {cls.classMode}
                                                 </span>
                                             </td>
                                             <td className="p-4">{cls.centreId?.centreName || cls.centreId?.name || "-"}</td>
-                                            <td className="p-4">{cls.subjectId?.subjectName || cls.subjectId?.name || "-"}</td>
+                                            <td className="p-4">{cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "-"}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterName || "-"}</td>
                                             <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicName || "-"}</td>
                                             <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
@@ -1087,7 +1087,7 @@ const Classes = () => {
                                             className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                                         >
                                             <option value="">Select Subject</option>
-                                            {dropdownData.subjects?.map(s => <option key={s._id} value={s._id}>{s.subjectName || s.name}</option>)}
+                                            {dropdownData.subjects?.map(s => <option key={s._id} value={s._id}>{s.subName || s.name}</option>)}
                                         </select>
                                     </div>
 
@@ -1242,7 +1242,7 @@ const Classes = () => {
                         </div>
                         <div className={`p-6 max-h-[70vh] overflow-y-auto ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                             <p className="mb-4">Before downloading and filling out the template, please ensure you follow these strict matching rules to avoid import failures:</p>
-                            
+
                             <ul className="space-y-3 mb-6 list-disc list-inside">
                                 <li><strong>Teacher</strong>: Must exactly match a Teacher's Name registered in User Management (Case-Insensitive).</li>
                                 <li><strong>Subject</strong>: Must exactly match an Academics Subject Name.</li>

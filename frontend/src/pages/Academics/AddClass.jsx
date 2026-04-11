@@ -334,7 +334,7 @@ const AddClass = () => {
                             name="subjectId"
                             value={formData.subjectId}
                             options={dropdownData.subjects}
-                            displayPath="subjectName"
+                            displayPath="subName"
                             onChange={handleChange}
                             placeholder="Select a subject"
                             isDarkMode={isDarkMode}

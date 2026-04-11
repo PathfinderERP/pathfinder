@@ -29,7 +29,7 @@ const classScheduleSchema = new mongoose.Schema({
     },
     subjectId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "AcademicsSubject",
+        ref: "Subject",
         required: true
     },
     teacherId: {

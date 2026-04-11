@@ -286,7 +286,7 @@ const PreviousClass = () => {
                                 <Select
                                     isMulti
                                     isSearchable
-                                    options={dropdownData.subjects.map(s => ({ value: s._id, label: s.subjectName || s.name }))}
+                                    options={dropdownData.subjects.map(s => ({ value: s._id, label: s.subName || s.name }))}
                                     value={filters.subjectId}
                                     onChange={(val) => handleFilterChange("subjectId", val)}
                                     styles={customSelectStyles}
@@ -451,7 +451,7 @@ const PreviousClass = () => {
                                                 {" - "}
                                                 {cls.actualEndTime ? new Date(cls.actualEndTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
                                             </td>
-                                            <td className="p-4">{cls.subjectId?.subjectName || cls.subjectId?.name || "-"}</td>
+                                            <td className="p-4">{cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "-"}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterName || "-"}</td>
                                             <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicName || "-"}</td>
                                             <td className="p-4 text-center">

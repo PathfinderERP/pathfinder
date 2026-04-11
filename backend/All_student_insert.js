@@ -21,16 +21,16 @@ const GENERATE_BILL = false; // Set to true if payment records/bills are needed
  */
 const student_data_list = [
     {
-        enroll: "PATH25004374",
-        name: "ANUBHAV PATRA",
-        email: "ANUBHAV@gmail.com",
-        phone: "0000000000",
-        centre: "BALLY",
-        courseName: "TAAT WITH HS Board (JEE) 26-28",
-        session: "2026-20278",
-        totalFees: 150000,
-        paid: 20,
-        counselledBy: "Manas Ray"
+        enroll: "PATH24005771",
+        name: "RIDHAM JHA",
+        email: "sudipta.chatterjee1905@gmail.com",
+        phone: "6292266679",
+        centre: "HAZRA H.O",
+        courseName: "TAAT with CBSE Board NEET/JEE 25-27",
+        session: "2025-20278",
+        totalFees: 29700,
+        paid: 9900,
+        counselledBy: "Arnab Sharma"
     }
 ];
 

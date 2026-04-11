@@ -221,12 +221,9 @@ export const getClassSchedules = async (req, res) => {
         }
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
         const classSchedules = await ClassSchedule.find(query)
-            .populate({
-                path: "subjectId",
-                populate: { path: "masterSubjectId", select: "subName" }
-            })
+            .populate("subjectId", "subName")
             .populate("acadSubjectId", "subName")
             .populate("teacherId", "name userType")
             .populate("examId", "name tagName")
@@ -237,14 +234,15 @@ export const getClassSchedules = async (req, res) => {
             .sort({ date: -1 })
             .skip(skip)
             .limit(parseInt(limit));
-    
+
         // Flatten names for frontend compatibility
         const classes = classSchedules.map(cls => {
             const clsObj = cls.toObject();
             return {
                 ...clsObj,
-                subjectName: cls.subjectId?.masterSubjectId?.subName || cls.subjectId?.subjectName || "N/A",
-                acadSubjectName: cls.acadSubjectId?.subName || "N/A"
+                subjectName: cls.subjectId?.subName || cls.subjectId?.subjectName || "N/A",
+                acadSubjectName: cls.acadSubjectId?.subName || "N/A",
+                batchNames: cls.batchIds?.map(b => b.batchName || b.name).join(", ") || (cls.batchId?.batchName || cls.batchId?.name) || "N/A"
             };
         });
 
@@ -388,10 +386,10 @@ export const updateClassSchedule = async (req, res) => {
                 status: "Upcoming" // Reset status for the new instance
             });
             await resultClass.save();
-            return res.status(201).json({ 
-                message: "New class scheduled successfully (Reused template)", 
+            return res.status(201).json({
+                message: "New class scheduled successfully (Reused template)",
                 class: resultClass,
-                isNew: true 
+                isNew: true
             });
         } else {
             // Normal update for Upcoming/Ongoing classes
@@ -420,10 +418,10 @@ export const updateClassSchedule = async (req, res) => {
                 },
                 { new: true }
             );
-            return res.status(200).json({ 
-                message: "Class schedule updated successfully", 
+            return res.status(200).json({
+                message: "Class schedule updated successfully",
                 class: resultClass,
-                isNew: false 
+                isNew: false
             });
         }
     } catch (error) {
@@ -537,26 +535,22 @@ export const startStudy = async (req, res) => {
 // Get required data for dropdowns (Helper endpoint)
 export const getClassDropdownData = async (req, res) => {
     try {
-        const allSubjects = await AcademicsSubject.find().populate('masterSubjectId', 'subName');
-        const subjects = allSubjects.map(s => ({
-            ...s.toObject(),
-            subjectName: s.masterSubjectId?.subName || "Unnamed Subject"
-        }));
-        const masterSubjects = await Subject.find();
+        const subjects = await Subject.find().sort({ subName: 1 });
+        const masterSubjects = subjects; // Both are same now
         const courses = await Course.find();
         let teachers, coordinators, centres, batches;
         if (req.user && req.user.role !== 'superAdmin') {
             const userCentres = req.user.centres || [];
-            
+
             // Filter teachers and coordinators by their assigned centres
-            teachers = await User.find({ 
-                role: "teacher", 
-                centres: { $in: userCentres } 
+            teachers = await User.find({
+                role: "teacher",
+                centres: { $in: userCentres }
             }).populate('centres', 'centreName');
 
-            coordinators = await User.find({ 
-                role: "Class_Coordinator", 
-                centres: { $in: userCentres } 
+            coordinators = await User.find({
+                role: "Class_Coordinator",
+                centres: { $in: userCentres }
             }).populate('centres', 'centreName');
 
             centres = await Centre.find({ _id: { $in: userCentres } });
@@ -647,7 +641,7 @@ export const importClassesExcel = async (req, res) => {
             } else {
                 dateObj = new Date(row['Date']);
             }
-            
+
             if (isNaN(dateObj.getTime())) {
                 errors.push(`Row ${rowNumber}: Invalid date format`);
                 continue;
@@ -685,23 +679,11 @@ export const importClassesExcel = async (req, res) => {
                 examId = exam._id;
             }
 
-            // Subject Lookup
+            // Subject Lookup (Direct Master Subject)
             const masterSubRegex = new RegExp(`^${String(row['Subject']).trim()}$`, "i");
-            const masterSubRes = await Subject.findOne({ subName: masterSubRegex });
-            if (!masterSubRes) {
-                errors.push(`Row ${rowNumber}: Master Subject '${row['Subject']}' not found`);
-                continue;
-            }
-
-            // AcademicsSubject Mapping Lookup (for Teacher Subject field)
-            const subject = await AcademicsSubject.findOne({ 
-                masterSubjectId: masterSubRes._id
-            });
+            const subject = await Subject.findOne({ subName: masterSubRegex });
             if (!subject) {
-                // If no mapping exists, we might want to fallback or error
-                // For now, let's allow it if we can just use the masterSubRes for acadSubjectId
-                // but subjectId is mandatory in schema. Let's see if we can create one or error.
-                errors.push(`Row ${rowNumber}: Academics Subject mapping for '${row['Subject']}' not found. Please create it in Academic Subject Management.`);
+                errors.push(`Row ${rowNumber}: Subject '${row['Subject']}' not found in Master Data`);
                 continue;
             }
 
@@ -723,11 +705,11 @@ export const importClassesExcel = async (req, res) => {
 
             // Batches (Comma Separated)
             const batchNames = String(row['Batch']).split(',').map(b => b.trim()).filter(b => b);
-            const batchDocs = await Batch.find({ 
+            const batchDocs = await Batch.find({
                 $or: [
                     { batchName: { $in: batchNames.map(b => new RegExp(`^${b}$`, "i")) } },
                     { name: { $in: batchNames.map(b => new RegExp(`^${b}$`, "i")) } }
-                ] 
+                ]
             });
             if (batchDocs.length === 0) {
                 errors.push(`Row ${rowNumber}: None of the Batches '${row['Batch']}' were found`);
@@ -772,7 +754,7 @@ export const importClassesExcel = async (req, res) => {
                 batchIds: batchIds,
                 coordinatorId: coordinatorId,
                 acadClassId: acadClassId,
-                acadSubjectId: masterSubRes._id, // Direct reference to Master Subject as requested
+                acadSubjectId: subject._id, // Direct reference to Master Subject as requested
                 chapterName: row['Chapter Name'] ? String(row['Chapter Name']).trim() : "",
                 topicName: row['Topic Names'] ? String(row['Topic Names']).trim() : "",
                 message: row['Message'] ? String(row['Message']).trim() : "",
@@ -794,7 +776,7 @@ export const importClassesExcel = async (req, res) => {
         console.error("Error importing excels:", error);
         // Ensure to delete file in case of crash
         if (req.file && fs.existsSync(req.file.path)) {
-            try { fs.unlinkSync(req.file.path); } catch(e) {}
+            try { fs.unlinkSync(req.file.path); } catch (e) { }
         }
         res.status(500).json({ message: "Server error during import", error: error.message });
     }

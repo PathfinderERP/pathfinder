@@ -15,7 +15,7 @@ const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, 
 
     // Use prop isDarkMode, prop theme if provided, otherwise context theme
     const activeTheme = propTheme || (isDarkMode !== undefined ? (isDarkMode ? 'dark' : 'light') : contextTheme);
-    
+
     // Memoize styles to prevent unnecessary re-renders but update on theme change
     const styles = React.useMemo(() => {
         const isDark = activeTheme === 'dark';
@@ -42,13 +42,13 @@ const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, 
             }),
             option: (provided, state) => ({
                 ...provided,
-                backgroundColor: state.isSelected 
-                    ? '#06b6d4' 
-                    : state.isFocused 
-                        ? (isDark ? '#374151' : '#f3f4f6') 
+                backgroundColor: state.isSelected
+                    ? '#06b6d4'
+                    : state.isFocused
+                        ? (isDark ? '#374151' : '#f3f4f6')
                         : 'transparent',
-                color: state.isSelected 
-                    ? 'black' 
+                color: state.isSelected
+                    ? 'black'
                     : (isDark ? 'white' : '#111827'),
                 cursor: 'pointer',
                 fontSize: '0.875rem',

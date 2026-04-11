@@ -74,7 +74,7 @@ const UpcomingClass = () => {
             classes.filter((cls) => {
                 const teacherName = (cls.teacherId?.name || "").toLowerCase();
                 const centreName = (cls.centreId?.centreName || cls.centreId?.centerName || cls.centreId?.name || "").toLowerCase();
-                const subjectName = (cls.subjectId?.subjectName || cls.subjectId?.name || "").toLowerCase();
+                const subjectName = (cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "").toLowerCase();
                 const batchName = (cls.batchIds || []).map((b) => (b.batchName || b.name || "").toLowerCase()).join(" ");
                 const className = (cls.className || "").toLowerCase();
                 const mode = (cls.classMode || "").toLowerCase();
@@ -241,7 +241,7 @@ const UpcomingClass = () => {
             "End Time": cls.endTime || "",
             "Class Hours": cls.classHours || 0,
             Subject:
-                cls.subjectId?.subjectName || cls.subjectId?.name || "",
+                cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "",
             Status: cls.status || "Upcoming",
         }));
 
@@ -483,7 +483,7 @@ const UpcomingClass = () => {
                                 <Select
                                     isMulti
                                     isSearchable
-                                    options={dropdownData.subjects.map(s => ({ value: s._id, label: s.subjectName || s.name }))}
+                                    options={dropdownData.subjects.map(s => ({ value: s._id, label: s.subName || s.name }))}
                                     value={filters.subjectId}
                                     onChange={(val) => handleFilterChange("subjectId", val)}
                                     styles={customSelectStyles}
@@ -655,7 +655,7 @@ const UpcomingClass = () => {
                                                 {cls.classHours || 0}
                                             </td>
                                             <td className="p-4">
-                                                {cls.subjectId?.subjectName || cls.subjectId?.name || "-"}
+                                                {cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "-"}
                                             </td>
                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterName || "-"}</td>
                                             <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicName || "-"}</td>
