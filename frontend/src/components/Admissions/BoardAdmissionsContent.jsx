@@ -293,6 +293,7 @@ const BoardAdmissionsContent = () => {
             "Exam Fee Paid": adm.examFeePaid,
             "Exam Fee Status": adm.examFeeStatus,
             "Subjects": adm.selectedSubjects?.map(s => s.subjectId?.subName || s.name).join(', '),
+            "Admitted By": adm.createdBy?.name || "Admin",
             "Remarks": adm.remarks
         }));
         downloadExcel(exportData, `Enrolled_Board_Admissions_${new Date().toLocaleDateString()}`);
@@ -909,6 +910,7 @@ const BoardAdmissionsContent = () => {
                                 <th className="p-4">Mobile</th>
                                 {activeTab === "Counselling" && <th className="p-4">Counselled By</th>}
                                 {activeTab === "Enrolled" && <th className="p-4">Fees Status</th>}
+                                {activeTab === "Enrolled" && <th className="p-4">Admitted By</th>}
                                 <th className="p-4 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -973,6 +975,17 @@ const BoardAdmissionsContent = () => {
                                                     <div className="flex flex-col gap-1">
                                                         <span className="text-[9px] font-black uppercase text-gray-500">Paid: ₹{item.totalPaidAmount}</span>
                                                         <span className="text-[9px] font-black uppercase text-cyan-500">Bal: ₹{item.totalExpectedAmount - item.totalPaidAmount}</span>
+                                                    </div>
+                                                </td>
+                                            )}
+
+                                            {activeTab === "Enrolled" && (
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center text-[10px] text-cyan-500 font-black border border-cyan-500/20">
+                                                            {(item.createdBy?.name || "A").charAt(0)}
+                                                        </div>
+                                                        <span className="text-[10px] font-black uppercase text-gray-500 truncate max-w-[100px]">{item.createdBy?.name || "Admin"}</span>
                                                     </div>
                                                 </td>
                                             )}

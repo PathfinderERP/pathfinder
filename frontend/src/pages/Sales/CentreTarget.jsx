@@ -81,8 +81,21 @@ const CentreTarget = () => {
                 const sessionData = await sessionRes.json();
                 const sessionList = Array.isArray(sessionData) ? sessionData : [];
                 setSessions(sessionList);
+                
                 if (sessionList.length > 0 && !filterFinancialYear) {
-                    setFilterFinancialYear(sessionList[0].sessionName);
+                    // Detect current session automatically
+                    const now = new Date();
+                    const curMonth = now.getMonth();
+                    const curYear = now.getFullYear();
+                    const fyStart = curMonth >= 3 ? curYear : curYear - 1;
+                    const defaultFY = `${fyStart}-${fyStart + 1}`;
+                    
+                    const foundCurrent = sessionList.find(s => s.sessionName === defaultFY);
+                    if (foundCurrent) {
+                        setFilterFinancialYear(foundCurrent.sessionName);
+                    } else {
+                        setFilterFinancialYear(sessionList[0].sessionName);
+                    }
                 }
             }
         } catch (error) {
@@ -103,6 +116,7 @@ const CentreTarget = () => {
             } else {
                 if (filterFinancialYear) params.append("financialYear", filterFinancialYear);
                 if (filterYear) params.append("year", filterYear);
+                params.append("viewMode", viewMode);
             }
 
             if (selectedCentres.length > 0) {
@@ -142,7 +156,8 @@ const CentreTarget = () => {
             "Year": t.year,
             "Month": t.month,
             "Target Amount": t.targetAmount,
-            "Achieved Amount": t.achievedAmount,
+            "Achieved (Inc. GST)": t.achievedAmountWithGST || t.achievedAmount,
+            "Achieved (Excl. GST)": t.achievedAmountExclGST || (t.achievedAmount / 1.18).toFixed(2),
             "Achievement %": `${t.achievementPercentage}%`
         }));
 
@@ -306,9 +321,19 @@ const CentreTarget = () => {
                                 {sessions.length === 0 ? (
                                     <option value="">Loading...</option>
                                 ) : (
-                                    sessions.map(s => (
-                                        <option key={s._id} value={s.sessionName}>{s.sessionName}</option>
-                                    ))
+                                    sessions
+                                        .filter(s => {
+                                            const parts = s.sessionName.split('-');
+                                            if (parts.length === 2) {
+                                                const start = parseInt(parts[0]);
+                                                const end = parseInt(parts[1]);
+                                                return (end - start) === 1; // Only show 1-year sessions
+                                            }
+                                            return true; // Keep others if format unexpected
+                                        })
+                                        .map(s => (
+                                            <option key={s._id} value={s.sessionName}>{s.sessionName}</option>
+                                        ))
                                 )}
                             </select>
                         )}
@@ -341,7 +366,8 @@ const CentreTarget = () => {
                                     <th className="px-6 py-4">Year</th>
                                     <th className="px-6 py-4">Month</th>
                                     <th className="px-6 py-4 text-center">Target</th>
-                                    <th className="px-6 py-4 text-center">Target Achieved</th>
+                                    <th className="px-6 py-4 text-center">Achieved (With GST)</th>
+                                    <th className="px-6 py-4 text-center">Achieved (Excl. GST)</th>
                                     <th className="px-6 py-4 text-center">Achievement (%)</th>
                                     <th className="px-6 py-4 text-right">Actions</th>
                                 </tr>
@@ -363,7 +389,8 @@ const CentreTarget = () => {
                                             <td className="px-6 py-4">{target.year}</td>
                                             <td className={`px-6 py-4 font-semibold ${isDarkMode ? 'text-cyan-100' : 'text-cyan-700'}`}>{target.month}</td>
                                             <td className={`px-6 py-4 font-bold tracking-wide text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{target.targetAmount.toLocaleString()}</td>
-                                            <td className="px-6 py-4 text-blue-500 font-bold text-center">{target.achievedAmount.toLocaleString()}</td>
+                                            <td className="px-6 py-4 text-blue-500 font-bold text-center">{(target.achievedAmountWithGST || target.achievedAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                            <td className="px-6 py-4 text-emerald-500 font-bold text-center">{(target.achievedAmountExclGST || (target.achievedAmount / 1.18) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                             <td className={`px-6 py-4 font-black text-center ${parseFloat(target.achievementPercentage) > 50 ? "text-green-500" :
                                                 parseFloat(target.achievementPercentage) === 50 ? "text-yellow-500" : "text-red-500"
                                                 }`}>
@@ -400,6 +427,7 @@ const CentreTarget = () => {
                 {showAddModal && (
                     <AddTargetModal
                         target={selectedTarget}
+                        viewMode={viewMode}
                         onClose={() => setShowAddModal(false)}
                         onSuccess={() => { setShowAddModal(false); fetchTargets(); }}
                         centres={centres}

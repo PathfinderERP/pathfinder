@@ -3,7 +3,7 @@ import Select from 'react-select';
 
 import { useTheme } from '../../context/ThemeContext';
 
-const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, theme: propTheme, isDarkMode }) => {
+const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, theme: propTheme, isDarkMode, ...rest }) => {
     // Try to get theme from context, but don't crash if context is missing
     let contextTheme = 'light';
     try {
@@ -37,9 +37,10 @@ const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, 
                 ...provided,
                 backgroundColor: isDark ? '#1a1f24' : '#ffffff',
                 border: isDark ? '1px solid #374151' : '1px solid #e5e7eb',
-                zIndex: 50,
+                zIndex: 9999,
                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
             }),
+            menuPortal: base => ({ ...base, zIndex: 9999 }),
             option: (provided, state) => ({
                 ...provided,
                 backgroundColor: state.isSelected
@@ -108,6 +109,7 @@ const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, 
                     primary: '#06b6d4',
                 },
             })}
+            {...rest}
         />
     );
 };

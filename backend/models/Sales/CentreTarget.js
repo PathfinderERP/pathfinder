@@ -27,6 +27,14 @@ const centreTargetSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    achievedAmountWithGST: {
+        type: Number,
+        default: 0
+    },
+    achievedAmountExclGST: {
+        type: Number,
+        default: 0
+    },
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"

@@ -289,6 +289,7 @@ export const getBoardAdmissions = async (req, res) => {
             .populate('boardId')
             .populate('selectedSubjects.subjectId')
             .populate('installments.subjects.subjectId')
+            .populate('createdBy', 'name')
             .sort({ createdAt: -1 });
         res.status(200).json(admissions);
     } catch (error) {

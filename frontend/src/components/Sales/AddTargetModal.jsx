@@ -1,23 +1,33 @@
 import React, { useState, useEffect } from "react";
 import { FaTimes, FaSave } from "react-icons/fa";
 import { toast } from "react-toastify";
+import CustomMultiSelect from "../common/CustomMultiSelect";
 
-const AddTargetModal = ({ target, onClose, onSuccess, centres, sessions }) => {
+const AddTargetModal = ({ target, viewMode, onClose, onSuccess, centres, sessions }) => {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         centre: "",
         financialYear: "2025-2026",
         year: new Date().getFullYear(),
-        month: getCurrentMonth(),
+        month: viewMode === "Yearly" ? "YEARLY" : viewMode === "Quarterly" ? "" : getCurrentMonth(),
         targetAmount: "",
         achievedAmount: "0"
     });
+    const [selectedMonths, setSelectedMonths] = useState([]);
 
     useEffect(() => {
         if (!target && sessions && sessions.length > 0) {
+            const now = new Date();
+            const curMonth = now.getMonth();
+            const curYear = now.getFullYear();
+            const fyStart = curMonth >= 3 ? curYear : curYear - 1;
+            const defaultFY = `${fyStart}-${fyStart + 1}`;
+
+            const foundCurrent = sessions.find(s => s.sessionName === defaultFY);
+
             setFormData(prev => ({
                 ...prev,
-                financialYear: sessions[0].sessionName
+                financialYear: foundCurrent ? foundCurrent.sessionName : sessions[0].sessionName
             }));
         }
     }, [sessions, target]);
@@ -36,8 +46,18 @@ const AddTargetModal = ({ target, onClose, onSuccess, centres, sessions }) => {
                 targetAmount: target.targetAmount,
                 achievedAmount: target.achievedAmount || 0
             });
+            if (viewMode === "Quarterly" && target.month) {
+                const parts = target.month.split(',').map(m => m.trim()).filter(Boolean);
+                setSelectedMonths(parts.map(m => ({ value: m, label: m })));
+            }
         }
-    }, [target]);
+    }, [target, viewMode]);
+
+    const handleQuarterlyMonthsChange = (selectedOptions) => {
+        const selected = selectedOptions || [];
+        setSelectedMonths(selected);
+        setFormData({ ...formData, month: selected.map(o => o.value).join(",") });
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -76,10 +96,11 @@ const AddTargetModal = ({ target, onClose, onSuccess, centres, sessions }) => {
         }
     };
 
-    const months = [
+    const baseMonthNames = [
         "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December"
     ];
+    const months = viewMode === "Yearly" ? ["YEARLY"] : baseMonthNames;
 
     return (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
@@ -118,9 +139,19 @@ const AddTargetModal = ({ target, onClose, onSuccess, centres, sessions }) => {
                                 className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2.5 text-white focus:border-cyan-500 outline-none"
                             >
                                 {sessions && sessions.length > 0 ? (
-                                    sessions.map(s => (
-                                        <option key={s._id} value={s.sessionName}>{s.sessionName}</option>
-                                    ))
+                                    sessions
+                                        .filter(s => {
+                                            const parts = s.sessionName.split('-');
+                                            if (parts.length === 2) {
+                                                const start = parseInt(parts[0]);
+                                                const end = parseInt(parts[1]);
+                                                return (end - start) === 1;
+                                            }
+                                            return true;
+                                        })
+                                        .map(s => (
+                                            <option key={s._id} value={s.sessionName}>{s.sessionName}</option>
+                                        ))
                                 ) : (
                                     <option value="">No sessions available</option>
                                 )}
@@ -140,15 +171,27 @@ const AddTargetModal = ({ target, onClose, onSuccess, centres, sessions }) => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-gray-400 text-sm mb-1">Month *</label>
-                            <select
-                                required
-                                value={formData.month}
-                                onChange={(e) => setFormData({ ...formData, month: e.target.value })}
-                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2.5 text-white focus:border-cyan-500 outline-none"
-                            >
-                                {months.map(m => <option key={m} value={m}>{m}</option>)}
-                            </select>
+                            <label className="block text-gray-400 text-sm mb-1">Month(s) *</label>
+                            {viewMode === "Quarterly" ? (
+                                <CustomMultiSelect
+                                    options={baseMonthNames.map(m => ({ value: m, label: m }))}
+                                    value={selectedMonths}
+                                    onChange={handleQuarterlyMonthsChange}
+                                    placeholder="Select Months..."
+                                    isDisabled={!!target}
+                                    menuPortalTarget={document.body}
+                                    menuPosition="fixed"
+                                />
+                            ) : (
+                                <select
+                                    required
+                                    value={formData.month}
+                                    onChange={(e) => setFormData({ ...formData, month: e.target.value })}
+                                    className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2.5 text-white focus:border-cyan-500 outline-none"
+                                >
+                                    {months.map(m => <option key={m} value={m}>{m}</option>)}
+                                </select>
+                            )}
                         </div>
                         <div>
                             <label className="block text-gray-400 text-sm mb-1">Target Amount *</label>

@@ -1,6 +1,6 @@
 import CentreTarget from "../../models/Sales/CentreTarget.js";
 import Centre from "../../models/Master_data/Centre.js";
-import { calculateCentreTargetAchieved } from "../../services/centreTargetService.js";
+import { calculateCentreTargetAchieved, calculateCentreTargetAchievedYearly, calculateCentreTargetAchievedMultiMonth } from "../../services/centreTargetService.js";
 
 const monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -37,7 +37,7 @@ export const createCentreTarget = async (req, res) => {
 // Get Targets with filtering and calculation
 export const getCentreTargets = async (req, res) => {
     try {
-        const { centre, financialYear, month, year, startDate, endDate } = req.query;
+        const { centre, financialYear, month, year, startDate, endDate, viewMode } = req.query;
         let query = {};
 
         let allowedCentreIds = [];
@@ -79,24 +79,68 @@ export const getCentreTargets = async (req, res) => {
                 query.year = -1; // No results
             }
         } else {
-            if (financialYear) query.financialYear = financialYear;
-            if (month) query.month = month;
+            if (financialYear) {
+                query.financialYear = financialYear;
+            } else if (!year && !month) {
+                const now = new Date();
+                const curMonth = now.getMonth();
+                const curYear = now.getFullYear();
+                const fyStart = curMonth >= 3 ? curYear : curYear - 1;
+                query.financialYear = `${fyStart}-${fyStart + 1}`;
+            }
+
+            if (viewMode === "Yearly") {
+                query.month = "YEARLY";
+            } else if (viewMode === "Quarterly") {
+                query.month = { $regex: /,/ };
+            } else if (viewMode === "Monthly") {
+                if (month) query.month = month;
+                else query.month = { $not: /,|YEARLY/ };
+            } else if (month) {
+                 query.month = month;
+            }
+
             if (year && !isNaN(parseInt(year))) query.year = parseInt(year);
         }
 
         const targets = await CentreTarget.find(query)
-            .populate({ path: 'centre', select: 'centreName', model: 'CentreSchema' }) // Explicitly specifying model to be safe
+            .populate({ path: 'centre', select: 'centreName', model: 'CentreSchema' })
             .sort({ createdAt: -1 });
 
-        // Calculate percentage
         // Calculate percentage and update real-time
         const results = await Promise.all(targets.map(async (t) => {
-            // Recalculate achieved amount based on actual payments
             if (t.centre && t.centre.centreName) {
-                const realAchieved = await calculateCentreTargetAchieved(t.centre.centreName, t.month, t.year);
-                if (realAchieved !== t.achievedAmount) {
-                    t.achievedAmount = realAchieved;
-                    await t.save(); // Persist the correction
+                let totalWithGST, totalExclGST;
+                
+                if (t.month === "YEARLY") {
+                    const yearlyResult = await calculateCentreTargetAchievedYearly(t.centre.centreName, t.financialYear);
+                    totalWithGST = yearlyResult.totalWithGST;
+                    totalExclGST = yearlyResult.totalExclGST;
+                } else if (t.month && t.month.includes(",")) {
+                    const multiResult = await calculateCentreTargetAchievedMultiMonth(t.centre.centreName, t.month, t.financialYear);
+                    totalWithGST = multiResult.totalWithGST;
+                    totalExclGST = multiResult.totalExclGST;
+                } else {
+                    const monthlyResult = await calculateCentreTargetAchieved(t.centre.centreName, t.month, t.year);
+                    totalWithGST = monthlyResult.totalWithGST;
+                    totalExclGST = monthlyResult.totalExclGST;
+                }
+                
+                // Update if changed
+                if (totalWithGST !== t.achievedAmountWithGST || totalExclGST !== t.achievedAmountExclGST) {
+                    t.achievedAmount = totalWithGST;
+                    t.achievedAmountWithGST = totalWithGST;
+                    t.achievedAmountExclGST = totalExclGST;
+                    await CentreTarget.updateOne(
+                        { _id: t._id },
+                        {
+                            $set: {
+                                achievedAmount: totalWithGST,
+                                achievedAmountWithGST: totalWithGST,
+                                achievedAmountExclGST: totalExclGST
+                            }
+                        }
+                    );
                 }
             }
 

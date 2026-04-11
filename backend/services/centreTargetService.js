@@ -17,42 +17,283 @@ export const calculateCentreTargetAchieved = async (centreName, month, year) => 
             "January", "February", "March", "April", "May", "June",
             "July", "August", "September", "October", "November", "December"
         ];
-        const monthIndex = monthNames.indexOf(month);
+        const cleanMonth = (month || "").trim();
+        const monthIndex = monthNames.indexOf(cleanMonth);
 
-        if (monthIndex === -1) return 0;
+        if (monthIndex === -1) return { totalWithGST: 0, totalExclGST: 0 };
 
-        const startOfMonth = new Date(year, monthIndex, 1);
-        const endOfMonth = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+        // Check if the requested month/year is in the future
+        const today = new Date();
+        const startOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1).getTime();
+        const parsedYear = parseInt(year, 10);
+        const startOfRequestedMonth = new Date(parsedYear, monthIndex, 1).getTime();
+
+        if (startOfRequestedMonth > startOfCurrentMonth) {
+            return { totalWithGST: 0, totalExclGST: 0 };
+        }
+
+        // Determine the start of the financial year (April 1st)
+        // If target month is Jan(0), Feb(1), Mar(2), then FY started in April of (year - 1)
+        // If target month is Apr(3) to Dec(11), then FY started in April of (year)
+        let fyStartYear = year;
+        if (monthIndex < 3) {
+            fyStartYear = year - 1;
+        }
+
+        const startOfFY = new Date(fyStartYear, 3, 1); // April 1st
+        const endOfTargetMonth = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
 
         const result = await Payment.aggregate([
             {
                 $lookup: {
-                    from: "admissions", // Collection name (usually lowercase plural)
+                    from: "admissions",
                     localField: "admission",
                     foreignField: "_id",
-                    as: "admissionDetails"
+                    as: "admissionInfoNormal"
+                }
+            },
+            {
+                $lookup: {
+                    from: "boardcourseadmissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoBoard"
+                }
+            },
+            {
+                $addFields: {
+                    admissionDetails: {
+                        $ifNull: [
+                            { $arrayElemAt: ["$admissionInfoNormal", 0] },
+                            { $arrayElemAt: ["$admissionInfoBoard", 0] }
+                        ]
+                    }
                 }
             },
             { $unwind: "$admissionDetails" },
             {
                 $match: {
                     "admissionDetails.centre": centreName,
-                    "status": "PAID",
-                    "paidDate": { $gte: startOfMonth, $lte: endOfMonth }
+                    $or: [
+                        { status: { $in: ["PAID", "PARTIAL"] } },
+                        { paymentMethod: "CHEQUE", status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] } }
+                    ]
+                }
+            },
+            {
+                $addFields: {
+                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate"] }
+                }
+            },
+            {
+                $match: {
+                    "effectiveDate": { $gte: startOfFY, $lte: endOfTargetMonth }
                 }
             },
             {
                 $group: {
                     _id: null,
-                    totalAchieved: { $sum: "$paidAmount" }
+                    totalWithGST: { $sum: "$paidAmount" }
                 }
             }
         ]);
 
-        return result.length > 0 ? result[0].totalAchieved : 0;
+        const totalWithGST = result.length > 0 ? result[0].totalWithGST : 0;
+        // GST is typically 18%. So Amount Excl GST = Amount / 1.18
+        const totalExclGST = totalWithGST / 1.18;
+
+        return { totalWithGST, totalExclGST };
     } catch (error) {
-        console.error("Error calculating target achieved:", error);
-        return 0;
+        console.error("Error calculating cumulative target achieved:", error);
+        return { totalWithGST: 0, totalExclGST: 0 };
+    }
+};
+
+/**
+ * Calculates the total 'Target Achieved' for a specific Centre and Financial Year (Yearly View).
+ * Calculated from April 1st of the start year until the minimum of (March 31st end year, current date).
+ */
+export const calculateCentreTargetAchievedYearly = async (centreName, financialYear) => {
+    try {
+        if (!financialYear || typeof financialYear !== 'string') return { totalWithGST: 0, totalExclGST: 0 };
+        const parts = financialYear.split('-');
+        if (parts.length !== 2) return { totalWithGST: 0, totalExclGST: 0 };
+
+        const fyStartYear = parseInt(parts[0], 10);
+        const startOfFY = new Date(fyStartYear, 3, 1); // April 1st
+
+        const fyEndYear = parseInt(parts[1], 10);
+        let endOfTarget = new Date(fyEndYear, 2, 31, 23, 59, 59, 999); // March 31st
+
+        const now = new Date();
+        if (now < endOfTarget) {
+            endOfTarget = now;
+        }
+
+        const result = await Payment.aggregate([
+            {
+                $lookup: {
+                    from: "admissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoNormal"
+                }
+            },
+            {
+                $lookup: {
+                    from: "boardcourseadmissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoBoard"
+                }
+            },
+            {
+                $addFields: {
+                    admissionDetails: {
+                        $ifNull: [
+                            { $arrayElemAt: ["$admissionInfoNormal", 0] },
+                            { $arrayElemAt: ["$admissionInfoBoard", 0] }
+                        ]
+                    }
+                }
+            },
+            { $unwind: "$admissionDetails" },
+            {
+                $match: {
+                    "admissionDetails.centre": centreName,
+                    $or: [
+                        { status: { $in: ["PAID", "PARTIAL"] } },
+                        { paymentMethod: "CHEQUE", status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] } }
+                    ]
+                }
+            },
+            {
+                $addFields: {
+                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate"] }
+                }
+            },
+            {
+                $match: {
+                    "effectiveDate": { $gte: startOfFY, $lte: endOfTarget }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalWithGST: { $sum: "$paidAmount" }
+                }
+            }
+        ]);
+
+        const totalWithGST = result.length > 0 ? result[0].totalWithGST : 0;
+        const totalExclGST = totalWithGST / 1.18;
+
+        return { totalWithGST, totalExclGST };
+    } catch (error) {
+        console.error("Error calculating yearly target achieved:", error);
+        return { totalWithGST: 0, totalExclGST: 0 };
+    }
+};
+
+/**
+ * Calculates the 'Target Achieved' dynamically for multiple discrete months (Quarterly/Custom combinations).
+ * Resolves each month to its precise calendar year using the financialYear string to avoid ambiguity.
+ */
+export const calculateCentreTargetAchievedMultiMonth = async (centreName, monthString, financialYear) => {
+    try {
+        if (!monthString || typeof monthString !== 'string') return { totalWithGST: 0, totalExclGST: 0 };
+        if (!financialYear || typeof financialYear !== 'string') return { totalWithGST: 0, totalExclGST: 0 };
+        
+        const parts = financialYear.split('-');
+        if (parts.length !== 2) return { totalWithGST: 0, totalExclGST: 0 };
+
+        const fyStartYear = parseInt(parts[0], 10);
+        const fyEndYear = parseInt(parts[1], 10);
+
+        const monthNames = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ];
+        
+        const selectedMonths = monthString.split(',').map(m => m.trim()).filter(m => monthNames.includes(m));
+        if (selectedMonths.length === 0) return { totalWithGST: 0, totalExclGST: 0 };
+
+        // Construct exact month boundary matches
+        const dateMatches = selectedMonths.map(month => {
+            const monthIndex = monthNames.indexOf(month);
+            // In Indian FY, Apr-Dec (3-11) fall in fyStartYear. Jan-Mar (0-2) fall in fyEndYear.
+            const calYear = monthIndex >= 3 ? fyStartYear : fyEndYear;
+            
+            return {
+                effectiveDate: {
+                    $gte: new Date(calYear, monthIndex, 1),
+                    $lte: new Date(calYear, monthIndex + 1, 0, 23, 59, 59, 999)
+                }
+            };
+        });
+
+        const result = await Payment.aggregate([
+            {
+                $lookup: {
+                    from: "admissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoNormal"
+                }
+            },
+            {
+                $lookup: {
+                    from: "boardcourseadmissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoBoard"
+                }
+            },
+            {
+                $addFields: {
+                    admissionDetails: {
+                        $ifNull: [
+                            { $arrayElemAt: ["$admissionInfoNormal", 0] },
+                            { $arrayElemAt: ["$admissionInfoBoard", 0] }
+                        ]
+                    }
+                }
+            },
+            { $unwind: "$admissionDetails" },
+            {
+                $match: {
+                    "admissionDetails.centre": centreName,
+                    $or: [
+                        { status: { $in: ["PAID", "PARTIAL"] } },
+                        { paymentMethod: "CHEQUE", status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] } }
+                    ]
+                }
+            },
+            {
+                $addFields: {
+                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate"] }
+                }
+            },
+            {
+                $match: {
+                    $or: dateMatches
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalWithGST: { $sum: "$paidAmount" }
+                }
+            }
+        ]);
+
+        const totalWithGST = result.length > 0 ? result[0].totalWithGST : 0;
+        const totalExclGST = totalWithGST / 1.18;
+
+        return { totalWithGST, totalExclGST };
+    } catch (error) {
+        console.error("Error calculating multi-month target achieved:", error);
+        return { totalWithGST: 0, totalExclGST: 0 };
     }
 };
 
@@ -115,11 +356,13 @@ export const updateCentreTargetAchieved = async (centreName, paymentDateInput) =
             return;
         }
 
-        // 4. Calculate Total Achieved for this Month/Year using the new reusable function
-        const totalAchieved = await calculateCentreTargetAchieved(centreName, month, year);
+        // 4. Calculate Total Achieved (Cumulative from April 1st)
+        const { totalWithGST, totalExclGST } = await calculateCentreTargetAchieved(centreName, month, year);
 
         // 5. Update Target Record
-        targetRecord.achievedAmount = totalAchieved;
+        targetRecord.achievedAmount = totalWithGST;
+        targetRecord.achievedAmountWithGST = totalWithGST;
+        targetRecord.achievedAmountExclGST = totalExclGST;
         await targetRecord.save();
 
     } catch (error) {

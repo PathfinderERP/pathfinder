@@ -482,7 +482,32 @@ export const getTransactionReport = async (req, res) => {
         // Stats Aggregation - Uses baseAttributesMatch (ignores user date filter) but keeps context filters
         const statsData = await Payment.aggregate([
             { $match: baseAttributesMatch },
-            { $lookup: { from: "admissions", localField: "admission", foreignField: "_id", as: "admissionInfo" } },
+            {
+                $lookup: {
+                    from: "admissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoNormal"
+                }
+            },
+            {
+                $lookup: {
+                    from: "boardcourseadmissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoBoard"
+                }
+            },
+            {
+                $addFields: {
+                    admissionInfo: {
+                        $ifNull: [
+                            { $arrayElemAt: ["$admissionInfoNormal", 0] },
+                            { $arrayElemAt: ["$admissionInfoBoard", 0] }
+                        ]
+                    }
+                }
+            },
             { $unwind: "$admissionInfo" },
             { $match: admissionMatch },
             { $lookup: { from: "courses", localField: "admissionInfo.course", foreignField: "_id", as: "courseInfo" } },
