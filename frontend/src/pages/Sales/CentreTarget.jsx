@@ -21,6 +21,7 @@ const CentreTarget = () => {
 
     // Filters
     const [selectedCentres, setSelectedCentres] = useState([]);
+    const [selectedMonths, setSelectedMonths] = useState([new Date().toLocaleString('default', { month: 'long' })]);
     const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
 
@@ -146,12 +147,14 @@ const CentreTarget = () => {
     };
 
     const handleExport = () => {
-        if (!targets || targets.length === 0) {
+        const filteredTargets = targets.filter(t => (viewMode !== "Monthly") || (selectedMonths.length === 0 || selectedMonths.includes(t.month)));
+
+        if (!filteredTargets || filteredTargets.length === 0) {
             toast.warn("No data to export");
             return;
         }
 
-        const exportData = targets.map(t => ({
+        const exportData = filteredTargets.map(t => ({
             "Centre Name": t.centre?.centreName || "Unknown",
             "Financial Year": t.financialYear,
             "Year": t.year,
@@ -273,6 +276,24 @@ const CentreTarget = () => {
                             />
                         </div>
 
+                        {viewMode === "Monthly" && (
+                            <div className="min-w-[200px] z-10 w-full sm:w-64">
+                                <CustomMultiSelect
+                                    options={[
+                                        "January", "February", "March", "April", "May", "June",
+                                        "July", "August", "September", "October", "November", "December"
+                                    ].map(m => ({ value: m, label: m }))}
+                                    value={[
+                                        "January", "February", "March", "April", "May", "June",
+                                        "July", "August", "September", "October", "November", "December"
+                                    ].map(m => ({ value: m, label: m })).filter(opt => selectedMonths.includes(opt.value))}
+                                    onChange={(selected) => setSelectedMonths(selected ? selected.map(o => o.value) : [])}
+                                    placeholder="All Months"
+                                    isDarkMode={isDarkMode}
+                                />
+                            </div>
+                        )}
+
                         {viewMode !== "Custom" && (
                             <select
                                 value={filterFinancialYear}
@@ -341,12 +362,12 @@ const CentreTarget = () => {
                                     <tr>
                                         <td colSpan="8" className="px-6 py-8 text-center text-cyan-400 font-bold">Loading targets...</td>
                                     </tr>
-                                ) : targets.length === 0 ? (
+                                ) : targets.filter(t => (viewMode !== "Monthly") || (selectedMonths.length === 0 || selectedMonths.includes(t.month))).length === 0 ? (
                                     <tr>
                                         <td colSpan="8" className="px-6 py-8 text-center text-gray-500 font-medium">No targets found. Add one to get started.</td>
                                     </tr>
                                 ) : (
-                                    targets.map(target => (
+                                    targets.filter(t => (viewMode !== "Monthly") || (selectedMonths.length === 0 || selectedMonths.includes(t.month))).map(target => (
                                         <tr key={target._id} className={`${isDarkMode ? 'hover:bg-[#131619] text-gray-400' : 'hover:bg-gray-50 text-gray-700'} transition-all duration-300`}>
                                             <td className={`px-6 py-4 font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{target.centre?.centreName || "Unknown"}</td>
                                             <td className="px-6 py-4">{target.financialYear}</td>

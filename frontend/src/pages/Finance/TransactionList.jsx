@@ -229,6 +229,10 @@ const TransactionList = () => {
             ? detailedReport.filter(item => item.receiptNo && item.receiptNo !== "-" && item.receiptNo.trim() !== "")
             : detailedReport;
 
+    // Dynamically calculate selection totals based on visually filtered active dataset
+    const dynamicSelectionTotalWithGst = filteredReport.reduce((sum, item) => sum + (item.amount || 0), 0);
+    const dynamicSelectionTotalBase = filteredReport.reduce((sum, item) => sum + (item.revenueWithoutGst || 0), 0);
+
     const handleDownloadExcel = () => {
         if (!filteredReport.length) {
             toast.warn("No data to download");
@@ -346,11 +350,11 @@ const TransactionList = () => {
                         <div className="text-right flex-1">
                             <div className="flex flex-col border-b border-gray-700 pb-2 mb-2">
                                 <span className="text-[10px] font-black text-cyan-400 uppercase tracking-tighter">Selection Total (With GST)</span>
-                                <h3 className="text-xl font-black text-white leading-none">Rs.{stats.selectionTotalWithGst ? stats.selectionTotalWithGst.toLocaleString('en-IN') : 0}</h3>
+                                <h3 className="text-xl font-black text-white leading-none">Rs.{dynamicSelectionTotalWithGst ? dynamicSelectionTotalWithGst.toLocaleString('en-IN') : 0}</h3>
                             </div>
                             <div className="flex flex-col">
                                 <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Selection Revenue (Base)</span>
-                                <h3 className="text-xl font-black text-gray-300 leading-none">Rs.{stats.selectionTotalBase ? Math.round(stats.selectionTotalBase).toLocaleString('en-IN') : 0}</h3>
+                                <h3 className="text-xl font-black text-gray-300 leading-none">Rs.{dynamicSelectionTotalBase ? Math.round(dynamicSelectionTotalBase).toLocaleString('en-IN') : 0}</h3>
                             </div>
                             <p className="text-[9px] text-cyan-500 uppercase font-black tracking-[0.2em] mt-3 bg-cyan-500/10 px-2 py-0.5 rounded-full inline-block">MATCHED TOTAL</p>
                         </div>
@@ -585,18 +589,17 @@ const TransactionList = () => {
                     {/* Bill Filter Segmented Control */}
                     <div className="flex items-center rounded-lg border border-gray-300 overflow-hidden text-xs font-black uppercase tracking-widest">
                         {[
-                            { key: "all",       label: "All",          color: "bg-gray-700 text-white",   hover: "hover:bg-gray-100" },
-                            { key: "no_bill",   label: "No Bill No.",  color: "bg-red-500 text-white",    hover: "hover:bg-red-50 hover:text-red-600" },
-                            { key: "with_bill", label: "Only Bills",   color: "bg-green-500 text-white",  hover: "hover:bg-green-50 hover:text-green-600" }
+                            { key: "all", label: "All", color: "bg-gray-700 text-white", hover: "hover:bg-gray-100" },
+                            { key: "no_bill", label: "No Bill No.", color: "bg-red-500 text-white", hover: "hover:bg-red-50 hover:text-red-600" },
+                            { key: "with_bill", label: "Only Bills", color: "bg-green-500 text-white", hover: "hover:bg-green-50 hover:text-green-600" }
                         ].map(({ key, label, color, hover }, i) => (
                             <button
                                 key={key}
                                 onClick={() => { setBillFilter(key); setCurrentPage(1); setPageInput("1"); }}
-                                className={`px-4 py-2 transition-all duration-150 ${
-                                    billFilter === key
+                                className={`px-4 py-2 transition-all duration-150 ${billFilter === key
                                         ? color
                                         : `bg-white text-gray-500 ${hover}`
-                                } ${i > 0 ? "border-l border-gray-300" : ""}`}
+                                    } ${i > 0 ? "border-l border-gray-300" : ""}`}
                             >
                                 {label}
                                 {billFilter === key && billFilter !== "all" && (
@@ -741,13 +744,13 @@ const TransactionList = () => {
                                             <td className="p-4 text-sm font-bold text-purple-600 text-xs">₹{item.gstAmount ? item.gstAmount.toLocaleString() : "-"}</td>
                                             <td className="p-4 text-sm font-black text-gray-900 border-l border-gray-100">₹{item.amount.toLocaleString()}</td>
                                             <td className="p-4">
-                                                    <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest ${item.status === 'PAID' ? 'bg-green-100 text-green-600 shadow-sm shadow-green-200' :
-                                                        item.status === 'PENDING' || item.status === 'PENDING_CLEARANCE' ? 'bg-yellow-100 text-yellow-600 shadow-sm shadow-yellow-200' :
-                                                            item.status === 'REJECTED' ? 'bg-red-100 text-red-600 shadow-sm shadow-red-200' :
-                                                                'bg-gray-100 text-gray-600 shadow-sm shadow-gray-200'
-                                                        }`}>
-                                                        {item.status || "PAID"}
-                                                    </span>
+                                                <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest ${item.status === 'PAID' ? 'bg-green-100 text-green-600 shadow-sm shadow-green-200' :
+                                                    item.status === 'PENDING' || item.status === 'PENDING_CLEARANCE' ? 'bg-yellow-100 text-yellow-600 shadow-sm shadow-yellow-200' :
+                                                        item.status === 'REJECTED' ? 'bg-red-100 text-red-600 shadow-sm shadow-red-200' :
+                                                            'bg-gray-100 text-gray-600 shadow-sm shadow-gray-200'
+                                                    }`}>
+                                                    {item.status || "PAID"}
+                                                </span>
                                             </td>
                                             <td className="p-4 text-[10px] font-black text-blue-600 uppercase italic tracking-tighter whitespace-nowrap">
                                                 {item.takenBy || "System"}

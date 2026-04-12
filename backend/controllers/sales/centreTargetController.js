@@ -1,6 +1,7 @@
 import CentreTarget from "../../models/Sales/CentreTarget.js";
 import Centre from "../../models/Master_data/Centre.js";
 import { calculateCentreTargetAchieved, calculateCentreTargetAchievedYearly, calculateCentreTargetAchievedMultiMonth } from "../../services/centreTargetService.js";
+import mongoose from "mongoose";
 
 const monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -10,26 +11,54 @@ const monthNames = [
 // Create Target
 export const createCentreTarget = async (req, res) => {
     try {
-        const { centre, financialYear, year, month, targetAmount } = req.body;
+        // centre could be a single ID or an array of IDs. Deduplicate them.
+        let centreIds = Array.isArray(centre) ? centre : [centre];
+        centreIds = [...new Set(centreIds.map(id => id.toString()))];
+        
+        const groupId = centreIds.length > 1 ? new mongoose.Types.ObjectId().toString() : null;
+        
+        // Divide target amount if multiple centres are selected so the SUM matches the input
+        const individualTargetAmount = targetAmount / centreIds.length;
+        
+        const createdTargets = [];
+        const existingErrors = [];
 
-        // Check if target already exists for this centre-month-year
-        const existing = await CentreTarget.findOne({ centre, year, month });
-        if (existing) {
-            return res.status(400).json({ message: "Target already exists for this period" });
+        for (const centreId of centreIds) {
+            // Check if target already exists for this centre-month-year
+            const existing = await CentreTarget.findOne({ centre: centreId, year, month });
+            if (existing) {
+                existingErrors.push(`Target already exists for centre ID: ${centreId}`);
+                continue;
+            }
+
+            const newTarget = new CentreTarget({
+                centre: centreId,
+                financialYear,
+                year,
+                month,
+                targetAmount: individualTargetAmount,
+                createdBy: req.user._id,
+                groupId
+            });
+
+            await newTarget.save();
+            createdTargets.push(newTarget);
         }
 
-        const newTarget = new CentreTarget({
-            centre,
-            financialYear,
-            year,
-            month,
-            targetAmount,
-            createdBy: req.user._id
-        });
+        if (createdTargets.length === 0 && existingErrors.length > 0) {
+            return res.status(400).json({ 
+                message: "Targets already exist for the selected centres", 
+                errors: existingErrors 
+            });
+        }
 
-        await newTarget.save();
-        res.status(201).json({ message: "Target created successfully", target: newTarget });
+        res.status(201).json({ 
+            message: `${createdTargets.length} target(s) created successfully`, 
+            targets: createdTargets,
+            errors: existingErrors.length > 0 ? existingErrors : undefined
+        });
     } catch (error) {
+        console.error("Create Target Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
@@ -107,8 +136,8 @@ export const getCentreTargets = async (req, res) => {
             .populate({ path: 'centre', select: 'centreName', model: 'CentreSchema' })
             .sort({ createdAt: -1 });
 
-        // Calculate percentage and update real-time
-        const results = await Promise.all(targets.map(async (t) => {
+        // Calculate achieved amounts
+        const processedTargets = await Promise.all(targets.map(async (t) => {
             if (t.centre && t.centre.centreName) {
                 let totalWithGST, totalExclGST;
                 
@@ -126,34 +155,68 @@ export const getCentreTargets = async (req, res) => {
                     totalExclGST = monthlyResult.totalExclGST;
                 }
                 
-                // Update if changed
                 if (totalWithGST !== t.achievedAmountWithGST || totalExclGST !== t.achievedAmountExclGST) {
                     t.achievedAmount = totalWithGST;
                     t.achievedAmountWithGST = totalWithGST;
                     t.achievedAmountExclGST = totalExclGST;
                     await CentreTarget.updateOne(
                         { _id: t._id },
-                        {
-                            $set: {
-                                achievedAmount: totalWithGST,
-                                achievedAmountWithGST: totalWithGST,
-                                achievedAmountExclGST: totalExclGST
-                            }
-                        }
+                        { $set: { achievedAmount: totalWithGST, achievedAmountWithGST: totalWithGST, achievedAmountExclGST: totalExclGST } }
                     );
                 }
             }
-
-            const achievementPercentage = t.targetAmount > 0
-                ? ((t.achievedAmount / t.targetAmount) * 100).toFixed(1)
-                : 0;
-            return {
-                ...t.toObject(),
-                achievementPercentage
-            };
+            return t.toObject();
         }));
 
-        res.status(200).json({ targets: results });
+        // --- Group Targets by groupId ---
+        const groups = {};
+        const combinedResults = [];
+
+        processedTargets.forEach(t => {
+            const gid = t.groupId || t._id.toString(); // Use ID if no groupId
+            const cName = t.centre?.centreName || "Unknown";
+
+            if (!groups[gid]) {
+                groups[gid] = {
+                    ...t,
+                    _ids: [t._id],
+                    seenCentres: new Set([cName]),
+                    centre: {
+                        ...t.centre,
+                        centreName: cName
+                    },
+                    targetAmount: t.targetAmount,
+                    achievedAmountWithGST: t.achievedAmountWithGST || 0,
+                    achievedAmountExclGST: t.achievedAmountExclGST || 0
+                };
+            } else {
+                // Combine
+                groups[gid]._ids.push(t._id);
+                
+                // Add target amount always
+                groups[gid].targetAmount += t.targetAmount;
+
+                // Only add achievement if this centre hasn't been counted in this group yet
+                if (!groups[gid].seenCentres.has(cName)) {
+                    groups[gid].centre.centreName += ` + ${cName}`;
+                    groups[gid].achievedAmountWithGST += (t.achievedAmountWithGST || 0);
+                    groups[gid].achievedAmountExclGST += (t.achievedAmountExclGST || 0);
+                    groups[gid].seenCentres.add(cName);
+                }
+            }
+        });
+
+        const finalResults = Object.values(groups).map(g => {
+            const achievementPercentage = g.targetAmount > 0
+                ? ((g.achievedAmountWithGST / g.targetAmount) * 100).toFixed(1)
+                : 0;
+            return {
+                ...g,
+                achievementPercentage
+            };
+        });
+
+        res.status(200).json({ targets: finalResults });
     } catch (error) {
         res.status(500).json({ message: "Server error", error: error.message });
     }
@@ -165,10 +228,23 @@ export const updateCentreTarget = async (req, res) => {
         const { id } = req.params;
         const updateData = req.body;
 
-        const updatedTarget = await CentreTarget.findByIdAndUpdate(id, updateData, { new: true });
-        if (!updatedTarget) return res.status(404).json({ message: "Target not found" });
+        const target = await CentreTarget.findById(id);
+        if (!target) return res.status(404).json({ message: "Target not found" });
 
-        res.status(200).json({ message: "Target updated", target: updatedTarget });
+        if (target.groupId) {
+            // If updating targetAmount, divide it by group size
+            if (updateData.targetAmount) {
+                const groupCount = await CentreTarget.countDocuments({ groupId: target.groupId });
+                updateData.targetAmount = updateData.targetAmount / groupCount;
+            }
+            // Update all in group
+            await CentreTarget.updateMany({ groupId: target.groupId }, updateData);
+            const updatedTargets = await CentreTarget.find({ groupId: target.groupId });
+            return res.status(200).json({ message: "Group targets updated", targets: updatedTargets });
+        } else {
+            const updatedTarget = await CentreTarget.findByIdAndUpdate(id, updateData, { new: true });
+            res.status(200).json({ message: "Target updated", target: updatedTarget });
+        }
     } catch (error) {
         res.status(500).json({ message: "Server error", error: error.message });
     }
@@ -178,8 +254,16 @@ export const updateCentreTarget = async (req, res) => {
 export const deleteCentreTarget = async (req, res) => {
     try {
         const { id } = req.params;
-        await CentreTarget.findByIdAndDelete(id);
-        res.status(200).json({ message: "Target deleted" });
+        const target = await CentreTarget.findById(id);
+        if (!target) return res.status(404).json({ message: "Target not found" });
+
+        if (target.groupId) {
+            await CentreTarget.deleteMany({ groupId: target.groupId });
+            res.status(200).json({ message: "Group targets deleted" });
+        } else {
+            await CentreTarget.findByIdAndDelete(id);
+            res.status(200).json({ message: "Target deleted" });
+        }
     } catch (error) {
         res.status(500).json({ message: "Server error", error: error.message });
     }

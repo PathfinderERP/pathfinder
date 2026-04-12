@@ -38,6 +38,9 @@ const centreTargetSchema = new mongoose.Schema({
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"
+    },
+    groupId: {
+        type: String // To group targets added in the same batch
     }
 }, { timestamps: true });
 

@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { useTheme } from "../../context/ThemeContext";
 import { toast } from "react-toastify";
+import CustomMultiSelect from "../../components/common/CustomMultiSelect";
 
 const CentreRank = () => {
     const { theme } = useTheme();
@@ -23,11 +24,12 @@ const CentreRank = () => {
     const currentDate = new Date();
     const [filterFinancialYear, setFilterFinancialYear] = useState("");
     const [filterYear, setFilterYear] = useState(currentDate.getFullYear());
-    const [filterMonth, setFilterMonth] = useState(monthNames[currentDate.getMonth()]);
+    const [selectedMonths, setSelectedMonths] = useState([monthNames[currentDate.getMonth()]]);
     const [viewMode, setViewMode] = useState("Monthly");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [selectedCentres, setSelectedCentres] = useState([]);
+    const [search, setSearch] = useState("");
     const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
 
@@ -49,7 +51,7 @@ const CentreRank = () => {
 
     useEffect(() => {
         fetchRankings();
-    }, [filterFinancialYear, filterYear, filterMonth, startDate, endDate, viewMode, selectedCentres]);
+    }, [filterFinancialYear, filterYear, selectedMonths, startDate, endDate, viewMode, selectedCentres, search]);
 
     const fetchMasterData = async () => {
         try {
@@ -100,14 +102,23 @@ const CentreRank = () => {
                 params.append("endDate", endDate);
             } else {
                 params.append("financialYear", filterFinancialYear);
+                params.append("viewMode", viewMode);
                 if (viewMode === "Monthly") {
                     params.append("year", filterYear);
-                    params.append("month", filterMonth);
+                    if (selectedMonths.length === 1) {
+                         params.append("month", selectedMonths[0]);
+                    } else if (selectedMonths.length > 1) {
+                         params.append("months", selectedMonths.join(","));
+                    }
                 }
             }
 
             if (selectedCentres.length > 0) {
                 params.append("centreIds", selectedCentres.join(","));
+            }
+
+            if (search) {
+                params.append("search", search);
             }
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/sales/centre-rank?${params.toString()}`, {
@@ -177,7 +188,7 @@ const CentreRank = () => {
                     <div className="flex items-center gap-4">
                         <h3 className={`font-bold text-lg hidden lg:block ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Centre Performance Ranking</h3>
                         <div className={`rounded-lg p-1 flex ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                            {["Monthly", "Yearly", "Custom"].map(mode => (
+                            {["Monthly", "Quarterly", "Yearly", "Custom"].map(mode => (
                                 <button
                                     key={mode}
                                     onClick={() => setViewMode(mode)}
@@ -216,6 +227,21 @@ const CentreRank = () => {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
+                        {/* Search Input */}
+                        <div className="relative group">
+                            <input
+                                type="text"
+                                placeholder="Search Centre..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className={`text-sm rounded-md pl-9 pr-3 py-2 outline-none font-bold w-48 border transition-all ${isDarkMode
+                                    ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-blue-500 focus:w-60'
+                                    : 'bg-white border-gray-300 text-gray-800 shadow-sm focus:border-blue-500 focus:w-60'
+                                    }`}
+                            />
+                            <svg className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+
                         <div className="relative" ref={dropdownRef}>
                             <button
                                 onClick={() => setIsCentreDropdownOpen(!isCentreDropdownOpen)}
@@ -294,16 +320,15 @@ const CentreRank = () => {
                                         <option key={year} value={year}>{year}</option>
                                     ))}
                                 </select>
-                                <select
-                                    value={filterMonth}
-                                    onChange={(e) => setFilterMonth(e.target.value)}
-                                    className={`text-sm rounded-md block px-3 py-2 outline-none font-bold w-32 border transition-colors ${isDarkMode
-                                        ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-blue-500'
-                                        : 'bg-white border-gray-300 text-gray-800 shadow-sm focus:border-blue-500'
-                                        }`}
-                                >
-                                    {months.map(m => <option key={m} value={m}>{m}</option>)}
-                                </select>
+                                <div className="min-w-[150px] z-10 w-full sm:w-48 text-left">
+                                    <CustomMultiSelect
+                                        options={months.map(m => ({ value: m, label: m }))}
+                                        value={months.map(m => ({ value: m, label: m })).filter(opt => selectedMonths.includes(opt.value))}
+                                        onChange={(selected) => setSelectedMonths(selected ? selected.map(o => o.value) : [])}
+                                        placeholder="All Months"
+                                        isDarkMode={isDarkMode}
+                                    />
+                                </div>
                             </>
                         )}
 

@@ -6,13 +6,14 @@ import CustomMultiSelect from "../common/CustomMultiSelect";
 const AddTargetModal = ({ target, viewMode, onClose, onSuccess, centres, sessions }) => {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
-        centre: "",
+        centre: "", // String for single, Array for multi? Let's use a separate state for multi selection if needed, or stick to one format.
         financialYear: "2025-2026",
         year: new Date().getFullYear(),
         month: viewMode === "Yearly" ? "YEARLY" : viewMode === "Quarterly" ? "" : getCurrentMonth(),
         targetAmount: "",
         achievedAmount: "0"
     });
+    const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedMonths, setSelectedMonths] = useState([]);
 
     useEffect(() => {
@@ -46,12 +47,27 @@ const AddTargetModal = ({ target, viewMode, onClose, onSuccess, centres, session
                 targetAmount: target.targetAmount,
                 achievedAmount: target.achievedAmount || 0
             });
+            const centreObj = target.centre || {};
+            setSelectedCentres([{ value: centreObj._id || target.centre, label: centreObj.centreName || "Selected Centre" }]);
+            
             if (viewMode === "Quarterly" && target.month) {
                 const parts = target.month.split(',').map(m => m.trim()).filter(Boolean);
                 setSelectedMonths(parts.map(m => ({ value: m, label: m })));
             }
         }
     }, [target, viewMode]);
+
+    const handleCentreChange = (selectedOptions) => {
+        const selected = selectedOptions || [];
+        setSelectedCentres(selected);
+        if (target) {
+            // In edit mode, usually only one is selected.
+            setFormData({ ...formData, centre: selected.length > 0 ? selected[0].value : "" });
+        } else {
+            // In create mode, can be multiple.
+            setFormData({ ...formData, centre: selected.map(o => o.value) });
+        }
+    };
 
     const handleQuarterlyMonthsChange = (selectedOptions) => {
         const selected = selectedOptions || [];
@@ -118,16 +134,16 @@ const AddTargetModal = ({ target, viewMode, onClose, onSuccess, centres, session
                     {/* Centre Selection */}
                     <div>
                         <label className="block text-gray-400 text-sm mb-1">Centre *</label>
-                        <select
-                            required
-                            disabled={!!target} // Maybe allow changing? But usually target locks to centre
-                            value={formData.centre}
-                            onChange={(e) => setFormData({ ...formData, centre: e.target.value })}
-                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2.5 text-white focus:border-cyan-500 outline-none"
-                        >
-                            <option value="">Select Centre</option>
-                            {centres.map(c => <option key={c._id} value={c._id}>{c.centreName}</option>)}
-                        </select>
+                        <CustomMultiSelect
+                            options={centres.map(c => ({ value: c._id, label: c.centreName }))}
+                            value={selectedCentres}
+                            onChange={handleCentreChange}
+                            placeholder="Select Centre(s)..."
+                            isMulti={!target} // Multiple only for creation
+                            required={selectedCentres.length === 0}
+                            menuPortalTarget={document.body}
+                            menuPosition="fixed"
+                        />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

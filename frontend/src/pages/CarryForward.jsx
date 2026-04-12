@@ -31,72 +31,70 @@ const CarryForward = () => {
             const token = localStorage.getItem("token");
             const headers = { "Authorization": `Bearer ${token}` };
 
-            const [studentsRes, classesRes, admissionsRes, boardAdmissionsRes] = await Promise.all([
-                fetch(`${apiUrl}/normalAdmin/getAllStudents`, { headers }),
-                fetch(`${apiUrl}/class`, { headers }),
-                fetch(`${apiUrl}/admission`, { headers }),
-                fetch(`${apiUrl}/board-admission/all`, { headers })
-            ]);
-            
-            if (studentsRes.ok && admissionsRes.ok && boardAdmissionsRes.ok) {
-                const studentsData = await studentsRes.json();
-                const admissionsData = await admissionsRes.json();
-                const boardAdmissionsData = await boardAdmissionsRes.json();
-                
-                // Merge all admissions for searching
-                const combinedAdmissions = [
-                    ...admissionsData.map(a => ({ ...a, type: 'Normal' })),
-                    ...boardAdmissionsData.map(a => ({ 
-                        ...a, 
-                        type: 'Board',
-                        course: a.boardId ? { ...a.boardId, courseName: a.boardCourseName } : { courseName: a.boardCourseName },
-                        department: { departmentName: 'Board Course' }
-                    }))
-                ];
-                setAllAdmissions(combinedAdmissions);
+            const studentsRes = await fetch(`${apiUrl}/normalAdmin/getAllStudents`, { headers });
+            const classesRes = await fetch(`${apiUrl}/class`, { headers });
+            const admissionsRes = await fetch(`${apiUrl}/admission`, { headers });
+            const boardAdmissionsRes = await fetch(`${apiUrl}/board-admission/all`, { headers });
 
-                // Count admissions per student and group them
-                const studentAdmissionMap = {};
-                combinedAdmissions.forEach(admission => {
-                    const studentId = admission.student?._id || admission.student || admission.studentId?._id || admission.studentId;
-                    if (studentId) {
-                        if (!studentAdmissionMap[studentId]) {
-                            studentAdmissionMap[studentId] = [];
-                        }
-                        studentAdmissionMap[studentId].push(admission);
-                    }
-                });
+            const studentsData = studentsRes.ok ? await studentsRes.json() : [];
+            const classesData = classesRes.ok ? await classesRes.json() : [];
+            const admissionsData = admissionsRes.ok ? await admissionsRes.json() : [];
+            const boardAdmissionsData = boardAdmissionsRes.ok ? await boardAdmissionsRes.json() : [];
 
-                // Filter carry forward students: 
-                // 1. Students with carry forward balance > 0
-                // 2. OR students who have enrolled in multiple courses
-                const cfStudents = studentsData.filter(s => {
-                    const hasCarryForwardBalance = s.carryForwardBalance && s.carryForwardBalance > 0;
-                    const hasMultipleCourses = studentAdmissionMap[s._id]?.length > 1;
-                    return hasCarryForwardBalance || hasMultipleCourses;
-                });
-
-                // Add admission data to each student
-                cfStudents.forEach(student => {
-                    student.admissions = studentAdmissionMap[student._id] || [];
-                    student.admissionCount = student.admissions.length;
-                });
-
-                setStudents(cfStudents);
-                setFilteredStudents(cfStudents);
-
-                // Filter enrolled students
-                const enrolled = studentsData.filter(s =>
-                    s.studentStatus?.[0]?.enrolledStatus === "Enrolled"
-                );
-                setEnrolledStudents(enrolled);
-            } else {
+            if (!studentsRes.ok) {
                 toast.error("Failed to fetch students");
+                return;
             }
 
-            if (classesRes.ok) {
-                setClasses(await classesRes.json());
-            }
+            // Merge all available admissions for searching
+            const combinedAdmissions = [
+                ...(Array.isArray(admissionsData) ? admissionsData : []).map(a => ({ ...a, type: 'Normal' })),
+                ...(Array.isArray(boardAdmissionsData) ? boardAdmissionsData : []).map(a => ({ 
+                    ...a, 
+                    type: 'Board',
+                    course: a.boardId ? { ...a.boardId, courseName: a.boardCourseName } : { courseName: a.boardCourseName },
+                    department: { departmentName: 'Board Course' }
+                }))
+            ];
+            setAllAdmissions(combinedAdmissions);
+
+            // Count admissions per student and group them
+            const studentAdmissionMap = {};
+            combinedAdmissions.forEach(admission => {
+                const studentId = admission.student?._id || admission.student || admission.studentId?._id || admission.studentId;
+                if (studentId) {
+                    if (!studentAdmissionMap[studentId]) {
+                        studentAdmissionMap[studentId] = [];
+                    }
+                    studentAdmissionMap[studentId].push(admission);
+                }
+            });
+
+            // Filter carry forward students: 
+            // 1. Students with carry forward balance > 0
+            // 2. OR students who have enrolled in multiple courses
+            const cfStudents = studentsData.filter(s => {
+                const hasCarryForwardBalance = s.carryForwardBalance && s.carryForwardBalance > 0;
+                const hasMultipleCourses = studentAdmissionMap[s._id]?.length > 1;
+                return hasCarryForwardBalance || hasMultipleCourses;
+            });
+
+            // Add admission data to each student
+            cfStudents.forEach(student => {
+                student.admissions = studentAdmissionMap[student._id] || [];
+                student.admissionCount = student.admissions.length;
+            });
+
+            setStudents(cfStudents);
+            setFilteredStudents(cfStudents);
+
+            // Filter enrolled students
+            const enrolled = studentsData.filter(s =>
+                s.studentStatus?.[0]?.enrolledStatus === "Enrolled"
+            );
+            setEnrolledStudents(enrolled);
+
+            setClasses(classesData);
 
         } catch (err) {
             console.error(err);
