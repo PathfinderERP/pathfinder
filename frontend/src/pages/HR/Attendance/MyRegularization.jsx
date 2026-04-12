@@ -106,7 +106,7 @@ const MyRegularization = () => {
 
             canvas.toBlob((blob) => {
                 setCapturedPhotos(prev => [...prev, blob]);
-            }, 'image/jpeg', 0.8);
+            }, 'image/jpeg', 1.0); // Set to 1.0 for maximum quality/resolution
 
             // Don't auto stop camera, allow multiple snaps
         }
@@ -120,8 +120,8 @@ const MyRegularization = () => {
                     toast.error(`${file.name} is not an image file`);
                     return false;
                 }
-                if (file.size > 5 * 1024 * 1024) {
-                    toast.error(`${file.name} exceeds 5MB size limit`);
+                if (file.size > 50 * 1024 * 1024) {
+                    toast.error(`${file.name} exceeds 50MB size limit`);
                     return false;
                 }
                 return true;
