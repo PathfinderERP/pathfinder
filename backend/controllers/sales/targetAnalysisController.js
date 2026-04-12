@@ -1,5 +1,6 @@
 import CentreTarget from "../../models/Sales/CentreTarget.js";
 import Centre from "../../models/Master_data/Centre.js";
+import { calculateCentreTargetAchieved, calculateCentreTargetAchievedYearly, calculateCentreTargetAchievedMultiMonth } from "../../services/centreTargetService.js";
 
 // Helper for quarters
 const getQuarterMonths = (quarter) => {
@@ -56,8 +57,12 @@ export const getTargetAnalysis = async (req, res) => {
             if (month) query.month = month;
         } else if (viewMode === "Quarterly") {
             if (quarter) {
-                const months = getQuarterMonths(quarter);
-                query.month = { $in: months };
+                const qMonths = getQuarterMonths(quarter);
+                const qMatch = qMonths.join(",");
+                query.$or = [
+                    { month: { $in: qMonths } },
+                    { month: qMatch }
+                ];
             }
         } else if (viewMode === "Yearly") {
             // financialYear is already in query
@@ -92,12 +97,9 @@ export const getTargetAnalysis = async (req, res) => {
             .populate({ path: 'centre', select: 'centreName' });
 
         // Aggregation per Centre
-        // We want to return: [{ centreName, target, achieved }]
-        // If multiple records per centre (e.g. Quarterly view has 3 months), sum them up.
+        const aggregated = {};
 
-        const aggregated = {}; // centreId -> { centreName, target, achieved }
-
-        targets.forEach(t => {
+        for (const t of targets) {
             if (!t.centre) return;
             const cId = t.centre._id.toString();
             const cName = t.centre.centreName;
@@ -112,8 +114,24 @@ export const getTargetAnalysis = async (req, res) => {
             }
 
             aggregated[cId].target += (t.targetAmount || 0);
-            aggregated[cId].achieved += (t.achievedAmount || 0);
-        });
+
+            // Calculate Real-time Achievement for this target record
+            let realTimeAchieved = 0;
+            if (t.month === "YEARLY") {
+                const res = await calculateCentreTargetAchievedYearly(cName, t.financialYear);
+                realTimeAchieved = res.totalWithGST;
+            } else if (t.month && t.month.includes(",")) {
+                // Quarterly or specific multi-month
+                const res = await calculateCentreTargetAchievedMultiMonth(cName, t.month, t.financialYear);
+                realTimeAchieved = res.totalWithGST;
+            } else {
+                // Monthly
+                const res = await calculateCentreTargetAchieved(cName, t.month, t.year);
+                realTimeAchieved = res.totalWithGST;
+            }
+
+            aggregated[cId].achieved += realTimeAchieved;
+        }
 
         const result = Object.values(aggregated);
 

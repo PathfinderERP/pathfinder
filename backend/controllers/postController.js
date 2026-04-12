@@ -108,7 +108,7 @@ export const getAllPosts = async (req, res) => {
 
         const enhancedPosts = await Promise.all(posts.map(async (p) => {
             // AUTHOR PRIVACY: Only populate full viewer details if the requester is the creator of the post
-            if (p.author._id.toString() === req.user.id || p.author.toString() === req.user.id) {
+            if (p.author && (p.author._id?.toString() === req.user.id || p.author.toString() === req.user.id)) {
                 await p.populate("views", "name email role designation teacherDepartment");
             }
             return await enhancePostAuthor(p);
@@ -311,7 +311,7 @@ export const recordPostView = async (req, res) => {
             .populate("poll.options.votes", "name email role designation teacherDepartment");
 
         // AUTHOR PRIVACY: Only populate full viewer details for the author's response
-        if (post.author._id.toString() === userId || post.author.toString() === userId) {
+        if (post.author && (post.author._id?.toString() === userId || post.author.toString() === userId)) {
             await post.populate("views", "name email role designation teacherDepartment");
         }
 

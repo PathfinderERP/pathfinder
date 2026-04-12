@@ -461,80 +461,82 @@ const CancelChequePayment = () => {
 
                 {/* Table */}
                 <div className="bg-[#131619] border border-gray-800 rounded-[2rem] overflow-hidden shadow-2xl">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-gray-900/50 border-b border-gray-800 text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                                <th className="p-6">Cheque No.</th>
-                                <th className="p-6">Student</th>
-                                <th className="p-6">Bank</th>
-                                <th className="p-6">Amount</th>
-                                <th className="p-6">Cheque Date</th>
-                                <th className="p-6">Cleared/Rejected Date</th>
-                                <th className="p-6 text-center">Status</th>
-                                <th className="p-6">Processed By</th>
-                                <th className="p-6 text-right w-1/5">Remarks / Notes</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-800">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan="9" className="p-12 text-center">
-                                        <div className="animate-spin h-8 w-8 border-t-2 border-cyan-500 rounded-full mx-auto mb-4"></div>
-                                        <div className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">Loading Records...</div>
-                                    </td>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse min-w-[1400px]">
+                            <thead>
+                                <tr className="bg-gray-900/50 border-b border-gray-800 text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                                    <th className="p-6">Cheque No.</th>
+                                    <th className="p-6">Student</th>
+                                    <th className="p-6">Bank</th>
+                                    <th className="p-6">Amount</th>
+                                    <th className="p-6">Cheque Date</th>
+                                    <th className="p-6">Cleared/Rejected Date</th>
+                                    <th className="p-6 text-center">Status</th>
+                                    <th className="p-6">Processed By</th>
+                                    <th className="p-6 text-right">Remarks / Notes</th>
                                 </tr>
-                            ) : cheques.length === 0 ? (
-                                <tr>
-                                    <td colSpan="9" className="p-12 text-center text-gray-500 font-bold uppercase tracking-widest text-xs italic">
-                                        No cheque recovery records found
-                                    </td>
-                                </tr>
-                            ) : (
-                                cheques.map((cheque) => (
-                                    <tr key={cheque.id || cheque.paymentId} className="hover:bg-cyan-500/[0.02] transition-colors group">
-                                        <td className="p-6">
-                                            <span className="text-cyan-500 font-black">{cheque.chequeNumber}</span>
-                                        </td>
-                                        <td className="p-6">
-                                            <div className="font-bold text-white uppercase">{cheque.studentName}</div>
-                                            <div className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">{cheque.admissionNo}</div>
-                                        </td>
-                                        <td className="p-6 text-gray-300 font-bold text-xs">
-                                            {cheque.bankName && cheque.bankName !== "N/A" ? cheque.bankName : (cheque.accountHolderName || "N/A")}
-                                        </td>
-                                        <td className="p-6 text-white font-black">₹{cheque.amount.toLocaleString()}</td>
-                                        <td className="p-6 text-gray-300 font-bold text-xs">
-                                            {cheque.chequeDate ? new Date(cheque.chequeDate).toLocaleDateString('en-IN') : "N/A"}
-                                        </td>
-                                        <td className="p-6 text-gray-300 font-bold text-xs">
-                                            {cheque.clearedOrRejectedDate ? new Date(cheque.clearedOrRejectedDate).toLocaleDateString('en-IN') : "N/A"}
-                                        </td>
-                                        <td className="p-6 text-center">
-                                            <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border shadow-sm ${
-                                                cheque.status === "Rejected"
-                                                    ? "text-red-500 bg-red-500/10 border-red-500/20 shadow-red-500/5"
-                                                    : cheque.status === "Cancelled"
-                                                        ? "text-orange-500 bg-orange-500/10 border-orange-500/20 shadow-orange-500/5"
-                                                        : "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 shadow-emerald-500/5"
-                                                }`}>
-                                                {cheque.status}
-                                            </span>
-                                        </td>
-                                        <td className="p-6">
-                                            <div className="text-gray-300 text-xs font-black uppercase italic tracking-tighter">
-                                                {cheque.processedBy || "N/A"}
-                                            </div>
-                                        </td>
-                                        <td className="p-6 text-right">
-                                            <div className="text-gray-400 text-[10px] font-bold uppercase leading-relaxed max-w-[200px] ml-auto">
-                                                {cheque.remarks || "No additional notes"}
-                                            </div>
+                            </thead>
+                            <tbody className="divide-y divide-gray-800">
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan="9" className="p-12 text-center">
+                                            <div className="animate-spin h-8 w-8 border-t-2 border-cyan-500 rounded-full mx-auto mb-4"></div>
+                                            <div className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">Loading Records...</div>
                                         </td>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                                ) : cheques.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="9" className="p-12 text-center text-gray-500 font-bold uppercase tracking-widest text-xs italic">
+                                            No cheque recovery records found
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    cheques.map((cheque) => (
+                                        <tr key={cheque.id || cheque.paymentId} className="hover:bg-cyan-500/[0.02] transition-colors group">
+                                            <td className="p-6">
+                                                <span className="text-cyan-500 font-black">{cheque.chequeNumber}</span>
+                                            </td>
+                                            <td className="p-6">
+                                                <div className="font-bold text-white uppercase">{cheque.studentName}</div>
+                                                <div className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">{cheque.admissionNo}</div>
+                                            </td>
+                                            <td className="p-6 text-gray-300 font-bold text-xs">
+                                                {cheque.bankName && cheque.bankName !== "N/A" ? cheque.bankName : (cheque.accountHolderName || "N/A")}
+                                            </td>
+                                            <td className="p-6 text-white font-black">₹{cheque.amount.toLocaleString()}</td>
+                                            <td className="p-6 text-gray-300 font-bold text-xs">
+                                                {cheque.chequeDate ? new Date(cheque.chequeDate).toLocaleDateString('en-IN') : "N/A"}
+                                            </td>
+                                            <td className="p-6 text-gray-300 font-bold text-xs">
+                                                {cheque.clearedOrRejectedDate ? new Date(cheque.clearedOrRejectedDate).toLocaleDateString('en-IN') : "N/A"}
+                                            </td>
+                                            <td className="p-6 text-center">
+                                                <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border shadow-sm ${
+                                                    cheque.status === "Rejected"
+                                                        ? "text-red-500 bg-red-500/10 border-red-500/20 shadow-red-500/5"
+                                                        : cheque.status === "Cancelled"
+                                                            ? "text-orange-500 bg-orange-500/10 border-orange-500/20 shadow-orange-500/5"
+                                                            : "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 shadow-emerald-500/5"
+                                                    }`}>
+                                                    {cheque.status}
+                                                </span>
+                                            </td>
+                                            <td className="p-6">
+                                                <div className="text-gray-300 text-xs font-black uppercase italic tracking-tighter">
+                                                    {cheque.processedBy || "N/A"}
+                                                </div>
+                                            </td>
+                                            <td className="p-6 text-right">
+                                                <div className="text-gray-400 text-[10px] font-bold uppercase leading-relaxed max-w-[300px] ml-auto">
+                                                    {cheque.remarks || "No additional notes"}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </Layout>

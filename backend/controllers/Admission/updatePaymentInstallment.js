@@ -62,7 +62,7 @@ export const updatePaymentInstallment = async (req, res) => {
         const originalAmount = installment.amount;
 
         installment.paidAmount = paidAmountFloat;
-        installment.paidDate = new Date();
+        installment.paidDate = (paymentMethod === "CHEQUE") ? null : new Date();
         installment.receivedDate = receivedDate ? new Date(receivedDate) : new Date();
         installment.paymentMethod = paymentMethod;
         installment.transactionId = finalTransactionId;
@@ -265,10 +265,11 @@ export const updatePaymentInstallment = async (req, res) => {
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
 
-            // Check if payment record already exists
+            // Check if payment record already exists (exclude rejected/cancelled ones to ensure a new bill ID for new attempts)
             let payment = await Payment.findOne({
                 admission: admissionId,
-                installmentNumber: parseInt(installmentNumber)
+                installmentNumber: parseInt(installmentNumber),
+                status: { $nin: ["REJECTED", "CANCELLED"] }
             });
 
             // Generate bill ID only if PAID (unless it's a CHEQUE which needs an ID for clearance)

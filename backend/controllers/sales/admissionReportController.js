@@ -311,9 +311,69 @@ export const getAdmissionReport = async (req, res) => {
             monthName: monthNames[item.month - 1]
         }));
 
+        // 3. Board-Specific Analysis (Programme & Board Type)
+        const boardAnalysis = await BoardCourseAdmission.aggregate([
+            { $match: admissionQuery },
+            {
+                $group: {
+                    _id: {
+                        centre: "$centre",
+                        boardCourseName: "$boardCourseName",
+                        programme: "$programme"
+                    },
+                    count: { $sum: 1 }
+                }
+            },
+            {
+                $project: {
+                    centre: "$_id.centre",
+                    board: "$_id.boardCourseName",
+                    programme: "$_id.programme",
+                    count: 1,
+                    _id: 0
+                }
+            },
+            { $sort: { count: -1 } }
+        ]);
+
+        // 4. Subject-wise Breakdown (Board Admissions)
+        const subjectAnalysis = await BoardCourseAdmission.aggregate([
+            { $match: admissionQuery },
+            { $unwind: "$selectedSubjects" },
+            {
+                $lookup: {
+                    from: "subjects",
+                    localField: "selectedSubjects.subjectId",
+                    foreignField: "_id",
+                    as: "subjectInfo"
+                }
+            },
+            { $unwind: "$subjectInfo" },
+            {
+                $group: {
+                    _id: {
+                        centre: "$centre",
+                        subjectName: "$subjectInfo.subjectName"
+                    },
+                    count: { $sum: 1 }
+                }
+            },
+            {
+                $project: {
+                    centre: "$_id.centre",
+                    subjectName: "$_id.subjectName",
+                    count: 1,
+                    _id: 0
+                }
+            },
+            { $sort: { count: -1 } }
+        ]);
+
         res.status(200).json({
             trend: trendData,
             detailedTrend: detailedTrend,
+            boardAnalysis,
+            subjectAnalysis,
             status: {
                 admitted: totalAdmitted,
                 inCounselling: totalCounselling

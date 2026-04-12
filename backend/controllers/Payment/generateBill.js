@@ -182,6 +182,7 @@ export const generateBill = async (req, res) => {
                 paidAmount: totalAmount,
                 dueDate: installment.dueDate,
                 paidDate: installment.paidDate || (isBoardAdmission && installment.paymentTransactions?.length > 0 ? installment.paymentTransactions[installment.paymentTransactions.length - 1].date : new Date()),
+                receivedDate: installment.receivedDate || installment.paidDate || new Date(),
                 status: installment.status || "PAID",
                 paymentMethod: installment.paymentMethod || "CASH",
                 transactionId: installment.transactionId || (isBoardAdmission && installment.paymentTransactions?.length > 0 ? installment.paymentTransactions[installment.paymentTransactions.length - 1].transactionId : ""),

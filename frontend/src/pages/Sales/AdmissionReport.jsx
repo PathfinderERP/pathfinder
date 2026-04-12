@@ -92,7 +92,13 @@ const AdmissionReport = () => {
     const isDarkMode = theme === 'dark';
     // ---- State ----
     const [loading, setLoading] = useState(false);
-    const [reportData, setReportData] = useState({ trend: [], status: { admitted: 0, inCounselling: 0 } });
+    const [activeTab, setActiveTab] = useState("Overview"); // Overview, Board, Subject
+    const [reportData, setReportData] = useState({ 
+        trend: [], 
+        status: { admitted: 0, inCounselling: 0 },
+        boardAnalysis: [],
+        subjectAnalysis: []
+    });
 
     // Master Data
     const [centres, setCentres] = useState([]);
@@ -436,46 +442,54 @@ const AdmissionReport = () => {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h1 className={`text-3xl font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                            Admission Report
+                            Admission Analysis Hub
                         </h1>
-                    </div>
-                    <div className={`flex items-center gap-2 p-1.5 rounded-xl border shadow-inner ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
-                        <button
-                            onClick={() => setDisplayMode("chart")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "chart" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
-                            title="Chart View"
-                        >
-                            <FaChartBar size={18} />
-                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Chart</span>
-                        </button>
-                        <button
-                            onClick={() => setDisplayMode("table")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "table" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
-                            title="Table View"
-                        >
-                            <FaTable size={18} />
-                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Table</span>
-                        </button>
-                        <button
-                            onClick={() => setDisplayMode("card")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "card" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
-                            title="Card View"
-                        >
-                            <FaTh size={18} />
-                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Cards</span>
-                        </button>
+                        <p className="text-gray-500 dark:text-gray-400 text-sm font-bold uppercase tracking-widest mt-1">Multi-dimensional admission metrics</p>
                     </div>
 
-                    <div className={`flex items-center gap-2 p-1.5 rounded-xl border shadow-inner ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
+                    <div className="flex items-center gap-2">
+                        <div className={`flex items-center gap-2 p-1.5 rounded-[2px] border shadow-inner ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
+                            {["Overview", "Board", "Subject"].map(tab => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`px-4 py-2 rounded-[2px] text-xs font-black uppercase tracking-widest transition-all duration-300 ${activeTab === tab ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                                >
+                                    {tab === 'Board' ? 'Board Analysis' : (tab === 'Subject' ? 'Subject-wise' : 'Overview')}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className={`flex items-center gap-2 p-1.5 rounded-[2px] border shadow-inner ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
+                            <button
+                                onClick={() => setDisplayMode("chart")}
+                                className={`p-2.5 rounded-[2px] transition-all duration-300 flex items-center gap-2 ${displayMode === "chart" ? "bg-indigo-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                                title="Chart View"
+                            >
+                                <FaChartBar size={18} />
+                                <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Chart</span>
+                            </button>
+                            <button
+                                onClick={() => setDisplayMode("table")}
+                                className={`p-2.5 rounded-[2px] transition-all duration-300 flex items-center gap-2 ${displayMode === "table" ? "bg-indigo-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                                title="Table View"
+                            >
+                                <FaTable size={18} />
+                                <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Table</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className={`flex items-center gap-2 p-1.5 rounded-[2px] border shadow-inner ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
                         <button
                             onClick={() => setReportType("monthly")}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-300 ${reportType === "monthly" ? "bg-purple-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`px-4 py-2 rounded-[2px] text-xs font-bold uppercase tracking-widest transition-all duration-300 ${reportType === "monthly" ? "bg-purple-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
                         >
                             Monthly
                         </button>
                         <button
                             onClick={() => setReportType("daily")}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-300 ${reportType === "daily" ? "bg-purple-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`px-4 py-2 rounded-[2px] text-xs font-bold uppercase tracking-widest transition-all duration-300 ${reportType === "daily" ? "bg-purple-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
                         >
                             Day Wise
                         </button>
@@ -580,291 +594,297 @@ const AdmissionReport = () => {
                     )}
                 </div>
 
-                {/* Charts Section */}
-                <div className={`p-6 rounded-2xl shadow-xl border min-h-[500px] transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
-                    <h3 className={`text-lg font-bold mb-8 flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                        <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
-                        {reportType === 'monthly' ? 'Monthly' : 'Daily'} Admissions Trend ({timePeriod})
-                    </h3>
+                {/* Content Sections */}
+                {activeTab === "Overview" ? (
+                    <div className={`p-6 rounded-[2px] shadow-xl border min-h-[500px] transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <h3 className={`text-lg font-bold mb-8 flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                            <div className="w-2 h-8 bg-blue-600 rounded-[2px]"></div>
+                            {reportType === 'monthly' ? 'Monthly' : 'Daily'} Admissions Trend ({timePeriod})
+                        </h3>
 
-                    {loading ? (
-                        <div className="flex h-96 items-center justify-center">
-                            <div className="flex flex-col items-center gap-4">
-                                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                <p className="text-gray-500 dark:text-gray-400 font-medium animate-pulse tracking-[0.2em] text-xs">LOADING REPORT...</p>
-                            </div>
-                        </div>
-                    ) : reportData.trend.length === 0 ? (
-                        <div className="flex h-96 items-center justify-center text-gray-400 flex-col gap-4 bg-gray-50 dark:bg-[#131619] rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
-                            <FaChartLine size={48} className="opacity-20" />
-                            <p className="uppercase tracking-[0.2em] text-sm font-bold opacity-50">No admission data found</p>
-                        </div>
-                    ) : (
-                        <>
-                            {displayMode === "chart" && (
-                                <div className="h-[400px] w-full animate-fade-in font-bold">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart data={reportData.trend} margin={{ top: 20, right: 30, left: 0, bottom: 10 }}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke={isDarkMode ? "#374151" : "#E5E7EB"} />
-                                            <XAxis dataKey={reportType === 'monthly' ? "month" : "date"} stroke={isDarkMode ? "#9CA3AF" : "#6B7280"} fontSize={12} tickLine={false} />
-                                            <YAxis stroke={isDarkMode ? "#9CA3AF" : "#6B7280"} fontSize={12} tickLine={false} />
-                                            <Tooltip
-                                                contentStyle={{
-                                                    backgroundColor: isDarkMode ? '#1a1f24' : '#ffffff',
-                                                    borderColor: isDarkMode ? '#374151' : '#e5e7eb',
-                                                    color: isDarkMode ? '#ffffff' : '#374151',
-                                                    borderRadius: '12px',
-                                                    border: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb'
-                                                }}
-                                                itemStyle={{ color: isDarkMode ? '#ffffff' : '#374151' }}
-                                            />
-                                            <Line type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={3} dot={reportType === 'monthly'} activeDot={{ r: 6, fill: '#8b5cf6' }} />
-                                        </LineChart>
-                                    </ResponsiveContainer>
+                        {loading ? (
+                            <div className="flex h-96 items-center justify-center">
+                                <div className="flex flex-col items-center gap-4">
+                                    <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-[2px] animate-spin"></div>
+                                    <p className="text-gray-500 dark:text-gray-400 font-medium animate-pulse tracking-[0.2em] text-xs">LOADING REPORT...</p>
                                 </div>
-                            )}
+                            </div>
+                        ) : reportData.trend.length === 0 ? (
+                            <div className="flex h-96 items-center justify-center text-gray-400 flex-col gap-4 bg-gray-50 dark:bg-[#131619] rounded-[2px] border border-dashed border-gray-300 dark:border-gray-700">
+                                <FaChartLine size={48} className="opacity-20" />
+                                <p className="uppercase tracking-[0.2em] text-sm font-bold opacity-50">No admission data found</p>
+                            </div>
+                        ) : (
+                            <>
+                                {displayMode === "chart" && (
+                                    <div className="h-[400px] w-full animate-fade-in font-bold">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <LineChart data={reportData.trend} margin={{ top: 20, right: 30, left: 0, bottom: 10 }}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke={isDarkMode ? "#374151" : "#E5E7EB"} />
+                                                <XAxis dataKey={reportType === 'monthly' ? "month" : "date"} stroke={isDarkMode ? "#9CA3AF" : "#6B7280"} fontSize={12} tickLine={false} />
+                                                <YAxis stroke={isDarkMode ? "#9CA3AF" : "#6B7280"} fontSize={12} tickLine={false} />
+                                                <Tooltip
+                                                    contentStyle={{
+                                                        backgroundColor: isDarkMode ? '#1a1f24' : '#ffffff',
+                                                        borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                                                        color: isDarkMode ? '#ffffff' : '#374151',
+                                                        borderRadius: '2px',
+                                                        border: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb'
+                                                    }}
+                                                    itemStyle={{ color: isDarkMode ? '#ffffff' : '#374151' }}
+                                                />
+                                                <Line type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={3} dot={reportType === 'monthly'} activeDot={{ r: 6, fill: '#8b5cf6' }} />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                )}
 
-                            {displayMode === "table" && (
-                                <div className={`overflow-x-auto animate-fade-in rounded-xl border ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                                    <table className="w-full text-left border-collapse font-bold">
+                                {displayMode === "table" && (
+                                    <div className={`overflow-x-auto animate-fade-in rounded-[2px] border ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                                        <table className="w-full text-left border-collapse font-bold">
+                                            <thead>
+                                                <tr className={`border-b ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                                                    <th className={`p-5 font-bold text-xs uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{reportType === 'monthly' ? 'Month' : 'Date'}</th>
+                                                    <th className={`p-5 font-bold text-xs uppercase tracking-wider text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Admitted</th>
+                                                    <th className={`p-5 font-bold text-xs uppercase tracking-wider text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Counselling</th>
+                                                    <th className={`p-5 font-bold text-xs uppercase tracking-wider text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Status</th>
+                                                    <th className={`p-5 font-bold text-xs uppercase tracking-wider text-center flex-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Trend</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
+                                                {reportData.trend.map((item, idx) => {
+                                                    const maxCount = Math.max(...reportData.trend.map(d => d.count), 1);
+                                                    const pct = (item.count / maxCount) * 100;
+                                                    return (
+                                                        <tr key={idx} className={`transition-colors group ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
+                                                            <td className={`p-5 font-bold uppercase text-sm ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{reportType === 'monthly' ? item.month : item.date}</td>
+                                                            <td className={`p-5 text-center font-black text-lg ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>{item.admitted || 0}</td>
+                                                            <td className={`p-5 text-center font-black text-lg ${isDarkMode ? 'text-amber-400' : 'text-amber-500'}`}>{item.counselling || 0}</td>
+                                                            <td className="p-5">
+                                                                <div className="flex justify-center">
+                                                                    <MiniStatusPie admitted={item.admitted || 0} counselling={item.counselling || 0} size={40} />
+                                                                </div>
+                                                            </td>
+                                                            <td className="p-5">
+                                                                <div className={`w-full h-1.5 rounded-[2px] overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                                                                    <div
+                                                                        className="h-full bg-gradient-to-r from-blue-600 to-indigo-500 transition-all duration-1000"
+                                                                        style={{ width: `${pct}%` }}
+                                                                    ></div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                ) : activeTab === "Board" ? (
+                    <div className={`p-6 rounded-[2px] shadow-xl border min-h-[500px] transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <h3 className={`text-lg font-bold mb-8 flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                            <div className="w-2 h-8 bg-purple-600 rounded-[2px]"></div>
+                            Board Admission Analysis (Centre wise)
+                        </h3>
+
+                        {reportData.boardAnalysis?.length === 0 ? (
+                            <div className="flex h-96 items-center justify-center text-gray-400 flex-col gap-4 bg-gray-50 dark:bg-[#131619] rounded-[2px] border border-dashed border-gray-300 dark:border-gray-700">
+                                <FaChartPie size={48} className="opacity-20" />
+                                <p className="uppercase tracking-[0.2em] text-sm font-bold opacity-50">No Board Admission Data Found</p>
+                            </div>
+                        ) : (
+                            displayMode === "table" ? (
+                                <div className={`overflow-x-auto rounded-[2px] border ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                                    <table className="w-full text-left border-collapse font-bold text-sm">
                                         <thead>
-                                            <tr className={`border-b ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
-                                                <th className={`p-5 font-bold text-xs uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{reportType === 'monthly' ? 'Month' : 'Date'}</th>
-                                                <th className={`p-5 font-bold text-xs uppercase tracking-wider text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Admitted</th>
-                                                <th className={`p-5 font-bold text-xs uppercase tracking-wider text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Counselling</th>
-                                                <th className={`p-5 font-bold text-xs uppercase tracking-wider text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Status Breakdown</th>
-                                                <th className={`p-5 font-bold text-xs uppercase tracking-wider text-center flex-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Trend Bar</th>
+                                            <tr className={`${isDarkMode ? 'bg-[#131619] text-gray-400 border-gray-700' : 'bg-gray-50 text-gray-500 border-gray-200'} border-b uppercase text-[10px]`}>
+                                                <th className="p-4">Centre</th>
+                                                <th className="p-4">Board Name</th>
+                                                <th className="p-4">Programme</th>
+                                                <th className="p-4 text-center">Admission Count</th>
                                             </tr>
                                         </thead>
                                         <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
-                                            {reportData.trend.map((item, idx) => {
-                                                const maxCount = Math.max(...reportData.trend.map(d => d.count), 1);
-                                                const pct = (item.count / maxCount) * 100;
-                                                return (
-                                                    <tr key={idx} className={`transition-colors group ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
-                                                        <td className={`p-5 font-bold uppercase text-sm ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{reportType === 'monthly' ? item.month : item.date}</td>
-                                                        <td className={`p-5 text-center font-black text-lg ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>{item.admitted || 0}</td>
-                                                        <td className={`p-5 text-center font-black text-lg ${isDarkMode ? 'text-amber-400' : 'text-amber-500'}`}>{item.counselling || 0}</td>
-                                                        <td className="p-5">
-                                                            <div className="flex justify-center">
-                                                                <MiniStatusPie admitted={item.admitted || 0} counselling={item.counselling || 0} size={50} />
-                                                            </div>
-                                                        </td>
-                                                        <td className="p-5">
-                                                            <div className={`w-full h-2 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                                                                <div
-                                                                    className="h-full bg-gradient-to-r from-blue-600 to-indigo-500 rounded-full transition-all duration-1000"
-                                                                    style={{ width: `${pct}%` }}
-                                                                ></div>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
+                                            {reportData.boardAnalysis.map((item, idx) => (
+                                                <tr key={idx} className={`${isDarkMode ? 'hover:bg-white/5 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}>
+                                                    <td className="p-4 font-black">{item.centre}</td>
+                                                    <td className="p-4">{item.board}</td>
+                                                    <td className="p-4">
+                                                        <span className={`px-2 py-0.5 rounded-[2px] text-[10px] font-black ${item.programme === 'CRP' ? 'bg-green-500/10 text-green-500' : 'bg-blue-500/10 text-blue-500'}`}>{item.programme}</span>
+                                                    </td>
+                                                    <td className="p-4 text-center font-black text-lg text-blue-500">{item.count}</td>
+                                                </tr>
+                                            ))}
                                         </tbody>
                                     </table>
                                 </div>
-                            )}
-
-                            {displayMode === "card" && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in font-bold">
-                                    {reportData.trend.map((item, idx) => {
-                                        const maxCount = Math.max(...reportData.trend.map(d => d.count), 1);
-                                        const pct = (item.count / maxCount) * 100;
-                                        return (
-                                            <div key={idx} className={`rounded-2xl border p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'
-                                                }`}>
-                                                <div className="flex justify-between items-center mb-6">
-                                                    <h4 className="font-black text-gray-400 uppercase text-[10px] tracking-widest">{reportType === 'monthly' ? item.month : item.date}</h4>
-                                                    <MiniStatusPie admitted={item.admitted || 0} counselling={item.counselling || 0} size={40} />
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {reportData.boardAnalysis.map((item, idx) => (
+                                         <div key={idx} className={`p-5 rounded-[2px] border transition-all hover:shadow-xl ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div>
+                                                    <h4 className="font-black text-blue-500 uppercase text-xs tracking-widest">{item.centre}</h4>
+                                                    <p className={`text-md font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{item.board}</p>
                                                 </div>
-                                                <div className="space-y-4">
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <div>
-                                                            <div className={`text-2xl font-black ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>{item.admitted || 0}</div>
-                                                            <div className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter mt-1">Admitted</div>
+                                                <span className={`px-3 py-1 rounded-[2px] text-[10px] font-black ${item.programme === 'CRP' ? 'bg-green-600 text-white' : 'bg-blue-600 text-white'}`}>{item.programme}</span>
+                                            </div>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.count}</span>
+                                                <span className="text-[10px] font-bold text-gray-500 text-right uppercase">Admissions</span>
+                                            </div>
+                                         </div>
+                                    ))}
+                                </div>
+                            )
+                        )}
+                    </div>
+                ) : (
+                    <div className={`p-6 rounded-[2px] shadow-xl border min-h-[500px] transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <h3 className={`text-lg font-bold mb-8 flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                            <div className="w-2 h-8 bg-emerald-600 rounded-[2px]"></div>
+                            Subject-wise Admission Analysis
+                        </h3>
+
+                        {reportData.subjectAnalysis?.length === 0 ? (
+                            <div className="flex h-96 items-center justify-center text-gray-400 flex-col gap-4 bg-gray-50 dark:bg-[#131619] rounded-[2px] border border-dashed border-gray-300 dark:border-gray-700">
+                                <FaChartLine size={48} className="opacity-20" />
+                                <p className="uppercase tracking-[0.2em] text-sm font-bold opacity-50">No Subject Data Found</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className={`overflow-x-auto rounded-[2px] border ${isDarkMode ? 'border-gray-700 shadow-2xl shadow-blue-500/5' : 'border-gray-200'}`}>
+                                    <table className="w-full text-left border-collapse font-bold text-sm">
+                                        <thead>
+                                            <tr className={`${isDarkMode ? 'bg-[#131619] text-gray-400 border-gray-700' : 'bg-gray-50 text-gray-500 border-gray-200'} border-b uppercase text-[10px]`}>
+                                                <th className="p-4">Centre</th>
+                                                <th className="p-4">Subject</th>
+                                                <th className="p-4 text-center">Admissions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
+                                            {reportData.subjectAnalysis.map((item, idx) => (
+                                                <tr key={idx} className={`${isDarkMode ? 'hover:bg-white/5 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}>
+                                                    <td className="p-4 font-black text-xs text-blue-500">{item.centre}</td>
+                                                    <td className="p-4">{item.subjectName}</td>
+                                                    <td className="p-4 text-center">
+                                                        <div className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full text-xs font-black inline-block">
+                                                            {item.count}
                                                         </div>
-                                                        <div>
-                                                            <div className={`text-2xl font-black ${isDarkMode ? 'text-amber-400' : 'text-amber-500'}`}>{item.counselling || 0}</div>
-                                                            <div className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter mt-1">In Counselling</div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="pt-2">
-                                                        <div className="flex justify-between text-[10px] font-black uppercase mb-2">
-                                                            <span className="text-gray-400 font-bold">Volume</span>
-                                                            <span className="text-blue-500">{pct.toFixed(0)}%</span>
-                                                        </div>
-                                                        <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                                                            <div
-                                                                className="h-full bg-blue-600 rounded-full"
-                                                                style={{ width: `${pct}%` }}
-                                                            ></div>
-                                                        </div>
-                                                    </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Popularity Distribution</h4>
+                                    {reportData.subjectAnalysis.slice(0, 8).map((item, idx) => {
+                                        const max = Math.max(...reportData.subjectAnalysis.map(s => s.count));
+                                        return (
+                                            <div key={idx} className="space-y-2">
+                                                <div className="flex justify-between text-xs font-bold">
+                                                    <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>{item.subjectName}</span>
+                                                    <span className="text-emerald-500">{item.count}</span>
+                                                </div>
+                                                <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                    <div 
+                                                        className="h-full bg-emerald-500 transition-all duration-700" 
+                                                        style={{ width: `${(item.count/max)*100}%` }}
+                                                    ></div>
                                                 </div>
                                             </div>
                                         );
                                     })}
                                 </div>
-                            )}
-                        </>
-                    )}
-                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Admission Status Section */}
-                <div className={`p-6 rounded-2xl shadow-xl border transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                <div className={`p-6 rounded-[2px] shadow-xl border transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                     <h3 className={`text-xl font-bold mb-8 flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                        <div className="w-2 h-8 bg-amber-500 rounded-full"></div>
+                        <div className="w-2 h-8 bg-amber-500 rounded-[2px]"></div>
                         Overall Admission Status
                     </h3>
 
-                    {displayMode === "chart" && (
-                        <div className="flex flex-col md:flex-row items-center justify-around gap-8 animate-fade-in">
-                            <div className="w-[300px] h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie
-                                            data={statusData}
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius={0}
-                                            outerRadius={120}
-                                            paddingAngle={0}
-                                            dataKey="value"
-                                            stroke="none"
-                                            label={resultLabel}
-                                            labelLine={false}
-                                        >
-                                            {statusData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                            ))}
-                                        </Pie>
-                                        <Tooltip
-                                            contentStyle={{
-                                                backgroundColor: isDarkMode ? '#1a1f24' : '#ffffff',
-                                                borderColor: isDarkMode ? '#374151' : '#e5e7eb',
-                                                borderRadius: '12px',
-                                                color: isDarkMode ? '#ffffff' : '#374151'
-                                            }}
-                                            itemStyle={{ color: isDarkMode ? '#ffffff' : '#374151' }}
-                                        />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            </div>
+                    <div className="flex flex-col md:flex-row items-center justify-around gap-8 animate-fade-in">
+                        <div className="w-[300px] h-[300px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={statusData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={0}
+                                        outerRadius={120}
+                                        paddingAngle={0}
+                                        dataKey="value"
+                                        stroke="none"
+                                        label={resultLabel}
+                                        labelLine={false}
+                                    >
+                                        {statusData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip
+                                        contentStyle={{
+                                            backgroundColor: isDarkMode ? '#1a1f24' : '#ffffff',
+                                            borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                                            borderRadius: '2px',
+                                            color: isDarkMode ? '#ffffff' : '#374151'
+                                        }}
+                                        itemStyle={{ color: isDarkMode ? '#ffffff' : '#374151' }}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
 
-                            <div className="flex flex-col gap-6">
-                                <div className="space-y-4 font-bold">
-                                    <div className="flex items-center gap-4 group">
-                                        <div className="w-4 h-4 rounded-full bg-[#10B981] shadow-lg shadow-emerald-500/20"></div>
-                                        <div className="flex flex-col">
-                                            <span className={`font-black text-2xl ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{reportData.status.admitted}</span>
-                                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Admitted Students</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-4 group">
-                                        <div className="w-4 h-4 rounded-full bg-[#F59E0B] shadow-lg shadow-amber-500/20"></div>
-                                        <div className="flex flex-col">
-                                            <span className={`font-black text-2xl ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{reportData.status.inCounselling}</span>
-                                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">In Counselling</span>
-                                        </div>
+                        <div className="flex flex-col gap-6">
+                            <div className="space-y-4 font-bold">
+                                <div className="flex items-center gap-4 group">
+                                    <div className="w-4 h-4 rounded-[2px] bg-[#10B981] shadow-lg shadow-emerald-500/20"></div>
+                                    <div className="flex flex-col">
+                                        <span className={`font-black text-2xl ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{reportData.status.admitted}</span>
+                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Admitted Students</span>
                                     </div>
                                 </div>
-                                <div className={`pt-4 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-                                    <span className="text-sm font-bold text-gray-400 uppercase tracking-tighter">Total Potential Pool: </span>
-                                    <span className="text-sm font-black text-blue-600 ml-1">{totalStatus}</span>
+                                <div className="flex items-center gap-4 group">
+                                    <div className="w-4 h-4 rounded-[2px] bg-[#F59E0B] shadow-lg shadow-amber-500/20"></div>
+                                    <div className="flex flex-col">
+                                        <span className={`font-black text-2xl ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{reportData.status.inCounselling}</span>
+                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">In Counselling</span>
+                                    </div>
                                 </div>
                             </div>
+                            <div className={`pt-4 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                <span className="text-sm font-bold text-gray-400 uppercase tracking-tighter">Total Potential Pool: </span>
+                                <span className="text-sm font-black text-blue-600 ml-1">{totalStatus}</span>
+                            </div>
                         </div>
-                    )}
-
-                    {displayMode === "table" && (
-                        <div className={`overflow-x-auto animate-fade-in rounded-xl border shadow-sm transition-colors ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                            <table className="w-full text-left border-collapse font-bold">
-                                <thead>
-                                    <tr className={`border-b ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
-                                        <th className={`p-5 font-bold text-xs uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Status Category</th>
-                                        <th className={`p-5 font-bold text-xs uppercase tracking-wider text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Total Count</th>
-                                        <th className={`p-5 font-bold text-xs uppercase tracking-wider text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Percentage Share</th>
-                                        <th className={`p-5 font-bold text-xs uppercase tracking-wider text-right ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Trend Visualization</th>
-                                    </tr>
-                                </thead>
-                                <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
-                                    {statusData.map((item, idx) => {
-                                        const pct = totalStatus > 0 ? ((item.value / totalStatus) * 100).toFixed(1) : 0;
-                                        return (
-                                            <tr key={idx} className={`transition-colors group ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
-                                                <td className={`p-5 text-sm font-bold uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{item.name}</td>
-                                                <td className={`p-5 text-center font-black text-xl ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.value}</td>
-                                                <td className={`p-5 text-center font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{pct}%</td>
-                                                <td className="p-5">
-                                                    <div className="flex justify-end gap-2 items-center">
-                                                        <div className={`w-32 h-2 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                                                            <div className={`h-full ${idx === 0 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${pct}%` }}></div>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-
-                    {displayMode === "card" && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in">
-                            {statusData.map((item, idx) => {
-                                const pct = totalStatus > 0 ? ((item.value / totalStatus) * 100).toFixed(1) : 0;
-                                const isAdmitted = idx === 0;
-                                return (
-                                    <div key={idx} className={`rounded-2xl border p-8 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'
-                                        }`}>
-                                        <div className={`absolute top-0 right-0 w-32 h-32 ${isAdmitted ? 'bg-emerald-500/5' : 'bg-amber-500/5'} -mr-16 -mt-16 rounded-full transform rotate-45 group-hover:scale-150 transition-transform duration-700`}></div>
-                                        <div className="relative z-10 font-bold">
-                                            <div className="flex justify-between items-center mb-8">
-                                                <h4 className="font-black text-gray-400 uppercase text-xs tracking-widest">{item.name} Status</h4>
-                                                <div className={`w-10 h-10 rounded-xl ${isAdmitted ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'} flex items-center justify-center`}>
-                                                    <FaChartPie size={16} />
-                                                </div>
-                                            </div>
-                                            <div className="space-y-6">
-                                                <div>
-                                                    <div className={`text-5xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.value}</div>
-                                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2">{isAdmitted ? 'Successful Conversions' : 'Active Opportunities'}</div>
-                                                </div>
-                                                <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
-                                                    <div className="flex justify-between text-[10px] font-black uppercase mb-3">
-                                                        <span className="text-gray-400">Database Share</span>
-                                                        <span className={isAdmitted ? 'text-emerald-500' : 'text-amber-500'}>{pct}%</span>
-                                                    </div>
-                                                    <div className="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                                                        <div className={`h-full ${isAdmitted ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${pct}%` }}></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
+                    </div>
                 </div>
-
                 {/* Comparison Section */}
-                <div className={`p-6 rounded-xl shadow-md border transition-colors flex items-center justify-between ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'
+                <div className={`p-6 rounded-[2px] shadow-md border transition-colors flex items-center justify-between ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'
                     }`}>
                     <div>
-                        <h3 className={`text-lg font-bold transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Custom Comparison</h3>
-                        <p className={`text-sm transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Compare admissions between different time periods</p>
+                        <h3 className={`text-lg font-black transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Custom Comparison</h3>
+                        <p className={`text-sm font-bold uppercase tracking-widest transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>Analysis across time horizons</p>
                     </div>
                     <button
                         onClick={() => setComparisonEnabled(!comparisonEnabled)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all border shadow-sm ${isDarkMode
+                        className={`flex items-center gap-2 px-6 py-2 rounded-[2px] font-black uppercase text-xs tracking-[0.2em] transition-all border shadow-sm ${isDarkMode
                             ? 'bg-[#1a1f24] border-gray-700 text-gray-300 hover:bg-gray-800'
                             : 'bg-white border-gray-300 text-gray-800 hover:bg-gray-50'
                             }`}
                     >
-                        <FaPlus size={12} /> {comparisonEnabled ? "Disable Comparison" : "Enable Comparison"}
+                        <FaPlus size={12} /> {comparisonEnabled ? "Disable" : "Enable"} comparison
                     </button>
                 </div>
             </div>
