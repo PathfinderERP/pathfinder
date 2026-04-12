@@ -4,7 +4,8 @@ import {
     createCentreTarget,
     getCentreTargets,
     updateCentreTarget,
-    deleteCentreTarget
+    deleteCentreTarget,
+    getQuarterlyFullReport
 } from "../../controllers/sales/centreTargetController.js";
 import { getCentreRankings } from "../../controllers/sales/centreRankController.js";
 import { getTargetAnalysis } from "../../controllers/sales/targetAnalysisController.js";
@@ -28,5 +29,6 @@ router.post("/centre-target", requireAuth, createCentreTarget);
 router.get("/centre-target", requireAuth, getCentreTargets);
 router.put("/centre-target/:id", requireAuth, updateCentreTarget);
 router.delete("/centre-target/:id", requireAuth, deleteCentreTarget);
+router.get("/quarterly-target-report", requireAuth, getQuarterlyFullReport);
 
 export default router;

@@ -16,6 +16,7 @@ import CourseReport from "./pages/Sales/CourseReport";
 import DiscountReport from "./pages/Sales/DiscountReport";
 import TransactionReport from "./pages/Sales/TransactionReport";
 import BoardReport from "./pages/Sales/BoardReport";
+import QuarterlyTargetReport from "./pages/Sales/QuarterlyTargetReport";
 import TransactionList from "./pages/Finance/TransactionList";
 import HR from "./pages/HR";
 import EnrolledStudents from "./pages/EnrolledStudents";
@@ -212,6 +213,7 @@ function App() {
         <Route path="/sales/discount-report" element={<ProtectedRoute><DiscountReport /></ProtectedRoute>} />
         <Route path="/sales/transaction-report" element={<ProtectedRoute><TransactionReport /></ProtectedRoute>} />
         <Route path="/sales/board-report" element={<ProtectedRoute><BoardReport /></ProtectedRoute>} />
+        <Route path="/sales/quarterly-target-report" element={<ProtectedRoute><QuarterlyTargetReport /></ProtectedRoute>} />
         <Route path="/hr" element={<ProtectedRoute><HR /></ProtectedRoute>} />
         <Route path="/hr/employee/list" element={<ProtectedRoute><EmployeeList /></ProtectedRoute>} />
         <Route path="/hr/employee/add" element={<ProtectedRoute><AddEmployee /></ProtectedRoute>} />

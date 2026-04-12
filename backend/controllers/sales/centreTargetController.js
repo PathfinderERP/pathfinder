@@ -11,6 +11,8 @@ const monthNames = [
 // Create Target
 export const createCentreTarget = async (req, res) => {
     try {
+        const { centre, financialYear, year, month, targetAmount } = req.body;
+
         // centre could be a single ID or an array of IDs. Deduplicate them.
         let centreIds = Array.isArray(centre) ? centre : [centre];
         centreIds = [...new Set(centreIds.map(id => id.toString()))];
@@ -265,6 +267,69 @@ export const deleteCentreTarget = async (req, res) => {
             res.status(200).json({ message: "Target deleted" });
         }
     } catch (error) {
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+// Get Quarterly Full Report (Matrix of Centres x Quarters)
+export const getQuarterlyFullReport = async (req, res) => {
+    try {
+        const { financialYear } = req.query;
+        if (!financialYear) return res.status(400).json({ message: "Financial Year is required" });
+
+        const centres = await Centre.find({}).sort({ centreName: 1 });
+        
+        const quarters = [
+            { id: "q1", name: "Q1", months: ["April", "May", "June"], match: "April,May,June" },
+            { id: "q2", name: "Q2", months: ["July", "August", "September"], match: "July,August,September" },
+            { id: "q3", name: "Q3", months: ["October", "November", "December"], match: "October,November,December" },
+            { id: "q4", name: "Q4", months: ["January", "February", "March"], match: "January,February,March" }
+        ];
+
+        const allTargets = await CentreTarget.find({ financialYear });
+
+        const results = await Promise.all(centres.map(async (c) => {
+            const row = {
+                centreName: c.centreName,
+                centreId: c._id,
+                q1: { target: 0, achieved: 0 },
+                q2: { target: 0, achieved: 0 },
+                q3: { target: 0, achieved: 0 },
+                q4: { target: 0, achieved: 0 },
+                total: { target: 0, achieved: 0 }
+            };
+
+            for (const q of quarters) {
+                // 1. Calculate Target
+                const qTargetRec = allTargets.find(t => 
+                    t.centre && t.centre.toString() === c._id.toString() && 
+                    t.month === q.match
+                );
+
+                if (qTargetRec) {
+                    row[q.id].target = qTargetRec.targetAmount;
+                } else {
+                    const monthlyTargets = allTargets.filter(t => 
+                        t.centre && t.centre.toString() === c._id.toString() && 
+                        q.months.includes(t.month)
+                    );
+                    row[q.id].target = monthlyTargets.reduce((sum, t) => sum + t.targetAmount, 0);
+                }
+
+                // 2. Calculate Achievement (Exact data)
+                const multiResult = await calculateCentreTargetAchievedMultiMonth(c.centreName, q.match, financialYear);
+                row[q.id].achieved = multiResult.totalWithGST;
+
+                row.total.target += row[q.id].target;
+                row.total.achieved += row[q.id].achieved;
+            }
+
+            return row;
+        }));
+
+        res.status(200).json({ data: results });
+    } catch (error) {
+        console.error("Quarterly Report Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };

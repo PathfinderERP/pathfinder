@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaPlus, FaFilter, FaSync, FaEdit, FaTrash, FaDownload, FaChevronDown, FaSun, FaMoon } from "react-icons/fa";
+import { FaPlus, FaFilter, FaSync, FaEdit, FaTrash, FaDownload, FaChevronDown, FaSun, FaMoon, FaTable } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import * as XLSX from "xlsx";
@@ -8,10 +8,12 @@ import { saveAs } from "file-saver";
 import AddTargetModal from "../../components/Sales/AddTargetModal";
 import { hasPermission } from "../../config/permissions";
 import CustomMultiSelect from "../../components/common/CustomMultiSelect";
+import { useNavigate } from "react-router-dom";
 
 const CentreTarget = () => {
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
+    const navigate = useNavigate();
     const [targets, setTargets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -328,6 +330,13 @@ const CentreTarget = () => {
                             onClick={fetchTargets}
                         >
                             <FaSync className={loading ? "animate-spin" : ""} /> Sync
+                        </button>
+
+                        <button 
+                            onClick={() => navigate("/sales/quarterly-target-report")}
+                            className={`p-2.5 rounded-lg border transition-all flex items-center gap-2 font-bold text-sm shadow-sm ${isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200'}`}
+                        >
+                            <FaTable /> Quarterly Matrix
                         </button>
 
                         {canCreate && (
