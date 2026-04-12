@@ -7,6 +7,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import AddTargetModal from "../../components/Sales/AddTargetModal";
 import { hasPermission } from "../../config/permissions";
+import CustomMultiSelect from "../../components/common/CustomMultiSelect";
 
 const CentreTarget = () => {
     const { theme, toggleTheme } = useTheme();
@@ -262,51 +263,14 @@ const CentreTarget = () => {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
-                        <div className="relative" ref={dropdownRef}>
-                            <button
-                                onClick={() => setIsCentreDropdownOpen(!isCentreDropdownOpen)}
-                                className={`border text-sm rounded-lg px-4 py-2 outline-none font-bold min-w-[200px] flex justify-between items-center transition-all ${isDarkMode
-                                    ? 'bg-[#1a1f24] border-gray-700 text-gray-300 hover:border-cyan-500'
-                                    : 'bg-white border-gray-300 text-gray-700 hover:border-cyan-500 shadow-sm'
-                                    }`}
-                            >
-                                <span className="uppercase text-xs tracking-widest font-black">
-                                    {selectedCentres.length === 0
-                                        ? "All Centres"
-                                        : `${selectedCentres.length} Selected`}
-                                </span>
-                                <FaChevronDown size={10} className={`transition-transform duration-200 ${isCentreDropdownOpen ? 'rotate-180' : ''}`} />
-                            </button>
-
-                            {isCentreDropdownOpen && (
-                                <div className={`absolute top-full mt-2 left-0 w-60 z-20 border rounded-lg shadow-xl overflow-hidden ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
-                                    <div className="max-h-60 overflow-y-auto p-2 space-y-1">
-                                        {centres.map(c => (
-                                            <div
-                                                key={c._id}
-                                                className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
-                                                onClick={() => toggleCentreSelection(c._id)}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedCentres.includes(c._id)}
-                                                    readOnly
-                                                    className={`rounded transition-colors ${isDarkMode ? 'bg-gray-700 border-gray-600 text-cyan-500' : 'bg-white border-gray-300 text-cyan-600'}`}
-                                                />
-                                                <span className={`text-sm font-bold uppercase tracking-tight truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{c.centreName}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className={`p-2 border-t transition-colors ${isDarkMode ? 'border-gray-700 bg-black/20' : 'border-gray-200 bg-gray-50'}`}>
-                                        <button
-                                            onClick={() => setSelectedCentres([])}
-                                            className="text-[10px] text-cyan-500 hover:text-cyan-400 w-full text-center font-black uppercase tracking-widest"
-                                        >
-                                            Clear Selection
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                        <div className="min-w-[200px] z-10 w-full sm:w-64">
+                            <CustomMultiSelect
+                                options={centres.map(c => ({ value: c._id, label: c.centreName }))}
+                                value={centres.map(c => ({ value: c._id, label: c.centreName })).filter(opt => selectedCentres.includes(opt.value))}
+                                onChange={(selected) => setSelectedCentres(selected ? selected.map(o => o.value) : [])}
+                                placeholder="All Centres"
+                                isDarkMode={isDarkMode}
+                            />
                         </div>
 
                         {viewMode !== "Custom" && (

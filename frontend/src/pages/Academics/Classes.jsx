@@ -956,8 +956,8 @@ const Classes = () => {
                                         />
                                     </div>
 
-                                    {/* Start & End Time */}
-                                    <div className="grid grid-cols-2 gap-4">
+                                    {/* Time Details */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:col-span-2">
                                         <div className="flex flex-col gap-2">
                                             <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Start Time</label>
                                             <input
@@ -975,6 +975,18 @@ const Classes = () => {
                                                 required
                                                 value={editingClassData.endTime}
                                                 onChange={(e) => setEditingClassData({ ...editingClassData, endTime: e.target.value })}
+                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class Hours</label>
+                                            <input
+                                                type="number"
+                                                step="0.25"
+                                                min="0"
+                                                required
+                                                value={editingClassData.classHours !== undefined ? editingClassData.classHours : ''}
+                                                onChange={(e) => setEditingClassData({ ...editingClassData, classHours: Number(e.target.value) })}
                                                 className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                                             />
                                         </div>

@@ -147,6 +147,22 @@ const userSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
+// Pre-validate hook to clean up empty strings for enum fields
+userSchema.pre('validate', async function() {
+    if (this.onlineOfflineType === '') {
+        this.onlineOfflineType = null;
+    }
+    if (this.teacherType === '') {
+        this.teacherType = null;
+    }
+    if (this.boardType === '') {
+        this.boardType = null;
+    }
+    if (this.teacherDepartment && Array.isArray(this.teacherDepartment) && this.teacherDepartment.length === 1 && this.teacherDepartment[0] === '') {
+        this.teacherDepartment = [];
+    }
+});
+
 // Pre-save hook to set default permissions and ensure Dashboard access
 userSchema.pre('save', async function () {
     // Always ensure "Dashboard" is in permissions

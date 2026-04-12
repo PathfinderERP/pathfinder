@@ -213,7 +213,16 @@ export const updateTeacher = async (req, res) => {
             updates.assignedScript = null;
         }
 
-        const updatedTeacher = await User.findByIdAndUpdate(id, updates, { new: true });
+        // Clean up empty string fields that can fail validation for enums
+        if (updates.onlineOfflineType === "") updates.onlineOfflineType = null;
+        if (updates.teacherType === "") updates.teacherType = null;
+        if (updates.boardType === "") updates.boardType = null;
+        if (updates.teacherDepartment === "") updates.teacherDepartment = [];
+        if (Array.isArray(updates.teacherDepartment) && updates.teacherDepartment.length === 1 && updates.teacherDepartment[0] === "") {
+            updates.teacherDepartment = [];
+        }
+
+        const updatedTeacher = await User.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
 
         if (!updatedTeacher) {
             return res.status(404).json({ message: "Teacher not found" });
