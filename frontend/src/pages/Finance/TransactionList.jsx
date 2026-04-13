@@ -597,8 +597,8 @@ const TransactionList = () => {
                                 key={key}
                                 onClick={() => { setBillFilter(key); setCurrentPage(1); setPageInput("1"); }}
                                 className={`px-4 py-2 transition-all duration-150 ${billFilter === key
-                                        ? color
-                                        : `bg-white text-gray-500 ${hover}`
+                                    ? color
+                                    : `bg-white text-gray-500 ${hover}`
                                     } ${i > 0 ? "border-l border-gray-300" : ""}`}
                             >
                                 {label}
@@ -686,7 +686,7 @@ const TransactionList = () => {
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-200">
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">#</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[120px]">Date</th>
+                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[120px]">MR Date</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[120px]">Received Date</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[150px]">Enroll No.</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[240px]">Receipt No</th>

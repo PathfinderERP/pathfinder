@@ -160,6 +160,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Course Report", path: "/sales/course-report", permissionSection: "courseReport" },
                 { name: "Discount Report Analysis", path: "/sales/discount-report", permissionSection: "discountReport" },
                 { name: "Transaction Report", path: "/sales/transaction-report", permissionSection: "transactionReport" },
+                { name: "Daily Collection", path: "/sales/daily-collection", permissionSection: "transactionReport" },
             ]
         },
         {
