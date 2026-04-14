@@ -5,6 +5,7 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import usePermission from "../../hooks/usePermission";
 import ExcelImportExport from "../../components/common/ExcelImportExport";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useTheme } from "../../context/ThemeContext";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -75,8 +76,8 @@ const TeacherRoutineSchedule = () => {
         day: "",
         startTime: "",
         endTime: "",
-        classId: [], 
-        subjectId: [], 
+        classId: [],
+        subjectId: [],
         amount: 0,
         classHours: 0,
         className: "" // New field
@@ -181,7 +182,7 @@ const TeacherRoutineSchedule = () => {
             const token = localStorage.getItem("token");
             const url = editId ? `${API_URL}/academics/teacher-routine/${editId}` : `${API_URL}/academics/teacher-routine`;
             const method = editId ? "PUT" : "POST";
-            
+
             const response = await fetch(url, {
                 method,
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -241,24 +242,24 @@ const TeacherRoutineSchedule = () => {
 
     const filteredData = groupedData.filter(item => {
         const searchLower = searchTerm.toLowerCase();
-        const matchesSearch = !searchTerm || 
+        const matchesSearch = !searchTerm ||
             item.teacher.name.toLowerCase().includes(searchLower) ||
             item.teacher.employeeId.toLowerCase().includes(searchLower) ||
             (item.teacher.email && item.teacher.email.toLowerCase().includes(searchLower));
-        
+
         const teacherValues = filterTeachers.map(v => v.value);
         const matchesTeacher = teacherValues.length === 0 || teacherValues.includes(item.teacher.name);
-        
+
         const employmentValues = filterEmploymentType.map(v => v.value);
         const matchesEmploymentType = employmentValues.length === 0 || employmentValues.includes(item.teacher.typeOfEmployment);
 
         const dayValues = filterDays.map(v => v.value);
         const daysToSearch = dayValues.length === 0 ? DAYS : dayValues;
-        
+
         const centreValues = filterCentres.map(v => v.value);
         const subjectValues = filterSubjects.map(v => v.value);
 
-        const hasMatchingSession = daysToSearch.some(day => 
+        const hasMatchingSession = daysToSearch.some(day =>
             (item.days[day] || []).some(session => {
                 const c = centreValues.length === 0 || centreValues.includes(session.centre);
                 const s = subjectValues.length === 0 || subjectValues.includes(session.subject);
@@ -300,13 +301,13 @@ const TeacherRoutineSchedule = () => {
     };
 
     // --- Searchable Select Component ---
-    const SearchableSelect = ({ 
-        label, 
+    const SearchableSelect = ({
+        label,
         name,
-        value, 
-        options, 
-        onChange, 
-        placeholder, 
+        value,
+        options,
+        onChange,
+        placeholder,
         required = false,
         displayPath = "name",
         valuePath = "_id",
@@ -391,17 +392,17 @@ const TeacherRoutineSchedule = () => {
                                             <div key={i} className="flex items-center">
                                                 <button
                                                     type="button"
-                                                    onClick={() => { 
+                                                    onClick={() => {
                                                         if (multiple) {
                                                             const currentVal = Array.isArray(value) ? value : [];
-                                                            const newValue = currentVal.includes(val) 
-                                                                ? currentVal.filter(v => v !== val) 
+                                                            const newValue = currentVal.includes(val)
+                                                                ? currentVal.filter(v => v !== val)
                                                                 : [...currentVal, val];
                                                             onChange({ target: { name, value: newValue } });
                                                         } else {
-                                                            onChange({ target: { name, value: val } }); 
-                                                            setIsOpen(false); 
-                                                            setSearch(""); 
+                                                            onChange({ target: { name, value: val } });
+                                                            setIsOpen(false);
+                                                            setSearch("");
                                                         }
                                                     }}
                                                     className={`w-full text-left px-5 py-3.5 text-xs font-black uppercase tracking-widest transition-all flex items-center justify-between ${isSelected ? (isDarkMode ? 'bg-cyan-500/20 text-cyan-400' : 'bg-cyan-50 text-cyan-600') : (isDarkMode ? 'text-gray-400 hover:bg-white/5 hover:text-white' : 'text-gray-500 hover:bg-gray-50 hover:text-cyan-600')}`}
@@ -419,7 +420,7 @@ const TeacherRoutineSchedule = () => {
                         </div>
                     )}
                 </div>
-                {required && (!value || (Array.isArray(value) && value.length === 0)) && <input type="text" value="" required className="opacity-0 absolute h-0 w-0" onChange={()=>{}} />}
+                {required && (!value || (Array.isArray(value) && value.length === 0)) && <input type="text" value="" required className="opacity-0 absolute h-0 w-0" onChange={() => { }} />}
             </div>
         );
     };
@@ -428,7 +429,7 @@ const TeacherRoutineSchedule = () => {
         <Layout activePage="Academics">
             <div className={`p-4 md:p-8 min-h-screen transition-all duration-500 ${isDarkMode ? 'bg-[#0f1115] text-white' : 'bg-[#f4f7fe] text-gray-900'}`}>
                 <ToastContainer theme={theme} />
-                
+
                 {/* Modern Header */}
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-10">
                     <div>
@@ -447,25 +448,25 @@ const TeacherRoutineSchedule = () => {
                             <button onClick={() => fetchGroupedRoutines()} className={`p-2.5 rounded transition-all ${isDarkMode ? 'hover:bg-gray-700 text-gray-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500'}`} title="Sync Data">
                                 <FaSync className={loading ? 'animate-spin' : ''} />
                             </button>
-                            <ExcelImportExport 
-                                    data={groupedData.map(item => {
-                                        const row = {
-                                            teacherName: item.teacher.name,
-                                            employeeId: item.teacher.employeeId,
-                                            email: item.teacher.email || 'N/A',
-                                            mobNum: item.teacher.mobNum || 'N/A'
-                                        };
-                                        DAYS.forEach(day => {
-                                            row[day] = item.days[day]
-                                                .map(s => {
-                                                    const timeStr = (s.startTime || s.endTime) ? `[${s.startTime || '--:--'}-${s.endTime || '--:--'}]` : '[TBD]';
-                                                    const classNameStr = s.className ? `${s.className} (${s.class})` : s.class;
-                                                    return `${s.centre} ${timeStr} {${classNameStr}: ${s.subject}} (${s.classHours} hrs)`;
-                                                })
-                                                .join(" | ");
-                                        });
-                                        return row;
-                                    })}
+                            <ExcelImportExport
+                                data={groupedData.map(item => {
+                                    const row = {
+                                        teacherName: item.teacher.name,
+                                        employeeId: item.teacher.employeeId,
+                                        email: item.teacher.email || 'N/A',
+                                        mobNum: item.teacher.mobNum || 'N/A'
+                                    };
+                                    DAYS.forEach(day => {
+                                        row[day] = item.days[day]
+                                            .map(s => {
+                                                const timeStr = (s.startTime || s.endTime) ? `[${s.startTime || '--:--'}-${s.endTime || '--:--'}]` : '[TBD]';
+                                                const classNameStr = s.className ? `${s.className} (${s.class})` : s.class;
+                                                return `${s.centre} ${timeStr} {${classNameStr}: ${s.subject}} (${s.classHours} hrs)`;
+                                            })
+                                            .join(" | ");
+                                    });
+                                    return row;
+                                })}
                                 columns={routineColumns}
                                 mapping={routineMapping}
                                 onImport={handleBulkImport}
@@ -491,13 +492,13 @@ const TeacherRoutineSchedule = () => {
                             <div className="relative group lg:col-span-2 flex gap-4">
                                 <div className="relative flex-1">
                                     <FaSearch className={`absolute left-5 top-1/2 -translate-y-1/2 transition-all ${isDarkMode ? 'text-gray-500 group-focus-within:text-cyan-400' : 'text-gray-400 group-focus-within:text-cyan-500'}`} />
-                                    <input 
-                                        type="text" placeholder="Search by name or ID..." 
+                                    <input
+                                        type="text" placeholder="Search by name or ID..."
                                         value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
                                         className={`w-full pl-14 pr-6 py-4 rounded border-2 font-semibold text-sm transition-all focus:outline-none ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white focus:border-cyan-500/50 focus:bg-gray-950' : 'bg-gray-50 border-gray-100 text-gray-900 focus:border-cyan-500/30 focus:bg-white focus:shadow-md'}`}
                                     />
                                 </div>
-                                <button 
+                                <button
                                     onClick={() => {
                                         setFilterCentres([]);
                                         setFilterTeachers([]);
@@ -536,7 +537,7 @@ const TeacherRoutineSchedule = () => {
                                     placeholder="Select Teachers"
                                 />
                             </div>
-                            
+
                             <div className="">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 block">Subjects</label>
                                 <Select
@@ -566,7 +567,7 @@ const TeacherRoutineSchedule = () => {
                                 <Select
                                     isMulti
                                     isSearchable
-                                    options={[{value: 'Full Time', label: 'Full Time'}, {value: 'Part Time', label: 'Part Time'}]}
+                                    options={[{ value: 'Full Time', label: 'Full Time' }, { value: 'Part Time', label: 'Part Time' }]}
                                     value={filterEmploymentType}
                                     onChange={setFilterEmploymentType}
                                     styles={customSelectStyles}
@@ -576,16 +577,16 @@ const TeacherRoutineSchedule = () => {
                             <div className="flex items-center gap-2">
                                 <div className="flex-1">
                                     <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Start Time</label>
-                                    <input 
-                                        type="time" value={filterTime.start} 
+                                    <input
+                                        type="time" value={filterTime.start}
                                         onChange={(e) => setFilterTime(prev => ({ ...prev, start: e.target.value }))}
                                         className={`w-full p-2.5 rounded border text-xs font-bold ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                     />
                                 </div>
                                 <div className="flex-1">
                                     <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>End Time</label>
-                                    <input 
-                                        type="time" value={filterTime.end} 
+                                    <input
+                                        type="time" value={filterTime.end}
                                         onChange={(e) => setFilterTime(prev => ({ ...prev, end: e.target.value }))}
                                         className={`w-full p-2.5 rounded border text-xs font-bold ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                     />
@@ -744,7 +745,7 @@ const TeacherRoutineSchedule = () => {
                         </div>
                     </div>
                     <div className={`flex items-center gap-2 p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'} shadow-lg`}>
-                        <button 
+                        <button
                             disabled={currentPage === 1} onClick={() => { setCurrentPage(prev => prev - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                             className={`p-3 rounded transition-all disabled:opacity-20 ${isDarkMode ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}
                         >
@@ -755,7 +756,7 @@ const TeacherRoutineSchedule = () => {
                                 {currentPage} <span className="opacity-30 mx-2">/</span> {totalPages || 1}
                             </span>
                         </div>
-                        <button 
+                        <button
                             disabled={currentPage === totalPages || totalPages === 0} onClick={() => { setCurrentPage(prev => prev + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                             className={`p-3 rounded transition-all disabled:opacity-20 ${isDarkMode ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}
                         >
@@ -776,11 +777,11 @@ const TeacherRoutineSchedule = () => {
                                 </div>
                                 <button onClick={() => setShowModal(false)} className="bg-white/10 hover:bg-white/20 text-white w-12 h-12 rounded transition-all text-3xl font-light active:scale-90">&times;</button>
                             </div>
-                            
+
                             <form onSubmit={handleSubmit} className="p-10">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                     <div className="space-y-8">
-                                        <SearchableSelect 
+                                        <SearchableSelect
                                             label="Assign Personnel"
                                             name="teacherId"
                                             value={formData.teacherId}
@@ -791,7 +792,7 @@ const TeacherRoutineSchedule = () => {
                                             placeholder="Select Vector"
                                         />
 
-                                        <SearchableSelect 
+                                        <SearchableSelect
                                             label="Operation Hub"
                                             name="centreId"
                                             value={formData.centreId}
@@ -822,7 +823,7 @@ const TeacherRoutineSchedule = () => {
                                     </div>
 
                                     <div className="space-y-8">
-                                        <SearchableSelect 
+                                        <SearchableSelect
                                             label="Academic Class"
                                             name="classId"
                                             value={formData.classId}
@@ -835,16 +836,16 @@ const TeacherRoutineSchedule = () => {
 
                                         <div className="group/field">
                                             <label className="block text-[12px] font-black uppercase tracking-[0.2em] mb-3 opacity-50">Class Name</label>
-                                            <input 
-                                                type="text" 
-                                                name="className" 
-                                                value={formData.className} 
-                                                onChange={handleChange} 
+                                            <input
+                                                type="text"
+                                                name="className"
+                                                value={formData.className}
+                                                onChange={handleChange}
                                                 placeholder="Custom slot name (optional)"
-                                                className={`w-full p-4 rounded border-2 font-bold text-sm transition-all outline-none ${isDarkMode ? 'bg-gray-800 border-transparent focus:border-cyan-500/30 text-white' : 'bg-gray-100 border-transparent focus:border-cyan-500/30 text-gray-900'}`} 
+                                                className={`w-full p-4 rounded border-2 font-bold text-sm transition-all outline-none ${isDarkMode ? 'bg-gray-800 border-transparent focus:border-cyan-500/30 text-white' : 'bg-gray-100 border-transparent focus:border-cyan-500/30 text-gray-900'}`}
                                             />
                                         </div>
-                                        <SearchableSelect 
+                                        <SearchableSelect
                                             label="Subject Stream"
                                             name="subjectId"
                                             value={formData.subjectId}
@@ -869,7 +870,7 @@ const TeacherRoutineSchedule = () => {
                                                 <input type="number" name="amount" value={formData.amount} onChange={handleChange} className={`w-full pl-12 pr-6 py-4 rounded border-2 font-black text-sm transition-all outline-none ${isDarkMode ? 'bg-gray-900 border-gray-800 text-green-500 focus:border-green-500' : 'bg-gray-50 border-gray-100 text-green-600 focus:border-green-400'}`} />
                                             </div>
                                         </div>
-                                        
+
                                         <div className="pt-6">
                                             <button type="submit" className="w-full bg-gradient-to-br from-cyan-600 via-blue-600 to-indigo-700 text-white py-5 rounded font-black uppercase tracking-[0.4em] text-xs shadow-2xl hover:shadow-[0_20px_50px_-10px_rgba(6,182,212,0.5)] transform hover:-translate-y-2 transition-all active:scale-95 active:translate-y-0">
                                                 {editId ? "CONFIRM MODIFICATION" : "INITIALIZE DEPLOYMENT"}
@@ -883,7 +884,8 @@ const TeacherRoutineSchedule = () => {
                 )}
             </div>
 
-            <style dangerouslySetInnerHTML={{ __html: `
+            <style dangerouslySetInnerHTML={{
+                __html: `
                 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100;300;400;500;700;900&display=swap');
                 
                 * {
