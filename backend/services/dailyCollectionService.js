@@ -247,14 +247,8 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 },
                 studentClassId: {
                     $ifNull: [
-                        {
-                            $cond: [
-                                { $isArray: "$studentInfo.studentsDetails.class" },
-                                { $arrayElemAt: ["$studentInfo.studentsDetails.class", 0] },
-                                "$studentInfo.studentsDetails.class"
-                            ]
-                        },
-                        "$admissionInfo.class"
+                        "$admissionInfo.class",
+                        "$courseInfo.class"
                     ]
                 },
                 courseName: {
@@ -278,17 +272,25 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
             }
         },
         {
+            $lookup: {
+                from: "departments",
+                localField: "courseInfo.department",
+                foreignField: "_id",
+                as: "courseDepartmentInfo"
+            }
+        },
+        {
             $addFields: {
                 studentClass: {
                     $ifNull: [
                         { $arrayElemAt: ["$classInfo.name", 0] },
-                        {
-                            $cond: [
-                                { $isArray: "$studentInfo.studentsDetails.class" },
-                                { $arrayElemAt: ["$studentInfo.studentsDetails.class", 0] },
-                                "$studentInfo.studentsDetails.class"
-                            ]
-                        }
+                        "$admissionInfo.lastClass"
+                    ]
+                },
+                departmentName: {
+                    $ifNull: [
+                        { $arrayElemAt: ["$departmentInfo.departmentName", 0] },
+                        { $arrayElemAt: ["$courseDepartmentInfo.departmentName", 0] }
                     ]
                 }
             }

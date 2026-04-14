@@ -10,7 +10,8 @@ import {
     markTeacherAttendance,
     startStudy,
     updateClassSchedule,
-    importClassesExcel
+    importClassesExcel,
+    exportClassSchedulesExcel
 } from "../../controllers/Academics/classScheduleController.js";
 import multer from "multer";
 
@@ -27,6 +28,7 @@ const router = express.Router();
 router.post("/create", requireGranularPermission("academics", "classes", "create"), createClassSchedule);
 router.post("/import", upload.single('file'), requireGranularPermission("academics", "classes", "create"), importClassesExcel);
 router.get("/list", requireGranularPermission("academics", "classes", "view"), getClassSchedules);
+router.get("/export-excel", requireGranularPermission("academics", "classes", "view"), exportClassSchedulesExcel);
 router.get("/dropdown-data", requireAuth, getClassDropdownData);
 router.put("/start/:id", requireGranularPermission("academics", "classes", "edit"), startClass);
 router.put("/end/:id", requireGranularPermission("academics", "classes", "edit"), endClass);

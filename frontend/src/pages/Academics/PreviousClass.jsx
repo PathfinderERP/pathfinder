@@ -161,6 +161,46 @@ const PreviousClass = () => {
         setPage(1);
     };
 
+    const [isExporting, setIsExporting] = useState(false);
+
+    const handleExportExcel = async () => {
+        if (isExporting) return;
+        setIsExporting(true);
+        const toastId = toast.loading("Preparing Excel export...");
+
+        try {
+            const token = localStorage.getItem("token");
+            const params = buildQuery();
+            // Remove limit and page for export to get all records
+            params.delete("page");
+            params.delete("limit");
+
+            const response = await fetch(`${API_URL}/academics/class-schedule/export-excel?${params.toString()}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Previous_Classes_Report_${new Date().toLocaleDateString()}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                toast.update(toastId, { render: "Excel exported successfully", type: "success", isLoading: false, autoClose: 3000 });
+            } else {
+                const data = await response.json();
+                toast.update(toastId, { render: data.message || "Export failed", type: "error", isLoading: false, autoClose: 3000 });
+            }
+        } catch (error) {
+            console.error("Export error:", error);
+            toast.update(toastId, { render: "Error exporting Excel", type: "error", isLoading: false, autoClose: 3000 });
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     const customSelectStyles = {
         control: (base, state) => ({
             ...base,
@@ -245,6 +285,13 @@ const PreviousClass = () => {
                 <div className="flex justify-between items-center mb-6">
                     <h1 className={`text-3xl font-bold uppercase italic tracking-wider ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Previous Class</h1>
                     <div className="flex gap-3">
+                        <button
+                            onClick={handleExportExcel}
+                            disabled={isExporting}
+                            className={`px-4 py-2 rounded-lg flex items-center gap-2 font-bold transition-all shadow-lg ${isExporting ? 'bg-gray-600 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}
+                        >
+                            <FaClipboardList className="text-xs" /> {isExporting ? 'Exporting...' : 'Export to Excel'}
+                        </button>
                         <button
                             onClick={() => setShowFilters(!showFilters)}
                             className={`px-4 py-2 rounded-lg flex items-center gap-2 font-bold transition-all shadow-lg ${showFilters ? 'bg-blue-600 text-white' : isDarkMode ? 'bg-[#1e2530] text-gray-400 border border-gray-700' : 'bg-white text-gray-600 border border-gray-200'}`}
@@ -410,6 +457,7 @@ const PreviousClass = () => {
                             <thead>
                                 <tr className="bg-[#2a3038] text-gray-300 text-xs uppercase font-bold tracking-wider">
                                     <th className="p-4">Class Name</th>
+                                    <th className="p-4">Center</th>
                                     <th className="p-4">Batch</th>
                                     <th className="p-4">Teacher</th>
                                     <th className="p-4">Date</th>
@@ -428,13 +476,16 @@ const PreviousClass = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-700">
                                 {loading ? (
-                                    <tr><td colSpan="10" className="p-8 text-center text-gray-500">Loading...</td></tr>
+                                    <tr><td colSpan="16" className="p-8 text-center text-gray-500">Loading...</td></tr>
                                 ) : classes.length === 0 ? (
-                                    <tr><td colSpan="10" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No previous classes found</td></tr>
+                                    <tr><td colSpan="16" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No previous classes found</td></tr>
                                 ) : (
                                     classes.map((cls) => (
                                         <tr key={cls._id} className="hover:bg-[#252b32] transition-colors text-sm text-gray-300">
                                             <td className="p-4 font-semibold text-white">{cls.className}</td>
+                                            <td className="p-4 text-xs font-bold text-gray-400">
+                                                {cls.centreId?.centreName || cls.centreId?.centerName || cls.centreId?.name || "-"}
+                                            </td>
                                             <td className="p-4">
                                                 {cls.batchIds && cls.batchIds.length > 0
                                                     ? cls.batchIds.map(b => b.batchName || b.name).join(", ")

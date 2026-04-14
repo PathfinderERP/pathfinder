@@ -8,6 +8,9 @@ import ExamTag from "../../models/Master_data/ExamTag.js";
 import Class from "../../models/Master_data/Class.js";
 import Session from "../../models/Master_data/Session.js";
 import Subject from "../../models/Master_data/Subject.js";
+import StudentAttendance from "../../models/Academics/StudentAttendance.js";
+import Student from "../../models/Students.js";
+import Admission from "../../models/Admission/Admission.js";
 import xlsx from "xlsx";
 import fs from "fs";
 
@@ -779,5 +782,193 @@ export const importClassesExcel = async (req, res) => {
             try { fs.unlinkSync(req.file.path); } catch (e) { }
         }
         res.status(500).json({ message: "Server error during import", error: error.message });
+    }
+};
+
+// Export class schedules to Excel with Student Attendance
+export const exportClassSchedulesExcel = async (req, res) => {
+    try {
+        const {
+            centreId,
+            batchId,
+            subjectId,
+            teacherId,
+            coordinatorId,
+            fromDate,
+            toDate,
+            search,
+            status,
+        } = req.query;
+
+        // Build Query (Same logic as getClassSchedules but without page/limit)
+        const query = {};
+        const userId = req.user._id;
+        const userRole = req.user.role;
+
+        if (userRole === 'superAdmin' || userRole === 'admin') {
+            if (teacherId) {
+                const teacherIds = teacherId.split(',').filter(id => id.trim());
+                if (teacherIds.length > 0) query.teacherId = { $in: teacherIds };
+            }
+            if (coordinatorId) {
+                const coordinatorIds = coordinatorId.split(',').filter(id => id.trim());
+                if (coordinatorIds.length > 0) query.coordinatorId = { $in: coordinatorIds };
+            }
+        } else if (userRole === 'teacher') {
+            query.teacherId = userId;
+        } else if (userRole === 'Class_Coordinator') {
+            query.coordinatorId = userId;
+        }
+
+        if (req.user && req.user.role !== 'superAdmin') {
+            const userCentres = req.user.centres || [];
+            if (userCentres.length > 0) {
+                if (centreId) {
+                    const selectedCentres = centreId.split(',').filter(id => id.trim());
+                    const authorized = selectedCentres.filter(id => userCentres.map(c => c.toString()).includes(id.toString()));
+                    query.centreId = { $in: authorized.length > 0 ? authorized : userCentres };
+                } else {
+                    query.centreId = { $in: userCentres };
+                }
+            } else if (userRole === 'admin') {
+                return res.status(200).json({ message: "No centers assigned" });
+            }
+        } else if (centreId) {
+            const selectedCentres = centreId.split(',').filter(id => id.trim());
+            if (selectedCentres.length > 0) query.centreId = { $in: selectedCentres };
+        }
+
+        if (batchId) {
+            const batchIds = batchId.split(',').filter(id => id.trim());
+            if (batchIds.length > 0) query.batchIds = { $in: batchIds };
+        }
+        if (subjectId) {
+            const subjectIds = subjectId.split(',').filter(id => id.trim());
+            if (subjectIds.length > 0) query.subjectId = { $in: subjectIds };
+        }
+        if (status) query.status = status;
+
+        if (req.query.classMode) {
+            const classModes = req.query.classMode.split(',').filter(m => m.trim());
+            if (classModes.length > 0) query.classMode = { $in: classModes };
+        }
+
+        if (fromDate || toDate) {
+            query.date = {};
+            if (fromDate) query.date.$gte = new Date(fromDate);
+            if (toDate) query.date.$lte = new Date(toDate);
+        }
+
+        if (search) {
+            query.$or = [
+                { className: { $regex: search, $options: "i" } },
+                { session: { $regex: search, $options: "i" } },
+            ];
+        }
+
+        const classSchedules = await ClassSchedule.find(query)
+            .populate("subjectId", "subName")
+            .populate("teacherId", "name")
+            .populate("centreId", "centreName name")
+            .populate("batchIds", "batchName name")
+            .sort({ date: -1 });
+
+        if (classSchedules.length === 0) {
+            return res.status(404).json({ message: "No records found matching filters" });
+        }
+
+        // Fetch all student attendance for these schedules
+        const scheduleIds = classSchedules.map(cls => cls._id);
+        const attendanceRecords = await StudentAttendance.find({ classScheduleId: { $in: scheduleIds } });
+        
+        // Map attendance by classScheduleId and studentId
+        const attendanceMap = {};
+        attendanceRecords.forEach(rec => {
+            const key = `${rec.classScheduleId}_${rec.studentId}`;
+            attendanceMap[key] = rec.status;
+        });
+
+        // To list ALL students (even if no attendance marked), we need students for each class
+        // Fetch students for all batches involved
+        const allBatchIds = [...new Set(classSchedules.flatMap(cls => cls.batchIds.map(b => b._id.toString())))];
+
+        // Fetch all students for these batches
+        const allStudents = await Student.find({
+            batches: { $in: allBatchIds },
+            isEnrolled: true,
+            status: "Active"
+        }).select("name studentsDetails batches");
+
+        // Admission details
+        const studentIds = allStudents.map(s => s._id);
+        const admissions = await Admission.find({ student: { $in: studentIds } }, { student: 1, admissionNumber: 1 });
+        const admissionMap = {};
+        admissions.forEach(adm => {
+            if (adm.student) admissionMap[adm.student.toString()] = adm.admissionNumber;
+        });
+
+        const excelData = [];
+
+        for (const cls of classSchedules) {
+            const clsBatchIds = cls.batchIds.map(b => b._id.toString());
+            const clsCentreName = cls.centreId?.centreName || cls.centreId?.name || "N/A";
+
+            // Find students that belong to this class (matching batches AND center)
+            const clsStudents = allStudents.filter(s => 
+                s.batches.some(b => clsBatchIds.includes(b.toString())) &&
+                s.studentsDetails?.some(d => d.centre === clsCentreName)
+            );
+
+            if (clsStudents.length === 0) {
+                // Add a row for the class even if no students
+                excelData.push({
+                    "Date": new Date(cls.date).toLocaleDateString('en-GB'),
+                    "Class Name": cls.className,
+                    "Center": clsCentreName,
+                    "Batch": cls.batchIds.map(b => b.batchName || b.name).join(", "),
+                    "Teacher": cls.teacherId?.name || "N/A",
+                    "Subject": cls.subjectId?.subName || "N/A",
+                    "Topic": cls.topicName || "N/A",
+                    "Student Name": "No Students Found",
+                    "Admission ID": "N/A",
+                    "Attendance Status": "N/A",
+                    "Teacher Attendance": cls.teacherAttendance ? "Present" : "Absent",
+                    "Class Status": cls.status
+                });
+            } else {
+                for (const student of clsStudents) {
+                    const statusKey = `${cls._id}_${student._id}`;
+                    let statusValue = attendanceMap[statusKey] || (cls.isStudentAttendanceSaved ? "Absent" : "Attendance Not Taken");
+
+                    excelData.push({
+                        "Date": new Date(cls.date).toLocaleDateString('en-GB'),
+                        "Class Name": cls.className,
+                        "Center": clsCentreName,
+                        "Batch": cls.batchIds.map(b => b.batchName || b.name).join(", "),
+                        "Teacher": cls.teacherId?.name || "N/A",
+                        "Subject": cls.subjectId?.subName || "N/A",
+                        "Topic": cls.topicName || "N/A",
+                        "Student Name": student.name || "N/A",
+                        "Admission ID": admissionMap[student._id.toString()] || "N/A",
+                        "Attendance Status": statusValue,
+                        "Teacher Attendance": cls.teacherAttendance ? "Present" : "Absent",
+                        "Class Status": cls.status
+                    });
+                }
+            }
+        }
+
+        const wb = xlsx.utils.book_new();
+        const ws = xlsx.utils.json_to_sheet(excelData);
+        xlsx.utils.book_append_sheet(wb, ws, "Attendance Report");
+        const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=Attendance_Report_${new Date().getTime()}.xlsx`);
+        res.send(buffer);
+
+    } catch (error) {
+        console.error("Export Excel Error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
     }
 };

@@ -36,6 +36,10 @@ const DailyCollection = () => {
     const [sessionSearch, setSessionSearch] = useState("");
     const [paymentMethodSearch, setPaymentMethodSearch] = useState("");
 
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
+    const [pageInput, setPageInput] = useState("1");
+
     const [isCentreOpen, setIsCentreOpen] = useState(false);
     const [isCourseOpen, setIsCourseOpen] = useState(false);
     const [isDepartmentOpen, setIsDepartmentOpen] = useState(false);
@@ -147,10 +151,14 @@ const DailyCollection = () => {
             });
             if (response.ok) {
                 const data = await response.json();
+                const fetchedDetails = Array.isArray(data.details) ? data.details : [];
+                const sortedDetails = [...fetchedDetails].sort((a, b) => new Date(b.date) - new Date(a.date));
                 setTotalCollection(data.totalCollection || 0);
                 setTransactionCount(data.transactionCount || 0);
                 setPaymentMethods(data.paymentMethods || []);
-                setDailyDetails(data.details || []);
+                setDailyDetails(sortedDetails);
+                setCurrentPage(1);
+                setPageInput("1");
                 // Extract unique payment methods for the filter dropdown
                 const methods = data.paymentMethods || [];
                 const uniqueMethods = methods.map(m => m._id).filter(Boolean);
@@ -333,6 +341,16 @@ const DailyCollection = () => {
     const filteredPaymentMethods = paymentMethodsList.filter((method) =>
         method.toLowerCase().includes(paymentMethodSearch.toLowerCase())
     );
+
+    const pageCount = Math.max(1, Math.ceil(dailyDetails.length / pageSize));
+    const paginatedDetails = dailyDetails.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+    React.useEffect(() => {
+        if (currentPage > pageCount) {
+            setCurrentPage(pageCount);
+            setPageInput(String(pageCount));
+        }
+    }, [pageCount]);
 
     return (
         <Layout activePage="Sales">
@@ -746,8 +764,8 @@ const DailyCollection = () => {
                         <h2 className={`text-lg font-semibold ${cardTextClass}`}>Transaction Details</h2>
                         <div className={`text-sm ${secondaryTextClass}`}>{dailyDetails.length} records</div>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className={`min-w-full divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"} text-sm text-left`}>
+                    <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+                        <table className={`min-w-[1400px] divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"} text-sm text-left`}>
                             <thead className={`${tableHeaderBgClass} ${tableHeaderTextClass} uppercase text-[11px] tracking-wider`}>
                                 <tr>
                                     <th className="px-4 py-3">Date</th>
@@ -774,7 +792,7 @@ const DailyCollection = () => {
                                         <td colSpan="12" className={`px-4 py-8 text-center ${secondaryTextClass}`}>No transactions found for this date.</td>
                                     </tr>
                                 ) : (
-                                    dailyDetails.map((item) => (
+                                    paginatedDetails.map((item) => (
                                         <tr key={item._id} className={tableRowHoverClass}>
                                             <td className={`px-4 py-3 ${tableDataTextClass}`}>{formatDateTime(item.date)}</td>
                                             <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.centre || "-"}</td>
@@ -796,6 +814,76 @@ const DailyCollection = () => {
                                 )}
                             </tbody>
                         </table>
+                    </div>
+                    <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                        <div className={`text-sm ${secondaryTextClass}`}>
+                            Showing {paginatedDetails.length} of {dailyDetails.length} transactions
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+                            <div className="flex items-center gap-2 text-sm">
+                                <label htmlFor="pageSize" className={`font-medium ${cardTextClass}`}>Rows:</label>
+                                <select
+                                    id="pageSize"
+                                    value={pageSize}
+                                    onChange={(e) => {
+                                        const size = Number(e.target.value);
+                                        setPageSize(size);
+                                        setCurrentPage(1);
+                                        setPageInput("1");
+                                    }}
+                                    className={`rounded-[4px] border px-2 py-1 ${isDarkMode ? "bg-[#15181f] border-gray-700 text-white" : "bg-white border-gray-300 text-slate-900"}`}
+                                >
+                                    {[10, 20, 50, 100].map((size) => (
+                                        <option key={size} value={size}>{size}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                                <button
+                                    disabled={currentPage === 1}
+                                    onClick={() => {
+                                        const nextPage = Math.max(1, currentPage - 1);
+                                        setCurrentPage(nextPage);
+                                        setPageInput(String(nextPage));
+                                    }}
+                                    className={`rounded-[4px] px-3 py-1 ${isDarkMode ? "bg-slate-800 border border-gray-700" : "bg-slate-100 border border-gray-300"} ${currentPage === 1 ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-200"}`}
+                                >Prev</button>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max={pageCount}
+                                        value={pageInput}
+                                        onChange={(e) => setPageInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                const page = Number(e.target.value) || 1;
+                                                const validPage = Math.min(Math.max(page, 1), pageCount);
+                                                setCurrentPage(validPage);
+                                                setPageInput(String(validPage));
+                                            }
+                                        }}
+                                        onBlur={() => {
+                                            const page = Number(pageInput) || 1;
+                                            const validPage = Math.min(Math.max(page, 1), pageCount);
+                                            setCurrentPage(validPage);
+                                            setPageInput(String(validPage));
+                                        }}
+                                        className={`w-20 rounded-[4px] border px-2 py-1 text-sm ${isDarkMode ? "bg-[#15181f] border-gray-700 text-white" : "bg-white border-gray-300 text-slate-900"}`}
+                                    />
+                                    <span className={tableDataTextClass}>/ {pageCount}</span>
+                                </div>
+                                <button
+                                    disabled={currentPage === pageCount}
+                                    onClick={() => {
+                                        const nextPage = Math.min(pageCount, currentPage + 1);
+                                        setCurrentPage(nextPage);
+                                        setPageInput(String(nextPage));
+                                    }}
+                                    className={`rounded-[4px] px-3 py-1 ${isDarkMode ? "bg-slate-800 border border-gray-700" : "bg-slate-100 border border-gray-300"} ${currentPage === pageCount ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-200"}`}
+                                >Next</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
