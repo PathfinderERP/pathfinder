@@ -203,7 +203,7 @@ export const generateBill = async (req, res) => {
 
         // If payment exists but doesn't have a bill ID (or has an old MIG- ID), generate/fix it
         if (!payment.billId || payment.billId.startsWith('MIG-')) {
-            payment.billId = await generateBillId(centre.enterCode || 'GEN');
+            payment.billId = await generateBillId(centre.enterCode || 'GEN', payment.receivedDate);
             await payment.save();
         }
 

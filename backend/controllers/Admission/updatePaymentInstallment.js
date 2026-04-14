@@ -164,7 +164,7 @@ export const updatePaymentInstallment = async (req, res) => {
                         
                         // Create a reference Payment record for the auto-settled installment
                         try {
-                            const billId = await generateBillId(centreCode);
+                            const billId = await generateBillId(centreCode, nextInst.receivedDate);
                             const autoPayment = new Payment({
                                 admission: admissionId,
                                 installmentNumber: nextInst.installmentNumber,
@@ -275,7 +275,7 @@ export const updatePaymentInstallment = async (req, res) => {
             // Generate bill ID only if PAID (unless it's a CHEQUE which needs an ID for clearance)
             let newBillId = null;
             if (!payment || !payment.billId) {
-                newBillId = await generateBillId(centreCode);
+                newBillId = await generateBillId(centreCode, installment.receivedDate);
                 console.log(`Generated new bill ID: ${newBillId} for transaction: ${finalTransactionId}`);
             }
 

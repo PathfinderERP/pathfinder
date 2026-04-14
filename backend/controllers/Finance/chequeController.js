@@ -257,7 +257,7 @@ export const clearCheque = async (req, res) => {
         // Generate Bill ID
         let centre = await CentreSchema.findOne({ centreName: admission.centre });
         const centreCode = centre?.enterCode || "GEN";
-        payment.billId = await generateBillId(centreCode);
+        payment.billId = await generateBillId(centreCode, clearedDate);
 
         await payment.save();
 

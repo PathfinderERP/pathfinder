@@ -308,13 +308,13 @@ export const generateMonthlyBill = async (req, res) => {
 
                 // Generate bill ID for all methods if missing
                 if (!existingPayment.billId) {
-                    existingPayment.billId = await generateBillId(centreCode);
+                    existingPayment.billId = await generateBillId(centreCode, existingPayment.receivedDate);
                 }
 
                 await existingPayment.save();
             } else {
                 // Generate bill ID for all methods to allow receipts
-                let newBillId = await generateBillId(centreCode);
+                let newBillId = await generateBillId(centreCode, receivedDate ? new Date(receivedDate) : new Date());
 
                 const paymentData = {
                     admission: admission._id,

@@ -211,7 +211,7 @@ export const createBoardAdmission = async (req, res) => {
                     centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${centre}$`, 'i') } });
                 }
                 const centreCode = centreObj ? centreObj.enterCode : 'GEN';
-                const billId = await generateBillId(centreCode);
+                const billId = await generateBillId(centreCode, new Date());
 
                 const taxableAmount = totalPaidToday / 1.18;
                 const cgst = (totalPaidToday - taxableAmount) / 2;
