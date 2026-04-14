@@ -226,11 +226,18 @@ const DailyCollection = () => {
 
             // Details Sheet
             const detailsHeaders = [
-                "Date & Time",
+                "MR Date",
+                "Received Date",
                 "Centre",
                 "Student Name",
                 "Admission No.",
                 "Student Class",
+                "Email",
+                "Mobile",
+                "Whatsapp",
+                "Address",
+                "Guardian Name",
+                "Guardian Mobile",
                 "Bill ID",
                 "Transaction ID",
                 "Course",
@@ -238,15 +245,26 @@ const DailyCollection = () => {
                 "Payment Method",
                 "Amount",
                 "Status",
-                "Recorded By"
+                "Recorded By",
+                "Total Classes",
+                "Present",
+                "Absent",
+                "Attendance Status"
             ];
 
             const detailsData = dailyDetails.map(item => [
                 formatDateTime(item.date),
+                formatDateTime(item.receivedDate),
                 item.centre || "-",
                 item.studentName || "-",
                 item.admissionNumber || "-",
                 item.studentClass || "-",
+                item.studentEmail || "-",
+                item.studentMobile || "-",
+                item.studentWhatsapp || "-",
+                item.studentAddress || "-",
+                item.guardianName || "-",
+                item.guardianMobile || "-",
                 item.billId || "-",
                 item.transactionId || "-",
                 item.courseName || "-",
@@ -254,7 +272,11 @@ const DailyCollection = () => {
                 item.paymentMethod || "-",
                 item.paidAmount || 0,
                 item.status || "-",
-                item.recordedByName || "-"
+                item.recordedByName || "-",
+                item.totalClasses || 0,
+                item.presentCount || 0,
+                item.absentCount || 0,
+                item.attendanceStatus || "Not Taken"
             ]);
 
             const detailsSheet = XLSX.utils.aoa_to_sheet([detailsHeaders, ...detailsData]);

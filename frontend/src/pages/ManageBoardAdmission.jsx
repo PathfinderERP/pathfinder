@@ -33,7 +33,8 @@ const ManageBoardAdmission = () => {
         paymentMethod: "CASH",
         transactionId: "",
         bankName: "",
-        chequeDate: new Date().toISOString().split('T')[0]
+        chequeDate: new Date().toISOString().split('T')[0],
+        receivedDate: new Date().toISOString().split('T')[0]
     });
 
     const [paymentForm, setPaymentForm] = useState({
@@ -44,7 +45,8 @@ const ManageBoardAdmission = () => {
         transactionId: "",
         bankName: "",
         accountHolderName: "",
-        chequeDate: new Date().toISOString().split('T')[0]
+        chequeDate: new Date().toISOString().split('T')[0],
+        receivedDate: new Date().toISOString().split('T')[0]
     });
 
     const [showSMSModal, setShowSMSModal] = useState(false);
@@ -137,7 +139,8 @@ const ManageBoardAdmission = () => {
                 transactionId: "",
                 bankName: "",
                 accountHolderName: "",
-                chequeDate: new Date().toISOString().split('T')[0]
+                chequeDate: new Date().toISOString().split('T')[0],
+                receivedDate: new Date().toISOString().split('T')[0]
             });
         } else if (paymentModal.installment) {
             setPaymentForm(prev => ({
@@ -200,7 +203,8 @@ const ManageBoardAdmission = () => {
                     transactionId: paymentForm.transactionId,
                     bankName: paymentForm.bankName,
                     accountHolderName: paymentForm.accountHolderName,
-                    chequeDate: paymentForm.chequeDate
+                    chequeDate: paymentForm.chequeDate,
+                    receivedDate: paymentForm.receivedDate
                 })
             });
 
@@ -239,7 +243,8 @@ const ManageBoardAdmission = () => {
                     transactionId: paymentForm.transactionId,
                     bankName: paymentForm.bankName,
                     accountHolderName: paymentForm.accountHolderName,
-                    chequeDate: paymentForm.chequeDate
+                    chequeDate: paymentForm.chequeDate,
+                    receivedDate: paymentForm.receivedDate
                 })
             });
 
@@ -309,7 +314,8 @@ const ManageBoardAdmission = () => {
                     transactionId: paymentForm.transactionId,
                     bankName: paymentForm.bankName,
                     accountHolderName: paymentForm.accountHolderName,
-                    chequeDate: paymentForm.chequeDate
+                    chequeDate: paymentForm.chequeDate,
+                    receivedDate: paymentForm.receivedDate
                 })
             });
 
@@ -748,6 +754,17 @@ const ManageBoardAdmission = () => {
                                 />
                             </div>
 
+                            <div>
+                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Received Date</label>
+                                <input
+                                    type="date"
+                                    value={paymentForm.receivedDate}
+                                    onChange={(e) => setPaymentForm({ ...paymentForm, receivedDate: e.target.value })}
+                                    className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
+                                    required
+                                />
+                            </div>
+
                             <button
                                 type="submit"
                                 className="w-full py-4 bg-cyan-500 text-black font-black uppercase text-sm tracking-widest hover:bg-cyan-400 transition-all rounded-lg shadow-lg"
@@ -1174,6 +1191,17 @@ const ManageBoardAdmission = () => {
                                 />
                             </div>
 
+                            <div>
+                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Received Date</label>
+                                <input
+                                    type="date"
+                                    value={paymentForm.receivedDate}
+                                    onChange={(e) => setPaymentForm({ ...paymentForm, receivedDate: e.target.value })}
+                                    className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
+                                    required
+                                />
+                            </div>
+
                             <button
                                 type="submit"
                                 className="w-full py-4 bg-cyan-500 text-black font-black uppercase text-sm tracking-widest hover:bg-cyan-400 transition-all rounded-lg shadow-lg"
@@ -1296,6 +1324,17 @@ const ManageBoardAdmission = () => {
                                     </div>
                                 </div>
                             )}
+
+                            <div>
+                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Received Date</label>
+                                <input
+                                    type="date"
+                                    value={ncrpPaymentForm.receivedDate}
+                                    onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, receivedDate: e.target.value })}
+                                    className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
+                                    required
+                                />
+                            </div>
 
                             <button
                                 type="submit"

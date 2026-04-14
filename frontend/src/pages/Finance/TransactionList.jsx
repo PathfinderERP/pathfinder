@@ -242,13 +242,25 @@ const TransactionList = () => {
         const wb = XLSX.utils.book_new();
 
         const sheetTitle = billFilter === "no_bill" ? "No Bill No. Records" : billFilter === "with_bill" ? "Only Bills" : "Transaction List";
-        const headers = ["Date", "Received Date", "Enroll No.", "Receipt No", "Student Name", "Session", "Department", "Course Name", "Transaction Type", "Transaction ID", "Centre", "Payment Mode", "Revenue (Base)", "GST Amount", "Total (Inc. GST)", "Status", "Taken By"];
+        const headers = [
+            "Date", "Received Date", "Enroll No.", "Receipt No", "Student Name", 
+            "Student Email", "Student Mobile", "Whatsapp", "Address", "Guardian Name", "Guardian Mobile",
+            "Session", "Department", "Course Name", "Transaction Type", "Transaction ID", 
+            "Centre", "Payment Mode", "Revenue (Base)", "GST Amount", "Total (Inc. GST)", "Status", "Taken By",
+            "Total Classes", "Present", "Absent", "Attendance %", "Attendance Status"
+        ];
         const data = filteredReport.map(item => [
             new Date(item.paymentDate).toLocaleDateString("en-IN"),
             item.receivedDate ? new Date(item.receivedDate).toLocaleDateString("en-IN") : "-",
             item.admissionNumber,
             item.receiptNo || "-",
             item.studentName,
+            item.studentEmail || "-",
+            item.studentMobile || "-",
+            item.studentWhatsapp || "-",
+            item.studentAddress || "-",
+            item.guardianName || "-",
+            item.guardianMobile || "-",
             item.session || "-",
             item.department || "-",
             item.course,
@@ -260,7 +272,12 @@ const TransactionList = () => {
             item.gstAmount ? item.gstAmount.toFixed(2) : "-",
             item.amount,
             item.status,
-            item.takenBy || "System"
+            item.takenBy || "System",
+            item.totalClasses,
+            item.presentCount,
+            item.absentCount,
+            item.attendancePercent ? `${item.attendancePercent.toFixed(1)}%` : "0%",
+            item.attendanceStatus
         ]);
 
         const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
@@ -691,12 +708,14 @@ const TransactionList = () => {
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[150px]">Enroll No.</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[240px]">Receipt No</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[180px]">Student Name</th>
+                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[150px]">Centre</th>
+                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[120px]">Mobile</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Session</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Department</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Course Name</th>
+                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[100px]">Attendance</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[120px]">Transaction Type</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Transaction ID</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Centre</th>
                                     <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Payment Mode</th>
                                     <th className="p-4 text-xs font-black text-orange-500 uppercase tracking-wider">Revenue (Base)</th>
                                     <th className="p-4 text-xs font-black text-purple-500 uppercase tracking-wider">GST (18%)</th>
@@ -729,16 +748,22 @@ const TransactionList = () => {
                                             <td className="p-4 text-sm text-gray-500 font-mono whitespace-nowrap min-w-[150px]">{item.admissionNumber}</td>
                                             <td className="p-4 text-sm text-blue-600 font-mono font-bold whitespace-nowrap min-w-[240px] uppercase">{item.receiptNo || "-"}</td>
                                             <td className="p-4 text-sm font-bold text-gray-800 uppercase whitespace-nowrap min-w-[180px]">{item.studentName}</td>
+                                            <td className="p-4 text-sm text-gray-600 font-bold whitespace-nowrap">{item.centre}</td>
+                                            <td className="p-4 text-sm text-gray-600 font-medium whitespace-nowrap">{item.studentMobile || '-'}</td>
                                             <td className="p-4 text-sm text-gray-600 font-bold">{item.session || "-"}</td>
                                             <td className="p-4 text-sm text-orange-500 font-bold uppercase">{item.department || "-"}</td>
                                             <td className="p-4 text-sm text-gray-600 max-w-xs truncate" title={item.course}>{item.course}</td>
+                                            <td className="p-4 text-sm">
+                                                <div className={`px-2 py-0.5 rounded-full text-[10px] font-black text-center ${item.attendanceStatus === 'Available' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                    {item.attendanceStatus === 'Available' ? `${item.attendancePercent.toFixed(1)}%` : 'N/A'}
+                                                </div>
+                                            </td>
                                             <td className="p-4 text-sm text-gray-600">
                                                 {item.installmentNumber === 0 ? "Initial" : "EMI"}
                                             </td>
                                             <td className="p-4 text-sm text-gray-500 font-mono text-xs">
                                                 {item.method === "CASH" ? "CASH" : (item.transactionId || "-")}
                                             </td>
-                                            <td className="p-4 text-sm text-gray-600 uppercase">{item.centre}</td>
                                             <td className="p-4 text-sm text-gray-600">{item.method}</td>
                                             <td className="p-4 text-sm font-bold text-orange-600">₹{item.revenueWithoutGst ? item.revenueWithoutGst.toLocaleString() : "-"}</td>
                                             <td className="p-4 text-sm font-bold text-purple-600 text-xs">₹{item.gstAmount ? item.gstAmount.toLocaleString() : "-"}</td>

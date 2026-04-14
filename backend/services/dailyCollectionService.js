@@ -254,15 +254,42 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 courseName: {
                     $ifNull: ["$courseInfo.courseName", "$admissionInfo.boardCourseName"]
                 },
+                mrDate: "$paidDate",
+                actualReceivedDate: { $ifNull: ["$receivedDate", "$paidDate"] },
                 effectiveDate: { $ifNull: ["$receivedDate", "$paidDate"] },
-                recordedByName: {
-                    $ifNull: [
-                        { $arrayElemAt: ["$userInfo.name", 0] },
-                        "N/A"
-                    ]
+                    recordedByName: {
+                        $ifNull: [
+                            { $arrayElemAt: ["$userInfo.name", 0] },
+                            "N/A"
+                        ]
+                    },
+                    studentEmail: { $arrayElemAt: ["$studentInfo.studentsDetails.studentEmail", 0] },
+                    studentMobile: { $arrayElemAt: ["$studentInfo.studentsDetails.mobileNum", 0] },
+                    studentWhatsapp: { $arrayElemAt: ["$studentInfo.studentsDetails.whatsappNumber", 0] },
+                    studentAddress: { $arrayElemAt: ["$studentInfo.studentsDetails.address", 0] },
+                    guardianName: { $arrayElemAt: ["$studentInfo.guardians.guardianName", 0] },
+                    guardianMobile: { $arrayElemAt: ["$studentInfo.guardians.guardianMobile", 0] },
                 }
-            }
-        },
+            },
+            {
+                $lookup: {
+                    from: "studentattendances",
+                    let: { studentId: "$studentInfo._id" },
+                    pipeline: [
+                        { $match: { $expr: { $eq: ["$studentId", "$$studentId"] } } },
+                        {
+                            $group: {
+                                _id: null,
+                                totalClasses: { $sum: 1 },
+                                presentCount: { $sum: { $cond: [{ $eq: ["$status", "Present"] }, 1, 0] } },
+                                absentCount: { $sum: { $cond: [{ $eq: ["$status", "Absent"] }, 1, 0] } }
+                            }
+                        }
+                    ],
+                    as: "attendanceStats"
+                }
+            },
+            { $unwind: { path: "$attendanceStats", preserveNullAndEmptyArrays: true } },
         {
             $lookup: {
                 from: "classes",
@@ -321,7 +348,8 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                     {
                         $project: {
                             _id: 1,
-                            date: "$effectiveDate",
+                            date: "$mrDate",
+                            receivedDate: "$actualReceivedDate",
                             centre: "$admissionInfo.centre",
                             academicSession: "$admissionInfo.academicSession",
                             admissionNumber: "$admissionInfo.admissionNumber",
@@ -336,7 +364,23 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                             status: 1,
                             paidAmount: 1,
                             remarks: 1,
-                            recordedByName: "$recordedByName"
+                            recordedByName: "$recordedByName",
+                            studentEmail: 1,
+                            studentMobile: 1,
+                            studentWhatsapp: 1,
+                            studentAddress: 1,
+                            guardianName: 1,
+                            guardianMobile: 1,
+                            totalClasses: { $ifNull: ["$attendanceStats.totalClasses", 0] },
+                            presentCount: { $ifNull: ["$attendanceStats.presentCount", 0] },
+                            absentCount: { $ifNull: ["$attendanceStats.absentCount", 0] },
+                            attendanceStatus: {
+                                $cond: [
+                                    { $gt: [{ $ifNull: ["$attendanceStats.totalClasses", 0] }, 0] },
+                                    "Available",
+                                    "Not Taken"
+                                ]
+                            }
                         }
                     },
                     { $sort: { date: -1 } }

@@ -22,6 +22,7 @@ const BoardCourseAdmissionPage = () => {
     const [billingStartDate, setBillingStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [paymentMethod, setPaymentMethod] = useState("CASH");
     const [transactionId, setTransactionId] = useState("");
+    const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
     const [remarks, setRemarks] = useState("");
     const [academicSession, setAcademicSession] = useState("");
     const [bankName, setBankName] = useState("");
@@ -317,6 +318,7 @@ const BoardCourseAdmissionPage = () => {
                     totalWaiver: Number(totalWaiver),
                     downPayment: Number(downPayment),
                     billingStartDate,
+                    receivedDate,
                     paymentMethod,
                     transactionId,
                     bankName,
@@ -433,6 +435,18 @@ const BoardCourseAdmissionPage = () => {
                                     className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
                                     required
                                 />
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Received Date (Actual Payment)</label>
+                                <input
+                                    type="date"
+                                    value={receivedDate}
+                                    onChange={(e) => setReceivedDate(e.target.value)}
+                                    className={`w-full p-3 rounded-lg border outline-none font-black text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
+                                    required
+                                />
+                                <p className="text-[9px] text-gray-500 mt-1 uppercase font-black italic">The actual date money was collected</p>
                             </div>
 
                             <div>

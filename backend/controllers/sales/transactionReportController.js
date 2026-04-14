@@ -3,6 +3,7 @@ import Admission from "../../models/Admission/Admission.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Course from "../../models/Master_data/Courses.js";
 import Student from "../../models/Students.js"; // Importing to ensure schema registration for lookups if needed
+import StudentAttendance from "../../models/Academics/StudentAttendance.js";
 import mongoose from "mongoose";
 
 export const getTransactionReport = async (req, res) => {
@@ -393,6 +394,26 @@ export const getTransactionReport = async (req, res) => {
             { $unwind: { path: "$studentInfo", preserveNullAndEmptyArrays: true } },
             { $lookup: { from: "courses", localField: "admissionInfo.course", foreignField: "_id", as: "courseInfo" } },
             { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
+            // Lookup Student Attendance Stats
+            {
+                $lookup: {
+                    from: "studentattendances",
+                    let: { studentId: "$studentInfo._id" },
+                    pipeline: [
+                        { $match: { $expr: { $eq: ["$studentId", "$$studentId"] } } },
+                        {
+                            $group: {
+                                _id: null,
+                                totalClasses: { $sum: 1 },
+                                presentCount: { $sum: { $cond: [{ $eq: ["$status", "Present"] }, 1, 0] } },
+                                absentCount: { $sum: { $cond: [{ $eq: ["$status", "Absent"] }, 1, 0] } }
+                            }
+                        }
+                    ],
+                    as: "attendanceStats"
+                }
+            },
+            { $unwind: { path: "$attendanceStats", preserveNullAndEmptyArrays: true } },
             aggregateMatchStage,
             {
                 $lookup: {
@@ -422,7 +443,7 @@ export const getTransactionReport = async (req, res) => {
             },
             {
                 $addFields: {
-                    effectivePaidDate: { $ifNull: ["$receivedDate", "$paidDate"] }
+                    receivedDate: { $ifNull: ["$receivedDate", "$paidDate"] }
                 }
             },
             {
@@ -436,24 +457,50 @@ export const getTransactionReport = async (req, res) => {
             {
                 $project: {
                     transactionId: "$transactionId",
-                    paymentDate: "$effectivePaidDate",
+                    paymentDate: "$paidDate",
                     amount: "$paidAmount",
                     method: "$paymentMethod",
                     status: "$status",
 
-                    // Admission/Student Info
+                    // Student & Center Info Expanded
                     studentName: { $arrayElemAt: ["$studentInfo.studentsDetails.studentName", 0] },
+                    studentEmail: { $arrayElemAt: ["$studentInfo.studentsDetails.studentEmail", 0] },
+                    studentMobile: { $arrayElemAt: ["$studentInfo.studentsDetails.mobileNum", 0] },
+                    studentWhatsapp: { $arrayElemAt: ["$studentInfo.studentsDetails.whatsappNumber", 0] },
+                    studentAddress: { $arrayElemAt: ["$studentInfo.studentsDetails.address", 0] },
+                    guardianName: { $arrayElemAt: ["$studentInfo.guardians.guardianName", 0] },
+                    guardianMobile: { $arrayElemAt: ["$studentInfo.guardians.guardianMobile", 0] },
+                    
                     centre: "$admissionInfo.centre",
                     course: { $ifNull: ["$courseInfo.courseName", "$admissionInfo.boardCourseName", "$boardCourseName"] },
                     department: { $ifNull: ["$departmentDetails.departmentName", "BOARD"] },
                     session: "$admissionInfo.academicSession",
                     admissionNumber: "$admissionInfo.admissionNumber",
-                    receivedDate: { $ifNull: ["$receivedDate", "$paidDate"] },
+                    receivedDate: "$receivedDate",
                     receiptNo: "$billId",
                     installmentNumber: "$installmentNumber",
                     revenueWithoutGst: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] },
                     gstAmount: { $ifNull: [{ $add: ["$cgst", "$sgst"] }, { $subtract: ["$paidAmount", { $divide: ["$paidAmount", 1.18] }] }] },
-                    takenBy: { $ifNull: [{ $arrayElemAt: ["$collectorInfo.name", 0] }, "System"] }
+                    takenBy: { $ifNull: [{ $arrayElemAt: ["$collectorInfo.name", 0] }, "System"] },
+
+                    // Attendance Info
+                    totalClasses: { $ifNull: ["$attendanceStats.totalClasses", 0] },
+                    presentCount: { $ifNull: ["$attendanceStats.presentCount", 0] },
+                    absentCount: { $ifNull: ["$attendanceStats.absentCount", 0] },
+                    attendancePercent: {
+                        $cond: [
+                            { $gt: [{ $ifNull: ["$attendanceStats.totalClasses", 0] }, 0] },
+                            { $multiply: [{ $divide: ["$attendanceStats.presentCount", "$attendanceStats.totalClasses"] }, 100] },
+                            0
+                        ]
+                    },
+                    attendanceStatus: {
+                        $cond: [
+                            { $gt: [{ $ifNull: ["$attendanceStats.totalClasses", 0] }, 0] },
+                            "Available",
+                            "Not Taken"
+                        ]
+                    }
                 }
             }
         ]).option({ allowDiskUse: true });

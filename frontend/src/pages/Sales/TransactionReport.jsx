@@ -309,6 +309,49 @@ const TransactionReport = () => {
         ws2['!cols'] = [{ wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }];
         XLSX.utils.book_append_sheet(wb, ws2, "Payment Distribution");
 
+        // --- Sheet 3: Detailed Transaction Report ---
+        const ws3Headers = [
+            "Date", "Received Date", "Enroll No.", "Receipt No", "Student Name", 
+            "Student Email", "Student Mobile", "Whatsapp", "Student Address", "Guardian Name", "Guardian Mobile",
+            "Session", "Department", "Course Name", "Transaction Type", "Transaction ID", 
+            "Centre", "Payment Mode", "Revenue (Base)", "GST Amount", "Total (Inc. GST)", "Status", "Taken By",
+            "Total Classes", "Present", "Absent", "Attendance %", "Attendance Status"
+        ];
+        const ws3Data = detailedReport.map(item => [
+            new Date(item.paymentDate).toLocaleDateString("en-IN"),
+            item.receivedDate ? new Date(item.receivedDate).toLocaleDateString("en-IN") : "-",
+            item.admissionNumber,
+            item.receiptNo || "-",
+            item.studentName,
+            item.studentEmail || "-",
+            item.studentMobile || "-",
+            item.studentWhatsapp || "-",
+            item.studentAddress || "-",
+            item.guardianName || "-",
+            item.guardianMobile || "-",
+            item.session || "-",
+            item.department || "-",
+            item.course,
+            item.installmentNumber === 0 ? "Initial" : "EMI",
+            item.transactionId || "-",
+            item.centre,
+            item.method,
+            item.revenueWithoutGst ? item.revenueWithoutGst.toFixed(2) : "-",
+            item.gstAmount ? item.gstAmount.toFixed(2) : "-",
+            item.amount,
+            item.status,
+            item.takenBy || "System",
+            item.totalClasses,
+            item.presentCount,
+            item.absentCount,
+            item.attendancePercent ? `${item.attendancePercent.toFixed(1)}%` : "0%",
+            item.attendanceStatus
+        ]);
+
+        const ws3 = XLSX.utils.aoa_to_sheet([...metadata, ["Detailed Transaction Report"], [], ws3Headers, ...ws3Data]);
+        ws3['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 30 }, { wch: 20 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }];
+        XLSX.utils.book_append_sheet(wb, ws3, "Detailed Transactions");
+
         const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
         const data = new Blob([excelBuffer], { type: "application/octet-stream" });
         saveAs(data, `Transaction_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);

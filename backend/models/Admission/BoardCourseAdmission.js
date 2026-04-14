@@ -8,11 +8,11 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
     },
     studentName: {
         type: String,
-        required: true
+        required: false // Cached from Student model
     },
     mobileNum: {
         type: String,
-        required: true
+        required: false // Cached from Student model
     },
     boardId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -29,7 +29,7 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
     },
     lastClass: {
         type: String,
-        required: true
+        required: false
     },
     selectedSubjects: [{
         subjectId: {

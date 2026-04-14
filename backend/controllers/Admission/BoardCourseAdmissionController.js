@@ -44,7 +44,8 @@ export const createBoardAdmission = async (req, res) => {
             additionalThingsAmount = 0,
             paidAdditionalThings = 0,
             programme,
-            lastClass
+            lastClass,
+            receivedDate
         } = req.body;
 
         // Fallback: Fetch student details only if name/mobile/centre not provided
@@ -211,7 +212,7 @@ export const createBoardAdmission = async (req, res) => {
                     centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${centre}$`, 'i') } });
                 }
                 const centreCode = centreObj ? centreObj.enterCode : 'GEN';
-                const billId = await generateBillId(centreCode, new Date());
+                const billId = await generateBillId(centreCode, receivedDate || new Date());
 
                 const taxableAmount = totalPaidToday / 1.18;
                 const cgst = (totalPaidToday - taxableAmount) / 2;
@@ -229,7 +230,7 @@ export const createBoardAdmission = async (req, res) => {
                     paidAmount: totalPaidToday,
                     dueDate: installments[0].dueDate,
                     paidDate: new Date(),
-                    receivedDate: new Date(),
+                    receivedDate: receivedDate || new Date(),
                     status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
                     paymentMethod: paymentMethod || "CASH",
                     transactionId: transactionId || "DP-" + Date.now(),
@@ -445,13 +446,23 @@ export const updateBoardSubjects = async (req, res) => {
 export const collectBoardExamFee = async (req, res) => {
     try {
         const { id } = req.params;
-        const { amount, paymentMethod: rawPaymentMethod, transactionId, bankName, accountHolderName, chequeDate } = req.body;
+        const { amount, paymentMethod: rawPaymentMethod, transactionId, bankName, accountHolderName, chequeDate, receivedDate } = req.body;
 
         const methodMap = { 'ONLINE': 'UPI', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
         const paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
 
-        const admission = await BoardCourseAdmission.findById(id);
+        const admission = await BoardCourseAdmission.findById(id).populate('studentId');
         if (!admission) return res.status(404).json({ message: "Admission not found" });
+
+        if (!admission.studentName || !admission.mobileNum) {
+            const student = admission.studentId;
+            if (student && student.studentsDetails?.[0]) {
+                const details = student.studentsDetails[0];
+                admission.studentName = admission.studentName || details.studentName;
+                admission.mobileNum = admission.mobileNum || details.mobileNum;
+                admission.centre = admission.centre || details.centre;
+            }
+        }
 
         const paidAmount = Number(amount);
         admission.examFeePaid += paidAmount;
@@ -469,7 +480,7 @@ export const collectBoardExamFee = async (req, res) => {
                 centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } });
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
-            const billId = await generateBillId(centreCode);
+            const billId = await generateBillId(centreCode, new Date());
 
             const taxableAmount = paidAmount / 1.18;
             const cgst = (paidAmount - taxableAmount) / 2;
@@ -482,7 +493,7 @@ export const collectBoardExamFee = async (req, res) => {
                 paidAmount: paidAmount,
                 dueDate: new Date(),
                 paidDate: new Date(),
-                receivedDate: new Date(),
+                receivedDate: receivedDate || new Date(),
                 status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
                 paymentMethod: paymentMethod,
                 transactionId: transactionId,
@@ -527,14 +538,26 @@ export const collectBoardInstallment = async (req, res) => {
             transactionId,
             bankName,
             accountHolderName,
-            chequeDate
+            chequeDate,
+            receivedDate
         } = req.body;
         // Normalize payment method to match Payment schema enum
         const methodMap = { 'ONLINE': 'UPI', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
         const paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
 
-        const admission = await BoardCourseAdmission.findById(id);
+        const admission = await BoardCourseAdmission.findById(id).populate('studentId');
         if (!admission) return res.status(404).json({ message: "Admission not found" });
+
+        // Safety fallback for legacy records missing required fields
+        if (!admission.studentName || !admission.mobileNum) {
+            const student = admission.studentId;
+            if (student && student.studentsDetails?.[0]) {
+                const details = student.studentsDetails[0];
+                admission.studentName = admission.studentName || details.studentName;
+                admission.mobileNum = admission.mobileNum || details.mobileNum;
+                admission.centre = admission.centre || details.centre;
+            }
+        }
 
         if (!mongoose.Types.ObjectId.isValid(installmentId)) {
             return res.status(400).json({ message: "Invalid installment ID format" });
@@ -546,12 +569,13 @@ export const collectBoardInstallment = async (req, res) => {
         inst.paidAmount += Number(amount);
         inst.paymentTransactions.push({
             amount: Number(amount),
-            date: new Date(),
+            date: receivedDate ? new Date(receivedDate) : new Date(), // This tracks the collection date
             paymentMethod,
             transactionId,
             bankName,
             accountHolderName,
             chequeDate,
+            receivedDate: receivedDate ? new Date(receivedDate) : new Date(),
             receivedBy: req.user?._id
         });
 
@@ -650,7 +674,7 @@ export const collectBoardInstallment = async (req, res) => {
                 centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } });
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
-            const billId = await generateBillId(centreCode);
+            const billId = await generateBillId(centreCode, new Date());
 
             const totalPaidToday = Number(amount) + Number(paidExamFee) + Number(paidAdditionalThings);
             if (totalPaidToday <= 0) return; // Nothing to record
@@ -674,7 +698,7 @@ export const collectBoardInstallment = async (req, res) => {
                 paidAmount: totalPaidToday,
                 dueDate: inst.dueDate,
                 paidDate: new Date(),
-                receivedDate: new Date(),
+                receivedDate: receivedDate || new Date(),
                 status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : inst.status,
                 paymentMethod: paymentMethod,
                 transactionId: transactionId,
@@ -708,13 +732,23 @@ export const collectBoardInstallment = async (req, res) => {
 export const collectBoardAdditionalFee = async (req, res) => {
     try {
         const { id } = req.params;
-        const { amount, paymentMethod: rawPaymentMethod, transactionId, bankName, accountHolderName, chequeDate } = req.body;
+        const { amount, paymentMethod: rawPaymentMethod, transactionId, bankName, accountHolderName, chequeDate, receivedDate } = req.body;
 
         const methodMap = { 'ONLINE': 'UPI', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
         const paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
 
-        const admission = await BoardCourseAdmission.findById(id);
+        const admission = await BoardCourseAdmission.findById(id).populate('studentId');
         if (!admission) return res.status(404).json({ message: "Admission not found" });
+
+        if (!admission.studentName || !admission.mobileNum) {
+            const student = admission.studentId;
+            if (student && student.studentsDetails?.[0]) {
+                const details = student.studentsDetails[0];
+                admission.studentName = admission.studentName || details.studentName;
+                admission.mobileNum = admission.mobileNum || details.mobileNum;
+                admission.centre = admission.centre || details.centre;
+            }
+        }
 
         const paidAmount = Number(amount);
         admission.additionalThingsPaid += paidAmount;
@@ -732,7 +766,7 @@ export const collectBoardAdditionalFee = async (req, res) => {
                 centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } });
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
-            const billId = await generateBillId(centreCode);
+            const billId = await generateBillId(centreCode, new Date());
 
             const taxableAmount = paidAmount / 1.18;
             const cgst = (paidAmount - taxableAmount) / 2;
@@ -745,7 +779,7 @@ export const collectBoardAdditionalFee = async (req, res) => {
                 paidAmount: paidAmount,
                 dueDate: new Date(),
                 paidDate: new Date(),
-                receivedDate: new Date(),
+                receivedDate: receivedDate || new Date(),
                 status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
                 paymentMethod: paymentMethod,
                 transactionId: transactionId,
@@ -788,14 +822,25 @@ export const collectNcrpFees = async (req, res) => {
             transactionId,
             bankName,
             accountHolderName,
-            chequeDate
+            chequeDate,
+            receivedDate
         } = req.body;
 
         const methodMap = { 'ONLINE': 'UPI', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
         const paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
 
-        const admission = await BoardCourseAdmission.findById(id);
+        const admission = await BoardCourseAdmission.findById(id).populate('studentId');
         if (!admission) return res.status(404).json({ message: "Admission not found" });
+
+        if (!admission.studentName || !admission.mobileNum) {
+            const student = admission.studentId;
+            if (student && student.studentsDetails?.[0]) {
+                const details = student.studentsDetails[0];
+                admission.studentName = admission.studentName || details.studentName;
+                admission.mobileNum = admission.mobileNum || details.mobileNum;
+                admission.centre = admission.centre || details.centre;
+            }
+        }
 
         const examPaid = Number(paidExamFee) || 0;
         const additionalPaid = Number(paidAdditionalThings) || 0;
@@ -830,7 +875,7 @@ export const collectNcrpFees = async (req, res) => {
                 centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } });
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
-            const billId = await generateBillId(centreCode);
+            const billId = await generateBillId(centreCode, new Date());
 
             const taxableAmount = totalPaidToday / 1.18;
             const cgst = (totalPaidToday - taxableAmount) / 2;
@@ -852,7 +897,7 @@ export const collectNcrpFees = async (req, res) => {
                 paidAmount: totalPaidToday,
                 dueDate: new Date(),
                 paidDate: new Date(),
-                receivedDate: new Date(),
+                receivedDate: receivedDate || new Date(),
                 status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
                 paymentMethod,
                 transactionId,
