@@ -5,6 +5,7 @@ import Centre from "../../models/Master_data/Centre.js";
 import Course from "../../models/Master_data/Courses.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
 import ClassModel from "../../models/Master_data/Class.js";
+import Boards from "../../models/Master_data/Boards.js";
 import mongoose from "mongoose";
 
 export const getAdmissionReport = async (req, res) => {
@@ -16,6 +17,8 @@ export const getAdmissionReport = async (req, res) => {
             centreIds, // comma separated or array
             courseIds, // comma separated or array
             classIds,  // comma separated or array
+            subjectIds, // comma separated or array
+            boardIds,  // comma separated or array
             examTagId
         } = req.query;
 
@@ -110,13 +113,38 @@ export const getAdmissionReport = async (req, res) => {
             }
         }
 
+        // Dedicated Query for Board Course Admissions (includes board, subject filtering)
+        let boardAdmissionQuery = { ...admissionQuery };
+        // Remove centre from boardAdmissionQuery if it references ObjectId (board admission uses string centre)
+        // boardAdmissionQuery already has date filter inherited from admissionQuery
+
+        // Board filter
+        if (boardIds) {
+            const rawIds = typeof boardIds === 'string' ? boardIds.split(',') : boardIds;
+            const validIds = rawIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
+            const objectIds = validIds.map(id => new mongoose.Types.ObjectId(id));
+            if (objectIds.length > 0) {
+                boardAdmissionQuery.boardId = { $in: objectIds };
+            }
+        }
+
+        // Subject filter
+        if (subjectIds) {
+            const rawIds = typeof subjectIds === 'string' ? subjectIds.split(',') : subjectIds;
+            const validIds = rawIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
+            const objectIds = validIds.map(id => new mongoose.Types.ObjectId(id));
+            if (objectIds.length > 0) {
+                boardAdmissionQuery["selectedSubjects.subjectId"] = { $in: objectIds };
+            }
+        }
+
         const reportType = req.query.reportType || 'monthly';
 
         if (reportType === 'daily') {
             // --- DAILY REPORTING ENGINE ---
             const dailyAdmitted = await Admission.aggregate([
                 { $match: admissionQuery },
-                { $unionWith: { coll: "boardcourseadmissions", pipeline: [{ $match: admissionQuery }] } },
+                { $unionWith: { coll: "boardcourseadmissions", pipeline: [{ $match: boardAdmissionQuery }] } },
                 {
                     $group: {
                         _id: { $dateToString: { format: "%Y-%m-%d", date: "$admissionDate" } },
@@ -158,12 +186,54 @@ export const getAdmissionReport = async (req, res) => {
             const totalAdmitted = dailyAdmitted.reduce((sum, d) => sum + d.count, 0);
             const totalCounselling = dailyCounselling.reduce((sum, d) => sum + d.count, 0);
 
+            // Board analysis for daily mode
+            const boardAnalysisRawD = await BoardCourseAdmission.aggregate([
+                { $match: boardAdmissionQuery },
+                { $unwind: "$selectedSubjects" },
+                { $lookup: { from: "subjects", localField: "selectedSubjects.subjectId", foreignField: "_id", as: "subjectInfo" } },
+                { $unwind: { path: "$subjectInfo", preserveNullAndEmptyArrays: true } },
+                { $group: { _id: { subjectName: { $ifNull: ["$subjectInfo.subName", "Unknown Subject"] }, className: { $ifNull: ["$lastClass", "Unknown Class"] } }, count: { $sum: 1 } } }
+            ]);
+            const boardSubjectMapD = {};
+            boardAnalysisRawD.forEach(item => {
+                const sub = item._id.subjectName;
+                const cls = item._id.className || "Unknown Class";
+                if (!boardSubjectMapD[sub]) boardSubjectMapD[sub] = { subjectName: sub, total: 0 };
+                if (!boardSubjectMapD[sub][cls]) boardSubjectMapD[sub][cls] = 0;
+                boardSubjectMapD[sub][cls] += item.count;
+                boardSubjectMapD[sub].total += item.count;
+            });
+            const boardAnalysisDataD = Object.values(boardSubjectMapD).sort((a, b) => b.total - a.total);
+            const boardClassesD = Array.from(new Set(boardAnalysisRawD.map(item => item._id.className || "Unknown Class")));
+
+            // Board trend by date (daily)
+            const boardTrendRawD = await BoardCourseAdmission.aggregate([
+                { $match: boardAdmissionQuery },
+                { $lookup: { from: "boards", localField: "boardId", foreignField: "_id", as: "boardInfo" } },
+                { $group: { _id: { date: { $dateToString: { format: "%Y-%m-%d", date: "$admissionDate" } }, boardName: { $ifNull: [{ $arrayElemAt: ["$boardInfo.boardCourse", 0] }, "Unknown Board"] } }, count: { $sum: 1 } } },
+                { $sort: { "_id.date": 1 } }
+            ]);
+            const boardTrendMapD = {};
+            const allBoardsD = new Set();
+            boardTrendRawD.forEach(item => {
+                const d = item._id.date;
+                const b = item._id.boardName;
+                allBoardsD.add(b);
+                if (!boardTrendMapD[d]) boardTrendMapD[d] = { monthName: d };
+                boardTrendMapD[d][b] = item.count;
+            });
+            const boardTrendD = Object.values(boardTrendMapD).sort((a,b) => a.monthName.localeCompare(b.monthName));
+
             return res.status(200).json({
                 trend: trendData,
-                status: {
-                    admitted: totalAdmitted,
-                    inCounselling: totalCounselling
-                }
+                status: { admitted: totalAdmitted, inCounselling: totalCounselling },
+                boardAnalysis: {
+                    data: boardAnalysisDataD,
+                    classes: boardClassesD,
+                    trend: boardTrendD,
+                    boards: Array.from(allBoardsD)
+                },
+                subjectAnalysis: []
             });
         }
 
@@ -196,7 +266,7 @@ export const getAdmissionReport = async (req, res) => {
                 $unionWith: {
                     coll: "boardcourseadmissions",
                     pipeline: [
-                        { $match: admissionQuery },
+                        { $match: boardAdmissionQuery },
                         {
                             $project: {
                                 admissionDate: 1,
@@ -258,7 +328,7 @@ export const getAdmissionReport = async (req, res) => {
         // 2. Admission Status (Admitted vs In Counselling) per month
         const monthlyAdmitted = await Admission.aggregate([
             { $match: admissionQuery },
-            { $unionWith: { coll: "boardcourseadmissions", pipeline: [{ $match: admissionQuery }] } },
+            { $unionWith: { coll: "boardcourseadmissions", pipeline: [{ $match: boardAdmissionQuery }] } },
             {
                 $group: {
                     _id: { $month: "$admissionDate" },
@@ -311,34 +381,51 @@ export const getAdmissionReport = async (req, res) => {
             monthName: monthNames[item.month - 1]
         }));
 
-        // 3. Board-Specific Analysis (Programme & Board Type)
-        const boardAnalysis = await BoardCourseAdmission.aggregate([
-            { $match: admissionQuery },
+        // 3. Board-Specific Analysis (Subject-wise & Class-wise)
+        const boardAnalysisRaw = await BoardCourseAdmission.aggregate([
+            { $match: boardAdmissionQuery },
+            { $unwind: "$selectedSubjects" },
+            {
+                $lookup: {
+                    from: "subjects",
+                    localField: "selectedSubjects.subjectId",
+                    foreignField: "_id",
+                    as: "subjectInfo"
+                }
+            },
+            { $unwind: { path: "$subjectInfo", preserveNullAndEmptyArrays: true } },
             {
                 $group: {
                     _id: {
-                        centre: "$centre",
-                        boardCourseName: "$boardCourseName",
-                        programme: "$programme"
+                        subjectName: { $ifNull: ["$subjectInfo.subName", "Unknown Subject"] },
+                        className: { $ifNull: ["$lastClass", "Unknown Class"] }
                     },
                     count: { $sum: 1 }
                 }
-            },
-            {
-                $project: {
-                    centre: "$_id.centre",
-                    board: "$_id.boardCourseName",
-                    programme: "$_id.programme",
-                    count: 1,
-                    _id: 0
-                }
-            },
-            { $sort: { count: -1 } }
+            }
         ]);
+
+        const boardSubjectMap = {};
+        boardAnalysisRaw.forEach(item => {
+            const sub = item._id.subjectName;
+            const cls = item._id.className || "Unknown Class";
+            if (!boardSubjectMap[sub]) boardSubjectMap[sub] = { subjectName: sub, total: 0 };
+            if (!boardSubjectMap[sub][cls]) boardSubjectMap[sub][cls] = 0;
+            boardSubjectMap[sub][cls] += item.count;
+            boardSubjectMap[sub].total += item.count;
+        });
+
+        const boardAnalysisData = Object.values(boardSubjectMap).sort((a,b) => b.total - a.total);
+        const boardClasses = Array.from(new Set(boardAnalysisRaw.map(item => item._id.className || "Unknown Class")));
+
+        const boardAnalysis = {
+            data: boardAnalysisData,
+            classes: boardClasses
+        };
 
         // 4. Subject-wise Breakdown (Board Admissions)
         const subjectAnalysis = await BoardCourseAdmission.aggregate([
-            { $match: admissionQuery },
+            { $match: boardAdmissionQuery },
             { $unwind: "$selectedSubjects" },
             {
                 $lookup: {
@@ -353,7 +440,7 @@ export const getAdmissionReport = async (req, res) => {
                 $group: {
                     _id: {
                         centre: "$centre",
-                        subjectName: "$subjectInfo.subjectName"
+                        subjectName: "$subjectInfo.subName"
                     },
                     count: { $sum: 1 }
                 }
@@ -368,6 +455,91 @@ export const getAdmissionReport = async (req, res) => {
             },
             { $sort: { count: -1 } }
         ]);
+
+        // 5. Board Trend Analysis (Area Chart)
+        const boardTrendRaw = await BoardCourseAdmission.aggregate([
+            { $match: boardAdmissionQuery },
+            {
+                $lookup: {
+                    from: "boards",
+                    localField: "boardId",
+                    foreignField: "_id",
+                    as: "boardInfo"
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        month: { $month: "$admissionDate" },
+                        boardName: { $ifNull: [{ $arrayElemAt: ["$boardInfo.boardCourse", 0] }, "Unknown Board"] }
+                    },
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        const boardTrendMap = {};
+        const allBoards = new Set();
+        boardTrendRaw.forEach(item => {
+            const m = item._id.month;
+            const b = item._id.boardName;
+            allBoards.add(b);
+            const monthName = new Date(2000, m - 1, 1).toLocaleString('default', { month: 'short' });
+            
+            if (!boardTrendMap[monthName]) boardTrendMap[monthName] = { monthName };
+            boardTrendMap[monthName][b] = item.count;
+        });
+
+        const monthOrder = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const boardTrend = monthOrder.map(m => boardTrendMap[m] || { monthName: m });
+        boardAnalysis.trend = boardTrend;
+        boardAnalysis.boards = Array.from(allBoards);
+
+        // 6. Board Daily Trend (for month drill-down area chart)
+        const boardDailyRaw = await BoardCourseAdmission.aggregate([
+            { $match: boardAdmissionQuery },
+            {
+                $lookup: {
+                    from: "boards",
+                    localField: "boardId",
+                    foreignField: "_id",
+                    as: "boardInfo"
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        date: { $dateToString: { format: "%Y-%m-%d", date: "$admissionDate" } },
+                        month: { $month: "$admissionDate" },
+                        boardName: { $ifNull: [{ $arrayElemAt: ["$boardInfo.boardCourse", 0] }, "Unknown Board"] }
+                    },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { "_id.date": 1 } }
+        ]);
+
+        // Build daily map: { monthIndex -> { date -> { boardName: count } } }
+        const boardDailyByMonth = {};
+        boardDailyRaw.forEach(item => {
+            const month = item._id.month; // 1-12
+            const date = item._id.date;
+            const board = item._id.boardName;
+            const day = date.split('-')[2]; // DD
+
+            if (!boardDailyByMonth[month]) boardDailyByMonth[month] = {};
+            if (!boardDailyByMonth[month][date]) boardDailyByMonth[month][date] = { day: `Day ${parseInt(day)}`, date };
+            boardDailyByMonth[month][date][board] = item.count;
+        });
+
+        // Format into array per month
+        const boardDailyTrend = {};
+        Object.keys(boardDailyByMonth).forEach(month => {
+            boardDailyTrend[monthOrder[parseInt(month) - 1]] = Object.values(boardDailyByMonth[month])
+                .sort((a, b) => a.date.localeCompare(b.date));
+        });
+
+        boardAnalysis.dailyTrend = boardDailyTrend;
 
         res.status(200).json({
             trend: trendData,
