@@ -299,6 +299,10 @@ const BoardCourseAdmissionPage = () => {
             return toast.error("Please provide Transaction ID for UPI payment");
         }
 
+        if (paymentMethod === "BANK_TRANSFER" && !transactionId) {
+            return toast.error("Please provide Transaction Reference for Bank Transfer");
+        }
+
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -603,21 +607,24 @@ const BoardCourseAdmissionPage = () => {
                                     <option value="CASH">CASH</option>
                                     <option value="ONLINE">ONLINE / CARD</option>
                                     <option value="UPI">UPI</option>
+                                    <option value="BANK_TRANSFER">BANK TRANSFER</option>
                                     <option value="CHEQUE">CHEQUE</option>
                                 </select>
                             </div>
                         </div>
 
                         {/* Conditional Payment Fields */}
-                        {paymentMethod === "UPI" && (
+                        {(paymentMethod === "UPI" || paymentMethod === "BANK_TRANSFER") && (
                             <div className="mt-6 animate-fadeIn">
-                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Transaction ID</label>
+                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">
+                                    {paymentMethod === "UPI" ? "Transaction ID" : "Bank Reference Number"}
+                                </label>
                                 <input
                                     type="text"
                                     value={transactionId}
                                     onChange={(e) => setTransactionId(e.target.value)}
                                     className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
-                                    placeholder="Enter UPI Transaction Reference"
+                                    placeholder={paymentMethod === "UPI" ? "Enter UPI Transaction Reference" : "Enter Bank Transfer Reference"}
                                     required
                                 />
                             </div>

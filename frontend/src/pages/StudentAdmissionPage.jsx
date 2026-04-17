@@ -991,7 +991,7 @@ const StudentAdmissionPage = () => {
                             ) : (
                                 <div>
                                     <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                        Transaction ID / Ref {formData.paymentMethod === 'UPI' && <span className="text-red-500">*</span>}
+                                        Transaction ID / Ref {(formData.paymentMethod === 'UPI' || formData.paymentMethod === 'BANK_TRANSFER') && <span className="text-red-500">*</span>}
                                     </label>
                                     <input
                                         type="text"
@@ -999,8 +999,8 @@ const StudentAdmissionPage = () => {
                                         value={formData.transactionId}
                                         onChange={handleInputChange}
                                         className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                        placeholder={formData.paymentMethod === 'UPI' ? "Required for UPI" : "Optional"}
-                                        required={formData.paymentMethod === 'UPI' && parseFloat(formData.downPayment) > 0}
+                                        placeholder={(formData.paymentMethod === 'UPI' || formData.paymentMethod === 'BANK_TRANSFER') ? "Required reference" : "Optional"}
+                                        required={(formData.paymentMethod === 'UPI' || formData.paymentMethod === 'BANK_TRANSFER') && parseFloat(formData.downPayment) > 0}
                                     />
                                 </div>
                             )}
