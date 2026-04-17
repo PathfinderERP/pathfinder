@@ -30,6 +30,18 @@ const StudentAdmissionPage = () => {
     const [billingMonth, setBillingMonth] = useState("");
     const [courseSearchTerm, setCourseSearchTerm] = useState("");
 
+    const [showCourseFilters, setShowCourseFilters] = useState(false);
+    const [cFilters, setCFilters] = useState({
+        examTagId: "",
+        academicSession: "",
+        departmentId: "",
+        classId: "",
+        boardId: "",
+        programme: "",
+        mode: "",
+        courseType: ""
+    });
+
     const [formData, setFormData] = useState({
         courseId: "",
         classId: "",
@@ -101,47 +113,54 @@ const StudentAdmissionPage = () => {
 
             setFormData(prev => {
                 const newData = { ...prev };
-                // ... (Keep existing logic if needed, but simplified here to avoid huge block)
+
+                // Autofill Centre from lead/student data
+                if (student.studentsDetails?.[0]?.centre && !prev.centre) {
+                    newData.centre = student.studentsDetails[0].centre;
+                }
 
                 // Autofill Course - Prioritize student.course reference if it exists
                 if (student.course && !prev.courseId) {
-                    // Check if student.course is an ID (default from getStudentById) or object
                     newData.courseId = typeof student.course === 'object' ? student.course._id : student.course;
-                } else if (registeredCourseName && !prev.courseId) {
-                    const matchedCourse = courses.find(c =>
-                        c.courseName?.trim().toLowerCase() === registeredCourseName.toLowerCase()
-                    );
-                    if (matchedCourse) newData.courseId = matchedCourse._id;
+                }
+
+                // Autofill Department
+                if (student.department && !prev.departmentId) {
+                    newData.departmentId = typeof student.department === 'object' ? student.department._id : student.department;
                 }
 
                 // Autofill Class
-                if (registeredClassName && !prev.classId && classes.length > 0) {
-                    const matchedClass = classes.find(c =>
-                        c.name?.trim().toLowerCase() === registeredClassName.toLowerCase() ||
-                        c.name?.trim().toLowerCase().includes(registeredClassName.toLowerCase())
-                    );
-                    if (matchedClass) newData.classId = matchedClass._id;
+                if (!prev.classId) {
+                    const registeredClassName = student.examSchema?.[0]?.class?.trim();
+                    if (registeredClassName && classes.length > 0) {
+                        const matchedClass = classes.find(c =>
+                            c.name?.trim().toLowerCase() === registeredClassName.toLowerCase() ||
+                            c.name?.trim().toLowerCase().includes(registeredClassName.toLowerCase())
+                        );
+                        if (matchedClass) newData.classId = matchedClass._id;
+                    }
                 }
 
                 // Autofill Exam Tag
-                if (registeredExamTagName && !prev.examTagId && examTags.length > 0) {
-                    const matchedTag = examTags.find(t =>
-                        t.name?.trim().toLowerCase() === registeredExamTagName.toLowerCase()
-                    );
-                    if (matchedTag) newData.examTagId = matchedTag._id;
+                if (!prev.examTagId) {
+                    const registeredExamTagName = (student.sessionExamCourse?.[0]?.examTag || student.examSchema?.[0]?.examName)?.trim();
+                    if (registeredExamTagName && examTags.length > 0) {
+                        const matchedTag = examTags.find(t =>
+                            t.name?.trim().toLowerCase() === registeredExamTagName.toLowerCase()
+                        );
+                        if (matchedTag) newData.examTagId = matchedTag._id;
+                    }
                 }
 
                 // Autofill Session
-                if (registeredSession && !prev.academicSession && sessions.length > 0) {
-                    const matchedSession = sessions.find(s =>
-                        s.sessionName?.trim().toLowerCase() === registeredSession.toLowerCase()
-                    );
-                    if (matchedSession) newData.academicSession = matchedSession.sessionName;
-                }
-
-                // Autofill Department from student record if it exists
-                if (student.department && !prev.departmentId) {
-                    newData.departmentId = typeof student.department === 'object' ? student.department._id : student.department;
+                if (!prev.academicSession) {
+                    const registeredSession = student.sessionExamCourse?.[0]?.session?.trim();
+                    if (registeredSession && sessions.length > 0) {
+                        const matchedSession = sessions.find(s =>
+                            s.sessionName?.trim().toLowerCase() === registeredSession.toLowerCase()
+                        );
+                        if (matchedSession) newData.academicSession = matchedSession.sessionName;
+                    }
                 }
 
                 return newData;
@@ -351,7 +370,36 @@ const StudentAdmissionPage = () => {
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
+        
+        // Auto-close filters if course is selected
+        if (name === "courseId" && value) {
+            setShowCourseFilters(false);
+        }
     };
+
+    const handleFilterChange = (e) => {
+        const { name, value } = e.target;
+        setCFilters(prev => ({ ...prev, [name]: value }));
+    };
+
+    const filteredCourses = courses.filter(course => {
+        // Search term filter
+        if (courseSearchTerm && !course.courseName.toLowerCase().includes(courseSearchTerm.toLowerCase())) {
+            return false;
+        }
+
+        // Advanced filters
+        if (cFilters.examTagId && (course.examTag?._id !== cFilters.examTagId && course.examTag !== cFilters.examTagId)) return false;
+        if (cFilters.academicSession && course.courseSession !== cFilters.academicSession) return false;
+        if (cFilters.departmentId && (course.department?._id !== cFilters.departmentId && course.department !== cFilters.departmentId)) return false;
+        if (cFilters.classId && (course.class?._id !== cFilters.classId && course.class !== cFilters.classId)) return false;
+        if (cFilters.boardId && (course.board?._id !== cFilters.boardId && course.board !== cFilters.boardId)) return false;
+        if (cFilters.programme && course.programme !== cFilters.programme) return false;
+        if (cFilters.mode && course.mode !== cFilters.mode) return false;
+        if (cFilters.courseType && course.courseType !== cFilters.courseType) return false;
+
+        return true;
+    });
 
     const handleSubjectChange = (subjectId) => {
         setSelectedSubjectIds(prev => {
@@ -579,7 +627,16 @@ const StudentAdmissionPage = () => {
                                     </div>
 
                                     <div>
-                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Department *</label>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Department *</label>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowCourseFilters(!showCourseFilters)}
+                                                className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded transition-all ${showCourseFilters ? 'bg-red-500/10 text-red-500' : 'bg-cyan-500/10 text-cyan-500 hover:bg-cyan-500 hover:text-black'}`}
+                                            >
+                                                {showCourseFilters ? "Close Filters" : "Need Filters?"}
+                                            </button>
+                                        </div>
                                         <select
                                             name="departmentId"
                                             value={formData.departmentId}
@@ -593,6 +650,92 @@ const StudentAdmissionPage = () => {
                                             ))}
                                         </select>
                                     </div>
+
+                                    {/* Advanced Filters Section */}
+                                    {showCourseFilters && (
+                                        <div className={`col-span-1 md:col-span-2 p-4 rounded-lg border border-dashed animate-fadeIn ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/30' : 'bg-cyan-50 border-cyan-200'}`}>
+                                            <div className="flex items-center justify-between mb-4">
+                                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-500">Course Filtering Engine</h4>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setCFilters({
+                                                        examTagId: "",
+                                                        academicSession: "",
+                                                        departmentId: "",
+                                                        classId: "",
+                                                        boardId: "",
+                                                        programme: "",
+                                                        mode: "",
+                                                        courseType: ""
+                                                    })}
+                                                    className="text-[9px] font-bold text-red-500 uppercase hover:underline"
+                                                >
+                                                    Reset Filters
+                                                </button>
+                                            </div>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Filter by Class</label>
+                                                    <select name="classId" value={cFilters.classId} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
+                                                        <option value="">All Classes</option>
+                                                        {classes.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Filter by Tag</label>
+                                                    <select name="examTagId" value={cFilters.examTagId} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
+                                                        <option value="">All Tags</option>
+                                                        {examTags.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Filter by Session</label>
+                                                    <select name="academicSession" value={cFilters.academicSession} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
+                                                        <option value="">All Sessions</option>
+                                                        {sessions.map(s => <option key={s._id} value={s.sessionName}>{s.sessionName}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Filter by Dept</label>
+                                                    <select name="departmentId" value={cFilters.departmentId} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
+                                                        <option value="">All Depts</option>
+                                                        {departments.map(d => <option key={d._id} value={d._id}>{d.departmentName}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Filter by Board</label>
+                                                    <select name="boardId" value={cFilters.boardId} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
+                                                        <option value="">All Boards</option>
+                                                        {boards.map(b => <option key={b._id} value={b._id}>{b.boardCourse}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Programme</label>
+                                                    <select name="programme" value={cFilters.programme} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
+                                                        <option value="">All</option>
+                                                        <option value="CRP">CRP</option>
+                                                        <option value="NCRP">NCRP</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Mode</label>
+                                                    <select name="mode" value={cFilters.mode} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
+                                                        <option value="">All Modes</option>
+                                                        <option value="ONLINE">ONLINE</option>
+                                                        <option value="OFFLINE">OFFLINE</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Type</label>
+                                                    <select name="courseType" value={cFilters.courseType} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
+                                                        <option value="">All Types</option>
+                                                        <option value="INSTATION">INSTATION</option>
+                                                        <option value="OUTSTATION">OUTSTATION</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div>
                                         <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course *</label>
@@ -613,11 +756,7 @@ const StudentAdmissionPage = () => {
                                             required={admissionType === "NORMAL"}
                                         >
                                             <option value="">Select Course</option>
-                                            {courses
-                                                .filter(course =>
-                                                    !courseSearchTerm ||
-                                                    course.courseName.toLowerCase().includes(courseSearchTerm.toLowerCase())
-                                                )
+                                            {filteredCourses
                                                 .map(course => (
                                                     <option key={course._id} value={course._id}>{course.courseName}</option>
                                                 ))}
