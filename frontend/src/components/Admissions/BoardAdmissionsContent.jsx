@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaFilter, FaPlus, FaSearch, FaDownload, FaEye, FaEdit, FaTrash, FaSync, FaSun, FaMoon, FaUserGraduate } from "react-icons/fa";
+import { FaFilter, FaPlus, FaSearch, FaDownload, FaEye, FaEdit, FaTrash, FaSync, FaSun, FaMoon, FaUserGraduate, FaCheckCircle } from "react-icons/fa";
 import { useTheme } from "../../context/ThemeContext";
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Link, useNavigate, useSearchParams, useLocation } from "react-router-dom";
@@ -28,6 +28,7 @@ const BoardAdmissionsContent = () => {
     const [filterProgramme, setFilterProgramme] = useState([]);
     const [filterExamTag, setFilterExamTag] = useState([]);
     const [filterDepartment, setFilterDepartment] = useState([]);
+    const [filterClass, setFilterClass] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [allowedCentres, setAllowedCentres] = useState([]); // Store allowed centres for the user
     const [selectedStudent, setSelectedStudent] = useState(null);
@@ -263,14 +264,17 @@ const BoardAdmissionsContent = () => {
             // Programme Filter
             const matchesProgramme = filterProgramme.length === 0 || filterProgramme.includes(admission.programme);
 
+            // Class Filter
+            const matchesClass = filterClass.length === 0 || filterClass.includes(admission.lastClass);
+
             // Date Filter
             const admissionDate = new Date(admission.admissionDate || admission.createdAt);
             const matchesStartDate = !startDate || admissionDate >= new Date(startDate);
             const matchesEndDate = !endDate || admissionDate <= new Date(new Date(endDate).setHours(23, 59, 59, 999));
 
-            return matchesSearch && matchesCentre && matchesBoard && matchesSubject && matchesProgramme && matchesStartDate && matchesEndDate;
+            return matchesSearch && matchesCentre && matchesBoard && matchesSubject && matchesProgramme && matchesClass && matchesStartDate && matchesEndDate;
         });
-    }, [boardAdmissions, searchQuery, filterCentre, filterBoard, filterSubject, filterProgramme, startDate, endDate]);
+    }, [boardAdmissions, searchQuery, filterCentre, filterBoard, filterSubject, filterProgramme, filterClass, startDate, endDate]);
 
     const handleExportEnrolled = () => {
         const exportData = filteredBoardAdmissions.map(adm => ({
@@ -348,6 +352,7 @@ const BoardAdmissionsContent = () => {
         setFilterCentre([]);
         setFilterBoard([]);
         setFilterExamTag([]);
+        setFilterClass([]);
         setFilterDepartment([]);
         setStartDate("");
         setEndDate("");
@@ -391,7 +396,7 @@ const BoardAdmissionsContent = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, filterCentre, filterBoard, filterExamTag, filterDepartment, startDate, endDate, activeTab]);
+    }, [searchQuery, filterCentre, filterBoard, filterExamTag, filterDepartment, filterClass, startDate, endDate, activeTab]);
 
     const visibleStudents = activeTab === "Potential"
         ? students.filter(s => {
@@ -480,6 +485,8 @@ const BoardAdmissionsContent = () => {
             const departmentName = student.department?.departmentName || "";
             const matchesDepartment = filterDepartment.length === 0 || filterDepartment.includes(departmentName);
 
+            const matchesClass = filterClass.length === 0 || filterClass.includes(details.lastClass || exam.class || "");
+
             let matchesDate = true;
             if (startDate || endDate) {
                 const regDate = student.createdAt ? new Date(student.createdAt) : null;
@@ -498,7 +505,7 @@ const BoardAdmissionsContent = () => {
                 }
             }
 
-            return matchesSearch && matchesCentre && matchesBoard && matchesExamTag && matchesDepartment && matchesDate;
+            return matchesSearch && matchesCentre && matchesBoard && matchesExamTag && matchesDepartment && matchesClass && matchesDate;
         })
         : activeTab === "Enrolled"
             ? visibleStudents.filter(ba => {
@@ -515,7 +522,8 @@ const BoardAdmissionsContent = () => {
                 );
 
                 const matchesCentre = filterCentre.length === 0 || filterCentre.includes(details.centre);
-                return matchesSearch && matchesCentre;
+                const matchesClass = filterClass.length === 0 || filterClass.includes(ba.lastClass);
+                return matchesSearch && matchesCentre && matchesClass;
             })
             : visibleStudents.filter(cs => {
                 const details = cs.studentId?.studentsDetails?.[0] || {};
@@ -531,7 +539,8 @@ const BoardAdmissionsContent = () => {
                 );
 
                 const matchesCentre = filterCentre.length === 0 || filterCentre.includes(details.centre);
-                return matchesSearch && matchesCentre;
+                const matchesClass = filterClass.length === 0 || filterClass.includes(cs.lastClass);
+                return matchesSearch && matchesCentre && matchesClass;
             });
 
     const totalStudents = filteredStudents.length;
@@ -709,6 +718,40 @@ const BoardAdmissionsContent = () => {
         fetchBoardAdmissions();
         fetchCounselledStudents();
     };
+    
+    // Statistics Calculations
+    const statsMetrics = React.useMemo(() => {
+        const today = new Date().toDateString();
+        // Today's total WITHIN the filtered set
+        const todayTotalFiltered = filteredBoardAdmissions.filter(ba => (new Date(ba.admissionDate || ba.createdAt)).toDateString() === today).length;
+        
+        // Class Distribution (from FILTERED board admissions)
+        const classDist = filteredBoardAdmissions.reduce((acc, ba) => {
+            const cls = ba.lastClass || "N/A";
+            acc[cls] = (acc[cls] || 0) + 1;
+            return acc;
+        }, {});
+
+        // Subject Distribution (from FILTERED board admissions)
+        const subDist = filteredBoardAdmissions.reduce((acc, ba) => {
+            const subjects = ba.selectedSubjects?.map(s => s.subjectId?.subName || s.name) || [];
+            subjects.forEach(sub => {
+                acc[sub] = (acc[sub] || 0) + 1;
+            });
+            return acc;
+        }, {});
+
+        // Sort distributions for better display
+        const sortedClassDist = Object.entries(classDist).sort((a, b) => b[1] - a[1]);
+        const sortedSubDist = Object.entries(subDist).sort((a, b) => b[1] - a[1]);
+
+        return {
+            todayTotal: todayTotalFiltered,
+            grandTotal: filteredBoardAdmissions.length,
+            classDist: sortedClassDist,
+            subDist: sortedSubDist
+        };
+    }, [filteredBoardAdmissions]);
 
     return (
         <div className={`flex-1 p-6 overflow-y-auto transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
@@ -782,6 +825,62 @@ const BoardAdmissionsContent = () => {
                 ))}
             </div>
 
+            {/* Stats Section */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                {/* Daily Total Card */}
+                <div className={`p-6 rounded-xl border relative overflow-hidden group transition-all duration-500 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 hover:border-cyan-500/50' : 'bg-white border-gray-200 hover:shadow-xl hover:shadow-cyan-500/5'}`}>
+                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-cyan-500/10 rounded-full blur-2xl group-hover:bg-cyan-500/20 transition-all duration-700"></div>
+                    <div className="flex justify-between items-start relative z-10">
+                        <div>
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Admissions (Filtered)</p>
+                            <h4 className={`text-4xl font-black italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{statsMetrics.grandTotal}</h4>
+                        </div>
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-600'}`}>
+                            <FaCheckCircle />
+                        </div>
+                    </div>
+                    <div className="mt-4 flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-cyan-500 bg-cyan-500/10 px-2 py-0.5 rounded">TODAY: {statsMetrics.todayTotal}</span>
+                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider italic opacity-60 ml-auto">Reacting to active filters</span>
+                    </div>
+                </div>
+
+                {/* Top Classes Card */}
+                <div className={`p-6 rounded-xl border transition-all duration-500 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <FaUserGraduate className="text-purple-500 text-[10px]" />
+                        Top Performing Classes
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        {statsMetrics.classDist.slice(0, 5).map(([className, count], idx) => (
+                            <div key={idx} className={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wider flex items-center gap-3 ${isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-400 hover:border-purple-500/30' : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-purple-500/30'}`}>
+                                <span>{className}</span>
+                                <span className="w-1 h-3 bg-gray-700 rounded-full"></span>
+                                <span className={isDarkMode ? 'text-white' : 'text-black'}>{count}</span>
+                            </div>
+                        ))}
+                        {statsMetrics.classDist.length === 0 && <p className="text-[9px] text-gray-500 italic opacity-60">No class data recorded yet</p>}
+                    </div>
+                </div>
+
+                {/* Popular Subjects Card */}
+                <div className={`p-6 rounded-xl border transition-all duration-500 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <FaFilter className="text-cyan-500 text-[10px]" />
+                        Popular Subscriptions
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        {statsMetrics.subDist.slice(0, 5).map(([sub, count], idx) => (
+                            <div key={idx} className={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wider flex items-center gap-2 ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20 text-cyan-400' : 'bg-cyan-50 border-cyan-100 text-cyan-600'}`}>
+                                <span>{sub}</span>
+                                <span className="bg-cyan-500/20 px-1.5 rounded">{count}</span>
+                            </div>
+                        ))}
+                         {statsMetrics.subDist.length === 0 && <p className="text-[9px] text-gray-500 italic opacity-60">No subject data recorded yet</p>}
+                    </div>
+                </div>
+            </div>
+
             <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border mb-8`}>
                 <div className="flex flex-col gap-6">
                     <div className="flex gap-4 flex-wrap items-center">
@@ -834,6 +933,16 @@ const BoardAdmissionsContent = () => {
                                 theme={theme}
                             />
                             <MultiSelectFilter
+                                label="Classes"
+                                options={activeTab === "Enrolled"
+                                    ? [...new Set(boardAdmissions.map(a => a.lastClass).filter(Boolean))]
+                                    : [...new Set(counselledStudents.map(cs => cs.lastClass).filter(Boolean))]
+                                }
+                                selectedValues={filterClass}
+                                onChange={setFilterClass}
+                                theme={theme}
+                            />
+                            <MultiSelectFilter
                                 label="Programmes"
                                 options={activeTab === "Enrolled"
                                     ? [...new Set(boardAdmissions.map(a => a.programme).filter(Boolean))]
@@ -870,6 +979,7 @@ const BoardAdmissionsContent = () => {
                                         setFilterBoard([]);
                                         setFilterSubject([]);
                                         setFilterProgramme([]);
+                                        setFilterClass([]);
                                         setStartDate("");
                                         setEndDate("");
                                     }}
@@ -905,6 +1015,7 @@ const BoardAdmissionsContent = () => {
                                 <th className="p-4">
                                     {activeTab === "Potential" ? "Programme" : activeTab === "Counselling" ? "Remarks" : "Course Name"}
                                 </th>
+                                <th className="p-4">Class</th>
                                 {activeTab === "Potential" && <th className="p-4">Exam Tag</th>}
                                 <th className="p-4">Centre</th>
                                 <th className="p-4">Mobile</th>
@@ -953,6 +1064,11 @@ const BoardAdmissionsContent = () => {
                                                     {activeTab === "Potential" ? (details.programme || "N/A") :
                                                         activeTab === "Counselling" ? (item.remarks || "No Remarks") :
                                                             (item.boardCourseName || item.boardId?.boardCourse || "N/A")}
+                                                </span>
+                                            </td>
+                                            <td className="p-4">
+                                                <span className={`text-[11px] font-black uppercase ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                    {item.lastClass || details.lastClass || "N/A"}
                                                 </span>
                                             </td>
                                             {activeTab === "Potential" && <td className="p-4"><span className="text-[11px] font-bold uppercase text-gray-400">{sessionExam.examTag || exam.examName || "N/A"}</span></td>}
