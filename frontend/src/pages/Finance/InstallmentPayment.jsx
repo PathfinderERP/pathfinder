@@ -518,11 +518,13 @@ const InstallmentPayment = () => {
     const handleRecordPayment = async (overrideData = null) => {
         const dataToSubmit = overrideData || payFormData;
         
-        // Validation for UPI
-        if (dataToSubmit.paymentMethod === 'UPI' && !dataToSubmit.transactionId?.trim()) {
-            toast.error("Transaction ID is mandatory for UPI payments");
+        // Validation for Online/Digital/Bank methods
+        const mandatoryRefMethods = ['UPI', 'CARD', 'BANK_TRANSFER'];
+        if (mandatoryRefMethods.includes(dataToSubmit.paymentMethod) && !dataToSubmit.transactionId?.trim()) {
+            toast.error(`Transaction ID / Ref is mandatory for ${dataToSubmit.paymentMethod} payments`);
             return;
         }
+
 
         try {
             const token = localStorage.getItem("token");
@@ -1476,17 +1478,18 @@ const InstallmentPayment = () => {
                                 ) : (
                                     <div className="animate-in fade-in slide-in-from-top-4 duration-500">
                                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">
-                                            Ref / Transaction ID {payFormData.paymentMethod === 'UPI' && <span className="text-red-500">*</span>}
+                                            Ref / Transaction ID {(['UPI', 'CARD', 'BANK_TRANSFER'].includes(payFormData.paymentMethod)) && <span className="text-red-500">*</span>}
                                         </label>
                                         <input
                                             type="text"
                                             value={payFormData.transactionId}
                                             onChange={(e) => setPayFormData({ ...payFormData, transactionId: e.target.value })}
                                             className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-white font-bold text-xs outline-none focus:border-cyan-500/50 transition-all font-mono"
-                                            placeholder={payFormData.paymentMethod === 'UPI' ? "Enter UPI Transaction ID (Mandatory)" : "Optional transaction reference"}
-                                            required={payFormData.paymentMethod === 'UPI'}
+                                            placeholder={(['UPI', 'CARD', 'BANK_TRANSFER'].includes(payFormData.paymentMethod)) ? `Enter ${payFormData.paymentMethod} Transaction ID (Mandatory)` : "Optional transaction reference"}
+                                            required={['UPI', 'CARD', 'BANK_TRANSFER'].includes(payFormData.paymentMethod)}
                                         />
                                     </div>
+
                                 )}
 
                                 {parseFloat(payFormData.paidAmount) < (activeInstallment?.amount || 0) && (

@@ -42,6 +42,15 @@ export const createAdmission = async (req, res) => {
             return res.status(400).json({ message: "All common required fields must be provided (Student, Centre, Session, Down Payment)" });
         }
 
+        // Validate Transaction ID for non-cash payments (except Cheque which has its own validation)
+        if (Number(downPayment) > 0) {
+            if (["ONLINE", "UPI", "BANK_TRANSFER", "CARD"].includes(paymentMethod) && !transactionId) {
+                return res.status(400).json({ message: `Transaction ID is mandatory for ${paymentMethod} payments` });
+            }
+
+        }
+
+
         // Validate Type Specific Fields
         if (admissionType === "NORMAL" && (!courseId || !examTagId)) {
             return res.status(400).json({ message: "Course and Exam Tag are required for Normal Admission" });

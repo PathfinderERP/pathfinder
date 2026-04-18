@@ -18,6 +18,8 @@ const CourseContent = () => {
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [currentCourse, setCurrentCourse] = useState(null);
     const [selectedCourse, setSelectedCourse] = useState(null);
+    const [selectedIds, setSelectedIds] = useState([]); // Added for multiple deletion
+
 
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
@@ -29,6 +31,8 @@ const CourseContent = () => {
     const canCreate = hasPermission(user, 'courseManagement', 'courses', 'create');
     const canEdit = hasPermission(user, 'courseManagement', 'courses', 'edit');
     const canDelete = hasPermission(user, 'courseManagement', 'courses', 'delete');
+    const isSuperAdmin = user.role?.toLowerCase() === 'superadmin' || user.role?.toLowerCase() === 'super admin';
+
 
     // Filter states
     const [filters, setFilters] = useState({
@@ -264,6 +268,7 @@ const CourseContent = () => {
             if (response.ok) {
                 toast.success("Course deleted successfully");
                 fetchData();
+                setSelectedIds(prev => prev.filter(selectedId => selectedId !== id));
             } else {
                 const data = await response.json();
                 toast.error(data.message || "Failed to delete");
@@ -272,6 +277,56 @@ const CourseContent = () => {
             toast.error("Server error");
         }
     };
+
+    const handleBulkDelete = async () => {
+        if (selectedIds.length === 0) return;
+        if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} selected courses?`)) return;
+
+        const token = localStorage.getItem("token");
+        try {
+            const response = await fetch(`${apiUrl}/course/delete-multiple`, {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({ ids: selectedIds })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(data.message || "Courses deleted successfully");
+                setSelectedIds([]);
+                fetchData();
+            } else {
+                toast.error(data.message || "Bulk deletion failed");
+            }
+        } catch (err) {
+            toast.error("Server error during bulk deletion");
+        }
+    };
+
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            const currentIds = filteredCourses
+                .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                .map(c => c._id);
+            // Combine with existing selections, avoiding duplicates
+            setSelectedIds(prev => Array.from(new Set([...prev, ...currentIds])));
+        } else {
+            const currentIds = filteredCourses
+                .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                .map(c => c._id);
+            setSelectedIds(prev => prev.filter(id => !currentIds.includes(id)));
+        }
+    };
+
+    const toggleSelection = (id) => {
+        setSelectedIds(prev => 
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
 
     const handleBulkImport = async (importData) => {
         const token = localStorage.getItem("token");
@@ -457,6 +512,15 @@ const CourseContent = () => {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 sm:mb-6">
                 <h2 className="text-xl sm:text-2xl font-bold text-cyan-400">Course Master Data</h2>
                 <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    {isSuperAdmin && canDelete && selectedIds.length > 0 && (
+                        <button
+                            onClick={handleBulkDelete}
+
+                            className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base flex-1 sm:flex-initial justify-center shadow-[0_0_15px_rgba(220,38,38,0.3)] animate-pulse"
+                        >
+                            <FaTrash /> Delete ({selectedIds.length})
+                        </button>
+                    )}
                     {canCreate && (
                         <ExcelImportExport
                             data={prepareExportData()}
@@ -474,6 +538,7 @@ const CourseContent = () => {
                             <FaPlus /> Add Course
                         </button>
                     )}
+
                 </div>
             </div>
 
@@ -594,11 +659,26 @@ const CourseContent = () => {
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-gray-800 text-gray-300">
+                            <th className="p-4 border-b border-gray-700 w-[50px]">
+                                {isSuperAdmin && (
+                                    <input 
+                                        type="checkbox" 
+                                        className="w-4 h-4 rounded border-gray-700 bg-gray-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-gray-900"
+                                        onChange={handleSelectAll}
+                                        checked={
+                                            filteredCourses.length > 0 && 
+                                            filteredCourses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).every(c => selectedIds.includes(c._id))
+                                        }
+                                    />
+                                )}
+                            </th>
+
                             <th className="p-4 border-b border-gray-700 w-[30%]">Course Information</th>
                             <th className="p-4 border-b border-gray-700 w-[30%]">Other Details</th>
                             <th className="p-4 border-b border-gray-700 w-[20%]">Created By</th>
                             <th className="p-4 border-b border-gray-700 text-right">Actions</th>
                         </tr>
+
                     </thead>
                     <tbody>
                         {loading ? (
@@ -614,8 +694,20 @@ const CourseContent = () => {
                                 <tr 
                                     key={course._id} 
                                     onClick={() => openDetailModal(course)}
-                                    className="master-data-row-wave border-b border-gray-800 transition-colors cursor-pointer hover:bg-gray-700/30"
+                                    className={`master-data-row-wave border-b border-gray-800 transition-colors cursor-pointer hover:bg-gray-700/30 ${selectedIds.includes(course._id) ? 'bg-cyan-500/5' : ''}`}
                                 >
+                                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                                        {isSuperAdmin && (
+                                            <input 
+                                                type="checkbox" 
+                                                className="w-4 h-4 rounded border-gray-700 bg-gray-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-gray-900"
+                                                checked={selectedIds.includes(course._id)}
+                                                onChange={() => toggleSelection(course._id)}
+                                            />
+                                        )}
+                                    </td>
+
+
                                     <td className="p-4">
                                         <div className="flex flex-col gap-2">
                                             <div className="font-bold text-lg text-cyan-400 leading-tight">{course.courseName}</div>
@@ -735,13 +827,24 @@ const CourseContent = () => {
                         <div 
                             key={course._id} 
                             onClick={() => openDetailModal(course)}
-                            className="master-data-card-wave bg-[#1a1f24] p-3 sm:p-4 rounded-lg border border-gray-800 transition-all cursor-pointer hover:border-cyan-500/30 active:scale-[0.98]"
+                            className={`master-data-card-wave bg-[#1a1f24] p-3 sm:p-4 rounded-lg border border-gray-800 transition-all cursor-pointer hover:border-cyan-500/30 active:scale-[0.98] ${selectedIds.includes(course._id) ? 'border-cyan-500/50 bg-cyan-500/5' : ''}`}
                         >
                             <div className="flex justify-between items-start mb-3">
-                                <div className="flex-1">
-                                    <h3 className="text-sm sm:text-base font-bold text-white mb-1">{course.courseName}</h3>
-                                    <p className="text-xs text-gray-400">{course.department?.departmentName || "-"}</p>
+                                <div className="flex items-start gap-3 flex-1">
+                                    <div className="pt-1" onClick={(e) => e.stopPropagation()}>
+                                        <input 
+                                            type="checkbox" 
+                                            className="w-4 h-4 rounded border-gray-700 bg-gray-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-gray-900"
+                                            checked={selectedIds.includes(course._id)}
+                                            onChange={() => toggleSelection(course._id)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm sm:text-base font-bold text-white mb-1">{course.courseName}</h3>
+                                        <p className="text-xs text-gray-400">{course.department?.departmentName || "-"}</p>
+                                    </div>
                                 </div>
+
                                 <div className="flex gap-2">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); openDetailModal(course); }}

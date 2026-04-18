@@ -20,6 +20,12 @@ export const updatePaymentInstallment = async (req, res) => {
             receivedDate 
         } = req.body;
 
+        if (paymentMethod && ["ONLINE", "UPI", "BANK_TRANSFER", "CARD"].includes(paymentMethod) && !transactionId) {
+            return res.status(400).json({ message: `Transaction ID/Reference is mandatory for ${paymentMethod} payments` });
+        }
+
+
+
         console.log(`📡 [Payment Update] Admission: ${admissionId}, Inst: ${installmentNumber}. Method: ${paymentMethod}, TxnID: ${transactionId}, P2P: ${p2pRequestId}`);
         
         const finalTransactionId = (paymentMethod === "RAZORPAY_POS" && (!transactionId || transactionId === 'N/A' || transactionId === 'null')) 

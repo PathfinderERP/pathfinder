@@ -295,13 +295,14 @@ const BoardCourseAdmissionPage = () => {
             }
         }
 
-        if (paymentMethod === "UPI" && !transactionId) {
-            return toast.error("Please provide Transaction ID for UPI payment");
+        if ((paymentMethod === "ONLINE" || paymentMethod === "UPI") && !transactionId) {
+            return toast.error(`Please provide Transaction ID for ${paymentMethod === "ONLINE" ? "Online" : "UPI"} payment`);
         }
 
         if (paymentMethod === "BANK_TRANSFER" && !transactionId) {
             return toast.error("Please provide Transaction Reference for Bank Transfer");
         }
+
 
         setLoading(true);
         try {
@@ -614,21 +615,22 @@ const BoardCourseAdmissionPage = () => {
                         </div>
 
                         {/* Conditional Payment Fields */}
-                        {(paymentMethod === "UPI" || paymentMethod === "BANK_TRANSFER") && (
+                        {(paymentMethod === "ONLINE" || paymentMethod === "UPI" || paymentMethod === "BANK_TRANSFER") && (
                             <div className="mt-6 animate-fadeIn">
                                 <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">
-                                    {paymentMethod === "UPI" ? "Transaction ID" : "Bank Reference Number"}
+                                    {paymentMethod === "ONLINE" ? "Transaction ID" : paymentMethod === "UPI" ? "Transaction ID" : "Bank Reference Number"}
                                 </label>
                                 <input
                                     type="text"
                                     value={transactionId}
                                     onChange={(e) => setTransactionId(e.target.value)}
                                     className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
-                                    placeholder={paymentMethod === "UPI" ? "Enter UPI Transaction Reference" : "Enter Bank Transfer Reference"}
+                                    placeholder={paymentMethod === "ONLINE" ? "Enter Online/Card Transaction ID" : paymentMethod === "UPI" ? "Enter UPI Transaction Reference" : "Enter Bank Transfer Reference"}
                                     required
                                 />
                             </div>
                         )}
+
 
                         {paymentMethod === "CHEQUE" && (
                             <div className="mt-6 space-y-4 animate-fadeIn">

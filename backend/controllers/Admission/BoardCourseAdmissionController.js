@@ -59,6 +59,15 @@ export const createBoardAdmission = async (req, res) => {
             }
         }
 
+        // Validate Transaction ID for non-cash payments (except Cheque which has its own validation)
+        if (downPayment > 0 || paidExamFee > 0 || paidAdditionalThings > 0) {
+            if (["ONLINE", "UPI", "BANK_TRANSFER", "CARD"].includes(paymentMethod) && !transactionId) {
+                return res.status(400).json({ message: `Transaction ID is mandatory for ${paymentMethod} payments` });
+            }
+        }
+
+
+
         // 1. Fetch Board and Master Subjects from BoardCourseSubject
         const board = await Boards.findById(boardId);
         if (!board) return res.status(404).json({ message: "Board not found" });
@@ -112,7 +121,8 @@ export const createBoardAdmission = async (req, res) => {
                         amount: downPayment,
                         date: new Date(),
                         paymentMethod: paymentMethod || "CASH",
-                        transactionId: transactionId || "DP-" + Date.now(),
+                        transactionId: transactionId,
+
                         bankName: bankName,
                         accountHolderName: accountHolderName,
                         chequeDate: chequeDate,
@@ -233,7 +243,8 @@ export const createBoardAdmission = async (req, res) => {
                     receivedDate: receivedDate || new Date(),
                     status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
                     paymentMethod: paymentMethod || "CASH",
-                    transactionId: transactionId || "DP-" + Date.now(),
+                    transactionId: transactionId,
+
                     bankName: bankName,
                     accountHolderName: accountHolderName,
                     chequeDate: chequeDate,
@@ -454,6 +465,12 @@ export const collectBoardExamFee = async (req, res) => {
         const admission = await BoardCourseAdmission.findById(id).populate('studentId');
         if (!admission) return res.status(404).json({ message: "Admission not found" });
 
+        if (["ONLINE", "UPI", "BANK_TRANSFER", "CARD"].includes(paymentMethod) && !transactionId) {
+            return res.status(400).json({ message: `Transaction ID is mandatory for ${paymentMethod} payments` });
+        }
+
+
+
         if (!admission.studentName || !admission.mobileNum) {
             const student = admission.studentId;
             if (student && student.studentsDetails?.[0]) {
@@ -547,6 +564,12 @@ export const collectBoardInstallment = async (req, res) => {
 
         const admission = await BoardCourseAdmission.findById(id).populate('studentId');
         if (!admission) return res.status(404).json({ message: "Admission not found" });
+
+        if (paymentMethod && ["ONLINE", "UPI", "BANK_TRANSFER", "CARD"].includes(paymentMethod) && !transactionId) {
+            return res.status(400).json({ message: `Transaction ID/Reference is mandatory for ${paymentMethod} payments` });
+        }
+
+
 
         // Safety fallback for legacy records missing required fields
         if (!admission.studentName || !admission.mobileNum) {
@@ -739,6 +762,12 @@ export const collectBoardAdditionalFee = async (req, res) => {
 
         const admission = await BoardCourseAdmission.findById(id).populate('studentId');
         if (!admission) return res.status(404).json({ message: "Admission not found" });
+
+        if (["ONLINE", "UPI", "BANK_TRANSFER", "CARD"].includes(paymentMethod) && !transactionId) {
+            return res.status(400).json({ message: `Transaction ID is mandatory for ${paymentMethod} payments` });
+        }
+
+
 
         if (!admission.studentName || !admission.mobileNum) {
             const student = admission.studentId;

@@ -444,12 +444,13 @@ const StudentAdmissionPage = () => {
             return;
         }
 
-        // New validation: require Transaction ID for UPI if down payment > 0
-        if (formData.paymentMethod === 'UPI' && parseFloat(formData.downPayment) > 0 && !formData.transactionId) {
-            toast.error("Transaction ID / Ref is mandatory for UPI payments.");
+        // New validation: require Transaction ID for UPI/CARD/BANK_TRANSFER if down payment > 0
+        if (['UPI', 'CARD', 'BANK_TRANSFER'].includes(formData.paymentMethod) && parseFloat(formData.downPayment) > 0 && !formData.transactionId) {
+            toast.error(`Transaction ID / Ref is mandatory for ${formData.paymentMethod} payments.`);
             setLoading(false);
             return;
         }
+
 
         try {
             const token = localStorage.getItem("token");
@@ -991,7 +992,7 @@ const StudentAdmissionPage = () => {
                             ) : (
                                 <div>
                                     <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                        Transaction ID / Ref {(formData.paymentMethod === 'UPI' || formData.paymentMethod === 'BANK_TRANSFER') && <span className="text-red-500">*</span>}
+                                        Transaction ID / Ref {(['UPI', 'CARD', 'BANK_TRANSFER'].includes(formData.paymentMethod)) && <span className="text-red-500">*</span>}
                                     </label>
                                     <input
                                         type="text"
@@ -999,9 +1000,10 @@ const StudentAdmissionPage = () => {
                                         value={formData.transactionId}
                                         onChange={handleInputChange}
                                         className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                        placeholder={(formData.paymentMethod === 'UPI' || formData.paymentMethod === 'BANK_TRANSFER') ? "Required reference" : "Optional"}
-                                        required={(formData.paymentMethod === 'UPI' || formData.paymentMethod === 'BANK_TRANSFER') && parseFloat(formData.downPayment) > 0}
+                                        placeholder={(['UPI', 'CARD', 'BANK_TRANSFER'].includes(formData.paymentMethod)) ? "Required reference" : "Optional"}
+                                        required={(['UPI', 'CARD', 'BANK_TRANSFER'].includes(formData.paymentMethod)) && parseFloat(formData.downPayment) > 0}
                                     />
+
                                 </div>
                             )}
 
