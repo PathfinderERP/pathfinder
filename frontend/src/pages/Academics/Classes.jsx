@@ -1024,7 +1024,7 @@ const Classes = () => {
                                     <div className="flex flex-col gap-2">
                                         <label className="text-xs font-bold text-gray-400 uppercase">Coordinator</label>
                                         <select
-                                            required
+                                            
                                             value={editingClassData.coordinatorId}
                                             onChange={(e) => setEditingClassData({ ...editingClassData, coordinatorId: e.target.value })}
                                             className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all transition-all shadow-lg"
