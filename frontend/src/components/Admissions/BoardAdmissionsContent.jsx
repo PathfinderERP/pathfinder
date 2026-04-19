@@ -1194,8 +1194,8 @@ const BoardAdmissionsContent = () => {
 
             {showCounsellingModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className={`w-full max-w-4xl rounded-xl border p-8 shadow-2xl ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
-                        <div className="flex items-center justify-between mb-8 overflow-hidden">
+                    <div className={`w-full max-w-4xl max-h-[90vh] flex flex-col rounded-xl border p-6 md:p-8 shadow-2xl ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <div className="flex items-center justify-between mb-6 shrink-0">
                             <div>
                                 <h3 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Board Course Counselling</h3>
                                 <p className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mt-1 italic">Adding details for board enrolment workflow</p>
@@ -1203,7 +1203,7 @@ const BoardAdmissionsContent = () => {
                             <button onClick={() => setShowCounsellingModal(false)} className="text-gray-500 hover:text-white transition-colors p-2"><FaSync className="rotate-45" /></button>
                         </div>
 
-                        <div className="space-y-8 max-h-[75vh] overflow-y-auto px-1 custom-scrollbar">
+                        <div className="space-y-8 flex-1 overflow-y-auto px-1 custom-scrollbar">
                             {/* Section 1: Personal & Identification */}
                             <div>
                                 <h4 className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-4 border-l-4 border-cyan-500 pl-3">I. Personal Identification</h4>

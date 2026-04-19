@@ -269,7 +269,7 @@ const Header = ({ toggleSidebar }) => {
                 <div className="fixed inset-0 pointer-events-none z-[9998] shadow-[inset_0_0_100px_rgba(6,182,212,0.4)] animate-pulse border-[3px] border-cyan-500/30 transition-opacity duration-1000" />
             )}
             
-            <header className="flex items-center justify-between p-4 bg-white dark:bg-[#1a1f24] border-b border-gray-200 dark:border-gray-800 transition-colors relative z-[9999]">
+            <header className="flex items-center justify-between p-4 bg-white dark:bg-[#1a1f24] border-b border-gray-200 dark:border-gray-800 transition-colors relative z-40">
                 <div className="flex items-center gap-4">
                     <button onClick={toggleSidebar} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors text-xl">
                         <FaBars />
