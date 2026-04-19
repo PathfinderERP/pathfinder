@@ -3,6 +3,8 @@ import User from "../models/User.js";
 import Employee from "../models/HR/Employee.js";
 import mongoose from "mongoose";
 import { uploadToR2, getSignedFileUrl } from "../utils/r2Upload.js";
+import Notification from "../models/Notification.js";
+import { getIO } from "../utils/socket.js";
 
 const enhancePostAuthor = async (post) => {
     const postObj = post.toObject();
@@ -89,6 +91,52 @@ export const createPost = async (req, res) => {
             .populate("author", "name email role designation teacherDepartment");
 
         const postObj = await enhancePostAuthor(post);
+
+        // --- Create Notifications ---
+        try {
+            const io = getIO();
+            const notificationPayloads = [];
+            
+            // Generate notification for tagged users
+            for (const tagId of parsedTags) {
+                notificationPayloads.push({
+                    recipient: tagId,
+                    sender: author,
+                    type: "TAG",
+                    message: `${postObj.author.name} tagged you in a post.`,
+                    post: newPost._id
+                });
+            }
+
+            // Generate notification for active users (excluding author and tagged users)
+            const activeUsers = await User.find({ isActive: true, _id: { $ne: author, $nin: parsedTags } }, '_id');
+            for (const user of activeUsers) {
+                notificationPayloads.push({
+                    recipient: user._id,
+                    sender: author,
+                    type: "NEW_POST",
+                    message: `${postObj.author.name} published a new post.`,
+                    post: newPost._id
+                });
+            }
+
+            if (notificationPayloads.length > 0) {
+                const createdNotifications = await Notification.insertMany(notificationPayloads);
+                // Emit to connected sockets
+                createdNotifications.forEach(notif => {
+                    const populatedNotif = { 
+                        ...notif.toObject(), 
+                        sender: { _id: postObj.author._id, name: postObj.author.name, profileImage: postObj.author.profileImage } 
+                    };
+                    io.to(notif.recipient.toString()).emit("new_notification", populatedNotif);
+                });
+            }
+        } catch (notifErr) {
+            console.error("Failed to generate notifications:", notifErr);
+            // Don't fail the post creation if notifications fail
+        }
+        // -----------------------------
+
         res.status(201).json(postObj);
     } catch (error) {
         console.error("Create Post Error:", error);
@@ -123,17 +171,43 @@ export const getAllPosts = async (req, res) => {
 
 export const likePost = async (req, res) => {
     try {
-        const post = await Post.findById(req.params.id);
+        const post = await Post.findById(req.params.id).populate("author", "name");
         if (!post) return res.status(404).json({ message: "Post not found" });
 
         const index = post.likes.indexOf(req.user.id);
-        if (index === -1) {
+        const isLiking = index === -1;
+        
+        if (isLiking) {
             post.likes.push(req.user.id);
         } else {
             post.likes.splice(index, 1);
         }
 
         await post.save();
+
+        if (isLiking) {
+            try {
+                const senderUser = await User.findById(req.user.id);
+                // Also notify self for testing purposes
+                const notification = await Notification.create({
+                    recipient: post.author._id,
+                    sender: req.user.id,
+                    type: "LIKE",
+                    message: `${senderUser.name} liked your post.`,
+                    post: post._id
+                });
+                
+                const io = getIO();
+                // Send basic notification, we'll let frontend refresh or handle it
+                io.to(post.author._id.toString()).emit("new_notification", {
+                    ...notification.toObject(),
+                    sender: { _id: senderUser._id, name: senderUser.name }
+                });
+            } catch (notifErr) {
+                console.error("Like notification error:", notifErr);
+            }
+        }
+
         res.json(post);
     } catch (error) {
         res.status(500).json({ message: "Error toggling like" });
@@ -170,7 +244,7 @@ export const addComment = async (req, res) => {
         const { text } = req.body;
         if (!text) return res.status(400).json({ message: "Comment text is required" });
 
-        const post = await Post.findById(req.params.id);
+        const post = await Post.findById(req.params.id).populate("author", "name");
         if (!post) return res.status(404).json({ message: "Post not found" });
 
         post.comments.push({
@@ -180,6 +254,60 @@ export const addComment = async (req, res) => {
         });
 
         await post.save();
+
+        if (true) { // Removing condition so they can test their own comment
+            try {
+                const senderUser = await User.findById(req.user.id);
+                // Send comment notification to author (unless they are commenting on their own post)
+                if (post.author._id.toString() !== req.user.id) {
+                    const notification = await Notification.create({
+                        recipient: post.author._id,
+                        sender: req.user.id,
+                        type: "COMMENT",
+                        message: `${senderUser.name} commented on your post.`,
+                        post: post._id
+                    });
+                    
+                    const io = getIO();
+                    io.to(post.author._id.toString()).emit("new_notification", {
+                        ...notification.toObject(),
+                        sender: { _id: senderUser._id, name: senderUser.name }
+                    });
+                }
+
+                // Send tag notifications to tagged users
+                const { tags } = req.body;
+                if (tags && Array.isArray(tags) && tags.length > 0) {
+                    for (const taggedUserId of tags) {
+                        try {
+                            // Don't notify if the user tagged themselves
+                            if (taggedUserId.toString() === req.user.id) continue;
+
+                            const testUser = await User.findById(taggedUserId);
+                            if(testUser) {
+                                const notification = await Notification.create({
+                                    recipient: taggedUserId,
+                                    sender: req.user.id,
+                                    type: "TAG",
+                                    message: `${senderUser.name} mentioned you in a comment.`,
+                                    post: post._id
+                                });
+                                
+                                const io = getIO();
+                                io.to(taggedUserId.toString()).emit("new_notification", {
+                                    ...notification.toObject(),
+                                    sender: { _id: senderUser._id, name: senderUser.name }
+                                });
+                            }
+                        } catch (tagErr) {
+                            console.error("Error creating comment tag notification for user " + taggedUserId, tagErr);
+                        }
+                    }
+                }
+            } catch (notifErr) {
+                console.error("Comment notification error:", notifErr);
+            }
+        }
 
         const populatedPost = await Post.findById(post._id)
             .populate("comments.user", "name email");
@@ -192,7 +320,7 @@ export const addComment = async (req, res) => {
 
 export const getUsersForTagging = async (req, res) => {
     try {
-        const users = await User.find({}, "name email role").limit(50);
+        const users = await User.find({ isActive: true }, "name email role").sort({ name: 1 });
         res.json(users);
     } catch (error) {
         res.status(500).json({ message: "Error fetching users" });

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaUpload, FaPaperPlane, FaImage, FaPoll, FaAt, FaThumbsUp, FaComment, FaCheckCircle, FaChartBar, FaEnvelope, FaBuilding, FaTrash, FaEllipsisV, FaEdit, FaChevronLeft, FaChevronRight, FaTimes, FaExpand, FaEye, FaHistory, FaVideo, FaUser, FaPhone, FaBriefcase, FaMapMarkerAlt, FaDownload, FaPlay, FaRegSmile } from "react-icons/fa";
+import { FaFilter, FaUpload, FaPaperPlane, FaImage, FaPoll, FaAt, FaThumbsUp, FaComment, FaCheckCircle, FaChartBar, FaEnvelope, FaBuilding, FaTrash, FaEllipsisV, FaEdit, FaChevronLeft, FaChevronRight, FaTimes, FaExpand, FaEye, FaHistory, FaVideo, FaUser, FaPhone, FaBriefcase, FaMapMarkerAlt, FaDownload, FaPlay, FaRegSmile } from "react-icons/fa";
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
@@ -15,6 +15,7 @@ const SocialFeed = () => {
     const [taggableUsers, setTaggableUsers] = useState([]);
 
     // Create Post State
+    const [filterDate, setFilterDate] = useState("");
     const [content, setContent] = useState("");
     const [images, setImages] = useState([]);
     const [imagePreviews, setImagePreviews] = useState([]);
@@ -25,6 +26,7 @@ const SocialFeed = () => {
     const [pollOptions, setPollOptions] = useState(["", ""]);
     const [selectedTags, setSelectedTags] = useState([]);
     const [showTagList, setShowTagList] = useState(false);
+    const [tagSearchQuery, setTagSearchQuery] = useState("");
     const [activeUsers, setActiveUsers] = useState([]);
     const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -48,9 +50,39 @@ const SocialFeed = () => {
             }
         };
         document.addEventListener("mousedown", handleClickOutside);
+
+        const handleHighlightPost = (e) => {
+            const { postId } = e.detail;
+            setFilterDate(""); // Clear any filter so the post is definitely rendered
+            setTimeout(() => {
+                const postElement = document.getElementById(`post-${postId}`);
+                if (postElement) {
+                    postElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    // Apply intense glowing styles
+                    postElement.style.transition = 'all 0.4s ease-out';
+                    postElement.style.boxShadow = '0 0 50px rgba(6, 182, 212, 0.8)';
+                    postElement.style.borderColor = 'rgba(6, 182, 212, 1)';
+                    postElement.style.transform = 'scale(1.03)';
+                    postElement.style.zIndex = '50';
+                    postElement.style.position = 'relative';
+
+                    setTimeout(() => {
+                        postElement.style.boxShadow = '';
+                        postElement.style.borderColor = '';
+                        postElement.style.transform = '';
+                        postElement.style.zIndex = '';
+                        postElement.style.position = '';
+                    }, 3500);
+                }
+            }, 500); // Short delay to allow React to render the unfiltered feed
+        };
+        window.addEventListener('highlight_post', handleHighlightPost);
+
         return () => {
             clearInterval(interval);
             document.removeEventListener("mousedown", handleClickOutside);
+            window.removeEventListener('highlight_post', handleHighlightPost);
         };
     }, []);
 
@@ -333,7 +365,7 @@ const SocialFeed = () => {
         }
     };
 
-    const handleComment = async (postId, text) => {
+    const handleComment = async (postId, text, tags = []) => {
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/posts/${postId}/comment`, {
@@ -342,7 +374,7 @@ const SocialFeed = () => {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ text })
+                body: JSON.stringify({ text, tags })
             });
             if (response.ok) {
                 fetchPosts();
@@ -357,9 +389,37 @@ const SocialFeed = () => {
             <div className="w-full grid grid-cols-1 lg:grid-cols-10 gap-4 lg:gap-8">
                 {/* Social Feed - Taking exactly 80% of space (8/10 columns) */}
                 <div className="col-span-1 lg:col-span-8 space-y-8">
+                    {/* Posts Filter */}
+                    <div className="flex justify-between items-center bg-white dark:bg-[#1a1f24] p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg">
+                                <FaFilter className="text-cyan-600 dark:text-cyan-400" />
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-gray-900 dark:text-white text-sm">Filter Feed</h4>
+                                <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Select a specific date to view past posts</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <input
+                                type="date"
+                                value={filterDate}
+                                onChange={(e) => setFilterDate(e.target.value)}
+                                className="bg-gray-50 dark:bg-[#131619] border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-900 dark:text-white font-semibold outline-none focus:border-cyan-500 transition-colors"
+                            />
+                            {filterDate && (
+                                <button
+                                    onClick={() => setFilterDate("")}
+                                    className="text-xs text-red-500 hover:text-red-400 font-bold underline"
+                                >
+                                    Clear
+                                </button>
+                            )}
+                        </div>
+                    </div>
 
                     {/* Create Post Section */}
-                    <div className={`${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-xl border shadow-xl overflow-hidden`}>
+                    <div className={`${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-xl border shadow-xl relative`}>
                         <div className="p-6">
                             <div className="flex gap-4">
                                 <div className="w-12 h-12 rounded-full bg-cyan-100 dark:bg-cyan-900 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-bold overflow-hidden shrink-0">
@@ -456,7 +516,7 @@ const SocialFeed = () => {
                             </div>
                         </div>
 
-                        <div className="px-6 py-4 bg-gray-50 dark:bg-[#131619]/50 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between">
+                        <div className="px-6 py-4 bg-gray-50 dark:bg-[#131619]/50 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between rounded-b-xl">
                             <div className="flex items-center gap-4">
                                 <label className="cursor-pointer text-gray-400 hover:text-cyan-400 transition-colors flex items-center gap-2">
                                     <FaImage size={18} />
@@ -487,27 +547,55 @@ const SocialFeed = () => {
                                     </button>
 
                                     {showTagList && (
-                                        <div className={`absolute top-10 left-0 w-64 max-h-60 overflow-y-auto border rounded-lg shadow-2xl z-50 p-2 custom-scrollbar ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
-                                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest p-2 border-b border-gray-800 mb-2">Tag Someone</p>
-                                            {taggableUsers.filter(u => !selectedTags.some(t => t._id === u._id)).map(user => (
-                                                <button
-                                                    key={user._id}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setSelectedTags([...selectedTags, user]);
-                                                        setShowTagList(false);
-                                                    }}
-                                                    className={`w-full text-left p-2 rounded flex items-center gap-3 transition-colors ${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
-                                                >
-                                                    <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-[10px] font-bold">
-                                                        {user.name.charAt(0)}
+                                        <div className={`absolute top-10 left-0 w-64 max-h-72 flex flex-col border rounded-lg shadow-2xl z-50 p-2 ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2 pt-1 pb-2">Tag Someone</p>
+
+                                            {/* Search Box */}
+                                            <div className="px-2 pb-2 mb-2 border-b border-gray-200 dark:border-gray-800 shrink-0">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search users..."
+                                                    value={tagSearchQuery}
+                                                    onChange={(e) => setTagSearchQuery(e.target.value)}
+                                                    className={`w-full px-2 py-1.5 text-xs rounded-md border ${theme === 'dark' ? 'bg-[#131619] border-gray-700 text-white placeholder-gray-500 focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-cyan-500'} focus:outline-none transition-colors`}
+                                                    autoFocus
+                                                />
+                                            </div>
+
+                                            {/* User List */}
+                                            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+                                                {taggableUsers
+                                                    .filter(u =>
+                                                        !selectedTags.some(t => t._id === u._id) &&
+                                                        u.name.toLowerCase().includes(tagSearchQuery.toLowerCase())
+                                                    )
+                                                    .map(user => (
+                                                        <button
+                                                            key={user._id}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setSelectedTags([...selectedTags, user]);
+                                                                setShowTagList(false);
+                                                                setTagSearchQuery(""); // Reset query on selection
+                                                            }}
+                                                            className={`w-full text-left p-2 mb-1 rounded flex items-center gap-3 transition-colors ${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
+                                                        >
+                                                            <div className="w-6 h-6 rounded-full bg-cyan-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                                                                {user.name.charAt(0).toUpperCase()}
+                                                            </div>
+                                                            <div className="overflow-hidden">
+                                                                <p className={`text-xs font-bold truncate ${theme === 'dark' ? 'text-gray-200' : 'text-gray-900'}`}>{user.name}</p>
+                                                                <p className={`text-[10px] truncate ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{user.role || 'User'}</p>
+                                                            </div>
+                                                        </button>
+                                                    ))
+                                                }
+                                                {taggableUsers.filter(u => !selectedTags.some(t => t._id === u._id) && u.name.toLowerCase().includes(tagSearchQuery.toLowerCase())).length === 0 && (
+                                                    <div className="text-center p-3">
+                                                        <p className="text-[10px] text-gray-500 italic">No users found.</p>
                                                     </div>
-                                                    <div>
-                                                        <p className={`text-xs font-bold ${theme === 'dark' ? 'text-gray-200' : 'text-gray-900'}`}>{user.name}</p>
-                                                        <p className={`text-[10px] ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{user.role}</p>
-                                                    </div>
-                                                </button>
-                                            ))}
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -531,7 +619,7 @@ const SocialFeed = () => {
                                                         const end = textarea.selectionEnd;
                                                         const newText = content.substring(0, start) + emojiData.emoji + content.substring(end);
                                                         setContent(newText);
-                                                        
+
                                                         // Move cursor after the emoji in the next tick
                                                         setTimeout(() => {
                                                             textarea.focus();
@@ -569,18 +657,37 @@ const SocialFeed = () => {
                                 <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
                                 <p className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">Loading Feed...</p>
                             </div>
-                        ) : posts.length === 0 ? (
-                            <div className="text-center py-20 bg-white dark:bg-[#1a1f24] rounded-xl border border-gray-200 dark:border-gray-800">
-                                <p className="text-gray-500 font-bold">No posts yet. Be the first to share something!</p>
-                            </div>
-                        ) : (
-                            posts.map(post => (
+                        ) : (() => {
+                            const displayedPosts = posts.filter(post => {
+                                if (!filterDate) return true;
+                                return new Date(post.createdAt).toISOString().split('T')[0] === filterDate;
+                            });
+
+                            if (displayedPosts.length === 0) {
+                                return (
+                                    <div className="text-center py-20 bg-white dark:bg-[#1a1f24] rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col items-center justify-center">
+                                        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+                                            <FaFilter size={24} className="text-gray-400" />
+                                        </div>
+                                        <h3 className="text-lg font-black text-gray-900 dark:text-gray-100 mb-2">No Posts Found</h3>
+                                        <p className="text-gray-500 font-semibold text-sm">{filterDate ? `There are no posts for ${filterDate}. Try another date.` : "No posts yet. Be the first to share something!"}</p>
+                                        {filterDate && (
+                                            <button onClick={() => setFilterDate("")} className="mt-4 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg text-xs shadow-md transition-all">
+                                                Clear Filter
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            }
+
+                            return displayedPosts.map(post => (
                                 <PostCard
                                     key={post._id}
                                     post={post}
+                                    taggableUsers={taggableUsers}
                                     onLike={() => handleLike(post._id)}
                                     onVote={(optId) => handleVote(post._id, optId)}
-                                    onComment={(text) => handleComment(post._id, text)}
+                                    onComment={(text, tags) => handleComment(post._id, text, tags)}
                                     onDelete={() => handleDeletePost(post._id)}
                                     onUpdate={(formData) => handleUpdatePost(post._id, formData)}
                                     onDeleteComment={(commentId) => handleDeleteComment(post._id, commentId)}
@@ -589,8 +696,8 @@ const SocialFeed = () => {
                                     currentUser={currentUser}
                                     theme={theme}
                                 />
-                            ))
-                        )}
+                            ));
+                        })()}
                     </div>
                 </div>
                 {/* Right Column: PDF Document Hub - Taking ~20% of space */}
@@ -900,9 +1007,12 @@ const ParticipantModal = ({ data, onClose, theme }) => {
     );
 };
 
-const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDeleteComment, onViewParticipants, onView, currentUser, theme }) => {
+const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, onUpdate, onDeleteComment, onViewParticipants, onView, currentUser, theme }) => {
     const [commentText, setCommentText] = useState("");
     const [showComments, setShowComments] = useState(false);
+    const [showCommentTagList, setShowCommentTagList] = useState(false);
+    const [commentTagSearch, setCommentTagSearch] = useState("");
+    const [selectedCommentTags, setSelectedCommentTags] = useState([]);
 
     useEffect(() => {
         if (onView) {
@@ -937,8 +1047,19 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
 
     const handleCommentSubmit = (e) => {
         if (e.key === 'Enter' && commentText.trim()) {
-            onComment(commentText);
+            onComment(commentText, selectedCommentTags.map(u => u._id));
             setCommentText("");
+            setSelectedCommentTags([]);
+            setShowCommentTagList(false);
+        }
+    };
+
+    const submitDirectComment = () => {
+        if (commentText.trim()) {
+            onComment(commentText, selectedCommentTags.map(u => u._id));
+            setCommentText("");
+            setSelectedCommentTags([]);
+            setShowCommentTagList(false);
         }
     };
 
@@ -975,7 +1096,7 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
     };
 
     return (
-        <div className={`${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-xl border shadow-lg overflow-hidden animate-fade-in transition-all hover:shadow-cyan-500/5`}>
+        <div id={`post-${post._id}`} className={`${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-xl border shadow-lg overflow-hidden animate-fade-in transition-all hover:shadow-cyan-500/5`}>
             {/* Post Header */}
             <div className="p-4 sm:p-6 flex items-start justify-between gap-4">
                 <div className="flex gap-3 sm:gap-4 flex-1 min-w-0">
@@ -1125,7 +1246,7 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                                                     const end = textarea.selectionEnd;
                                                     const newText = editContent.substring(0, start) + emojiData.emoji + editContent.substring(end);
                                                     setEditContent(newText);
-                                                    
+
                                                     // Move cursor after the emoji in the next tick
                                                     setTimeout(() => {
                                                         textarea.focus();
@@ -1332,18 +1453,82 @@ const PostCard = ({ post, onLike, onVote, onComment, onDelete, onUpdate, onDelet
                                 </div>
                             ))}
                         </div>
-                        <div className="flex gap-3">
-                            <div className="w-8 h-8 rounded-full bg-cyan-900 flex items-center justify-center text-xs font-bold text-cyan-400 shrink-0">
+                        <div className="flex gap-3 items-start relative">
+                            <div className="w-8 h-8 rounded-full bg-cyan-900 flex items-center justify-center text-xs font-bold text-cyan-400 shrink-0 mt-1">
                                 {currentUser.name?.charAt(0)}
                             </div>
-                            <input
-                                type="text"
-                                placeholder="Write a comment..."
-                                className={`flex-1 border rounded-lg px-4 py-2 text-sm focus:border-cyan-500/50 outline-none ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
-                                value={commentText}
-                                onChange={(e) => setCommentText(e.target.value)}
-                                onKeyPress={handleCommentSubmit}
-                            />
+                            <div className="flex-1 flex flex-col gap-2">
+                                {selectedCommentTags.length > 0 && (
+                                    <div className="flex flex-wrap gap-1">
+                                        {selectedCommentTags.map(u => (
+                                            <span key={u._id} className="text-[10px] font-bold bg-cyan-500/10 text-cyan-500 px-2 py-0.5 rounded-full flex items-center gap-1 border border-cyan-500/20">
+                                                @{u.name}
+                                                <FaTimes className="cursor-pointer hover:text-red-400" onClick={() => setSelectedCommentTags(selectedCommentTags.filter(t => t._id !== u._id))} />
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                                <div className="relative flex items-center">
+                                    <input
+                                        type="text"
+                                        placeholder="Write a comment..."
+                                        className={`w-full border rounded-lg pl-4 pr-10 py-2.5 text-sm focus:border-cyan-500/50 outline-none ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+                                        value={commentText}
+                                        onChange={(e) => setCommentText(e.target.value)}
+                                        onKeyPress={handleCommentSubmit}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCommentTagList(!showCommentTagList)}
+                                        className={`absolute right-12 p-1.5 rounded-full transition-colors ${showCommentTagList ? 'text-cyan-500 bg-cyan-500/10' : 'text-gray-400 hover:text-cyan-500'}`}
+                                        title="Mention someone"
+                                    >
+                                        <FaAt size={14} />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={submitDirectComment}
+                                        className="absolute right-2 p-1.5 rounded-full text-white bg-cyan-600 hover:bg-cyan-500 transition-colors"
+                                    >
+                                        <FaPaperPlane size={12} />
+                                    </button>
+
+                                    {/* Inline Comment Tag Picker */}
+                                    {showCommentTagList && (
+                                        <div className="absolute right-0 bottom-full mb-2 w-64 bg-white dark:bg-[#1a1f24] shadow-2xl rounded-xl border border-gray-200 dark:border-gray-800 z-50 overflow-hidden transform origin-bottom border-t-4 border-t-cyan-500">
+                                            <div className="p-2 border-b border-gray-100 dark:border-gray-800">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search to mention..."
+                                                    className="w-full text-xs p-1.5 bg-gray-50 dark:bg-[#131619] border border-gray-200 dark:border-gray-700 rounded outline-none"
+                                                    value={commentTagSearch}
+                                                    onChange={(e) => setCommentTagSearch(e.target.value)}
+                                                    autoFocus
+                                                />
+                                            </div>
+                                            <div className="max-h-40 overflow-y-auto custom-scrollbar">
+                                                {taggableUsers
+                                                    .filter(u => u.name.toLowerCase().includes(commentTagSearch.toLowerCase()))
+                                                    .filter(u => !selectedCommentTags.find(t => t._id === u._id))
+                                                    .map(user => (
+                                                        <div
+                                                            key={user._id}
+                                                            className="px-3 py-2 text-xs cursor-pointer hover:bg-cyan-50 dark:hover:bg-cyan-900/20 text-gray-700 dark:text-gray-300 transition-colors flex items-center gap-2"
+                                                            onClick={() => {
+                                                                setSelectedCommentTags([...selectedCommentTags, user]);
+                                                                setShowCommentTagList(false);
+                                                                setCommentTagSearch("");
+                                                            }}
+                                                        >
+                                                            <div className="w-5 h-5 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 flex items-center justify-center font-bold">{user.name.charAt(0)}</div>
+                                                            {user.name}
+                                                        </div>
+                                                    ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )
