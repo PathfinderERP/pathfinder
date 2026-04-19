@@ -37,6 +37,14 @@ export const updateAdmission = async (req, res) => {
             );
         }
 
+        // Synchronize centre across ALL admissions for this student if it's being updated
+        if (updates.centre) {
+            await Admission.updateMany(
+                { student: studentId },
+                { centre: updates.centre }
+            );
+        }
+
         const admission = await Admission.findByIdAndUpdate(
             id,
             updates,
