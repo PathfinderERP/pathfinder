@@ -236,6 +236,19 @@ const EnrolledStudentsContent = () => {
         fetchAdmissions();
     }, [fetchAdmissions]);
 
+    // Sync modal data when master list updates
+    useEffect(() => {
+        if (isModalOpen && selectedStudent) {
+            const currentStudent = students.find(s => s.student._id === selectedStudent._id);
+            if (currentStudent) {
+                // DON'T update selectedStudent directly if it causes issues, but we must update admissions
+                setStudentAdmissions(currentStudent.admissions);
+                // Also update selectedStudent info to reflect name changes etc.
+                setSelectedStudent(currentStudent.student);
+            }
+        }
+    }, [students, isModalOpen]);
+
     const [showCorrectionId, setShowCorrectionId] = useState(null);
     const [correctionData, setCorrectionData] = useState({
         totalFees: 0,

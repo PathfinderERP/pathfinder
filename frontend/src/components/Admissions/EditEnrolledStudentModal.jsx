@@ -118,8 +118,22 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
 
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(
-                `${import.meta.env.VITE_API_URL}/normalAdmin/updateStudent/${admission.student._id}`,
+            const apiUrl = import.meta.env.VITE_API_URL;
+
+            // Helper to clean empty strings to null for ObjectId fields etc.
+            const cleanData = (obj) => {
+                const newObj = { ...obj };
+                Object.keys(newObj).forEach(key => {
+                    if (newObj[key] === "") newObj[key] = null;
+                });
+                return newObj;
+            };
+
+            const dataToSave = cleanData(formData);
+
+            // 1. Update Student Profile & Centre
+            const studentResponse = await fetch(
+                `${apiUrl}/normalAdmin/updateStudent/${admission.student._id}`,
                 {
                     method: 'PUT',
                     headers: {
@@ -128,67 +142,72 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                     },
                     body: JSON.stringify({
                         studentsDetails: [{
-                            studentName: formData.studentName,
-                            studentEmail: formData.studentEmail,
-                            mobileNum: formData.mobileNum,
-                            whatsappNumber: formData.whatsappNumber,
-                            dateOfBirth: formData.dateOfBirth,
-                            gender: formData.gender,
-                            schoolName: formData.schoolName,
-                            address: formData.address,
-                            pincode: formData.pincode,
-                            state: formData.state,
-                            board: formData.board,
-                            centre: formData.centre,
-                            source: admission.student?.studentsDetails?.[0]?.source || 'Walk-in',
+                            studentName: dataToSave.studentName,
+                            studentEmail: dataToSave.studentEmail,
+                            mobileNum: dataToSave.mobileNum,
+                            whatsappNumber: dataToSave.whatsappNumber,
+                            dateOfBirth: dataToSave.dateOfBirth,
+                            gender: dataToSave.gender,
+                            schoolName: dataToSave.schoolName,
+                            address: dataToSave.address,
+                            pincode: dataToSave.pincode,
+                            state: dataToSave.state,
+                            board: dataToSave.board,
+                            centre: dataToSave.centre,
+                            source: admission.student?.studentsDetails?.[0]?.source || 'Walk-in', // Preserve source
                         }],
                         guardians: [{
-                            guardianName: formData.guardianName,
-                            qualification: formData.qualification,
-                            guardianEmail: formData.guardianEmail,
-                            guardianMobile: formData.guardianMobile,
-                            occupation: formData.occupation,
-                            annualIncome: formData.annualIncome,
-                            organizationName: formData.organizationName,
-                            designation: formData.designation,
-                            officeAddress: formData.officeAddress
+                            guardianName: dataToSave.guardianName,
+                            qualification: dataToSave.qualification,
+                            guardianEmail: dataToSave.guardianEmail,
+                            guardianMobile: dataToSave.guardianMobile,
+                            occupation: dataToSave.occupation,
+                            annualIncome: dataToSave.annualIncome,
+                            organizationName: dataToSave.organizationName,
+                            designation: dataToSave.designation,
+                            officeAddress: dataToSave.officeAddress
                         }]
                     })
                 }
             );
 
-            const data = await response.json();
-
-            if (response.ok) {
-                // Update the Admission record too to ensure consistency
-                await fetch(
-                    `${import.meta.env.VITE_API_URL}/admission/${admission._id}`,
-                    {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify({
-                            centre: formData.centre,
-                            department: formData.department,
-                            course: formData.course,
-                            class: formData.class,
-                            academicSession: formData.academicSession,
-                            examTag: formData.examTag
-                        })
-                    }
-                );
-
-                toast.success('Student details and centre updated successfully!');
-                onUpdate();
-                onClose();
-            } else {
-                toast.error(data.message || 'Failed to update student details');
+            if (!studentResponse.ok) {
+                const errorData = await studentResponse.json();
+                throw new Error(errorData.message || 'Failed to update student profile');
             }
+
+            // 2. Update Specific Admission Record (Department, Course, Class, etc.)
+            const admissionResponse = await fetch(
+                `${apiUrl}/admission/${admission._id}`,
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        centre: dataToSave.centre,
+                        department: dataToSave.department,
+                        course: dataToSave.course,
+                        class: dataToSave.class,
+                        academicSession: dataToSave.academicSession,
+                        examTag: dataToSave.examTag
+                    })
+                }
+            );
+
+            if (!admissionResponse.ok) {
+                const errorData = await admissionResponse.json();
+                throw new Error(errorData.message || 'Failed to update admission system data');
+            }
+
+            toast.success('Core data and academic vector updated successfully!');
+            onUpdate();
+            onClose();
+
         } catch (error) {
-            console.error('Error updating student:', error);
-            toast.error('Error updating student details');
+            console.error('Update operation failed:', error);
+            toast.error(error.message || 'An error occurred during update');
         } finally {
             setLoading(false);
         }

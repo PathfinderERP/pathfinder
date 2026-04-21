@@ -330,8 +330,8 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                         </div>
                                     </div>
                                     <div>
-                                        <label className={labelClass}>CENTRE HUB</label>
-                                        <div className={infoValueClass}>{admission.department?.departmentName || "N/A"}</div>
+                                        <label className={labelClass}>DEPARTMENT HUB</label>
+                                        <div className={infoValueClass}>{admission.department?.departmentName || admission.student?.department?.departmentName || "N/A"}</div>
                                     </div>
                                     <div>
                                         <label className={labelClass}>CLASSIFICATION</label>
@@ -534,7 +534,8 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                         </thead>
                                         <tbody>
                                             {admission.paymentBreakdown?.map((payment, index) => {
-                                                const previousPaid = index === 0 || ["PAID", "COMPLETED", "PENDING_CLEARANCE"].includes(admission.paymentBreakdown[index - 1].status);
+                                                const prevInst = index > 0 ? admission.paymentBreakdown[index - 1] : null;
+                                                const previousPaid = index === 0 || ["PAID", "COMPLETED", "PENDING_CLEARANCE", "REJECTED"].includes(prevInst.status);
                                                 const isPaid = ["PAID", "COMPLETED"].includes(payment.status);
 
                                                 return (
@@ -561,9 +562,9 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                                                 (!isPaid && payment.status !== "PENDING_CLEARANCE") ? (
                                                                     <button
                                                                         onClick={() => admission.student?.status !== 'Deactivated' && openPaymentModal(payment)}
-                                                                        disabled={!previousPaid || admission.student?.status === 'Deactivated'}
-                                                                        className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all ${(!previousPaid || admission.student?.status === 'Deactivated') ? 'bg-gray-800/10 dark:bg-white/5 text-gray-500 cursor-not-allowed opacity-30 shadow-none' : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-500/20 hover:-translate-y-0.5'}`}
-                                                                        title={admission.student?.status === 'Deactivated' ? "LOCKED: DEACTIVATED" : (!previousPaid ? "LOCKED: SEQUENCE BREAK" : "TRIGGER PAYMENT")}
+                                                                        disabled={!previousPaid && payment.status !== 'REJECTED' && admission.student?.status !== 'Deactivated'}
+                                                                        className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all ${(!previousPaid && payment.status !== 'REJECTED' || admission.student?.status === 'Deactivated') ? 'bg-gray-800/10 dark:bg-white/5 text-gray-500 cursor-not-allowed opacity-30 shadow-none' : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-500/20 hover:-translate-y-0.5'}`}
+                                                                        title={admission.student?.status === 'Deactivated' ? "LOCKED: DEACTIVATED" : (!previousPaid && payment.status !== 'REJECTED' ? "LOCKED: SEQUENCE BREAK" : "TRIGGER PAYMENT")}
                                                                     >
                                                                         SETTLE NOW
                                                                     </button>

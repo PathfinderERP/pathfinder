@@ -120,7 +120,7 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
         },
         status: {
             type: String,
-            enum: ["PENDING", "PARTIALLY_PAID", "PARTIAL", "PAID"],
+            enum: ["PENDING", "PARTIALLY_PAID", "PARTIAL", "PAID", "REJECTED"],
             default: "PENDING"
         },
         paymentTransactions: [{

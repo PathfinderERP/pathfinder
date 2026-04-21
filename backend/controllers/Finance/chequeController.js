@@ -458,7 +458,7 @@ export const rejectCheque = async (req, res) => {
             );
 
             if (installment) {
-                installment.status = (new Date(installment.dueDate) < today) ? "OVERDUE" : "PENDING";
+                installment.status = "REJECTED";
                 installment.paidAmount = 0;
                 installment.paymentMethod = null;
                 installment.transactionId = null;
@@ -473,7 +473,7 @@ export const rejectCheque = async (req, res) => {
                     // Check if this installment was paid using the rejected transaction ID (even as auto-credit)
                     if (p.transactionId && p.transactionId.includes(searchId) && p.installmentNumber !== payment.installmentNumber) {
                         console.log(`Cascading Rejection: Reverting auto-paid Inst #${p.installmentNumber} linked to txn ${searchId}`);
-                        p.status = (new Date(p.dueDate) < today) ? "OVERDUE" : "PENDING";
+                        p.status = "REJECTED";
                         p.paidAmount = 0;
                         p.paymentMethod = null;
                         p.transactionId = null;
