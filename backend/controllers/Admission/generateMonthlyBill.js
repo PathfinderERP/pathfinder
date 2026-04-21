@@ -12,7 +12,7 @@ export const rebalanceBoardHistory = async (admissionId) => {
     if (!admission || admission.admissionType !== "BOARD") return null;
 
     const payments = await Payment.find({ admission: admissionId });
-    
+
     // 1. Deduplicate payments by billId
     const uniquePayments = [];
     const seenBills = new Set();
@@ -39,12 +39,12 @@ export const rebalanceBoardHistory = async (admissionId) => {
 
     admission.monthlySubjectHistory.sort((a, b) => a.month.localeCompare(b.month));
 
-    let carryForwardCredit = 0; 
+    let carryForwardCredit = 0;
     let grandTotalMoney = 0;
 
     for (let i = 0; i < admission.monthlySubjectHistory.length; i++) {
         const entry = admission.monthlySubjectHistory[i];
-        
+
         // A. Assign EXACT receipt money to this month (No splitting)
         let moneyPaidThisMonth = monthPaymentMap[entry.month] || 0;
         if (i === 0 && monthPaymentMap["DOWN_PAYMENT"]) {
@@ -63,12 +63,12 @@ export const rebalanceBoardHistory = async (admissionId) => {
 
         // D. Logical Waterfall for Status (Carries both Surplus AND Deficit)
         const totalAvailableForThisMonth = entry.paidAmount + carryForwardCredit;
-        
+
         if (totalAvailableForThisMonth >= grossBill - 0.5) {
             entry.isPaid = true;
             // Carry surplus forward
             carryForwardCredit = totalAvailableForThisMonth - grossBill;
-            
+
             const bills = uniquePayments.filter(p => p.billingMonth === entry.month);
             if (bills.some(p => p.status === "PENDING_CLEARANCE")) {
                 entry.status = "PENDING_CLEARANCE";
@@ -88,7 +88,7 @@ export const rebalanceBoardHistory = async (admissionId) => {
     admission.totalPaidAmount = grandTotalMoney;
     admission.totalFees = admission.monthlySubjectHistory.reduce((sum, h) => sum + h.totalAmount, 0) - (admission.discountAmount || 0) + (admission.previousBalance || 0);
     admission.remainingAmount = Math.max(0, admission.totalFees - admission.totalPaidAmount);
-    
+
     if (admission.remainingAmount <= 0.5) {
         admission.paymentStatus = "COMPLETED";
     } else if (admission.totalPaidAmount > 0) {
@@ -402,7 +402,7 @@ export const generateMonthlyBreakdown = async (admission) => {
         }
 
         const displayPaidAmount = histEntry ? (histEntry.paidAmount || 0) : 0;
-        
+
         // Match rebalancer logic: add this month's share of discount/arrears
         const monthlyDiscount = Math.round((admission.discountAmount || 0) / durationCount);
         const monthlyPrevBal = Math.round((admission.previousBalance || 0) / durationCount);
@@ -410,7 +410,7 @@ export const generateMonthlyBreakdown = async (admission) => {
 
         const totalAvailable = displayPaidAmount + carryForward;
         const monthlyBill = histEntry ? (histEntry.totalAmount || 0) : 0;
-        
+
         breakdown.push({
             month: monthKey,
             monthName: monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
@@ -462,7 +462,7 @@ export const getMonthlyBreakdown = async (req, res) => {
             const breakdown = boardAdmission.installments.map(inst => {
                 const monthDate = new Date(inst.dueDate);
                 const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
-                
+
                 // Find payment record to get billId if any
                 // (Note: Structured Board also creates Payment records)
                 return {

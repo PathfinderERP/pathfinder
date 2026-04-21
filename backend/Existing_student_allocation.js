@@ -21,11 +21,11 @@ const ADMIN_ID = "6970c4129590082b81674b65"; // Default Admin: Malay Maity
  */
 const student_data_list = [
     {
-        enroll: "PATH24003042", // Existing student's admission number
-        courseName: "CRP NEET 2Years 2024-2026", // The new course to allocate
-        session: "2024-2026",
-        totalFees: 65600,
-        paid: 55600,
+        enroll: "PATH24009454", // Existing student's admission number
+        courseName: "JEE+WBJEE REPEATER 2025-2026", // The new course to allocate
+        session: "2025-2026",
+        totalFees: 50000,
+        paid: 25000,
         centre: "BAGNAN",
         counselledBy: "Lipi Chattaraj"
     }

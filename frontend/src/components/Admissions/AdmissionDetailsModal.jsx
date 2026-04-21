@@ -155,6 +155,10 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                 return "bg-green-500/10 text-green-400";
             case "PENDING_CLEARANCE":
                 return "bg-cyan-500/10 text-cyan-400";
+            case "REJECTED":
+                return "bg-red-500/10 text-red-500";
+            case "CANCELLED":
+                return "bg-gray-500/10 text-gray-400";
             case "OVERDUE":
                 return "bg-red-500/10 text-red-400";
             case "PENDING":
@@ -449,8 +453,15 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                                         <span className="text-[9px] text-gray-500 uppercase font-black tracking-widest block mb-1">CYCLE {idx + 1} / {admission.courseDurationMonths}</span>
                                                         <h4 className={`text-[13px] font-black uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.monthName}</h4>
                                                     </div>
-                                                    <span className={`px-2 py-0.5 rounded-[2px] text-[9px] font-black tracking-widest ${item.isPaid ? 'bg-emerald-500 text-white' : (item.paymentStatus === 'PENDING_CLEARANCE' ? 'bg-cyan-500 text-white' : 'bg-amber-500 text-black')}`}>
-                                                        {item.paymentStatus === 'PENDING_CLEARANCE' ? 'IN PROCESS' : (item.isPaid ? 'PAID' : 'PENDING')}
+                                                    <span className={`px-2 py-0.5 rounded-[2px] text-[9px] font-black tracking-widest ${
+                                                        item.paymentStatus === 'PAID' ? 'bg-emerald-500 text-white' : 
+                                                        item.paymentStatus === 'REJECTED' ? 'bg-red-500 text-white' :
+                                                        item.paymentStatus === 'PENDING_CLEARANCE' ? 'bg-cyan-500 text-white' : 
+                                                        'bg-amber-500 text-black'
+                                                    }`}>
+                                                        {item.paymentStatus === 'REJECTED' ? 'REJECTED' : 
+                                                         (item.paymentStatus === 'PENDING_CLEARANCE' ? 'IN PROCESS' : 
+                                                         (item.isPaid ? 'PAID' : 'PENDING'))}
                                                     </span>
                                                 </div>
                                                 <div className="space-y-2 mb-6 flex-grow">
@@ -523,7 +534,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                         </thead>
                                         <tbody>
                                             {admission.paymentBreakdown?.map((payment, index) => {
-                                                const previousPaid = index === 0 || ["PAID", "COMPLETED"].includes(admission.paymentBreakdown[index - 1].status);
+                                                const previousPaid = index === 0 || ["PAID", "COMPLETED", "PENDING_CLEARANCE"].includes(admission.paymentBreakdown[index - 1].status);
                                                 const isPaid = ["PAID", "COMPLETED"].includes(payment.status);
 
                                                 return (

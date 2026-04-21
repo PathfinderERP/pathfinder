@@ -28,8 +28,9 @@ export const getTransactionReport = async (req, res) => {
         let baseAttributesMatch = {
             paidAmount: { $gt: 0 },
             $or: [
-                { status: { $in: ["PAID", "PARTIAL"] } },
-                { paymentMethod: "CHEQUE", status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] } }
+                { status: { $in: ["PAID", "PARTIAL", "COMPLETED", "SUCCESS"] } },
+                { paymentMethod: "CHEQUE" }, // Show all cheques (pending, cleared, rejected) in report for visibility
+                { billId: { $exists: true, $ne: null } } // Any record that has been billed should be visible
             ]
         };
 
@@ -67,8 +68,8 @@ export const getTransactionReport = async (req, res) => {
             end.setHours(23, 59, 59, 999);
             paymentMatch.$expr = {
                 $and: [
-                    { $gte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, start] },
-                    { $lte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, end] }
+                    { $gte: [{ $ifNull: ["$paidDate", "$createdAt"] }, start] },
+                    { $lte: [{ $ifNull: ["$paidDate", "$createdAt"] }, end] }
                 ]
             };
         } else if (year && !isNaN(parseInt(year))) {
@@ -77,14 +78,15 @@ export const getTransactionReport = async (req, res) => {
             const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59);
             paymentMatch.$expr = {
                 $and: [
-                    { $gte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, startOfYear] },
-                    { $lte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, endOfYear] }
+                    { $gte: [{ $ifNull: ["$paidDate", "$createdAt"] }, startOfYear] },
+                    { $lte: [{ $ifNull: ["$paidDate", "$createdAt"] }, endOfYear] }
                 ]
             };
-        } else {
+        } else if (!search) {
             // Default: Ensure we only show transactions that have actually happened (not future dates)
+            // But skip this if searching specifically for a record
             paymentMatch.$expr = {
-                $lte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, new Date()]
+                $lte: [{ $ifNull: ["$paidDate", "$createdAt"] }, new Date()]
             };
         }
 
@@ -211,7 +213,7 @@ export const getTransactionReport = async (req, res) => {
                     }
                 }
             },
-            { $unwind: "$admissionInfo" },
+            { $unwind: { path: "$admissionInfo", preserveNullAndEmptyArrays: true } },
 
             // Lookup Student Details (handle difference between 'student' and 'studentId' fields)
             {
@@ -252,7 +254,7 @@ export const getTransactionReport = async (req, res) => {
             // Add Fallback Date for Grouping
             {
                 $addFields: {
-                    reportDate: { $ifNull: ["$paidDate", { $ifNull: ["$receivedDate", "$createdAt"] }] },
+                    reportDate: { $ifNull: ["$paidDate", "$createdAt"] },
                     revenueBase: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] }
                 }
             },
@@ -333,7 +335,13 @@ export const getTransactionReport = async (req, res) => {
         // Process Detailed Report (Separate Query for Flattened Data)
         const detailedData = await Payment.aggregate([
             { $match: paymentMatch },
-            { $sort: { paidDate: -1 } }, // Sort early to minimize memory usage
+            // Date field normalization for sorting - prioritize system recording date (createdAt) for the audit list
+            {
+                $addFields: {
+                    effectiveDate: { $ifNull: ["$paidDate", "$createdAt"] }
+                }
+            },
+            { $sort: { createdAt: -1, effectiveDate: -1 } }, 
             // 2. Lookup Admission Details from both potential collections
             {
                 $lookup: {
@@ -457,7 +465,7 @@ export const getTransactionReport = async (req, res) => {
             {
                 $project: {
                     transactionId: "$transactionId",
-                    paymentDate: "$paidDate",
+                    paymentDate: { $ifNull: ["$paidDate", "$createdAt"] },
                     amount: "$paidAmount",
                     method: "$paymentMethod",
                     status: "$status",
@@ -570,7 +578,7 @@ export const getTransactionReport = async (req, res) => {
             {
                 $project: {
                     paidAmount: 1,
-                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate"] }
+                    effectiveDate: { $ifNull: ["$paidDate", "$createdAt"] }
                 }
             },
             {
@@ -1061,7 +1069,7 @@ export const getTransactionReport = async (req, res) => {
 //             {
 //                 $project: {
 //                     paidAmount: 1,
-//                     effectiveDate: { $ifNull: ["$receivedDate", "$paidDate"] }
+//                     effectiveDate: { $ifNull: ["$receivedDate", { $ifNull: ["$paidDate", "$createdAt"] }] }
 //                 }
 //             },
 //             {

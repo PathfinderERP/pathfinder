@@ -54,7 +54,7 @@ const populateAdmissions = async (cheques) => {
         .populate({ path: "course", select: "courseName" })
         .populate({ path: "department", select: "departmentName" })
         .lean();
-    
+
     const normalMap = new Map(normalAdmissions.map(a => [a._id.toString(), a]));
 
     // Identify IDs that were not found in Normal Admissions
@@ -186,13 +186,13 @@ export const getPendingCheques = async (req, res) => {
         const formattedCheques = cheques.map(c => {
             const adm = c.admission;
             const isBoard = c.isBoardAdmission;
-            
+
             return {
                 paymentId: c._id,
                 admissionId: adm?._id,
                 admissionNumber: adm?.admissionNumber,
-                studentName: isBoard 
-                    ? adm?.studentName 
+                studentName: isBoard
+                    ? adm?.studentName
                     : adm?.student?.studentsDetails?.[0]?.studentName,
                 centre: adm?.centre,
                 department: isBoard ? "Board" : adm?.department?.departmentName,
@@ -254,10 +254,12 @@ export const clearCheque = async (req, res) => {
         payment.clearedOrRejectedDate = new Date(clearedDate);
         payment.processedBy = req.user.id || req.user._id;
 
-        // Generate Bill ID
-        let centre = await CentreSchema.findOne({ centreName: admission.centre });
-        const centreCode = centre?.enterCode || "GEN";
-        payment.billId = await generateBillId(centreCode, new Date());
+        // Generate Bill ID only if it doesn't already have one (from the reception stage)
+        if (!payment.billId) {
+            let centre = await CentreSchema.findOne({ centreName: admission.centre });
+            const centreCode = centre?.enterCode || "GEN";
+            payment.billId = await generateBillId(centreCode, clearedDate || new Date());
+        }
 
         await payment.save();
 
@@ -269,13 +271,13 @@ export const clearCheque = async (req, res) => {
                 if (inst.paidAmount >= (inst.payableAmount || 0) - 0.5) {
                     inst.status = "PAID";
                 }
-                
+
                 // Also check and update the specific transaction status if needed (though Payment doc is the source)
             }
 
             // 3. Recalculate Board Admission totalPaidAmount
             admission.totalPaidAmount = admission.installments.reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0);
-            
+
             // Note: Board Admissions use a different status management (ACTIVE/COMPLETED)
             if (admission.totalPaidAmount >= (admission.totalExpectedAmount || 0) - 0.5) {
                 admission.status = "COMPLETED";
@@ -379,7 +381,7 @@ export const rejectCheque = async (req, res) => {
             if (inst) {
                 // Subtract the rejected amount
                 inst.paidAmount = Math.max(0, (inst.paidAmount || 0) - (payment.paidAmount || 0));
-                
+
                 // Reset to PENDING or OVERDUE
                 const today = new Date();
                 if (new Date(inst.dueDate) < today) {
@@ -391,7 +393,7 @@ export const rejectCheque = async (req, res) => {
                     if (inst.paidAmount > 0) inst.status = "PARTIAL";
                     else inst.status = "PENDING";
                 }
-                
+
                 // Find and remove the transaction from the array if possible
                 if (payment.transactionId) {
                     inst.paymentTransactions = inst.paymentTransactions.filter(t => t.transactionId !== payment.transactionId);
@@ -402,13 +404,13 @@ export const rejectCheque = async (req, res) => {
             // Check if it was an exam fee (some cheques might be for exam fees)
             const isExamFee = payment.remarks?.toLowerCase().includes("exam");
             if (isExamFee) {
-                 admission.examFeePaid = Math.max(0, (admission.examFeePaid || 0) - (payment.paidAmount || 0));
-                 if (admission.examFeePaid > 0) admission.examFeeStatus = "PARTIAL";
-                 else admission.examFeeStatus = "PENDING";
+                admission.examFeePaid = Math.max(0, (admission.examFeePaid || 0) - (payment.paidAmount || 0));
+                if (admission.examFeePaid > 0) admission.examFeeStatus = "PARTIAL";
+                else admission.examFeeStatus = "PENDING";
             }
 
             admission.totalPaidAmount = admission.installments.reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0);
-            
+
             // Re-trigger cascade if needed (handled by the controller logic usually)
             // For now, we manually recalculate the chain for board admissions to be safe
             let runningBalance = 0;
@@ -417,7 +419,7 @@ export const rejectCheque = async (req, res) => {
                 const current = admission.installments[i];
                 const netMonthly = (current.standardAmount || 0) - (current.waiverAmount || 0);
                 const extraFees = current.monthNumber === 1 ? (Number(admission.admissionFee) || 0) : 0;
-                
+
                 if (current.monthNumber > 1 && !adjustmentApplied && Math.abs(runningBalance) > 0.5) {
                     current.adjustmentAmount = -runningBalance;
                     adjustmentApplied = true;
@@ -426,7 +428,7 @@ export const rejectCheque = async (req, res) => {
                 }
 
                 current.payableAmount = Math.max(0, netMonthly + extraFees + (current.adjustmentAmount || 0));
-                
+
                 if (current.paidAmount >= current.payableAmount - 0.5 && current.payableAmount > 0) {
                     current.status = "PAID";
                 } else if (current.paidAmount > 0.5) {
@@ -442,27 +444,42 @@ export const rejectCheque = async (req, res) => {
             }
         } else {
             // 2. Update Normal Admission paymentBreakdown or Down Payment
+            const today = new Date();
+
             if (payment.installmentNumber === 0) {
                 admission.downPaymentStatus = "REJECTED";
                 admission.downPaymentTransactionId = null;
                 admission.remarks = (admission.remarks ? admission.remarks + "; " : "") + `Down payment cheque rejected: ${reason}`;
-            } else {
-                const installment = (admission.paymentBreakdown || []).find(
-                    p => p.installmentNumber === payment.installmentNumber
-                );
+            }
 
-                if (installment) {
-                    const today = new Date();
-                    if (new Date(installment.dueDate) < today) {
-                        installment.status = "OVERDUE";
-                    } else {
-                        installment.status = "PENDING";
+            // Find the primary installment for this payment
+            const installment = (admission.paymentBreakdown || []).find(
+                p => p.installmentNumber === payment.installmentNumber
+            );
+
+            if (installment) {
+                installment.status = (new Date(installment.dueDate) < today) ? "OVERDUE" : "PENDING";
+                installment.paidAmount = 0;
+                installment.paymentMethod = null;
+                installment.transactionId = null;
+                installment.remarks = (installment.remarks ? installment.remarks + "; " : "") + `Cheque rejected: ${reason}`;
+            }
+
+            // --- CASCADING REVERSION (Crucial Fix) ---
+            // If this payment credited future installments (Auto-Credit), we must revert them too.
+            if (payment.transactionId) {
+                const searchId = payment.transactionId;
+                (admission.paymentBreakdown || []).forEach(p => {
+                    // Check if this installment was paid using the rejected transaction ID (even as auto-credit)
+                    if (p.transactionId && p.transactionId.includes(searchId) && p.installmentNumber !== payment.installmentNumber) {
+                        console.log(`Cascading Rejection: Reverting auto-paid Inst #${p.installmentNumber} linked to txn ${searchId}`);
+                        p.status = (new Date(p.dueDate) < today) ? "OVERDUE" : "PENDING";
+                        p.paidAmount = 0;
+                        p.paymentMethod = null;
+                        p.transactionId = null;
+                        p.remarks = (p.remarks ? p.remarks + "; " : "") + `Reverted due to rejection of source cheque ${searchId}`;
                     }
-                    installment.paidAmount = 0;
-                    installment.paymentMethod = null;
-                    installment.transactionId = null;
-                    installment.remarks = (installment.remarks ? installment.remarks + "; " : "") + `Cheque rejected: ${reason}`;
-                }
+                });
             }
 
             // 3. Recalculate Normal Admission totalPaidAmount
@@ -617,8 +634,8 @@ export const getAllCheques = async (req, res) => {
             return {
                 id: c._id,
                 paymentId: c._id,
-                studentName: isBoard 
-                    ? adm?.studentName 
+                studentName: isBoard
+                    ? adm?.studentName
                     : (adm?.student?.studentsDetails?.[0]?.studentName || "Unknown"),
                 admissionNo: adm?.admissionNumber || "N/A",
                 chequeNumber: c.transactionId || "N/A",
@@ -692,11 +709,11 @@ export const cancelCheque = async (req, res) => {
             if (inst) {
                 // Subtract the cancelled amount
                 inst.paidAmount = Math.max(0, (inst.paidAmount || 0) - (payment.paidAmount || 0));
-                
+
                 // Reset status
                 if (inst.paidAmount > 0.5) inst.status = "PARTIAL";
                 else inst.status = "PENDING";
-                
+
                 // Remove transaction
                 if (payment.transactionId) {
                     inst.paymentTransactions = inst.paymentTransactions.filter(t => t.transactionId !== payment.transactionId);
@@ -706,13 +723,13 @@ export const cancelCheque = async (req, res) => {
             // 3. Recalculate Board Admission totals
             const isExamFee = payment.remarks?.toLowerCase().includes("exam");
             if (isExamFee) {
-                 admission.examFeePaid = Math.max(0, (admission.examFeePaid || 0) - (payment.paidAmount || 0));
-                 if (admission.examFeePaid > 0) admission.examFeeStatus = "PARTIAL";
-                 else admission.examFeeStatus = "PENDING";
+                admission.examFeePaid = Math.max(0, (admission.examFeePaid || 0) - (payment.paidAmount || 0));
+                if (admission.examFeePaid > 0) admission.examFeeStatus = "PARTIAL";
+                else admission.examFeeStatus = "PENDING";
             }
 
             admission.totalPaidAmount = admission.installments.reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0);
-            
+
             // Recalculate cascade
             let runningBalance = 0;
             let adjustmentApplied = false;
@@ -720,7 +737,7 @@ export const cancelCheque = async (req, res) => {
                 const current = admission.installments[i];
                 const netMonthly = (current.standardAmount || 0) - (current.waiverAmount || 0);
                 const extraFees = current.monthNumber === 1 ? (Number(admission.admissionFee) || 0) : 0;
-                
+
                 if (current.monthNumber > 1 && !adjustmentApplied && Math.abs(runningBalance) > 0.5) {
                     current.adjustmentAmount = -runningBalance;
                     adjustmentApplied = true;
@@ -729,7 +746,7 @@ export const cancelCheque = async (req, res) => {
                 }
 
                 current.payableAmount = Math.max(0, netMonthly + extraFees + (current.adjustmentAmount || 0));
-                
+
                 if (current.paidAmount >= current.payableAmount - 0.5 && current.payableAmount > 0) {
                     current.status = "PAID";
                 } else if (current.paidAmount > 0.5) {
@@ -745,28 +762,43 @@ export const cancelCheque = async (req, res) => {
             }
         } else {
             // 2. Update Normal Admission paymentBreakdown or Down Payment
+            const today = new Date();
+
             if (payment.installmentNumber === 0) {
                 if (admission.downPaymentStatus === "PAID" || admission.downPaymentStatus === "PENDING_CLEARANCE") {
-                    admission.downPaymentStatus = "REJECTED"; 
+                    admission.downPaymentStatus = "REJECTED";
                 }
                 admission.remarks = (admission.remarks ? admission.remarks + "; " : "") + `Down payment cheque cancelled: ${reason}`;
-            } else {
-                const installment = (admission.paymentBreakdown || []).find(
-                    p => p.installmentNumber === payment.installmentNumber
-                );
+            }
 
-                if (installment) {
-                    const today = new Date();
-                    if (new Date(installment.dueDate) < today) {
-                        installment.status = "OVERDUE";
-                    } else {
-                        installment.status = "PENDING";
+            // Find the primary installment
+            const installment = (admission.paymentBreakdown || []).find(
+                p => p.installmentNumber === payment.installmentNumber
+            );
+
+            if (installment) {
+                installment.status = (new Date(installment.dueDate) < today) ? "OVERDUE" : "PENDING";
+                installment.paidAmount = 0;
+                installment.paymentMethod = null;
+                installment.transactionId = null;
+                installment.remarks = (installment.remarks ? installment.remarks + "; " : "") + `Cheque cancelled: ${reason}`;
+            }
+
+            // --- CASCADING REVERSION (Crucial Fix) ---
+            // If this payment credited future installments (Auto-Credit), we must revert them too.
+            if (payment.transactionId) {
+                const searchId = payment.transactionId;
+                (admission.paymentBreakdown || []).forEach(p => {
+                    // Check if this installment was paid using the cancelled transaction ID (even as auto-credit)
+                    if (p.transactionId && p.transactionId.includes(searchId) && p.installmentNumber !== payment.installmentNumber) {
+                        console.log(`Cascading Cancellation: Reverting auto-paid Inst #${p.installmentNumber} linked to txn ${searchId}`);
+                        p.status = (new Date(p.dueDate) < today) ? "OVERDUE" : "PENDING";
+                        p.paidAmount = 0;
+                        p.paymentMethod = null;
+                        p.transactionId = null;
+                        p.remarks = (p.remarks ? p.remarks + "; " : "") + `Reverted due to cancellation of source cheque ${searchId}`;
                     }
-                    installment.paidAmount = 0;
-                    installment.paymentMethod = null;
-                    installment.transactionId = null;
-                    installment.remarks = (installment.remarks ? installment.remarks + "; " : "") + `Cheque cancelled: ${reason}`;
-                }
+                });
             }
 
             // 3. Recalculate Normal Admission totalPaidAmount

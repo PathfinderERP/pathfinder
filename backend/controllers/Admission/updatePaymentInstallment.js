@@ -5,6 +5,13 @@ import CentreSchema from "../../models/Master_data/Centre.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 import { updateCentreTargetAchieved } from "../../services/centreTargetService.js";
 
+// Helper to calculate next months due date
+const getNextMonthDate = (startDate, monthsToAdd) => {
+    const date = new Date(startDate);
+    date.setMonth(date.getMonth() + monthsToAdd);
+    return date;
+};
+
 export const updatePaymentInstallment = async (req, res) => {
     try {
         const { admissionId, installmentNumber } = req.params;
@@ -81,14 +88,7 @@ export const updatePaymentInstallment = async (req, res) => {
         const nextInstallmentIndex = admission.paymentBreakdown.findIndex(p => p.installmentNumber === (parseInt(installmentNumber) + 1));
         const hasNextInstallment = nextInstallmentIndex !== -1;
 
-        if ((isLastInstallment || !hasNextInstallment) && !carryForward) {
-            // Strict check for last installment ONLY if NOT carrying forward
-            if (paidAmountFloat < originalAmount) {
-                return res.status(400).json({
-                    message: "Final installment must be paid in full unless carrying forward."
-                });
-            }
-        }
+        // Note: Restriction on last installment underpayment removed to allow auto-creation of new milestones
 
         installment.status = (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID";
 
@@ -128,7 +128,22 @@ export const updatePaymentInstallment = async (req, res) => {
                 nextInstallment.remarks = (nextInstallment.remarks ? nextInstallment.remarks + "; " : "") + `Includes ₹${difference} arrears from Inst #${installmentNumber}`;
                 console.log(`Updated Next Inst #${nextInstallment.installmentNumber}: Increased to ₹${nextInstallment.amount}`);
             } else {
-                console.warn("Partial payment on last installment accepted (validation skipped?).");
+                // If it's the last installment, create a new one for the remaining balance
+                if (isLastInstallment) {
+                    const lastInst = installment;
+                    admission.paymentBreakdown.push({
+                        installmentNumber: lastInst.installmentNumber + 1,
+                        dueDate: getNextMonthDate(lastInst.dueDate, 1),
+                        amount: difference,
+                        status: "PENDING",
+                        paidAmount: 0,
+                        remarks: `Arrears from Inst #${installmentNumber}`
+                    });
+                    admission.numberOfInstallments = admission.paymentBreakdown.length;
+                    console.log(`Created NEW installment #${lastInst.installmentNumber + 1} for arrears: ₹${difference}`);
+                } else {
+                    console.warn("Partial payment on last installment accepted (validation skipped?).");
+                }
             }
         } else if (difference < 0) {
             // Excess Payment (Overpayment)
@@ -147,6 +162,7 @@ export const updatePaymentInstallment = async (req, res) => {
                 .filter(p => p.installmentNumber > parseInt(installmentNumber) && !["PAID", "COMPLETED"].includes(p.status))
                 .sort((a, b) => a.installmentNumber - b.installmentNumber);
 
+            let coveredInstallments = [];
             for (const nextInst of subsequentInstallments) {
                 if (excess <= 0) break;
                 
@@ -168,40 +184,17 @@ export const updatePaymentInstallment = async (req, res) => {
                         nextInst.paymentMethod = paymentMethod;
                         nextInst.transactionId = `${finalTransactionId} (Auto-Credit)`;
                         
-                        // Create a reference Payment record for the auto-settled installment
-                        try {
-                            const billId = await generateBillId(centreCode, new Date());
-                            const autoPayment = new Payment({
-                                admission: admissionId,
-                                installmentNumber: nextInst.installmentNumber,
-                                amount: 0,
-                                paidAmount: 0,
-                                dueDate: nextInst.dueDate,
-                                paidDate: nextInst.paidDate,
-                                receivedDate: nextInst.receivedDate,
-                                status: "PAID",
-                                paymentMethod: paymentMethod,
-                                transactionId: nextInst.transactionId,
-                                accountHolderName: accountHolderName,
-                                chequeDate: chequeDate,
-                                remarks: `Auto-settled via surplus from Inst #${installmentNumber}`,
-                                recordedBy: req.user?._id,
-                                cgst: 0,
-                                sgst: 0,
-                                courseFee: 0,
-                                totalAmount: 0,
-                                isCarryForward: false,
-                                billId: billId
-                            });
-                            await autoPayment.save();
-                            console.log(`Auto-settled Inst #${nextInst.installmentNumber} with Bill ID: ${billId}`);
-                        } catch (err) {
-                            console.error(`Error creating auto-payment record for Inst #${nextInst.installmentNumber}:`, err);
-                        }
+                        coveredInstallments.push(nextInst.installmentNumber);
+                        console.log(`Auto-settled Inst #${nextInst.installmentNumber}`);
                     }
                     
                     console.log(`Adjusted Inst #${nextInst.installmentNumber}: Deducted ₹${deductFromThis}, New Bal: ₹${nextInst.amount}, Remaining Excess: ₹${excess}`);
                 }
+            }
+
+            if (coveredInstallments.length > 0) {
+                const coverageNote = `Surplus covers future Inst #${coveredInstallments.join(', #')}`;
+                installment.remarks = installment.remarks ? `${installment.remarks}; ${coverageNote}` : coverageNote;
             }
 
             if (excess > 0) {
@@ -281,7 +274,7 @@ export const updatePaymentInstallment = async (req, res) => {
             // Generate bill ID only if PAID (unless it's a CHEQUE which needs an ID for clearance)
             let newBillId = null;
             if (!payment || !payment.billId) {
-                newBillId = await generateBillId(centreCode, new Date());
+                newBillId = await generateBillId(centreCode, installment.receivedDate);
                 console.log(`Generated new bill ID: ${newBillId} for transaction: ${finalTransactionId}`);
             }
 

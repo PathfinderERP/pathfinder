@@ -235,11 +235,11 @@ export const createBoardAdmission = async (req, res) => {
 
                 const paymentRecord = new Payment({
                     admission: newAdmission._id,
-                    installmentNumber: 1,
+                    installmentNumber: 0, // First payment is now 0 to match standard
                     amount: installments[0].payableAmount + (Number(paidExamFee) > 0 ? Number(paidExamFee) : 0),
                     paidAmount: totalPaidToday,
                     dueDate: installments[0].dueDate,
-                    paidDate: new Date(),
+                    paidDate: (paymentMethod === "CHEQUE") ? null : new Date(),
                     receivedDate: receivedDate || new Date(),
                     status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
                     paymentMethod: paymentMethod || "CASH",
@@ -497,7 +497,7 @@ export const collectBoardExamFee = async (req, res) => {
                 centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } });
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
-            const billId = await generateBillId(centreCode, new Date());
+            const billId = await generateBillId(centreCode, receivedDate || new Date());
 
             const taxableAmount = paidAmount / 1.18;
             const cgst = (paidAmount - taxableAmount) / 2;
@@ -509,7 +509,7 @@ export const collectBoardExamFee = async (req, res) => {
                 amount: admission.examFee,
                 paidAmount: paidAmount,
                 dueDate: new Date(),
-                paidDate: new Date(),
+                paidDate: (paymentMethod === "CHEQUE") ? null : new Date(),
                 receivedDate: receivedDate || new Date(),
                 status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
                 paymentMethod: paymentMethod,
@@ -697,7 +697,7 @@ export const collectBoardInstallment = async (req, res) => {
                 centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } });
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
-            const billId = await generateBillId(centreCode, new Date());
+            const billId = await generateBillId(centreCode, receivedDate || new Date());
 
             const totalPaidToday = Number(amount) + Number(paidExamFee) + Number(paidAdditionalThings);
             if (totalPaidToday <= 0) return; // Nothing to record
@@ -716,11 +716,11 @@ export const collectBoardInstallment = async (req, res) => {
 
             const paymentRecord = new Payment({
                 admission: admission._id,
-                installmentNumber: inst.monthNumber,
+                installmentNumber: inst.monthNumber - 1,
                 amount: inst.payableAmount + (Number(paidExamFee) > 0 ? Number(paidExamFee) : 0) + (Number(paidAdditionalThings) > 0 ? Number(paidAdditionalThings) : 0),
                 paidAmount: totalPaidToday,
                 dueDate: inst.dueDate,
-                paidDate: new Date(),
+                paidDate: (paymentMethod === "CHEQUE") ? null : new Date(),
                 receivedDate: receivedDate || new Date(),
                 status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : inst.status,
                 paymentMethod: paymentMethod,

@@ -81,56 +81,100 @@ export const generateBill = async (req, res) => {
         let installment;
         let isDownPayment = false;
 
-        if (isBoardAdmission && installmentNum !== 0) {
-            installment = admission.installments.find(i => i.monthNumber === installmentNum);
+        const isBoardType = isBoardAdmission || admission.admissionType === 'BOARD';
+
+        if (isBoardType) {
+            // Priority 1: Check for a direct match in installments (could be 0-indexed or 1-indexed)
+            installment = (admission.installments || []).find(i => i.monthNumber === installmentNum);
+            
+            // Priority 2: If not found, try the 0-indexed mapping (installment 0 -> month 1)
+            if (!installment) {
+                installment = (admission.installments || []).find(i => i.monthNumber === installmentNum + 1);
+            }
+
+            // Fallback for standalone board exam fees (always 0)
+            if (!installment && installmentNum === 0) {
+                isDownPayment = true;
+                installment = {
+                    installmentNumber: 0,
+                    amount: admission.examFee || 0,
+                    paidAmount: admission.examFeePaid || 0,
+                    dueDate: admission.admissionDate,
+                    paidDate: admission.admissionDate,
+                    status: (admission.examFeeStatus === "PAID" || admission.examFeePaid > 0) ? "PAID" : "PENDING",
+                    paymentMethod: "CASH",
+                    remarks: "Board Examination Fee"
+                };
+            }
         } else if (installmentNum === 0) {
-            // Standalone fee (Exam Fee / Down Payment / etc)
+            // Standard Admission Down Payment
             isDownPayment = true;
-            // For Board Admissions, installment 0 is usually the Exam Fee or initial standalone fee
-            // We'll create a virtual object from the payment record or admission data
             installment = {
                 installmentNumber: 0,
-                amount: isBoardAdmission ? admission.examFee : admission.downPayment,
-                paidAmount: isBoardAdmission ? admission.examFeePaid : admission.downPayment,
+                amount: admission.downPayment,
+                paidAmount: admission.downPayment,
                 dueDate: admission.admissionDate,
                 paidDate: admission.admissionDate,
-                status: isBoardAdmission ? admission.examFeeStatus : (admission.downPaymentStatus || "PAID"),
-                paymentMethod: "CASH", // Will be overridden by actual payment record below
-                remarks: isBoardAdmission ? "Board Examination Fee" : "Down Payment at Admission"
+                status: (admission.downPaymentStatus === "PENDING_CLEARANCE") ? "PENDING_CLEARANCE" : "PAID",
+                paymentMethod: "CASH",
+                remarks: "Down Payment at Admission"
             };
         } else {
-            // Find the installment in payment breakdown for standard admissions
             installment = admission.paymentBreakdown.find(
                 p => p.installmentNumber === installmentNum
             );
         }
 
         if (!installment) {
-            console.error(`❌ Installment #${installmentNum} not found in admission`);
+            console.error(`❌ Installment #${installmentNum} not found in admission ${admissionId}. Type: ${admission.admissionType}`);
             return res.status(404).json({ message: "Installment not found" });
         }
 
-        if (installment.status !== "PAID" && installment.status !== "PENDING_CLEARANCE" && installment.status !== "PARTIAL") {
-            // Special check: If any amount is paid for installment 0, allow bill generation
-            if (!(installmentNum === 0 && installment.paidAmount > 0)) {
-                console.error(`❌ Installment #${installmentNum} is not PAID or PENDING_CLEARANCE. Status: ${installment.status}`);
+        // --- STATUS VALIDATION RELAXATION ---
+        // RELAXATION: If a Payment record ALREADY EXISTS, we should allow printing 
+        // even if the Admission record's status hasn't synced (Self-healing).
+        // Since we are transitioning 1-indexed to 0-indexed for Board, we check both for the first month.
+        let paymentLookupNum = installmentNum;
+        let existingPaymentRecord = await Payment.findOne({
+            admission: admissionId,
+            installmentNumber: paymentLookupNum,
+            status: { $nin: ["REJECTED", "CANCELLED"] }
+        }).sort({ createdAt: -1 });
+
+        if (!existingPaymentRecord && isBoardType && (installmentNum === 0 || installmentNum === 1)) {
+            // Try the alternate index for the first month
+            existingPaymentRecord = await Payment.findOne({
+                admission: admissionId,
+                installmentNumber: (installmentNum === 0 ? 1 : 0),
+                status: { $nin: ["REJECTED", "CANCELLED"] }
+            }).sort({ createdAt: -1 });
+            
+            if (existingPaymentRecord) {
+                paymentLookupNum = existingPaymentRecord.installmentNumber; // Update to the found record's index
+            }
+        }
+
+        if (!existingPaymentRecord && installment.status !== "PAID" && installment.status !== "PENDING_CLEARANCE" && installment.status !== "PARTIAL") {
+            // Special check: If any amount is paid for installment 0/1, allow bill generation
+            if (!( (installmentNum === 0 || installmentNum === 1) && (installment.paidAmount > 0 || (isBoardType && (admission.examFeePaid > 0 || admission.totalPaidAmount > 0))))) {
+                console.error(`❌ Installment #${installmentNum} is not PAID. Status: ${installment.status}`);
                 return res.status(400).json({ message: "Cannot generate bill for unpaid installment" });
             }
         }
 
-        // Check if payment record exists
-        const { billingMonth, billId } = req.query;
+        // --- QUERY CONSTRUCTION ---
+        const { billingMonth, billId: queryBillId } = req.query;
 
         let query;
-        if (billId) {
-            query = { billId: billId };
+        if (queryBillId) {
+            query = { billId: queryBillId };
         } else {
             query = {
                 admission: admissionId,
-                installmentNumber: installmentNum
+                installmentNumber: paymentLookupNum // Use the matched index (0 or 1)
             };
 
-            if (isBoardAdmission || admission.admissionType === 'BOARD') {
+            if (isBoardType) {
                 if (installmentNum === 0 && !isBoardAdmission) {
                     // Down payments
                 } else if (billingMonth) {
@@ -139,7 +183,7 @@ export const generateBill = async (req, res) => {
             }
         }
 
-        let payment = await Payment.findOne(query);
+        let payment = await Payment.findOne(query).sort({ createdAt: -1 });
 
         // Determine the actual total amount paid for this bill from source of truth
         // For installment 0 (standard), we trust admission.downPayment. 

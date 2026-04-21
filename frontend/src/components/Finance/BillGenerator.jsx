@@ -152,14 +152,27 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             doc.setFont('helvetica', 'normal');
             doc.text(copyType, xOffset + halfWidth - margin, yPos, { align: 'right' });
 
-            // Status (RECEIVED / IN PROCESS)
+            // Status (RECEIVED / IN PROCESS / REJECTED)
             doc.setFontSize(9);
-            doc.setTextColor(0, 0, 200);
-            doc.setFont('helvetica', 'bold');
             const status = billData.payment?.status;
             const method = localSafeStr(billData.payment?.paymentMethod).toUpperCase();
-            const isPendingClearance = status === "PENDING_CLEARANCE" || (method === "CHEQUE" && status !== "PAID");
-            const statusLabel = isPendingClearance ? "IN PROCESS" : "RECEIVED";
+
+            let statusLabel = "RECEIVED";
+            let statusColor = [0, 150, 0]; // Green
+
+            if (status === "REJECTED") {
+                statusLabel = "REJECTED";
+                statusColor = [200, 0, 0]; // Red
+            } else if (status === "CANCELLED") {
+                statusLabel = "CANCELLED";
+                statusColor = [150, 150, 150]; // Gray
+            } else if (status === "PENDING_CLEARANCE" || (method === "CHEQUE" && status === "PENDING")) {
+                statusLabel = "IN PROCESS";
+                statusColor = [0, 0, 200]; // Blue
+            }
+
+            doc.setTextColor(...statusColor);
+            doc.setFont('helvetica', 'bold');
             doc.text(statusLabel, xOffset + halfWidth - margin, yPos + 5, { align: 'right' });
 
             // Centre Address (Centred)
@@ -506,9 +519,21 @@ const BillGenerator = ({ admission, installment, onClose }) => {
                                             <span className="text-gray-400 block">Date: {new Date(billData.billDate).toLocaleDateString('en-IN')}</span>
                                         </div>
                                         <div className="text-right">
-                                            <span className={`text-sm font-bold px-3 py-1 rounded-full ${(billData.payment?.status === "PENDING_CLEARANCE" || (safeStr(billData.payment?.paymentMethod).toUpperCase() === "CHEQUE" && billData.payment?.status !== "PAID")) ? "bg-blue-500/20 text-blue-400" : "bg-emerald-500/20 text-emerald-400"}`}>
-                                                {(billData.payment?.status === "PENDING_CLEARANCE" || (safeStr(billData.payment?.paymentMethod).toUpperCase() === "CHEQUE" && billData.payment?.status !== "PAID")) ? "IN PROCESS" : "RECEIVED"}
-                                            </span>
+                                            {(() => {
+                                                const status = billData.payment?.status;
+                                                const method = safeStr(billData.payment?.paymentMethod).toUpperCase();
+                                                
+                                                if (status === "REJECTED") {
+                                                    return <span className="text-sm font-bold px-3 py-1 rounded-full bg-red-500/20 text-red-500">REJECTED</span>;
+                                                }
+                                                if (status === "CANCELLED") {
+                                                    return <span className="text-sm font-bold px-3 py-1 rounded-full bg-gray-500/20 text-gray-400">CANCELLED</span>;
+                                                }
+                                                if (status === "PENDING_CLEARANCE" || (method === "CHEQUE" && status === "PENDING")) {
+                                                    return <span className="text-sm font-bold px-3 py-1 rounded-full bg-blue-500/20 text-blue-400">IN PROCESS</span>;
+                                                }
+                                                return <span className="text-sm font-bold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400">RECEIVED</span>;
+                                            })()}
                                         </div>
                                     </div>
                                 </div>
@@ -561,7 +586,7 @@ const BillGenerator = ({ admission, installment, onClose }) => {
                                                 </span>
                                             </div>
                                         )}
-                                        <div><span className="text-gray-400">Payment Date:</span> <span className="text-white font-medium">{new Date(billData.payment.paidDate).toLocaleDateString('en-IN')}</span></div>
+                                        <div><span className="text-gray-400">Payment Date:</span> <span className="text-white font-medium">{new Date(billData.payment.paidDate || billData.payment.receivedDate).toLocaleDateString('en-IN')}</span></div>
                                         {['CHEQUE', 'BANK_TRANSFER'].includes(billData.payment.paymentMethod) && (
                                             <>
                                                 <div><span className="text-gray-400">Payer Name:</span> <span className="text-white font-medium">{billData.payment.accountHolderName || 'N/A'}</span></div>

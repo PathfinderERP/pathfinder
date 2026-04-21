@@ -717,9 +717,9 @@ const StudentRegistrationForm = () => {
                                         <h4 className={sectionTitle}>PRIOR ACADEMIC PERFORMANCE MATRIX</h4>
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                                             <div>
-                                                <label className={labelClass}>EXAM TAG IDENTIFIER</label>
-                                                <select name="examName" value={formData.examName} onChange={handleChange} className={inputClass}>
-                                                    <option value="">SELECT EXAM TAG</option>
+                                                <label className={labelClass}>EXAM TAG IDENTIFIER *</label>
+                                                <select required name="examName" value={formData.examName} onChange={handleChange} className={inputClass}>
+                                                    <option value="">SELECT EXAM TAG *</option>
                                                     {examTags.map((tag) => (
                                                         <option key={tag._id} value={tag.name}>{tag.name.toUpperCase()}</option>
                                                     ))}
