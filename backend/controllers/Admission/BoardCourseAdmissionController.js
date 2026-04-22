@@ -83,7 +83,7 @@ export const createBoardAdmission = async (req, res) => {
             return selectedSubjectIds.includes(sid);
         });
 
-        if (activeSubjects.length === 0) {
+        if (programme !== "NCRP" && activeSubjects.length === 0) {
             return res.status(400).json({ message: "No valid subjects selected from master data" });
         }
 
@@ -171,7 +171,10 @@ export const createBoardAdmission = async (req, res) => {
 
         // Construct Board Course Name: Board + Class + Programme + Session + Subjects
         const subjectNames = activeSubjects.map(s => (s.subjectId.subName || s.subjectId.name || 'Subject')).join(' + ');
-        let boardCourseName = `${board.boardCourse} Class ${lastClass || ''} ${programme || ''} ${academicSession || ''} : ${subjectNames}`;
+        let boardCourseName = `${board.boardCourse} Class ${lastClass || ''} ${programme || ''} ${academicSession || ''}`;
+        if (programme !== "NCRP") {
+            boardCourseName += ` : ${subjectNames || 'No Subjects'}`;
+        }
 
         if (additionalThingsName && additionalThingsName.trim() !== "") {
             boardCourseName += ` + ${additionalThingsName.trim()}`;
@@ -236,9 +239,9 @@ export const createBoardAdmission = async (req, res) => {
                 const paymentRecord = new Payment({
                     admission: newAdmission._id,
                     installmentNumber: 0, // First payment is now 0 to match standard
-                    amount: installments[0].payableAmount + (Number(paidExamFee) > 0 ? Number(paidExamFee) : 0),
+                    amount: (installments.length > 0 ? installments[0].payableAmount : Number(admissionFee)) + (Number(paidExamFee) > 0 ? Number(paidExamFee) : 0),
                     paidAmount: totalPaidToday,
-                    dueDate: installments[0].dueDate,
+                    dueDate: installments.length > 0 ? installments[0].dueDate : new Date(billingStartDate),
                     paidDate: (paymentMethod === "CHEQUE") ? null : new Date(),
                     receivedDate: receivedDate || new Date(),
                     status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
@@ -248,7 +251,7 @@ export const createBoardAdmission = async (req, res) => {
                     bankName: bankName,
                     accountHolderName: accountHolderName,
                     chequeDate: chequeDate,
-                    billingMonth: new Date(installments[0].dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+                    billingMonth: new Date(installments.length > 0 ? installments[0].dueDate : billingStartDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
                     recordedBy: req.user?._id,
                     billId: billId,
                     courseFee: taxableAmount,
@@ -428,7 +431,10 @@ export const updateBoardSubjects = async (req, res) => {
 
         // Refresh dynamic course name if subjects changed
         const subjectNames = newActiveSubjects.map(s => (s.subjectId.subName || s.subjectId.name || 'Subject')).join(' + ');
-        admission.boardCourseName = `${board.boardCourse} Class ${admission.lastClass || ''} ${admission.programme || ''} ${admission.academicSession || ''} : ${subjectNames}`;
+        admission.boardCourseName = `${board.boardCourse} Class ${admission.lastClass || ''} ${admission.programme || ''} ${admission.academicSession || ''}`;
+        if (admission.programme !== "NCRP") {
+            admission.boardCourseName += ` : ${subjectNames || 'No Subjects'}`;
+        }
 
         // Recalculate total expected amount (already paid + future payables)
         // This keeps the financial history consistent

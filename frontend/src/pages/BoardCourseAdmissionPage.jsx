@@ -53,7 +53,10 @@ const BoardCourseAdmissionPage = () => {
             .sort()
             .join(" + ");
         
-        let name = `${boardName} Class ${lastClass || ''} ${programme || ''} ${academicSession || ''} : ${subNames || 'No Subjects'}`;
+        let name = `${boardName} Class ${lastClass || ''} ${programme || ''} ${academicSession || ''}`;
+        if (programme !== "NCRP") {
+            name += ` : ${subNames || 'No Subjects'}`;
+        }
         if (additionalThingsName && additionalThingsName.trim() !== "") {
             name += ` + ${additionalThingsName.trim()}`;
         }
@@ -282,8 +285,11 @@ const BoardCourseAdmissionPage = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!selectedBoard || selectedSubjectIds.length === 0) {
-            return toast.error("Please select a board and at least one subject");
+        if (!selectedBoard) {
+            return toast.error("Please select a board");
+        }
+        if (programme !== "NCRP" && selectedSubjectIds.length === 0) {
+            return toast.error("Please select at least one subject");
         }
         if (!lastClass) {
             return toast.error("Please select the student's last class");
@@ -552,7 +558,7 @@ const BoardCourseAdmissionPage = () => {
                                 <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Total Duration (Months)</label>
                                 <input
                                     type="number"
-                                    min="1"
+                                    min={programme === "NCRP" ? "0" : "1"}
                                     max="60"
                                     value={durationMonths}
                                     onChange={(e) => setDurationMonths(e.target.value)}
