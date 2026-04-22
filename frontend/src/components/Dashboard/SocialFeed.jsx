@@ -28,6 +28,8 @@ const SocialFeed = () => {
     const [showTagList, setShowTagList] = useState(false);
     const [tagSearchQuery, setTagSearchQuery] = useState("");
     const [activeUsers, setActiveUsers] = useState([]);
+    const [isPosting, setIsPosting] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
     const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const emojiPickerRef = useRef(null);
@@ -282,6 +284,15 @@ const SocialFeed = () => {
             return;
         }
 
+        // Check file sizes upfront — Nginx typically rejects files > 100-200MB
+        const MAX_VIDEO_MB = 200;
+        for (const vid of videos) {
+            if (vid.size > MAX_VIDEO_MB * 1024 * 1024) {
+                toast.error(`Video "${vid.name}" is too large (max ${MAX_VIDEO_MB}MB). Please compress it first.`);
+                return;
+            }
+        }
+
         const formData = new FormData();
         formData.append("content", content);
         if (showPoll && pollQuestion) {
@@ -295,17 +306,48 @@ const SocialFeed = () => {
         }
 
         images.forEach(img => formData.append("images", img));
-        videos.forEach(vid => formData.append("images", vid)); // Backend handles separation check on mimetype
+        videos.forEach(vid => formData.append("images", vid));
+
+        setIsPosting(true);
+        setUploadProgress(0);
+
+        const hasVideos = videos.length > 0;
+        let uploadToastId = null;
+        if (hasVideos) {
+            uploadToastId = toast.loading(`Uploading video${videos.length > 1 ? 's' : ''}... please wait`, { autoClose: false });
+        }
 
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/posts`, {
-                method: "POST",
-                headers: { 'Authorization': `Bearer ${token}` },
-                body: formData
+
+            // Use XHR for video uploads so we get progress events
+            const result = await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open("POST", `${import.meta.env.VITE_API_URL}/posts`);
+                xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+                xhr.upload.onprogress = (event) => {
+                    if (event.lengthComputable) {
+                        const pct = Math.round((event.loaded / event.total) * 100);
+                        setUploadProgress(pct);
+                        if (uploadToastId) {
+                            toast.update(uploadToastId, {
+                                render: `Uploading... ${pct}%`,
+                            });
+                        }
+                    }
+                };
+
+                xhr.onload = () => resolve({ status: xhr.status, body: xhr.responseText });
+                xhr.onerror = () => reject(new Error("Network error — check your connection"));
+                xhr.ontimeout = () => reject(new Error("Upload timed out — video may be too large"));
+                xhr.timeout = 5 * 60 * 1000; // 5 minute timeout for large videos
+                xhr.send(formData);
             });
 
-            if (response.ok) {
+            if (uploadToastId) toast.dismiss(uploadToastId);
+
+            if (result.status >= 200 && result.status < 300) {
                 toast.success("Post shared successfully!");
                 setContent("");
                 setImages([]);
@@ -316,13 +358,24 @@ const SocialFeed = () => {
                 setPollQuestion("");
                 setPollOptions(["", ""]);
                 setSelectedTags([]);
+                setUploadProgress(0);
                 fetchPosts();
             } else {
-                toast.error("Failed to share post");
+                // Parse actual server error for a meaningful message
+                let errMsg = "Failed to share post";
+                try {
+                    const parsed = JSON.parse(result.body);
+                    if (parsed.message) errMsg = parsed.message;
+                } catch (_) { /* ignore */ }
+                if (result.status === 413) errMsg = "File too large — ask your server admin to increase Nginx client_max_body_size";
+                toast.error(errMsg);
             }
         } catch (error) {
+            if (uploadToastId) toast.dismiss(uploadToastId);
             console.error("Post creation error:", error);
-            toast.error("Something went wrong");
+            toast.error(error.message || "Something went wrong while sharing");
+        } finally {
+            setIsPosting(false);
         }
     };
 
@@ -643,9 +696,24 @@ const SocialFeed = () => {
                             <button
                                 type="button"
                                 onClick={handleSubmitPost}
-                                className="bg-cyan-600 hover:bg-cyan-500 text-white px-4 sm:px-6 py-2 rounded-lg font-bold text-xs sm:text-sm shadow-lg shadow-cyan-500/20 active:scale-95 transition-all flex items-center gap-2"
+                                disabled={isPosting}
+                                className={`text-white px-4 sm:px-6 py-2 rounded-lg font-bold text-xs sm:text-sm shadow-lg shadow-cyan-500/20 active:scale-95 transition-all flex items-center gap-2 ${
+                                    isPosting
+                                        ? 'bg-cyan-800 cursor-not-allowed opacity-70'
+                                        : 'bg-cyan-600 hover:bg-cyan-500'
+                                }`}
                             >
-                                <span className="hidden xs:inline">Share</span> <FaPaperPlane size={12} />
+                                {isPosting ? (
+                                    <>
+                                        <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                                        </svg>
+                                        <span className="hidden xs:inline">{uploadProgress > 0 ? `${uploadProgress}%` : 'Uploading...'}</span>
+                                    </>
+                                ) : (
+                                    <><span className="hidden xs:inline">Share</span> <FaPaperPlane size={12} /></>
+                                )}
                             </button>
                         </div>
                     </div>

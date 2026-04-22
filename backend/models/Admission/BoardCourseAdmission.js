@@ -91,6 +91,18 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
+    admissionTime: {
+        type: String,
+        default: () => {
+            const now = new Date();
+            let hours = now.getHours();
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12; 
+            return `${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+        }
+    },
     billingStartDate: {
         type: Date,
         required: true

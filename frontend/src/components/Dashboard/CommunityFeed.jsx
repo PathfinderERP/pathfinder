@@ -19,11 +19,7 @@ const getSocketURL = () => {
     return url.replace(/\/api$/, "");
 };
 
-const socket = io(getSocketURL(), {
-    withCredentials: true,
-    transports: ["websocket", "polling"],
-    autoConnect: false // We will connect manually in useEffect
-});
+// Socket is created inside useEffect to avoid module-level reconnect loops
 
 const CommunityFeed = () => {
     const { theme } = useTheme();
@@ -81,6 +77,17 @@ const CommunityFeed = () => {
     }, [loading]);
 
     useEffect(() => {
+        // Create socket fresh on mount — avoids stale module-level instances
+        const socket = io(getSocketURL(), {
+            withCredentials: true,
+            // Start with polling first so it works even if wss:// is blocked by Nginx,
+            // then upgrades to WebSocket when available.
+            transports: ["polling", "websocket"],
+            reconnectionAttempts: 5,
+            reconnectionDelay: 2000,
+            autoConnect: false,
+        });
+
         const fetchSocialActivity = async () => {
             try {
                 const token = localStorage.getItem("token");
@@ -97,25 +104,20 @@ const CommunityFeed = () => {
         };
 
         const joinRoom = () => {
-            console.log("Attempting to join community room...");
             socket.emit("join_room", "community");
         };
 
-        if (socket.connected) {
-            joinRoom();
-        }
-
         socket.on("connect", () => {
-            console.log("Socket connected:", socket.id);
+            console.log("Community socket connected:", socket.id);
             joinRoom();
         });
 
         socket.on("connect_error", (err) => {
-            console.error("Socket connection error:", err);
+            // Suppress noisy repeated errors — polling fallback handles it
+            console.warn("Community socket connect_error (will retry):", err.message);
         });
 
         socket.on("new_post", (newPost) => {
-            console.log("New post received via socket:", newPost._id);
             setPosts(prev => {
                 if (prev.some(p => p._id === newPost._id)) return prev;
                 return [newPost, ...prev];
@@ -146,7 +148,8 @@ const CommunityFeed = () => {
             socket.off("new_post");
             socket.off("post_updated");
             socket.off("user_typing");
-            socket.emit("leave_room", "community");
+            if (socket.connected) socket.emit("leave_room", "community");
+            socket.disconnect(); // Fully close — stops reconnect loop
             clearInterval(activityInterval);
         };
     }, [fetchPosts, currentUser?._id, currentUser?.id]);

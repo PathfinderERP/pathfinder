@@ -1305,6 +1305,7 @@ const EnrolledStudentsContent = () => {
                         <thead>
                             <tr className={`${isDarkMode ? 'bg-[#131619] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Enrollment ID</th>
+                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Admission Date</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Session</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Class</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Department</th>
@@ -1326,7 +1327,7 @@ const EnrolledStudentsContent = () => {
                                 ))
                             ) : filteredStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan="12" className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
+                                    <td colSpan="13" className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
                                         {searchQuery ? "No matches found" : "No records available"}
                                     </td>
                                 </tr>
@@ -1372,6 +1373,16 @@ const EnrolledStudentsContent = () => {
                                                                 <FaCopy size={10} />
                                                             </button>
                                                         )}
+                                                    </div>
+                                                </td>
+                                                <td className="p-4 whitespace-nowrap">
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${isDarkMode ? 'text-gray-300' : 'text-gray-800'}`}>
+                                                            {latestAdmission?.admissionDate ? new Date(latestAdmission.admissionDate).toLocaleDateString('en-GB') : "N/A"}
+                                                        </span>
+                                                        <span className={`text-[8px] font-black tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                                            {latestAdmission?.admissionTime || (latestAdmission?.createdAt ? new Date(latestAdmission.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : "N/A")}
+                                                        </span>
                                                     </div>
                                                 </td>
                                                 <td className="p-4">

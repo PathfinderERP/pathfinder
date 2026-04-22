@@ -102,8 +102,12 @@ const Header = ({ toggleSidebar }) => {
         fetchNotifications();
         
         const socket = io(getSocketURL(), {
-            transports: ["websocket", "polling"],
-            withCredentials: true
+            // polling first — works when Nginx doesn't proxy wss:// upgrades,
+            // then upgrades to WebSocket if available.
+            transports: ["polling", "websocket"],
+            withCredentials: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 2000,
         });
 
         socket.on("connect", () => {
