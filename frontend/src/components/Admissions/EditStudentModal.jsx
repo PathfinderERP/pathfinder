@@ -43,6 +43,7 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
     const [classes, setClasses] = useState([]);
     const [sessions, setSessions] = useState([]);
     const [departments, setDepartments] = useState([]);
+    const [boards, setBoards] = useState([]);
     const [filteredCourses, setFilteredCourses] = useState([]);
     const [courseFilters, setCourseFilters] = useState({
         mode: "",
@@ -60,7 +61,19 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
         fetchSessions();
         fetchAvailableBatches();
         fetchDepartments();
+        fetchBoards();
     }, []);
+
+    const fetchBoards = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/board/`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await response.json();
+            if (response.ok) setBoards(data);
+        } catch (error) { console.error("Error fetching boards:", error); }
+    };
 
     const fetchAvailableBatches = async () => {
         try {
@@ -380,7 +393,7 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
                                     className={inputClass}
                                 >
                                     <option value="">SELECT CENTRE</option>
-                                    {centres.map((centre) => (
+                                    {[...centres].sort((a, b) => (a.centreName || "").localeCompare(b.centreName || "")).map((centre) => (
                                         <option key={centre._id} value={centre.centreName}>{centre.centreName}</option>
                                     ))}
                                 </select>
@@ -396,6 +409,9 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
                                     <option value="">SELECT PROGRAMME</option>
                                     <option value="CRP">CRP</option>
                                     <option value="NCRP">NCRP</option>
+                                    {[...new Set(courses.map(c => c.programme).filter(p => p && p !== 'CRP' && p !== 'NCRP'))].sort().map(p => (
+                                        <option key={p} value={p}>{p.toUpperCase()}</option>
+                                    ))}
                                 </select>
                             </div>
                         </div>
@@ -482,13 +498,19 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
                             </div>
                             <div>
                                 <label className={labelClass}>EDUCATIONAL BOARD *</label>
-                                <input
-                                    type="text"
+                                <select
                                     name="board"
                                     value={formData.board}
                                     onChange={handleChange}
                                     className={inputClass}
-                                />
+                                >
+                                    <option value="">SELECT BOARD</option>
+                                    {[...boards].sort((a, b) => (a.boardName || a.boardCourse || "").localeCompare(b.boardName || b.boardCourse || "")).map((b) => (
+                                        <option key={b._id} value={b.boardName || b.boardCourse}>
+                                            {b.boardName || b.boardCourse}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                             <div>
                                 <label className={labelClass}>CURRENT CLASS</label>
@@ -539,8 +561,8 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
                                     className={inputClass}
                                 >
                                     <option value="">SELECT DEPARTMENT</option>
-                                    {departments.map((dept) => (
-                                        <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
+                                    {[...departments].sort((a, b) => (a.departmentName || "").localeCompare(b.departmentName || "")).map((dept) => (
+                                        <option key={dept._id} value={dept._id}>{dept.departmentName?.toUpperCase()}</option>
                                     ))}
                                 </select>
                             </div>
@@ -562,8 +584,8 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
                                     className={inputClass}
                                 >
                                     <option value="">SELECT EXAM TAG</option>
-                                    {examTags.map((tag) => (
-                                        <option key={tag._id} value={tag.name}>{tag.name}</option>
+                                    {[...examTags].sort((a, b) => (a.name || "").localeCompare(b.name || "")).map((tag) => (
+                                        <option key={tag._id} value={tag.name}>{tag.name?.toUpperCase()}</option>
                                     ))}
                                 </select>
                             </div>
@@ -586,9 +608,9 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
                                     className={inputClass}
                                 >
                                     <option value="">SELECT SESSION</option>
-                                    {sessions.map((session) => (
+                                    {[...sessions].sort((a, b) => (a.sessionName || a.name || "").localeCompare(b.sessionName || b.name || "")).map((session) => (
                                         <option key={session._id} value={session.sessionName || session.name}>
-                                            {session.sessionName || session.name}
+                                            {(session.sessionName || session.name)?.toUpperCase()}
                                         </option>
                                     ))}
                                 </select>
@@ -614,11 +636,11 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
                                 </select>
                                 <select name="class" value={courseFilters.class} onChange={handleCourseFilterChange} className={inputClass}>
                                     <option value="">ALL CLASSES</option>
-                                    {classes.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                                    {[...classes].sort((a, b) => (a.name || "").localeCompare(b.name || "")).map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                                 </select>
                                 <select name="examTag" value={courseFilters.examTag} onChange={handleCourseFilterChange} className={inputClass}>
                                     <option value="">ALL TAGS</option>
-                                    {examTags.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                                    {[...examTags].sort((a, b) => (a.name || "").localeCompare(b.name || "")).map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
                                 </select>
                             </div>
 
@@ -643,7 +665,7 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
                                     className={`${inputClass} text-cyan-500 border-cyan-500/30 bg-cyan-500/5`}
                                 >
                                     <option value="">SELECT CORE COURSE</option>
-                                    {filteredCourses.map((c) => (
+                                    {[...filteredCourses].sort((a, b) => (a.courseName || "").localeCompare(b.courseName || "")).map((c) => (
                                         <option key={c._id} value={c._id}>{c.courseName} ({c.mode} - {c.courseType})</option>
                                     ))}
                                 </select>

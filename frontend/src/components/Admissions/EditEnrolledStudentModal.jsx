@@ -16,6 +16,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
         pincode: admission.student?.studentsDetails?.[0]?.pincode || '',
         state: admission.student?.studentsDetails?.[0]?.state || '',
         board: admission.student?.studentsDetails?.[0]?.board || '',
+        programme: admission.student?.studentsDetails?.[0]?.programme || '',
         centre: admission.student?.studentsDetails?.[0]?.centre || '',
 
         // Guardian Details
@@ -44,6 +45,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
     const [masterClasses, setMasterClasses] = useState([]);
     const [masterSessions, setMasterSessions] = useState([]);
     const [masterExamTags, setMasterExamTags] = useState([]);
+    const [masterBoards, setMasterBoards] = useState([]);
 
     // Indian States
     const indianStates = [
@@ -68,12 +70,13 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
             const headers = { 'Authorization': `Bearer ${token}` };
             const apiUrl = import.meta.env.VITE_API_URL;
 
-            const [deptRes, courseRes, classRes, sessionRes, tagRes] = await Promise.all([
+            const [deptRes, courseRes, classRes, sessionRes, tagRes, boardRes] = await Promise.all([
                 fetch(`${apiUrl}/department`, { headers }),
                 fetch(`${apiUrl}/course`, { headers }),
                 fetch(`${apiUrl}/class`, { headers }),
                 fetch(`${apiUrl}/session/list`, { headers }),
-                fetch(`${apiUrl}/examTag`, { headers })
+                fetch(`${apiUrl}/examTag`, { headers }),
+                fetch(`${apiUrl}/board`, { headers })
             ]);
 
             if (deptRes.ok) setMasterDepartments(await deptRes.json());
@@ -81,6 +84,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
             if (classRes.ok) setMasterClasses(await classRes.json());
             if (sessionRes.ok) setMasterSessions(await sessionRes.json());
             if (tagRes.ok) setMasterExamTags(await tagRes.json());
+            if (boardRes.ok) setMasterBoards(await boardRes.json());
         } catch (error) {
             console.error('Error fetching master data:', error);
         }
@@ -153,6 +157,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                             pincode: dataToSave.pincode,
                             state: dataToSave.state,
                             board: dataToSave.board,
+                            programme: dataToSave.programme,
                             centre: dataToSave.centre,
                             source: admission.student?.studentsDetails?.[0]?.source || 'Walk-in', // Preserve source
                         }],
@@ -319,7 +324,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                         required
                                     >
                                         <option value="">SELECT CENTRE</option>
-                                        {Array.isArray(centres) && centres.map((c) => (
+                                        {Array.isArray(centres) && [...centres].sort((a, b) => (a.centreName || "").localeCompare(b.centreName || "")).map((c) => (
                                             <option key={c._id} value={c.centreName}>
                                                 {c.centreName?.toUpperCase()}
                                             </option>
@@ -501,12 +506,33 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                 </div>
                                 <div>
                                     <label className={labelClass}>AFFILIATION (BOARD)</label>
-                                    <input
-                                        type="text"
+                                    <select
+                                        name="board"
                                         value={formData.board}
-                                        onChange={(e) => setFormData({ ...formData, board: e.target.value })}
+                                        onChange={handleChange}
                                         className={inputClass}
-                                    />
+                                    >
+                                        <option value="">SELECT BOARD</option>
+                                        {Array.isArray(masterBoards) && [...masterBoards].sort((a, b) => (a.boardName || a.boardCourse || "").localeCompare(b.boardName || b.boardCourse || "")).map((b) => (
+                                            <option key={b._id} value={b.boardName || b.boardCourse}>
+                                                {(b.boardName || b.boardCourse)?.toUpperCase()}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className={labelClass}>PROGRAMME</label>
+                                    <select
+                                        name="programme"
+                                        value={formData.programme}
+                                        onChange={handleChange}
+                                        className={inputClass}
+                                    >
+                                        <option value="">SELECT PROGRAMME</option>
+                                        {[...new Set(masterCourses.map(c => c.programme).filter(Boolean))].sort().map(p => (
+                                            <option key={p} value={p}>{p.toUpperCase()}</option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div>
                                     <label className={labelClass}>DEPARTMENT</label>
@@ -517,7 +543,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                         className={inputClass}
                                     >
                                         <option value="">SELECT DEPARTMENT</option>
-                                        {masterDepartments.map((dept) => (
+                                        {[...masterDepartments].sort((a, b) => (a.departmentName || "").localeCompare(b.departmentName || "")).map((dept) => (
                                             <option key={dept._id} value={dept._id}>
                                                 {dept.departmentName?.toUpperCase()}
                                             </option>
@@ -533,7 +559,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                         className={inputClass}
                                     >
                                         <option value="">SELECT COURSE</option>
-                                        {masterCourses.map((course) => (
+                                        {[...masterCourses].sort((a, b) => (a.courseName || "").localeCompare(b.courseName || "")).map((course) => (
                                             <option key={course._id} value={course._id}>
                                                 {course.courseName?.toUpperCase()}
                                             </option>
@@ -549,7 +575,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                         className={inputClass}
                                     >
                                         <option value="">SELECT CLASS</option>
-                                        {masterClasses.map((cl) => (
+                                        {[...masterClasses].sort((a, b) => (a.name || a.className || "").localeCompare(b.name || b.className || "")).map((cl) => (
                                             <option key={cl._id} value={cl._id}>
                                                 {(cl.className || cl.name)?.toUpperCase()}
                                             </option>
@@ -565,7 +591,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                         className={inputClass}
                                     >
                                         <option value="">SELECT TAG</option>
-                                        {masterExamTags.map((tag) => (
+                                        {[...masterExamTags].sort((a, b) => (a.name || "").localeCompare(b.name || "")).map((tag) => (
                                             <option key={tag._id} value={tag._id}>
                                                 {tag.name?.toUpperCase()}
                                             </option>
