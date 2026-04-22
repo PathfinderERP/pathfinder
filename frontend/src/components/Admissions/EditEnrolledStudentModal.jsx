@@ -230,6 +230,16 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                             organizationName: dataToSave.organizationName,
                             designation: dataToSave.designation,
                             officeAddress: dataToSave.officeAddress
+                        }],
+                        examSchema: [{
+                            ...(admission.student?.examSchema?.[0] || {}),
+                            examName: masterExamTags.find(t => t._id === dataToSave.examTag)?.name || admission.student?.examSchema?.[0]?.examName,
+                            class: masterClasses.find(c => c._id === dataToSave.class)?.name || masterClasses.find(c => c._id === dataToSave.class)?.className || admission.student?.examSchema?.[0]?.class
+                        }],
+                        sessionExamCourse: [{
+                            ...(admission.student?.sessionExamCourse?.[0] || {}),
+                            session: dataToSave.academicSession,
+                            examTag: masterExamTags.find(t => t._id === dataToSave.examTag)?.name || admission.student?.sessionExamCourse?.[0]?.examTag
                         }]
                     })
                 }
