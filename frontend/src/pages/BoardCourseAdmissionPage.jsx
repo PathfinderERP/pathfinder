@@ -16,7 +16,7 @@ const BoardCourseAdmissionPage = () => {
     const [boards, setBoards] = useState([]);
     const [selectedBoard, setSelectedBoard] = useState(null);
     const [selectedSubjectIds, setSelectedSubjectIds] = useState([]);
-    const [durationMonths, setDurationMonths] = useState(6);
+    const [durationMonths, setDurationMonths] = useState(0);
     const [totalWaiver, setTotalWaiver] = useState(0);
     const [downPayment, setDownPayment] = useState(0);
     const [billingStartDate, setBillingStartDate] = useState(new Date().toISOString().split('T')[0]);
@@ -277,7 +277,7 @@ const BoardCourseAdmissionPage = () => {
     };
 
     const monthlyFee = calculateMonthlyFee();
-    const monthlyWaiver = totalWaiver > 0 ? (totalWaiver / durationMonths) : 0;
+    const monthlyWaiver = (totalWaiver > 0 && durationMonths > 0) ? (totalWaiver / durationMonths) : 0;
     const netMonthly = Math.max(0, monthlyFee - monthlyWaiver);
 
     const handleSubmit = async (e) => {
@@ -575,7 +575,7 @@ const BoardCourseAdmissionPage = () => {
                                     />
                                 </div>
                                 <p className="text-[9px] text-gray-500 font-bold mt-2 uppercase italic opacity-60">
-                                    * This will be divided equally over {durationMonths} months (₹{(totalWaiver / durationMonths).toFixed(2)}/mo)
+                                    * This will be divided equally over {durationMonths} months (₹{(durationMonths > 0 ? (totalWaiver / durationMonths) : 0).toFixed(2)}/mo)
                                 </p>
                             </div>
                         </div>

@@ -88,7 +88,7 @@ export const createBoardAdmission = async (req, res) => {
         }
 
         const totalSubjectMonthlyFee = (programme === "NCRP") ? 0 : activeSubjects.reduce((sum, s) => sum + s.amount, 0);
-        const monthlyWaiver = totalWaiver / totalDurationMonths;
+        const monthlyWaiver = totalDurationMonths > 0 ? (totalWaiver / totalDurationMonths) : 0;
         const expectedMonthly = totalSubjectMonthlyFee - monthlyWaiver;
 
         // 2. Prepare Installments
