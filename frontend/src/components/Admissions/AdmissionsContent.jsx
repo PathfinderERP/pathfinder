@@ -88,12 +88,12 @@ const AdmissionsContent = () => {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const centres = response.ok ? await response.json() : [];
-                setAllowedCentres(centres.map(c => c.centreName));
+                setAllowedCentres(centres.map(c => c.centreName).sort((a, b) => a.localeCompare(b)));
             } else {
                 // For non-superAdmin, use centres from profile
                 const userCentres = currentUser.centres || [];
                 const userCentreNames = userCentres.map(c => c.centreName || c.name || c).filter(Boolean);
-                setAllowedCentres(userCentreNames);
+                setAllowedCentres(userCentreNames.sort((a, b) => a.localeCompare(b)));
             }
         } catch (error) {
             console.error("Error fetching allowed centres:", error);

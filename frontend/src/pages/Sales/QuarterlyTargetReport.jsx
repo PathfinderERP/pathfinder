@@ -53,7 +53,8 @@ const QuarterlyTargetReport = () => {
             });
             if (response.ok) {
                 const result = await response.json();
-                setData(result.data || []);
+                const sortedData = (result.data || []).sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
+                setData(sortedData);
             } else {
                 toast.error("Failed to load quarterly report");
             }

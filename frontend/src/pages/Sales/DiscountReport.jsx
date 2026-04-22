@@ -111,7 +111,8 @@ const DiscountReport = () => {
                         centerList = centerList.filter(c => allowedIds.includes(c._id));
                     }
                 }
-                setCentres(centerList);
+                const sortedCentres = centerList.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
+                setCentres(sortedCentres);
             }
             if (coRes.ok) setCourses(await coRes.json());
             if (eRes.ok) setExamTags(await eRes.json());
@@ -174,7 +175,8 @@ const DiscountReport = () => {
 
             if (response.ok) {
                 const result = await response.json();
-                setReportData(result.data || []);
+                const sortedData = (result.data || []).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                setReportData(sortedData);
                 setTrendData(result.trend || []);
                 setDetailedReport(result.detailedReport || []);
                 setTotalDiscount(result.totalDiscount || 0);

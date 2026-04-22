@@ -107,14 +107,19 @@ const DailyCollection = () => {
                 const storedUser = localStorage.getItem("user");
                 if (storedUser) {
                     const user = JSON.parse(storedUser);
-                    if (user.role !== "superAdmin" && user.centres) {
-                        const allowedIds = user.centres.map(id => typeof id === "object" ? id._id : id);
-                        setCentres(centreList.filter(c => allowedIds.includes(c._id)));
+                    if (user.role !== "superAdmin" && user.role !== "Super Admin" && user.centres) {
+                        const allowedIds = user.centres.map(c => c._id || c);
+                        const sortedCentres = centreList
+                            .filter(c => allowedIds.includes(c._id))
+                            .sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
+                        setCentres(sortedCentres);
                     } else {
-                        setCentres(centreList);
+                        const sortedCentres = centreList.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
+                        setCentres(sortedCentres);
                     }
                 } else {
-                    setCentres(centreList);
+                    const sortedCentres = centreList.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
+                    setCentres(sortedCentres);
                 }
             }
             if (coRes.ok) setCourses(await coRes.json());

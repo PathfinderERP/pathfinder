@@ -74,8 +74,14 @@ const BoardReport = () => {
                 fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
             ]);
 
-            if (centreRes.ok) setCentres(await centreRes.json());
-            if (boardRes.ok) setBoards(await boardRes.json());
+            if (centreRes.ok) {
+                const centreData = await centreRes.json();
+                setCentres(centreData.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || "")));
+            }
+            if (boardRes.ok) {
+                const boardData = await boardRes.json();
+                setBoards(boardData.sort((a, b) => (a.boardCourse || "").localeCompare(b.boardCourse || "")));
+            }
             if (subjectRes.ok) setSubjects(await subjectRes.json());
             if (sessionRes.ok) {
                 const sessionList = await sessionRes.json();

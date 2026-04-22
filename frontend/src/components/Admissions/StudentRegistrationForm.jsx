@@ -93,25 +93,42 @@ const StudentRegistrationForm = () => {
         if (location.state?.leadData) {
             const lead = location.state.leadData;
 
-            // Extract Class Number
+            // Extract Class
             let classVal = "";
             if (lead.className?.name) {
+                // If the class value in dropdowns is just the number (as suggested by the previous match logic)
                 const match = lead.className.name.match(/\d+/);
                 if (match) classVal = match[0];
+                else classVal = lead.className.name;
+            } else if (typeof lead.className === 'string') {
+                classVal = lead.className;
+            } else if (lead.lastClass) {
+                classVal = lead.lastClass;
             }
 
             setFormData(prev => ({
                 ...prev,
-                studentName: lead.name || "",
-                studentEmail: lead.email || "",
-                mobileNum: lead.phoneNumber || "",
+                studentName: lead.studentName || lead.name || "",
+                studentEmail: lead.studentEmail || lead.email || "",
+                mobileNum: lead.mobileNum || lead.phoneNumber || "",
+                whatsappNumber: lead.secondaryMobile || lead.whatsappNumber || lead.phoneNumber || "",
+                dateOfBirth: lead.dob ? new Date(lead.dob).toISOString().split('T')[0] : 
+                            (lead.dateOfBirth ? new Date(lead.dateOfBirth).toISOString().split('T')[0] : ""),
+                gender: lead.gender || "",
                 schoolName: lead.schoolName || "",
-                centre: lead.centre?.centreName || "",
-                source: lead.source || "",
+                centre: lead.centre?.centreName || lead.centre || "",
+                source: lead.source?.sourceName || lead.source || "",
                 targetExams: lead.targetExam || "",
                 class: classVal,
-                whatsappNumber: lead.phoneNumber || "",
-                counselledBy: currentUserName // Always set to current user performing the action
+                board: lead.board?.boardName || lead.board?.boardCourse || lead.board || "",
+                state: lead.state || "",
+                pincode: lead.pincode || "",
+                address: lead.address || "",
+                guardianName: lead.fatherName || lead.parentName || lead.guardianName || "",
+                guardianMobile: lead.fatherMobile || lead.parentMobile || lead.guardianMobile || "",
+                guardianEmail: lead.guardianEmail || "",
+                occupation: lead.fatherOccupation || lead.parentOccupation || lead.occupation || "",
+                counselledBy: currentUserName
             }));
 
             toast.info("Lead details autofilled");
@@ -137,17 +154,17 @@ const StudentRegistrationForm = () => {
 
                 // If superAdmin, show all centres
                 if (user.role === "superAdmin") {
-                    setCentres(data);
+                    setCentres(data.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || "")));
                 }
                 // If centres are restricted to the user profile
                 else if (user.centres && user.centres.length > 0) {
                     const authorizedCentreNames = user.centres.map(c => c.centreName);
                     const filtered = data.filter(c => authorizedCentreNames.includes(c.centreName));
-                    setCentres(filtered);
+                    setCentres(filtered.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || "")));
                 }
                 // Fallback: show all if no restrictions found (or handle as per policy)
                 else {
-                    setCentres(data);
+                    setCentres(data.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || "")));
                 }
             } else {
                 console.error("Failed to fetch centres");

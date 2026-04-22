@@ -260,10 +260,10 @@ const LeadManagementContent = () => {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const centres = await response.json();
-                setAllowedCentres(centres);
+                setAllowedCentres(centres.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || "")));
             } else {
                 // For non-superAdmin, use populated centres from profile
-                const userCentres = currentUser.centres || [];
+                const userCentres = (currentUser.centres || []).sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
                 setAllowedCentres(userCentres);
             }
         } catch (error) {

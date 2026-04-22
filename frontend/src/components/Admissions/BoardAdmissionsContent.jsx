@@ -201,16 +201,17 @@ const BoardAdmissionsContent = () => {
         if (location.state && location.state.leadData && !showCounsellingModal) {
             const leadData = location.state.leadData;
             setCounsellingForm({
-                studentId: "",
-                studentName: leadData.studentName || "",
-                mobileNum: leadData.mobileNum || "",
-                whatsappNumber: leadData.secondaryMobile || leadData.whatsappNumber || "",
-                studentEmail: leadData.email || "",
-                dateOfBirth: leadData.dob ? new Date(leadData.dob).toISOString().split('T')[0] : "",
+                studentId: leadData._id || "",
+                studentName: leadData.studentName || leadData.name || "",
+                mobileNum: leadData.mobileNum || leadData.phoneNumber || "",
+                whatsappNumber: leadData.secondaryMobile || leadData.whatsappNumber || leadData.phoneNumber || "",
+                studentEmail: leadData.studentEmail || leadData.email || "",
+                dateOfBirth: leadData.dob ? new Date(leadData.dob).toISOString().split('T')[0] : 
+                            (leadData.dateOfBirth ? new Date(leadData.dateOfBirth).toISOString().split('T')[0] : ""),
                 gender: leadData.gender || "",
-                centre: leadData.centre || allowedCentres[0] || "",
+                centre: leadData.centre?.centreName || leadData.centre || (allowedCentres && allowedCentres.length > 0 ? allowedCentres[0] : ""),
                 programme: leadData.programme || "",
-                board: leadData.board || "",
+                board: leadData.board?.boardName || leadData.board?.boardCourse || leadData.board || "",
                 state: leadData.state || "",
                 schoolName: leadData.schoolName || "",
                 pincode: leadData.pincode || "",
@@ -219,12 +220,12 @@ const BoardAdmissionsContent = () => {
                 guardianMobile: leadData.fatherMobile || leadData.parentMobile || leadData.guardianMobile || "",
                 guardianEmail: leadData.guardianEmail || "",
                 occupation: leadData.fatherOccupation || leadData.parentOccupation || leadData.occupation || "",
-                lastClass: leadData.className || leadData.lastClass || "",
+                lastClass: leadData.className?.name || leadData.className || leadData.lastClass || "",
                 examStatus: "",
                 markAggregate: "",
                 scienceMathPercent: "",
-                examName: leadData.examName || "",
-                boardId: "",
+                examName: leadData.examName || leadData.course?.courseName || "",
+                boardId: leadData.board?._id || "",
                 selectedSubjectIds: [],
                 remarks: leadData.remarks || ""
             });
@@ -234,6 +235,19 @@ const BoardAdmissionsContent = () => {
             navigate(location.pathname + location.search, { replace: true, state: {} });
         }
     }, [location.state, showCounsellingModal, allowedCentres, navigate, location.pathname, location.search]);
+
+    // Auto-match boardId if board name is present but boardId is not
+    useEffect(() => {
+        if (counsellingForm.board && !counsellingForm.boardId && boards.length > 0) {
+            const matchedBoard = boards.find(b => 
+                (b.boardCourse && b.boardCourse.toLowerCase() === counsellingForm.board.toLowerCase()) ||
+                (b.boardName && b.boardName.toLowerCase() === counsellingForm.board.toLowerCase())
+            );
+            if (matchedBoard) {
+                setCounsellingForm(prev => ({ ...prev, boardId: matchedBoard._id }));
+            }
+        }
+    }, [boards, counsellingForm.board, counsellingForm.boardId]);
 
     const filteredBoardAdmissions = React.useMemo(() => {
         return boardAdmissions.filter(admission => {
@@ -322,11 +336,11 @@ const BoardAdmissionsContent = () => {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const centres = response.ok ? await response.json() : [];
-                setAllowedCentres(centres.map(c => c.centreName));
+                setAllowedCentres(centres.map(c => c.centreName).sort((a, b) => a.localeCompare(b)));
             } else {
                 const userCentres = currentUser.centres || [];
                 const userCentreNames = userCentres.map(c => c.centreName || c.name || c).filter(Boolean);
-                setAllowedCentres(userCentreNames);
+                setAllowedCentres(userCentreNames.sort((a, b) => a.localeCompare(b)));
             }
         } catch (error) {
             console.error("Error fetching allowed centres:", error);
@@ -1419,8 +1433,8 @@ const BoardAdmissionsContent = () => {
                                             type="text"
                                             className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                             placeholder="TOTAL SCORE"
-                                            value={counsellingForm.markAgregate}
-                                            onChange={(e) => setCounsellingForm({ ...counsellingForm, markAgregate: e.target.value })}
+                                            value={counsellingForm.markAggregate}
+                                            onChange={(e) => setCounsellingForm({ ...counsellingForm, markAggregate: e.target.value })}
                                         />
                                     </div>
                                     <div>
@@ -1429,8 +1443,8 @@ const BoardAdmissionsContent = () => {
                                             type="text"
                                             className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                             placeholder="SCI & MATH"
-                                            value={counsellingForm.scienceMathParcent}
-                                            onChange={(e) => setCounsellingForm({ ...counsellingForm, scienceMathParcent: e.target.value })}
+                                            value={counsellingForm.scienceMathPercent}
+                                            onChange={(e) => setCounsellingForm({ ...counsellingForm, scienceMathPercent: e.target.value })}
                                         />
                                     </div>
                                 </div>

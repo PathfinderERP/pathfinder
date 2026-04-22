@@ -69,7 +69,8 @@ const TargetAchievementReport = () => {
                     }
                 }
 
-                setCentres(centerList);
+                const sortedCentres = centerList.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
+                setCentres(sortedCentres);
                 if (centerList.length > 0) {
                     setSelectedCentres(centerList.map(c => c._id));
                 }
@@ -110,7 +111,8 @@ const TargetAchievementReport = () => {
 
             if (response.ok) {
                 const result = await response.json();
-                setData(result.data || []);
+                const sortedData = (result.data || []).sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
+                setData(sortedData);
             } else {
                 toast.error("Failed to load report");
             }

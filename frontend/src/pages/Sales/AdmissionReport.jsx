@@ -172,7 +172,8 @@ const AdmissionReport = () => {
                         centerList = centerList.filter(c => allowedIds.includes(c._id));
                     }
                 }
-                setCentres(centerList);
+                const sortedCentres = centerList.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
+                setCentres(sortedCentres);
             }
             if (courseRes.ok) setCourses(await courseRes.json());
             if (classRes.ok) setClasses(await classRes.json());

@@ -59,7 +59,8 @@ const FeeDueList = () => {
                         (user.centres && user.centres.some(uc => uc._id === c._id || uc.centreName === c.centreName))
                     )
                     : [];
-                setCentres(filteredCentres);
+                const sortedCentres = filteredCentres.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
+                setCentres(sortedCentres);
             }
             if (courseRes.ok) {
                 const data = await courseRes.json();

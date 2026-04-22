@@ -116,7 +116,8 @@ const TransactionList = () => {
                         (user.centres && user.centres.some(uc => uc._id === c._id || uc.centreName === c.centreName))
                     )
                     : [];
-                setCentres(filteredCentres);
+                const sortedCentres = filteredCentres.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
+                setCentres(sortedCentres);
             }
             if (dRes.ok) setDepartments(await dRes.json());
             if (sRes.ok) {

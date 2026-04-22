@@ -83,7 +83,8 @@ const CentreRank = () => {
                         centerList = centerList.filter(c => allowedIds.includes(c._id));
                     }
                 }
-                setCentres(centerList);
+                const sortedCentres = centerList.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
+                setCentres(sortedCentres);
             }
         } catch (error) {
             console.error("Error fetching master data:", error);

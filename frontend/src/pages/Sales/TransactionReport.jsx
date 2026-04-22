@@ -103,7 +103,8 @@ const TransactionReport = () => {
                         centerList = centerList.filter(c => allowedIds.includes(c._id));
                     }
                 }
-                setCentres(centerList);
+                const sortedCentres = centerList.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
+                setCentres(sortedCentres);
             }
             if (coRes.ok) setCourses(await coRes.json());
             if (eRes.ok) setExamTags(await eRes.json());
@@ -175,7 +176,8 @@ const TransactionReport = () => {
             if (response.ok) {
                 const result = await response.json();
                 setMonthlyData(result.monthlyRevenue || []);
-                setCentreRevenueData(result.centreRevenue || []);
+                const sortedCentreRevenue = (result.centreRevenue || []).sort((a, b) => (a._id || "").localeCompare(b._id || ""));
+                setCentreRevenueData(sortedCentreRevenue);
                 setCourseRevenueData(result.courseRevenue || []);
                 setPaymentMethodData(result.paymentMethods || []);
                 setDetailedReport(result.detailedReport || []);

@@ -69,7 +69,7 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             });
             const centreData = await centreResponse.json();
             if (centreResponse.ok) {
-                const list = Array.isArray(centreData) ? centreData : [];
+                const list = (Array.isArray(centreData) ? centreData : []).sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
                 setCentres(list);
                 if (list.length > 0 && !formData.centre) {
                     setFormData(prev => ({ ...prev, centre: list[0]._id }));
@@ -80,19 +80,19 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const courseData = await courseResponse.json();
-            if (courseResponse.ok) setCourses(Array.isArray(courseData) ? courseData : []);
+            if (courseResponse.ok) setCourses((Array.isArray(courseData) ? courseData : []).sort((a, b) => (a.courseName || "").localeCompare(b.courseName || "")));
 
             const sourceResponse = await fetch(`${import.meta.env.VITE_API_URL}/source`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const sourceData = await sourceResponse.json();
-            if (sourceResponse.ok) setSources(sourceData.sources || []);
+            if (sourceResponse.ok) setSources((sourceData.sources || []).sort((a, b) => (a.sourceName || "").localeCompare(b.sourceName || "")));
 
             const boardResponse = await fetch(`${import.meta.env.VITE_API_URL}/board`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const boardData = await boardResponse.json();
-            if (boardResponse.ok) setBoards(Array.isArray(boardData) ? boardData : []);
+            if (boardResponse.ok) setBoards((Array.isArray(boardData) ? boardData : []).sort((a, b) => (a.boardName || a.boardCourse || "").localeCompare(b.boardName || b.boardCourse || "")));
 
             const userResponse = await fetch(`${import.meta.env.VITE_API_URL}/superAdmin/getAllUsers`, {
                 headers: { Authorization: `Bearer ${token}` },

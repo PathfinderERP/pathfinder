@@ -78,7 +78,8 @@ const CentreTarget = () => {
                         centerList = centerList.filter(c => allowedIds.includes(c._id));
                     }
                 }
-                setCentres(centerList);
+                const sortedCentres = centerList.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
+                setCentres(sortedCentres);
             }
 
             if (sessionRes.ok) {
@@ -132,7 +133,10 @@ const CentreTarget = () => {
             });
             const data = await response.json();
             if (response.ok) {
-                setTargets(data.targets || []);
+                const sortedTargets = (data.targets || []).sort((a, b) => 
+                    (a.centre?.centreName || "").localeCompare(b.centre?.centreName || "")
+                );
+                setTargets(sortedTargets);
             }
         } catch (error) {
             console.error("Error fetching targets", error);
