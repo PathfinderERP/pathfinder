@@ -22,12 +22,16 @@ export const updateStudent = async (req, res) => {
         };
 
         const cleanedData = cleanEmptyStrings(updateData);
+        
+        // Add auditing metadata
+        cleanedData.updatedBy = req.user?.name || "System";
+        cleanedData.updatedByUserId = req.user?._id;
 
         const student = await Student.findByIdAndUpdate(
             studentId,
             { $set: cleanedData },
             { new: true, runValidators: true }
-        );
+        ).populate('updatedByUserId', 'name role');
 
         if (!student) {
             return res.status(404).json({ message: "Student not found" });

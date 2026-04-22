@@ -265,7 +265,11 @@ export const createBoardAdmission = async (req, res) => {
         }
 
         // Update student enrollment status if needed
-        await Students.findByIdAndUpdate(studentId, { isEnrolled: true });
+        await Students.findByIdAndUpdate(studentId, { 
+            isEnrolled: true,
+            updatedBy: req.user?.name || "System",
+            updatedByUserId: req.user?._id
+        });
 
         // Mark board counselling records as ENROLLED
         await BoardCourseCounselling.updateMany(

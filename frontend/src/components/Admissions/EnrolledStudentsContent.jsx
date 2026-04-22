@@ -1676,9 +1676,19 @@ const EnrolledStudentsContent = () => {
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 {/* Personal Information */}
                                 <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'} rounded-[4px] border overflow-hidden`}>
-                                    <div className={`px-4 py-3 border-b flex items-center gap-2 ${isDarkMode ? 'border-gray-800 bg-[#1a1f24]' : 'border-gray-100 bg-white'}`}>
-                                        <FaUser className="text-cyan-500" size={14} />
-                                        <h4 className={`font-black uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Personal Profile</h4>
+                                    <div className={`px-4 py-3 border-b flex items-center justify-between ${isDarkMode ? 'border-gray-800 bg-[#1a1f24]' : 'border-gray-100 bg-white'}`}>
+                                        <div className="flex items-center gap-2">
+                                            <FaUser className="text-cyan-500" size={14} />
+                                            <h4 className={`font-black uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Personal Profile</h4>
+                                        </div>
+                                        {(selectedStudent.updatedBy || selectedStudent.updatedAt) && (
+                                            <div className="flex flex-col items-end">
+                                                <span className="text-[7px] font-black uppercase text-gray-500 tracking-tighter">Last Verified Modification</span>
+                                                <span className="text-[8px] font-black uppercase text-cyan-500 tracking-widest">
+                                                    {selectedStudent.updatedBy || "INITIAL REG"} <span className="mx-1 opacity-30">|</span> {new Date(selectedStudent.updatedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="p-4 grid grid-cols-2 gap-y-6 gap-x-6">
                                         <div>

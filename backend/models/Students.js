@@ -74,7 +74,10 @@ const StudentSchema = new mongoose.Schema({
     quantity: { type: Number, default: 1 },
     allocationDate: { type: Date, default: Date.now },
     allocatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
-  }]
+  }],
+  createdBy: { type: String },
+  updatedBy: { type: String },
+  updatedByUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, { timestamps: true });
 
 const Student = mongoose.model("Student", StudentSchema);

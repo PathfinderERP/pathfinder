@@ -271,7 +271,9 @@ export const createAdmission = async (req, res) => {
         await Student.findByIdAndUpdate(studentId, {
             $set: {
                 isEnrolled: true,
-                carryForwardBalance: 0
+                carryForwardBalance: 0,
+                updatedBy: req.user?.name || "System",
+                updatedByUserId: req.user?._id
             }
         });
 

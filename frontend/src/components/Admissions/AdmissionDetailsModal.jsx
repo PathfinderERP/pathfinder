@@ -245,8 +245,18 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                             {/* Student Information */}
                             <div className={sectionClass}>
-                                <h3 className="text-[12px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
-                                    <FaUser size={14} /> BIOMETRIC CORE DATA
+                                <h3 className="text-[12px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <FaUser size={14} /> BIOMETRIC CORE DATA
+                                    </div>
+                                    {(admission.student?.updatedBy || admission.student?.updatedAt) && (
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-[7px] font-black tracking-tighter text-gray-500">Lifecycle Audit</span>
+                                            <span className="text-[8px] font-black tracking-widest text-cyan-500">
+                                                {admission.student?.updatedBy || "INITIAL"} <span className="mx-1 opacity-20">|</span> {new Date(admission.student?.updatedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                    )}
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div>

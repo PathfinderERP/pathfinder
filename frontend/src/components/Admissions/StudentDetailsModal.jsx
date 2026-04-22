@@ -53,8 +53,18 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {/* Personal Information */}
                         <div className={sectionClass}>
-                            <h3 className="text-[12px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
-                                <FaUser size={14} /> PERSONAL IDENTIFICATION
+                            <h3 className="text-[12px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <FaUser size={14} /> PERSONAL IDENTIFICATION
+                                </div>
+                                {(student.updatedBy || student.updatedAt) && (
+                                    <div className="flex flex-col items-end">
+                                        <span className="text-[7px] font-black tracking-tighter text-gray-500">Audit Trace</span>
+                                        <span className="text-[8px] font-black tracking-widest text-cyan-500">
+                                            {student.updatedBy || "SYSTEM"} <span className="mx-1 opacity-20">|</span> {new Date(student.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })} {new Date(student.updatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                )}
                             </h3>
                             <div className="grid grid-cols-2 gap-y-6 gap-x-4">
                                 <div>

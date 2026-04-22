@@ -62,7 +62,10 @@ export const createBoardCourseCounselling = async (req, res) => {
                         scienceMathParcent
                     }],
                     isEnrolled: false,
-                    counselledBy: req.user?._id
+                    counselledBy: req.user?._id,
+                    createdBy: req.user?.name || "System",
+                    updatedBy: req.user?.name || "System",
+                    updatedByUserId: req.user?._id
                 });
                 await student.save();
             } else {

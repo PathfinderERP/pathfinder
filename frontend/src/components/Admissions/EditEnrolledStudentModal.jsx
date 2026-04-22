@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaTimes, FaUser, FaSave } from 'react-icons/fa';
+import { FaTimes, FaUser, FaSave, FaSearch, FaFilter, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
 const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) => {
@@ -46,6 +46,18 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
     const [masterSessions, setMasterSessions] = useState([]);
     const [masterExamTags, setMasterExamTags] = useState([]);
     const [masterBoards, setMasterBoards] = useState([]);
+    const [filteredCourses, setFilteredCourses] = useState([]);
+    const [showCourseFilters, setShowCourseFilters] = useState(false);
+    const [courseFilters, setCourseFilters] = useState({
+        mode: "",
+        courseType: "",
+        class: "",
+        examTag: "",
+        session: "",
+        department: "",
+        board: "",
+        searchTerm: ""
+    });
 
     // Indian States
     const indianStates = [
@@ -88,6 +100,53 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
         } catch (error) {
             console.error('Error fetching master data:', error);
         }
+    };
+
+    useEffect(() => {
+        let result = masterCourses;
+        if (courseFilters.mode) result = result.filter(v => v.mode === courseFilters.mode);
+        if (courseFilters.courseType) result = result.filter(v => v.courseType === courseFilters.courseType);
+        if (courseFilters.class) result = result.filter(v => v.class?._id === courseFilters.class || v.class === courseFilters.class);
+        if (courseFilters.examTag) result = result.filter(v => v.examTag?._id === courseFilters.examTag || v.examTag === courseFilters.examTag);
+        if (courseFilters.session) result = result.filter(v => v.courseSession === courseFilters.session);
+        if (courseFilters.department) result = result.filter(v => v.department?._id === courseFilters.department || v.department === courseFilters.department);
+        if (courseFilters.board) {
+            // Check both board name and board ID logic similar to how it's saved
+            result = result.filter(v => 
+                (v.board?._id === courseFilters.board) || 
+                (v.board === courseFilters.board) ||
+                (v.board?.boardName === courseFilters.board) ||
+                (v.board?.boardCourse === courseFilters.board)
+            );
+        }
+
+        if (courseFilters.searchTerm) {
+            const search = courseFilters.searchTerm.toLowerCase();
+            result = result.filter(v =>
+                v.courseName?.toLowerCase().includes(search) ||
+                v.programme?.toLowerCase().includes(search)
+            );
+        }
+
+        setFilteredCourses(result);
+    }, [courseFilters, masterCourses]);
+
+    const handleCourseFilterChange = (e) => {
+        const { name, value } = e.target;
+        setCourseFilters(prev => ({ ...prev, [name]: value }));
+    };
+
+    const resetCourseFilters = () => {
+        setCourseFilters({
+            mode: "",
+            courseType: "",
+            class: "",
+            examTag: "",
+            session: "",
+            department: "",
+            board: "",
+            searchTerm: ""
+        });
     };
 
     const fetchCentres = async () => {
@@ -219,7 +278,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
     };
 
     const labelClass = "block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5 flex items-center gap-2";
-    const inputClass = `w-full p-2.5 rounded-[4px] border font-bold text-[11px] uppercase tracking-wider focus:outline-none transition-all ${isDarkMode ? 'bg-black/20 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`;
+    const inputClass = `w-full p-2.5 rounded-[4px] border font-bold text-[11px] uppercase tracking-wider focus:outline-none transition-all ${isDarkMode ? 'bg-[#111418] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`;
     const sectionClass = `p-6 rounded-[4px] border transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`;
 
     return (
@@ -550,22 +609,140 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                         ))}
                                     </select>
                                 </div>
-                                <div>
-                                    <label className={labelClass}>COURSE</label>
-                                    <select
-                                        name="course"
-                                        value={formData.course}
-                                        onChange={handleChange}
-                                        className={inputClass}
-                                    >
-                                        <option value="">SELECT COURSE</option>
-                                        {[...masterCourses].sort((a, b) => (a.courseName || "").localeCompare(b.courseName || "")).map((course) => (
-                                            <option key={course._id} value={course._id}>
-                                                {course.courseName?.toUpperCase()}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                                    <div className="md:col-span-1">
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">COURSE *</label>
+                                            <button 
+                                                type="button"
+                                                onClick={() => setShowCourseFilters(!showCourseFilters)}
+                                                className={`text-[9px] font-black uppercase tracking-widest transition-all underline underline-offset-4 ${showCourseFilters ? 'text-red-500 hover:text-red-400' : 'text-cyan-500 hover:text-cyan-400'}`}
+                                            >
+                                                {showCourseFilters ? 'CLOSE FILTERS' : 'FILTER ENGINE'}
+                                            </button>
+                                        </div>
+
+                                        {showCourseFilters && (
+                                            <div className={`mb-6 p-5 rounded-[4px] border border-dashed animate-in fade-in slide-in-from-top-2 duration-300 ${isDarkMode ? 'bg-black/40 border-cyan-500/20' : 'bg-cyan-50 border-cyan-200 shadow-inner'}`}>
+                                                <div className="flex items-center justify-between mb-5 border-b border-gray-800 pb-3">
+                                                    <h4 className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                                                        <FaFilter size={10} className="text-cyan-600" /> COURSE FILTERING ENGINE
+                                                    </h4>
+                                                    <button type="button" onClick={resetCourseFilters} className="text-[9px] font-black uppercase tracking-widest text-red-500 hover:text-red-400 transition-all">RESET FILTERS</button>
+                                                </div>
+                                                
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="col-span-2 relative group">
+                                                        <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-[10px] group-focus-within:text-cyan-500 transition-colors" />
+                                                        <input
+                                                            type="text"
+                                                            name="searchTerm"
+                                                            placeholder="SEARCH COURSE BY NAME OR UNIT..."
+                                                            value={courseFilters.searchTerm}
+                                                            onChange={handleCourseFilterChange}
+                                                            className={`w-full pl-9 pr-3 py-2 rounded-[2px] border text-[9px] font-black uppercase tracking-widest outline-none transition-all ${isDarkMode ? 'bg-[#0f1215] border-gray-800 text-cyan-500 focus:border-cyan-500/50' : 'bg-white border-gray-200 text-cyan-600 focus:border-cyan-500'}`}
+                                                        />
+                                                    </div>
+                                                    
+                                                    <div>
+                                                        <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Filter by Class</label>
+                                                        <select name="class" value={courseFilters.class} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px] !bg-[#0f1215]`}>
+                                                            <option value="" className="bg-[#1a1f24] text-white">ALL CLASSES</option>
+                                                            {masterClasses.sort((a,b) => (a.name || "").localeCompare(b.name || "")).map(c => (
+                                                                <option key={c._id} value={c._id} className="bg-[#1a1f24] text-white">{c.name || c.className}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Filter by Tag</label>
+                                                        <select name="examTag" value={courseFilters.examTag} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px] !bg-[#0f1215]`}>
+                                                            <option value="" className="bg-[#1a1f24] text-white">ALL TAGS</option>
+                                                            {masterExamTags.sort((a,b) => (a.name || "").localeCompare(b.name || "")).map(t => (
+                                                                <option key={t._id} value={t._id} className="bg-[#1a1f24] text-white">{t.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Filter by Session</label>
+                                                        <select name="session" value={courseFilters.session} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px] !bg-[#0f1215]`}>
+                                                            <option value="" className="bg-[#1a1f24] text-white">ALL SESSIONS</option>
+                                                            {masterSessions.map(s => (
+                                                                <option key={s._id} value={s.sessionName || s.name} className="bg-[#1a1f24] text-white">{s.sessionName || s.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Filter by Dept</label>
+                                                        <select name="department" value={courseFilters.department} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px] !bg-[#0f1215]`}>
+                                                            <option value="" className="bg-[#1a1f24] text-white">ALL DEPTS</option>
+                                                            {masterDepartments.sort((a,b) => (a.departmentName || "").localeCompare(b.departmentName || "")).map(d => (
+                                                                <option key={d._id} value={d._id} className="bg-[#1a1f24] text-white">{d.departmentName}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Filter by Board</label>
+                                                        <select name="board" value={courseFilters.board} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px] !bg-[#0f1215]`}>
+                                                            <option value="" className="bg-[#1a1f24] text-white">ALL BOARDS</option>
+                                                            {masterBoards.sort((a,b) => (a.boardName || a.boardCourse || "").localeCompare(b.boardName || b.boardCourse || "")).map(b => (
+                                                                <option key={b._id} value={b.boardName || b.boardCourse} className="bg-[#1a1f24] text-white">{b.boardName || b.boardCourse}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Programme</label>
+                                                        <select name="programme" value={courseFilters.programme} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px] !bg-[#0f1215]`}>
+                                                            <option value="" className="bg-[#1a1f24] text-white">ALL</option>
+                                                            <option value="CRP" className="bg-[#1a1f24] text-white">CRP</option>
+                                                            <option value="NCRP" className="bg-[#1a1f24] text-white">NCRP</option>
+                                                        </select>
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Mode</label>
+                                                        <select name="mode" value={courseFilters.mode} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px] !bg-[#0f1215]`}>
+                                                            <option value="" className="bg-[#1a1f24] text-white">ALL MODES</option>
+                                                            <option value="ONLINE" className="bg-[#1a1f24] text-white">ONLINE</option>
+                                                            <option value="OFFLINE" className="bg-[#1a1f24] text-white">OFFLINE</option>
+                                                            <option value="HYBRID" className="bg-[#1a1f24] text-white">HYBRID</option>
+                                                        </select>
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Type</label>
+                                                        <select name="courseType" value={courseFilters.courseType} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px] !bg-[#0f1215]`}>
+                                                            <option value="" className="bg-[#1a1f24] text-white">ALL TYPES</option>
+                                                            <option value="REGULAR" className="bg-[#1a1f24] text-white">REGULAR</option>
+                                                            <option value="CRASH" className="bg-[#1a1f24] text-white">CRASH</option>
+                                                            <option value="TEST_SERIES" className="bg-[#1a1f24] text-white">TEST SERIES</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <select
+                                            name="course"
+                                            value={formData.course}
+                                            onChange={handleChange}
+                                            className={`${inputClass} !bg-[#111418]`}
+                                        >
+                                            <option value="" className="bg-[#1a1f24] text-white">SELECT COURSE</option>
+                                            {filteredCourses.length > 0 ? (
+                                                [...filteredCourses].sort((a, b) => (a.courseName || "").localeCompare(b.courseName || "")).map((course) => (
+                                                    <option key={course._id} value={course._id} className="bg-[#1a1f24] text-white">
+                                                        {course.courseName?.toUpperCase()}
+                                                    </option>
+                                                ))
+                                            ) : (
+                                                <option disabled className="bg-[#1a1f24] text-gray-500">NO COURSES MATCH FILTERS</option>
+                                            )}
+                                        </select>
+                                    </div>
                                 <div>
                                     <label className={labelClass}>CLASSIFICATION (CLASS)</label>
                                     <select
