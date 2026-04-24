@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import {
-    FaCalendarAlt,
+    FaCalendarAlt, FaHistory, FaBars, FaTimes, FaTasks,
     FaChartBar, FaBullseye, FaBook, FaMoneyBillWave, FaUserTie, FaCogs, FaMobileAlt,
-    FaBullhorn, FaThLarge, FaDatabase, FaChevronDown, FaChevronUp, FaTimes, FaUsers,
+    FaBullhorn, FaThLarge, FaDatabase, FaChevronDown, FaChevronUp, FaUsers,
     FaShoppingCart, FaCalendarCheck, FaBuilding, FaIdCard, FaMapMarkerAlt, FaToggleOn,
     FaChalkboardTeacher, FaTable, FaFileUpload, FaCommentDots, FaMoneyCheckAlt, FaUserMinus,
     FaBirthdayCake, FaPizzaSlice, FaGlassCheers, FaCalendarTimes, FaHandshake, FaRegFileAlt, FaWindowClose, FaExclamationCircle
@@ -300,6 +300,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             ]
         },
         { name: "User Management", icon: <FaUsers />, path: "/user-management", permissionModule: "userManagement" },
+        { name: "System Logs", icon: <FaHistory />, path: "/system-logs", restrictedToSuperAdmin: true },
     ], []);
 
     const [openMenus, setOpenMenus] = useState({});
@@ -337,6 +338,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     // Filter menu items based on permissions
     const filteredMenuItems = menuItems.filter(item => {
         if (item.name === "Dashboard" || item.name === "Community") return true;
+        if (item.restrictedToSuperAdmin && !isSuperAdmin) return false;
         if (isSuperAdmin) return true;
         // if (item.permissionModule === 'employeeCenter') return true; // Removed legacy override
 
