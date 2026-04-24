@@ -1162,13 +1162,29 @@ const BoardAdmissionsContent = () => {
                                                             </button>
                                                         </>
                                                     ) : (
-                                                        <button
-                                                            onClick={() => navigate(`/manage-board-admission/${item._id}`)}
-                                                            className="px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border border-cyan-500/20 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black transition-all text-[9px] font-black uppercase tracking-widest"
-                                                        >
-                                                            <FaEdit size={10} />
-                                                            <span>Manage</span>
-                                                        </button>
+                                                        <div className="flex gap-2">
+                                                            <button 
+                                                                onClick={() => handleViewStudent(item.studentId)} 
+                                                                title="View Details" 
+                                                                className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-cyan-500 text-gray-400 hover:text-white transition-all"
+                                                            >
+                                                                <FaEye size={12} />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleEditProfile(item.studentId)} 
+                                                                title="Edit Profile" 
+                                                                className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-amber-500 text-gray-400 hover:text-amber-500 transition-all"
+                                                            >
+                                                                <FaEdit size={12} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => navigate(`/manage-board-admission/${item._id}`)}
+                                                                className="px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border border-cyan-500/20 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black transition-all text-[9px] font-black uppercase tracking-widest"
+                                                            >
+                                                                <FaSync size={10} />
+                                                                <span>Manage</span>
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </td>
