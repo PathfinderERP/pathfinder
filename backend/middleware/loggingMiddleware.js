@@ -51,10 +51,13 @@ const loggingMiddleware = async (req, res, next) => {
                         user: req.user._id,
                         userName: req.user.name,
                         userRole: req.user.role,
+                        userDesignation: req.user.designation || 'N/A',
+                        userCentre: req.user.centres && req.user.centres.length > 0 ? req.user.centres.join(', ') : 'N/A',
                         action: action,
                         module: moduleName,
+                        pageUrl: req.headers.referer || 'Direct API',
                         details: {
-                            body: req.method !== 'GET' ? req.body : undefined,
+                            body: req.method !== 'GET' ? { ...req.body, password: req.body.password ? '******' : undefined } : undefined,
                             params: req.params,
                             query: req.query,
                             statusCode: res.statusCode

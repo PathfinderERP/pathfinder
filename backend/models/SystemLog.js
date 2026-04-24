@@ -42,6 +42,15 @@ const systemLogSchema = new mongoose.Schema({
     },
     device: {
         type: String
+    },
+    userCentre: {
+        type: String
+    },
+    userDesignation: {
+        type: String
+    },
+    pageUrl: {
+        type: String
     }
 }, { timestamps: true });
 

@@ -220,8 +220,9 @@ const SystemLogs = () => {
                         <table className="w-full text-left">
                             <thead className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-800">
                                 <tr>
-                                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">User</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">User Details</th>
                                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Source Page</th>
                                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Module</th>
                                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Device Info</th>
@@ -246,7 +247,8 @@ const SystemLogs = () => {
                                                     </div>
                                                     <div>
                                                         <div className="text-sm font-medium text-gray-900 dark:text-white">{log.userName}</div>
-                                                        <div className="text-[10px] text-gray-500">{log.user?.email || log.userRole}</div>
+                                                        <div className="text-[10px] text-gray-400 font-medium">{log.userDesignation} | {log.userRole}</div>
+                                                        <div className="text-[10px] text-cyan-600 dark:text-cyan-400 truncate max-w-[150px]">{log.userCentre}</div>
                                                     </div>
                                                 </div>
                                             </td>
@@ -254,6 +256,11 @@ const SystemLogs = () => {
                                                 <div className="flex flex-col">
                                                     <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">{log.action}</span>
                                                     <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono truncate max-w-[200px]">{log.url}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate max-w-[150px]" title={log.pageUrl}>
+                                                    {log.pageUrl ? (log.pageUrl.includes('localhost') ? log.pageUrl.split(':5173')[1] : log.pageUrl.split('.in')[1]) || '/' : 'N/A'}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
@@ -270,8 +277,8 @@ const SystemLogs = () => {
                                                 <div className="text-[10px] text-gray-500 max-w-[150px] truncate" title={log.device}>
                                                     {log.device ? (
                                                         log.device.includes('Windows') ? 'Windows PC' :
-                                                        log.device.includes('Android') ? 'Android Device' :
-                                                        log.device.includes('iPhone') ? 'iPhone' : 'Web Browser'
+                                                            log.device.includes('Android') ? 'Android Device' :
+                                                                log.device.includes('iPhone') ? 'iPhone' : 'Web Browser'
                                                     ) : 'Unknown'}
                                                 </div>
                                             </td>
