@@ -112,7 +112,11 @@ const TransactionReport = () => {
                 const sessionData = await sRes.ok ? await sRes.json() : [];
                 setSessions(Array.isArray(sessionData) ? sessionData : []);
             }
-            if (dRes.ok) setDepartments(await dRes.json());
+            if (dRes.ok) {
+                const allDepts = await dRes.json();
+                const visibleDepts = allDepts.filter(dept => dept.showInAdmission !== false);
+                setDepartments(visibleDepts);
+            }
         } catch (error) {
             console.error("Error fetching master data", error);
         }

@@ -119,7 +119,11 @@ const TransactionList = () => {
                 const sortedCentres = filteredCentres.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
                 setCentres(sortedCentres);
             }
-            if (dRes.ok) setDepartments(await dRes.json());
+            if (dRes.ok) {
+                const data = await dRes.json();
+                const visibleDepts = Array.isArray(data) ? data.filter(dept => dept.showInAdmission !== false) : [];
+                setDepartments(visibleDepts);
+            }
             if (sRes.ok) {
                 const sessionData = await sRes.json();
                 setSessions(Array.isArray(sessionData) ? sessionData : []);

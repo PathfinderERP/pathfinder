@@ -128,7 +128,11 @@ const EnrolledStudentsContent = () => {
                 fetch(`${apiUrl}/session/list`, { headers })
             ]);
 
-            if (deptRes.ok) setMasterDepartments(await deptRes.json());
+            if (deptRes.ok) {
+                const data = await deptRes.json();
+                const visibleDepts = Array.isArray(data) ? data.filter(dept => dept.showInAdmission !== false) : [];
+                setMasterDepartments(visibleDepts);
+            }
             if (courseRes.ok) setMasterCourses(await courseRes.json());
             if (classRes.ok) setMasterClasses(await classRes.json());
             if (sessionRes.ok) setMasterSessions(await sessionRes.json());

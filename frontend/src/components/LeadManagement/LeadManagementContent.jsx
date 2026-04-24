@@ -284,11 +284,10 @@ const LeadManagementContent = () => {
             if (sourceResponse.ok) setSources(sourceData.sources || []);
 
             // Fetch courses
-            const courseResponse = await fetch(`${import.meta.env.VITE_API_URL}/course`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const courseData = await courseResponse.json();
-            if (courseResponse.ok) setCourses(Array.isArray(courseData) ? courseData : []);
+            if (courseResponse.ok) {
+                const data = await courseResponse.json();
+                setCourses((Array.isArray(data) ? data : []).filter(c => c.department?.showInAdmission !== false));
+            }
 
             // Fetch boards
             const boardResponse = await fetch(`${import.meta.env.VITE_API_URL}/board`, {

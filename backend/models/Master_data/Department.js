@@ -7,6 +7,10 @@ const departmentSchema = new mongoose.Schema({
     },
     description:{
         type:String,
+    },
+    showInAdmission: {
+        type: Boolean,
+        default: true
     }
 });
 

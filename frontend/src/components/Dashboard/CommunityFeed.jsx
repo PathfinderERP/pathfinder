@@ -3,7 +3,7 @@ import {
     FaUpload, FaPaperPlane, FaImage, FaPoll, FaThumbsUp, FaComment,
     FaCheckCircle, FaChartBar, FaTrash, FaTimes, FaEye, FaHistory,
     FaVideo, FaPlay, FaUsers, FaEdit, FaSmile, FaCheckDouble, FaCrop,
-    FaFileDownload, FaDownload, FaFileAlt, FaReply
+    FaFileDownload, FaDownload, FaFileAlt, FaReply, FaThumbtack
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
@@ -135,6 +135,16 @@ const CommunityFeed = () => {
                 setTypingStatus(isTyping ? user : null);
             }
         });
+        
+        socket.on("notification", (notif) => {
+            if (notif.type === "PINNED_POST") {
+                toast.info(notif.message, {
+                    position: "top-center",
+                    autoClose: 5000,
+                    icon: <FaThumbtack className="text-cyan-500" />
+                });
+            }
+        });
 
         socket.connect();
         fetchPosts();
@@ -148,6 +158,7 @@ const CommunityFeed = () => {
             socket.off("new_post");
             socket.off("post_updated");
             socket.off("user_typing");
+            socket.off("notification");
             if (socket.connected) socket.emit("leave_room", "community");
             socket.disconnect(); // Fully close — stops reconnect loop
             clearInterval(activityInterval);
@@ -171,10 +182,28 @@ const CommunityFeed = () => {
             });
             if (response.ok) {
                 toast.success("Message deleted");
-                // Note: The UI update will happen via the 'post_updated' socket event
             }
         } catch {
             toast.error("Error deleting message");
+        }
+    };
+
+    const handlePinPost = async (postId) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/community/${postId}/pin`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const updatedPost = await response.json();
+                toast.success(updatedPost.isPinned ? "Message pinned to top" : "Message unpinned");
+            } else {
+                const err = await response.json();
+                toast.error(err.message || "Error pinning message");
+            }
+        } catch {
+            toast.error("Error pinning message");
         }
     };
 
@@ -494,6 +523,36 @@ const CommunityFeed = () => {
                     backgroundBlendMode: 'overlay'
                 }}
             >
+                {/* Pinned Messages Bar */}
+                {posts.some(p => p.isPinned) && (
+                    <div className="sticky top-0 z-30 mb-6 -mx-4 md:-mx-8">
+                        <div className={`mx-auto max-w-4xl px-4 md:px-0`}>
+                            <div className={`p-3 rounded-[3px] border-l-4 border-cyan-500 shadow-xl backdrop-blur-md flex items-center gap-4 group cursor-pointer transition-all hover:scale-[1.01] active:scale-100 ${isDark ? 'bg-[#202c33]/90 text-white' : 'bg-white/90 text-gray-800'}`}
+                                 onClick={() => {
+                                     const pinnedPost = posts.find(p => p.isPinned);
+                                     if (pinnedPost) {
+                                         const element = document.getElementById(`post-${pinnedPost._id}`);
+                                         element?.scrollIntoView({ behavior: "smooth", block: "center" });
+                                     }
+                                 }}
+                            >
+                                <div className="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-500 shrink-0">
+                                    <FaThumbtack size={14} className="rotate-45" />
+                                </div>
+                                <div className="flex-1 overflow-hidden">
+                                    <p className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-0.5">Pinned Message</p>
+                                    <p className="text-xs truncate opacity-80">
+                                        {posts.find(p => p.isPinned)?.content || "Pinned attachment"}
+                                    </p>
+                                </div>
+                                <div className="text-[9px] font-black uppercase tracking-widest text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    View Message
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="max-w-4xl mx-auto space-y-6 relative z-10">
                     {loading ? (
                         <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -538,6 +597,7 @@ const CommunityFeed = () => {
                                             isDark={isDark}
                                             onReply={() => setReplyingTo(post)}
                                             onShowViewers={() => setViewerDetails(post)}
+                                            onPin={() => handlePinPost(post._id)}
                                         />
                                     </React.Fragment>
                                 );
@@ -754,12 +814,21 @@ const CommunityFeed = () => {
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 188, 212, 0.2); border-radius: 10px; }
                 @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
                 .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+                @keyframes glow {
+                    0% { box-shadow: 0 0 5px rgba(6, 182, 212, 0.2); }
+                    50% { box-shadow: 0 0 20px rgba(6, 182, 212, 0.5); }
+                    100% { box-shadow: 0 0 5px rgba(6, 182, 212, 0.2); }
+                }
+                .pinned-glow {
+                    animation: glow 2s infinite ease-in-out;
+                    border: 1px solid rgba(6, 182, 212, 0.3) !important;
+                }
             `}</style>
         </div>
     );
 };
 
-const WhatsAppMessageBubble = ({ post, isOwn, onReact, onDelete, onView, onMediaClick, currentUser, isDark, onReply, onShowViewers }) => {
+const WhatsAppMessageBubble = ({ post, isOwn, onReact, onDelete, onView, onMediaClick, currentUser, isDark, onReply, onShowViewers, onPin }) => {
     const bubbleRef = useRef(null);
 
     useEffect(() => {
@@ -795,8 +864,17 @@ const WhatsAppMessageBubble = ({ post, isOwn, onReact, onDelete, onView, onMedia
 
     const viewCount = post.views?.length || 0;
 
+    const getTimeSincePinned = (pinnedAt) => {
+        if (!pinnedAt) return "";
+        const diff = Math.floor((new Date() - new Date(pinnedAt)) / 60000); // in minutes
+        if (diff < 1) return "just now";
+        if (diff < 60) return `${diff}m ago`;
+        if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
+        return `${Math.floor(diff / 1440)}d ago`;
+    };
+
     return (
-        <div ref={bubbleRef} className={`flex w-full mb-4 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+        <div id={`post-${post._id}`} ref={bubbleRef} className={`flex w-full mb-4 ${isOwn ? 'justify-end' : 'justify-start'}`}>
             <div className={`flex gap-3 max-w-[85%] md:max-w-[75%] ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
                 {/* Avatar for others */}
                 {!isOwn && (
@@ -819,7 +897,18 @@ const WhatsAppMessageBubble = ({ post, isOwn, onReact, onDelete, onView, onMedia
                     </div>
 
                     <div className="relative">
-                        <div className={`absolute -top-10 ${isOwn ? 'right-0' : 'left-0'} flex gap-1 bg-white dark:bg-[#1a2329] p-1 rounded-[3px] shadow-xl border dark:border-gray-700 opacity-0 group-hover:opacity-100 transition-opacity z-10`}>
+                        {/* Dedicted Pin Button for Admins - Always visible or easy to find */}
+                        {(currentUser.role?.toLowerCase() === 'superadmin' || currentUser.role?.toLowerCase() === 'super admin') && (
+                            <button 
+                                onClick={onPin}
+                                className={`absolute -top-6 ${isOwn ? 'right-0' : 'left-0'} p-1.5 rounded-full shadow-lg transition-all z-20 ${post.isPinned ? 'bg-amber-500 text-white' : 'bg-white dark:bg-[#1a2329] text-gray-400 hover:text-cyan-500 hover:scale-110'}`}
+                                title={post.isPinned ? "Unpin Message" : "Pin Message"}
+                            >
+                                <FaThumbtack size={12} className={post.isPinned ? '' : 'rotate-45'} />
+                            </button>
+                        )}
+
+                        <div className={`absolute -top-10 ${isOwn ? 'right-8' : 'left-8'} flex gap-1 bg-white dark:bg-[#1a2329] p-1 rounded-[3px] shadow-xl border dark:border-gray-700 opacity-0 group-hover:opacity-100 transition-opacity z-10`}>
                             {reactionsList.map(emoji => (
                                 <button
                                     key={emoji}
@@ -839,7 +928,7 @@ const WhatsAppMessageBubble = ({ post, isOwn, onReact, onDelete, onView, onMedia
                             </button>
                         </div>
 
-                        <div className={`px-4 py-2 rounded-[6px] shadow-sm relative transition-all duration-300 ${post.isDeleted
+                        <div className={`px-4 py-2 rounded-[6px] shadow-sm relative transition-all duration-300 ${post.isPinned ? 'pinned-glow' : ''} ${post.isDeleted
                             ? (isDark ? 'bg-black/20 text-gray-500 italic' : 'bg-gray-100/50 text-gray-400 italic')
                             : (isOwn
                                 ? (isDark ? 'bg-[#005c4b] text-white rounded-tr-none' : 'bg-[#dcf8c6] text-gray-800 rounded-tr-none')
@@ -924,8 +1013,13 @@ const WhatsAppMessageBubble = ({ post, isOwn, onReact, onDelete, onView, onMedia
 
                             <div className="flex items-center justify-end gap-1.5 mt-1 opacity-60">
                                 <span className="text-[9px] font-medium">
-                                    {new Date(post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {new Date(post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
+                                {post.isPinned && (
+                                    <div className="flex items-center gap-1 text-[8px] font-black text-cyan-500 uppercase tracking-tighter ml-1">
+                                        <FaThumbtack size={8} /> Pinned {getTimeSincePinned(post.pinnedAt)}
+                                    </div>
+                                )}
                                 {isOwn && !post.isDeleted && (
                                     <span className={viewCount > 0 ? 'text-cyan-400' : 'text-gray-400'}>
                                         <FaCheckDouble size={11} />

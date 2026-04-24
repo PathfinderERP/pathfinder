@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Select from "react-select";
 import { useTheme } from "../../context/ThemeContext";
 import { FaArrowLeft, FaSun, FaMoon, FaUserEdit, FaSearch } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -272,7 +273,10 @@ const StudentRegistrationForm = () => {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = await response.json();
-            if (response.ok) setDepartments(data);
+            if (response.ok) {
+                const visibleDepts = Array.isArray(data) ? data.filter(dept => dept.showInAdmission !== false) : [];
+                setDepartments(visibleDepts);
+            }
         } catch (error) { console.error("Error fetching departments:", error); }
     };
 
@@ -652,12 +656,68 @@ const StudentRegistrationForm = () => {
                                             </div>
                                             <div>
                                                 <label className={labelClass}>DEPARTMENT SECTOR *</label>
-                                                <select name="department" required value={formData.department} onChange={handleChange} className={inputClass}>
-                                                    <option value="">SELECT DEPARTMENT</option>
-                                                    {departments.map((dept) => (
-                                                        <option key={dept._id} value={dept._id}>{dept.departmentName.toUpperCase()}</option>
-                                                    ))}
-                                                </select>
+                                                <Select
+                                                    options={departments.map(dept => ({ value: dept._id, label: dept.departmentName.toUpperCase() }))}
+                                                    value={departments.find(d => d._id === formData.department) ? { value: formData.department, label: departments.find(d => d._id === formData.department).departmentName.toUpperCase() } : null}
+                                                    onChange={(selectedOption) => {
+                                                        handleChange({
+                                                            target: {
+                                                                name: 'department',
+                                                                value: selectedOption ? selectedOption.value : ''
+                                                            }
+                                                        });
+                                                    }}
+                                                    isSearchable={true}
+                                                    placeholder="SEARCH DEPARTMENT..."
+                                                    styles={{
+                                                        control: (base, state) => ({
+                                                            ...base,
+                                                            backgroundColor: isDarkMode ? '#111418' : '#f9fafb',
+                                                            borderColor: state.isFocused ? (isDarkMode ? 'rgba(6, 182, 212, 0.5)' : '#06b6d4') : (isDarkMode ? '#1f2937' : '#e5e7eb'),
+                                                            padding: '4px',
+                                                            borderRadius: '4px',
+                                                            fontSize: '13px',
+                                                            fontWeight: 'bold',
+                                                            color: isDarkMode ? 'white' : 'black',
+                                                            boxShadow: state.isFocused ? '0 0 0 1px rgba(6, 182, 212, 0.2)' : 'none',
+                                                            '&:hover': {
+                                                                borderColor: isDarkMode ? 'rgba(6, 182, 212, 0.5)' : '#06b6d4'
+                                                            }
+                                                        }),
+                                                        menu: (base) => ({
+                                                            ...base,
+                                                            backgroundColor: isDarkMode ? '#1a1f24' : 'white',
+                                                            border: isDarkMode ? '1px solid #1f2937' : '1px solid #e5e7eb',
+                                                            zIndex: 100
+                                                        }),
+                                                        option: (base, state) => ({
+                                                            ...base,
+                                                            backgroundColor: state.isFocused 
+                                                                ? (isDarkMode ? 'rgba(6, 182, 212, 0.2)' : 'rgba(6, 182, 212, 0.1)') 
+                                                                : 'transparent',
+                                                            color: isDarkMode ? 'white' : 'black',
+                                                            fontSize: '11px',
+                                                            fontWeight: 'black',
+                                                            textTransform: 'uppercase',
+                                                            letterSpacing: '0.05em',
+                                                            '&:active': {
+                                                                backgroundColor: 'rgba(6, 182, 212, 0.3)'
+                                                            }
+                                                        }),
+                                                        singleValue: (base) => ({
+                                                            ...base,
+                                                            color: isDarkMode ? 'white' : 'black'
+                                                        }),
+                                                        placeholder: (base) => ({
+                                                            ...base,
+                                                            color: isDarkMode ? '#374151' : '#9ca3af'
+                                                        }),
+                                                        input: (base) => ({
+                                                            ...base,
+                                                            color: isDarkMode ? 'white' : 'black'
+                                                        })
+                                                    }}
+                                                />
                                             </div>
                                             <div>
                                                 <label className={labelClass}>ACADEMIC PROGRAMME</label>

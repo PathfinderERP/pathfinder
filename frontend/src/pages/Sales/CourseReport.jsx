@@ -124,7 +124,11 @@ const CourseReport = () => {
                     setSelectedSession(sessionList[0].sessionName);
                 }
             }
-            if (deptRes.ok) setDepartments(await deptRes.json());
+            if (deptRes.ok) {
+                const allDepts = await deptRes.json();
+                const visibleDepts = allDepts.filter(dept => dept.showInAdmission !== false);
+                setDepartments(visibleDepts);
+            }
         } catch (error) {
             console.error("Error fetching master data", error);
         }

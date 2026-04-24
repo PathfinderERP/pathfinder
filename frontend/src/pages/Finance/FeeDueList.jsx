@@ -68,7 +68,8 @@ const FeeDueList = () => {
             }
             if (deptRes.ok) {
                 const data = await deptRes.json();
-                setDepartments(data || []);
+                const visibleDepts = Array.isArray(data) ? data.filter(dept => dept.showInAdmission !== false) : [];
+                setDepartments(visibleDepts);
             }
         } catch (error) {
             console.error("Error fetching master data:", error);

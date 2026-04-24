@@ -76,11 +76,11 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                 setCentres(list);
             }
 
-            const courseResponse = await fetch(`${import.meta.env.VITE_API_URL}/course`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const courseData = await courseResponse.json();
-            if (courseResponse.ok) setCourses((Array.isArray(courseData) ? courseData : []).sort((a, b) => (a.courseName || "").localeCompare(b.courseName || "")));
+            if (courseResponse.ok) {
+                const data = await courseResponse.json();
+                const filtered = (Array.isArray(data) ? data : []).filter(c => c.department?.showInAdmission !== false);
+                setCourses(filtered.sort((a, b) => (a.courseName || "").localeCompare(b.courseName || "")));
+            }
 
             const sourceResponse = await fetch(`${import.meta.env.VITE_API_URL}/source`, {
                 headers: { Authorization: `Bearer ${token}` },

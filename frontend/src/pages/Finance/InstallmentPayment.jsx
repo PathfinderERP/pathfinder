@@ -245,6 +245,7 @@ const InstallmentPayment = () => {
             const centres = await centresRes.json();
             const courses = await coursesRes.json();
             const depts = await deptsRes.json();
+            const filteredDepts = Array.isArray(depts) ? depts.filter(dept => dept.showInAdmission !== false) : [];
 
             // Filter centres based on permissions with case-insensitive comparison
             const perms = allowedOverride !== undefined ? allowedOverride : allowedCentres;
@@ -262,8 +263,8 @@ const InstallmentPayment = () => {
 
             setMetadata({
                 centres: filteredCentres,
-                courses: Array.isArray(courses) ? courses : [],
-                departments: Array.isArray(depts) ? depts : []
+                courses: (Array.isArray(courses) ? courses : []).filter(c => c.department?.showInAdmission !== false),
+                departments: filteredDepts
             });
         } catch (error) {
             console.error("Error fetching metadata:", error);

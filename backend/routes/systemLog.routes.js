@@ -1,10 +1,10 @@
 import express from "express";
-import { getSystemLogs, getLogStats } from "../controllers/SystemLogController.js";
+import { getSystemLogs, getLogStats, deleteMultipleLogs } from "../controllers/SystemLogController.js";
 import { requireAuth } from "../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
-// Only SuperAdmin should be able to see logs
+// Only SuperAdmin should be able to see/manage logs
 const requireSuperAdmin = (req, res, next) => {
     if (req.user && (req.user.role?.toLowerCase() === "superadmin" || req.user.role?.toLowerCase() === "super admin")) {
         next();
@@ -15,5 +15,6 @@ const requireSuperAdmin = (req, res, next) => {
 
 router.get("/all", requireAuth, requireSuperAdmin, getSystemLogs);
 router.get("/stats", requireAuth, requireSuperAdmin, getLogStats);
+router.delete("/bulk-delete", requireAuth, requireSuperAdmin, deleteMultipleLogs);
 
 export default router;

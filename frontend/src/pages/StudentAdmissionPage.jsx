@@ -197,7 +197,11 @@ const StudentAdmissionPage = () => {
             if (classesRes.ok) setClasses(await classesRes.json());
             if (tagsRes.ok) setExamTags(await tagsRes.json());
             if (sessionsRes.ok) setSessions(await sessionsRes.json());
-            if (deptsRes.ok) setDepartments(await deptsRes.json());
+            if (deptsRes.ok) {
+                const data = await deptsRes.json();
+                const visibleDepts = Array.isArray(data) ? data.filter(dept => dept.showInAdmission !== false) : [];
+                setDepartments(visibleDepts);
+            }
             if (boardsRes.ok) setBoards(await boardsRes.json());
             if (subjectsRes.ok) await subjectsRes.json();
 

@@ -807,7 +807,11 @@ const EmployeesAttendance = () => {
         });
     }, [attendanceList]);
 
-    // Derived department data for charts (Based on selected period's Presence)
+    const VIBRANT_COLORS = [
+        '#06b6d4', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#6366f1', 
+        '#f43f5e', '#84cc16', '#0ea5e9', '#d946ef', '#f97316', '#14b8a6', '#64748b'
+    ];
+
     const departmentData = useMemo(() => {
         if (!periodPresentList.length) return [];
         const map = {};
@@ -1252,23 +1256,38 @@ const EmployeesAttendance = () => {
                             </div>
                         </div>
 
-                        {/* Department Distribution */}
+                        {/* Department Distribution: Vertically Scrollable & Vibrant */}
                         <div className={`border rounded-[2px] p-6 flex flex-col ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                            <h3 className={`font-black text-[10px] uppercase tracking-[0.2em] mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Department Distribution</h3>
-                            <div className="flex-1 w-full min-h-0">
-                                <ResponsiveContainer width="100%" height="100%" minHeight={300} minWidth={100}>
-                                    <BarChart layout="vertical" data={departmentData} margin={{ top: 0, right: 20, left: 40, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
-                                        <XAxis type="number" hide />
-                                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9ca3af' : '#6b7280', fontSize: 9, fontWeight: 700 }} width={80} />
-                                        <Tooltip cursor={{ fill: isDarkMode ? '#1f2937' : '#f9fafb' }} contentStyle={{ backgroundColor: isDarkMode ? '#111827' : '#fff', borderColor: isDarkMode ? '#374151' : '#e5e7eb' }} />
-                                        <Bar dataKey="value" fill="#06b6d4" radius={[0, 4, 4, 0]} barSize={15}>
-                                            {departmentData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={['#06b6d4', '#8b5cf6', '#ec4899', '#f59e0b'][index % 4]} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className={`font-black text-[10px] uppercase tracking-[0.2em] ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Department Distribution</h3>
+                                <div className="text-[8px] font-black text-cyan-500 uppercase tracking-widest bg-cyan-500/10 px-2 py-0.5 rounded-[1px]">Scroll ↕</div>
+                            </div>
+                            <div className="flex-1 w-full min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar">
+                                <div style={{ height: `${Math.max(300, departmentData.length * 45)}px`, width: '100%' }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart layout="vertical" data={departmentData} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
+                                            <XAxis type="number" hide />
+                                            <YAxis 
+                                                dataKey="name" 
+                                                type="category" 
+                                                axisLine={false} 
+                                                tickLine={false} 
+                                                tick={{ fill: isDarkMode ? '#9ca3af' : '#6b7280', fontSize: 9, fontWeight: 900 }} 
+                                                width={100}
+                                            />
+                                            <Tooltip 
+                                                cursor={{ fill: isDarkMode ? '#1f2937' : '#f9fafb' }} 
+                                                contentStyle={{ backgroundColor: isDarkMode ? '#111827' : '#fff', borderColor: isDarkMode ? '#374151' : '#e5e7eb', borderRadius: '4px', fontSize: '10px' }} 
+                                            />
+                                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
+                                                {departmentData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={VIBRANT_COLORS[index % VIBRANT_COLORS.length]} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
                             </div>
                         </div>
                     </div>

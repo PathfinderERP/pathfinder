@@ -57,6 +57,13 @@ const communityPostSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "CommunityPost",
         required: false
+    },
+    isPinned: {
+        type: Boolean,
+        default: false
+    },
+    pinnedAt: {
+        type: Date
     }
 }, {
     timestamps: true

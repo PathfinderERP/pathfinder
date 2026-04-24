@@ -51,6 +51,17 @@ const systemLogSchema = new mongoose.Schema({
     },
     pageUrl: {
         type: String
+    },
+    targetName: {
+        type: String
+    },
+    riskLevel: {
+        type: String,
+        enum: ['low', 'medium', 'high'],
+        default: 'low'
+    },
+    sessionId: {
+        type: String
     }
 }, { timestamps: true });
 

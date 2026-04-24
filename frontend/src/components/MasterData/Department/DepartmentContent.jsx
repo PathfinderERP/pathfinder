@@ -11,7 +11,7 @@ const DepartmentContent = () => {
     const [loading, setLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentDepartment, setCurrentDepartment] = useState(null);
-    const [formData, setFormData] = useState({ departmentName: "", description: "" });
+    const [formData, setFormData] = useState({ departmentName: "", description: "", showInAdmission: true });
 
     // Permission checks
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -52,10 +52,10 @@ const DepartmentContent = () => {
     const openModal = (dept = null) => {
         if (dept) {
             setCurrentDepartment(dept);
-            setFormData({ departmentName: dept.departmentName, description: dept.description || "" });
+            setFormData({ departmentName: dept.departmentName, description: dept.description || "", showInAdmission: dept.showInAdmission !== undefined ? dept.showInAdmission : true });
         } else {
             setCurrentDepartment(null);
-            setFormData({ departmentName: "", description: "" });
+            setFormData({ departmentName: "", description: "", showInAdmission: true });
         }
         setIsModalOpen(true);
     };
@@ -142,11 +142,13 @@ const DepartmentContent = () => {
 
     const departmentColumns = [
         { header: "Department Name", key: "departmentName" },
-        { header: "Description", key: "description" }
+        { header: "Description", key: "description" },
+        { header: "Admission Visibility", key: "showInAdmission" }
     ];
     const departmentMapping = {
         "Department Name": "departmentName",
-        "Description": "description"
+        "Description": "description",
+        "Admission Visibility": "showInAdmission"
     };
 
     return (
@@ -187,6 +189,7 @@ const DepartmentContent = () => {
                                 <th className="p-4 border-b border-gray-700">#</th>
                                 <th className="p-4 border-b border-gray-700">Department Name</th>
                                 <th className="p-4 border-b border-gray-700">Description</th>
+                                <th className="p-4 border-b border-gray-700 text-center">Admission Visibility</th>
                                 <th className="p-4 border-b border-gray-700 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -205,6 +208,11 @@ const DepartmentContent = () => {
                                         <td className="p-4 text-gray-400">{index + 1}</td>
                                         <td className="p-4 font-medium">{dept.departmentName}</td>
                                         <td className="p-4 text-gray-400">{dept.description || "-"}</td>
+                                        <td className="p-4 text-center">
+                                            <span className={`px-2 py-1 rounded-full text-xs ${dept.showInAdmission !== false ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                                {dept.showInAdmission !== false ? 'Visible' : 'Hidden'}
+                                            </span>
+                                        </td>
                                         <td className="p-4 text-right">
                                             <div className="flex justify-end gap-2">
                                                 {canEdit && (
@@ -270,6 +278,19 @@ const DepartmentContent = () => {
                                     placeholder="Enter description"
                                     rows="3"
                                 />
+                            </div>
+                            <div className="mb-4 flex items-center gap-3">
+                                <input
+                                    type="checkbox"
+                                    id="showInAdmission"
+                                    name="showInAdmission"
+                                    checked={formData.showInAdmission}
+                                    onChange={(e) => setFormData({ ...formData, showInAdmission: e.target.checked })}
+                                    className="w-4 h-4 accent-cyan-500"
+                                />
+                                <label htmlFor="showInAdmission" className="text-gray-400 text-sm cursor-pointer">
+                                    Show in Admission & Counselling
+                                </label>
                             </div>
                             <div className="flex justify-end gap-3">
                                 <button

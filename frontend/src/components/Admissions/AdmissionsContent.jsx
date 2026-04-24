@@ -108,7 +108,10 @@ const AdmissionsContent = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const data = await response.json();
-            if (response.ok) setDepartments(data);
+            if (response.ok) {
+                const visibleDepartments = data.filter(dept => dept.showInAdmission !== false);
+                setDepartments(visibleDepartments);
+            }
         } catch (error) {
             console.error("Error fetching departments:", error);
         }

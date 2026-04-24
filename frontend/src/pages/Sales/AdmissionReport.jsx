@@ -178,7 +178,11 @@ const AdmissionReport = () => {
             if (courseRes.ok) setCourses(await courseRes.json());
             if (classRes.ok) setClasses(await classRes.json());
             if (examTagRes.ok) setExamTags(await examTagRes.json());
-            if (deptRes.ok) setDepartments(await deptRes.json());
+            if (deptRes.ok) {
+                const allDepts = await deptRes.json();
+                const visibleDepts = allDepts.filter(dept => dept.showInAdmission !== false);
+                setDepartments(visibleDepts);
+            }
             if (subjectRes.ok) setSubjects(await subjectRes.json());
             if (boardRes.ok) setBoards(await boardRes.json());
 

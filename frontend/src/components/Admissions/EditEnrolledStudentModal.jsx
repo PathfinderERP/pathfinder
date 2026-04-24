@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Select from 'react-select';
 import { FaTimes, FaUser, FaSave, FaSearch, FaFilter, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
@@ -91,7 +92,11 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                 fetch(`${apiUrl}/board`, { headers })
             ]);
 
-            if (deptRes.ok) setMasterDepartments(await deptRes.json());
+            if (deptRes.ok) {
+                const data = await deptRes.json();
+                const visibleDepts = Array.isArray(data) ? data.filter(dept => dept.showInAdmission !== false) : [];
+                setMasterDepartments(visibleDepts);
+            }
             if (courseRes.ok) setMasterCourses(await courseRes.json());
             if (classRes.ok) setMasterClasses(await classRes.json());
             if (sessionRes.ok) setMasterSessions(await sessionRes.json());
@@ -603,21 +608,70 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                         ))}
                                     </select>
                                 </div>
-                                <div>
+                                 <div>
                                     <label className={labelClass}>DEPARTMENT</label>
-                                    <select
-                                        name="department"
-                                        value={formData.department}
-                                        onChange={handleChange}
-                                        className={inputClass}
-                                    >
-                                        <option value="">SELECT DEPARTMENT</option>
-                                        {[...masterDepartments].sort((a, b) => (a.departmentName || "").localeCompare(b.departmentName || "")).map((dept) => (
-                                            <option key={dept._id} value={dept._id}>
-                                                {dept.departmentName?.toUpperCase()}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <Select
+                                        options={[...masterDepartments].sort((a, b) => (a.departmentName || "").localeCompare(b.departmentName || "")).map(dept => ({ value: dept._id, label: dept.departmentName?.toUpperCase() }))}
+                                        value={masterDepartments.find(d => d._id === formData.department) ? { value: formData.department, label: masterDepartments.find(d => d._id === formData.department).departmentName?.toUpperCase() } : null}
+                                        onChange={(selectedOption) => {
+                                            handleChange({
+                                                target: {
+                                                    name: 'department',
+                                                    value: selectedOption ? selectedOption.value : ''
+                                                }
+                                            });
+                                        }}
+                                        isSearchable={true}
+                                        placeholder="SEARCH DEPARTMENT..."
+                                        styles={{
+                                            control: (base, state) => ({
+                                                ...base,
+                                                backgroundColor: isDarkMode ? '#111418' : '#f9fafb',
+                                                borderColor: state.isFocused ? (isDarkMode ? 'rgba(6, 182, 212, 0.5)' : '#06b6d4') : (isDarkMode ? '#1f2937' : '#e5e7eb'),
+                                                padding: '4px',
+                                                borderRadius: '4px',
+                                                fontSize: '13px',
+                                                fontWeight: 'bold',
+                                                color: isDarkMode ? 'white' : 'black',
+                                                boxShadow: state.isFocused ? '0 0 0 1px rgba(6, 182, 212, 0.2)' : 'none',
+                                                '&:hover': {
+                                                    borderColor: isDarkMode ? 'rgba(6, 182, 212, 0.5)' : '#06b6d4'
+                                                }
+                                            }),
+                                            menu: (base) => ({
+                                                ...base,
+                                                backgroundColor: isDarkMode ? '#1a1f24' : 'white',
+                                                border: isDarkMode ? '1px solid #1f2937' : '1px solid #e5e7eb',
+                                                zIndex: 100
+                                            }),
+                                            option: (base, state) => ({
+                                                ...base,
+                                                backgroundColor: state.isFocused 
+                                                    ? (isDarkMode ? 'rgba(6, 182, 212, 0.2)' : 'rgba(6, 182, 212, 0.1)') 
+                                                    : 'transparent',
+                                                color: isDarkMode ? 'white' : 'black',
+                                                fontSize: '11px',
+                                                fontWeight: 'black',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.05em',
+                                                '&:active': {
+                                                    backgroundColor: 'rgba(6, 182, 212, 0.3)'
+                                                }
+                                            }),
+                                            singleValue: (base) => ({
+                                                ...base,
+                                                color: isDarkMode ? 'white' : 'black'
+                                            }),
+                                            placeholder: (base) => ({
+                                                ...base,
+                                                color: isDarkMode ? '#374151' : '#9ca3af'
+                                            }),
+                                            input: (base) => ({
+                                                ...base,
+                                                color: isDarkMode ? 'white' : 'black'
+                                            })
+                                        }}
+                                    />
                                 </div>
                                     <div className="md:col-span-1">
                                         <div className="flex items-center justify-between mb-1.5">
@@ -683,14 +737,77 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                                         </select>
                                                     </div>
 
-                                                    <div>
+                                                     <div>
                                                         <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Filter by Dept</label>
-                                                        <select name="department" value={courseFilters.department} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px] !bg-[#0f1215]`}>
-                                                            <option value="" className="bg-[#1a1f24] text-white">ALL DEPTS</option>
-                                                            {masterDepartments.sort((a,b) => (a.departmentName || "").localeCompare(b.departmentName || "")).map(d => (
-                                                                <option key={d._id} value={d._id} className="bg-[#1a1f24] text-white">{d.departmentName}</option>
-                                                            ))}
-                                                        </select>
+                                                        <Select
+                                                            options={[...masterDepartments].sort((a,b) => (a.departmentName || "").localeCompare(b.departmentName || "")).map(d => ({ value: d._id, label: d.departmentName }))}
+                                                            value={masterDepartments.find(d => d._id === courseFilters.department) ? { value: courseFilters.department, label: masterDepartments.find(d => d._id === courseFilters.department).departmentName } : null}
+                                                            onChange={(selectedOption) => {
+                                                                handleCourseFilterChange({
+                                                                    target: {
+                                                                        name: 'department',
+                                                                        value: selectedOption ? selectedOption.value : ''
+                                                                    }
+                                                                });
+                                                            }}
+                                                            isSearchable={true}
+                                                            placeholder="ALL DEPTS"
+                                                            isClearable={true}
+                                                            styles={{
+                                                                control: (base, state) => ({
+                                                                    ...base,
+                                                                    backgroundColor: isDarkMode ? '#0f1215' : 'white',
+                                                                    borderColor: state.isFocused ? (isDarkMode ? 'rgba(6, 182, 212, 0.5)' : '#06b6d4') : (isDarkMode ? '#1f2937' : '#e5e7eb'),
+                                                                    minHeight: '30px',
+                                                                    borderRadius: '2px',
+                                                                    fontSize: '9px',
+                                                                    fontWeight: 'black',
+                                                                    textTransform: 'uppercase',
+                                                                    color: isDarkMode ? 'white' : 'black',
+                                                                    boxShadow: state.isFocused ? '0 0 0 1px rgba(6, 182, 212, 0.2)' : 'none',
+                                                                    '&:hover': {
+                                                                        borderColor: isDarkMode ? 'rgba(6, 182, 212, 0.5)' : '#06b6d4'
+                                                                    }
+                                                                }),
+                                                                menu: (base) => ({
+                                                                    ...base,
+                                                                    backgroundColor: isDarkMode ? '#1a1f24' : 'white',
+                                                                    border: isDarkMode ? '1px solid #1f2937' : '1px solid #e5e7eb',
+                                                                    zIndex: 100
+                                                                }),
+                                                                option: (base, state) => ({
+                                                                    ...base,
+                                                                    backgroundColor: state.isFocused 
+                                                                        ? (isDarkMode ? 'rgba(6, 182, 212, 0.2)' : 'rgba(6, 182, 212, 0.1)') 
+                                                                        : 'transparent',
+                                                                    color: isDarkMode ? 'white' : 'black',
+                                                                    fontSize: '9px',
+                                                                    fontWeight: 'black',
+                                                                    textTransform: 'uppercase',
+                                                                    letterSpacing: '0.05em'
+                                                                }),
+                                                                singleValue: (base) => ({
+                                                                    ...base,
+                                                                    color: isDarkMode ? 'white' : 'black'
+                                                                }),
+                                                                placeholder: (base) => ({
+                                                                    ...base,
+                                                                    color: isDarkMode ? '#374151' : '#9ca3af'
+                                                                }),
+                                                                input: (base) => ({
+                                                                    ...base,
+                                                                    color: isDarkMode ? 'white' : 'black'
+                                                                }),
+                                                                dropdownIndicator: (base) => ({
+                                                                    ...base,
+                                                                    padding: '2px'
+                                                                }),
+                                                                clearIndicator: (base) => ({
+                                                                    ...base,
+                                                                    padding: '2px'
+                                                                })
+                                                            }}
+                                                        />
                                                     </div>
 
                                                     <div>

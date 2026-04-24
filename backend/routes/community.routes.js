@@ -1,5 +1,5 @@
 import express from "express";
-import { createPost, getAllPosts, likePost, reactToPost, votePoll, addComment, deletePost, recordPostView } from "../controllers/communityController.js";
+import { createPost, getAllPosts, likePost, reactToPost, votePoll, addComment, deletePost, recordPostView, togglePinPost } from "../controllers/communityController.js";
 import { requireAuth } from "../middleware/permissionMiddleware.js";
 import { upload } from "../utils/r2Upload.js";
 
@@ -13,6 +13,7 @@ router.post("/:id/like", requireAuth, likePost);
 router.post("/:id/react", requireAuth, reactToPost);
 router.post("/:id/vote", requireAuth, votePoll);
 router.post("/:id/comment", requireAuth, addComment);
+router.post("/:id/pin", requireAuth, togglePinPost);
 router.post("/:id/view", requireAuth, recordPostView);
 
 export default router;

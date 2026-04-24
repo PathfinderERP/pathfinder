@@ -354,7 +354,10 @@ const BoardAdmissionsContent = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const data = await response.json();
-            if (response.ok) setDepartments(data);
+            if (response.ok) {
+                const visibleDepts = Array.isArray(data) ? data.filter(dept => dept.showInAdmission !== false) : [];
+                setDepartments(visibleDepts);
+            }
         } catch (error) {
             console.error("Error fetching departments:", error);
         }

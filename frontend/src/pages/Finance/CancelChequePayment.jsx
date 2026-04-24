@@ -83,7 +83,7 @@ const CancelChequePayment = () => {
             setMetadata({
                 centres: filteredCentres,
                 courses: Array.isArray(courses) ? courses : [],
-                departments: Array.isArray(depts) ? depts : []
+                departments: Array.isArray(depts) ? depts.filter(dept => dept.showInAdmission !== false) : []
             });
         } catch (error) {
             console.error("Error fetching metadata:", error);

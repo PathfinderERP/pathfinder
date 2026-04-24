@@ -136,7 +136,7 @@ export const createPost = async (req, res) => {
 export const getAllPosts = async (req, res) => {
     try {
         const posts = await CommunityPost.find()
-            .sort({ createdAt: -1 })
+            .sort({ isPinned: -1, pinnedAt: -1, createdAt: -1 })
             .populate("author", "name email role designation teacherDepartment")
             .populate({
                 path: 'replyTo',
@@ -344,5 +344,52 @@ export const recordPostView = async (req, res) => {
         res.json(postObj);
     } catch (error) {
         res.status(500).json({ message: "Error recording view" });
+    }
+};
+
+export const togglePinPost = async (req, res) => {
+    try {
+        if (req.user.role !== 'superAdmin') {
+            return res.status(403).json({ message: "Only administrators can pin posts" });
+        }
+
+        const post = await CommunityPost.findById(req.params.id);
+        if (!post) return res.status(404).json({ message: "Post not found" });
+
+        const newState = !post.isPinned;
+        
+        // Option: Unpin others if we only want one pinned post
+        // if (newState) {
+        //     await CommunityPost.updateMany({ isPinned: true }, { isPinned: false });
+        // }
+
+        post.isPinned = newState;
+        post.pinnedAt = newState ? new Date() : undefined;
+        await post.save();
+
+        const populatedPost = await CommunityPost.findById(post._id)
+            .populate("author", "name email role designation teacherDepartment")
+            .populate("reactions.user", "name email role designation teacherDepartment")
+            .populate("likes", "name email role designation teacherDepartment")
+            .populate("comments.user", "name email");
+
+        const postObj = await enhancePostAuthor(populatedPost);
+
+        // Broadcast pin update
+        getIO().to("community").emit("post_updated", postObj);
+        
+        // Send a specific notification event if needed
+        if (newState) {
+            getIO().to("community").emit("notification", {
+                type: "PINNED_POST",
+                message: `A message was pinned: "${post.content?.substring(0, 50)}..."`,
+                postId: post._id
+            });
+        }
+
+        res.json(postObj);
+    } catch (error) {
+        console.error("Pin error:", error);
+        res.status(500).json({ message: "Error toggling pin status" });
     }
 };

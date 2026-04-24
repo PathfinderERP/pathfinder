@@ -4,7 +4,11 @@ export const updateDepartment = async (req, res) => {
     try {
         const updated = await Department.findByIdAndUpdate(
             req.params.id,
-            { departmentName: req.body.departmentName, description: req.body.description },
+            { 
+                departmentName: req.body.departmentName, 
+                description: req.body.description,
+                showInAdmission: req.body.showInAdmission
+            },
             { new: true }
         );
 

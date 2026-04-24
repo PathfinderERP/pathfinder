@@ -131,7 +131,11 @@ const DailyCollection = () => {
                     : [];
                 setSessions(sessionList.filter(Boolean));
             }
-            if (dRes.ok) setDepartments(await dRes.json());
+            if (dRes.ok) {
+                const allDepts = await dRes.json();
+                const visibleDepts = allDepts.filter(dept => dept.showInAdmission !== false);
+                setDepartments(visibleDepts);
+            }
         } catch (error) {
             console.error("Error loading master data", error);
         }

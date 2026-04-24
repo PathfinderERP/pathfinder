@@ -120,7 +120,11 @@ const SectionAllotmentContent = () => {
             }
             if (courseRes.ok) setCourses(await courseRes.json());
             if (classRes.ok) setClasses(await classRes.json());
-            if (deptRes.ok) setDepartments(await deptRes.json());
+            if (deptRes.ok) {
+                const data = await deptRes.json();
+                const visibleDepts = Array.isArray(data) ? data.filter(dept => dept.showInAdmission !== false) : [];
+                setDepartments(visibleDepts);
+            }
 
         } catch (err) {
             console.error("Error fetching dropdowns", err);
