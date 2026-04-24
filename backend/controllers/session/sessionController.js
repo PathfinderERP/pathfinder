@@ -48,3 +48,20 @@ export const deleteSession = async (req, res) => {
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
+
+// Set Global Active Session (Toggle)
+export const setGlobalActiveSession = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const session = await Session.findById(id);
+        if (!session) return res.status(404).json({ message: "Session not found" });
+        
+        session.isGlobalActive = !session.isGlobalActive;
+        await session.save();
+        
+        res.status(200).json({ message: `Session ${session.sessionName} ${session.isGlobalActive ? 'activated' : 'deactivated'}`, session });
+    } catch (error) {
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};

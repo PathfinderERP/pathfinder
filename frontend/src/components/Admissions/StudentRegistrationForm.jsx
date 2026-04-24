@@ -248,7 +248,16 @@ const StudentRegistrationForm = () => {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = await response.json();
-            if (response.ok) setSessions(data);
+            if (response.ok) {
+                // Only show active sessions everywhere
+                const activeSessions = data.filter(s => s.isGlobalActive);
+                setSessions(activeSessions.length > 0 ? activeSessions : data);
+                
+                // Set the first active session as default if nothing selected
+                if (activeSessions.length > 0 && !formData.session) {
+                    setFormData(prev => ({ ...prev, session: activeSessions[0].sessionName }));
+                }
+            }
         } catch (error) { console.error("Error fetching sessions:", error); }
     };
 

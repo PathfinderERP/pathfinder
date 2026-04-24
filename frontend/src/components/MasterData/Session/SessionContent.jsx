@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash, FaPlus, FaTimes } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaTimes, FaThumbtack } from 'react-icons/fa';
 import '../MasterDataWave.css';
 import { hasPermission } from '../../../config/permissions';
 import ExcelImportExport from "../../common/ExcelImportExport";
@@ -126,6 +126,28 @@ const SessionContent = () => {
         }
     };
 
+    const handleSetActive = async (id) => {
+        const token = localStorage.getItem("token");
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/session/set-active/${id}`, {
+                method: "PUT",
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                toast.success(data.message);
+                fetchSessions();
+            } else {
+                toast.error("Failed to set active session");
+            }
+        } catch (err) {
+            toast.error("Server error");
+        }
+    };
+
     const handleBulkImport = async (importData) => {
         const token = localStorage.getItem("token");
         const response = await fetch(`${import.meta.env.VITE_API_URL}/session/import`, {
@@ -208,11 +230,27 @@ const SessionContent = () => {
                             </tr>
                         ) : (
                             sessions.map((session, index) => (
-                                <tr key={session._id} className="master-data-row-wave border-b border-gray-800 transition-colors">
+                                <tr key={session._id} className={`master-data-row-wave border-b border-gray-800 transition-colors ${session.isGlobalActive ? 'bg-cyan-500/5' : ''}`}>
                                     <td className="p-4 text-gray-400">{index + 1}</td>
-                                    <td className="p-4 font-medium" style={{ color: "white" }}>{session.sessionName}</td>
+                                    <td className="p-4 font-medium flex items-center gap-3" style={{ color: "white" }}>
+                                        {session.sessionName}
+                                        {session.isGlobalActive && (
+                                            <span className="flex items-center gap-1 text-[10px] font-black text-cyan-500 uppercase tracking-widest bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20 animate-pulse">
+                                                <FaThumbtack size={8} /> Active
+                                            </span>
+                                        )}
+                                    </td>
                                     <td className="p-4 text-right">
                                         <div className="flex justify-end gap-2">
+                                            {canEdit && (
+                                                <button
+                                                    onClick={() => handleSetActive(session._id)}
+                                                    className={`p-2 rounded-lg transition-colors ${session.isGlobalActive ? 'text-amber-500 bg-amber-500/10' : 'text-gray-400 hover:bg-gray-400/10'}`}
+                                                    title={session.isGlobalActive ? "Currently Active" : "Set as Global Active"}
+                                                >
+                                                    <FaThumbtack className={session.isGlobalActive ? "" : "rotate-45"} />
+                                                </button>
+                                            )}
                                             {canEdit && (
                                                 <button
                                                     onClick={() => openModal(session)}

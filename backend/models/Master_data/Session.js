@@ -4,6 +4,10 @@ const sessionSchema = new mongoose.Schema({
     sessionName: {
         type: String,
         required: true,
+    },
+    isGlobalActive: {
+        type: Boolean,
+        default: false
     }
 });
 

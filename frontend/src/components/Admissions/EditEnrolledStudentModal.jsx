@@ -99,7 +99,11 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
             }
             if (courseRes.ok) setMasterCourses(await courseRes.json());
             if (classRes.ok) setMasterClasses(await classRes.json());
-            if (sessionRes.ok) setMasterSessions(await sessionRes.json());
+            if (sessionRes.ok) {
+                const data = await sessionRes.json();
+                const activeSessions = data.filter(s => s.isGlobalActive);
+                setMasterSessions(activeSessions.length > 0 ? activeSessions : data);
+            }
             if (tagRes.ok) setMasterExamTags(await tagRes.json());
             if (boardRes.ok) setMasterBoards(await boardRes.json());
         } catch (error) {

@@ -76,6 +76,9 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                 setCentres(list);
             }
 
+            const courseResponse = await fetch(`${import.meta.env.VITE_API_URL}/course`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
             if (courseResponse.ok) {
                 const data = await courseResponse.json();
                 const filtered = (Array.isArray(data) ? data : []).filter(c => c.department?.showInAdmission !== false);
