@@ -224,6 +224,7 @@ const SystemLogs = () => {
                                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
                                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Module</th>
                                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Device Info</th>
                                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">IP Address</th>
                                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Timestamp</th>
                                 </tr>
@@ -264,6 +265,15 @@ const SystemLogs = () => {
                                                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${getStatusColor(log.method)}`}>
                                                     {log.method} {log.statusCode}
                                                 </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="text-[10px] text-gray-500 max-w-[150px] truncate" title={log.device}>
+                                                    {log.device ? (
+                                                        log.device.includes('Windows') ? 'Windows PC' :
+                                                        log.device.includes('Android') ? 'Android Device' :
+                                                        log.device.includes('iPhone') ? 'iPhone' : 'Web Browser'
+                                                    ) : 'Unknown'}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 font-mono">
                                                 {log.ip || '---'}

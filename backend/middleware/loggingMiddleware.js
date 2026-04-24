@@ -62,7 +62,8 @@ const loggingMiddleware = async (req, res, next) => {
                         method: req.method,
                         url: req.originalUrl,
                         ip: req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress,
-                        statusCode: res.statusCode
+                        statusCode: res.statusCode,
+                        device: req.headers['user-agent']
                     });
 
                     logEntry.save().catch(err => console.error("Error saving system log:", err));

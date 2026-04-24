@@ -39,6 +39,9 @@ const systemLogSchema = new mongoose.Schema({
     },
     statusCode: {
         type: Number
+    },
+    device: {
+        type: String
     }
 }, { timestamps: true });
 
