@@ -96,6 +96,9 @@ const ManageBoardAdmission = () => {
                     setAdmissionPayments(allPayments.filter(p => 
                         p.remarks?.toLowerCase()?.includes("initial") || 
                         p.remarks?.toLowerCase()?.includes("admission") ||
+                        p.remarks?.toLowerCase()?.includes("recovery") ||
+                        p.remarks?.toLowerCase()?.includes("restored") ||
+                        p.installmentNumber === 0 ||
                         p.installmentNumber === 1
                     ));
                 }

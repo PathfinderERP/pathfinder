@@ -223,52 +223,48 @@ export const createBoardAdmission = async (req, res) => {
         // --- Create Unified Payment Record for Admission/Initial Payment + Exam Fee ---
         const totalPaidToday = Number(downPayment) + Number(paidExamFee) + Number(paidAdditionalThings);
         if (totalPaidToday > 0) {
-            try {
-                let centreObj = await Centre.findOne({ centreName: centre });
-                if (!centreObj) {
-                    centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${centre}$`, 'i') } });
-                }
-                const centreCode = centreObj ? centreObj.enterCode : 'GEN';
-                const billId = await generateBillId(centreCode, receivedDate || new Date());
-
-                const taxableAmount = totalPaidToday / 1.18;
-                const cgst = (totalPaidToday - taxableAmount) / 2;
-                const sgst = cgst;
-
-                // Adjust Course Name for bill: Append "+ Examination" only if exam fee was paid
-                const billCourseName = Number(paidExamFee) > 0
-                    ? `${boardCourseName} + Examination`
-                    : boardCourseName;
-
-                const paymentRecord = new Payment({
-                    admission: newAdmission._id,
-                    installmentNumber: 0, // First payment is now 0 to match standard
-                    amount: (installments.length > 0 ? installments[0].payableAmount : Number(admissionFee)) + (Number(paidExamFee) > 0 ? Number(paidExamFee) : 0),
-                    paidAmount: totalPaidToday,
-                    dueDate: installments.length > 0 ? installments[0].dueDate : new Date(billingStartDate),
-                    paidDate: (paymentMethod === "CHEQUE") ? null : new Date(),
-                    receivedDate: receivedDate || new Date(),
-                    status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
-                    paymentMethod: paymentMethod || "CASH",
-                    transactionId: transactionId,
-
-                    bankName: bankName,
-                    accountHolderName: accountHolderName,
-                    chequeDate: chequeDate,
-                    billingMonth: new Date(installments.length > 0 ? installments[0].dueDate : billingStartDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
-                    recordedBy: req.user?._id,
-                    billId: billId,
-                    courseFee: taxableAmount,
-                    cgst: cgst,
-                    sgst: sgst,
-                    totalAmount: totalPaidToday,
-                    boardCourseName: billCourseName,
-                    remarks: `Board Admission Initial Payment (Incl. ${Number(paidExamFee) > 0 ? 'Exam Fee' : 'Tuition'})`
-                });
-                await paymentRecord.save();
-            } catch (pErr) {
-                console.error("Error creating unified payment record:", pErr);
+            let centreObj = await Centre.findOne({ centreName: centre });
+            if (!centreObj) {
+                centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${centre}$`, 'i') } });
             }
+            const centreCode = centreObj ? centreObj.enterCode : 'GEN';
+            const billId = await generateBillId(centreCode, receivedDate || new Date());
+
+            const taxableAmount = totalPaidToday / 1.18;
+            const cgst = (totalPaidToday - taxableAmount) / 2;
+            const sgst = cgst;
+
+            // Adjust Course Name for bill: Append "+ Examination" only if exam fee was paid
+            const billCourseName = Number(paidExamFee) > 0
+                ? `${boardCourseName} + Examination`
+                : boardCourseName;
+
+            const paymentRecord = new Payment({
+                admission: newAdmission._id,
+                installmentNumber: 0, // First payment is now 0 to match standard
+                amount: (installments.length > 0 ? installments[0].payableAmount : Number(admissionFee)) + (Number(paidExamFee) > 0 ? Number(paidExamFee) : 0),
+                paidAmount: totalPaidToday,
+                dueDate: installments.length > 0 ? installments[0].dueDate : new Date(billingStartDate),
+                paidDate: (paymentMethod === "CHEQUE") ? null : new Date(),
+                receivedDate: receivedDate || new Date(),
+                status: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
+                paymentMethod: paymentMethod || "CASH",
+                transactionId: transactionId,
+
+                bankName: bankName,
+                accountHolderName: accountHolderName,
+                chequeDate: chequeDate,
+                billingMonth: new Date(installments.length > 0 ? installments[0].dueDate : billingStartDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+                recordedBy: req.user?._id,
+                billId: billId,
+                courseFee: taxableAmount,
+                cgst: cgst,
+                sgst: sgst,
+                totalAmount: totalPaidToday,
+                boardCourseName: billCourseName,
+                remarks: `Board Admission Initial Payment (Incl. ${Number(paidExamFee) > 0 ? 'Exam Fee' : 'Tuition'})`
+            });
+            await paymentRecord.save();
         }
 
         // Update student enrollment status if needed
