@@ -456,6 +456,7 @@ const PreviousClass = () => {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-[#2a3038] text-gray-300 text-xs uppercase font-bold tracking-wider">
+                                    <th className="p-4">SL</th>
                                     <th className="p-4">Class Name</th>
                                     <th className="p-4">Center</th>
                                     <th className="p-4">Batch</th>
@@ -477,12 +478,13 @@ const PreviousClass = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-700">
                                 {loading ? (
-                                    <tr><td colSpan="16" className="p-8 text-center text-gray-500">Loading...</td></tr>
+                                    <tr><td colSpan="17" className="p-8 text-center text-gray-500">Loading...</td></tr>
                                 ) : classes.length === 0 ? (
-                                    <tr><td colSpan="16" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No previous classes found</td></tr>
+                                    <tr><td colSpan="17" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No previous classes found</td></tr>
                                 ) : (
-                                    classes.map((cls) => (
+                                    classes.map((cls, index) => (
                                         <tr key={cls._id} className="hover:bg-[#252b32] transition-colors text-sm text-gray-300">
+                                            <td className="p-4 font-bold text-gray-500">{(page - 1) * limit + index + 1}</td>
                                             <td className="p-4 font-semibold text-white">{cls.className}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">
                                                 {cls.centreId?.centreName || cls.centreId?.centerName || cls.centreId?.name || "-"}

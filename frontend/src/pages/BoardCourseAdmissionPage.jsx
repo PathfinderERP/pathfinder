@@ -410,6 +410,7 @@ const BoardCourseAdmissionPage = () => {
                                         <span className="text-[10px] font-black text-white px-2 py-0.5 rounded bg-cyan-600 tracking-wider">UID: {(student._id || "").toString().slice(-8).toUpperCase()}</span>
                                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Centre: {counselData?.centre || student.studentsDetails?.[0]?.centre}</span>
                                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Mobile: {counselData?.mobileNum || student.studentsDetails?.[0]?.mobileNum}</span>
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Email: {student.studentsDetails?.[0]?.studentEmail || "N/A"}</span>
                                     </div>
                                 </div>
                                 <div className={`p-4 rounded-xl border-2 border-dashed transition-all duration-500 ${isDarkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50'} max-w-[60%]`}>

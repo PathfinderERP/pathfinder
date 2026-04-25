@@ -1138,6 +1138,7 @@ const BoardAdmissionsContent = () => {
                     <table className="w-full text-left border-collapse min-w-[1200px]">
                         <thead>
                             <tr className={`text-[11px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-[#131619] text-gray-500 border-gray-800' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                                <th className="p-4 w-12">SL</th>
                                 <th className="p-4">{activeTab === "Potential" ? "Reg. Date" : activeTab === "Counselling" ? "Counsel Date" : "Addon Date"}</th>
                                 <th className="p-4">Student Name</th>
                                 <th className="p-4">
@@ -1160,11 +1161,11 @@ const BoardAdmissionsContent = () => {
                             {(activeTab === "Potential" ? loading :
                                 activeTab === "Counselling" ? counsellingLoading :
                                     enrolledLoading) ? (
-                                <tr><td colSpan="9" className="p-12 text-center text-[10px] font-black uppercase text-gray-500">Loading...</td></tr>
+                                <tr><td colSpan="11" className="p-12 text-center text-[10px] font-black uppercase text-gray-500">Loading...</td></tr>
                             ) : (activeTab === "Enrolled" ? filteredBoardAdmissions : filteredStudents).length === 0 ? (
-                                <tr><td colSpan="9" className="p-12 text-center text-[10px] font-black uppercase text-gray-500">No {activeTab === "Potential" ? "Board Students" : "Enrolled Students"} Found</td></tr>
+                                <tr><td colSpan="11" className="p-12 text-center text-[10px] font-black uppercase text-gray-500">No {activeTab === "Potential" ? "Board Students" : "Enrolled Students"} Found</td></tr>
                             ) : (
-                                (activeTab === "Enrolled" ? filteredBoardAdmissions : filteredStudents).slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item) => {
+                                (activeTab === "Enrolled" ? filteredBoardAdmissions : filteredStudents).slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item, index) => {
                                     const student = activeTab === "Potential" ? item : item.studentId;
                                     const details = student?.studentsDetails?.[0] || {};
                                     const exam = student?.examSchema?.[0] || {};
@@ -1172,6 +1173,9 @@ const BoardAdmissionsContent = () => {
 
                                     return (
                                         <tr key={item._id} className={`transition-all group ${isDarkMode ? 'hover:bg-cyan-500/[0.03]' : 'hover:bg-gray-50'}`}>
+                                            <td className="p-4 font-bold text-[10px] text-gray-500">
+                                                {(currentPage - 1) * itemsPerPage + index + 1}
+                                            </td>
                                             <td className="p-4 font-bold text-[10px] text-gray-400">
                                                 {new Date(item.counselledDate || item.createdAt).toLocaleDateString('en-GB')}
                                             </td>
@@ -1180,7 +1184,14 @@ const BoardAdmissionsContent = () => {
                                                     <span className={`text-[11px] font-black uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                         {item.studentName || details.studentName || "N/A"}
                                                     </span>
-                                                    <span className="text-[9px] text-gray-500 font-bold uppercase">UID: {(student?._id || item.studentId || "").toString().slice(-8).toUpperCase()}</span>
+                                                    <div className="flex flex-col gap-0.5 mt-0.5">
+                                                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tight">UID: {(student?._id || item.studentId || "").toString().slice(-8).toUpperCase()}</span>
+                                                        {(item.studentEmail || details.studentEmail) && (
+                                                            <span className="text-[9px] text-cyan-500/70 font-bold lowercase tracking-tight truncate max-w-[150px]">
+                                                                {item.studentEmail || details.studentEmail}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="p-4">

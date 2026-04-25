@@ -594,7 +594,7 @@ const UpcomingClass = () => {
                             <tbody className={`divide-y ${isDarkMode ? "divide-gray-700" : "divide-gray-100"}`}>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="12" className="p-8 text-center text-gray-500">
+                                        <td colSpan="15" className="p-8 text-center text-gray-500">
                                             <div className="flex items-center justify-center gap-2">
                                                 <svg className="animate-spin h-5 w-5 text-blue-500" viewBox="0 0 24 24" fill="none">
                                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -606,7 +606,7 @@ const UpcomingClass = () => {
                                     </tr>
                                 ) : filteredClasses.length === 0 ? (
                                     <tr>
-                                        <td colSpan="12" className="p-10 text-center text-gray-500 uppercase tracking-widest opacity-50">
+                                        <td colSpan="15" className="p-10 text-center text-gray-500 uppercase tracking-widest opacity-50">
                                             No upcoming classes found
                                         </td>
                                     </tr>

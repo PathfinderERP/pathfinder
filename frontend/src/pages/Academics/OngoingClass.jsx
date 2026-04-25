@@ -529,6 +529,7 @@ const OngoingClass = () => {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className={`border-b ${isDarkMode ? 'bg-[#2a3038] text-gray-300 border-gray-700' : 'bg-gray-50 text-gray-600 border-gray-200'} text-xs uppercase font-bold tracking-wider`}>
+                                    <th className="p-4">SL</th>
                                     <th className="p-4">Class Name</th>
                                     <th className="p-4">Date</th>
                                     <th className="p-4">Last Updated</th>
@@ -549,12 +550,13 @@ const OngoingClass = () => {
                             </thead>
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-700' : 'divide-gray-100'}`}>
                                 {loading ? (
-                                    <tr><td colSpan="12" className="p-8 text-center text-gray-500">Loading...</td></tr>
+                                    <tr><td colSpan="17" className="p-8 text-center text-gray-500">Loading...</td></tr>
                                 ) : classes.length === 0 ? (
-                                    <tr><td colSpan="12" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No classes are currently ongoing</td></tr>
+                                    <tr><td colSpan="17" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No classes are currently ongoing</td></tr>
                                 ) : (
-                                    classes.map((cls) => (
+                                    classes.map((cls, index) => (
                                         <tr key={cls._id} className={`transition-colors text-sm ${isDarkMode ? 'hover:bg-[#252b32] text-gray-300' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                            <td className="p-4 font-bold text-gray-500">{(page - 1) * limit + index + 1}</td>
                                             <td className={`p-4 font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{cls.className}</td>
                                             <td className="p-4 whitespace-nowrap">{formatDate(cls.date)}</td>
                                             <td className="p-4 whitespace-nowrap text-[10px] text-gray-500">{formatDate(cls.updatedAt)}</td>

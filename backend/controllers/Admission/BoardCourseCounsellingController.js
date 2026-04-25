@@ -2,6 +2,7 @@ import BoardCourseCounselling from "../../models/Admission/BoardCourseCounsellin
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import Student from "../../models/Students.js";
 import Centre from "../../models/Master_data/Centre.js";
+import LeadManagement from "../../models/LeadManagement.js";
 
 
 export const createBoardCourseCounselling = async (req, res) => {
@@ -39,7 +40,75 @@ export const createBoardCourseCounselling = async (req, res) => {
             }
         }
 
-        // If no studentId, check if student exists by mobile number or create a new one
+        // If studentId is provided, check if it's a valid Student or a Lead
+        if (studentId) {
+            const existingStudent = await Student.findById(studentId);
+            if (!existingStudent) {
+                // Not a student, check if it's a Lead
+                const lead = await LeadManagement.findById(studentId);
+                if (lead) {
+                    // It's a lead! Check if a student with this mobile already exists
+                    let student = await Student.findOne({ "studentsDetails.mobileNum": mobileNum || lead.phoneNumber });
+                    if (!student) {
+                        // Create a new student from lead/form data
+                        student = new Student({
+                            studentsDetails: [{
+                                studentName: studentName || lead.name,
+                                mobileNum: mobileNum || lead.phoneNumber,
+                                whatsappNumber: whatsappNumber || mobileNum || lead.phoneNumber,
+                                studentEmail: studentEmail || lead.email,
+                                dateOfBirth,
+                                gender,
+                                centre: centre || lead.centre?.centreName || lead.centre || "Not Specified",
+                                board: board || lead.board?.boardName || lead.board || "",
+                                state,
+                                schoolName: schoolName || lead.schoolName || "",
+                                pincode,
+                                address: address || lead.address || "",
+                                programme,
+                                guardians: [{
+                                    guardianName,
+                                    guardianMobile,
+                                    guardianEmail,
+                                    occupation
+                                }],
+                                examSchema: [{
+                                    examName: examName || lead.course?.courseName || "",
+                                    class: lastClass || lead.className?.name || lead.className || "",
+                                    examStatus,
+                                    markAgregate,
+                                    scienceMathParcent
+                                }]
+                            }],
+                            guardians: [{
+                                guardianName,
+                                guardianMobile,
+                                guardianEmail,
+                                occupation
+                            }],
+                            examSchema: [{
+                                examName: examName || lead.course?.courseName || "",
+                                class: lastClass || lead.className?.name || lead.className || "",
+                                examStatus,
+                                markAgregate,
+                                scienceMathParcent
+                            }],
+                            isEnrolled: false,
+                            counselledBy: req.user?._id,
+                            createdBy: req.user?.name || "System",
+                            updatedBy: req.user?.name || "System",
+                            updatedByUserId: req.user?._id
+                        });
+                        await student.save();
+                    }
+                    studentId = student._id;
+                    // Mark lead as counseled
+                    await LeadManagement.findByIdAndUpdate(lead._id, { isCounseled: true });
+                }
+            }
+        }
+
+        // If no studentId at this point, check if student exists by mobile number or create a new one
         if (!studentId) {
             let student = await Student.findOne({ "studentsDetails.mobileNum": mobileNum });
             if (!student) {
@@ -123,6 +192,7 @@ export const createBoardCourseCounselling = async (req, res) => {
             studentId,
             studentName,
             mobileNum,
+            studentEmail,
             centre,
             programme,
             lastClass,
@@ -202,6 +272,7 @@ export const updateBoardCourseCounselling = async (req, res) => {
         // Update fields
         if (studentName) counselling.studentName = studentName;
         if (mobileNum) counselling.mobileNum = mobileNum;
+        if (studentEmail) counselling.studentEmail = studentEmail;
         if (centre) counselling.centre = centre;
         if (programme) counselling.programme = programme;
         if (lastClass) counselling.lastClass = lastClass;
