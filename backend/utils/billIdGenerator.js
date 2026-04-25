@@ -38,39 +38,7 @@ export const generateBillId = async (centreCode, requestDate = null) => {
 
         let nextNumber = counter.seq;
 
-        // 2. STRICTURE SEQUENTIALITY CHECK (Self-Correction)
-        // We ALWAYS verify against the Payment table to ensure no overlaps exist, 
-        // especially if the counter was reset or manually tampered with.
-        
-        // Use a regex that matches strictly: PATH/CODE/YEAR/000...
-        const prefixRegex = new RegExp(`^${prefix.replace(/\//g, '\\/')}\\d+$`);
-        
-        // Find the absolute highest existing sequence in the DB for this prefix
-        const highestBill = await Payment.findOne({
-            billId: { $regex: prefixRegex }
-        })
-        .select('billId')
-        .sort({ billId: -1 }) // Sort lexicographically (works for padded numbers)
-        .lean();
-
-        if (highestBill) {
-            const parts = highestBill.billId.split('/');
-            const dbMaxSeq = parseInt(parts[parts.length - 1], 10);
-            
-            if (!isNaN(dbMaxSeq) && dbMaxSeq >= nextNumber) {
-                // The counter is lagging behind the actual records in Payment.
-                // Heal the counter and skip to the next available number.
-                nextNumber = dbMaxSeq + 1;
-                
-                // Update the counter to stay in sync for the next call
-                await BillCounter.updateOne(
-                    { prefix: prefix },
-                    { $set: { seq: nextNumber } }
-                );
-            }
-        }
-
-        // Pad with zeros to ensure 7 digits
+        // 2. Pad with zeros to ensure 7 digits
         return `${prefix}${nextNumber.toString().padStart(7, '0')}`;
 
     } catch (error) {

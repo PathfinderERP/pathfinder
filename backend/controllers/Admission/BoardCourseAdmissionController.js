@@ -514,6 +514,9 @@ export const collectBoardExamFee = async (req, res) => {
                 centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } });
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
+            const paidAmountForBill = Number(amount);
+            if (paidAmountForBill <= 0) return;
+
             const billId = await generateBillId(centreCode, receivedDate || new Date());
 
             const taxableAmount = paidAmount / 1.18;
@@ -714,10 +717,10 @@ export const collectBoardInstallment = async (req, res) => {
                 centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } });
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
-            const billId = await generateBillId(centreCode, receivedDate || new Date());
-
             const totalPaidToday = Number(amount) + Number(paidExamFee) + Number(paidAdditionalThings);
             if (totalPaidToday <= 0) return; // Nothing to record
+
+            const billId = await generateBillId(centreCode, receivedDate || new Date());
 
             const taxableAmount = totalPaidToday / 1.18;
             const cgst = (totalPaidToday - taxableAmount) / 2;
@@ -812,6 +815,9 @@ export const collectBoardAdditionalFee = async (req, res) => {
                 centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } });
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
+            const paidAmountForBill = Number(amount);
+            if (paidAmountForBill <= 0) return;
+
             const billId = await generateBillId(centreCode, new Date());
 
             const taxableAmount = paidAmount / 1.18;
