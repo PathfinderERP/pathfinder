@@ -47,6 +47,10 @@ export const createBoardAdmission = async (req, res) => {
             lastClass,
             receivedDate
         } = req.body;
+        
+        if (!studentId || !mongoose.Types.ObjectId.isValid(studentId)) {
+            return res.status(400).json({ message: "A valid Student ID is required for admission" });
+        }
 
         // Fallback: Fetch student details only if name/mobile/centre not provided
         if (studentId && (!studentName || !mobileNum || !centre)) {
@@ -318,6 +322,9 @@ export const getBoardAdmissions = async (req, res) => {
 
 export const getBoardAdmissionById = async (req, res) => {
     try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ message: "Invalid admission ID format" });
+        }
         const admission = await BoardCourseAdmission.findById(req.params.id)
             .populate('studentId')
             .populate('boardId')

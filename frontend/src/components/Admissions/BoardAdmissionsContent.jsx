@@ -56,6 +56,10 @@ const BoardAdmissionsContent = () => {
     const [counsellingLoading, setCounsellingLoading] = useState(false);
     const [boards, setBoards] = useState([]);
     const [showCounsellingModal, setShowCounsellingModal] = useState(false);
+    const [editingCounsellingId, setEditingCounsellingId] = useState(null);
+    // Duplicate contact check state
+    const [mobileCheck, setMobileCheck] = useState({ checking: false, taken: false, name: "" });
+    const [emailCheck, setEmailCheck] = useState({ checking: false, taken: false, name: "" });
     const [counsellingForm, setCounsellingForm] = useState({
         studentId: "",
         studentName: "",
@@ -569,6 +573,52 @@ const BoardAdmissionsContent = () => {
         return d.toDateString() === today.toDateString();
     }).length;
 
+    // Debounced duplicate check for mobile number
+    useEffect(() => {
+        const mobile = counsellingForm.mobileNum;
+        if (!mobile || mobile.length < 10) {
+            setMobileCheck({ checking: false, taken: false, name: "" });
+            return;
+        }
+        setMobileCheck(prev => ({ ...prev, checking: true }));
+        const timer = setTimeout(async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const excludeId = counsellingForm.studentId || "";
+                const res = await fetch(
+                    `${import.meta.env.VITE_API_URL}/board-admission/counsel/check-duplicate?mobile=${mobile}${excludeId ? `&excludeStudentId=${excludeId}` : ""}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                const data = await res.json();
+                setMobileCheck({ checking: false, taken: !!data.mobileTaken, name: data.mobileStudentName || "" });
+            } catch { setMobileCheck({ checking: false, taken: false, name: "" }); }
+        }, 600);
+        return () => clearTimeout(timer);
+    }, [counsellingForm.mobileNum, counsellingForm.studentId]);
+
+    // Debounced duplicate check for email
+    useEffect(() => {
+        const email = counsellingForm.studentEmail;
+        if (!email || !email.includes("@")) {
+            setEmailCheck({ checking: false, taken: false, name: "" });
+            return;
+        }
+        setEmailCheck(prev => ({ ...prev, checking: true }));
+        const timer = setTimeout(async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const excludeId = counsellingForm.studentId || "";
+                const res = await fetch(
+                    `${import.meta.env.VITE_API_URL}/board-admission/counsel/check-duplicate?email=${encodeURIComponent(email)}${excludeId ? `&excludeStudentId=${excludeId}` : ""}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                const data = await res.json();
+                setEmailCheck({ checking: false, taken: !!data.emailTaken, name: data.emailStudentName || "" });
+            } catch { setEmailCheck({ checking: false, taken: false, name: "" }); }
+        }, 600);
+        return () => clearTimeout(timer);
+    }, [counsellingForm.studentEmail, counsellingForm.studentId]);
+
     const handleOpenNewCounselling = () => {
         setCounsellingForm({
             studentId: "",
@@ -597,6 +647,46 @@ const BoardAdmissionsContent = () => {
             boardId: "",
             selectedSubjectIds: [],
             remarks: ""
+        });
+        setEditingCounsellingId(null);
+        setMobileCheck({ checking: false, taken: false, name: "" });
+        setEmailCheck({ checking: false, taken: false, name: "" });
+        setShowCounsellingModal(true);
+    };
+
+    const handleEditCounselling = (item) => {
+        setEditingCounsellingId(item._id);
+        setMobileCheck({ checking: false, taken: false, name: "" });
+        setEmailCheck({ checking: false, taken: false, name: "" });
+        const studentObj = item.studentId;
+        const details = studentObj?.studentsDetails?.[0] || {};
+        setCounsellingForm({
+            studentId: studentObj?._id || "",
+            studentName: item.studentName || details.studentName || "",
+            mobileNum: item.mobileNum || details.mobileNum || "",
+            whatsappNumber: details.whatsappNumber || item.mobileNum || "",
+            studentEmail: details.studentEmail || "",
+            dateOfBirth: details.dateOfBirth ? new Date(details.dateOfBirth).toISOString().split('T')[0] : "",
+            gender: details.gender || "",
+            centre: item.centre || details.centre || allowedCentres[0] || "",
+            programme: item.programme || "",
+            board: item.boardId?.boardCourse || details.board || "",
+            state: details.state || "",
+            schoolName: details.schoolName || "",
+            pincode: details.pincode || "",
+            address: details.address || "",
+            guardianName: details.guardianName || "",
+            guardianMobile: details.guardianMobile || "",
+            guardianEmail: details.guardianEmail || "",
+            occupation: details.occupation || "",
+            lastClass: item.lastClass || "",
+            examStatus: "",
+            markAggregate: "",
+            scienceMathPercent: "",
+            examName: "",
+            boardId: item.boardId?._id || "",
+            selectedSubjectIds: item.selectedSubjects?.map(s => s.subjectId?._id || s.subjectId).filter(Boolean) || [],
+            remarks: item.remarks || ""
         });
         setShowCounsellingModal(true);
     };
@@ -654,10 +744,24 @@ const BoardAdmissionsContent = () => {
         if (!boardId) return toast.error("Please select a board");
         if (selectedSubjectIds.length === 0) return toast.error("Please select at least one subject");
 
+        // Block if mobile is taken by another student
+        if (mobileCheck.taken) {
+            return toast.error(`Mobile number already registered to ${mobileCheck.name}. Please use a different number.`);
+        }
+        if (emailCheck.taken) {
+            return toast.error(`Email already registered to ${emailCheck.name}. Please use a different email.`);
+        }
+
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/board-admission/counsel/create`, {
-                method: "POST",
+            const isEditing = !!editingCounsellingId;
+            const url = isEditing
+                ? `${import.meta.env.VITE_API_URL}/board-admission/counsel/${editingCounsellingId}`
+                : `${import.meta.env.VITE_API_URL}/board-admission/counsel/create`;
+            const method = isEditing ? "PUT" : "POST";
+
+            const response = await fetch(url, {
+                method,
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${token}`
@@ -672,13 +776,22 @@ const BoardAdmissionsContent = () => {
             });
 
             if (response.ok) {
-                toast.success("Board counselling recorded!");
+                toast.success(isEditing ? "Counselling record updated!" : "Board counselling recorded!");
                 setShowCounsellingModal(false);
+                setEditingCounsellingId(null);
                 fetchCounselledStudents();
-                fetchBoardAdmissions(); // keep enrolled-exclusion filter fresh
+                fetchBoardAdmissions();
             } else {
                 const data = await response.json();
-                toast.error(data.message || "Failed to record counselling");
+                // Handle 409 conflict - highlight the specific field that is taken
+                if (response.status === 409) {
+                    if (data.field === "mobileNum") {
+                        setMobileCheck({ checking: false, taken: true, name: data.takenBy || "Another student" });
+                    } else if (data.field === "studentEmail") {
+                        setEmailCheck({ checking: false, taken: true, name: data.takenBy || "Another student" });
+                    }
+                }
+                toast.error(data.message || "Failed to save counselling");
             }
         } catch (error) {
             toast.error("An error occurred");
@@ -1147,6 +1260,15 @@ const BoardAdmissionsContent = () => {
                                                     ) : activeTab === "Counselling" ? (
                                                         <>
                                                             <button onClick={() => handleViewStudent(student)} title="View Details" className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-cyan-500 text-gray-400 hover:text-white transition-all"><FaEye size={12} /></button>
+                                                            {canEdit && (
+                                                                <button
+                                                                    onClick={() => handleEditCounselling(item)}
+                                                                    title="Edit Counselling"
+                                                                    className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-black transition-all"
+                                                                >
+                                                                    <FaEdit size={11} />
+                                                                </button>
+                                                            )}
                                                             <button
                                                                 onClick={() => navigate(`/board-course-admission/${item._id}`)}
                                                                 className="px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border border-green-500/20 bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-black transition-all text-[9px] font-black uppercase tracking-widest"
@@ -1230,10 +1352,14 @@ const BoardAdmissionsContent = () => {
                     <div className={`w-full max-w-4xl max-h-[90vh] flex flex-col rounded-xl border p-6 md:p-8 shadow-2xl ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                         <div className="flex items-center justify-between mb-6 shrink-0">
                             <div>
-                                <h3 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Board Course Counselling</h3>
-                                <p className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mt-1 italic">Adding details for board enrolment workflow</p>
+                                <h3 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                    {editingCounsellingId ? 'Edit Counselling Record' : 'Board Course Counselling'}
+                                </h3>
+                                <p className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mt-1 italic">
+                                    {editingCounsellingId ? 'Updating counselling details' : 'Adding details for board enrolment workflow'}
+                                </p>
                             </div>
-                            <button onClick={() => setShowCounsellingModal(false)} className="text-gray-500 hover:text-white transition-colors p-2"><FaSync className="rotate-45" /></button>
+                            <button onClick={() => { setShowCounsellingModal(false); setEditingCounsellingId(null); setMobileCheck({ checking: false, taken: false, name: "" }); setEmailCheck({ checking: false, taken: false, name: "" }); }} className="text-gray-500 hover:text-white transition-colors p-2"><FaSync className="rotate-45" /></button>
                         </div>
 
                         <div className="space-y-8 flex-1 overflow-y-auto px-1 custom-scrollbar">
@@ -1256,11 +1382,19 @@ const BoardAdmissionsContent = () => {
                                         <input
                                             type="text"
                                             maxLength="10"
-                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${
+                                                mobileCheck.taken
+                                                    ? 'border-red-500 bg-red-500/5 text-red-400'
+                                                    : isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'
+                                            }`}
                                             placeholder="10-DIGIT MOBILE"
                                             value={counsellingForm.mobileNum}
                                             onChange={(e) => setCounsellingForm({ ...counsellingForm, mobileNum: e.target.value.replace(/\D/g, ''), whatsappNumber: e.target.value.replace(/\D/g, '') })}
                                         />
+                                        {mobileCheck.checking && <p className="text-[8px] text-gray-500 mt-1 font-bold">Checking...</p>}
+                                        {!mobileCheck.checking && mobileCheck.taken && (
+                                            <p className="text-[8px] text-red-400 mt-1 font-black uppercase tracking-wider">⚠ Already registered to: {mobileCheck.name}</p>
+                                        )}
                                     </div>
                                     <div>
                                         <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">WhatsApp Number</label>
@@ -1277,11 +1411,19 @@ const BoardAdmissionsContent = () => {
                                         <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Email Address</label>
                                         <input
                                             type="email"
-                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${
+                                                emailCheck.taken
+                                                    ? 'border-red-500 bg-red-500/5 text-red-400'
+                                                    : isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'
+                                            }`}
                                             placeholder="E.G. MAIL@DOMAIN.COM"
                                             value={counsellingForm.studentEmail}
                                             onChange={(e) => setCounsellingForm({ ...counsellingForm, studentEmail: e.target.value })}
                                         />
+                                        {emailCheck.checking && <p className="text-[8px] text-gray-500 mt-1 font-bold">Checking...</p>}
+                                        {!emailCheck.checking && emailCheck.taken && (
+                                            <p className="text-[8px] text-red-400 mt-1 font-black uppercase tracking-wider">⚠ Already registered to: {emailCheck.name}</p>
+                                        )}
                                     </div>
                                     <div>
                                         <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Date of Birth</label>

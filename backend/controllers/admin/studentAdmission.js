@@ -1,8 +1,14 @@
+import mongoose from "mongoose";
 import Student from "../../models/Students.js";
 
 export const getStudentById = async (req, res) => {
   try {
     const { studentId } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ message: "Invalid student ID format" });
+    }
+
     const student = await Student.findById(studentId);
 
     if (!student) {

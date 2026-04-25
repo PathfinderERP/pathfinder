@@ -13,6 +13,8 @@ import {
 import {
     createBoardCourseCounselling,
     getBoardCourseCounselling,
+    updateBoardCourseCounselling,
+    checkDuplicateContact,
     deleteBoardCourseCounselling
 } from "../../controllers/Admission/BoardCourseCounsellingController.js";
 import { requireGranularPermission } from "../../middleware/permissionMiddleware.js";
@@ -31,7 +33,10 @@ router.post("/collect-ncrp-fees/:id", requireGranularPermission("admissions", "b
 // Board Course Counselling Routes
 router.post("/counsel/create", requireGranularPermission("admissions", "boardCourseAdmission", "create"), createBoardCourseCounselling);
 router.get("/counsel/all", requireGranularPermission("admissions", "boardCourseAdmission", "view"), getBoardCourseCounselling);
-router.get("/counsel/:id", requireGranularPermission("admissions", "boardCourseAdmission", "view"), getBoardCourseCounselling); // Reuse existing or add new? (I'll add new below)
+// check-duplicate MUST be before /:id to avoid collision
+router.get("/counsel/check-duplicate", requireGranularPermission("admissions", "boardCourseAdmission", "view"), checkDuplicateContact);
+router.get("/counsel/:id", requireGranularPermission("admissions", "boardCourseAdmission", "view"), getBoardCourseCounselling);
+router.put("/counsel/:id", requireGranularPermission("admissions", "boardCourseAdmission", "edit"), updateBoardCourseCounselling);
 router.delete("/counsel/:id", requireGranularPermission("admissions", "boardCourseAdmission", "delete"), deleteBoardCourseCounselling);
 
 export default router;

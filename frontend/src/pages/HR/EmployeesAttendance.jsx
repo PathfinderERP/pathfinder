@@ -671,7 +671,7 @@ const EmployeesAttendance = () => {
                 console.error("No user ID found for analysis", user);
                 return;
             }
-            
+
             const queryParams = new URLSearchParams({
                 userId: targetUserId,
                 month: filters.month,
@@ -808,7 +808,7 @@ const EmployeesAttendance = () => {
     }, [attendanceList]);
 
     const VIBRANT_COLORS = [
-        '#06b6d4', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#6366f1', 
+        '#06b6d4', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#6366f1',
         '#f43f5e', '#84cc16', '#0ea5e9', '#d946ef', '#f97316', '#14b8a6', '#64748b'
     ];
 
@@ -1020,9 +1020,9 @@ const EmployeesAttendance = () => {
                         <MultiSelectDropdown icon={<FaBuilding />} label="CENTRE" options={centres} selectedValues={filters.centreId} valKey="_id" labelKey="centreName" onToggle={(vals) => setFilters(prev => ({ ...prev, centreId: vals }))} isDarkMode={isDarkMode} />
                         <MultiSelectDropdown icon={<FaSitemap />} label="DEPT" options={departments} selectedValues={filters.department} valKey="_id" labelKey="departmentName" onToggle={(vals) => setFilters(prev => ({ ...prev, department: vals }))} isDarkMode={isDarkMode} />
                         <MultiSelectDropdown icon={<FaUserTie />} label="ROLE" options={[{ id: 'hr', name: 'HR' }, { id: 'admin', name: 'Admin' }, { id: 'teacher', name: 'Teacher' }]} selectedValues={filters.role} valKey="id" labelKey="name" onToggle={(vals) => setFilters(prev => ({ ...prev, role: vals }))} isDarkMode={isDarkMode} />
-                        <MultiSelectDropdown 
-                            icon={<FaCheck />} 
-                            label="STATUS" 
+                        <MultiSelectDropdown
+                            icon={<FaCheck />}
+                            label="STATUS"
                             options={[
                                 { id: 'Present', name: 'Present' },
                                 { id: 'Overtime', name: 'Overtime' },
@@ -1031,12 +1031,12 @@ const EmployeesAttendance = () => {
                                 { id: 'Short Leave', name: 'Short Shift' },
                                 { id: 'Forgot Checkout', name: 'Forgot Checkout' },
                                 { id: 'Absent', name: 'Absent' }
-                            ]} 
-                            selectedValues={filters.status} 
-                            valKey="id" 
-                            labelKey="name" 
-                            onToggle={(vals) => setFilters(prev => ({ ...prev, status: vals }))} 
-                            isDarkMode={isDarkMode} 
+                            ]}
+                            selectedValues={filters.status}
+                            valKey="id"
+                            labelKey="name"
+                            onToggle={(vals) => setFilters(prev => ({ ...prev, status: vals }))}
+                            isDarkMode={isDarkMode}
                         />
                     </div>
 
@@ -1121,7 +1121,7 @@ const EmployeesAttendance = () => {
                         {/* Analytical Visualizations Grid */}
                         <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
                             {/* 1. Behavioral Trend Chart (Left) - 70% */}
-                            <div className={`lg:col-span-7 border rounded-[2px] p-8 h-[400px] relative overflow-hidden group ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                            <div className={`lg:col-span-7 border rounded-[2px] p-8 min-h-[400px] relative overflow-hidden group ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                                 <div className="flex justify-between items-center mb-8 relative z-10">
                                     <div>
                                         <h4 className={`text-[12px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Behavioral Cautions</h4>
@@ -1162,7 +1162,7 @@ const EmployeesAttendance = () => {
                             {/* 2. Forgot Checkout Analysis (Right) - 30% */}
                             <div
                                 onClick={() => { setActiveCaution('Forgot Checkout'); setShowCautionModal(true); }}
-                                className={`lg:col-span-3 border rounded-[2px] p-8 h-[400px] relative overflow-hidden group cursor-pointer hover:border-red-500/40 transition-all flex flex-col ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}
+                                className={`lg:col-span-3 border rounded-[2px] p-8 min-h-[400px] relative overflow-hidden group cursor-pointer hover:border-red-500/40 transition-all flex flex-col ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}
                             >
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-red-500/10 transition-colors" />
                                 <div className="flex justify-between items-center mb-6 relative z-10">
@@ -1222,9 +1222,9 @@ const EmployeesAttendance = () => {
 
 
                     {/* Charts Area */}
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[400px]">
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 lg:min-h-[400px]">
                         {/* Area Chart: Trend */}
-                        <div className={`xl:col-span-2 border rounded-[2px] p-6 flex flex-col ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                        <div className={`xl:col-span-2 border rounded-[2px] p-6 flex flex-col relative overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className={`font-black text-[10px] uppercase tracking-[0.2em] ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Attendance Trend (Daily)</h3>
                                 <button className="text-cyan-500 text-[10px] font-black uppercase hover:underline">View Report</button>
@@ -1257,7 +1257,7 @@ const EmployeesAttendance = () => {
                         </div>
 
                         {/* Department Distribution: Vertically Scrollable & Vibrant */}
-                        <div className={`border rounded-[2px] p-6 flex flex-col ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                        <div className={`border rounded-[2px] p-6 flex flex-col relative overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className={`font-black text-[10px] uppercase tracking-[0.2em] ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Department Distribution</h3>
                                 <div className="text-[8px] font-black text-cyan-500 uppercase tracking-widest bg-cyan-500/10 px-2 py-0.5 rounded-[1px]">Scroll ↕</div>
@@ -1268,17 +1268,17 @@ const EmployeesAttendance = () => {
                                         <BarChart layout="vertical" data={departmentData} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
                                             <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
                                             <XAxis type="number" hide />
-                                            <YAxis 
-                                                dataKey="name" 
-                                                type="category" 
-                                                axisLine={false} 
-                                                tickLine={false} 
-                                                tick={{ fill: isDarkMode ? '#9ca3af' : '#6b7280', fontSize: 9, fontWeight: 900 }} 
+                                            <YAxis
+                                                dataKey="name"
+                                                type="category"
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{ fill: isDarkMode ? '#9ca3af' : '#6b7280', fontSize: 9, fontWeight: 900 }}
                                                 width={100}
                                             />
-                                            <Tooltip 
-                                                cursor={{ fill: isDarkMode ? '#1f2937' : '#f9fafb' }} 
-                                                contentStyle={{ backgroundColor: isDarkMode ? '#111827' : '#fff', borderColor: isDarkMode ? '#374151' : '#e5e7eb', borderRadius: '4px', fontSize: '10px' }} 
+                                            <Tooltip
+                                                cursor={{ fill: isDarkMode ? '#1f2937' : '#f9fafb' }}
+                                                contentStyle={{ backgroundColor: isDarkMode ? '#111827' : '#fff', borderColor: isDarkMode ? '#374151' : '#e5e7eb', borderRadius: '4px', fontSize: '10px' }}
                                             />
                                             <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
                                                 {departmentData.map((entry, index) => (
@@ -1305,11 +1305,11 @@ const EmployeesAttendance = () => {
 
                             <div className="grid grid-cols-1 gap-3">
                                 {(() => {
-                                    const filteredList = groupedRecords.filter(att => 
+                                    const filteredList = groupedRecords.filter(att =>
                                         att.employeeId?.name?.toLowerCase().includes(filters.search.toLowerCase()) ||
                                         att.employeeId?.employeeId?.toLowerCase().includes(filters.search.toLowerCase())
                                     );
-                                    
+
                                     const totalPages = Math.ceil(filteredList.length / itemsPerPage);
                                     const indexOfLastItem = currentPage * itemsPerPage;
                                     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -1442,7 +1442,7 @@ const EmployeesAttendance = () => {
                                                         <div className="flex items-center gap-3 mr-4">
                                                             <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>Jump to</span>
                                                             <div className="relative group">
-                                                                <input 
+                                                                <input
                                                                     type="text"
                                                                     value={jumpToPage}
                                                                     onChange={(e) => {
@@ -1466,7 +1466,7 @@ const EmployeesAttendance = () => {
                                                         </div>
 
                                                         <div className={`flex border rounded-[2px] overflow-hidden ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
-                                                            <button 
+                                                            <button
                                                                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                                                                 disabled={currentPage === 1}
                                                                 className={`px-4 py-2 text-[10px] font-black uppercase transition-all hover:bg-cyan-500 hover:text-black disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-500 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}
@@ -1492,7 +1492,7 @@ const EmployeesAttendance = () => {
                                                                     </button>
                                                                 );
                                                             })}
-                                                            <button 
+                                                            <button
                                                                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                                                                 disabled={currentPage === totalPages}
                                                                 className={`px-4 py-2 text-[10px] font-black border-l uppercase transition-all hover:bg-cyan-500 hover:text-black disabled:opacity-30 disabled:hover:bg-transparent ${isDarkMode ? 'border-gray-800 text-gray-400' : 'border-gray-200 text-gray-500'}`}

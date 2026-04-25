@@ -99,22 +99,31 @@ const BoardCourseAdmissionPage = () => {
             }
 
             // 2. Fetch Student, Boards, and Classes
-            const [studentRes, boardsRes, classesRes, allBCSRes] = await Promise.all([
-                fetch(`${apiUrl}/normalAdmin/getStudent/${targetStudentId}`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                }),
-                fetch(`${apiUrl}/board`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                }),
-                fetch(`${apiUrl}/class`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                }),
-                fetch(`${apiUrl}/board-course-subject`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                })
-            ]);
+            const fetchPromises = [
+                fetch(`${apiUrl}/board`, { headers: { "Authorization": `Bearer ${token}` } }),
+                fetch(`${apiUrl}/class`, { headers: { "Authorization": `Bearer ${token}` } }),
+                fetch(`${apiUrl}/board-course-subject`, { headers: { "Authorization": `Bearer ${token}` } })
+            ];
 
-            const studentData = await studentRes.json();
+            // Only fetch student if we have a valid-looking ID
+            const isValidStudentId = targetStudentId && targetStudentId !== "null" && targetStudentId.length >= 12;
+            if (isValidStudentId) {
+                fetchPromises.unshift(fetch(`${apiUrl}/normalAdmin/getStudent/${targetStudentId}`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                }));
+            }
+
+            const results = await Promise.all(fetchPromises);
+            
+            let studentRes, boardsRes, classesRes, allBCSRes;
+            if (isValidStudentId) {
+                [studentRes, boardsRes, classesRes, allBCSRes] = results;
+            } else {
+                [boardsRes, classesRes, allBCSRes] = results;
+                studentRes = { ok: false }; // Mock failure if ID was invalid
+            }
+
+            const studentData = (studentRes && studentRes.ok) ? await studentRes.json() : null;
             const boardsData = await boardsRes.json();
             const classesData = await (classesRes.ok ? classesRes.json() : Promise.resolve([]));
             const allBCSData = await (allBCSRes?.ok ? allBCSRes.json() : Promise.resolve([]));
@@ -285,6 +294,9 @@ const BoardCourseAdmissionPage = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!student?._id) {
+            return toast.error("Student profile not found. Cannot process admission.");
+        }
         if (!selectedBoard) {
             return toast.error("Please select a board");
         }

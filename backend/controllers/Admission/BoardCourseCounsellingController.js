@@ -15,6 +15,30 @@ export const createBoardCourseCounselling = async (req, res) => {
             boardId, selectedSubjectIds, remarks 
         } = req.body;
 
+        // Server-side duplicate validation BEFORE creating
+        if (mobileNum) {
+            const dupMobile = await Student.findOne({ "studentsDetails.mobileNum": mobileNum });
+            if (dupMobile) {
+                const dupName = dupMobile.studentsDetails?.[0]?.studentName || "Another student";
+                return res.status(409).json({
+                    message: `Mobile number already registered to "${dupName}". Cannot create counselling record.`,
+                    field: "mobileNum",
+                    takenBy: dupName
+                });
+            }
+        }
+        if (studentEmail && studentEmail.includes("@")) {
+            const dupEmail = await Student.findOne({ "studentsDetails.studentEmail": new RegExp(`^${studentEmail}$`, 'i') });
+            if (dupEmail) {
+                const dupName = dupEmail.studentsDetails?.[0]?.studentName || "Another student";
+                return res.status(409).json({
+                    message: `Email already registered to "${dupName}". Cannot create counselling record.`,
+                    field: "studentEmail",
+                    takenBy: dupName
+                });
+            }
+        }
+
         // If no studentId, check if student exists by mobile number or create a new one
         if (!studentId) {
             let student = await Student.findOne({ "studentsDetails.mobileNum": mobileNum });
@@ -156,6 +180,98 @@ export const getBoardCourseCounselling = async (req, res) => {
             .populate('counselledBy', 'name email')
             .sort({ counselledDate: -1, createdAt: -1 });
         res.status(200).json(counselling);
+    } catch (error) {
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+export const updateBoardCourseCounselling = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const {
+            studentName, mobileNum, whatsappNumber, studentEmail,
+            dateOfBirth, gender, centre, board, state, schoolName, pincode, address,
+            guardianName, guardianMobile, guardianEmail, occupation,
+            programme, lastClass, examName, examStatus, markAgregate, scienceMathParcent,
+            boardId, selectedSubjectIds, remarks
+        } = req.body;
+
+        const counselling = await BoardCourseCounselling.findById(id);
+        if (!counselling) return res.status(404).json({ message: "Counselling record not found" });
+
+        // Update fields
+        if (studentName) counselling.studentName = studentName;
+        if (mobileNum) counselling.mobileNum = mobileNum;
+        if (centre) counselling.centre = centre;
+        if (programme) counselling.programme = programme;
+        if (lastClass) counselling.lastClass = lastClass;
+        if (boardId) counselling.boardId = boardId;
+        if (remarks !== undefined) counselling.remarks = remarks;
+        if (selectedSubjectIds) {
+            counselling.selectedSubjects = selectedSubjectIds.map(subId => ({ subjectId: subId }));
+        }
+
+        // Also update the linked student profile if studentId exists
+        if (counselling.studentId) {
+            const updateSet = {};
+            if (studentName) updateSet["studentsDetails.0.studentName"] = studentName;
+            if (mobileNum) updateSet["studentsDetails.0.mobileNum"] = mobileNum;
+            if (whatsappNumber) updateSet["studentsDetails.0.whatsappNumber"] = whatsappNumber;
+            if (studentEmail) updateSet["studentsDetails.0.studentEmail"] = studentEmail;
+            if (dateOfBirth) updateSet["studentsDetails.0.dateOfBirth"] = dateOfBirth;
+            if (gender) updateSet["studentsDetails.0.gender"] = gender;
+            if (centre) updateSet["studentsDetails.0.centre"] = centre;
+            if (board) updateSet["studentsDetails.0.board"] = board;
+            if (state) updateSet["studentsDetails.0.state"] = state;
+            if (schoolName) updateSet["studentsDetails.0.schoolName"] = schoolName;
+            if (pincode) updateSet["studentsDetails.0.pincode"] = pincode;
+            if (address) updateSet["studentsDetails.0.address"] = address;
+            if (guardianName) updateSet["studentsDetails.0.guardianName"] = guardianName;
+            if (guardianMobile) updateSet["studentsDetails.0.guardianMobile"] = guardianMobile;
+            if (guardianEmail) updateSet["studentsDetails.0.guardianEmail"] = guardianEmail;
+            if (occupation) updateSet["studentsDetails.0.occupation"] = occupation;
+            if (programme) updateSet["studentsDetails.0.programme"] = programme;
+            if (Object.keys(updateSet).length > 0) {
+                await Student.findByIdAndUpdate(counselling.studentId, { $set: updateSet });
+            }
+        }
+
+        await counselling.save();
+        res.status(200).json({ message: "Counselling record updated", counselling });
+    } catch (error) {
+        console.error("Error in updateBoardCourseCounselling:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+export const checkDuplicateContact = async (req, res) => {
+    try {
+        const { mobile, email, excludeStudentId } = req.query;
+        const result = {};
+
+        if (mobile && mobile.length === 10) {
+            const existingByMobile = await Student.findOne({
+                "studentsDetails.mobileNum": mobile,
+                ...(excludeStudentId ? { _id: { $ne: excludeStudentId } } : {})
+            }).select("studentsDetails.studentName studentsDetails.mobileNum");
+            if (existingByMobile) {
+                result.mobileTaken = true;
+                result.mobileStudentName = existingByMobile.studentsDetails?.[0]?.studentName || "Another student";
+            }
+        }
+
+        if (email && email.includes("@")) {
+            const existingByEmail = await Student.findOne({
+                "studentsDetails.studentEmail": { $regex: new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+                ...(excludeStudentId ? { _id: { $ne: excludeStudentId } } : {})
+            }).select("studentsDetails.studentName studentsDetails.studentEmail");
+            if (existingByEmail) {
+                result.emailTaken = true;
+                result.emailStudentName = existingByEmail.studentsDetails?.[0]?.studentName || "Another student";
+            }
+        }
+
+        res.status(200).json(result);
     } catch (error) {
         res.status(500).json({ message: "Server error", error: error.message });
     }
