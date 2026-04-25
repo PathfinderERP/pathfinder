@@ -746,6 +746,7 @@ const Classes = () => {
                                     <th className="p-4">Teacher</th>
                                     <th className="p-4">Coordinator</th>
                                     <th className="p-4">Date</th>
+                                    <th className="p-4">Last Updated</th>
                                     <th className="p-4">Start Time</th>
                                     <th className="p-4">End Time</th>
                                     <th className="p-4">Actual Time</th>
@@ -778,6 +779,7 @@ const Classes = () => {
                                             <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
                                             <td className="p-4">{cls.coordinatorId?.name || "-"}</td>
                                             <td className="p-4 font-mono">{formatDate(cls.date)}</td>
+                                            <td className="p-4 whitespace-nowrap text-[10px] text-gray-500">{formatDate(cls.updatedAt)}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.startTime}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.endTime}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">

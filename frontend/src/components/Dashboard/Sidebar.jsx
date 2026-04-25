@@ -204,7 +204,6 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             name: "HR & Manpower",
             icon: <FaUserTie />,
             permissionModule: "hrManpower",
-            restrictedToSuperAdmin: true,
             subItems: [
                 // { name: "Overview", path: "/hr", icon: <FaThLarge />, permissionSection: "overview" },
                 {

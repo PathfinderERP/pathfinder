@@ -530,6 +530,8 @@ const OngoingClass = () => {
                             <thead>
                                 <tr className={`border-b ${isDarkMode ? 'bg-[#2a3038] text-gray-300 border-gray-700' : 'bg-gray-50 text-gray-600 border-gray-200'} text-xs uppercase font-bold tracking-wider`}>
                                     <th className="p-4">Class Name</th>
+                                    <th className="p-4">Date</th>
+                                    <th className="p-4">Last Updated</th>
                                     <th className="p-4">Class Mode</th>
                                     <th className="p-4">Batches</th>
                                     <th className="p-4">Teacher</th>
@@ -554,6 +556,8 @@ const OngoingClass = () => {
                                     classes.map((cls) => (
                                         <tr key={cls._id} className={`transition-colors text-sm ${isDarkMode ? 'hover:bg-[#252b32] text-gray-300' : 'hover:bg-gray-50 text-gray-600'}`}>
                                             <td className={`p-4 font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{cls.className}</td>
+                                            <td className="p-4 whitespace-nowrap">{formatDate(cls.date)}</td>
+                                            <td className="p-4 whitespace-nowrap text-[10px] text-gray-500">{formatDate(cls.updatedAt)}</td>
                                             <td className="p-4">{cls.classMode}</td>
                                             <td className="p-4">
                                                 <div className="flex flex-wrap gap-1">

@@ -581,6 +581,7 @@ const UpcomingClass = () => {
                                     <th className="p-4">Teacher</th>
                                     <th className="p-4">Center</th>
                                     <th className="p-4">Date</th>
+                                    <th className="p-4">Last Updated</th>
                                     <th className="p-4">Start Time</th>
                                     <th className="p-4">End Time</th>
                                     <th className="p-4">Hrs</th>
@@ -641,6 +642,7 @@ const UpcomingClass = () => {
                                                 {cls.centreId?.centreName || cls.centreId?.centerName || cls.centreId?.name || "-"}
                                             </td>
                                             <td className="p-4 whitespace-nowrap">{formatDate(cls.date)}</td>
+                                            <td className="p-4 whitespace-nowrap text-[10px] text-gray-500">{formatDate(cls.updatedAt)}</td>
                                             <td className="p-4 whitespace-nowrap font-mono text-xs">
                                                 <span className={`px-2 py-0.5 rounded ${isDarkMode ? "bg-green-900/30 text-green-400" : "bg-green-100 text-green-700"}`}>
                                                     {cls.startTime}
