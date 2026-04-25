@@ -2,6 +2,20 @@ import User from "../../../models/User.js";
 import Employee from "../../../models/HR/Employee.js";
 import bcrypt from "bcryptjs";
 
+// Helper for deep comparison of granularPermissions
+const isDeepEqual = (obj1, obj2) => {
+    return JSON.stringify(obj1) === JSON.stringify(obj2);
+};
+
+// Helper for array comparison (centres, permissions)
+const areArraysEqual = (arr1, arr2) => {
+    if (!arr1 || !arr2) return arr1 === arr2;
+    if (arr1.length !== arr2.length) return false;
+    const s1 = [...arr1].map(String).sort();
+    const s2 = [...arr2].map(String).sort();
+    return s1.every((v, i) => v === s2[i]);
+};
+
 export const updateUserBySuperAdmin = async (req, res) => {
     try {
         const { userId } = req.params;
@@ -29,33 +43,64 @@ export const updateUserBySuperAdmin = async (req, res) => {
             }
         }
 
-        // Prepare Employee Sync Data
+        let hasChanges = false;
         const employeeSyncData = {};
-        if (name && name !== user.name) {
+
+        // Prepare Employee Sync Data & Detect Changes
+        if (name !== undefined && name !== user.name) {
             user.name = name;
             employeeSyncData.name = name;
+            hasChanges = true;
         }
-        if (employeeId && employeeId !== user.employeeId) {
+        if (employeeId !== undefined && employeeId !== user.employeeId) {
             user.employeeId = employeeId;
             employeeSyncData.employeeId = employeeId;
+            hasChanges = true;
         }
-        if (email && email !== user.email) {
+        if (email !== undefined && email !== user.email) {
             user.email = email;
             employeeSyncData.email = email;
+            hasChanges = true;
         }
-        if (mobNum) {
+        if (mobNum !== undefined && mobNum !== user.mobNum) {
             user.mobNum = mobNum;
             employeeSyncData.phoneNumber = mobNum; // Employee uses phoneNumber field
+            hasChanges = true;
         }
-        if (role) user.role = role;
-        if (centres !== undefined) user.centres = centres || [];
-        if (permissions !== undefined) user.permissions = permissions;
-        if (granularPermissions !== undefined) user.granularPermissions = granularPermissions;
-        if (canEditUsers !== undefined) user.canEditUsers = canEditUsers;
-        if (canDeleteUsers !== undefined) user.canDeleteUsers = canDeleteUsers;
         
-        if (isActive !== undefined) {
+        if (role !== undefined && role !== user.role) {
+            user.role = role;
+            hasChanges = true;
+        }
+
+        if (centres !== undefined && !areArraysEqual(centres, user.centres)) {
+            user.centres = centres || [];
+            hasChanges = true;
+        }
+
+        if (permissions !== undefined && !areArraysEqual(permissions, user.permissions)) {
+            user.permissions = permissions;
+            hasChanges = true;
+        }
+
+        if (granularPermissions !== undefined && !isDeepEqual(granularPermissions, user.granularPermissions)) {
+            user.granularPermissions = granularPermissions;
+            hasChanges = true;
+        }
+
+        if (canEditUsers !== undefined && canEditUsers !== user.canEditUsers) {
+            user.canEditUsers = canEditUsers;
+            hasChanges = true;
+        }
+
+        if (canDeleteUsers !== undefined && canDeleteUsers !== user.canDeleteUsers) {
+            user.canDeleteUsers = canDeleteUsers;
+            hasChanges = true;
+        }
+        
+        if (isActive !== undefined && isActive !== user.isActive) {
             user.isActive = isActive;
+            hasChanges = true;
             
             // Audit deactivation
             if (isActive === false) {
@@ -74,36 +119,42 @@ export const updateUserBySuperAdmin = async (req, res) => {
             employeeSyncData.status = isActive ? "Active" : "Inactive";
         }
 
-        user.updatedBy = req.user.id;
-        employeeSyncData.updatedBy = req.user.id;
-
-        // Sync with Employee if there are changes
-        if (Object.keys(employeeSyncData).length > 0) {
-            try {
-                await Employee.findOneAndUpdate(
-                    { user: user._id },
-                    { $set: employeeSyncData }
-                );
-            } catch (err) {
-                console.error("Error syncing to Employee record:", err);
-                // If it's a duplicate email error in Employee collection, we might want to handle it
-                if (err.code === 11000) {
-                    return res.status(400).json({ message: "Update failed: Email or Employee ID already exists in Employee records" });
-                }
-            }
-        }
-
         if (assignedScript !== undefined) {
-            user.assignedScript = assignedScript === "" ? null : assignedScript;
+            const newScript = assignedScript === "" ? null : assignedScript;
+            if (String(newScript) !== String(user.assignedScript)) {
+                user.assignedScript = newScript;
+                hasChanges = true;
+            }
         }
 
         // Update password if provided
         if (password && password.trim() !== "") {
             const salt = await bcrypt.genSalt(10);
             user.password = await bcrypt.hash(password, salt);
+            hasChanges = true;
         }
 
-        await user.save();
+        if (hasChanges) {
+            user.updatedBy = req.user.id;
+            employeeSyncData.updatedBy = req.user.id;
+
+            // Sync with Employee if there are changes
+            if (Object.keys(employeeSyncData).length > 0) {
+                try {
+                    await Employee.findOneAndUpdate(
+                        { user: user._id },
+                        { $set: employeeSyncData }
+                    );
+                } catch (err) {
+                    console.error("Error syncing to Employee record:", err);
+                    // If it's a duplicate email error in Employee collection, we might want to handle it
+                    if (err.code === 11000) {
+                        return res.status(400).json({ message: "Update failed: Email or Employee ID already exists in Employee records" });
+                    }
+                }
+            }
+            await user.save();
+        }
 
         // Populate audit fields for response
         await user.populate([
@@ -114,7 +165,7 @@ export const updateUserBySuperAdmin = async (req, res) => {
         ]);
 
         res.status(200).json({
-            message: "User updated successfully",
+            message: hasChanges ? "User updated successfully" : "No changes detected",
             user: {
                 id: user._id,
                 name: user.name,

@@ -6,7 +6,7 @@ import cors from "cors";
 import http from "http";
 import { initSocket } from "./utils/socket.js";
 import protect from "./middleware/authMiddleware.js"; // Direct import
-import loggingMiddleware from "./middleware/loggingMiddleware.js";
+// import loggingMiddleware from "./middleware/loggingMiddleware.js";
 import connectDB from "./db/connect.js";
 import adminRoutes from "./routes/superAdmin/superAdminControllers.routes.js";
 import normalAdmin from "./routes/admin/createStudentByAdmin.routes.js";
@@ -74,7 +74,7 @@ import marketingOperationsRoutes from "./routes/Operations/marketing.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
 import razorpaySMSRoutes from "./routes/payment/razorpaySMS.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
-import systemLogRoutes from "./routes/systemLog.routes.js";
+// import systemLogRoutes from "./routes/systemLog.routes.js";
 
 import studentPortalRoutes from "./routes/studentPortal.routes.js";
 
@@ -97,7 +97,7 @@ app.use(express.urlencoded({ extended: true, limit: "500mb" }));
 app.use("/api/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Global Logging Middleware (must be before routes)
-app.use(loggingMiddleware);
+// app.use(loggingMiddleware);
 
 connectDB();
 
@@ -192,7 +192,7 @@ app.use("/api/operations/marketing", marketingOperationsRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/payment/sms", razorpaySMSRoutes);
 app.use("/api/notifications", notificationRoutes);
-app.use("/api/system-logs", systemLogRoutes);
+// app.use("/api/system-logs", systemLogRoutes);
 
 
 

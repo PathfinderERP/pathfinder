@@ -300,7 +300,6 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             ]
         },
         { name: "User Management", icon: <FaUsers />, path: "/user-management", permissionModule: "userManagement" },
-        { name: "System Logs", icon: <FaHistory />, path: "/system-logs", restrictedToSuperAdmin: true },
     ], []);
 
     const [openMenus, setOpenMenus] = useState({});
