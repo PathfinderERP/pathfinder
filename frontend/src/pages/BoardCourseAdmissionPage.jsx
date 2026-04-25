@@ -52,7 +52,7 @@ const BoardCourseAdmissionPage = () => {
             .map(s => (s.subjectId?.subName || s.subjectId?.name || "Subject"))
             .sort()
             .join(" + ");
-        
+
         let name = `${boardName} Class ${lastClass || ''} ${programme || ''} ${academicSession || ''}`;
         if (programme !== "NCRP") {
             name += ` : ${subNames || 'No Subjects'}`;
@@ -114,7 +114,7 @@ const BoardCourseAdmissionPage = () => {
             }
 
             const results = await Promise.all(fetchPromises);
-            
+
             let studentRes, boardsRes, classesRes, allBCSRes;
             if (isValidStudentId) {
                 [studentRes, boardsRes, classesRes, allBCSRes] = results;
@@ -133,7 +133,7 @@ const BoardCourseAdmissionPage = () => {
                 // Priority: console session > student details session
                 const sessionFromConsole = studentData?.sessionExamCourse?.[0]?.session;
                 const sessionFromDetails = studentData?.studentsDetails?.[0]?.academicSession;
-                
+
                 if (sessionFromConsole) {
                     setAcademicSession(sessionFromConsole);
                 } else if (sessionFromDetails) {
@@ -159,7 +159,7 @@ const BoardCourseAdmissionPage = () => {
             }
             if (boardsRes.ok) {
                 setBoards(boardsData);
-                
+
                 // 1. Priority: Pre-fill from counselling
                 if (targetBoardId) {
                     const matched = boardsData.find(b => b._id === targetBoardId);
@@ -168,10 +168,10 @@ const BoardCourseAdmissionPage = () => {
                         // Don't pre-set subject IDs here; let Board+Class fetch handle it
                         // We'll trigger subject fetch after this block
                     }
-                } 
+                }
                 // 2. Fallback: Pre-fill from student registration board
                 else if (studentData?.studentsDetails?.[0]?.board) {
-                    const matchedBoard = boardsData.find(b => 
+                    const matchedBoard = boardsData.find(b =>
                         b.boardCourse.toLowerCase() === studentData.studentsDetails[0].board.toLowerCase()
                     );
                     if (matchedBoard) {
@@ -181,7 +181,7 @@ const BoardCourseAdmissionPage = () => {
             }
 
             // After boards+classes+student all loaded, trigger subject fetch if both board and class are known
-            const finalBoardId = targetBoardId || 
+            const finalBoardId = targetBoardId ||
                 boardsData.find(b => b.boardCourse.toLowerCase() === (studentData?.studentsDetails?.[0]?.board || "").toLowerCase())?._id;
             const finalClass = startingClass;
             if (finalBoardId && finalClass && classesData.length > 0) {
@@ -382,7 +382,7 @@ const BoardCourseAdmissionPage = () => {
     return (
         <div className={`flex-1 p-6 overflow-y-auto ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-gray-50 text-gray-900'}`}>
             <ToastContainer position="top-right" theme={isDarkMode ? "dark" : "colored"} />
-            
+
             <div className="flex items-center gap-4 mb-8">
                 <button
                     onClick={() => navigate(-1)}
@@ -508,8 +508,8 @@ const BoardCourseAdmissionPage = () => {
                                 >
                                     <option value="">-- Choose Class --</option>
                                     {classes
-                                        .filter(c => !selectedBoard || allBoardCourseSubjects.some(bcs => 
-                                            (bcs.boardId?._id || bcs.boardId) === selectedBoard._id && 
+                                        .filter(c => !selectedBoard || allBoardCourseSubjects.some(bcs =>
+                                            (bcs.boardId?._id || bcs.boardId) === selectedBoard._id &&
                                             (bcs.classId?._id === c._id || (bcs.classId?.name || bcs.classId?.className) === (c.name || c.className))
                                         ))
                                         .map(c => <option key={c._id} value={c.name || c.className}>{(c.name || c.className).toUpperCase()}</option>)}
@@ -517,7 +517,7 @@ const BoardCourseAdmissionPage = () => {
                             </div>
                         </div>
 
-                        {selectedBoard && (
+                        {selectedBoard && programme !== "NCRP" && (
                             <div className="animate-fadeIn">
                                 <label className="block text-[10px] font-black uppercase text-gray-500 mb-4">
                                     Available Subjects — {selectedBoard.boardCourse}{lastClass ? ` | Class ${lastClass}` : " (Select a class to load subjects)"}
@@ -535,16 +535,14 @@ const BoardCourseAdmissionPage = () => {
                                                 <div
                                                     key={subId || idx}
                                                     onClick={() => toggleSubject(subId)}
-                                                    className={`p-4 rounded-lg border cursor-pointer transition-all flex items-center justify-between ${
-                                                        isSelected
+                                                    className={`p-4 rounded-lg border cursor-pointer transition-all flex items-center justify-between ${isSelected
                                                             ? 'border-cyan-500 bg-cyan-500/5'
                                                             : isDarkMode ? 'border-gray-800 bg-[#131619] hover:border-gray-700' : 'border-gray-100 bg-gray-50 hover:border-gray-200'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     <div className="flex items-center gap-3">
-                                                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-                                                            isSelected ? 'bg-cyan-500 border-cyan-500' : 'border-gray-300'
-                                                        }`}>
+                                                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-cyan-500 border-cyan-500' : 'border-gray-300'
+                                                            }`}>
                                                             {isSelected && <FaCheckCircle className="text-white text-[10px]" />}
                                                         </div>
                                                         <span className="text-xs font-bold uppercase">{s.subjectId?.subName || "—"}</span>
@@ -555,6 +553,13 @@ const BoardCourseAdmissionPage = () => {
                                         })}
                                     </div>
                                 )}
+                            </div>
+                        )}
+                        {selectedBoard && programme === "NCRP" && (
+                            <div className={`p-8 rounded-xl border-2 border-dashed flex flex-col items-center justify-center animate-fadeIn ${isDarkMode ? 'border-amber-500/20 bg-amber-500/5' : 'border-amber-200 bg-amber-50'}`}>
+                                <div className="text-3xl mb-3">📋</div>
+                                <h4 className={`text-sm font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>NCRP Programme Active</h4>
+                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest text-center">Subject selection are not mandatory for Non-Course Room Programmes</p>
                             </div>
                         )}
                     </div>
@@ -598,13 +603,13 @@ const BoardCourseAdmissionPage = () => {
                             </div>
                         </div>
                     </div>
-                    
+
                     <div className={`p-8 rounded-xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                         <div className="flex items-center gap-3 mb-6">
                             <FaMoneyBillWave className="text-cyan-500" />
                             <h4 className="text-sm font-black uppercase tracking-widest">Initial Payment (Down Payment)</h4>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-xs font-black uppercase text-gray-500 mb-2 tracking-widest">Down Payment Amount</label>
@@ -823,12 +828,12 @@ const BoardCourseAdmissionPage = () => {
                                         ₹{(netMonthly + Number(admissionFee)).toFixed(0)}
                                     </span>
                                 </div>
-                                
+
                                 <div className={`flex justify-between items-center pt-3 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`}>
                                     <span className={`text-[11px] font-bold uppercase tracking-[0.1em] leading-none ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Paid Today (Tuit/Adm)</span>
                                     <span className="text-xl font-black text-green-500 italic leading-none">₹{downPayment}</span>
                                 </div>
-                                
+
                                 <div className="flex justify-between items-center">
                                     <span className={`text-[11px] font-bold uppercase tracking-[0.1em] leading-none ${isDarkMode ? 'text-cyan-500' : 'text-cyan-600'}`}>Paid Today (Exam)</span>
                                     <span className={`text-xl font-black italic leading-none ${isDarkMode ? 'text-cyan-400' : 'text-cyan-500'}`}>₹{paidExamFee}</span>
@@ -838,14 +843,14 @@ const BoardCourseAdmissionPage = () => {
                                     <span className={`text-[12px] font-black uppercase italic tracking-[0.3em] leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>TOTAL PAYMENT</span>
                                     <span className={`text-3xl font-black italic leading-none ${isDarkMode ? 'text-white bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent' : 'text-cyan-600'}`}>₹{Number(downPayment) + Number(paidExamFee) + Number(paidAdditionalThings)}</span>
                                 </div>
-                                
+
                                 <div className="flex justify-between items-center pt-4">
                                     <span className={`text-[11px] font-bold uppercase leading-none ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Month 2 Payable</span>
                                     <span className={`text-lg font-black italic leading-none ${(netMonthly + (netMonthly + Number(admissionFee) - downPayment)) < 0 ? 'text-green-500' : 'text-cyan-500'}`}>
                                         ₹{Math.max(0, netMonthly + (netMonthly + Number(admissionFee) - downPayment)).toFixed(0)}
                                     </span>
                                 </div>
-                                
+
                                 <p className={`text-[10px] font-bold uppercase italic mt-4 leading-relaxed p-2 rounded ${isDarkMode ? 'text-gray-500 bg-black/30' : 'text-gray-600 bg-gray-50'}`}>
                                     {downPayment > (netMonthly + Number(admissionFee))
                                         ? `* Excess of ₹${(downPayment - (netMonthly + Number(admissionFee))).toFixed(0)} will be adjusted next month.`
@@ -860,11 +865,10 @@ const BoardCourseAdmissionPage = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className={`w-full mt-10 py-4 rounded-lg font-black uppercase tracking-[0.2em] text-sm transition-all shadow-[0_0_20px_rgba(6,182,212,0.2)] ${
-                                loading 
-                                ? 'bg-gray-700 cursor-not-allowed text-gray-400' 
-                                : 'bg-cyan-500 text-black hover:bg-cyan-400 hover:scale-[1.02]'
-                            }`}
+                            className={`w-full mt-10 py-4 rounded-lg font-black uppercase tracking-[0.2em] text-sm transition-all shadow-[0_0_20px_rgba(6,182,212,0.2)] ${loading
+                                    ? 'bg-gray-700 cursor-not-allowed text-gray-400'
+                                    : 'bg-cyan-500 text-black hover:bg-cyan-400 hover:scale-[1.02]'
+                                }`}
                         >
                             {loading ? "PROSSESING..." : "COMMIT ADMISSION"}
                         </button>

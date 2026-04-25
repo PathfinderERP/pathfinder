@@ -23,6 +23,9 @@ const StudentRegistrationForm = () => {
     const [selectedBatches, setSelectedBatches] = useState([]);
     const [boards, setBoards] = useState([]);
     const [sources, setSources] = useState([]);
+    // Duplicate contact validation
+    const [mobileCheck, setMobileCheck] = useState({ checking: false, taken: false, name: "" });
+    const [emailCheck, setEmailCheck] = useState({ checking: false, taken: false, name: "" });
 
     const [courseFilters, setCourseFilters] = useState({
         mode: "",
@@ -301,6 +304,50 @@ const StudentRegistrationForm = () => {
         fetchSources();
     }, []);
 
+    // Debounced mobile duplicate check
+    useEffect(() => {
+        const mobile = formData.mobileNum;
+        if (!mobile || mobile.length < 10) {
+            setMobileCheck({ checking: false, taken: false, name: "" });
+            return;
+        }
+        setMobileCheck(prev => ({ ...prev, checking: true }));
+        const timer = setTimeout(async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const res = await fetch(
+                    `${import.meta.env.VITE_API_URL}/board-admission/counsel/check-duplicate?mobile=${mobile}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                const data = await res.json();
+                setMobileCheck({ checking: false, taken: !!data.mobileTaken, name: data.mobileStudentName || "" });
+            } catch { setMobileCheck({ checking: false, taken: false, name: "" }); }
+        }, 600);
+        return () => clearTimeout(timer);
+    }, [formData.mobileNum]);
+
+    // Debounced email duplicate check
+    useEffect(() => {
+        const email = formData.studentEmail;
+        if (!email || !email.includes("@")) {
+            setEmailCheck({ checking: false, taken: false, name: "" });
+            return;
+        }
+        setEmailCheck(prev => ({ ...prev, checking: true }));
+        const timer = setTimeout(async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const res = await fetch(
+                    `${import.meta.env.VITE_API_URL}/board-admission/counsel/check-duplicate?email=${encodeURIComponent(email)}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                const data = await res.json();
+                setEmailCheck({ checking: false, taken: !!data.emailTaken, name: data.emailStudentName || "" });
+            } catch { setEmailCheck({ checking: false, taken: false, name: "" }); }
+        }, 600);
+        return () => clearTimeout(timer);
+    }, [formData.studentEmail]);
+
     useEffect(() => {
         let result = courses;
         if (courseFilters.mode) result = result.filter(v => v.mode === courseFilters.mode);
@@ -386,6 +433,17 @@ const StudentRegistrationForm = () => {
             return;
         }
 
+        // Block if mobile or email is already taken
+        if (mobileCheck.taken) {
+            toast.error(`Mobile number already registered to "${mobileCheck.name}". Please use a different number.`);
+            setLoading(false);
+            return;
+        }
+        if (emailCheck.taken) {
+            toast.error(`Email already registered to "${emailCheck.name}". Please use a different email.`);
+            setLoading(false);
+            return;
+        }
         try {
             const token = localStorage.getItem("token");
 
@@ -624,11 +682,49 @@ const StudentRegistrationForm = () => {
                                             </div>
                                             <div>
                                                 <label className={labelClass}>EMAIL ADDRESS *</label>
-                                                <input type="email" name="studentEmail" required value={formData.studentEmail} onChange={handleChange} placeholder="E.G. USER@DOMAIN.COM" className={inputClass} />
+                                                <input
+                                                    type="email"
+                                                    name="studentEmail"
+                                                    required
+                                                    value={formData.studentEmail}
+                                                    onChange={handleChange}
+                                                    placeholder="E.G. USER@DOMAIN.COM"
+                                                    className={`w-full px-4 py-3 rounded-[4px] border text-[13px] font-bold tracking-tight transition-all focus:outline-none focus:ring-1 ${
+                                                        emailCheck.taken
+                                                            ? 'border-red-500 bg-red-500/5 text-red-400 focus:ring-red-500/20'
+                                                            : isDarkMode
+                                                                ? 'bg-[#111418] border-gray-800 text-white focus:border-cyan-500/50 focus:ring-cyan-500/20 placeholder:text-gray-700'
+                                                                : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500 focus:ring-cyan-500/20 placeholder:text-gray-400'
+                                                    }`}
+                                                />
+                                                {emailCheck.checking && <p className="text-[9px] text-gray-500 mt-1 font-bold uppercase">Checking...</p>}
+                                                {!emailCheck.checking && emailCheck.taken && (
+                                                    <p className="text-[9px] text-red-400 mt-1 font-black uppercase tracking-wider">⚠ Already registered to: {emailCheck.name}</p>
+                                                )}
                                             </div>
                                             <div>
                                                 <label className={labelClass}>MOBILE NUMBER *</label>
-                                                <input type="text" name="mobileNum" required pattern="[0-9]{10}" value={formData.mobileNum} onChange={handleChange} placeholder="PRIMARY CONTACT DIGITS" className={inputClass} />
+                                                <input
+                                                    type="text"
+                                                    name="mobileNum"
+                                                    required
+                                                    maxLength="10"
+                                                    pattern="[0-9]{10}"
+                                                    value={formData.mobileNum}
+                                                    onChange={handleChange}
+                                                    placeholder="PRIMARY CONTACT DIGITS"
+                                                    className={`w-full px-4 py-3 rounded-[4px] border text-[13px] font-bold tracking-tight transition-all focus:outline-none focus:ring-1 ${
+                                                        mobileCheck.taken
+                                                            ? 'border-red-500 bg-red-500/5 text-red-400 focus:ring-red-500/20'
+                                                            : isDarkMode
+                                                                ? 'bg-[#111418] border-gray-800 text-white focus:border-cyan-500/50 focus:ring-cyan-500/20 placeholder:text-gray-700'
+                                                                : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500 focus:ring-cyan-500/20 placeholder:text-gray-400'
+                                                    }`}
+                                                />
+                                                {mobileCheck.checking && <p className="text-[9px] text-gray-500 mt-1 font-bold uppercase">Checking...</p>}
+                                                {!mobileCheck.checking && mobileCheck.taken && (
+                                                    <p className="text-[9px] text-red-400 mt-1 font-black uppercase tracking-wider">⚠ Already registered to: {mobileCheck.name}</p>
+                                                )}
                                             </div>
                                             <div>
                                                 <label className={labelClass}>WHATSAPP NUMBER *</label>
@@ -804,12 +900,90 @@ const StudentRegistrationForm = () => {
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                                             <div>
                                                 <label className={labelClass}>EXAM TAG IDENTIFIER *</label>
-                                                <select required name="examName" value={formData.examName} onChange={handleChange} className={inputClass}>
-                                                    <option value="">SELECT EXAM TAG *</option>
-                                                    {examTags.map((tag) => (
-                                                        <option key={tag._id} value={tag.name}>{tag.name.toUpperCase()}</option>
-                                                    ))}
-                                                </select>
+                                                <Select
+                                                    options={examTags.map(tag => ({ value: tag.name, label: tag.name.toUpperCase() }))}
+                                                    value={formData.examName ? { value: formData.examName, label: formData.examName.toUpperCase() } : null}
+                                                    onChange={(selected) => handleChange({ target: { name: 'examName', value: selected ? selected.value : '' } })}
+                                                    isSearchable={true}
+                                                    isClearable={true}
+                                                    placeholder="🔍 SEARCH EXAM TAG..."
+                                                    noOptionsMessage={() => "No exam tags found"}
+                                                    styles={{
+                                                        control: (base, state) => ({
+                                                            ...base,
+                                                            backgroundColor: isDarkMode ? '#111418' : '#f9fafb',
+                                                            borderColor: state.isFocused
+                                                                ? (isDarkMode ? 'rgba(6,182,212,0.6)' : '#06b6d4')
+                                                                : (isDarkMode ? '#1f2937' : '#e5e7eb'),
+                                                            padding: '4px',
+                                                            borderRadius: '4px',
+                                                            fontSize: '13px',
+                                                            fontWeight: 'bold',
+                                                            boxShadow: state.isFocused ? '0 0 0 1px rgba(6,182,212,0.2)' : 'none',
+                                                            '&:hover': { borderColor: isDarkMode ? 'rgba(6,182,212,0.5)' : '#06b6d4' }
+                                                        }),
+                                                        menu: (base) => ({
+                                                            ...base,
+                                                            backgroundColor: isDarkMode ? '#1a1f24' : 'white',
+                                                            border: isDarkMode ? '1px solid #1f2937' : '1px solid #e5e7eb',
+                                                            zIndex: 100,
+                                                            borderRadius: '4px',
+                                                            overflow: 'hidden'
+                                                        }),
+                                                        menuList: (base) => ({
+                                                            ...base,
+                                                            maxHeight: '220px',
+                                                            padding: '4px'
+                                                        }),
+                                                        option: (base, state) => ({
+                                                            ...base,
+                                                            backgroundColor: state.isSelected
+                                                                ? 'rgba(6,182,212,0.25)'
+                                                                : state.isFocused
+                                                                    ? (isDarkMode ? 'rgba(6,182,212,0.15)' : 'rgba(6,182,212,0.08)')
+                                                                    : 'transparent',
+                                                            color: state.isSelected
+                                                                ? (isDarkMode ? '#67e8f9' : '#0891b2')
+                                                                : (isDarkMode ? 'white' : '#111827'),
+                                                            fontSize: '11px',
+                                                            fontWeight: 'bold',
+                                                            textTransform: 'uppercase',
+                                                            letterSpacing: '0.05em',
+                                                            borderRadius: '2px',
+                                                            marginBottom: '2px',
+                                                            cursor: 'pointer'
+                                                        }),
+                                                        singleValue: (base) => ({
+                                                            ...base,
+                                                            color: isDarkMode ? 'white' : '#111827',
+                                                            textTransform: 'uppercase',
+                                                            fontWeight: 'bold',
+                                                            letterSpacing: '0.05em'
+                                                        }),
+                                                        placeholder: (base) => ({
+                                                            ...base,
+                                                            color: isDarkMode ? '#374151' : '#9ca3af',
+                                                            fontSize: '12px'
+                                                        }),
+                                                        input: (base) => ({
+                                                            ...base,
+                                                            color: isDarkMode ? 'white' : '#111827'
+                                                        }),
+                                                        clearIndicator: (base) => ({
+                                                            ...base,
+                                                            color: isDarkMode ? '#6b7280' : '#9ca3af',
+                                                            '&:hover': { color: '#ef4444' }
+                                                        }),
+                                                        dropdownIndicator: (base) => ({
+                                                            ...base,
+                                                            color: isDarkMode ? '#4b5563' : '#9ca3af'
+                                                        }),
+                                                        indicatorSeparator: (base) => ({
+                                                            ...base,
+                                                            backgroundColor: isDarkMode ? '#1f2937' : '#e5e7eb'
+                                                        })
+                                                    }}
+                                                />
                                             </div>
                                             <div>
                                                 <label className={labelClass}>LAST ACADEMIC CLASS *</label>

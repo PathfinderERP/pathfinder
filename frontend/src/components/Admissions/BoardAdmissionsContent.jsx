@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Select from "react-select";
 import { FaFilter, FaPlus, FaSearch, FaDownload, FaEye, FaEdit, FaTrash, FaSync, FaSun, FaMoon, FaUserGraduate, FaCheckCircle } from "react-icons/fa";
 import { useTheme } from "../../context/ThemeContext";
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -210,8 +211,8 @@ const BoardAdmissionsContent = () => {
                 mobileNum: leadData.mobileNum || leadData.phoneNumber || "",
                 whatsappNumber: leadData.secondaryMobile || leadData.whatsappNumber || leadData.phoneNumber || "",
                 studentEmail: leadData.studentEmail || leadData.email || "",
-                dateOfBirth: leadData.dob ? new Date(leadData.dob).toISOString().split('T')[0] : 
-                            (leadData.dateOfBirth ? new Date(leadData.dateOfBirth).toISOString().split('T')[0] : ""),
+                dateOfBirth: leadData.dob ? new Date(leadData.dob).toISOString().split('T')[0] :
+                    (leadData.dateOfBirth ? new Date(leadData.dateOfBirth).toISOString().split('T')[0] : ""),
                 gender: leadData.gender || "",
                 centre: leadData.centre?.centreName || leadData.centre || (allowedCentres && allowedCentres.length > 0 ? allowedCentres[0] : ""),
                 programme: leadData.programme || "",
@@ -243,7 +244,7 @@ const BoardAdmissionsContent = () => {
     // Auto-match boardId if board name is present but boardId is not
     useEffect(() => {
         if (counsellingForm.board && !counsellingForm.boardId && boards.length > 0) {
-            const matchedBoard = boards.find(b => 
+            const matchedBoard = boards.find(b =>
                 (b.boardCourse && b.boardCourse.toLowerCase() === counsellingForm.board.toLowerCase()) ||
                 (b.boardName && b.boardName.toLowerCase() === counsellingForm.board.toLowerCase())
             );
@@ -742,7 +743,7 @@ const BoardAdmissionsContent = () => {
         if (!programme) return toast.error("Please select a programme (CRP/NCRP)");
         if (!lastClass) return toast.error("Please specify the student's last class");
         if (!boardId) return toast.error("Please select a board");
-        if (selectedSubjectIds.length === 0) return toast.error("Please select at least one subject");
+        if (programme !== "NCRP" && selectedSubjectIds.length === 0) return toast.error("Please select at least one subject");
 
         // Block if mobile is taken by another student
         if (mobileCheck.taken) {
@@ -848,13 +849,13 @@ const BoardAdmissionsContent = () => {
         fetchBoardAdmissions();
         fetchCounselledStudents();
     };
-    
+
     // Statistics Calculations
     const statsMetrics = React.useMemo(() => {
         const today = new Date().toDateString();
         // Today's total WITHIN the filtered set
         const todayTotalFiltered = filteredBoardAdmissions.filter(ba => (new Date(ba.admissionDate || ba.createdAt)).toDateString() === today).length;
-        
+
         // Class Distribution (from FILTERED board admissions)
         const classDist = filteredBoardAdmissions.reduce((acc, ba) => {
             const cls = ba.lastClass || "N/A";
@@ -946,8 +947,8 @@ const BoardAdmissionsContent = () => {
                         key={tab}
                         onClick={() => handleTabChange(tab)}
                         className={`px-6 py-2 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab
-                                ? "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20"
-                                : "text-gray-500 hover:text-white"
+                            ? "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20"
+                            : "text-gray-500 hover:text-white"
                             }`}
                     >
                         {tab === "Counselling" ? "COUNSELLED" : "ENROLLED BOARD"}
@@ -1006,7 +1007,7 @@ const BoardAdmissionsContent = () => {
                                 <span className="bg-cyan-500/20 px-1.5 rounded">{count}</span>
                             </div>
                         ))}
-                         {statsMetrics.subDist.length === 0 && <p className="text-[9px] text-gray-500 italic opacity-60">No subject data recorded yet</p>}
+                        {statsMetrics.subDist.length === 0 && <p className="text-[9px] text-gray-500 italic opacity-60">No subject data recorded yet</p>}
                     </div>
                 </div>
             </div>
@@ -1038,7 +1039,7 @@ const BoardAdmissionsContent = () => {
                         <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-gray-800/10 dark:border-gray-800">
                             <MultiSelectFilter
                                 label="Boards"
-                                options={activeTab === "Enrolled" 
+                                options={activeTab === "Enrolled"
                                     ? [...new Set(boardAdmissions.map(a => a.boardId?.boardCourse).filter(Boolean))]
                                     : [...new Set(counselledStudents.map(cs => cs.boardId?.boardCourse).filter(Boolean))]
                                 }
@@ -1285,16 +1286,16 @@ const BoardAdmissionsContent = () => {
                                                         </>
                                                     ) : (
                                                         <div className="flex gap-2">
-                                                            <button 
-                                                                onClick={() => handleViewStudent(item.studentId)} 
-                                                                title="View Details" 
+                                                            <button
+                                                                onClick={() => handleViewStudent(item.studentId)}
+                                                                title="View Details"
                                                                 className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-cyan-500 text-gray-400 hover:text-white transition-all"
                                                             >
                                                                 <FaEye size={12} />
                                                             </button>
-                                                            <button 
-                                                                onClick={() => handleEditProfile(item.studentId)} 
-                                                                title="Edit Profile" 
+                                                            <button
+                                                                onClick={() => handleEditProfile(item.studentId)}
+                                                                title="Edit Profile"
                                                                 className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-amber-500 text-gray-400 hover:text-amber-500 transition-all"
                                                             >
                                                                 <FaEdit size={12} />
@@ -1382,11 +1383,10 @@ const BoardAdmissionsContent = () => {
                                         <input
                                             type="text"
                                             maxLength="10"
-                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${
-                                                mobileCheck.taken
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${mobileCheck.taken
                                                     ? 'border-red-500 bg-red-500/5 text-red-400'
                                                     : isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'
-                                            }`}
+                                                }`}
                                             placeholder="10-DIGIT MOBILE"
                                             value={counsellingForm.mobileNum}
                                             onChange={(e) => setCounsellingForm({ ...counsellingForm, mobileNum: e.target.value.replace(/\D/g, ''), whatsappNumber: e.target.value.replace(/\D/g, '') })}
@@ -1411,11 +1411,10 @@ const BoardAdmissionsContent = () => {
                                         <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Email Address</label>
                                         <input
                                             type="email"
-                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${
-                                                emailCheck.taken
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${emailCheck.taken
                                                     ? 'border-red-500 bg-red-500/5 text-red-400'
                                                     : isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'
-                                            }`}
+                                                }`}
                                             placeholder="E.G. MAIL@DOMAIN.COM"
                                             value={counsellingForm.studentEmail}
                                             onChange={(e) => setCounsellingForm({ ...counsellingForm, studentEmail: e.target.value })}
@@ -1568,15 +1567,57 @@ const BoardAdmissionsContent = () => {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Exam Identifier</label>
-                                        <select
-                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
-                                            value={counsellingForm.examName}
-                                            onChange={(e) => setCounsellingForm({ ...counsellingForm, examName: e.target.value })}
-                                        >
-                                            <option value="">SELECT TAG</option>
-                                            {examTags.map(tag => <option key={tag._id} value={tag.name}>{tag.name.toUpperCase()}</option>)}
-                                        </select>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Exam Identifier *</label>
+                                        <Select
+                                            options={examTags.map(tag => ({ value: tag.name, label: tag.name.toUpperCase() }))}
+                                            value={counsellingForm.examName ? { value: counsellingForm.examName, label: counsellingForm.examName.toUpperCase() } : null}
+                                            onChange={(selected) => setCounsellingForm({ ...counsellingForm, examName: selected ? selected.value : "" })}
+                                            isSearchable={true}
+                                            isClearable={true}
+                                            placeholder="🔍 SEARCH TAG..."
+                                            noOptionsMessage={() => "No tags found"}
+                                            styles={{
+                                                control: (base, state) => ({
+                                                    ...base,
+                                                    backgroundColor: isDarkMode ? '#131619' : 'white',
+                                                    borderColor: state.isFocused ? '#06b6d4' : (isDarkMode ? '#1f2937' : '#e5e7eb'),
+                                                    padding: '2px',
+                                                    borderRadius: '4px',
+                                                    fontSize: '10px',
+                                                    fontWeight: 'bold',
+                                                    minHeight: '40px',
+                                                    boxShadow: state.isFocused ? '0 0 0 1px rgba(6,182,212,0.2)' : 'none',
+                                                    '&:hover': { borderColor: '#06b6d4' }
+                                                }),
+                                                menu: (base) => ({
+                                                    ...base,
+                                                    backgroundColor: isDarkMode ? '#1a1f24' : 'white',
+                                                    border: isDarkMode ? '1px solid #1f2937' : '1px solid #e5e7eb',
+                                                    zIndex: 100
+                                                }),
+                                                option: (base, state) => ({
+                                                    ...base,
+                                                    backgroundColor: state.isSelected ? 'rgba(6,182,212,0.2)' : (state.isFocused ? 'rgba(6,182,212,0.1)' : 'transparent'),
+                                                    color: state.isSelected ? '#06b6d4' : (isDarkMode ? 'white' : '#111827'),
+                                                    fontSize: '10px',
+                                                    fontWeight: 'bold',
+                                                    cursor: 'pointer'
+                                                }),
+                                                singleValue: (base) => ({
+                                                    ...base,
+                                                    color: isDarkMode ? 'white' : '#111827',
+                                                    textTransform: 'uppercase'
+                                                }),
+                                                placeholder: (base) => ({
+                                                    ...base,
+                                                    color: '#6b7280'
+                                                }),
+                                                input: (base) => ({
+                                                    ...base,
+                                                    color: isDarkMode ? 'white' : '#111827'
+                                                })
+                                            }}
+                                        />
                                     </div>
                                     <div>
                                         <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Result Status</label>
@@ -1674,39 +1715,57 @@ const BoardAdmissionsContent = () => {
                                     </div>
 
                                     <div>
-                                        <label className="block text-[9px] font-black uppercase tracking-widest text-cyan-600 mb-1.5">Module Selection (Subjects) *</label>
-                                        <div className={`grid grid-cols-1 gap-2 h-fit max-h-[160px] overflow-y-auto custom-scrollbar p-1 border rounded ${isDarkMode ? 'border-gray-800 bg-black/20' : 'border-gray-100 bg-gray-50'}`}>
-                                            {counsellingForm.boardId && counsellingForm.lastClass ? (
-                                                boardCourseSubjects.find(bcs =>
-                                                    (bcs.boardId?._id || bcs.boardId) === counsellingForm.boardId &&
-                                                    (bcs.classId?.name || bcs.classId?.className) === counsellingForm.lastClass
-                                                )?.subjects.map(s => (
-                                                    <div
-                                                        key={s.subjectId?._id}
-                                                        onClick={() => {
-                                                            const sid = s.subjectId?._id;
-                                                            const ids = counsellingForm.selectedSubjectIds.includes(sid)
-                                                                ? counsellingForm.selectedSubjectIds.filter(id => id !== sid)
-                                                                : [...counsellingForm.selectedSubjectIds, sid];
-                                                            setCounsellingForm({ ...counsellingForm, selectedSubjectIds: ids });
-                                                        }}
-                                                        className={`p-2.5 rounded-[4px] border cursor-pointer transition-all flex items-center justify-between group ${counsellingForm.selectedSubjectIds.includes(s.subjectId?._id)
-                                                                ? 'bg-cyan-500 border-cyan-500 text-black shadow-md shadow-cyan-500/20'
-                                                                : isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-500 hover:border-gray-600' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-                                                            }`}
-                                                    >
-                                                        <span className="text-[9px] font-black uppercase truncate w-3/4">{s.subjectId?.subName}</span>
-                                                        <span className={`text-[8px] font-black ${counsellingForm.selectedSubjectIds.includes(s.subjectId?._id) ? 'text-black/60' : 'text-cyan-500'}`}>₹{s.amount}</span>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="p-8 text-center flex flex-col items-center justify-center h-full">
-                                                    <p className="text-[9px] font-black text-gray-600 uppercase tracking-widest italic leading-relaxed">
-                                                        {!counsellingForm.boardId ? "Step 1: Select Board" : "Step 2: Select Class"}
-                                                    </p>
+                                        {counsellingForm.programme === "NCRP" ? (
+                                            <div className={`flex flex-col items-center justify-center h-[160px] rounded-[4px] border-2 border-dashed ${
+                                                isDarkMode ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-300 bg-amber-50'
+                                            }`}>
+                                                <span className="text-2xl mb-2">📋</span>
+                                                <p className={`text-[9px] font-black uppercase tracking-widest text-center leading-relaxed ${
+                                                    isDarkMode ? 'text-amber-400' : 'text-amber-600'
+                                                }`}>
+                                                    NCRP Programme
+                                                </p>
+                                                <p className="text-[8px] text-gray-500 font-bold uppercase tracking-wider mt-1 text-center px-4">
+                                                    Subject selection not required for NCRP
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <label className="block text-[9px] font-black uppercase tracking-widest text-cyan-600 mb-1.5">Module Selection (Subjects) *</label>
+                                                <div className={`grid grid-cols-1 gap-2 h-fit max-h-[160px] overflow-y-auto custom-scrollbar p-1 border rounded ${isDarkMode ? 'border-gray-800 bg-black/20' : 'border-gray-100 bg-gray-50'}`}>
+                                                    {counsellingForm.boardId && counsellingForm.lastClass ? (
+                                                        boardCourseSubjects.find(bcs =>
+                                                            (bcs.boardId?._id || bcs.boardId) === counsellingForm.boardId &&
+                                                            (bcs.classId?.name || bcs.classId?.className) === counsellingForm.lastClass
+                                                        )?.subjects.map(s => (
+                                                            <div
+                                                                key={s.subjectId?._id}
+                                                                onClick={() => {
+                                                                    const sid = s.subjectId?._id;
+                                                                    const ids = counsellingForm.selectedSubjectIds.includes(sid)
+                                                                        ? counsellingForm.selectedSubjectIds.filter(id => id !== sid)
+                                                                        : [...counsellingForm.selectedSubjectIds, sid];
+                                                                    setCounsellingForm({ ...counsellingForm, selectedSubjectIds: ids });
+                                                                }}
+                                                                className={`p-2.5 rounded-[4px] border cursor-pointer transition-all flex items-center justify-between group ${counsellingForm.selectedSubjectIds.includes(s.subjectId?._id)
+                                                                    ? 'bg-cyan-500 border-cyan-500 text-black shadow-md shadow-cyan-500/20'
+                                                                    : isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-500 hover:border-gray-600' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                                                                    }`}
+                                                            >
+                                                                <span className="text-[9px] font-black uppercase truncate w-3/4">{s.subjectId?.subName}</span>
+                                                                <span className={`text-[8px] font-black ${counsellingForm.selectedSubjectIds.includes(s.subjectId?._id) ? 'text-black/60' : 'text-cyan-500'}`}>₹{s.amount}</span>
+                                                            </div>
+                                                        ))
+                                                    ) : (
+                                                        <div className="p-8 text-center flex flex-col items-center justify-center h-full">
+                                                            <p className="text-[9px] font-black text-gray-600 uppercase tracking-widest italic leading-relaxed">
+                                                                {!counsellingForm.boardId ? "Step 1: Select Board" : "Step 2: Select Class"}
+                                                            </p>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             </div>
