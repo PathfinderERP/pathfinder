@@ -12,8 +12,8 @@ dotenv.config();
 /**
  * CONFIGURATION
  */
-const MONGO_URL = process.env.MONGO_URL;
-const ADMIN_ID = "6970c4129590082b81674b65"; // Default Admin: Malay Maity
+const MONGO_URL = process.env.MONGO_URL || "mongodb+srv://pathtex:pathtex@pathtex.ariihtc.mongodb.net/PATHFINDER_NEW";
+const ADMIN_ID = "69ccfffdd74b678e3a08afc3"; // Default Admin: Malay Maity
 const GENERATE_BILL = false; // Set to true if payment records/bills are needed
 
 /**
@@ -31,6 +31,18 @@ const student_data_list = [
         totalFees: 0,
         paid: 0,
         counselledBy: "Lipi Chattaraj"
+    },
+    {
+        enroll: "PATH24008945",
+        name: "SHUBHAM GHOSH",
+        email: "tapanmrai@gmail.com",
+        phone: "9732082910",
+        centre: "BURDWAN",
+        courseName: "NCRP NEET 2Years WSM 2025-2027",
+        session: "2025-2027",
+        totalFees: 0,
+        paid: 0,
+        counselledBy: "Lipi Chattaraj"
     }
 ];
 
@@ -42,7 +54,13 @@ async function insertAllStudents() {
             return;
         }
 
-        await mongoose.connect(MONGO_URL);
+        const options = {
+            serverSelectionTimeoutMS: 30000,
+            socketTimeoutMS: 45000,
+            family: 4,
+            connectTimeoutMS: 30000,
+        };
+        await mongoose.connect(MONGO_URL, options);
         console.log("Connected to MongoDB.");
 
         for (const data of student_data_list) {
