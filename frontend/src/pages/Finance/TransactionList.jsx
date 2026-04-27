@@ -32,9 +32,9 @@ const TransactionList = () => {
     const [selectedExamTag, setSelectedExamTag] = useState("");
     const [selectedSession, setSelectedSession] = useState("");
     const [selectedDepartments, setSelectedDepartments] = useState([]);
-    const [timePeriod, setTimePeriod] = useState("All Time");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
+    const [timePeriod, setTimePeriod] = useState("This Month");
 
     // New Filters specific to list
     const [selectedPaymentMode, setSelectedPaymentMode] = useState([]);

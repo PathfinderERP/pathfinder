@@ -8,6 +8,9 @@ import mongoose from "mongoose";
 
 export const getTransactionReport = async (req, res) => {
     try {
+        const userRole = (req.user.role || "").toLowerCase();
+        const isSuperAdmin = userRole === 'superadmin' || userRole === 'super admin';
+
         const {
             year,
             startDate,
@@ -83,11 +86,9 @@ export const getTransactionReport = async (req, res) => {
                 ]
             };
         } else if (!search) {
-            // Default: Ensure we only show transactions that have actually happened (not future dates)
-            // But skip this if searching specifically for a record
-            paymentMatch.$expr = {
-                $lte: [{ $ifNull: ["$paidDate", "$createdAt"] }, new Date()]
-            };
+            // Default: All transactions up to now
+            // Using a simple date comparison if possible to leverage indexes
+            paymentMatch.createdAt = { $lte: new Date() };
         }
 
         // Match for Admission fields (Centre, Course, Session, ExamTag)
@@ -99,7 +100,7 @@ export const getTransactionReport = async (req, res) => {
 
         // Resolve Centre IDs to Centre Names (since Admission stores Centre Name)
         let allowedCentreNames = [];
-        if (req.user.role !== 'superAdmin') {
+        if (!isSuperAdmin) {
             const userCentres = await Centre.find({ _id: { $in: req.user.centres || [] } }).select("centreName");
             allowedCentreNames = userCentres.map(c => c.centreName);
         }
@@ -111,14 +112,14 @@ export const getTransactionReport = async (req, res) => {
                 const requestedCentres = await Centre.find({ _id: { $in: validIds } }).select("centreName");
                 const requestedNames = requestedCentres.map(c => c.centreName);
 
-                if (req.user.role !== 'superAdmin') {
+                if (!isSuperAdmin) {
                     const finalNames = requestedNames.filter(name => allowedCentreNames.includes(name));
                     admissionMatch["admissionInfo.centre"] = { $in: finalNames.length > 0 ? finalNames : ["__NO_MATCH__"] };
                 } else if (requestedNames.length > 0) {
                     admissionMatch["admissionInfo.centre"] = { $in: requestedNames };
                 }
             }
-        } else if (req.user.role !== 'superAdmin') {
+        } else if (!isSuperAdmin) {
             admissionMatch["admissionInfo.centre"] = { $in: allowedCentreNames.length > 0 ? allowedCentreNames : ["__NO_MATCH__"] };
         }
 
@@ -182,10 +183,56 @@ export const getTransactionReport = async (req, res) => {
  
         const aggregateMatchStage = aggregateFilters.length > 0 ? { $match: { $and: aggregateFilters } } : { $match: {} };
 
-        const reportData = await Payment.aggregate([
-            // 1. Match Payments
-            { $match: paymentMatch },
+        // Check if we need Admission/Course lookups for the charts
+        const needsAdmissionLookup = session || centreIds || courseIds || examTagId || departmentIds;
 
+        const chartPipeline = [
+            { $match: paymentMatch },
+            { $addFields: { reportDate: { $ifNull: ["$paidDate", "$createdAt"] }, revenueBase: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] } } }
+        ];
+
+        if (needsAdmissionLookup) {
+            chartPipeline.push(
+                { $lookup: { from: "admissions", localField: "admission", foreignField: "_id", as: "admissionInfoNormal" } },
+                { $lookup: { from: "boardcourseadmissions", localField: "admission", foreignField: "_id", as: "admissionInfoBoard" } },
+                { $addFields: { admissionInfo: { $ifNull: [ { $arrayElemAt: ["$admissionInfoNormal", 0] }, { $arrayElemAt: ["$admissionInfoBoard", 0] } ] } } },
+                { $unwind: { path: "$admissionInfo", preserveNullAndEmptyArrays: true } },
+                { $match: admissionMatch }
+            );
+
+            if (departmentIds) {
+                chartPipeline.push(
+                    { $lookup: { from: "courses", localField: "admissionInfo.course", foreignField: "_id", as: "courseInfo" } },
+                    { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
+                    {
+                        $match: {
+                            $or: [
+                                { "courseInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim())) } },
+                                { "admissionInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim())) } }
+                            ]
+                        }
+                    }
+                );
+            }
+        }
+
+        chartPipeline.push({
+            $facet: {
+                monthlyRevenue: [ { $group: { _id: { $month: "$reportDate" }, revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }, { $sort: { _id: 1 } } ],
+                paymentMethods: [ { $group: { _id: "$paymentMethod", value: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } } ],
+                centreRevenue: needsAdmissionLookup ? [ { $group: { _id: "$admissionInfo.centre", revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: { $divide: ["$paidAmount", 1.18] } }, count: { $sum: 1 } } }, { $sort: { revenue: -1 } } ] : [ { $match: { _id: "__SKIP__" } } ],
+                courseRevenue: needsAdmissionLookup ? [ { $group: { _id: { $ifNull: ["$admissionInfo.course", "$boardCourseName"] }, revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: { $divide: ["$paidAmount", 1.18] } }, count: { $sum: 1 } } }, { $lookup: { from: "courses", localField: "_id", foreignField: "_id", as: "courseDetails" } }, { $project: { name: { $ifNull: [{ $arrayElemAt: ["$courseDetails.courseName", 0] }, "$_id"] }, revenue: 1, revenueWithoutGst: 1, count: 1 } }, { $sort: { revenue: -1 } } ] : [ { $match: { _id: "__SKIP__" } } ]
+            }
+        });
+
+        const reportData = await Payment.aggregate(chartPipeline).option({ allowDiskUse: true });
+
+        // Process Detailed Report (Separate Query for Flattened Data)
+        const detailedPipeline = [
+            { $match: paymentMatch },
+            { $addFields: { effectiveDate: { $ifNull: ["$paidDate", "$createdAt"] } } },
+            { $sort: { createdAt: -1, effectiveDate: -1 } },
+            { $limit: 5000 }, // Prevent massive data dumps that cause timeouts
             // 2. Lookup Admission Details from both potential collections
             {
                 $lookup: {
@@ -214,162 +261,6 @@ export const getTransactionReport = async (req, res) => {
                 }
             },
             { $unwind: { path: "$admissionInfo", preserveNullAndEmptyArrays: true } },
-
-            // Lookup Student Details (handle difference between 'student' and 'studentId' fields)
-            {
-                $lookup: {
-                    from: "students",
-                    localField: "admissionInfo.student",
-                    foreignField: "_id",
-                    as: "studentInfoNormal"
-                }
-            },
-            {
-                $lookup: {
-                    from: "students",
-                    localField: "admissionInfo.studentId",
-                    foreignField: "_id",
-                    as: "studentInfoBoard"
-                }
-            },
-            {
-                $addFields: {
-                    studentInfo: {
-                        $ifNull: [
-                            { $arrayElemAt: ["$studentInfoNormal", 0] },
-                            { $arrayElemAt: ["$studentInfoBoard", 0] }
-                        ]
-                    }
-                }
-            },
-            { $unwind: { path: "$studentInfo", preserveNullAndEmptyArrays: true } },
-
-            // Lookup Course for Dept Filter (and general info)
-            { $lookup: { from: "courses", localField: "admissionInfo.course", foreignField: "_id", as: "courseInfo" } },
-            { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
-
-            // 3. Match Admission, Search & Dept Filters
-            aggregateMatchStage,
-
-            // Add Fallback Date for Grouping
-            {
-                $addFields: {
-                    reportDate: { $ifNull: ["$paidDate", "$createdAt"] },
-                    revenueBase: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] }
-                }
-            },
-
-            // 4. Facets for Charts
-            {
-                $facet: {
-                    // Chart 1: Monthly Revenue (Bar Chart)
-                    monthlyRevenue: [
-                        {
-                            $group: {
-                                _id: { $month: "$reportDate" },
-                                revenue: { $sum: "$paidAmount" }, // With GST
-                                revenueWithoutGst: { $sum: "$revenueBase" }, // Use calculated base
-                                count: { $sum: 1 }
-                            }
-                        },
-                        { $sort: { _id: 1 } }
-                    ],
-
-                    // Chart 2: Payment Method Breakdown (Pie Chart)
-                    paymentMethods: [
-                        {
-                            $group: {
-                                _id: "$paymentMethod",
-                                value: { $sum: "$paidAmount" }, // With GST
-                                revenueWithoutGst: { $sum: "$revenueBase" },
-                                count: { $sum: 1 }
-                            }
-                        }
-                    ],
-
-                    // Chart 3: Centre Wise Revenue
-                    centreRevenue: [
-                        {
-                            $group: {
-                                _id: "$admissionInfo.centre",
-                                revenue: { $sum: "$paidAmount" },
-                                revenueWithoutGst: { $sum: { $divide: ["$paidAmount", 1.18] } },
-                                count: { $sum: 1 }
-                            }
-                        },
-                        { $sort: { revenue: -1 } }
-                    ],
-
-                    // Chart 4: Course Wise Revenue
-                    courseRevenue: [
-                        {
-                            $group: {
-                                _id: { $ifNull: ["$admissionInfo.course", "$boardCourseName"] },
-                                revenue: { $sum: "$paidAmount" },
-                                revenueWithoutGst: { $sum: { $divide: ["$paidAmount", 1.18] } },
-                                count: { $sum: 1 }
-                            }
-                        },
-                        {
-                            $lookup: {
-                                from: "courses",
-                                localField: "_id",
-                                foreignField: "_id",
-                                as: "courseDetails"
-                            }
-                        },
-                        {
-                            $project: {
-                                name: { $ifNull: [{ $arrayElemAt: ["$courseDetails.courseName", 0] }, "$_id"] },
-                                revenue: 1,
-                                revenueWithoutGst: 1,
-                                count: 1
-                            }
-                        },
-                        { $sort: { revenue: -1 } }
-                    ]
-                }
-            }
-        ]).option({ allowDiskUse: true });
-
-        // Process Detailed Report (Separate Query for Flattened Data)
-        const detailedData = await Payment.aggregate([
-            { $match: paymentMatch },
-            // Date field normalization for sorting - prioritize system recording date (createdAt) for the audit list
-            {
-                $addFields: {
-                    effectiveDate: { $ifNull: ["$paidDate", "$createdAt"] }
-                }
-            },
-            { $sort: { createdAt: -1, effectiveDate: -1 } }, 
-            // 2. Lookup Admission Details from both potential collections
-            {
-                $lookup: {
-                    from: "admissions",
-                    localField: "admission",
-                    foreignField: "_id",
-                    as: "admissionInfoNormal"
-                }
-            },
-            {
-                $lookup: {
-                    from: "boardcourseadmissions",
-                    localField: "admission",
-                    foreignField: "_id",
-                    as: "admissionInfoBoard"
-                }
-            },
-            {
-                $addFields: {
-                    admissionInfo: {
-                        $ifNull: [
-                            { $arrayElemAt: ["$admissionInfoNormal", 0] },
-                            { $arrayElemAt: ["$admissionInfoBoard", 0] }
-                        ]
-                    }
-                }
-            },
-            { $unwind: "$admissionInfo" },
             { $match: admissionMatch },
 
             // Lookup Student Details (handle difference between 'student' and 'studentId' fields)
@@ -511,7 +402,8 @@ export const getTransactionReport = async (req, res) => {
                     }
                 }
             }
-        ]).option({ allowDiskUse: true });
+        ];
+        const detailedData = await Payment.aggregate(detailedPipeline).option({ allowDiskUse: true });
 
 
         // --- Stats Calculation (Current Year, Previous Year, Current Month, Previous Month) ---
@@ -534,83 +426,51 @@ export const getTransactionReport = async (req, res) => {
         const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
-        // Stats Aggregation - Uses baseAttributesMatch (ignores user date filter) but keeps context filters
-        const statsData = await Payment.aggregate([
+        const statsPipeline = [
             { $match: baseAttributesMatch },
-            {
-                $lookup: {
-                    from: "admissions",
-                    localField: "admission",
-                    foreignField: "_id",
-                    as: "admissionInfoNormal"
-                }
-            },
-            {
-                $lookup: {
-                    from: "boardcourseadmissions",
-                    localField: "admission",
-                    foreignField: "_id",
-                    as: "admissionInfoBoard"
-                }
-            },
-            {
-                $addFields: {
-                    admissionInfo: {
-                        $ifNull: [
-                            { $arrayElemAt: ["$admissionInfoNormal", 0] },
-                            { $arrayElemAt: ["$admissionInfoBoard", 0] }
-                        ]
+            { $addFields: { effectiveDate: { $ifNull: ["$paidDate", "$createdAt"] } } }
+        ];
+
+        if (needsAdmissionLookup) {
+            statsPipeline.push(
+                { $lookup: { from: "admissions", localField: "admission", foreignField: "_id", as: "admissionInfoNormal" } },
+                { $lookup: { from: "boardcourseadmissions", localField: "admission", foreignField: "_id", as: "admissionInfoBoard" } },
+                { $addFields: { admissionInfo: { $ifNull: [ { $arrayElemAt: ["$admissionInfoNormal", 0] }, { $arrayElemAt: ["$admissionInfoBoard", 0] } ] } } },
+                { $unwind: { path: "$admissionInfo", preserveNullAndEmptyArrays: true } },
+                { $match: admissionMatch }
+            );
+
+            if (departmentIds) {
+                statsPipeline.push(
+                    { $lookup: { from: "courses", localField: "admissionInfo.course", foreignField: "_id", as: "courseInfo" } },
+                    { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
+                    {
+                        $match: {
+                            $or: [
+                                { "courseInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim())) } },
+                                { "admissionInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim())) } }
+                            ]
+                        }
                     }
-                }
-            },
-            { $unwind: "$admissionInfo" },
-            { $match: admissionMatch },
-            { $lookup: { from: "courses", localField: "admissionInfo.course", foreignField: "_id", as: "courseInfo" } },
-            { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
-            {
-                $match: departmentIds ? {
-                    $or: [
-                        { "courseInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim())) } },
-                        { "admissionInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim())) } }
-                    ]
-                } : {}
-            },
-            {
-                $project: {
-                    paidAmount: 1,
-                    effectiveDate: { $ifNull: ["$paidDate", "$createdAt"] }
-                }
-            },
-            {
-                $group: {
-                    _id: null,
-                    currentYearWithGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startCFY] }, { $lte: ["$effectiveDate", endCFY] }] }, "$paidAmount", 0] }
-                    },
-                    currentYearWithoutGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startCFY] }, { $lte: ["$effectiveDate", endCFY] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
-                    },
-                    previousYearWithGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startPFY] }, { $lte: ["$effectiveDate", endPFY] }] }, "$paidAmount", 0] }
-                    },
-                    previousYearWithoutGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startPFY] }, { $lte: ["$effectiveDate", endPFY] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
-                    },
-                    currentMonthWithGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", currentMonthStart] }, { $lte: ["$effectiveDate", currentMonthEnd] }] }, "$paidAmount", 0] }
-                    },
-                    currentMonthWithoutGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", currentMonthStart] }, { $lte: ["$effectiveDate", currentMonthEnd] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
-                    },
-                    previousMonthWithGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", prevMonthStart] }, { $lte: ["$effectiveDate", prevMonthEnd] }] }, "$paidAmount", 0] }
-                    },
-                    previousMonthWithoutGst: {
-                        $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", prevMonthStart] }, { $lte: ["$effectiveDate", prevMonthEnd] }] }, { $divide: ["$paidAmount", 1.18] }, 0] }
-                    }
-                }
+                );
             }
-        ]).option({ allowDiskUse: true });
+        }
+
+        statsPipeline.push({
+            $group: {
+                _id: null,
+                currentYearWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startCFY] }, { $lte: ["$effectiveDate", endCFY] }] }, "$paidAmount", 0] } },
+                currentYearWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startCFY] }, { $lte: ["$effectiveDate", endCFY] }] }, { $divide: ["$paidAmount", 1.18] }, 0] } },
+                previousYearWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startPFY] }, { $lte: ["$effectiveDate", endPFY] }] }, "$paidAmount", 0] } },
+                previousYearWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startPFY] }, { $lte: ["$effectiveDate", endPFY] }] }, { $divide: ["$paidAmount", 1.18] }, 0] } },
+                currentMonthWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", currentMonthStart] }, { $lte: ["$effectiveDate", currentMonthEnd] }] }, "$paidAmount", 0] } },
+                currentMonthWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", currentMonthStart] }, { $lte: ["$effectiveDate", currentMonthEnd] }] }, { $divide: ["$paidAmount", 1.18] }, 0] } },
+                previousMonthWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", prevMonthStart] }, { $lte: ["$effectiveDate", prevMonthEnd] }] }, "$paidAmount", 0] } },
+                previousMonthWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", prevMonthStart] }, { $lte: ["$effectiveDate", prevMonthEnd] }] }, { $divide: ["$paidAmount", 1.18] }, 0] } }
+            }
+        });
+
+        const statsData = await Payment.aggregate(statsPipeline).option({ allowDiskUse: true });
 
         const stats = statsData.length > 0 ? statsData[0] : {
             currentYearWithGst: 0, currentYearWithoutGst: 0,

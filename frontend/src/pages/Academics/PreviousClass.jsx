@@ -547,9 +547,15 @@ const PreviousClass = () => {
                                                 {cls.studyStartTime ? new Date(cls.studyStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : "-"}
                                             </td>
                                             <td className="p-4 text-center">
-                                                <span className="bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full text-xs font-bold border border-blue-600/50 flex items-center justify-center gap-1 mx-auto w-fit">
-                                                    <FaCheckCircle size={10} /> Completed
-                                                </span>
+                                                {cls.status === "Not Taken" ? (
+                                                    <span className="bg-red-600/20 text-red-400 px-3 py-1 rounded-full text-[10px] font-bold border border-red-600/50 flex items-center justify-center gap-1 mx-auto w-fit uppercase">
+                                                        <FaTimes size={10} /> Not Taken
+                                                    </span>
+                                                ) : (
+                                                    <span className="bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full text-xs font-bold border border-blue-600/50 flex items-center justify-center gap-1 mx-auto w-fit">
+                                                        <FaCheckCircle size={10} /> Completed
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="p-4 text-center">
                                                 {(isAdmin || isCoordinator || canEdit) && !isTeacher ? (

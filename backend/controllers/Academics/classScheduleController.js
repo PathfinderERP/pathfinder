@@ -191,7 +191,25 @@ export const getClassSchedules = async (req, res) => {
             const subjectIds = subjectId.split(',').filter(id => id.trim());
             if (subjectIds.length > 0) query.subjectId = { $in: subjectIds };
         }
-        if (status) query.status = status;
+        // Define today at midnight for status logic
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+
+        if (status) {
+            if (status === 'Upcoming') {
+                // Upcoming list: ONLY shows status 'Upcoming' where date is today or future
+                query.status = 'Upcoming';
+                query.date = { $gte: todayMidnight };
+            } else if (status === 'Completed') {
+                // Previous list: Shows status 'Completed' OR status 'Upcoming' where date has passed
+                query.$or = [
+                    { status: 'Completed' },
+                    { status: 'Upcoming', date: { $lt: todayMidnight } }
+                ];
+            } else {
+                query.status = status;
+            }
+        }
 
         if (req.query.classMode) {
             const classModes = req.query.classMode.split(',').filter(m => m.trim());
@@ -241,6 +259,10 @@ export const getClassSchedules = async (req, res) => {
         // Flatten names for frontend compatibility
         const classes = classSchedules.map(cls => {
             const clsObj = cls.toObject();
+            // If the class is unstarted but past-dated, set status to "Not Taken" for the response
+            if (clsObj.status === 'Upcoming' && new Date(clsObj.date) < todayMidnight) {
+                clsObj.status = 'Not Taken';
+            }
             return {
                 ...clsObj,
                 subjectName: cls.subjectId?.subName || cls.subjectId?.subjectName || "N/A",
@@ -846,7 +868,23 @@ export const exportClassSchedulesExcel = async (req, res) => {
             const subjectIds = subjectId.split(',').filter(id => id.trim());
             if (subjectIds.length > 0) query.subjectId = { $in: subjectIds };
         }
-        if (status) query.status = status;
+        // Define today at midnight for status logic
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+
+        if (status) {
+            if (status === 'Upcoming') {
+                query.status = 'Upcoming';
+                query.date = { $gte: todayMidnight };
+            } else if (status === 'Completed') {
+                query.$or = [
+                    { status: 'Completed' },
+                    { status: 'Upcoming', date: { $lt: todayMidnight } }
+                ];
+            } else {
+                query.status = status;
+            }
+        }
 
         if (req.query.classMode) {
             const classModes = req.query.classMode.split(',').filter(m => m.trim());
@@ -897,7 +935,7 @@ export const exportClassSchedulesExcel = async (req, res) => {
             batches: { $in: allBatchIds },
             isEnrolled: true,
             status: "Active"
-        }).select("name studentsDetails batches");
+        }).select("studentsDetails batches");
 
         // Admission details
         const studentIds = allStudents.map(s => s._id);
@@ -920,6 +958,13 @@ export const exportClassSchedulesExcel = async (req, res) => {
             );
 
             if (clsStudents.length === 0) {
+                let classStatus = cls.status;
+                const todayMid = new Date();
+                todayMid.setHours(0, 0, 0, 0);
+                if (classStatus === 'Upcoming' && new Date(cls.date) < todayMid) {
+                    classStatus = 'Not Taken';
+                }
+
                 // Add a row for the class even if no students
                 excelData.push({
                     "Date": new Date(cls.date).toLocaleDateString('en-GB'),
@@ -927,18 +972,26 @@ export const exportClassSchedulesExcel = async (req, res) => {
                     "Center": clsCentreName,
                     "Batch": cls.batchIds.map(b => b.batchName || b.name).join(", "),
                     "Teacher": cls.teacherId?.name || "N/A",
-                    "Subject": cls.subjectId?.subName || "N/A",
+                    "Subject": cls.subjectId?.subName || cls.subjectId?.subjectName || "N/A",
+                    "Chapter": cls.chapterName || "N/A",
                     "Topic": cls.topicName || "N/A",
                     "Student Name": "No Students Found",
                     "Admission ID": "N/A",
                     "Attendance Status": "N/A",
                     "Teacher Attendance": cls.teacherAttendance ? "Present" : "Absent",
-                    "Class Status": cls.status
+                    "Class Status": classStatus
                 });
             } else {
                 for (const student of clsStudents) {
                     const statusKey = `${cls._id}_${student._id}`;
                     let statusValue = attendanceMap[statusKey] || (cls.isStudentAttendanceSaved ? "Absent" : "Attendance Not Taken");
+
+                    let classStatus = cls.status;
+                    const todayMid = new Date();
+                    todayMid.setHours(0, 0, 0, 0);
+                    if (classStatus === 'Upcoming' && new Date(cls.date) < todayMid) {
+                        classStatus = 'Not Taken';
+                    }
 
                     excelData.push({
                         "Date": new Date(cls.date).toLocaleDateString('en-GB'),
@@ -946,13 +999,14 @@ export const exportClassSchedulesExcel = async (req, res) => {
                         "Center": clsCentreName,
                         "Batch": cls.batchIds.map(b => b.batchName || b.name).join(", "),
                         "Teacher": cls.teacherId?.name || "N/A",
-                        "Subject": cls.subjectId?.subName || "N/A",
+                        "Subject": cls.subjectId?.subName || cls.subjectId?.subjectName || "N/A",
+                        "Chapter": cls.chapterName || "N/A",
                         "Topic": cls.topicName || "N/A",
-                        "Student Name": student.name || "N/A",
+                        "Student Name": student.studentsDetails?.[0]?.studentName || student.name || "N/A",
                         "Admission ID": admissionMap[student._id.toString()] || "N/A",
                         "Attendance Status": statusValue,
                         "Teacher Attendance": cls.teacherAttendance ? "Present" : "Absent",
-                        "Class Status": cls.status
+                        "Class Status": classStatus
                     });
                 }
             }
