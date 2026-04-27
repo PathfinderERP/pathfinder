@@ -109,8 +109,13 @@ const TransactionReport = () => {
             if (coRes.ok) setCourses(await coRes.json());
             if (eRes.ok) setExamTags(await eRes.json());
             if (sRes.ok) {
-                const sessionData = await sRes.ok ? await sRes.json() : [];
-                setSessions(Array.isArray(sessionData) ? sessionData : []);
+                const sessionData = await sRes.json();
+                const sessionList = (Array.isArray(sessionData) ? sessionData : []).sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
+                setSessions(sessionList);
+                if (sessionList.length > 0 && !selectedSession) {
+                    const defaultSession = sessionList.find(s => s.sessionName === "2026-2027");
+                    setSelectedSession(defaultSession ? defaultSession.sessionName : sessionList[0].sessionName);
+                }
             }
             if (dRes.ok) {
                 const allDepts = await dRes.json();

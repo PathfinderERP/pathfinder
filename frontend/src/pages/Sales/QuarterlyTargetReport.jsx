@@ -33,10 +33,12 @@ const QuarterlyTargetReport = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (response.ok) {
-                const sessionList = await response.json();
+                const sessionData = await response.json();
+                const sessionList = (Array.isArray(sessionData) ? sessionData : []).sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
                 setSessions(sessionList);
-                if (sessionList.length > 0) {
-                    setFilterFinancialYear(sessionList[0].sessionName);
+                if (sessionList.length > 0 && !filterFinancialYear) {
+                    const defaultSession = sessionList.find(s => s.sessionName === "2026-2027");
+                    setFilterFinancialYear(defaultSession ? defaultSession.sessionName : sessionList[0].sessionName);
                 }
             }
         } catch (error) {

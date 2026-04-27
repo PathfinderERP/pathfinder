@@ -102,6 +102,7 @@ const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, 
             styles={styles}
             isDisabled={isDisabled}
             classNamePrefix="react-select"
+            menuPortalTarget={document.body}
             theme={(themeConfig) => ({
                 ...themeConfig,
                 colors: {

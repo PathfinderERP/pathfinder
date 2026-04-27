@@ -559,7 +559,7 @@ const UserManagementContent = () => {
                         {/* Department Filter */}
                         <div className="min-w-[180px]">
                             <CustomMultiSelect
-                                options={allDepartments.map(d => ({ value: d._id, label: d.name }))}
+                                options={allDepartments.map(d => ({ value: d._id, label: d.departmentName || d.name }))}
                                 value={filterDepartment}
                                 onChange={setFilterDepartment}
                                 placeholder="All Departments"
@@ -570,7 +570,7 @@ const UserManagementContent = () => {
                         {/* Board Type Filter */}
                         <div className="min-w-[180px]">
                             <CustomMultiSelect
-                                options={allBoards.map(b => ({ value: b._id, label: b.boardName }))}
+                                options={allBoards.map(b => ({ value: b._id, label: b.boardName || b.boardCourse || b.name }))}
                                 value={filterBoardType}
                                 onChange={setFilterBoardType}
                                 placeholder="All Boards"

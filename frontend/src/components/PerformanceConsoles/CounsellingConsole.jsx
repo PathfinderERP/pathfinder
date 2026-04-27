@@ -340,73 +340,7 @@ const CounsellingConsole = ({ mainTheme = 'light', performanceData = [], monthly
                 </div>
             </div>
 
-            {/* Counselled Breakdown & Targets */}
-            <div className={`p-8 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
-                <div className="flex items-center justify-between mb-10">
-                    <div>
-                        <h4 className={`text-lg font-black uppercase tracking-widest flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            <FaChartBar className="text-cyan-500" /> Detailed Squad Analytics
-                        </h4>
-                        <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Comparison of individual counsellor targets and output</p>
-                    </div>
-                    <button
-                        onClick={exportToExcel}
-                        className={`px-6 py-2 rounded-[2px] transition-all font-black text-[9px] uppercase tracking-widest flex items-center gap-3 ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 hover:bg-cyan-500 hover:text-white' : 'bg-cyan-50 text-cyan-600 border border-cyan-200 hover:bg-cyan-500 hover:text-white'}`}
-                    >
-                        <FaFileExcel /> Export Performance Data
-                    </button>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {performanceData.map((p, idx) => (
-                        <div key={idx} className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#0f1216] border-gray-800' : 'bg-gray-50 border-gray-200'} transition-all hover:border-cyan-500/50`}>
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-500 font-black">
-                                    {p.name.charAt(0)}
-                                </div>
-                                <div>
-                                    <h5 className={`text-xs font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{p.name}</h5>
-                                    <p className="text-[8px] font-bold text-gray-500 uppercase tracking-widest">{p.role}</p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[9px] font-black text-gray-500 uppercase">Calls Today</span>
-                                    <span className={`text-xs font-black ${p.todayCalls >= 30 ? 'text-emerald-500' : 'text-orange-500'}`}>
-                                        {p.todayCalls} / 30
-                                    </span>
-                                </div>
-                                <div className="w-full h-1 bg-gray-800 rounded-full overflow-hidden">
-                                    <div className={`h-full transition-all duration-1000 ${p.todayCalls >= 30 ? 'bg-emerald-500' : 'bg-orange-500'}`} style={{ width: `${Math.min(100, (p.todayCalls / 30) * 100)}%` }}></div>
-                                </div>
-
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[9px] font-black text-gray-500 uppercase">Counselled</span>
-                                    <span className="text-xs font-black text-white">{p.counselledCount}</span>
-                                </div>
-
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[9px] font-black text-gray-500 uppercase">Admissions</span>
-                                    <span className={`text-xs font-black ${p.admissions >= 5 ? 'text-emerald-500' : 'text-blue-500'}`}>
-                                        {p.admissions} / 5
-                                    </span>
-                                </div>
-                                <div className="w-full h-1 bg-gray-800 rounded-full overflow-hidden">
-                                    <div className={`h-full bg-blue-500 transition-all duration-1000`} style={{ width: `${Math.min(100, (p.admissions / 5) * 100)}%` }}></div>
-                                </div>
-                            </div>
-
-                            <div className="mt-4 pt-3 border-t border-gray-800 flex items-center justify-between">
-                                <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Conv Rate</span>
-                                <span className="text-[10px] font-black text-cyan-500">
-                                    {p.currentCalls > 0 ? ((p.admissions / p.currentCalls) * 100).toFixed(1) : 0}%
-                                </span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
 
             {/* Global Admission Trends */}
             <div className={`p-8 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>

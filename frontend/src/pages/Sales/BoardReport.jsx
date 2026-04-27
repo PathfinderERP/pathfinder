@@ -84,9 +84,13 @@ const BoardReport = () => {
             }
             if (subjectRes.ok) setSubjects(await subjectRes.json());
             if (sessionRes.ok) {
-                const sessionList = await sessionRes.json();
+                const sessionData = await sessionRes.json();
+                const sessionList = (Array.isArray(sessionData) ? sessionData : []).sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
                 setSessions(sessionList);
-                if (sessionList.length > 0 && !selectedSession) setSelectedSession(sessionList[0].sessionName);
+                if (sessionList.length > 0 && !selectedSession) {
+                    const defaultSession = sessionList.find(s => s.sessionName === "2026-2027");
+                    setSelectedSession(defaultSession ? defaultSession.sessionName : sessionList[0].sessionName);
+                }
             }
         } catch (error) {
             console.error("Error fetching master data", error);

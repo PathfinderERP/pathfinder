@@ -1222,7 +1222,8 @@ const EmployeesAttendance = () => {
 
 
                     {/* Charts Area */}
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 lg:min-h-[400px]">
+                    {/* Charts Area */}
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-auto xl:h-[500px]">
                         {/* Area Chart: Trend */}
                         <div className={`xl:col-span-2 border rounded-[2px] p-6 flex flex-col relative overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                             <div className="flex justify-between items-center mb-6">

@@ -126,10 +126,18 @@ const DailyCollection = () => {
             if (eRes.ok) setExamTags(await eRes.json());
             if (sRes.ok) {
                 const sessionData = await sRes.json();
-                const sessionList = Array.isArray(sessionData)
+                const sessionList = (Array.isArray(sessionData)
                     ? sessionData.map(item => typeof item === "string" ? item : item?.sessionName || item?.name || item?._id || "")
-                    : [];
+                    : []).sort((a, b) => b.localeCompare(a));
                 setSessions(sessionList.filter(Boolean));
+                
+                if (sessionList.length > 0 && selectedSessions.length === 0) {
+                    if (sessionList.includes("2026-2027")) {
+                        setSelectedSessions(["2026-2027"]);
+                    } else {
+                        setSelectedSessions([sessionList[0]]);
+                    }
+                }
             }
             if (dRes.ok) {
                 const allDepts = await dRes.json();

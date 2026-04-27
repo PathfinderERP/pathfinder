@@ -65,10 +65,11 @@ const CentreRank = () => {
 
             if (sessionRes.ok) {
                 const data = await sessionRes.json();
-                const sessionList = Array.isArray(data) ? data : [];
+                const sessionList = (Array.isArray(data) ? data : []).sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
                 setSessions(sessionList);
                 if (sessionList.length > 0 && !filterFinancialYear) {
-                    setFilterFinancialYear(sessionList[0].sessionName);
+                    const defaultSession = sessionList.find(s => s.sessionName === "2026-2027");
+                    setFilterFinancialYear(defaultSession ? defaultSession.sessionName : sessionList[0].sessionName);
                 }
             }
 
