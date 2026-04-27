@@ -565,149 +565,153 @@ const BoardCourseAdmissionPage = () => {
                         )}
                     </div>
 
-                    <div className={`p-8 rounded-xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                        <div className="flex items-center gap-3 mb-6">
-                            <FaCalendarAlt className="text-cyan-500" />
-                            <h4 className="text-sm font-black uppercase tracking-widest">Duration & Waivers</h4>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="flex-1">
-                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Total Duration (Months)</label>
-                                <input
-                                    type="number"
-                                    min={programme === "NCRP" ? "0" : "1"}
-                                    max="60"
-                                    value={durationMonths}
-                                    onChange={(e) => setDurationMonths(e.target.value)}
-                                    className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
-                                    placeholder="Enter duration in months"
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Waiver / Discount Amount</label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
-                                    <input
-                                        type="number"
-                                        value={totalWaiver}
-                                        onChange={(e) => setTotalWaiver(e.target.value)}
-                                        className={`w-full pl-8 pr-4 py-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
-                                        placeholder="0"
-                                    />
+                    {programme !== "NCRP" && (
+                        <>
+                            <div className={`p-8 rounded-xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                                <div className="flex items-center gap-3 mb-6">
+                                    <FaCalendarAlt className="text-cyan-500" />
+                                    <h4 className="text-sm font-black uppercase tracking-widest">Duration & Waivers</h4>
                                 </div>
-                                <p className="text-[9px] text-gray-500 font-bold mt-2 uppercase italic opacity-60">
-                                    * This will be divided equally over {durationMonths} months (₹{(durationMonths > 0 ? (totalWaiver / durationMonths) : 0).toFixed(2)}/mo)
-                                </p>
-                            </div>
-                        </div>
-                    </div>
 
-                    <div className={`p-8 rounded-xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                        <div className="flex items-center gap-3 mb-6">
-                            <FaMoneyBillWave className="text-cyan-500" />
-                            <h4 className="text-sm font-black uppercase tracking-widest">Initial Payment (Down Payment)</h4>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-xs font-black uppercase text-gray-500 mb-2 tracking-widest">Down Payment Amount</label>
-                                <input
-                                    type="number"
-                                    value={downPayment}
-                                    onChange={(e) => setDownPayment(e.target.value)}
-                                    className={`w-full p-4 rounded-lg border outline-none font-black text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
-                                    placeholder="Enter amount paid today"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-black uppercase text-gray-500 mb-2 tracking-widest">Payment Method</label>
-                                <select
-                                    value={paymentMethod}
-                                    onChange={(e) => setPaymentMethod(e.target.value)}
-                                    className={`w-full p-4 rounded-lg border outline-none font-black text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
-                                >
-                                    <option value="CASH">CASH</option>
-                                    <option value="ONLINE">ONLINE / CARD</option>
-                                    <option value="UPI">UPI</option>
-                                    <option value="BANK_TRANSFER">BANK TRANSFER</option>
-                                    <option value="CHEQUE">CHEQUE</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Conditional Payment Fields */}
-                        {(paymentMethod === "ONLINE" || paymentMethod === "UPI" || paymentMethod === "BANK_TRANSFER") && (
-                            <div className="mt-6 animate-fadeIn">
-                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">
-                                    {paymentMethod === "ONLINE" ? "Transaction ID" : paymentMethod === "UPI" ? "Transaction ID" : "Bank Reference Number"}
-                                </label>
-                                <input
-                                    type="text"
-                                    value={transactionId}
-                                    onChange={(e) => setTransactionId(e.target.value)}
-                                    className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
-                                    placeholder={paymentMethod === "ONLINE" ? "Enter Online/Card Transaction ID" : paymentMethod === "UPI" ? "Enter UPI Transaction Reference" : "Enter Bank Transfer Reference"}
-                                    required
-                                />
-                            </div>
-                        )}
-
-
-                        {paymentMethod === "CHEQUE" && (
-                            <div className="mt-6 space-y-4 animate-fadeIn">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Bank Name</label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="flex-1">
+                                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Total Duration (Months)</label>
                                         <input
-                                            type="text"
-                                            value={bankName}
-                                            onChange={(e) => setBankName(e.target.value)}
+                                            type="number"
+                                            min="1"
+                                            max="60"
+                                            value={durationMonths}
+                                            onChange={(e) => setDurationMonths(e.target.value)}
                                             className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
-                                            placeholder="e.g. SBI, HDFC"
+                                            placeholder="Enter duration in months"
                                             required
                                         />
                                     </div>
+
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Cheque Number</label>
+                                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Waiver / Discount Amount</label>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
+                                            <input
+                                                type="number"
+                                                value={totalWaiver}
+                                                onChange={(e) => setTotalWaiver(e.target.value)}
+                                                className={`w-full pl-8 pr-4 py-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                        <p className="text-[9px] text-gray-500 font-bold mt-2 uppercase italic opacity-60">
+                                            * This will be divided equally over {durationMonths} months (₹{(durationMonths > 0 ? (totalWaiver / durationMonths) : 0).toFixed(2)}/mo)
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className={`p-8 rounded-xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                                <div className="flex items-center gap-3 mb-6">
+                                    <FaMoneyBillWave className="text-cyan-500" />
+                                    <h4 className="text-sm font-black uppercase tracking-widest">Initial Payment (Down Payment)</h4>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-xs font-black uppercase text-gray-500 mb-2 tracking-widest">Down Payment Amount</label>
+                                        <input
+                                            type="number"
+                                            value={downPayment}
+                                            onChange={(e) => setDownPayment(e.target.value)}
+                                            className={`w-full p-4 rounded-lg border outline-none font-black text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
+                                            placeholder="Enter amount paid today"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black uppercase text-gray-500 mb-2 tracking-widest">Payment Method</label>
+                                        <select
+                                            value={paymentMethod}
+                                            onChange={(e) => setPaymentMethod(e.target.value)}
+                                            className={`w-full p-4 rounded-lg border outline-none font-black text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
+                                        >
+                                            <option value="CASH">CASH</option>
+                                            <option value="ONLINE">ONLINE / CARD</option>
+                                            <option value="UPI">UPI</option>
+                                            <option value="BANK_TRANSFER">BANK TRANSFER</option>
+                                            <option value="CHEQUE">CHEQUE</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Conditional Payment Fields */}
+                                {(paymentMethod === "ONLINE" || paymentMethod === "UPI" || paymentMethod === "BANK_TRANSFER") && (
+                                    <div className="mt-6 animate-fadeIn">
+                                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">
+                                            {paymentMethod === "ONLINE" ? "Transaction ID" : paymentMethod === "UPI" ? "Transaction ID" : "Bank Reference Number"}
+                                        </label>
                                         <input
                                             type="text"
                                             value={transactionId}
                                             onChange={(e) => setTransactionId(e.target.value)}
                                             className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
-                                            placeholder="6-digit Cheque No"
+                                            placeholder={paymentMethod === "ONLINE" ? "Enter Online/Card Transaction ID" : paymentMethod === "UPI" ? "Enter UPI Transaction Reference" : "Enter Bank Transfer Reference"}
                                             required
                                         />
                                     </div>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Account Holder Name</label>
-                                        <input
-                                            type="text"
-                                            value={accountHolderName}
-                                            onChange={(e) => setAccountHolderName(e.target.value)}
-                                            className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
-                                            placeholder="Name as on Cheque"
-                                            required
-                                        />
+                                )}
+
+
+                                {paymentMethod === "CHEQUE" && (
+                                    <div className="mt-6 space-y-4 animate-fadeIn">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Bank Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={bankName}
+                                                    onChange={(e) => setBankName(e.target.value)}
+                                                    className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
+                                                    placeholder="e.g. SBI, HDFC"
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Cheque Number</label>
+                                                <input
+                                                    type="text"
+                                                    value={transactionId}
+                                                    onChange={(e) => setTransactionId(e.target.value)}
+                                                    className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
+                                                    placeholder="6-digit Cheque No"
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Account Holder Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={accountHolderName}
+                                                    onChange={(e) => setAccountHolderName(e.target.value)}
+                                                    className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
+                                                    placeholder="Name as on Cheque"
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Cheque Date</label>
+                                                <input
+                                                    type="date"
+                                                    value={chequeDate}
+                                                    onChange={(e) => setChequeDate(e.target.value)}
+                                                    className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Cheque Date</label>
-                                        <input
-                                            type="date"
-                                            value={chequeDate}
-                                            onChange={(e) => setChequeDate(e.target.value)}
-                                            className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
-                                            required
-                                        />
-                                    </div>
-                                </div>
+                                )}
                             </div>
-                        )}
-                    </div>
+                        </>
+                    )}
                 </div>
 
                 {/* Calculation & Submit Section */}
@@ -723,18 +727,20 @@ const BoardCourseAdmissionPage = () => {
                             <div className="p-5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 space-y-6 shadow-xl shadow-cyan-500/5">
                                 <h5 className="text-xs font-black text-cyan-500 uppercase tracking-[0.2em] mb-4">Board & Enrollment Fee Config</h5>
                                 <div className="grid grid-cols-2 gap-6">
-                                    <div>
-                                        <label className={`block text-[11px] font-black uppercase mb-2 leading-tight ${isDarkMode ? 'text-gray-400' : 'text-cyan-800/80'}`}>Board Registration / Admission Fee</label>
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">₹</span>
-                                            <input
-                                                type="number"
-                                                value={admissionFee}
-                                                onChange={(e) => setAdmissionFee(e.target.value)}
-                                                className={`w-full pl-8 pr-3 py-3 rounded-lg border outline-none font-black text-base transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500 text-right' : 'bg-white border-gray-200 focus:border-cyan-500 text-right'}`}
-                                            />
+                                    {programme !== "NCRP" && (
+                                        <div>
+                                            <label className={`block text-[11px] font-black uppercase mb-2 leading-tight ${isDarkMode ? 'text-gray-400' : 'text-cyan-800/80'}`}>Board Registration / Admission Fee</label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">₹</span>
+                                                <input
+                                                    type="number"
+                                                    value={admissionFee}
+                                                    onChange={(e) => setAdmissionFee(e.target.value)}
+                                                    className={`w-full pl-8 pr-3 py-3 rounded-lg border outline-none font-black text-base transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500 text-right' : 'bg-white border-gray-200 focus:border-cyan-500 text-right'}`}
+                                                />
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
                                     <div>
                                         <label className={`block text-[11px] font-black uppercase mb-2 leading-tight ${isDarkMode ? 'text-gray-400' : 'text-cyan-800/80'}`}>Total Examination & Practical Fee</label>
                                         <div className="relative">
@@ -800,6 +806,68 @@ const BoardCourseAdmissionPage = () => {
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Payment Details for NCRP Mode */}
+                                {programme === "NCRP" && (
+                                    <div className="mt-6 pt-6 border-t border-cyan-500/20 space-y-4">
+                                        <h5 className="text-[10px] font-black text-cyan-500 uppercase tracking-widest mb-4 italic">NCRP Payment Details</h5>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-[9px] font-black uppercase text-gray-500 mb-2">Method</label>
+                                                <select
+                                                    value={paymentMethod}
+                                                    onChange={(e) => setPaymentMethod(e.target.value)}
+                                                    className={`w-full p-3 rounded-lg border outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 focus:border-cyan-500'}`}
+                                                >
+                                                    <option value="CASH">CASH</option>
+                                                    <option value="ONLINE">ONLINE / CARD</option>
+                                                    <option value="UPI">UPI</option>
+                                                    <option value="BANK_TRANSFER">BANK TRANSFER</option>
+                                                    <option value="CHEQUE">CHEQUE</option>
+                                                </select>
+                                            </div>
+                                            {(paymentMethod === "ONLINE" || paymentMethod === "UPI" || paymentMethod === "BANK_TRANSFER") && (
+                                                <div>
+                                                    <label className="block text-[9px] font-black uppercase text-gray-500 mb-2">Txn ID</label>
+                                                    <input
+                                                        type="text"
+                                                        value={transactionId}
+                                                        onChange={(e) => setTransactionId(e.target.value)}
+                                                        className={`w-full p-3 rounded-lg border outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 focus:border-cyan-500'}`}
+                                                        placeholder="Reference No"
+                                                        required
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                        {paymentMethod === "CHEQUE" && (
+                                            <div className="grid grid-cols-2 gap-4 animate-fadeIn">
+                                                <div>
+                                                    <label className="block text-[9px] font-black uppercase text-gray-500 mb-2">Chq No</label>
+                                                    <input
+                                                        type="text"
+                                                        value={transactionId}
+                                                        onChange={(e) => setTransactionId(e.target.value)}
+                                                        className={`w-full p-3 rounded-lg border outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 focus:border-cyan-500'}`}
+                                                        placeholder="Number"
+                                                        required
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[9px] font-black uppercase text-gray-500 mb-2">Bank</label>
+                                                    <input
+                                                        type="text"
+                                                        value={bankName}
+                                                        onChange={(e) => setBankName(e.target.value)}
+                                                        className={`w-full p-3 rounded-lg border outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 focus:border-cyan-500'}`}
+                                                        placeholder="Name"
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                                 <div className="mt-3">
                                     <p className="text-[10px] text-gray-500 font-black uppercase italic opacity-80 tracking-widest leading-relaxed">
                                         * Note: A separate payment receipt will be generated for the examination & additional fee collection.
