@@ -24,13 +24,11 @@ const TransactionList = () => {
 
     // Filters
     const [centres, setCentres] = useState([]);
-    const [sessions, setSessions] = useState([]);
     const [departments, setDepartments] = useState([]);
 
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedCourses, setSelectedCourses] = useState([]);
     const [selectedExamTag, setSelectedExamTag] = useState("");
-    const [selectedSession, setSelectedSession] = useState("");
     const [selectedDepartments, setSelectedDepartments] = useState([]);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
@@ -44,6 +42,7 @@ const TransactionList = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [centreSearch, setCentreSearch] = useState("");
     const [departmentSearch, setDepartmentSearch] = useState("");
+    const [selectedStatus, setSelectedStatus] = useState([]);
     const [billFilter, setBillFilter] = useState("all"); // "all" | "no_bill" | "with_bill"
 
     // Pagination State
@@ -56,11 +55,13 @@ const TransactionList = () => {
     const paymentDropdownRef = useRef(null);
     const typeDropdownRef = useRef(null);
     const departmentDropdownRef = useRef(null);
+    const statusDropdownRef = useRef(null);
 
     const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
     const [isPaymentDropdownOpen, setIsPaymentDropdownOpen] = useState(false);
     const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
     const [isDepartmentDropdownOpen, setIsDepartmentDropdownOpen] = useState(false);
+    const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
 
     // ---- Effects ----
     useEffect(() => {
@@ -74,6 +75,9 @@ const TransactionList = () => {
             }
             if (departmentDropdownRef.current && !departmentDropdownRef.current.contains(event.target)) {
                 setIsDepartmentDropdownOpen(false);
+            }
+            if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
+                setIsStatusDropdownOpen(false);
             }
         };
         document.addEventListener("mousedown", handleClickOutside);
@@ -94,7 +98,7 @@ const TransactionList = () => {
 
         return () => clearTimeout(debounce);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedCentres, selectedCourses, selectedExamTag, selectedSession, timePeriod, startDate, endDate, selectedPaymentMode, selectedTransactionType, minAmount, maxAmount, selectedDepartments, searchTerm]);
+    }, [selectedCentres, selectedCourses, selectedExamTag, timePeriod, startDate, endDate, selectedPaymentMode, selectedTransactionType, minAmount, maxAmount, selectedDepartments, searchTerm, selectedStatus]);
 
     // ---- API Calls ----
     const fetchMasterData = async () => {
@@ -102,10 +106,9 @@ const TransactionList = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [cRes, dRes, sRes] = await Promise.all([
+            const [cRes, dRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers })
             ]);
 
             if (cRes.ok) {
@@ -123,15 +126,6 @@ const TransactionList = () => {
                 const data = await dRes.json();
                 const visibleDepts = Array.isArray(data) ? data.filter(dept => dept.showInAdmission !== false) : [];
                 setDepartments(visibleDepts);
-            }
-            if (sRes.ok) {
-                const sessionData = await sRes.json();
-                const sessionList = (Array.isArray(sessionData) ? sessionData : []).sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
-                setSessions(sessionList);
-                if (sessionList.length > 0 && !selectedSession) {
-                    const defaultSession = sessionList.find(s => s.sessionName === "2026-2027");
-                    setSelectedSession(defaultSession ? defaultSession.sessionName : sessionList[0].sessionName);
-                }
             }
         } catch (error) {
             console.error("Error fetching master data", error);
@@ -178,7 +172,6 @@ const TransactionList = () => {
                 params.append("endDate", end.toISOString().split('T')[0]);
             }
 
-            if (selectedSession) params.append("session", selectedSession);
             if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
             if (selectedCourses.length > 0) params.append("courseIds", selectedCourses.join(","));
             if (selectedDepartments.length > 0) params.append("departmentIds", selectedDepartments.join(","));
@@ -187,6 +180,7 @@ const TransactionList = () => {
             // New Filters
             if (selectedPaymentMode.length > 0) params.append("paymentMode", selectedPaymentMode.join(","));
             if (selectedTransactionType.length > 0) params.append("transactionType", selectedTransactionType.join(","));
+            if (selectedStatus.length > 0) params.append("status", selectedStatus.join(","));
             if (minAmount) params.append("minAmount", minAmount);
             if (maxAmount) params.append("maxAmount", maxAmount);
             if (searchTerm) params.append("search", searchTerm);
@@ -216,13 +210,13 @@ const TransactionList = () => {
         setSelectedCentres([]);
         setSelectedCourses([]);
         setSelectedExamTag("");
-        setSelectedSession("");
         setTimePeriod("All Time");
         setStartDate("");
         setEndDate("");
         setSelectedPaymentMode([]);
         setSelectedTransactionType([]);
         setSelectedDepartments([]);
+        setSelectedStatus([]);
         setMinAmount("");
         setMaxAmount("");
         setSearchTerm("");
@@ -239,7 +233,7 @@ const TransactionList = () => {
             ? detailedReport.filter(item => item.receiptNo && item.receiptNo !== "-" && item.receiptNo.trim() !== "")
             : detailedReport;
 
-    // Dynamically calculate selection totals based on visually filtered active dataset
+    // Dynamically calculate selection totals based on visually filtered active dataset (Includes all statuses)
     const dynamicSelectionTotalWithGst = filteredReport.reduce((sum, item) => sum + (item.amount || 0), 0);
     const dynamicSelectionTotalBase = filteredReport.reduce((sum, item) => sum + (item.revenueWithoutGst || 0), 0);
 
@@ -324,6 +318,12 @@ const TransactionList = () => {
 
     const toggleDepartmentSelection = (id) => {
         setSelectedDepartments(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    const toggleStatusSelection = (id) => {
+        setSelectedStatus(prev =>
             prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
         );
     };
@@ -596,21 +596,36 @@ const TransactionList = () => {
                         )}
                     </div>
 
-                    {/* Session (Single Select to match existing state logic) */}
-                    <div className="relative">
-                        <select
-                            value={selectedSession}
-                            onChange={(e) => setSelectedSession(e.target.value)}
-                            className="min-w-[150px] h-10 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 outline-none focus:border-blue-500 transition-colors appearance-none"
+                    {/* Status (MultiSelect) */}
+                    <div className="relative" ref={statusDropdownRef}>
+                        <div
+                            onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
+                            className="min-w-[180px] h-10 px-3 py-2 bg-white border border-gray-300 rounded-md cursor-pointer flex justify-between items-center text-sm text-gray-700 hover:border-blue-500 transition-colors"
                         >
-                            <option value="">-Select Session-</option>
-                            {sessions.map(s => (
-                                <option key={s._id} value={s.sessionName || s.name}>{s.sessionName || s.name}</option>
-                            ))}
-                        </select>
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                            <FaChevronDown size={10} />
+                            <span className="truncate">
+                                {selectedStatus.length === 0 ? "-Select Status-" : `${selectedStatus.length} Selected`}
+                            </span>
+                            <FaChevronDown size={10} className={`transform transition-transform ${isStatusDropdownOpen ? 'rotate-180' : ''}`} />
                         </div>
+                        {isStatusDropdownOpen && (
+                            <div className="absolute top-full left-0 mt-1 w-60 z-[9999] bg-white border border-gray-200 rounded-lg shadow-2xl max-h-80 flex flex-col overflow-hidden">
+                                <div className="p-2 border-b border-gray-100 bg-gray-50 sticky top-0 z-10">
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Filter By Status</span>
+                                </div>
+                                <div className="overflow-y-auto max-h-60 custom-scrollbar">
+                                    {["PAID", "PARTIAL", "PENDING_CLEARANCE", "REJECTED", "CANCELLED", "PENDING", "OVERDUE"].map(status => (
+                                        <div
+                                            key={status}
+                                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 transition-colors border-b border-gray-50 last:border-0"
+                                            onClick={() => toggleStatusSelection(status)}
+                                        >
+                                            <input type="checkbox" checked={selectedStatus.includes(status)} readOnly className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5" />
+                                            <span className="text-xs text-gray-700 truncate font-bold uppercase">{status.replace('_', ' ')}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Bill Filter Segmented Control */}

@@ -27,13 +27,12 @@ export const getTransactionReport = async (req, res) => {
             search
         } = req.query;
 
-        // Base Match for Payment (paidAmount > 0 AND status is PAID or PARTIAL, or any status for CHEQUE)
+        // Base Match for Payment (Inclusive: Show all transactions with activity)
         let baseAttributesMatch = {
-            paidAmount: { $gt: 0 },
             $or: [
-                { status: { $in: ["PAID", "PARTIAL", "COMPLETED", "SUCCESS"] } },
-                { paymentMethod: "CHEQUE" }, // Show all cheques (pending, cleared, rejected) in report for visibility
-                { billId: { $exists: true, $ne: null } } // Any record that has been billed should be visible
+                { paidAmount: { $gt: 0 } },
+                { paymentMethod: { $ne: null } },
+                { billId: { $exists: true, $ne: null } }
             ]
         };
 
@@ -45,6 +44,11 @@ export const getTransactionReport = async (req, res) => {
         if (paymentMode) {
             const modes = paymentMode.split(',');
             baseAttributesMatch.paymentMethod = { $in: modes };
+        }
+
+        if (req.query.status) {
+            const statuses = req.query.status.split(',');
+            baseAttributesMatch.status = { $in: statuses };
         }
 
         if (transactionType) {
