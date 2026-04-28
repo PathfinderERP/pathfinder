@@ -153,13 +153,20 @@ const StudentAdmissionPage = () => {
                 }
 
                 // Autofill Session
-                if (!prev.academicSession) {
+                if (!prev.academicSession && sessions.length > 0) {
                     const registeredSession = student.sessionExamCourse?.[0]?.session?.trim();
-                    if (registeredSession && sessions.length > 0) {
-                        const matchedSession = sessions.find(s =>
+                    let matchedSession = null;
+                    if (registeredSession) {
+                        matchedSession = sessions.find(s =>
                             s.sessionName?.trim().toLowerCase() === registeredSession.toLowerCase()
                         );
-                        if (matchedSession) newData.academicSession = matchedSession.sessionName;
+                    }
+                    
+                    if (matchedSession) {
+                        newData.academicSession = matchedSession.sessionName;
+                    } else {
+                        const defaultSession = sessions.find(s => s.sessionName === "2026-2027");
+                        newData.academicSession = defaultSession ? defaultSession.sessionName : sessions[0].sessionName;
                     }
                 }
 
@@ -196,7 +203,11 @@ const StudentAdmissionPage = () => {
             if (coursesRes.ok) setCourses(await coursesRes.json());
             if (classesRes.ok) setClasses(await classesRes.json());
             if (tagsRes.ok) setExamTags(await tagsRes.json());
-            if (sessionsRes.ok) setSessions(await sessionsRes.json());
+            if (sessionsRes.ok) {
+                const sData = await sessionsRes.json();
+                const sessionList = (Array.isArray(sData) ? sData : []).sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
+                setSessions(sessionList);
+            }
             if (deptsRes.ok) {
                 const data = await deptsRes.json();
                 const visibleDepts = Array.isArray(data) ? data.filter(dept => dept.showInAdmission !== false) : [];

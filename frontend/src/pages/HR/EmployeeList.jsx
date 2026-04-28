@@ -43,7 +43,7 @@ const EmployeeList = () => {
         department: [],
         designation: [],
         centre: [],
-        status: [],
+        status: [{ value: "Active", label: "ACTIVE" }],
         role: []
     });
     const [pagination, setPagination] = useState({
@@ -91,7 +91,15 @@ const EmployeeList = () => {
         setAnalyticsLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee/analytics?tab=${activeTab}`, {
+            const params = new URLSearchParams({
+                tab: activeTab,
+                ...(filters.department?.length > 0 && { department: filters.department.map(d => d.value).join(",") }),
+                ...(filters.designation?.length > 0 && { designation: filters.designation.map(d => d.value).join(",") }),
+                ...(filters.centre?.length > 0 && { centre: filters.centre.map(c => c.value).join(",") }),
+                ...(filters.status?.length > 0 && { status: filters.status.map(s => s.value).join(",") }),
+                ...(filters.role?.length > 0 && { role: filters.role.map(r => r.value).join(",") })
+            });
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee/analytics?${params}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (response.ok) {
@@ -103,7 +111,7 @@ const EmployeeList = () => {
         } finally {
             setAnalyticsLoading(false);
         }
-    }, [activeTab]);
+    }, [activeTab, filters]);
 
     const fetchMasterData = useCallback(async () => {
         try {
@@ -170,8 +178,11 @@ const EmployeeList = () => {
 
     useEffect(() => {
         fetchMasterData();
+    }, [fetchMasterData]);
+
+    useEffect(() => {
         fetchAnalytics();
-    }, [fetchMasterData, fetchAnalytics]);
+    }, [fetchAnalytics]);
 
     useEffect(() => {
         fetchEmployees();
@@ -188,7 +199,7 @@ const EmployeeList = () => {
             department: [],
             designation: [],
             centre: [],
-            status: [],
+            status: [{ value: "Active", label: "ACTIVE" }],
             role: []
         });
         setPagination(prev => ({ ...prev, currentPage: 1 }));
@@ -927,40 +938,6 @@ const EmployeeList = () => {
                                         </ResponsiveContainer>
                                     </div>
                                 </div>
-
-                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
-                                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                        <FaUsers className="text-4xl text-emerald-500" />
-                                    </div>
-                                    <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
-                                        <span className="w-1 h-4 bg-emerald-500 rounded-full"></span>
-                                        Workforce Status
-                                    </h3>
-                                    <div className="h-64 w-full">
-                                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
-                                            <PieChart>
-                                                <Pie
-                                                    data={analytics.statusBreakdown?.map((d) => ({
-                                                        name: (d._id || "Status").toUpperCase(),
-                                                        value: d.count
-                                                    })) || []}
-                                                    cx="50%"
-                                                    cy="50%"
-                                                    innerRadius={50}
-                                                    outerRadius={70}
-                                                    paddingAngle={5}
-                                                    dataKey="value"
-                                                >
-                                                    {(analytics.statusBreakdown || []).map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={['#10b981', '#f59e0b', '#ef4444', '#3b82f6'][index % 4]} />
-                                                    ))}
-                                                </Pie>
-                                                <Tooltip content={<CustomTooltip />} />
-                                                <Legend verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '9px', textTransform: 'uppercase', fontWeight: 'bold' }} />
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                    </div>
-                                </div>
                             </div>
 
                             {/* Demographics Grid */}
@@ -994,77 +971,6 @@ const EmployeeList = () => {
                                                 <Legend verticalAlign="bottom" height={36} />
                                             </PieChart>
                                         </ResponsiveContainer>
-                                    </div>
-                                </div>
-
-                                {/* State Distribution Pie Chart */}
-                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
-                                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                        <FaMapMarkerAlt className="text-4xl text-orange-500" />
-                                    </div>
-                                    <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
-                                        <span className="w-1 h-4 bg-orange-500 rounded-full"></span>
-                                        State Wise
-                                    </h3>
-                                    <div className="h-64 w-full">
-                                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
-                                            <PieChart>
-                                                <Pie
-                                                    data={analytics.stateDistribution?.map(d => ({ name: d._id || 'Unknown', value: d.count })) || []}
-                                                    cx="50%"
-                                                    cy="50%"
-                                                    innerRadius={60}
-                                                    outerRadius={80}
-                                                    paddingAngle={5}
-                                                    dataKey="value"
-                                                >
-                                                    {(analytics.stateDistribution || []).map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={['#f97316', '#eab308', '#84cc16', '#22c55e', '#06b6d4'][index % 5]} />
-                                                    ))}
-                                                </Pie>
-                                                <Tooltip content={<CustomTooltip />} />
-                                                <Legend verticalAlign="bottom" height={36} />
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                    </div>
-                                </div>
-
-                                {/* City Distribution Pie Chart */}
-                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
-                                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                        <FaBuilding className="text-4xl text-indigo-500" />
-                                    </div>
-                                    <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
-                                        <span className="w-1 h-4 bg-indigo-500 rounded-full"></span>
-                                        City Wise
-                                    </h3>
-                                    <div className="h-64 w-full overflow-y-auto custom-scrollbar">
-                                        <div className="h-[300px] w-full min-w-[300px]">
-                                            <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
-                                                <PieChart>
-                                                    <Pie
-                                                        data={analytics.cityDistribution?.map(d => ({ name: d._id || 'Unknown', value: d.count })) || []}
-                                                        cx="50%"
-                                                        cy="50%"
-                                                        innerRadius={60}
-                                                        outerRadius={80}
-                                                        paddingAngle={5}
-                                                        dataKey="value"
-                                                    >
-                                                        {(analytics.cityDistribution || []).map((entry, index) => (
-                                                            <Cell key={`cell-${index}`} fill={['#6366f1', '#8b5cf6', '#d946ef', '#0ea5e9', '#14b8a6'][index % 5]} />
-                                                        ))}
-                                                    </Pie>
-                                                    <Tooltip content={<CustomTooltip />} />
-                                                    <Legend
-                                                        layout="vertical"
-                                                        verticalAlign="middle"
-                                                        align="right"
-                                                        wrapperStyle={{ fontSize: '10px', paddingLeft: '10px' }}
-                                                    />
-                                                </PieChart>
-                                            </ResponsiveContainer>
-                                        </div>
                                     </div>
                                 </div>
                             </div>

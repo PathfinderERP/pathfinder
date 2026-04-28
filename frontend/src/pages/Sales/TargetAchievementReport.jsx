@@ -78,10 +78,11 @@ const TargetAchievementReport = () => {
 
             if (sessionRes.ok) {
                 const sessionData = await sessionRes.json();
-                const sessionList = Array.isArray(sessionData) ? sessionData : [];
+                const sessionList = (Array.isArray(sessionData) ? sessionData : []).sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
                 setSessions(sessionList);
                 if (sessionList.length > 0 && !filterFinancialYear) {
-                    setFilterFinancialYear(sessionList[0].sessionName);
+                    const defaultSession = sessionList.find(s => s.sessionName === "2026-2027");
+                    setFilterFinancialYear(defaultSession ? defaultSession.sessionName : sessionList[0].sessionName);
                 }
             }
         } catch (error) {

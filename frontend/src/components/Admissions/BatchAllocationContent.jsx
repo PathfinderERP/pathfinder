@@ -150,7 +150,11 @@ const BatchAllocationContent = () => {
 
             // Fetch Sessions
             const sessionRes = await fetch(`${apiUrl}/session/list`, { headers });
-            if (sessionRes.ok) setMasterSessions(await sessionRes.json());
+            if (sessionRes.ok) {
+                const sData = await sessionRes.json();
+                const sessionList = (Array.isArray(sData) ? sData : []).sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
+                setMasterSessions(sessionList);
+            }
         } catch (error) {
             console.error("Error fetching master data:", error);
         }

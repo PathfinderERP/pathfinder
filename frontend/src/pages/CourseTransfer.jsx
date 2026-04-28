@@ -43,7 +43,11 @@ const CourseTransfer = () => {
 
                 if (coursesRes.ok) setCourses(await coursesRes.json());
                 if (tagsRes.ok) setExamTags(await tagsRes.json());
-                if (sessionsRes.ok) setSessions(await sessionsRes.json());
+                if (sessionsRes.ok) {
+                    const sData = await sessionsRes.json();
+                    const sessionList = (Array.isArray(sData) ? sData : []).sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
+                    setSessions(sessionList);
+                }
             } catch (err) {
                 console.error(err);
             }

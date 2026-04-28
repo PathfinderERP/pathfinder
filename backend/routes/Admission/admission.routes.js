@@ -16,6 +16,7 @@ import { divideRemainingInstallments } from "../../controllers/Admission/divideR
 import { manualFeeAdjustment } from "../../controllers/Admission/manualFeeAdjustment.js";
 import { updateEnrollmentNumber } from "../../controllers/Admission/updateEnrollmentNumber.js";
 import { permanentlyDeleteStudent } from "../../controllers/Admission/permanentlyDeleteStudent.js";
+import { getAdmissionPerformanceReport } from "../../controllers/Admission/getAdmissionPerformanceReport.js";
 
 const router = express.Router();
 
@@ -24,6 +25,7 @@ router.get("/", requireAuth, getAdmissions);
 router.get("/section-allotment", requireGranularPermission("admissions", "sectionAllotment", "view"), getStudentSections); // Section Allotment List
 router.get("/portal-sections-proxy", requireAuth, getPortalSections); // Proxy for external sections
 router.get("/search", requireAuth, searchAdmission); // New Search Route
+router.get("/performance-report", requireAuth, getAdmissionPerformanceReport);
 router.get("/:id", requireAuth, getAdmissionById);
 
 // Write routes - Require granular permissions

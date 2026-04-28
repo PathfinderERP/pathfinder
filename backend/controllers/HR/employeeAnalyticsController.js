@@ -10,19 +10,26 @@ export const getEmployeeAnalytics = async (req, res) => {
         const userRole = (req.user.role || "").toLowerCase();
         const isFullAccess = ['superadmin', 'super admin', 'admin', 'hr'].includes(userRole);
         const userCentres = req.user.centres || [];
-        const { tab } = req.query;
+        const { tab, department, designation, centre, status, role } = req.query;
+        const mongoose = (await import('mongoose')).default;
 
         // Data Isolation Match Stage
-        let matchStageMatch = !isFullAccess ? {
-            $and: [
-                {
-                    $or: [
-                        { primaryCentre: { $in: userCentres } },
-                        { centres: { $in: userCentres } }
-                    ]
-                }
-            ]
-        } : {};
+        let matchStageMatch = {
+            status: status ? { $in: status.split(",") } : "Active",
+            ...(department && { department: { $in: department.split(",").map(id => new mongoose.Types.ObjectId(id)) } }),
+            ...(designation && { designation: { $in: designation.split(",").map(id => new mongoose.Types.ObjectId(id)) } }),
+            ...(centre && { primaryCentre: { $in: centre.split(",").map(id => new mongoose.Types.ObjectId(id)) } }),
+            ...(!isFullAccess ? {
+                $and: [
+                    {
+                        $or: [
+                            { primaryCentre: { $in: userCentres.map(id => new mongoose.Types.ObjectId(id)) } },
+                            { centres: { $in: userCentres.map(id => new mongoose.Types.ObjectId(id)) } }
+                        ]
+                    }
+                ]
+            } : {})
+        };
 
         // Role-based filtering via Tab
         if (tab) {
@@ -78,9 +85,12 @@ export const getEmployeeAnalytics = async (req, res) => {
         // Total employees count (filtered) - only those with user accounts
         const totalEmployees = await Employee.countDocuments(matchStage.$match);
 
-        // Total Master Data counts (global)
-        const totalDepartments = await Department.countDocuments();
-        const totalCentres = await Centre.countDocuments();
+        // Dynamic Master Data counts based on filtered employees
+        const filteredDepts = await Employee.distinct("department", matchStage.$match);
+        const filteredCentres = await Employee.distinct("primaryCentre", matchStage.$match);
+
+        const totalDepartments = filteredDepts.filter(d => d !== null).length;
+        const totalCentres = filteredCentres.filter(c => c !== null).length;
 
         // Active vs Inactive breakdown
         const statusBreakdown = await Employee.aggregate([

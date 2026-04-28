@@ -118,10 +118,11 @@ const CourseReport = () => {
             if (examTagRes.ok) setExamTags(await examTagRes.json());
             if (sessionRes.ok) {
                 const sessionData = await sessionRes.json();
-                const sessionList = Array.isArray(sessionData) ? sessionData : [];
+                const sessionList = (Array.isArray(sessionData) ? sessionData : []).sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
                 setSessions(sessionList);
                 if (sessionList.length > 0 && !selectedSession) {
-                    setSelectedSession(sessionList[0].sessionName);
+                    const defaultSession = sessionList.find(s => s.sessionName === "2026-2027");
+                    setSelectedSession(defaultSession ? defaultSession.sessionName : sessionList[0].sessionName);
                 }
             }
             if (deptRes.ok) {

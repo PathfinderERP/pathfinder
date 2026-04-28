@@ -21,25 +21,13 @@ const GENERATE_BILL = false; // Set to true if payment records/bills are needed
  */
 const student_data_list = [
     {
-        enroll: "PATH24011110",
-        name: "HAIMANTI PARAMANIK",
-        email: "abhaykumarpramanik@gmail.com",
-        phone: "8250305879",
-        centre: "BURDWAN",
-        courseName: "Foundation (NS)Class X (Instation) 2025-2026",
+        enroll: "PATH24009714",
+        name: "RISHITA DAS",
+        email: "RISHITADAS2008@GMAIL.COM",
+        phone: "9331095822",
+        centre: "KALYANI",
+        courseName: "6971d4707b7d1cb9d0af9e47",
         session: "2025-2026",
-        totalFees: 0,
-        paid: 0,
-        counselledBy: "Lipi Chattaraj"
-    },
-    {
-        enroll: "PATH24008945",
-        name: "SHUBHAM GHOSH",
-        email: "tapanmrai@gmail.com",
-        phone: "9732082910",
-        centre: "BURDWAN",
-        courseName: "NCRP NEET 2Years WSM 2025-2027",
-        session: "2025-2027",
         totalFees: 0,
         paid: 0,
         counselledBy: "Lipi Chattaraj"
@@ -69,15 +57,14 @@ async function insertAllStudents() {
 
             try {
                 // 1. Resolve Course Details
-                const course = await Course.findOne({
-                    $or: [
-                        { courseName: data.courseName },
-                        { _id: mongoose.isValidObjectId(data.courseId) ? data.courseId : null }
-                    ]
-                }).populate('class department examTag');
+                const courseQuery = { $or: [{ courseName: data.courseName }] };
+                if (mongoose.isValidObjectId(data.courseName)) courseQuery.$or.push({ _id: data.courseName });
+                if (data.courseId && mongoose.isValidObjectId(data.courseId)) courseQuery.$or.push({ _id: data.courseId });
+
+                const course = await Course.findOne(courseQuery).populate('class department examTag');
 
                 if (!course) {
-                    console.error(`❌ Course not found: ${data.courseName || data.courseId}. Skipping.`);
+                    console.error(`❌ Course not found: "${data.courseName || data.courseId}". Skipping.`);
                     continue;
                 }
 

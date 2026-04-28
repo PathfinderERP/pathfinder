@@ -18,6 +18,7 @@ import FollowUpActivityModal from "../components/LeadManagement/FollowUpActivity
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import CounsellingConsole from "../components/PerformanceConsoles/CounsellingConsole";
+import AdmissionPerformanceConsole from "../components/PerformanceConsoles/AdmissionPerformanceConsole";
 import MultiSelectFilter from "../components/common/MultiSelectFilter";
 
 
@@ -925,7 +926,7 @@ const TelecallingConsole = () => {
                             </h2>
                             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] mt-2 italic">
                                 {activeConsole === 'telecalling' ? (!telecallerNameFromUrl ? "ANALYZE PERFORMANCE AND METRICS" : `PERFORMANCE LOGS FOR AGENT: ${telecallerNameFromUrl.toUpperCase()}`) :
-                                    "COUNSELLING PERFORMANCE & ADMISSIONS"}
+                                    activeConsole === 'counselling' ? "COUNSELLING PERFORMANCE & METRICS" : "ADMISSION PERFORMANCE REPORT"}
                             </p>
                         </div>
                     </div>
@@ -933,7 +934,7 @@ const TelecallingConsole = () => {
                     <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto justify-end">
                         {/* Console Switcher */}
                         <div className={`flex items-center p-1 rounded-[4px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
-                            {['telecalling', 'counselling'].map(consoleType => (
+                            {['telecalling', 'counselling', 'admission'].map(consoleType => (
                                 <button
                                     key={consoleType}
                                     onClick={() => {
@@ -1398,11 +1399,10 @@ const TelecallingConsole = () => {
                                                         placeholder="Select Agents"
                                                         options={telecallers
                                                             .filter(u => {
-                                                                const roleMap = {
-                                                                    'telecalling': 'telecaller',
-                                                                    'counselling': 'counsellor'
-                                                                };
-                                                                return u.role === roleMap[activeConsole];
+                                                                const roles = activeConsole === 'telecalling' ? ['telecaller'] :
+                                                                              activeConsole === 'counselling' ? ['counsellor'] :
+                                                                              ['telecaller', 'counsellor'];
+                                                                return roles.includes(u.role);
                                                             })
                                                             .map(u => ({ label: u.name, value: u._id }))}
                                                         selectedValues={selectedTelecallers}
@@ -1417,11 +1417,10 @@ const TelecallingConsole = () => {
                                                         options={telecallers
                                                             .filter(u => {
                                                                 const isCentralized = (u.centres || u.centers || []).length > 10;
-                                                                const roleMap = {
-                                                                    'telecalling': 'telecaller',
-                                                                    'counselling': 'counsellor'
-                                                                };
-                                                                return isCentralized && u.role === roleMap[activeConsole];
+                                                                const roles = activeConsole === 'telecalling' ? ['telecaller'] :
+                                                                              activeConsole === 'counselling' ? ['counsellor'] :
+                                                                              ['telecaller', 'counsellor'];
+                                                                return isCentralized && roles.includes(u.role);
                                                             })
                                                             .map(u => ({ label: u.name, value: u._id }))}
                                                         selectedValues={selectedCentralizedTelecallers}
@@ -1527,7 +1526,10 @@ const TelecallingConsole = () => {
                                         <div className={`p-8 rounded-[4px] border animate-fadeIn ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-xl' : 'bg-white border-gray-200 shadow-sm'}`}>
                                             <div className="flex items-center justify-between mb-8">
                                                 <h5 className={`text-sm font-black uppercase tracking-widest flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                    <FaChartBar className="text-cyan-500" /> COMPARATIVE PERFORMANCE MATRIX
+                                                    <FaChartBar className="text-cyan-500" /> 
+                                                    {activeConsole === 'telecalling' ? 'COMPARATIVE PERFORMANCE MATRIX' : 
+                                                     activeConsole === 'counselling' ? 'COUNSELLING PERFORMANCE SQUAD' : 
+                                                     'ADMISSION PERFORMANCE ANALYTICS'}
                                                     {summaryLoading && <FaSync className="animate-spin text-cyan-500" size={12} />}
                                                 </h5>
                                                 <button
@@ -1580,7 +1582,7 @@ const TelecallingConsole = () => {
                                                 </div>
                                             </div>
                                         </div>
-                                    ) : (
+                                    ) : activeConsole === 'counselling' ? (
                                         <CounsellingConsole
                                             mainTheme={theme}
                                             timePeriod={timePeriod}
@@ -1598,18 +1600,25 @@ const TelecallingConsole = () => {
                                             monthlyTrends={globalTrends}
                                             admissionDetail={globalAdmissionDetail}
                                         />
+                                    ) : (
+                                        <AdmissionPerformanceConsole
+                                            mainTheme={theme}
+                                            filters={{
+                                                fromDate: filters.fromDate,
+                                                toDate: filters.toDate,
+                                                centre: selectedCenters.join(',')
+                                            }}
+                                        />
                                     )}
 
                                     {/* AGENT GRID CARDS */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fadeIn pb-20">
                                         {enrichedTelecallers
                                             .filter(tc => {
-                                                const roleMap = {
-                                                    'telecalling': 'telecaller',
-                                                    'counselling': 'counsellor'
-                                                };
-                                                const targetRole = roleMap[activeConsole];
-                                                const matchesRole = tc.role === targetRole;
+                                                const roles = activeConsole === 'telecalling' ? ['telecaller'] :
+                                                              activeConsole === 'counselling' ? ['counsellor'] :
+                                                              ['telecaller', 'counsellor'];
+                                                const matchesRole = roles.includes(tc.role);
                                                 const matchesSearch = tc.name.toLowerCase().includes(searchQuery.toLowerCase());
                                                 const telecallerCentres = tc.centres?.map(c => c.centreName || c) || [];
                                                 const matchesCenter = selectedCenters.length === 0 || selectedCenters.some(sc => telecallerCentres.includes(sc));

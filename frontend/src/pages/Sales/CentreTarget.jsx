@@ -84,23 +84,12 @@ const CentreTarget = () => {
 
             if (sessionRes.ok) {
                 const sessionData = await sessionRes.json();
-                const sessionList = Array.isArray(sessionData) ? sessionData : [];
+                const sessionList = (Array.isArray(sessionData) ? sessionData : []).sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
                 setSessions(sessionList);
                 
                 if (sessionList.length > 0 && !filterFinancialYear) {
-                    // Detect current session automatically
-                    const now = new Date();
-                    const curMonth = now.getMonth();
-                    const curYear = now.getFullYear();
-                    const fyStart = curMonth >= 3 ? curYear : curYear - 1;
-                    const defaultFY = `${fyStart}-${fyStart + 1}`;
-                    
-                    const foundCurrent = sessionList.find(s => s.sessionName === defaultFY);
-                    if (foundCurrent) {
-                        setFilterFinancialYear(foundCurrent.sessionName);
-                    } else {
-                        setFilterFinancialYear(sessionList[0].sessionName);
-                    }
+                    const defaultSession = sessionList.find(s => s.sessionName === "2026-2027");
+                    setFilterFinancialYear(defaultSession ? defaultSession.sessionName : sessionList[0].sessionName);
                 }
             }
         } catch (error) {
