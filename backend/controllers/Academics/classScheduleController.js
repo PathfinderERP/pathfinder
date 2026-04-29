@@ -30,7 +30,6 @@ export const createClassSchedule = async (req, res) => {
             teacherId,
             session,
             examId,
-            courseId,
             centreId,
             batchId,
             batchIds,
@@ -61,7 +60,6 @@ export const createClassSchedule = async (req, res) => {
             teacherId,
             session,
             examId,
-            courseId,
             centreId,
             batchIds: batchIds || [batchId], // Fallback if old frontend still sends batchId
             coordinatorId: coordinatorId || undefined,
@@ -362,7 +360,6 @@ export const updateClassSchedule = async (req, res) => {
             teacherId,
             session,
             examId,
-            courseId,
             centreId,
             batchIds,
             coordinatorId,
@@ -407,7 +404,6 @@ export const updateClassSchedule = async (req, res) => {
                 teacherId,
                 session,
                 examId,
-                courseId,
                 centreId,
                 batchIds,
                 coordinatorId: coordinatorId || undefined,
@@ -439,7 +435,6 @@ export const updateClassSchedule = async (req, res) => {
                     teacherId,
                     session,
                     examId,
-                    courseId,
                     centreId,
                     batchIds,
                     coordinatorId: coordinatorId || undefined,
@@ -650,7 +645,7 @@ export const importClassesExcel = async (req, res) => {
             const rowNumber = i + 2; // +2 considering header and 0-indexing
 
             // 1. Check Mandatory string fields
-            const requiredFields = ['Class Name', 'Date', 'Class Mode', 'Start Time', 'End Time', 'Center', 'Batch', 'Subject', 'Teacher', 'Session', 'Course'];
+            const requiredFields = ['Class Name', 'Date', 'Class Mode', 'Start Time', 'End Time', 'Center', 'Batch', 'Subject', 'Teacher', 'Session'];
             let missingFields = [];
             for (let field of requiredFields) {
                 if (!row[field]) missingFields.push(field);
@@ -693,13 +688,6 @@ export const importClassesExcel = async (req, res) => {
                 continue;
             }
 
-            // Course
-            const courseRegex = new RegExp(`^${String(row['Course']).trim()}$`, "i");
-            const course = await Course.findOne({ $or: [{ courseName: courseRegex }, { name: courseRegex }] });
-            if (!course) {
-                errors.push(`Row ${rowNumber}: Course '${row['Course']}' not found`);
-                continue;
-            }
 
             // Exam (Optional)
             let examId = undefined;
@@ -783,7 +771,6 @@ export const importClassesExcel = async (req, res) => {
                 teacherId: teacher._id,
                 session: sessionDoc.sessionName, // Schema stores string or ObjectId, existing script usually passes string
                 examId: examId,
-                courseId: course._id,
                 centreId: centre._id,
                 batchIds: batchIds,
                 coordinatorId: coordinatorId,

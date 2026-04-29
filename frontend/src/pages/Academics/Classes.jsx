@@ -62,8 +62,7 @@ const Classes = () => {
         teachers: [],
         coordinators: [],
         sessions: [],
-        exams: [],
-        courses: []
+        exams: []
     });
 
     // Edit Modal State
@@ -132,7 +131,6 @@ const Classes = () => {
                 "Teacher": "ANITA PAUL",
                 "Session": "2024-2025",
                 "Exam": "",
-                "Course": "Foundation Course",
                 "Coordinator": "Optional Coordinator Name",
                 "Academic Class": "Class 11",
                 "Chapter Name": "Algebra",
@@ -470,7 +468,6 @@ const Classes = () => {
             subjectId: cls.subjectId?._id || cls.subjectId,
             teacherId: cls.teacherId?._id || cls.teacherId,
             coordinatorId: cls.coordinatorId?._id || cls.coordinatorId,
-            courseId: cls.courseId?._id || cls.courseId,
             examId: cls.examId?._id || cls.examId,
             acadClassId,
             acadSubjectId,
@@ -1085,19 +1082,6 @@ const Classes = () => {
                                         </select>
                                     </div>
 
-                                    {/* Course */}
-                                    <div className="flex flex-col gap-2">
-                                        <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course</label>
-                                        <select
-                                            required
-                                            value={editingClassData.courseId}
-                                            onChange={(e) => setEditingClassData({ ...editingClassData, courseId: e.target.value })}
-                                            className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
-                                        >
-                                            <option value="">Select Course</option>
-                                            {dropdownData.courses?.map(c => <option key={c._id} value={c._id}>{c.courseName || c.name}</option>)}
-                                        </select>
-                                    </div>
 
                                     {/* Session & Academic Class */}
                                     <div className="grid grid-cols-2 gap-4">
@@ -1344,7 +1328,6 @@ const Classes = () => {
                                 <li><strong>Teacher</strong>: Must exactly match a Teacher's Name registered in User Management (Case-Insensitive).</li>
                                 <li><strong>Subject</strong>: Must exactly match an Academics Subject Name.</li>
                                 <li><strong>Center</strong>: Must match an active Center Name (e.g., HAZRA H.O).</li>
-                                <li><strong>Course</strong>: Must exactly match a master Course Name.</li>
                                 <li><strong>Batch</strong>: Must match a Batch Name. If multiple batches, separate them with a comma (e.g., <code className="bg-gray-500/20 px-1 rounded">Batch A, Batch B</code>).</li>
                                 <li><strong>Exam (Optional)</strong>: If provided, must exactly match an Exam Tag Name (e.g., JEE MAINS).</li>
                                 <li><strong>Session</strong>: Must exactly match a Session Name (e.g., 2024-2025).</li>

@@ -30,7 +30,6 @@ const AddClass = () => {
         teacherId: "",
         session: "",
         examId: "",
-        courseId: "",
         centreId: "",
         batchIds: [],
         coordinatorId: "",
@@ -48,7 +47,6 @@ const AddClass = () => {
         teachers: [],
         sessions: [],
         exams: [],
-        courses: [],
         centres: [],
         batches: [],
         coordinators: [],
@@ -279,7 +277,7 @@ const AddClass = () => {
                 toast.success("Class scheduled successfully");
                 setFormData({
                     className: "", date: "", classMode: "", startTime: "", endTime: "",
-                    subjectId: "", teacherId: "", session: "", examId: "", courseId: "", centreId: "", batchIds: [],
+                    subjectId: "", teacherId: "", session: "", examId: "", centreId: "", batchIds: [],
                     acadClassId: "", acadSubjectId: "", chapterName: "", topicName: "", message: "", classHours: 0
                 });
                 // Reset cascades
@@ -447,17 +445,6 @@ const AddClass = () => {
                             required
                         />
 
-                        <SearchableSelect
-                            label="Course"
-                            name="courseId"
-                            value={formData.courseId}
-                            options={dropdownData.courses}
-                            displayPath="courseName"
-                            onChange={handleChange}
-                            placeholder="Select a course"
-                            isDarkMode={isDarkMode}
-                            required
-                        />
 
                         <SearchableSelect
                             label="Centre"
