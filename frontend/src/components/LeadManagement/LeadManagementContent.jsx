@@ -284,6 +284,9 @@ const LeadManagementContent = () => {
             if (sourceResponse.ok) setSources(sourceData.sources || []);
 
             // Fetch courses
+            const courseResponse = await fetch(`${import.meta.env.VITE_API_URL}/course`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
             if (courseResponse.ok) {
                 const data = await courseResponse.json();
                 setCourses((Array.isArray(data) ? data : []).filter(c => c.department?.showInAdmission !== false));
