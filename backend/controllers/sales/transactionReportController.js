@@ -27,12 +27,13 @@ export const getTransactionReport = async (req, res) => {
             search
         } = req.query;
 
-        // Base Match for Payment (Inclusive: Show all transactions with activity)
+        // Base Match for Payment (Inclusive: Show all transactions with activity, including 0 amount bills)
         let baseAttributesMatch = {
             $or: [
                 { paidAmount: { $gt: 0 } },
+                { paidAmount: 0, status: { $in: ["PAID", "PARTIAL"] } },
                 { paymentMethod: { $ne: null } },
-                { billId: { $exists: true, $ne: null } }
+                { billId: { $exists: true, $nin: [null, ""] } }
             ]
         };
 
