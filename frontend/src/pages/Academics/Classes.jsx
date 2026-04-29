@@ -70,6 +70,11 @@ const Classes = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingClassData, setEditingClassData] = useState(null);
 
+    // Edit modal cascading states
+    const [editAcadSubjects, setEditAcadSubjects] = useState([]);
+    const [editAcadChapters, setEditAcadChapters] = useState([]);
+    const [editAcadTopics, setEditAcadTopics] = useState([]);
+
     // Feedback State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [selectedClassForFeedback, setSelectedClassForFeedback] = useState(null);
@@ -422,7 +427,42 @@ const Classes = () => {
         }
     };
 
+    const fetchEditAcadSubjects = async (classId) => {
+        if (!classId) { setEditAcadSubjects([]); return; }
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_URL}/academics/subject/list/class/${classId}`, { headers: { Authorization: `Bearer ${token}` } });
+            const data = await res.json();
+            if (res.ok) setEditAcadSubjects(data);
+        } catch (e) { console.error(e); }
+    };
+
+    const fetchEditAcadChapters = async (subjectId) => {
+        if (!subjectId) { setEditAcadChapters([]); return; }
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_URL}/academics/chapter/list/subject/${subjectId}`, { headers: { Authorization: `Bearer ${token}` } });
+            const data = await res.json();
+            if (res.ok) setEditAcadChapters(data);
+        } catch (e) { console.error(e); }
+    };
+
+    const fetchEditAcadTopics = async (chapterId) => {
+        if (!chapterId) { setEditAcadTopics([]); return; }
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_URL}/academics/topic/list/chapter/${chapterId}`, { headers: { Authorization: `Bearer ${token}` } });
+            const data = await res.json();
+            if (res.ok) setEditAcadTopics(data);
+        } catch (e) { console.error(e); }
+    };
+
     const handleEdit = (cls) => {
+        const acadClassId = cls.acadClassId?._id || cls.acadClassId || "";
+        const acadSubjectId = cls.acadSubjectId?._id || cls.acadSubjectId || "";
+        const chapterId = cls.chapterId?._id || cls.chapterId || "";
+        const topicId = cls.topicId?._id || cls.topicId || "";
+
         setEditingClassData({
             ...cls,
             centreId: cls.centreId?._id || cls.centreId,
@@ -432,9 +472,18 @@ const Classes = () => {
             coordinatorId: cls.coordinatorId?._id || cls.coordinatorId,
             courseId: cls.courseId?._id || cls.courseId,
             examId: cls.examId?._id || cls.examId,
-            acadClassId: cls.acadClassId?._id || cls.acadClassId,
+            acadClassId,
+            acadSubjectId,
+            chapterId,
+            topicId,
             date: cls.date ? new Date(cls.date).toISOString().split('T')[0] : ""
         });
+
+        // Pre-load cascading dropdowns
+        if (acadClassId) fetchEditAcadSubjects(acadClassId);
+        if (acadSubjectId) fetchEditAcadChapters(acadSubjectId);
+        if (chapterId) fetchEditAcadTopics(chapterId);
+
         setShowEditModal(true);
     };
 
@@ -773,9 +822,9 @@ const Classes = () => {
                                                 </span>
                                             </td>
                                             <td className="p-4">{cls.centreId?.centreName || cls.centreId?.name || "-"}</td>
-                                            <td className="p-4">{cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "-"}</td>
-                                            <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterName || "-"}</td>
-                                            <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicName || "-"}</td>
+                                            <td className="p-4">{cls.acadSubjectId?.masterSubjectId?.subName || cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "-"}</td>
+                                            <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterId?.chapterName || cls.chapterName || "-"}</td>
+                                            <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicId?.topicName || cls.topicName || "-"}</td>
                                             <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
                                             <td className="p-4">{cls.coordinatorId?.name || "-"}</td>
                                             <td className="p-4 font-mono">{formatDate(cls.date)}</td>
@@ -1067,8 +1116,15 @@ const Classes = () => {
                                         <div className="flex flex-col gap-2">
                                             <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Standard (Class)</label>
                                             <select
-                                                value={editingClassData.acadClassId}
-                                                onChange={(e) => setEditingClassData({ ...editingClassData, acadClassId: e.target.value })}
+                                                value={editingClassData.acadClassId || ""}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setEditingClassData({ ...editingClassData, acadClassId: val, acadSubjectId: "", chapterId: "", topicId: "" });
+                                                    setEditAcadSubjects([]);
+                                                    setEditAcadChapters([]);
+                                                    setEditAcadTopics([]);
+                                                    if (val) fetchEditAcadSubjects(val);
+                                                }}
                                                 className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                                             >
                                                 <option value="">Select Class</option>
@@ -1105,27 +1161,54 @@ const Classes = () => {
                                         </select>
                                     </div>
 
-                                    {/* Chapter & Topic */}
-                                    <div className="grid grid-cols-2 gap-4">
+                                    {/* Academic Subject, Chapter & Topic (cascading from Academic Class) */}
+                                    <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                                        <div className="flex flex-col gap-2">
+                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Academic Subject</label>
+                                            <select
+                                                value={editingClassData.acadSubjectId || ""}
+                                                disabled={!editingClassData.acadClassId}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setEditingClassData({ ...editingClassData, acadSubjectId: val, chapterId: "", topicId: "" });
+                                                    setEditAcadChapters([]);
+                                                    setEditAcadTopics([]);
+                                                    if (val) fetchEditAcadChapters(val);
+                                                }}
+                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all disabled:opacity-50 ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                            >
+                                                <option value="">Select Subject</option>
+                                                {editAcadSubjects.map(s => <option key={s._id} value={s._id}>{s.subjectName || s.masterSubjectId?.subName || s.name}</option>)}
+                                            </select>
+                                        </div>
                                         <div className="flex flex-col gap-2">
                                             <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Chapter</label>
-                                            <input
-                                                type="text"
-                                                placeholder="Enter Chapter"
-                                                value={editingClassData.chapterName || ""}
-                                                onChange={(e) => setEditingClassData({ ...editingClassData, chapterName: e.target.value })}
-                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
-                                            />
+                                            <select
+                                                value={editingClassData.chapterId || ""}
+                                                disabled={!editingClassData.acadSubjectId}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setEditingClassData({ ...editingClassData, chapterId: val, topicId: "" });
+                                                    setEditAcadTopics([]);
+                                                    if (val) fetchEditAcadTopics(val);
+                                                }}
+                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all disabled:opacity-50 ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                            >
+                                                <option value="">Select Chapter</option>
+                                                {editAcadChapters.map(c => <option key={c._id} value={c._id}>{c.chapterName}</option>)}
+                                            </select>
                                         </div>
                                         <div className="flex flex-col gap-2">
                                             <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Topic</label>
-                                            <input
-                                                type="text"
-                                                placeholder="Enter Topic"
-                                                value={editingClassData.topicName || ""}
-                                                onChange={(e) => setEditingClassData({ ...editingClassData, topicName: e.target.value })}
-                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
-                                            />
+                                            <select
+                                                value={editingClassData.topicId || ""}
+                                                disabled={!editingClassData.chapterId}
+                                                onChange={(e) => setEditingClassData({ ...editingClassData, topicId: e.target.value })}
+                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all disabled:opacity-50 ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                            >
+                                                <option value="">Select Topic</option>
+                                                {editAcadTopics.map(t => <option key={t._id} value={t._id}>{t.topicName}</option>)}
+                                            </select>
                                         </div>
                                     </div>
 

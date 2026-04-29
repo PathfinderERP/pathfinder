@@ -1,6 +1,6 @@
 import AcademicsChapter from "../../models/Academics/Academics_chapter.js";
 import AcademicsSubject from "../../models/Academics/Academics_subject.js";
-import Class from "../../models/Master_data/Class.js";
+import AcademicsClass from "../../models/Academics/Academics_class.js";
 import Subject from "../../models/Master_data/Subject.js";
 
 // Create Chapter
@@ -52,7 +52,7 @@ export const getAllChapters = async (req, res) => {
                     path: 'subjectId',
                     populate: [
                         { path: 'masterSubjectId', select: 'subName' },
-                        { path: 'classId', select: 'name' }
+                        { path: 'classId', select: 'className' }
                     ]
                 })
                 .sort({ createdAt: -1 });
@@ -60,7 +60,7 @@ export const getAllChapters = async (req, res) => {
             const flattenedChapters = chapters.map(c => ({
                 ...c.toObject(),
                 subjectName: c.subjectId?.masterSubjectId?.subName || "N/A",
-                className: c.subjectId?.classId?.name || "N/A"
+                className: c.subjectId?.classId?.className || "N/A"
             }));
 
             return res.status(200).json(flattenedChapters);
@@ -72,7 +72,7 @@ export const getAllChapters = async (req, res) => {
                 path: 'subjectId',
                 populate: [
                     { path: 'masterSubjectId', select: 'subName' },
-                    { path: 'classId', select: 'name' }
+                    { path: 'classId', select: 'className' }
                 ]
             })
             .sort({ createdAt: -1 })
@@ -84,7 +84,7 @@ export const getAllChapters = async (req, res) => {
         const flattenedChapters = chapters.map(c => ({
             ...c.toObject(),
             subjectName: c.subjectId?.masterSubjectId?.subName || "N/A",
-            className: c.subjectId?.classId?.name || "N/A"
+            className: c.subjectId?.classId?.className || "N/A"
         }));
 
         res.status(200).json({
@@ -181,8 +181,8 @@ export const bulkImportChapters = async (req, res) => {
                 // 1. Find or Create Class
                 let classId = classCache[normClassName.toLowerCase()];
                 if (!classId) {
-                    let classDoc = await Class.findOne({
-                        name: { $regex: new RegExp(`^${normClassName}$`, "i") }
+                    let classDoc = await AcademicsClass.findOne({
+                        className: { $regex: new RegExp(`^${normClassName}$`, "i") }
                     });
 
                     if (!classDoc) {

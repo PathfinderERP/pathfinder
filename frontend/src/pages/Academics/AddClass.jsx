@@ -37,8 +37,8 @@ const AddClass = () => {
         // New Academic Fields
         acadClassId: "",
         acadSubjectId: "",
-        chapterName: "",
-        topicName: "",
+        chapterId: "",
+        topicId: "",
         message: "",
         classHours: 0
     });
@@ -58,6 +58,8 @@ const AddClass = () => {
 
     // Cascading Dropdown States
     const [acadSubjects, setAcadSubjects] = useState([]);
+    const [acadChapters, setAcadChapters] = useState([]);
+    const [acadTopics, setAcadTopics] = useState([]);
 
     const [loading, setLoading] = useState(false);
     const API_URL = import.meta.env.VITE_API_URL;
@@ -204,16 +206,58 @@ const AddClass = () => {
         } catch (e) { console.error(e); }
     };
 
+    const fetchAcadChapters = async (subjectId) => {
+        if (!subjectId) { setAcadChapters([]); return; }
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_URL}/academics/chapter/list/subject/${subjectId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok) setAcadChapters(data);
+        } catch (e) { console.error(e); }
+    };
+
+    const fetchAcadTopics = async (chapterId) => {
+        if (!chapterId) { setAcadTopics([]); return; }
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_URL}/academics/topic/list/chapter/${chapterId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok) setAcadTopics(data);
+        } catch (e) { console.error(e); }
+    };
+
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData({ ...formData, [name]: value });
 
-        // Trigger cascades
+        // Cascading fields — handle reset + cascade fetch
         if (name === "acadClassId") {
-            setFormData(prev => ({ ...prev, [name]: value, acadSubjectId: "" }));
+            setFormData(prev => ({ ...prev, [name]: value, acadSubjectId: "", chapterId: "", topicId: "" }));
             setAcadSubjects([]);
+            setAcadChapters([]);
+            setAcadTopics([]);
             fetchAcadSubjects(value);
+            return;
         }
+        if (name === "acadSubjectId") {
+            setFormData(prev => ({ ...prev, [name]: value, chapterId: "", topicId: "" }));
+            setAcadChapters([]);
+            setAcadTopics([]);
+            fetchAcadChapters(value);
+            return;
+        }
+        if (name === "chapterId") {
+            setFormData(prev => ({ ...prev, [name]: value, topicId: "" }));
+            setAcadTopics([]);
+            fetchAcadTopics(value);
+            return;
+        }
+
+        // All other fields
+        setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleSubmit = async (e) => {
@@ -240,6 +284,8 @@ const AddClass = () => {
                 });
                 // Reset cascades
                 setAcadSubjects([]);
+                setAcadChapters([]);
+                setAcadTopics([]);
             } else {
                 toast.error(data.message || "Failed to schedule class");
             }
@@ -456,7 +502,7 @@ const AddClass = () => {
                             name="acadClassId"
                             value={formData.acadClassId}
                             options={dropdownData.academicClasses}
-                            displayPath="name"
+                            displayPath="className"
                             onChange={handleChange}
                             placeholder="Select a class"
                             isDarkMode={isDarkMode}
@@ -467,37 +513,40 @@ const AddClass = () => {
                             label="Subject (Academic)"
                             name="acadSubjectId"
                             value={formData.acadSubjectId}
-                            options={dropdownData.masterSubjects}
-                            displayPath="subName"
+                            options={acadSubjects}
+                            displayPath="subjectName"
                             onChange={handleChange}
                             placeholder="Select a subject"
                             isDarkMode={isDarkMode}
                             required
+                            disabled={!formData.acadClassId}
                         />
 
-                        <div className="md:col-span-1">
-                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Chapter Name</label>
-                            <input
-                                type="text"
-                                name="chapterName"
-                                value={formData.chapterName}
-                                onChange={handleChange}
-                                placeholder="Enter Chapter Name manually"
-                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
-                            />
-                        </div>
+                        <SearchableSelect
+                            label="Chapter (Academic)"
+                            name="chapterId"
+                            value={formData.chapterId}
+                            options={acadChapters}
+                            displayPath="chapterName"
+                            onChange={handleChange}
+                            placeholder="Select a chapter"
+                            isDarkMode={isDarkMode}
+                            required
+                            disabled={!formData.acadSubjectId}
+                        />
 
-                        <div className="md:col-span-1">
-                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Topic Names</label>
-                            <input
-                                type="text"
-                                name="topicName"
-                                value={formData.topicName}
-                                onChange={handleChange}
-                                placeholder="Enter Topic Name manually"
-                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
-                            />
-                        </div>
+                        <SearchableSelect
+                            label="Topic (Academic)"
+                            name="topicId"
+                            value={formData.topicId}
+                            options={acadTopics}
+                            displayPath="topicName"
+                            onChange={handleChange}
+                            placeholder="Select a topic"
+                            isDarkMode={isDarkMode}
+                            required
+                            disabled={!formData.chapterId}
+                        />
 
 
                         {/* Message */}

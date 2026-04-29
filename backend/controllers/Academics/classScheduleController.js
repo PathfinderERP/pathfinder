@@ -5,6 +5,9 @@ import Course from "../../models/Master_data/Courses.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Batch from "../../models/Master_data/Batch.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
+import AcademicsClass from "../../models/Academics/Academics_class.js";
+import AcademicsChapter from "../../models/Academics/Academics_chapter.js";
+import AcademicsTopic from "../../models/Academics/Academics_topic.js";
 import Class from "../../models/Master_data/Class.js";
 import Session from "../../models/Master_data/Session.js";
 import Subject from "../../models/Master_data/Subject.js";
@@ -34,8 +37,8 @@ export const createClassSchedule = async (req, res) => {
             coordinatorId,
             acadClassId,
             acadSubjectId,
-            chapterName,
-            topicName,
+            chapterId,
+            topicId,
             message,
             classHours
         } = req.body;
@@ -64,8 +67,8 @@ export const createClassSchedule = async (req, res) => {
             coordinatorId: coordinatorId || undefined,
             acadClassId: acadClassId || undefined,
             acadSubjectId: acadSubjectId || undefined,
-            chapterName,
-            topicName,
+            chapterId: chapterId || undefined,
+            topicId: topicId || undefined,
             message,
             classHours
         });
@@ -245,13 +248,19 @@ export const getClassSchedules = async (req, res) => {
 
         const classSchedules = await ClassSchedule.find(query)
             .populate("subjectId", "subName")
-            .populate("acadSubjectId", "subName")
             .populate("teacherId", "name userType")
             .populate("examId", "name tagName")
             .populate("courseId", "courseName name")
             .populate("centreId", "centreName centerName name latitude longitude")
             .populate("coordinatorId", "name")
             .populate("batchIds", "batchName name")
+            .populate("acadClassId", "className")
+            .populate({
+                path: "acadSubjectId",
+                populate: { path: "masterSubjectId", select: "subName" }
+            })
+            .populate("chapterId", "chapterName")
+            .populate("topicId", "topicName")
             .sort({ date: -1 })
             .skip(skip)
             .limit(parseInt(limit));
@@ -359,8 +368,8 @@ export const updateClassSchedule = async (req, res) => {
             coordinatorId,
             acadClassId,
             acadSubjectId,
-            chapterName,
-            topicName,
+            chapterId,
+            topicId,
             message,
             classHours
         } = req.body;
@@ -404,8 +413,8 @@ export const updateClassSchedule = async (req, res) => {
                 coordinatorId: coordinatorId || undefined,
                 acadClassId: acadClassId || undefined,
                 acadSubjectId: acadSubjectId || undefined,
-                chapterName,
-                topicName,
+                chapterId: chapterId || undefined,
+                topicId: topicId || undefined,
                 message,
                 classHours,
                 status: "Upcoming" // Reset status for the new instance
@@ -436,8 +445,8 @@ export const updateClassSchedule = async (req, res) => {
                     coordinatorId: coordinatorId || undefined,
                     acadClassId: acadClassId || undefined,
                     acadSubjectId: acadSubjectId || undefined,
-                    chapterName,
-                    topicName,
+                    chapterId: chapterId || undefined,
+                    topicId: topicId || undefined,
                     message,
                     classHours
                 },
@@ -593,7 +602,7 @@ export const getClassDropdownData = async (req, res) => {
             batches = await Batch.find();
         }
         const exams = await ExamTag.find();
-        const academicClasses = await Class.find();
+        const academicClasses = await AcademicsClass.find();
         const sessions = await Session.find();
 
         res.status(200).json({
@@ -918,7 +927,7 @@ export const exportClassSchedulesExcel = async (req, res) => {
         // Fetch all student attendance for these schedules
         const scheduleIds = classSchedules.map(cls => cls._id);
         const attendanceRecords = await StudentAttendance.find({ classScheduleId: { $in: scheduleIds } });
-        
+
         // Map attendance by classScheduleId and studentId
         const attendanceMap = {};
         attendanceRecords.forEach(rec => {
@@ -952,7 +961,7 @@ export const exportClassSchedulesExcel = async (req, res) => {
             const clsCentreName = cls.centreId?.centreName || cls.centreId?.name || "N/A";
 
             // Find students that belong to this class (matching batches AND center)
-            const clsStudents = allStudents.filter(s => 
+            const clsStudents = allStudents.filter(s =>
                 s.batches.some(b => clsBatchIds.includes(b.toString())) &&
                 s.studentsDetails?.some(d => d.centre === clsCentreName)
             );

@@ -73,21 +73,23 @@ const classScheduleSchema = new mongoose.Schema({
     // New Fields from Screenshot (Academics Content)
     acadClassId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Class",
+        ref: "AcademicsClass",
         required: false // Optional for now as not all schedules might have content
     },
     acadSubjectId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Subject",
+        ref: "AcademicsSubject",
         required: false
     },
-    chapterName: {
-        type: String,
-        default: ""
+    chapterId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "AcademicsChapter",
+        required: false
     },
-    topicName: {
-        type: String,
-        default: ""
+    topicId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "AcademicsTopic",
+        required: false
     },
     message: {
         type: String,
