@@ -124,6 +124,7 @@ const EmployeeAttendance = () => {
     const [marking, setMarking] = useState(false);
     const [year] = useState(new Date().getFullYear());
     const [location, setLocation] = useState(null);
+    const [selectedDay, setSelectedDay] = useState(null);
 
     useEffect(() => {
         fetchAttendance();
@@ -264,7 +265,8 @@ const EmployeeAttendance = () => {
                 checkOut: record.checkOut?.time ? format(new Date(record.checkOut.time), "HH:mm") : null,
                 status: record.status || "Present",
                 workingHours: record.workingHours || 0,
-                centreName: record.centreId?.centreName || "Office"
+                centreName: record.centreId?.centreName || "Office",
+                address: record.checkIn?.address || record.checkOut?.address || ""
             };
         }
 
@@ -366,6 +368,95 @@ const EmployeeAttendance = () => {
 
     const todayStrKey = format(new Date(), "yyyy-MM-dd");
     const todayRecord = attendanceData.find(a => format(new Date(a.date), "yyyy-MM-dd") === todayStrKey);
+
+    const DayDetailsModal = ({ data, onClose }) => {
+        if (!data) return null;
+        const { day, status } = data;
+        const isDark = theme === 'dark';
+
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose}></div>
+                <div className={`relative w-full max-w-lg ${isDark ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300`}>
+                    {/* Header */}
+                    <div className="p-8 border-b border-gray-800/50 flex justify-between items-center bg-gradient-to-r from-cyan-500/10 to-transparent">
+                        <div>
+                            <h2 className={`text-3xl font-black tracking-tighter uppercase italic ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                Day <span className="text-cyan-500">Details</span>
+                            </h2>
+                            <p className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                                {format(day, 'EEEE, dd MMMM yyyy')}
+                            </p>
+                        </div>
+                        <button onClick={onClose} className="w-10 h-10 rounded-full border border-gray-800 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all">
+                            ✕
+                        </button>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-8 space-y-6">
+                        {status.type === "Present" ? (
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className={`p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Check In</p>
+                                    <p className={`text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{status.checkIn || '--:--'}</p>
+                                </div>
+                                <div className={`p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                    <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1">Check Out</p>
+                                    <p className={`text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{status.checkOut || '--:--'}</p>
+                                </div>
+                                <div className={`col-span-2 p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest mb-1">Working Hours</p>
+                                            <p className={`text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{status.workingHours?.toFixed(2)}h</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Status</p>
+                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
+                                                status.status === 'Present' ? 'bg-emerald-500/20 text-emerald-400' :
+                                                status.status === 'Absent' ? 'bg-red-500/20 text-red-400' :
+                                                'bg-indigo-500/20 text-indigo-400'
+                                            }`}>
+                                                {status.status}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className={`col-span-2 p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Centre / Location</p>
+                                    <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'} flex items-center gap-2 italic`}>
+                                        <FaBuilding className="text-cyan-500" /> {status.centreName}
+                                    </p>
+                                    {status.address && (
+                                        <p className={`mt-2 text-[10px] font-bold ${isDark ? 'text-gray-500' : 'text-gray-400'} flex items-center gap-2`}>
+                                            <FaMapMarkerAlt className="text-red-500" /> {status.address}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className={`p-12 rounded-3xl border text-center ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                <div className={`w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center ${
+                                    status.type === 'Holiday' ? 'bg-blue-500/20 text-blue-400' :
+                                    status.type === 'Absent' ? 'bg-red-500/20 text-red-400' :
+                                    'bg-gray-500/20 text-gray-400'
+                                }`}>
+                                    {status.type === 'Holiday' ? <FaCalendarCheck size={32} /> : <FaBuilding size={32} />}
+                                </div>
+                                <h3 className={`text-2xl font-black tracking-tighter uppercase italic ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                    {status.name || status.type}
+                                </h3>
+                                <p className={`text-[10px] font-bold uppercase tracking-[0.3em] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                                    {status.type === 'Holiday' ? 'Scheduled Holiday' : 'No presence recorded'}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     return (
         <Layout activePage="Employee Center">
@@ -667,8 +758,9 @@ const EmployeeAttendance = () => {
                                                         aspect-square flex flex-col items-center justify-center rounded-[2px] text-[10px] font-black transition-all relative
                                                         ${colorClass}
                                                         ${isHighlight ? 'ring-1 ring-cyan-500' : ''}
-                                                        group/day cursor-pointer hover:scale-105
+                                                        group/day cursor-pointer hover:scale-110 active:scale-95
                                                     `}
+                                                    onClick={() => setSelectedDay({ day, status })}
                                                     title={status.name}
                                                 >
                                                     {format(day, 'd')}
@@ -681,6 +773,12 @@ const EmployeeAttendance = () => {
                             );
                         })}
                     </div>
+                )}
+                {selectedDay && (
+                    <DayDetailsModal
+                        data={selectedDay}
+                        onClose={() => setSelectedDay(null)}
+                    />
                 )}
             </div>
             <style>{`
