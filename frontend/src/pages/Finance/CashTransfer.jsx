@@ -15,7 +15,6 @@ const CashTransfer = () => {
     const [masterAccounts, setMasterAccounts] = useState([]);
     const [auditReports, setCentreReports] = useState([]); // Store detailed centre reports
     const [cashSummary, setCashSummary] = useState({ totalCashLeft: 0 });
-    const [dateFilter, setDateFilter] = useState({ fromDate: "", toDate: "" });
     const [formData, setFormData] = useState({
         fromCentreId: "",
         toCentreId: "",
@@ -23,13 +22,18 @@ const CashTransfer = () => {
         accountNumber: "",
         remarks: "",
         referenceNumber: "",
-        debitedDate: new Date().toISOString().split('T')[0]
+        debitedDate: new Date().toISOString().split('T')[0],
+        fromDate: "",
+        toDate: ""
     });
     const [receiptFile, setReceiptFile] = useState(null);
     const [receiptPreview, setReceiptPreview] = useState(null);
     const [generatedPassword, setGeneratedPassword] = useState("");
     const [serialNumber, setSerialNumber] = useState("");
     const [transferStatus, setTransferStatus] = useState("idle"); // idle, success
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const canTransfer = hasPermission(user, 'financeFees', 'cashTransfer', 'create');
@@ -110,35 +114,6 @@ const CashTransfer = () => {
         }
     };
 
-    const fetchReport = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const params = new URLSearchParams();
-            if (dateFilter.fromDate) params.append("startDate", dateFilter.fromDate);
-            if (dateFilter.toDate) params.append("endDate", dateFilter.toDate);
-            
-            const response = await axios.get(`${import.meta.env.VITE_API_URL}/finance/cash/report?${params.toString()}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            
-            setCashSummary(response.data.summary);
-            setCentreReports(response.data.report || []);
-        } catch (error) {
-            toast.error("Failed to fetch filtered report");
-        }
-    };
-
-    const applyDateFilter = () => {
-        fetchReport();
-    };
-
-    const clearDateFilter = () => {
-        setDateFilter({ fromDate: "", toDate: "" });
-        setTimeout(() => {
-            fetchInitialData();
-        }, 100);
-    };
-
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -215,15 +190,17 @@ const CashTransfer = () => {
                             <button
                                 onClick={() => {
                                     setTransferStatus("idle");
-                                    setFormData({
-                                        fromCentreId: "",
-                                        toCentreId: "",
-                                        amount: "",
-                                        accountNumber: "",
-                                        remarks: "",
-                                        referenceNumber: "",
-                                        debitedDate: new Date().toISOString().split('T')[0]
-                                    });
+                                     setFormData({
+                                         fromCentreId: "",
+                                         toCentreId: "",
+                                         amount: "",
+                                         accountNumber: "",
+                                         remarks: "",
+                                         referenceNumber: "",
+                                         debitedDate: new Date().toISOString().split('T')[0],
+                                         fromDate: "",
+                                         toDate: ""
+                                     });
                                     // Refetch to reset correctly with defaults
                                     fetchInitialData();
                                     setReceiptFile(null);
@@ -397,6 +374,37 @@ const CashTransfer = () => {
                                 </div>
                             </div>
 
+                            {/* From Date / To Date Filter Row */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-400 ml-1">From Date</label>
+                                    <div className="relative">
+                                        <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                                        <input
+                                            type="date"
+                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all [color-scheme:dark]"
+                                            value={formData.fromDate}
+                                            onChange={(e) => setFormData({ ...formData, fromDate: e.target.value })}
+                                            max={formData.toDate || yesterdayStr}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-400 ml-1">To Date</label>
+                                    <div className="relative">
+                                        <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                                        <input
+                                            type="date"
+                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all [color-scheme:dark]"
+                                            value={formData.toDate}
+                                            onChange={(e) => setFormData({ ...formData, toDate: e.target.value })}
+                                            min={formData.fromDate}
+                                            max={yesterdayStr}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-gray-400 ml-1">Bank Receipt (Img/PDF)</label>
@@ -471,49 +479,6 @@ const CashTransfer = () => {
 
                     {/* Side Info */}
                     <div className="space-y-6">
-                        <div className="bg-gray-900/40 backdrop-blur-md border border-gray-800 p-6 rounded-3xl shadow-2xl space-y-4">
-                            <h4 className="text-white font-bold flex items-center gap-2">
-                                <FaCalendarAlt className="text-cyan-400" />
-                                Date Filter
-                            </h4>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] uppercase text-gray-500 font-bold">From</label>
-                                    <input 
-                                        type="date" 
-                                        className="w-full bg-gray-800/80 border border-gray-700 rounded-lg py-2 px-3 text-white focus:border-cyan-500 text-xs [color-scheme:dark] outline-none"
-                                        value={dateFilter.fromDate}
-                                        onChange={(e) => setDateFilter({...dateFilter, fromDate: e.target.value})}
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] uppercase text-gray-500 font-bold">To</label>
-                                    <input 
-                                        type="date" 
-                                        className="w-full bg-gray-800/80 border border-gray-700 rounded-lg py-2 px-3 text-white focus:border-cyan-500 text-xs [color-scheme:dark] outline-none"
-                                        value={dateFilter.toDate}
-                                        onChange={(e) => setDateFilter({...dateFilter, toDate: e.target.value})}
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex gap-2">
-                                <button 
-                                    onClick={applyDateFilter}
-                                    className="flex-1 bg-cyan-600/20 text-cyan-400 border border-cyan-600/30 hover:bg-cyan-600 hover:text-white transition-all py-2 rounded-lg text-xs font-bold"
-                                >
-                                    Apply
-                                </button>
-                                {(dateFilter.fromDate || dateFilter.toDate) && (
-                                    <button 
-                                        onClick={clearDateFilter}
-                                        className="px-3 bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500 hover:text-white transition-all py-2 rounded-lg text-xs font-bold"
-                                    >
-                                        <FaTimes />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
                         <div className="bg-gradient-to-br from-cyan-900/40 via-cyan-800/20 to-transparent border border-cyan-500/20 p-8 rounded-3xl backdrop-blur-xl relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                                 <FaExchangeAlt className="text-9xl -rotate-12" />

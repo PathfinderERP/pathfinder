@@ -35,7 +35,7 @@ const getSignedReceiptUrl = async (key) => {
 
 export const initiateCashTransfer = async (req, res) => {
     try {
-        const { fromCentreId, toCentreId, amount, accountNumber, remarks, referenceNumber, debitedDate } = req.body;
+        const { fromCentreId, toCentreId, amount, accountNumber, remarks, referenceNumber, debitedDate, fromDate, toDate } = req.body;
 
         if (!fromCentreId || !toCentreId || !amount || !accountNumber) {
             return res.status(400).json({ message: "Missing required fields" });
@@ -69,7 +69,9 @@ export const initiateCashTransfer = async (req, res) => {
             receiptFile: receiptFileKey,
             transferredBy: req.user.id || req.user._id,
             remarks,
-            debitedDate: debitedDate ? new Date(debitedDate) : null
+            debitedDate: debitedDate ? new Date(debitedDate) : null,
+            fromDate: fromDate ? new Date(fromDate) : null,
+            toDate: toDate ? new Date(toDate) : null
         });
 
         await transfer.save();

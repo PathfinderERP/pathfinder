@@ -149,6 +149,8 @@ const CashReceive = () => {
             "Account": req.accountNumber,
             "Status": req.status,
             "Debited Date": req.debitedDate ? new Date(req.debitedDate).toLocaleDateString() : "N/A",
+            "From Collection": req.fromDate ? new Date(req.fromDate).toLocaleDateString() : "N/A",
+            "To Collection": req.toDate ? new Date(req.toDate).toLocaleDateString() : "N/A",
             "Transfer Date": new Date(req.transferDate).toLocaleDateString(),
             "Remarks": req.remarks || ""
         }));
@@ -297,6 +299,7 @@ const CashReceive = () => {
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-right">Amount</th>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Reference</th>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Status</th>
+                                    <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Collection Period</th>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Debited</th>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Timestamp</th>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-center">Actions</th>
@@ -352,6 +355,17 @@ const CashReceive = () => {
                                                         Received
                                                     </div>
                                                 )}
+                                            </td>
+                                            <td className="p-5">
+                                                <div className="space-y-1">
+                                                    <span className="text-[10px] text-gray-400 font-bold block">
+                                                        {req.fromDate ? new Date(req.fromDate).toLocaleDateString() : 'N/A'}
+                                                    </span>
+                                                    <span className="text-[8px] text-gray-500 uppercase tracking-widest font-black">TO</span>
+                                                    <span className="text-[10px] text-gray-400 font-bold block">
+                                                        {req.toDate ? new Date(req.toDate).toLocaleDateString() : 'N/A'}
+                                                    </span>
+                                                </div>
                                             </td>
                                             <td className="p-5 text-xs text-gray-400 font-bold whitespace-nowrap">
                                                 {req.debitedDate ? new Date(req.debitedDate).toLocaleDateString() : 'N/A'}
