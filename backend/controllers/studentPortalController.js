@@ -6,6 +6,7 @@ import User from "../models/User.js";
 import Employee from "../models/HR/Employee.js";
 import { getSignedFileUrl } from "../utils/r2Upload.js";
 import jwt from "jsonwebtoken";
+import { getCache, setCache, generateCacheKey, clearCachePattern } from "../utils/redisCache.js";
 
 // Login: Username (Email) + Password (Admission Number)
 export const login = async (req, res) => {
@@ -314,11 +315,17 @@ export const getAttendance = async (req, res) => {
 export const getSingleStudentReport = async (req, res) => {
     try {
         let studentId = req.params.studentId || req.user.id;
-        const userRole = req.user.role?.toLowerCase() || "";
 
         // Security: Students can ONLY query their own ID
         if (req.user.role === "student" && studentId.toString() !== req.user.id.toString()) {
             return res.status(403).json({ message: "Access denied. You can only view your own report." });
+        }
+
+        // REDIS CACHING
+        const cacheKey = `student:report:${studentId}`;
+        const cachedReport = await getCache(cacheKey);
+        if (cachedReport) {
+            return res.status(200).json(cachedReport);
         }
 
         // 1. Fetch Student Profile
@@ -366,7 +373,7 @@ export const getSingleStudentReport = async (req, res) => {
             };
         });
 
-        res.json({
+        const reportData = {
             success: true,
             profile: student,
             admissions,
@@ -376,7 +383,12 @@ export const getSingleStudentReport = async (req, res) => {
                 absentCount: attendanceRecords.filter(r => r.status === "Absent").length,
                 classes: detailedAttendance
             }
-        });
+        };
+
+        // Cache for 30 minutes
+        await setCache(cacheKey, reportData, 1800);
+
+        res.json(reportData);
 
     } catch (error) {
         console.error("Single Student Report Error:", error);

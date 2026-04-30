@@ -1,6 +1,7 @@
 import Admission from "../../models/Admission/Admission.js";
 import User from "../../models/User.js";
 import Payment from "../../models/Payment/Payment.js";
+import { clearCachePattern } from "../../utils/redisCache.js";
 
 /**
  * Controller for Super Admin to manually correct fees and paid amounts.
@@ -108,6 +109,11 @@ export const manualFeeAdjustment = async (req, res) => {
             .populate('examTag')
             .populate('department')
             .populate('createdBy', 'name');
+
+        // Invalidate caches
+        await clearCachePattern("admissions:list:*");
+        await clearCachePattern("finance:transaction_report:*");
+        await clearCachePattern("finance:daily_collection:*");
 
         res.status(200).json({
             message: "Financial records corrected successfully.",

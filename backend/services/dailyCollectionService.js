@@ -254,21 +254,21 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 courseName: {
                     $ifNull: ["$courseInfo.courseName", "$admissionInfo.boardCourseName"]
                 },
-                mrDate: "$paidDate",
-                actualReceivedDate: { $ifNull: ["$receivedDate", "$paidDate"] },
-                effectiveDate: { $ifNull: ["$receivedDate", "$paidDate"] },
-                    recordedByName: {
-                        $ifNull: [
-                            { $arrayElemAt: ["$userInfo.name", 0] },
-                            "N/A"
-                        ]
-                    },
-                    studentEmail: { $arrayElemAt: ["$studentInfo.studentsDetails.studentEmail", 0] },
-                    studentMobile: { $arrayElemAt: ["$studentInfo.studentsDetails.mobileNum", 0] },
-                    studentWhatsapp: { $arrayElemAt: ["$studentInfo.studentsDetails.whatsappNumber", 0] },
-                    studentAddress: { $arrayElemAt: ["$studentInfo.studentsDetails.address", 0] },
-                    guardianName: { $arrayElemAt: ["$studentInfo.guardians.guardianName", 0] },
-                    guardianMobile: { $arrayElemAt: ["$studentInfo.guardians.guardianMobile", 0] },
+                mrDate: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
+                actualReceivedDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
+                effectiveDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
+                recordedByName: {
+                    $ifNull: [
+                        { $arrayElemAt: ["$userInfo.name", 0] },
+                        "N/A"
+                    ]
+                },
+                studentEmail: { $arrayElemAt: ["$studentInfo.studentsDetails.studentEmail", 0] },
+                studentMobile: { $arrayElemAt: ["$studentInfo.studentsDetails.mobileNum", 0] },
+                studentWhatsapp: { $arrayElemAt: ["$studentInfo.studentsDetails.whatsappNumber", 0] },
+                studentAddress: { $arrayElemAt: ["$studentInfo.studentsDetails.address", 0] },
+                guardianName: { $arrayElemAt: ["$studentInfo.guardians.guardianName", 0] },
+                guardianMobile: { $arrayElemAt: ["$studentInfo.guardians.guardianMobile", 0] },
                 }
             },
             {

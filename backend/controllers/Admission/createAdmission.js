@@ -8,6 +8,7 @@ import Board from "../../models/Master_data/Boards.js"; // Corrected filename
 import Subject from "../../models/Master_data/Subject.js"; // Import Subject model
 import { updateCentreTargetAchieved } from "../../services/centreTargetService.js";
 import { rebalanceBoardHistory } from "./generateMonthlyBill.js";
+import { clearCachePattern } from "../../utils/redisCache.js";
 
 export const createAdmission = async (req, res) => {
     try {
@@ -337,6 +338,11 @@ export const createAdmission = async (req, res) => {
         if (admission.admissionType === "BOARD") {
             await rebalanceBoardHistory(admission._id);
         }
+
+        // Invalidate admissions list and finance report cache
+        await clearCachePattern("admissions:list:*");
+        await clearCachePattern("finance:transaction_report:*");
+        await clearCachePattern("finance:daily_collection:*");
 
         const populatedAdmission = await Admission.findById(admission._id)
             .populate('student')

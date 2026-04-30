@@ -1,4 +1,5 @@
 import Admission from "../../models/Admission/Admission.js";
+import { clearCachePattern, deleteCache } from "../../utils/redisCache.js";
 
 export const updateAdmission = async (req, res) => {
     try {
@@ -64,6 +65,11 @@ export const updateAdmission = async (req, res) => {
         if (admission.student && admission.student.status === 'Deactivated') {
             return res.status(400).json({ message: "This student is deactivated. Updates are restricted." });
         }
+
+        // Invalidate admissions list cache
+        await clearCachePattern("admissions:list:*");
+        // Invalidate specific student report cache
+        await deleteCache(`student:report:${studentId}`);
 
         res.status(200).json({
             message: "Admission updated successfully",
