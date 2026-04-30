@@ -195,6 +195,30 @@ const SocialFeed = () => {
         }
     };
 
+    const handleUpdateComment = async (postId, commentId, text) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/posts/${postId}/comment/${commentId}`, {
+                method: "PUT",
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ text })
+            });
+
+            if (response.ok) {
+                const updatedPost = await response.json();
+                setPosts(posts.map(p => p._id === postId ? { ...p, comments: updatedPost.comments } : p));
+                toast.success("Comment updated");
+            } else {
+                toast.error("Failed to update comment");
+            }
+        } catch {
+            toast.error("Error updating comment");
+        }
+    };
+
     const handlePostView = async (postId) => {
         try {
             const token = localStorage.getItem("token");
@@ -759,6 +783,7 @@ const SocialFeed = () => {
                                     onDelete={() => handleDeletePost(post._id)}
                                     onUpdate={(formData) => handleUpdatePost(post._id, formData)}
                                     onDeleteComment={(commentId) => handleDeleteComment(post._id, commentId)}
+                                    onUpdateComment={(commentId, text) => handleUpdateComment(post._id, commentId, text)}
                                     onViewParticipants={(title, users) => setParticipantModalData({ title, users })}
                                     onView={() => handlePostView(post._id)}
                                     currentUser={currentUser}
@@ -1075,12 +1100,14 @@ const ParticipantModal = ({ data, onClose, theme }) => {
     );
 };
 
-const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, onUpdate, onDeleteComment, onViewParticipants, onView, currentUser, theme }) => {
+const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, onUpdate, onDeleteComment, onUpdateComment, onViewParticipants, onView, currentUser, theme }) => {
     const [commentText, setCommentText] = useState("");
     const [showComments, setShowComments] = useState(false);
     const [showCommentTagList, setShowCommentTagList] = useState(false);
     const [commentTagSearch, setCommentTagSearch] = useState("");
     const [selectedCommentTags, setSelectedCommentTags] = useState([]);
+    const [editingCommentId, setEditingCommentId] = useState(null);
+    const [editCommentText, setEditCommentText] = useState("");
 
     useEffect(() => {
         if (onView) {
@@ -1189,8 +1216,8 @@ const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, on
                                 {post.author?.role}
                             </span>
 
-                            {/* Action Buttons for Author or SuperAdmin */}
-                            {(post.author?._id === currentUser._id || currentUser.role === "superAdmin") && !isEditing && (
+                            {/* Action Buttons for SuperAdmin only */}
+                            {currentUser.role === "superAdmin" && !isEditing && (
                                 <div className="flex items-center gap-2 sm:gap-3 ml-auto sm:ml-4">
                                     <button
                                         onClick={() => setIsEditing(true)}
@@ -1506,17 +1533,61 @@ const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, on
                                             <h5 className={`text-xs font-black ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{comment.user?.name}</h5>
                                             <div className="flex items-center gap-2">
                                                 <span className="text-[9px] text-gray-500 dark:text-gray-400 font-bold">{new Date(comment.createdAt).toLocaleDateString()}</span>
-                                                {(comment.user?._id === currentUser.id || comment.user === currentUser.id || post.author?._id === currentUser.id) && (
-                                                    <button
-                                                        onClick={() => onDeleteComment(comment._id)}
-                                                        className="text-red-500 hover:text-red-600 transition-colors"
-                                                    >
-                                                        <FaTrash size={8} />
-                                                    </button>
+                                                {(currentUser.role === "superAdmin" || comment.user?._id === currentUser._id || comment.user === currentUser._id) && (
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => {
+                                                                setEditingCommentId(comment._id);
+                                                                setEditCommentText(comment.text);
+                                                            }}
+                                                            className="text-cyan-500 hover:text-cyan-600 transition-colors"
+                                                        >
+                                                            <FaEdit size={8} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => onDeleteComment(comment._id)}
+                                                            className="text-red-500 hover:text-red-600 transition-colors"
+                                                        >
+                                                            <FaTrash size={8} />
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
-                                        <p className="text-sm text-gray-600 dark:text-gray-400">{comment.text}</p>
+                                        {editingCommentId === comment._id ? (
+                                            <div className="mt-2 flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={editCommentText}
+                                                    onChange={(e) => setEditCommentText(e.target.value)}
+                                                    className={`flex-1 text-xs border rounded px-2 py-1 outline-none focus:border-cyan-500 ${theme === 'dark' ? 'bg-[#131619] border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+                                                    autoFocus
+                                                    onKeyPress={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            onUpdateComment(comment._id, editCommentText);
+                                                            setEditingCommentId(null);
+                                                        }
+                                                    }}
+                                                />
+                                                <button
+                                                    onClick={() => {
+                                                        onUpdateComment(comment._id, editCommentText);
+                                                        setEditingCommentId(null);
+                                                    }}
+                                                    className="text-[10px] bg-cyan-600 hover:bg-cyan-500 text-white px-2 py-1 rounded font-bold transition-colors"
+                                                >
+                                                    Save
+                                                </button>
+                                                <button
+                                                    onClick={() => setEditingCommentId(null)}
+                                                    className="text-[10px] bg-gray-500 hover:bg-gray-400 text-white px-2 py-1 rounded font-bold transition-colors"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-gray-600 dark:text-gray-400">{comment.text}</p>
+                                        )}
                                     </div>
                                 </div>
                             ))}

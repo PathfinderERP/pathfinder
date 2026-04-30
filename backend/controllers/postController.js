@@ -420,6 +420,36 @@ export const deleteComment = async (req, res) => {
     }
 };
 
+export const updateComment = async (req, res) => {
+    try {
+        const { postId, commentId } = req.params;
+        const { text } = req.body;
+        
+        if (!text) return res.status(400).json({ message: "Comment text is required" });
+
+        const post = await Post.findById(postId);
+        if (!post) return res.status(404).json({ message: "Post not found" });
+
+        const comment = post.comments.id(commentId);
+        if (!comment) return res.status(404).json({ message: "Comment not found" });
+
+        // Check if user is author of comment or superAdmin
+        if (comment.user.toString() !== req.user.id && req.user.role !== "superAdmin") {
+            return res.status(403).json({ message: "Unauthorized to update this comment" });
+        }
+
+        comment.text = text;
+        await post.save();
+
+        const populatedPost = await Post.findById(postId)
+            .populate("comments.user", "name email");
+
+        res.json(populatedPost);
+    } catch (error) {
+        res.status(500).json({ message: "Error updating comment" });
+    }
+};
+
 export const recordPostView = async (req, res) => {
     try {
         const postId = req.params.id;

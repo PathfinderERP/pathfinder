@@ -36,6 +36,7 @@ const LeadManagementContent = () => {
     const [selectedDetailLead, setSelectedDetailLead] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [dailyLeads, setDailyLeads] = useState([]); // Added state
+    const [selectedLeads, setSelectedLeads] = useState([]);
     const [followUpStats, setFollowUpStats] = useState({
         totalFollowUps: 0,
         hotLeads: 0,
@@ -82,8 +83,8 @@ const LeadManagementContent = () => {
         board: [],
         className: [],
         leadResponsibility: [],
-        fromDate: "",
-        toDate: "",
+        fromDate: new Date().toISOString().split('T')[0],
+        toDate: new Date().toISOString().split('T')[0],
         scheduledDate: new Date().toISOString().split('T')[0],
         feedback: [],
         followUpStatus: []
@@ -224,6 +225,7 @@ const LeadManagementContent = () => {
                 if (data.stats) {
                     setLeadStats(data.stats);
                 }
+                setSelectedLeads([]);
             } else {
                 toast.error(data.message || "Failed to fetch leads");
                 console.error("Lead Management - Error response:", data);
@@ -378,8 +380,8 @@ const LeadManagementContent = () => {
             board: [],
             className: [],
             leadResponsibility: [],
-            fromDate: "",
-            toDate: "",
+            fromDate: new Date().toISOString().split('T')[0],
+            toDate: new Date().toISOString().split('T')[0],
             scheduledDate: new Date().toISOString().split('T')[0],
             feedback: [],
             followUpStatus: []
@@ -392,6 +394,55 @@ const LeadManagementContent = () => {
     const handleRowClick = (lead) => {
         setSelectedDetailLead(lead);
         setShowDetailModal(true);
+    };
+
+    const handleSelectLead = (e, leadId) => {
+        e.stopPropagation();
+        if (e.target.checked) {
+            setSelectedLeads(prev => [...prev, leadId]);
+        } else {
+            setSelectedLeads(prev => prev.filter(id => id !== leadId));
+        }
+    };
+
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            const leadIds = leads.map(lead => lead._id);
+            setSelectedLeads(leadIds);
+        } else {
+            setSelectedLeads([]);
+        }
+    };
+
+    const handleMultipleDelete = async () => {
+        if (!window.confirm(`Are you sure you want to delete ${selectedLeads.length} leads?`)) {
+            return;
+        }
+        
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/bulk-delete`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ leadIds: selectedLeads }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                toast.success("Leads deleted successfully");
+                setSelectedLeads([]);
+                fetchLeads();
+            } else {
+                toast.error(data.message || "Failed to delete leads");
+            }
+        } catch (error) {
+            console.error("Error deleting leads:", error);
+            toast.error("Error deleting leads");
+        }
     };
 
     const handleDelete = async (id) => {
@@ -536,6 +587,7 @@ const LeadManagementContent = () => {
         const today = new Date().toISOString().split('T')[0];
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
         const last7Days = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+        const lastMonth = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
 
         switch (preset) {
             case 'today':
@@ -546,6 +598,9 @@ const LeadManagementContent = () => {
                 break;
             case '7days':
                 setFilters(prev => ({ ...prev, fromDate: last7Days, toDate: today }));
+                break;
+            case 'lastMonth':
+                setFilters(prev => ({ ...prev, fromDate: lastMonth, toDate: today }));
                 break;
             default:
                 break;
@@ -618,6 +673,14 @@ const LeadManagementContent = () => {
                                 <FaPlus /> Add Lead
                             </button>
                         )}
+                        {canDelete && selectedLeads.length > 0 && (
+                            <button
+                                onClick={handleMultipleDelete}
+                                className="px-6 py-3 bg-red-500 text-white hover:bg-red-600 rounded-[2px] shadow-[0_0_20px_rgba(239,68,68,0.2)] transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"
+                            >
+                                <FaTrash /> Delete Selected ({selectedLeads.length})
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -642,6 +705,12 @@ const LeadManagementContent = () => {
                             className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${filters.fromDate === new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
                         >
                             Last 7 Days
+                        </button>
+                        <button
+                            onClick={() => setDatePreset('lastMonth')}
+                            className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${filters.fromDate === new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0] && filters.toDate === new Date().toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
+                        >
+                            Last Month
                         </button>
                         <button
                             onClick={resetFilters}
@@ -1159,7 +1228,17 @@ const LeadManagementContent = () => {
                         <table className="w-full">
                             <thead className={`border-b ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                 <tr>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>S/N</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                        <div className="flex items-center gap-2">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={leads.length > 0 && selectedLeads.length === leads.length}
+                                                onChange={handleSelectAll}
+                                                className="cursor-pointer"
+                                            />
+                                            <span>S/N</span>
+                                        </div>
+                                    </th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Follow Up</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Name</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Contact</th>
@@ -1198,7 +1277,17 @@ const LeadManagementContent = () => {
                                 ) : (
                                     leads.map((lead, index) => (
                                         <tr key={lead._id} onClick={() => handleRowClick(lead)} className={`transition-all group cursor-pointer ${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'}`}>
-                                            <td className={`px-6 py-4 text-[10px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{(currentPage - 1) * limit + index + 1}</td>
+                                            <td className={`px-6 py-4 text-[10px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={selectedLeads.includes(lead._id)}
+                                                        onChange={(e) => handleSelectLead(e, lead._id)}
+                                                        className="cursor-pointer"
+                                                    />
+                                                    <span>{(currentPage - 1) * limit + index + 1}</span>
+                                                </div>
+                                            </td>
                                             <td className="px-6 py-4">
                                                 {lead.followUps?.length > 0 ? (
                                                     <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-[2px] border transition-all ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
