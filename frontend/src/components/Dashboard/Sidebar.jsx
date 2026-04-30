@@ -77,7 +77,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Board Course Admission", path: "/board-admissions", permissionSection: "boardCourseAdmission" },
                 //{ name: "Board Admission Analysis", path: "/admissions/board-analysis", permissionSection: "boardCourseAdmission" },
                 { name: "Enrolled Students", path: "/enrolled-students", permissionSection: "enrolledStudents" },
-                { name: "Section Allotment", path: "/admissions/section-allotment", permissionSection: "sectionAllotment" },
+                //{ name: "Section Allotment", path: "/admissions/section-allotment", permissionSection: "sectionAllotment" },
                 // { name: "Walk-in Registration", path: "/student-registration", permissionSection: "allLeads" },
                 { name: "Telecalling Console", path: "/admissions/telecalling-console", permissionSection: "telecallingConsole" },
             ]
