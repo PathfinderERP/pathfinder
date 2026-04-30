@@ -1,7 +1,6 @@
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
-import { getCache, setCache, generateCacheKey } from "../../utils/redisCache.js";
 
 export const getAdmissions = async (req, res) => {
     try {
@@ -58,19 +57,7 @@ export const getAdmissions = async (req, res) => {
             }
         }
 
-        // REDIS CACHING LOGIC
-        const cacheKey = generateCacheKey("admissions:list", {
-            query: req.query,
-            allowedCentres: allowedCentreNames,
-            role: req.user.role
-        });
-
-        const cachedData = await getCache(cacheKey);
-        if (cachedData) {
-            return res.status(200).json(cachedData);
-        }
-
-        // Fetch Normal Admissions if not in cache
+        // Fetch Normal Admissions
         const normalAdmissions = await Admission.find(query)
             .populate({
                 path: 'student',
@@ -87,9 +74,6 @@ export const getAdmissions = async (req, res) => {
             .populate('createdBy', 'name')
             .sort({ createdAt: -1 })
             .lean();
-
-        // Save to cache (TTL: 10 minutes for this frequent list)
-        await setCache(cacheKey, normalAdmissions, 600);
 
         res.status(200).json(normalAdmissions);
     } catch (err) {

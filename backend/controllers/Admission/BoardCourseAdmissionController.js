@@ -9,7 +9,6 @@ import Centre from "../../models/Master_data/Centre.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 import BoardCourseSubject from "../../models/Master_data/BoardCourseSubject.js";
 import Class from "../../models/Master_data/Class.js";
-import { getCache, setCache, clearCachePattern, generateCacheKey } from "../../utils/redisCache.js";
 
 // Helper to calculate next months due date
 const getNextMonthDate = (startDate, monthsToAdd) => {
@@ -281,12 +280,6 @@ export const createBoardAdmission = async (req, res) => {
             { status: "ENROLLED" }
         );
 
-        // Invalidate board-related and finance caches
-        await clearCachePattern("board:admissions:*");
-        await clearCachePattern("board:analysis:*");
-        await clearCachePattern("board:counselling:*");
-        await clearCachePattern("finance:daily_collection:*");
-
         res.status(201).json({
             message: "Board Course Admission created successfully",
             admission: newAdmission
@@ -302,17 +295,6 @@ export const getBoardAdmissions = async (req, res) => {
     try {
         const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
         
-        // REDIS CACHING START
-        const cacheKey = generateCacheKey("board:admissions:list", {
-            query: req.query,
-            userId: req.user._id,
-            role: req.user.role,
-            centres: req.user.centres
-        });
-        const cachedData = await getCache(cacheKey);
-        if (cachedData) return res.status(200).json(cachedData);
-        // REDIS CACHING END
-
         let query = {};
         if (!isSuperAdmin) {
             // Get centre names for the user's assigned centre IDs
@@ -328,9 +310,6 @@ export const getBoardAdmissions = async (req, res) => {
             .populate('installments.subjects.subjectId')
             .populate('createdBy', 'name')
             .sort({ createdAt: -1 });
-
-        // Cache for 10 minutes
-        await setCache(cacheKey, admissions, 600);
 
         res.status(200).json(admissions);
     } catch (error) {
@@ -482,11 +461,6 @@ export const updateBoardSubjects = async (req, res) => {
 
         await admission.save();
 
-        // Invalidate board-related and finance caches
-        await clearCachePattern("board:admissions:*");
-        await clearCachePattern("board:analysis:*");
-        await clearCachePattern("finance:daily_collection:*");
-
         res.status(200).json({ message: "Subjects updated from month " + startMonth, admission });
 
     } catch (error) {
@@ -579,11 +553,6 @@ export const collectBoardExamFee = async (req, res) => {
         // Update total paid amount
         admission.totalPaidAmount += paidAmount;
         await admission.save();
-
-        // Invalidate board-related and finance caches
-        await clearCachePattern("board:admissions:*");
-        await clearCachePattern("board:analysis:*");
-        await clearCachePattern("finance:daily_collection:*");
 
         res.status(200).json({ message: "Exam fee payment collected", admission });
     } catch (error) {
@@ -794,11 +763,6 @@ export const collectBoardInstallment = async (req, res) => {
 
         await admission.save();
 
-        // Invalidate board-related and finance caches
-        await clearCachePattern("board:admissions:*");
-        await clearCachePattern("board:analysis:*");
-        await clearCachePattern("finance:daily_collection:*");
-
         res.status(200).json({ message: "Payment collected", admission });
 
     } catch (error) {
@@ -889,11 +853,6 @@ export const collectBoardAdditionalFee = async (req, res) => {
 
         admission.totalPaidAmount += paidAmount;
         await admission.save();
-
-        // Invalidate board-related and finance caches
-        await clearCachePattern("board:admissions:*");
-        await clearCachePattern("board:analysis:*");
-        await clearCachePattern("finance:daily_collection:*");
 
         res.status(200).json({ message: "Additional fee payment collected", admission });
     } catch (error) {
@@ -1013,11 +972,6 @@ export const collectNcrpFees = async (req, res) => {
         admission.totalPaidAmount = (admission.totalPaidAmount || 0) + totalPaidToday;
         await admission.save();
 
-        // Invalidate board-related and finance caches
-        await clearCachePattern("board:admissions:*");
-        await clearCachePattern("board:analysis:*");
-        await clearCachePattern("finance:daily_collection:*");
-
         res.status(200).json({ message: "NCRP fee payment collected successfully", admission });
     } catch (error) {
         console.error("Collect NCRP Fees Error:", error);
@@ -1028,17 +982,6 @@ export const collectNcrpFees = async (req, res) => {
 export const getBoardAdmissionAnalysis = async (req, res) => {
     try {
         const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
-
-        // REDIS CACHING START
-        const cacheKey = generateCacheKey("board:admissions:analysis", {
-            query: req.query,
-            userId: req.user._id,
-            role: req.user.role,
-            centres: req.user.centres
-        });
-        const cachedData = await getCache(cacheKey);
-        if (cachedData) return res.status(200).json(cachedData);
-        // REDIS CACHING END
 
         let match = {};
         // ... (rest of the aggregation logic)
@@ -1124,13 +1067,9 @@ export const getBoardAdmissionAnalysis = async (req, res) => {
             byMonth: monthlyStats
         };
 
-        // Cache for 10 minutes
-        await setCache(cacheKey, responseData, 600);
-
         res.status(200).json(responseData);
     } catch (error) {
         console.error("Board Analysis Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
-

@@ -3,7 +3,6 @@ import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js
 import Student from "../../models/Students.js";
 import Centre from "../../models/Master_data/Centre.js";
 import LeadManagement from "../../models/LeadManagement.js";
-import { getCache, setCache, clearCachePattern, generateCacheKey } from "../../utils/redisCache.js";
 
 
 export const createBoardCourseCounselling = async (req, res) => {
@@ -205,9 +204,6 @@ export const createBoardCourseCounselling = async (req, res) => {
 
         await counselling.save();
 
-        // Invalidate counselling cache
-        await clearCachePattern("board:counselling:*");
-
         res.status(201).json({ message: "Board course counselling recorded", counselling });
     } catch (error) {
         console.error("Error in createBoardCourseCounselling:", error);
@@ -236,17 +232,6 @@ export const getBoardCourseCounselling = async (req, res) => {
 
         const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
 
-        // REDIS CACHING START
-        const cacheKey = generateCacheKey("board:counselling:list", {
-            query: req.query,
-            userId: req.user._id,
-            role: req.user.role,
-            centres: req.user.centres
-        });
-        const cachedData = await getCache(cacheKey);
-        if (cachedData) return res.status(200).json(cachedData);
-        // REDIS CACHING END
-
         let query = { status: "PENDING" };
 
         if (!isSuperAdmin) {
@@ -266,9 +251,6 @@ export const getBoardCourseCounselling = async (req, res) => {
             .populate('selectedSubjects.subjectId')
             .populate('counselledBy', 'name email')
             .sort({ counselledDate: -1, createdAt: -1 });
-
-        // Cache for 10 minutes
-        await setCache(cacheKey, counselling, 600);
 
         res.status(200).json(counselling);
     } catch (error) {
@@ -330,9 +312,6 @@ export const updateBoardCourseCounselling = async (req, res) => {
 
         await counselling.save();
 
-        // Invalidate counselling cache
-        await clearCachePattern("board:counselling:*");
-
         res.status(200).json({ message: "Counselling record updated", counselling });
     } catch (error) {
         console.error("Error in updateBoardCourseCounselling:", error);
@@ -376,10 +355,6 @@ export const checkDuplicateContact = async (req, res) => {
 export const deleteBoardCourseCounselling = async (req, res) => {
     try {
         await BoardCourseCounselling.findByIdAndDelete(req.params.id);
-
-        // Invalidate counselling cache
-        await clearCachePattern("board:counselling:*");
-
         res.status(200).json({ message: "Counselling record deleted" });
     } catch (error) {
         res.status(500).json({ message: "Server error", error: error.message });
