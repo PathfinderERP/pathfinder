@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Select from "react-select";
-import { FaFilter, FaPlus, FaSearch, FaDownload, FaEye, FaEdit, FaTrash, FaSync, FaSun, FaMoon, FaUserGraduate, FaCheckCircle } from "react-icons/fa";
+import { FaTimes, FaFilter, FaPlus, FaSearch, FaDownload, FaEye, FaEdit, FaTrash, FaSync, FaSun, FaMoon, FaUserGraduate, FaCheckCircle } from "react-icons/fa";
 import { useTheme } from "../../context/ThemeContext";
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Link, useNavigate, useSearchParams, useLocation } from "react-router-dom";
@@ -1371,7 +1371,7 @@ const BoardAdmissionsContent = () => {
                                     {editingCounsellingId ? 'Updating counselling details' : 'Adding details for board enrolment workflow'}
                                 </p>
                             </div>
-                            <button onClick={() => { setShowCounsellingModal(false); setEditingCounsellingId(null); setMobileCheck({ checking: false, taken: false, name: "" }); setEmailCheck({ checking: false, taken: false, name: "" }); }} className="text-gray-500 hover:text-white transition-colors p-2"><FaSync className="rotate-45" /></button>
+                            <button onClick={() => { setShowCounsellingModal(false); setEditingCounsellingId(null); setMobileCheck({ checking: false, taken: false, name: "" }); setEmailCheck({ checking: false, taken: false, name: "" }); }} className="text-gray-500 hover:text-white transition-colors p-2"><FaTimes size={16} /></button>
                         </div>
 
                         <div className="space-y-8 flex-1 overflow-y-auto px-1 custom-scrollbar">
@@ -1395,8 +1395,8 @@ const BoardAdmissionsContent = () => {
                                             type="text"
                                             maxLength="10"
                                             className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${mobileCheck.taken
-                                                    ? 'border-red-500 bg-red-500/5 text-red-400'
-                                                    : isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'
+                                                ? 'border-red-500 bg-red-500/5 text-red-400'
+                                                : isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'
                                                 }`}
                                             placeholder="10-DIGIT MOBILE"
                                             value={counsellingForm.mobileNum}
@@ -1423,8 +1423,8 @@ const BoardAdmissionsContent = () => {
                                         <input
                                             type="email"
                                             className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${emailCheck.taken
-                                                    ? 'border-red-500 bg-red-500/5 text-red-400'
-                                                    : isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'
+                                                ? 'border-red-500 bg-red-500/5 text-red-400'
+                                                : isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'
                                                 }`}
                                             placeholder="E.G. MAIL@DOMAIN.COM"
                                             value={counsellingForm.studentEmail}
@@ -1727,13 +1727,11 @@ const BoardAdmissionsContent = () => {
 
                                     <div>
                                         {counsellingForm.programme === "NCRP" ? (
-                                            <div className={`flex flex-col items-center justify-center h-[160px] rounded-[4px] border-2 border-dashed ${
-                                                isDarkMode ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-300 bg-amber-50'
-                                            }`}>
-                                                <span className="text-2xl mb-2">📋</span>
-                                                <p className={`text-[9px] font-black uppercase tracking-widest text-center leading-relaxed ${
-                                                    isDarkMode ? 'text-amber-400' : 'text-amber-600'
+                                            <div className={`flex flex-col items-center justify-center h-[160px] rounded-[4px] border-2 border-dashed ${isDarkMode ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-300 bg-amber-50'
                                                 }`}>
+                                                <span className="text-2xl mb-2">📋</span>
+                                                <p className={`text-[9px] font-black uppercase tracking-widest text-center leading-relaxed ${isDarkMode ? 'text-amber-400' : 'text-amber-600'
+                                                    }`}>
                                                     NCRP Programme
                                                 </p>
                                                 <p className="text-[8px] text-gray-500 font-bold uppercase tracking-wider mt-1 text-center px-4">

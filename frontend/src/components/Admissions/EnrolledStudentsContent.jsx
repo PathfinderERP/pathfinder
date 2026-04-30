@@ -1101,7 +1101,6 @@ const EnrolledStudentsContent = () => {
             <div className={`flex border-b mb-8 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                 {[
                     { label: 'Active Students', id: 'Active', color: 'cyan' },
-                    { label: 'Board Courses', id: 'Board', color: 'purple' },
                     { label: 'Deactivated', id: 'Deactivated', color: 'red' }
                 ].map((tab) => (
                     <button

@@ -1,5 +1,5 @@
 import express from "express";
-import { createPost, getAllPosts, likePost, votePoll, addComment, getUsersForTagging, deletePost, updatePost, deleteComment, recordPostView, updateSocialVisit, getSocialActivity } from "../controllers/postController.js";
+import { createPost, getAllPosts, likePost, votePoll, addComment, getUsersForTagging, deletePost, updatePost, deleteComment, updateComment, recordPostView, updateSocialVisit, getSocialActivity } from "../controllers/postController.js";
 import { requireAuth } from "../middleware/permissionMiddleware.js";
 import { upload } from "../utils/r2Upload.js";
 
@@ -17,6 +17,7 @@ router.post("/:id/view", requireAuth, recordPostView);
 router.post("/visit", requireAuth, updateSocialVisit);
 router.get("/activity", requireAuth, getSocialActivity);
 router.delete("/:id/comment/:commentId", requireAuth, deleteComment);
+router.put("/:id/comment/:commentId", requireAuth, updateComment);
 router.get("/users", requireAuth, getUsersForTagging);
 
 export default router;

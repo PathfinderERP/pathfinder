@@ -1072,7 +1072,7 @@ const EmployeesAttendance = () => {
                             />
                             <StatCard
                                 title="Efficiency"
-                                value={(stats?.efficiency || 0) + "%"}
+                                value={stats?.efficiency ? (String(stats.efficiency).endsWith('%') ? stats.efficiency : `${stats.efficiency}%`) : "0%"}
                                 subValue="Based on Shift Comp."
                                 icon={<FaChartLine />}
                                 color="amber"
