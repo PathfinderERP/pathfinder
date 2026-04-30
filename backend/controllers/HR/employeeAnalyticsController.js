@@ -15,7 +15,7 @@ export const getEmployeeAnalytics = async (req, res) => {
 
         // Data Isolation Match Stage
         let matchStageMatch = {
-            status: status ? { $in: status.split(",") } : "Active",
+            ...(status && { status: { $in: status.split(",") } }),
             ...(department && { department: { $in: department.split(",").map(id => new mongoose.Types.ObjectId(id)) } }),
             ...(designation && { designation: { $in: designation.split(",").map(id => new mongoose.Types.ObjectId(id)) } }),
             ...(centre && { primaryCentre: { $in: centre.split(",").map(id => new mongoose.Types.ObjectId(id)) } }),
@@ -53,10 +53,11 @@ export const getEmployeeAnalytics = async (req, res) => {
             } else if (tab === 'hod') {
                 roleFilter = hodFilter;
             } else if (tab === 'staff') {
-                // Staff = Not teacher, Not HOD (role or flags), and Not superAdmin (top leadership)
+                // Staff = Not teacher, Not HOD (role or flags)
+                // Note: Syncing with EmployeeList table logic (including superAdmin in staff tab if not explicitly filtered out)
                 roleFilter = {
                     $and: [
-                        { role: { $nin: ['teacher', 'HOD', 'superAdmin'] } },
+                        { role: { $nin: ['teacher', 'HOD'] } },
                         { isDeptHod: { $ne: true } },
                         { isBoardHod: { $ne: true } },
                         { isSubjectHod: { $ne: true } }
