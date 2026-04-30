@@ -209,11 +209,13 @@ export const getCentreTargets = async (req, res) => {
         });
 
         const finalResults = Object.values(groups).map(g => {
-            const achievementPercentage = g.targetAmount > 0
-                ? ((g.achievedAmountWithGST / g.targetAmount) * 100).toFixed(1)
+            const targetWithGST = g.targetAmount * 1.18;
+            const achievementPercentage = targetWithGST > 0
+                ? ((g.achievedAmountWithGST / targetWithGST) * 100).toFixed(1)
                 : 0;
             return {
                 ...g,
+                targetAmountWithGST: targetWithGST,
                 achievementPercentage
             };
         });

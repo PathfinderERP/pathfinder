@@ -154,7 +154,7 @@ const CentreTarget = () => {
             "Financial Year": t.financialYear,
             "Year": t.year,
             "Month": t.month,
-            "Target Amount": t.targetAmount,
+            "Target Amount": t.targetAmountWithGST || (t.targetAmount * 1.18),
             "Achieved (Inc. GST)": t.achievedAmountWithGST || t.achievedAmount,
             "Achieved (Excl. GST)": t.achievedAmountExclGST || (t.achievedAmount / 1.18).toFixed(2),
             "Achievement %": `${t.achievementPercentage}%`
@@ -375,7 +375,7 @@ const CentreTarget = () => {
                                             <td className="px-6 py-4">{target.financialYear}</td>
                                             <td className="px-6 py-4">{target.year}</td>
                                             <td className={`px-6 py-4 font-semibold ${isDarkMode ? 'text-cyan-100' : 'text-cyan-700'}`}>{target.month}</td>
-                                            <td className={`px-6 py-4 font-bold tracking-wide text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{target.targetAmount.toLocaleString()}</td>
+                                            <td className={`px-6 py-4 font-bold tracking-wide text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{(target.targetAmountWithGST || (target.targetAmount * 1.18)).toLocaleString()}</td>
                                             <td className="px-6 py-4 text-blue-500 font-bold text-center">{(target.achievedAmountWithGST || target.achievedAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                             <td className="px-6 py-4 text-emerald-500 font-bold text-center">{(target.achievedAmountExclGST || (target.achievedAmount / 1.18) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                             <td className={`px-6 py-4 font-black text-center ${parseFloat(target.achievementPercentage) > 50 ? "text-green-500" :
