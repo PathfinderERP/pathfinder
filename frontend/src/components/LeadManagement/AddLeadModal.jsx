@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { FaTimes, FaUserPlus, FaSync, FaSave, FaFilter, FaSearch } from "react-icons/fa";
 import { toast } from "react-toastify";
+import CustomSearchSelect from "../common/CustomSearchSelect";
 
 const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
     const [formData, setFormData] = useState({
@@ -129,7 +130,7 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             const examTagData = await examTagResponse.json();
             if (examTagResponse.ok) setExamTags(Array.isArray(examTagData) ? examTagData : []);
 
-            const sessionResponse = await fetch(`${import.meta.env.VITE_API_URL}/session`, {
+            const sessionResponse = await fetch(`${import.meta.env.VITE_API_URL}/session/list`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const sessionData = await sessionResponse.json();
@@ -252,17 +253,23 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                                 </div>
                                 <div>
                                     <label className={labelClasses}>Target Class *</label>
-                                    <select name="className" required value={formData.className} onChange={handleChange} className={selectClasses}>
-                                        <option value="">Select Class</option>
-                                        {classes.map(cls => <option key={cls._id} value={cls._id}>{cls.name.toUpperCase()}</option>)}
-                                    </select>
+                                    <CustomSearchSelect
+                                        options={classes.map(cls => ({ value: cls._id, label: cls.name }))}
+                                        value={formData.className}
+                                        onChange={(val) => setFormData({ ...formData, className: val })}
+                                        placeholder="Select Class"
+                                        isDarkMode={isDarkMode}
+                                    />
                                 </div>
                                 <div>
                                     <label className={labelClasses}>Board *</label>
-                                    <select name="board" required value={formData.board} onChange={handleChange} className={selectClasses}>
-                                        <option value="">Select Board</option>
-                                        {boards.map(b => <option key={b._id} value={b._id}>{b.boardName || b.boardCourse}</option>)}
-                                    </select>
+                                    <CustomSearchSelect
+                                        options={boards.map(b => ({ value: b._id, label: b.boardName || b.boardCourse }))}
+                                        value={formData.board}
+                                        onChange={(val) => setFormData({ ...formData, board: val })}
+                                        placeholder="Select Board"
+                                        isDarkMode={isDarkMode}
+                                    />
                                 </div>
                                 <div>
                                     <label className={labelClasses}>Target Exam</label>
@@ -279,19 +286,27 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label className={labelClasses}>Target Centre *</label>
-                                    <select name="centre" required value={formData.centre} onChange={handleChange} className={selectClasses}>
-                                        <option value="">Select Centre</option>
-                                        {centres.map(c => <option key={c._id} value={c._id}>{c.centreName.toUpperCase()}</option>)}
-                                    </select>
+                                    <CustomSearchSelect
+                                        options={centres.map(c => ({ value: c._id, label: c.centreName }))}
+                                        value={formData.centre}
+                                        onChange={(val) => setFormData({ ...formData, centre: val })}
+                                        placeholder="Select Centre"
+                                        isDarkMode={isDarkMode}
+                                    />
                                 </div>
                                 <div>
                                     <label className={labelClasses}>Lead Priority *</label>
-                                    <select name="leadType" required value={formData.leadType} onChange={handleChange} className={selectClasses}>
-                                        <option value="">Select Priority</option>
-                                        <option value="HOT LEAD">HOT LEAD</option>
-                                        <option value="COLD LEAD">COLD LEAD</option>
-                                        <option value="NEGATIVE">NEGATIVE</option>
-                                    </select>
+                                    <CustomSearchSelect
+                                        options={[
+                                            { value: "HOT LEAD", label: "HOT LEAD" },
+                                            { value: "COLD LEAD", label: "COLD LEAD" },
+                                            { value: "NEGATIVE", label: "NEGATIVE" }
+                                        ]}
+                                        value={formData.leadType}
+                                        onChange={(val) => setFormData({ ...formData, leadType: val })}
+                                        placeholder="Select Priority"
+                                        isDarkMode={isDarkMode}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -326,22 +341,21 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                                 {[
-                                    { label: "Admission Type", key: "type", options: [{ v: "INSTATION", l: "INSTA" }, { v: "OUTSTATION", l: "OUT" }] },
-                                    { label: "Mode", key: "mode", options: [{ v: "ONLINE", l: "ON" }, { v: "OFFLINE", l: "OFF" }] },
+                                    { label: "Admission Type", key: "type", options: [{ v: "INSTATION", l: "INSTATION" }, { v: "OUTSTATION", l: "OUTSTATION" }] },
+                                    { label: "Mode", key: "mode", options: [{ v: "ONLINE", l: "ONLINE" }, { v: "OFFLINE", l: "OFFLINE" }] },
                                     { label: "Class", key: "class", options: classes.map(c => ({ v: c._id, l: c.name })) },
                                     { label: "Exam Type", key: "examTag", options: examTags.map(t => ({ v: t._id, l: t.name })) },
                                     { label: "Session", key: "session", options: sessions.map(s => ({ v: s.sessionName, l: s.sessionName })) }
                                 ].map(filter => (
                                     <div key={filter.key} className="space-y-1">
                                         <label className="text-[8px] font-black uppercase text-gray-600 tracking-widest">{filter.label}</label>
-                                        <select
+                                        <CustomSearchSelect
+                                            options={filter.options.map(opt => ({ value: opt.v, label: opt.l }))}
                                             value={courseFilters[filter.key]}
-                                            onChange={(e) => setCourseFilters({ ...courseFilters, [filter.key]: e.target.value })}
-                                            className={`w-full py-1.5 rounded-[2px] border text-[8px] font-black uppercase tracking-widest focus:outline-none transition-all appearance-none cursor-pointer ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-400 focus:border-cyan-500/50' : 'bg-white border-gray-100 text-gray-500 focus:border-cyan-500'}`}
-                                        >
-                                            <option value="">Any</option>
-                                            {filter.options.map(opt => <option key={opt.v} value={opt.v}>{opt.l.toUpperCase()}</option>)}
-                                        </select>
+                                            onChange={(val) => setCourseFilters({ ...courseFilters, [filter.key]: val })}
+                                            placeholder="Any"
+                                            isDarkMode={isDarkMode}
+                                        />
                                     </div>
                                 ))}
                             </div>
@@ -349,35 +363,36 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                         <div className="space-y-1.5">
                             <label className={labelClasses}>Select Course ({filteredCourses.length}) *</label>
-                            <select name="course" required value={formData.course} onChange={handleChange} className={selectClasses}>
-                                <option value="">Select Course</option>
-                                {filteredCourses.map(c => <option key={c._id} value={c._id}>{c.courseName.toUpperCase()}</option>)}
-                            </select>
+                            <CustomSearchSelect
+                                options={filteredCourses.map(c => ({ value: c._id, label: c.courseName }))}
+                                value={formData.course}
+                                onChange={(val) => setFormData({ ...formData, course: val })}
+                                placeholder="Select Course"
+                                isDarkMode={isDarkMode}
+                            />
                         </div>
 
                         <div className="space-y-1.5">
                             <label className={labelClasses}>Origin Source *</label>
-                            <select name="source" required value={formData.source} onChange={handleChange} className={selectClasses}>
-                                <option value="">Select Source</option>
-                                {sources.map(s => <option key={s._id} value={s.sourceName}>{s.sourceName.toUpperCase()}</option>)}
-                            </select>
+                            <CustomSearchSelect
+                                options={sources.map(s => ({ value: s.sourceName, label: s.sourceName }))}
+                                value={formData.source}
+                                onChange={(val) => setFormData({ ...formData, source: val })}
+                                placeholder="Select Source"
+                                isDarkMode={isDarkMode}
+                            />
                         </div>
 
                         <div className="md:col-span-2 space-y-1.5">
                             <label className={labelClasses}>Assign To *</label>
                             {['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, '')) ? (
-                                <select
-                                    name="leadResponsibility"
-                                    required
+                                <CustomSearchSelect
+                                    options={telecallers.map(t => ({ value: t.name, label: t.name }))}
                                     value={formData.leadResponsibility}
-                                    onChange={handleChange}
-                                    className={selectClasses}
-                                >
-                                    <option value="">Select Agent</option>
-                                    {telecallers.map(t => (
-                                        <option key={t._id} value={t.name}>{t.name.toUpperCase()}</option>
-                                    ))}
-                                </select>
+                                    onChange={(val) => setFormData({ ...formData, leadResponsibility: val })}
+                                    placeholder="Select Agent"
+                                    isDarkMode={isDarkMode}
+                                />
                             ) : (
                                 <div className={`w-full px-4 py-2.5 rounded-[4px] border text-[11px] font-black uppercase tracking-widest flex items-center justify-between ${isDarkMode ? 'bg-[#131619] border-gray-700 text-cyan-400' : 'bg-gray-100 border-gray-200 text-gray-700'}`}>
                                     <span>{formData.leadResponsibility || currentUser?.name || 'You'}</span>
