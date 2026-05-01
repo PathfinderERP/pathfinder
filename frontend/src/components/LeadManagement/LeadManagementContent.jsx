@@ -74,7 +74,12 @@ const LeadManagementContent = () => {
     const [totalLeads, setTotalLeads] = useState(0);
     const limit = 10;
 
-    // Filter states
+    const [dashboardFilters, setDashboardFilters] = useState({
+        fromDate: "",
+        toDate: "",
+        scheduledDate: new Date().toISOString().split('T')[0] // Default to today for scheduled
+    });
+
     const [filters, setFilters] = useState({
         leadType: [],
         source: [],
@@ -83,9 +88,8 @@ const LeadManagementContent = () => {
         board: [],
         className: [],
         leadResponsibility: [],
-        fromDate: new Date().toISOString().split('T')[0],
-        toDate: new Date().toISOString().split('T')[0],
-        scheduledDate: new Date().toISOString().split('T')[0],
+        fromDate: "", // These are for the table
+        toDate: "",   // These are for the table
         feedback: [],
         followUpStatus: []
     });
@@ -120,17 +124,22 @@ const LeadManagementContent = () => {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams();
 
-            // Pass all relevant filters to the stats endpoint (handling MultiSelect arrays)
+            // Pass all relevant attribute filters
             Object.entries(filters).forEach(([key, value]) => {
                 if (Array.isArray(value)) {
                     value.forEach(v => {
                         const val = (v && typeof v === 'object' && 'value' in v) ? v.value : v;
                         if (val) params.append(key, val);
                     });
-                } else if (value && key !== 'searchTerm') {
+                } else if (value && !['fromDate', 'toDate'].includes(key)) {
                     params.append(key, value);
                 }
             });
+
+            // ADD Dashboard specific date filters
+            if (dashboardFilters.fromDate) params.append('fromDate', dashboardFilters.fromDate);
+            if (dashboardFilters.toDate) params.append('toDate', dashboardFilters.toDate);
+            if (dashboardFilters.scheduledDate) params.append('scheduledDate', dashboardFilters.scheduledDate);
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/stats/today-followups?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -144,7 +153,7 @@ const LeadManagementContent = () => {
         } finally {
             setStatsLoading(false);
         }
-    }, [filters]);
+    }, [filters, dashboardFilters]);
 
     const fetchCentreAnalysis = useCallback(async () => {
         setAnalysisLoading(true);
@@ -152,17 +161,19 @@ const LeadManagementContent = () => {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams();
 
-            // Sync with current filters
+            // Sync with current attribute filters
             Object.entries(filters).forEach(([key, value]) => {
                 if (Array.isArray(value)) {
                     value.forEach(v => {
                         const val = (v && typeof v === 'object' && 'value' in v) ? v.value : v;
                         if (val) params.append(key, val);
                     });
-                } else if (value && ['fromDate', 'toDate'].includes(key)) {
-                    params.append(key, value);
                 }
             });
+
+            // ADD Dashboard specific date filters
+            if (dashboardFilters.fromDate) params.append('fromDate', dashboardFilters.fromDate);
+            if (dashboardFilters.toDate) params.append('toDate', dashboardFilters.toDate);
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/stats/centre-analysis?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -176,7 +187,7 @@ const LeadManagementContent = () => {
         } finally {
             setAnalysisLoading(false);
         }
-    }, [filters]);
+    }, [filters, dashboardFilters]);
 
     useEffect(() => {
         fetchLeadStats();
@@ -374,6 +385,10 @@ const LeadManagementContent = () => {
         setCurrentPage(1);
     };
 
+    const handleDashboardFilterChange = (name, value) => {
+        setDashboardFilters(prev => ({ ...prev, [name]: value }));
+    };
+
     const resetFilters = () => {
         setFilters({
             leadType: [],
@@ -383,15 +398,23 @@ const LeadManagementContent = () => {
             board: [],
             className: [],
             leadResponsibility: [],
-            fromDate: new Date().toISOString().split('T')[0],
-            toDate: new Date().toISOString().split('T')[0],
-            scheduledDate: new Date().toISOString().split('T')[0],
+            fromDate: "",
+            toDate: "",
             feedback: [],
             followUpStatus: []
         });
         setSearchTerm("");
         setCurrentPage(1);
-        toast.info("All filters have been reset");
+        toast.info("Table filters have been reset");
+    };
+
+    const resetDashboardFilters = () => {
+        setDashboardFilters({
+            fromDate: "",
+            toDate: "",
+            scheduledDate: new Date().toISOString().split('T')[0]
+        });
+        toast.info("Analytics filters have been reset");
     };
 
     const handleRowClick = (lead) => {
@@ -572,7 +595,7 @@ const LeadManagementContent = () => {
                 filteredData = followUpStats.recentActivity.filter(a => a.status?.toUpperCase() === 'NEGATIVE');
                 break;
             case 'scheduled':
-                title = `Scheduled Follow-ups (${filters.scheduledDate})`;
+                title = `Scheduled Follow-ups (${dashboardFilters.scheduledDate})`;
                 filteredData = followUpStats.scheduledList;
                 break;
             default:
@@ -594,16 +617,16 @@ const LeadManagementContent = () => {
 
         switch (preset) {
             case 'today':
-                setFilters(prev => ({ ...prev, fromDate: today, toDate: today }));
+                setDashboardFilters(prev => ({ ...prev, fromDate: today, toDate: today }));
                 break;
             case 'yesterday':
-                setFilters(prev => ({ ...prev, fromDate: yesterday, toDate: yesterday }));
+                setDashboardFilters(prev => ({ ...prev, fromDate: yesterday, toDate: yesterday }));
                 break;
             case '7days':
-                setFilters(prev => ({ ...prev, fromDate: last7Days, toDate: today }));
+                setDashboardFilters(prev => ({ ...prev, fromDate: last7Days, toDate: today }));
                 break;
             case 'lastMonth':
-                setFilters(prev => ({ ...prev, fromDate: lastMonth, toDate: today }));
+                setDashboardFilters(prev => ({ ...prev, fromDate: lastMonth, toDate: today }));
                 break;
             default:
                 break;
@@ -693,33 +716,33 @@ const LeadManagementContent = () => {
                         <span className={`text-[9px] font-black uppercase tracking-widest mr-2 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>Quick View</span>
                         <button
                             onClick={() => setDatePreset('today')}
-                            className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${filters.fromDate === new Date().toISOString().split('T')[0] && filters.toDate === new Date().toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
+                            className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${dashboardFilters.fromDate === new Date().toISOString().split('T')[0] && dashboardFilters.toDate === new Date().toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
                         >
                             Today
                         </button>
                         <button
                             onClick={() => setDatePreset('yesterday')}
-                            className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${filters.fromDate === new Date(Date.now() - 86400000).toISOString().split('T')[0] && filters.toDate === new Date(Date.now() - 86400000).toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
+                            className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${dashboardFilters.fromDate === new Date(Date.now() - 86400000).toISOString().split('T')[0] && dashboardFilters.toDate === new Date(Date.now() - 86400000).toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
                         >
                             Yesterday
                         </button>
                         <button
                             onClick={() => setDatePreset('7days')}
-                            className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${filters.fromDate === new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
+                            className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${dashboardFilters.fromDate === new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
                         >
                             Last 7 Days
                         </button>
                         <button
                             onClick={() => setDatePreset('lastMonth')}
-                            className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${filters.fromDate === new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0] && filters.toDate === new Date().toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
+                            className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${dashboardFilters.fromDate === new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0] && dashboardFilters.toDate === new Date().toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
                         >
                             Last Month
                         </button>
                         <button
-                            onClick={resetFilters}
+                            onClick={resetDashboardFilters}
                             className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border flex items-center gap-2 ${isDarkMode ? 'bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500 hover:text-white' : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-500 hover:text-white'}`}
                         >
-                            <FaRedo size={10} /> Reset All
+                            <FaRedo size={10} /> Reset Analytics
                         </button>
                     </div>
 
@@ -729,8 +752,8 @@ const LeadManagementContent = () => {
                             <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Scheduled Call Date</span>
                             <input
                                 type="date"
-                                value={filters.scheduledDate}
-                                onChange={(e) => handleFilterChange('scheduledDate', e.target.value)}
+                                value={dashboardFilters.scheduledDate}
+                                onChange={(e) => handleDashboardFilterChange('scheduledDate', e.target.value)}
                                 className={`px-3 py-1.5 rounded-[2px] border text-[10px] font-black outline-none transition-all w-full sm:w-auto ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 focus:border-cyan-500' : 'bg-cyan-50 border-cyan-100 text-cyan-700 focus:border-cyan-500'}`}
                             />
                         </div>
@@ -739,8 +762,8 @@ const LeadManagementContent = () => {
                             <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>From</span>
                             <input
                                 type="date"
-                                value={filters.fromDate}
-                                onChange={(e) => handleFilterChange('fromDate', e.target.value)}
+                                value={dashboardFilters.fromDate}
+                                onChange={(e) => handleDashboardFilterChange('fromDate', e.target.value)}
                                 className={`px-3 py-1.5 rounded-[2px] border text-[10px] font-bold outline-none transition-all w-full sm:w-auto ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                             />
                         </div>
@@ -748,8 +771,8 @@ const LeadManagementContent = () => {
                             <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>To</span>
                             <input
                                 type="date"
-                                value={filters.toDate}
-                                onChange={(e) => handleFilterChange('toDate', e.target.value)}
+                                value={dashboardFilters.toDate}
+                                onChange={(e) => handleDashboardFilterChange('toDate', e.target.value)}
                                 className={`px-3 py-1.5 rounded-[2px] border text-[10px] font-bold outline-none transition-all w-full sm:w-auto ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                             />
                         </div>

@@ -32,13 +32,6 @@ export const getFollowUpStats = async (req, res) => {
                 end.setHours(23, 59, 59, 999);
                 activityDateFilter.$lte = end;
             }
-        } else {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            activityDateFilter.$gte = today;
-            activityDateFilter.$lt = tomorrow;
         }
 
         const buildTimeMatch = () => {
@@ -76,13 +69,6 @@ export const getFollowUpStats = async (req, res) => {
             end.setHours(23, 59, 59, 999);
             scheduledDateFilter.$gte = start;
             scheduledDateFilter.$lte = end;
-        } else {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            scheduledDateFilter.$gte = today;
-            scheduledDateFilter.$lt = tomorrow;
         }
 
         // 4. Access Control & Base Matches
@@ -157,7 +143,7 @@ export const getFollowUpStats = async (req, res) => {
                         },
                         {
                             $match: {
-                                "followUp.date": activityDateFilter,
+                                ...(Object.keys(activityDateFilter).length > 0 ? { "followUp.date": activityDateFilter } : {}),
                                 ...timeMatch,
                                 ...(telecallerNames.length > 0 ? { "followUp.updatedBy": { $in: telecallerNames } } : {})
                             }
@@ -184,7 +170,7 @@ export const getFollowUpStats = async (req, res) => {
                     ],
                     // Branch B: Scheduled Tasks (Who is RESPONSIBLE - filters by leadResponsibility)
                     "scheduledStats": [
-                        { $match: { ...leadOwnerMatch, nextFollowUpDate: scheduledDateFilter } },
+                        { $match: { ...leadOwnerMatch, ...(Object.keys(scheduledDateFilter).length > 0 ? { nextFollowUpDate: scheduledDateFilter } : {}) } },
                         {
                             $group: {
                                 _id: null,
