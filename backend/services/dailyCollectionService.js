@@ -24,7 +24,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     // Base Payment Filter
     const paymentMatch = {
         paidAmount: { $gt: 0 },
-        billId: { $exists: true, $nin: [null, ""] },
+        billId: { $regex: /^PATH/i },
         $or: [
             { status: { $in: ["PAID", "PARTIAL"] } },
             {

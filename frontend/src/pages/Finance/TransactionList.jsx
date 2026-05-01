@@ -231,7 +231,7 @@ const TransactionList = () => {
         ? detailedReport.filter(item => !item.receiptNo || item.receiptNo === "-" || item.receiptNo.toString().trim() === "" || item.receiptNo === "undefined" || !item.receiptNo.toString().toUpperCase().includes("PATH"))
         : billFilter === "with_bill"
             ? detailedReport.filter(item => item.receiptNo && item.receiptNo !== "-" && item.receiptNo.toString().trim() !== "" && item.receiptNo !== "undefined" && item.receiptNo.toString().toUpperCase().includes("PATH"))
-            : detailedReport;
+            : detailedReport.filter(item => item.receiptNo && item.receiptNo.toString().toUpperCase().includes("PATH"));
 
     // Dynamically calculate selection totals based on visually filtered active dataset (Includes all statuses)
     const dynamicSelectionTotalWithGst = filteredReport.reduce((sum, item) => sum + (item.amount || 0), 0);

@@ -13,7 +13,7 @@ export const getTransactionReport = async (req, res) => {
         const isSuperAdmin = userRole === 'superadmin' || userRole === 'super admin';
 
         // REDIS CACHING LOGIC START
-        const cacheKey = generateCacheKey("finance:transaction_report", {
+        const cacheKey = generateCacheKey("finance:transaction_report_v3", {
             query: req.query,
             userId: req.user._id,
             role: req.user.role,
@@ -44,15 +44,11 @@ export const getTransactionReport = async (req, res) => {
 
         // Base Match for Payment (Inclusive: Show all transactions with activity)
         let baseAttributesMatch = {
-            $or: [
-                { paidAmount: { $gt: 0 } },
-                { status: { $in: ["PAID", "PARTIAL", "PENDING_CLEARANCE", "REJECTED"] } },
-                { paymentMethod: "CHEQUE" },
-                { billId: { $exists: true, $nin: [null, ""] } }
-            ]
+            billId: { $regex: /^PATH/i }
         };
 
         if (minAmount || maxAmount) {
+            baseAttributesMatch.paidAmount = {};
             if (minAmount) baseAttributesMatch.paidAmount.$gte = parseFloat(minAmount);
             if (maxAmount) baseAttributesMatch.paidAmount.$lte = parseFloat(maxAmount);
         }
@@ -82,7 +78,10 @@ export const getTransactionReport = async (req, res) => {
             }
         }
 
-        let paymentMatch = { ...baseAttributesMatch };
+        let paymentMatch = { 
+            ...baseAttributesMatch,
+            billId: { $regex: /^PATH/i }
+        };
 
         // Filter by Date Range (startDate/endDate OR year) for the main report
         if (startDate && endDate) {
