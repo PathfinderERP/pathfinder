@@ -32,15 +32,7 @@ export const calculateCentreTargetAchieved = async (centreName, month, year) => 
             return { totalWithGST: 0, totalExclGST: 0 };
         }
 
-        // Determine the start of the financial year (April 1st)
-        // If target month is Jan(0), Feb(1), Mar(2), then FY started in April of (year - 1)
-        // If target month is Apr(3) to Dec(11), then FY started in April of (year)
-        let fyStartYear = year;
-        if (monthIndex < 3) {
-            fyStartYear = year - 1;
-        }
-
-        const startOfFY = new Date(fyStartYear, 3, 1); // April 1st
+        const startOfMonth = new Date(year, monthIndex, 1);
         const endOfTargetMonth = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
 
         const result = await Payment.aggregate([
@@ -87,7 +79,7 @@ export const calculateCentreTargetAchieved = async (centreName, month, year) => 
             },
             {
                 $match: {
-                    "effectiveDate": { $gte: startOfFY, $lte: endOfTargetMonth }
+                    "effectiveDate": { $gte: startOfMonth, $lte: endOfTargetMonth }
                 }
             },
             {

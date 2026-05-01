@@ -53,7 +53,7 @@ const CentreTarget = () => {
 
     useEffect(() => {
         fetchTargets();
-    }, [selectedCentres, filterFinancialYear, filterYear, startDate, endDate, viewMode]);
+    }, [selectedCentres, filterFinancialYear, startDate, endDate, viewMode]);
 
     const fetchMasterData = async () => {
         try {
@@ -108,8 +108,12 @@ const CentreTarget = () => {
                 params.append("startDate", startDate);
                 params.append("endDate", endDate);
             } else {
-                if (filterFinancialYear) params.append("financialYear", filterFinancialYear);
-                if (filterYear) params.append("year", filterYear);
+                if (filterFinancialYear) {
+                    params.append("financialYear", filterFinancialYear);
+                    // Don't append year if financialYear is present to allow seeing Jan-Mar of next cal year
+                } else if (filterYear) {
+                    params.append("year", filterYear);
+                }
                 params.append("viewMode", viewMode);
             }
 
