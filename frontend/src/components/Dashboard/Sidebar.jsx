@@ -159,7 +159,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Admission Report", path: "/sales/admission-report", permissionSection: "admissionReport" },
                 { name: "Course Report", path: "/sales/course-report", permissionSection: "courseReport" },
                 //  { name: "Discount Report Analysis", path: "/sales/discount-report", permissionSection: "discountReport" },
-                { name: "Transaction Report", path: "/sales/transaction-report", permissionSection: "transactionReport" },
+                //{ name: "Transaction Report", path: "/sales/transaction-report", permissionSection: "transactionReport" },
                 { name: "Daily Collection", path: "/sales/daily-collection", permissionSection: "transactionReport" },
             ]
         },
@@ -283,7 +283,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             subItems: [
                 { name: "Course List", path: "/course-management", permissionSection: "courses" },
                 { name: "Carry Forward", path: "/course-management/carry-forward", permissionSection: "courses" },
-                { name: "Course Transfer", path: "/course-management/course-transfer", permissionSection: "courses" },
+                //{ name: "Course Transfer", path: "/course-management/course-transfer", permissionSection: "courses" },
             ]
         },
         {
