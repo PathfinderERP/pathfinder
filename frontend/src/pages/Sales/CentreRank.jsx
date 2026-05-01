@@ -68,8 +68,8 @@ const CentreRank = () => {
                 const sessionList = (Array.isArray(data) ? data : []).sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
                 setSessions(sessionList);
                 if (sessionList.length > 0 && !filterFinancialYear) {
-                    const defaultSession = sessionList.find(s => s.sessionName === "2026-2027");
-                    setFilterFinancialYear(defaultSession ? defaultSession.sessionName : sessionList[0].sessionName);
+                    const activeSession = sessionList.find(s => s.isGlobalActive);
+                    setFilterFinancialYear(activeSession ? activeSession.sessionName : sessionList[0].sessionName);
                 }
             }
 
@@ -293,20 +293,7 @@ const CentreRank = () => {
                             )}
                         </div>
 
-                        {viewMode !== "Custom" && (
-                            <select
-                                value={filterFinancialYear}
-                                onChange={(e) => setFilterFinancialYear(e.target.value)}
-                                className={`text-sm rounded-md block px-3 py-2 outline-none font-bold w-32 border transition-colors ${isDarkMode
-                                    ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-blue-500'
-                                    : 'bg-white border-gray-300 text-gray-800 shadow-sm focus:border-blue-500'
-                                    }`}
-                            >
-                                {sessions.map(session => (
-                                    <option key={session._id} value={session.sessionName}>{session.sessionName}</option>
-                                ))}
-                            </select>
-                        )}
+
 
                         {viewMode === "Monthly" && (
                             <>
