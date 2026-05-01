@@ -25,12 +25,14 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
     const [telecallers, setTelecallers] = useState([]);
     const [boards, setBoards] = useState([]);
     const [examTags, setExamTags] = useState([]);
+    const [sessions, setSessions] = useState([]);
     const [currentUser, setCurrentUser] = useState(null);
     const [courseFilters, setCourseFilters] = useState({
         class: "",
         mode: "",
         examTag: "",
         type: "",
+        session: "",
         search: ""
     });
 
@@ -43,7 +45,8 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             (!courseFilters.class || (course.class?._id || course.class) === courseFilters.class) &&
             (!courseFilters.mode || course.mode === courseFilters.mode) &&
             (!courseFilters.examTag || (course.examTag?._id || course.examTag) === courseFilters.examTag) &&
-            (!courseFilters.type || course.courseType === courseFilters.type)
+            (!courseFilters.type || course.courseType === courseFilters.type) &&
+            (!courseFilters.session || course.courseSession === courseFilters.session)
         );
     });
 
@@ -125,6 +128,12 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             });
             const examTagData = await examTagResponse.json();
             if (examTagResponse.ok) setExamTags(Array.isArray(examTagData) ? examTagData : []);
+
+            const sessionResponse = await fetch(`${import.meta.env.VITE_API_URL}/session`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const sessionData = await sessionResponse.json();
+            if (sessionResponse.ok) setSessions(Array.isArray(sessionData) ? sessionData : []);
         } catch (error) {
             console.error("Error fetching dropdown data:", error);
             toast.error("Failed to load options");
@@ -296,7 +305,7 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={() => setCourseFilters({ class: "", mode: "", examTag: "", type: "", search: "" })}
+                                    onClick={() => setCourseFilters({ class: "", mode: "", examTag: "", type: "", session: "", search: "" })}
                                     className={`text-[9px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'text-gray-600 hover:text-cyan-400' : 'text-gray-400 hover:text-cyan-600'}`}
                                 >
                                     Clear Filters
@@ -315,12 +324,13 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                                 />
                             </div>
 
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                                 {[
                                     { label: "Admission Type", key: "type", options: [{ v: "INSTATION", l: "INSTA" }, { v: "OUTSTATION", l: "OUT" }] },
                                     { label: "Mode", key: "mode", options: [{ v: "ONLINE", l: "ON" }, { v: "OFFLINE", l: "OFF" }] },
                                     { label: "Class", key: "class", options: classes.map(c => ({ v: c._id, l: c.name })) },
-                                    { label: "Exam Type", key: "examTag", options: examTags.map(t => ({ v: t._id, l: t.name })) }
+                                    { label: "Exam Type", key: "examTag", options: examTags.map(t => ({ v: t._id, l: t.name })) },
+                                    { label: "Session", key: "session", options: sessions.map(s => ({ v: s.sessionName, l: s.sessionName })) }
                                 ].map(filter => (
                                     <div key={filter.key} className="space-y-1">
                                         <label className="text-[8px] font-black uppercase text-gray-600 tracking-widest">{filter.label}</label>
