@@ -208,14 +208,24 @@ export const getFollowUpStats = async (req, res) => {
         const sS = stats[0].scheduledStats[0] || {};
         const lP = stats[0].leadPopulation[0] || {};
 
+        // Sort and limit recent activity to latest 50 items to prevent frontend lag
+        const recentActivity = (aS.recentActivity || [])
+            .sort((a, b) => new Date(b.time) - new Date(a.time))
+            .slice(0, 50);
+
+        // Sort and limit scheduled list to latest 50 items
+        const scheduledList = (sS.scheduledList || [])
+            .sort((a, b) => new Date(a.time) - new Date(b.time))
+            .slice(0, 50);
+
         res.status(200).json({
             totalFollowUps: aS.totalFollowUps || 0,
             hotLeads: aS.hotLeads || 0,
             coldLeads: aS.coldLeads || 0,
             negativeLeads: aS.negativeLeads || 0,
-            recentActivity: aS.recentActivity || [],
+            recentActivity,
             totalScheduled: sS.totalScheduled || 0,
-            scheduledList: sS.scheduledList || [],
+            scheduledList,
             leadPopulation: lP
         });
     } catch (err) {
