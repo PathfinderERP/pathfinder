@@ -228,9 +228,9 @@ const TransactionList = () => {
 
     // --- Derived filtered data (client-side bill filter: all / no_bill / with_bill) ---
     const filteredReport = billFilter === "no_bill"
-        ? detailedReport.filter(item => !item.receiptNo || item.receiptNo === "-" || item.receiptNo.trim() === "")
+        ? detailedReport.filter(item => !item.receiptNo || item.receiptNo === "-" || item.receiptNo.toString().trim() === "" || item.receiptNo === "undefined" || !item.receiptNo.toString().toUpperCase().includes("PATH"))
         : billFilter === "with_bill"
-            ? detailedReport.filter(item => item.receiptNo && item.receiptNo !== "-" && item.receiptNo.trim() !== "")
+            ? detailedReport.filter(item => item.receiptNo && item.receiptNo !== "-" && item.receiptNo.toString().trim() !== "" && item.receiptNo !== "undefined" && item.receiptNo.toString().toUpperCase().includes("PATH"))
             : detailedReport;
 
     // Dynamically calculate selection totals based on visually filtered active dataset (Includes all statuses)
@@ -256,8 +256,8 @@ const TransactionList = () => {
         const data = filteredReport.map(item => [
             new Date(item.paymentDate).toLocaleDateString("en-IN"),
             item.receivedDate ? new Date(item.receivedDate).toLocaleDateString("en-IN") : "-",
-            item.admissionNumber,
-            item.receiptNo || "-",
+            item.admissionNumber && !item.admissionNumber.toString().startsWith("PATH") ? `PATH${item.admissionNumber}` : item.admissionNumber,
+            (item.receiptNo && item.receiptNo !== "-" && !item.receiptNo.toString().startsWith("PATH")) ? `PATH/${item.receiptNo}` : (item.receiptNo || "-"),
             item.studentName,
             item.studentEmail || "-",
             item.studentMobile || "-",
@@ -770,8 +770,12 @@ const TransactionList = () => {
                                             <td className="p-4 text-sm text-gray-600 font-medium">
                                                 {item.receivedDate ? new Date(item.receivedDate).toLocaleDateString('en-GB') : '-'}
                                             </td>
-                                            <td className="p-4 text-sm text-gray-500 font-mono whitespace-nowrap min-w-[150px]">{item.admissionNumber}</td>
-                                            <td className="p-4 text-sm text-blue-600 font-mono font-bold whitespace-nowrap min-w-[240px] uppercase">{item.receiptNo || "-"}</td>
+                                            <td className="p-4 text-sm text-gray-500 font-mono whitespace-nowrap min-w-[150px]">
+                                                {item.admissionNumber && !item.admissionNumber.toString().startsWith("PATH") ? `PATH${item.admissionNumber}` : item.admissionNumber}
+                                            </td>
+                                            <td className="p-4 text-sm text-blue-600 font-mono font-bold whitespace-nowrap min-w-[240px] uppercase">
+                                                {(item.receiptNo && item.receiptNo !== "-" && !item.receiptNo.toString().startsWith("PATH")) ? `PATH/${item.receiptNo}` : (item.receiptNo || "-")}
+                                            </td>
                                             <td className="p-4 text-sm font-bold text-gray-800 uppercase whitespace-nowrap min-w-[180px]">{item.studentName}</td>
                                             <td className="p-4 text-sm text-gray-600 font-bold whitespace-nowrap">{item.centre}</td>
                                             <td className="p-4 text-sm text-gray-600 font-medium whitespace-nowrap">{item.studentMobile || '-'}</td>
