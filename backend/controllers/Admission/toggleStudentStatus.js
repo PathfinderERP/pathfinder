@@ -60,8 +60,12 @@ export const toggleStudentStatus = async (req, res) => {
                 );
             }
             student.deactivationDate = null;
+            student.deactivatedBy = null;
+            student.deactivatedByUserId = null;
         } else if (status === 'Deactivated') {
             student.deactivationDate = new Date();
+            student.deactivatedBy = req.user?.name || 'System';
+            student.deactivatedByUserId = req.user?.id || null;
 
             // Set all admissions to INACTIVE
             await Admission.updateMany(

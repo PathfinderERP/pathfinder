@@ -1421,9 +1421,21 @@ const EnrolledStudentsContent = () => {
                                                             <div className="flex items-center gap-2">
                                                                 <p className={`font-black uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{latestAdmission?.studentName || student.studentName || "N/A"}</p>
                                                                 {studentItem.student.status === 'Deactivated' && (
-                                                                    <span className="px-2 py-0.5 bg-red-500 text-white text-[8px] font-black rounded-[4px] uppercase tracking-tighter">
-                                                                        Deactivated
-                                                                    </span>
+                                                                    <div className="flex flex-col">
+                                                                        <span className="px-2 py-0.5 bg-red-500 text-white text-[8px] font-black rounded-[4px] uppercase tracking-tighter w-fit">
+                                                                            Deactivated
+                                                                        </span>
+                                                                        {studentItem.student.deactivatedBy && (
+                                                                            <span className="text-[7px] font-black text-red-500/80 uppercase tracking-tighter mt-0.5 leading-none">
+                                                                                BY: {studentItem.student.deactivatedBy}
+                                                                            </span>
+                                                                        )}
+                                                                        {studentItem.student.deactivationDate && (
+                                                                            <span className="text-[6.5px] font-bold text-red-400 uppercase tracking-tighter leading-none mt-0.5">
+                                                                                ON: {new Date(studentItem.student.deactivationDate).toLocaleDateString('en-GB')}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
                                                                 )}
                                                             </div>
                                                             <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wide">{student.studentEmail || ""}</p>
@@ -1678,10 +1690,27 @@ const EnrolledStudentsContent = () => {
                             {/* Deactivation Warning Banner */}
                             {selectedStudent.status === 'Deactivated' && (
                                 <div className={`p-4 rounded-[4px] border flex items-center gap-4 animate-pulse ${isDarkMode ? 'bg-red-500/10 border-red-500/50' : 'bg-red-50 border-red-200'}`}>
-                                    <FaExclamationCircle className="text-red-500 text-2xl" />
-                                    <div>
-                                        <h4 className="text-red-500 font-black uppercase tracking-widest text-xs">STUDENT DEACTIVATED</h4>
+                                    <div className="p-3 bg-red-500 text-white rounded-[4px]">
+                                        <FaExclamationCircle className="text-2xl" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex justify-between items-start">
+                                            <h4 className="text-red-500 font-black uppercase tracking-widest text-xs">STUDENT DEACTIVATED</h4>
+                                            {selectedStudent.deactivationDate && (
+                                                <span className="text-[9px] font-black text-red-500/60 uppercase tracking-widest">
+                                                    Recorded on: {new Date(selectedStudent.deactivationDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            )}
+                                        </div>
                                         <p className="text-red-400/80 text-[10px] font-bold uppercase tracking-widest mt-1">Lifecycle operations and financial transactions are restricted.</p>
+                                        {selectedStudent.deactivatedBy && (
+                                            <div className="mt-2 flex items-center gap-2">
+                                                <span className="text-[8px] font-black text-red-500/40 uppercase tracking-widest">Authorized By:</span>
+                                                <span className="px-2 py-0.5 bg-red-500/20 text-red-500 text-[9px] font-black rounded-[2px] border border-red-500/30 uppercase tracking-widest">
+                                                    {selectedStudent.deactivatedBy}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
