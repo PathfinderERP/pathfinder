@@ -37,7 +37,7 @@ export const createClassSchedule = async (req, res) => {
             acadClassId,
             acadSubjectId,
             chapterId,
-            topicId,
+            topicIds,
             message,
             classHours
         } = req.body;
@@ -66,7 +66,7 @@ export const createClassSchedule = async (req, res) => {
             acadClassId: acadClassId || undefined,
             acadSubjectId: acadSubjectId || undefined,
             chapterId: chapterId || undefined,
-            topicId: topicId || undefined,
+            topicIds: topicIds || [],
             message,
             classHours
         });
@@ -258,7 +258,7 @@ export const getClassSchedules = async (req, res) => {
                 populate: { path: "masterSubjectId", select: "subName" }
             })
             .populate("chapterId", "chapterName")
-            .populate("topicId", "topicName")
+            .populate("topicIds", "topicName")
             .sort({ date: -1 })
             .skip(skip)
             .limit(parseInt(limit));
@@ -366,7 +366,7 @@ export const updateClassSchedule = async (req, res) => {
             acadClassId,
             acadSubjectId,
             chapterId,
-            topicId,
+            topicIds,
             message,
             classHours
         } = req.body;
@@ -410,7 +410,7 @@ export const updateClassSchedule = async (req, res) => {
                 acadClassId: acadClassId || undefined,
                 acadSubjectId: acadSubjectId || undefined,
                 chapterId: chapterId || undefined,
-                topicId: topicId || undefined,
+                topicIds: topicIds || [],
                 message,
                 classHours,
                 status: "Upcoming" // Reset status for the new instance
@@ -441,7 +441,7 @@ export const updateClassSchedule = async (req, res) => {
                     acadClassId: acadClassId || undefined,
                     acadSubjectId: acadSubjectId || undefined,
                     chapterId: chapterId || undefined,
-                    topicId: topicId || undefined,
+                    topicIds,
                     message,
                     classHours
                 },

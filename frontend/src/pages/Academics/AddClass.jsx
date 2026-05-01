@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { hasPermission } from "../../config/permissions";
 import { FaPlus, FaTrash } from "react-icons/fa";
 import { useTheme } from "../../context/ThemeContext";
+import CustomMultiSelect from "../../components/common/CustomMultiSelect";
 
 const AddClass = () => {
     const navigate = useNavigate();
@@ -37,7 +38,7 @@ const AddClass = () => {
         acadClassId: "",
         acadSubjectId: "",
         chapterId: "",
-        topicId: "",
+        topicIds: [],
         message: "",
         classHours: 0
     });
@@ -233,7 +234,7 @@ const AddClass = () => {
 
         // Cascading fields — handle reset + cascade fetch
         if (name === "acadClassId") {
-            setFormData(prev => ({ ...prev, [name]: value, acadSubjectId: "", chapterId: "", topicId: "" }));
+            setFormData(prev => ({ ...prev, [name]: value, acadSubjectId: "", chapterId: "", topicIds: [] }));
             setAcadSubjects([]);
             setAcadChapters([]);
             setAcadTopics([]);
@@ -241,14 +242,14 @@ const AddClass = () => {
             return;
         }
         if (name === "acadSubjectId") {
-            setFormData(prev => ({ ...prev, [name]: value, chapterId: "", topicId: "" }));
+            setFormData(prev => ({ ...prev, [name]: value, chapterId: "", topicIds: [] }));
             setAcadChapters([]);
             setAcadTopics([]);
             fetchAcadChapters(value);
             return;
         }
         if (name === "chapterId") {
-            setFormData(prev => ({ ...prev, [name]: value, topicId: "" }));
+            setFormData(prev => ({ ...prev, [name]: value, topicIds: [] }));
             setAcadTopics([]);
             fetchAcadTopics(value);
             return;
@@ -256,6 +257,11 @@ const AddClass = () => {
 
         // All other fields
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+    
+    const handleTopicChange = (selectedOptions) => {
+        const values = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
+        setFormData(prev => ({ ...prev, topicIds: values }));
     };
 
     const handleSubmit = async (e) => {
@@ -278,7 +284,7 @@ const AddClass = () => {
                 setFormData({
                     className: "", date: "", classMode: "", startTime: "", endTime: "",
                     subjectId: "", teacherId: "", session: "", examId: "", centreId: "", batchIds: [],
-                    acadClassId: "", acadSubjectId: "", chapterName: "", topicName: "", message: "", classHours: 0
+                    acadClassId: "", acadSubjectId: "", chapterName: "", topicIds: [], message: "", classHours: 0
                 });
                 // Reset cascades
                 setAcadSubjects([]);
@@ -522,18 +528,19 @@ const AddClass = () => {
                             disabled={!formData.acadSubjectId}
                         />
 
-                        <SearchableSelect
-                            label="Topic (Academic)"
-                            name="topicId"
-                            value={formData.topicId}
-                            options={acadTopics}
-                            displayPath="topicName"
-                            onChange={handleChange}
-                            placeholder="Select a topic"
-                            isDarkMode={isDarkMode}
-                            required
-                            disabled={!formData.chapterId}
-                        />
+                        <div className="md:col-span-1">
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                Topic (Academic)*
+                            </label>
+                            <CustomMultiSelect
+                                options={acadTopics.map(t => ({ value: t._id, label: t.topicName }))}
+                                value={acadTopics.filter(t => formData.topicIds.includes(t._id)).map(t => ({ value: t._id, label: t.topicName }))}
+                                onChange={handleTopicChange}
+                                placeholder="Select topics"
+                                isDarkMode={isDarkMode}
+                                isDisabled={!formData.chapterId}
+                            />
+                        </div>
 
 
                         {/* Message */}

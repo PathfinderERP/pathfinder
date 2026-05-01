@@ -522,7 +522,7 @@ const OngoingClass = () => {
                                             </td>
                                             <td className="p-4 font-bold text-cyan-400">{cls.acadSubjectId?.masterSubjectId?.subName || cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "-"}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterId?.chapterName || cls.chapterName || "-"}</td>
-                                            <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicId?.topicName || cls.topicName || "-"}</td>
+                                            <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicIds && cls.topicIds.length > 0 ? cls.topicIds.map(t => t.topicName).join(", ") : (cls.topicName || "-")}</td>
                                             <td className="p-4 text-center">
                                                 {cls.teacherAttendance ? (
                                                     <span className="bg-green-600/20 text-green-400 px-3 py-1 rounded-full text-[10px] font-bold border border-green-600/50 flex items-center justify-center gap-1 mx-auto w-fit">

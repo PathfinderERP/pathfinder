@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
 import { FaSearch, FaTimes, FaEdit, FaTrash, FaPlus, FaCheck, FaFileExcel, FaDownload, FaUpload } from "react-icons/fa";
 import * as XLSX from "xlsx";
+import CustomMultiSelect from "../../components/common/CustomMultiSelect";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useNavigate } from "react-router-dom";
@@ -459,7 +460,7 @@ const Classes = () => {
         const acadClassId = cls.acadClassId?._id || cls.acadClassId || "";
         const acadSubjectId = cls.acadSubjectId?._id || cls.acadSubjectId || "";
         const chapterId = cls.chapterId?._id || cls.chapterId || "";
-        const topicId = cls.topicId?._id || cls.topicId || "";
+        const topicIds = cls.topicIds?.map(t => t._id || t) || (cls.topicId?._id ? [cls.topicId._id] : (cls.topicId ? [cls.topicId] : []));
 
         setEditingClassData({
             ...cls,
@@ -472,7 +473,7 @@ const Classes = () => {
             acadClassId,
             acadSubjectId,
             chapterId,
-            topicId,
+            topicIds,
             date: cls.date ? new Date(cls.date).toISOString().split('T')[0] : ""
         });
 
@@ -821,7 +822,7 @@ const Classes = () => {
                                             <td className="p-4">{cls.centreId?.centreName || cls.centreId?.name || "-"}</td>
                                             <td className="p-4">{cls.acadSubjectId?.masterSubjectId?.subName || cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "-"}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterId?.chapterName || cls.chapterName || "-"}</td>
-                                            <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicId?.topicName || cls.topicName || "-"}</td>
+                                            <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicIds && cls.topicIds.length > 0 ? cls.topicIds.map(t => t.topicName).join(", ") : (cls.topicName || "-")}</td>
                                             <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
                                             <td className="p-4">{cls.coordinatorId?.name || "-"}</td>
                                             <td className="p-4 font-mono">{formatDate(cls.date)}</td>
@@ -1103,7 +1104,7 @@ const Classes = () => {
                                                 value={editingClassData.acadClassId || ""}
                                                 onChange={(e) => {
                                                     const val = e.target.value;
-                                                    setEditingClassData({ ...editingClassData, acadClassId: val, acadSubjectId: "", chapterId: "", topicId: "" });
+                                                    setEditingClassData({ ...editingClassData, acadClassId: val, acadSubjectId: "", chapterId: "", topicIds: [] });
                                                     setEditAcadSubjects([]);
                                                     setEditAcadChapters([]);
                                                     setEditAcadTopics([]);
@@ -1154,7 +1155,7 @@ const Classes = () => {
                                                 disabled={!editingClassData.acadClassId}
                                                 onChange={(e) => {
                                                     const val = e.target.value;
-                                                    setEditingClassData({ ...editingClassData, acadSubjectId: val, chapterId: "", topicId: "" });
+                                                    setEditingClassData({ ...editingClassData, acadSubjectId: val, chapterId: "", topicIds: [] });
                                                     setEditAcadChapters([]);
                                                     setEditAcadTopics([]);
                                                     if (val) fetchEditAcadChapters(val);
@@ -1172,7 +1173,7 @@ const Classes = () => {
                                                 disabled={!editingClassData.acadSubjectId}
                                                 onChange={(e) => {
                                                     const val = e.target.value;
-                                                    setEditingClassData({ ...editingClassData, chapterId: val, topicId: "" });
+                                                    setEditingClassData({ ...editingClassData, chapterId: val, topicIds: [] });
                                                     setEditAcadTopics([]);
                                                     if (val) fetchEditAcadTopics(val);
                                                 }}
@@ -1183,16 +1184,18 @@ const Classes = () => {
                                             </select>
                                         </div>
                                         <div className="flex flex-col gap-2">
-                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Topic</label>
-                                            <select
-                                                value={editingClassData.topicId || ""}
-                                                disabled={!editingClassData.chapterId}
-                                                onChange={(e) => setEditingClassData({ ...editingClassData, topicId: e.target.value })}
-                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all disabled:opacity-50 ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
-                                            >
-                                                <option value="">Select Topic</option>
-                                                {editAcadTopics.map(t => <option key={t._id} value={t._id}>{t.topicName}</option>)}
-                                            </select>
+                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Topics</label>
+                                            <CustomMultiSelect
+                                                options={editAcadTopics.map(t => ({ value: t._id, label: t.topicName }))}
+                                                value={editAcadTopics.filter(t => editingClassData.topicIds?.includes(t._id)).map(t => ({ value: t._id, label: t.topicName }))}
+                                                onChange={(selectedOptions) => {
+                                                    const values = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
+                                                    setEditingClassData({ ...editingClassData, topicIds: values });
+                                                }}
+                                                placeholder="Select Topics"
+                                                isDarkMode={isDarkMode}
+                                                isDisabled={!editingClassData.chapterId}
+                                            />
                                         </div>
                                     </div>
 

@@ -103,6 +103,9 @@ export const PERMISSION_MODULES = {
             classCoordinator: { label: "Class Coordinator", operations: ["create", "edit", "delete"] },
             mentalSessionTable: { label: "Mental Session Table", operations: ["create", "edit", "delete"] },
             classManagement: { label: "Class Management", operations: ["create", "edit", "delete"] },
+            subjects: { label: "Subjects", operations: ["create", "edit", "delete"] },
+            chapters: { label: "Chapters", operations: ["create", "edit", "delete"] },
+            topics: { label: "Topics", operations: ["create", "edit", "delete"] },
             sectionLeaderBoard: { label: "Section Leader Board", operations: ["create", "edit", "delete"] },
             examLeaderBoard: { label: "Exam Leader Board", operations: ["create", "edit", "delete"] },
             upcomingClass: { label: "Upcoming Class", operations: ["create", "edit", "delete"] },
@@ -522,6 +525,16 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
     const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
 
     if (!granularPermissions) return false;
+
+    // Master permission check for Academics Class Management
+    // If user has 'classManagement' or 'classes' permission, they get access to sub-sections
+    if (module === 'academics' && ['upcomingClass', 'ongoingClass', 'previousClass', 'subjects', 'chapters', 'topics'].includes(section)) {
+        if (granularPermissions[module]?.['classManagement']?.[operation] === true || 
+            granularPermissions[module]?.['classes']?.[operation] === true) {
+            return true;
+        }
+    }
+
     if (!granularPermissions[module]) return false;
     if (!granularPermissions[module][section]) return false;
     return granularPermissions[module][section][operation] === true;

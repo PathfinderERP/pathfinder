@@ -185,11 +185,24 @@ export const requireGranularPermission = (module, section, action) => {
 
             // Granular Permission Check
             let hasAccess = false;
-            if (action === "view") {
-                // If checking for view, any entry in that section means they have access to view the list
-                hasAccess = !!user.granularPermissions?.[module]?.[section];
-            } else {
-                hasAccess = user.granularPermissions?.[module]?.[section]?.[action] === true;
+
+            // Master permission check for Academics Class Management
+            if (module === 'academics' && ['upcomingClass', 'ongoingClass', 'previousClass'].includes(section)) {
+                const masterAction = action === "view" ? "create" : action; // If viewing, check if they have any master access
+                if (user.granularPermissions?.[module]?.['classManagement']?.[action] === true || 
+                    user.granularPermissions?.[module]?.['classes']?.[action] === true ||
+                    (action === "view" && (user.granularPermissions?.[module]?.['classManagement'] || user.granularPermissions?.[module]?.['classes']))) {
+                    hasAccess = true;
+                }
+            }
+
+            if (!hasAccess) {
+                if (action === "view") {
+                    // If checking for view, any entry in that section means they have access to view the list
+                    hasAccess = !!user.granularPermissions?.[module]?.[section];
+                } else {
+                    hasAccess = user.granularPermissions?.[module]?.[section]?.[action] === true;
+                }
             }
 
             if (!hasAccess) {

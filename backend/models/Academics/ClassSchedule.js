@@ -86,11 +86,10 @@ const classScheduleSchema = new mongoose.Schema({
         ref: "AcademicsChapter",
         required: false
     },
-    topicId: {
+    topicIds: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: "AcademicsTopic",
-        required: false
-    },
+        ref: "AcademicsTopic"
+    }],
     message: {
         type: String,
         default: ""
