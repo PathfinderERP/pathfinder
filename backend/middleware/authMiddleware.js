@@ -8,6 +8,16 @@ const authMiddleware = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    if (decoded.role === "student") {
+      const Student = (await import("../models/Students.js")).default;
+      const student = await Student.findById(decoded.id);
+      if (!student) return res.status(401).json({ message: "User not found" });
+      req.user = student;
+      req.user.role = "student";
+      return next();
+    }
+
     const User = (await import("../models/User.js")).default;
     const user = await User.findById(decoded.id);
     if (!user) return res.status(401).json({ message: "User not found" });

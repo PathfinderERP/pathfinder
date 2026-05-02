@@ -128,19 +128,25 @@ export const getClasses = async (req, res) => {
                 { batchId: { $in: batchIds } }
             ]
         })
+        .populate("subjectId", "subName")
+        .populate("acadClassId", "className")
         .populate({
-            path: "subjectId",
+            path: "acadSubjectId",
             populate: { path: "masterSubjectId", select: "subName" }
         })
-        .populate("acadSubjectId", "subName")
+        .populate("chapterId", "chapterName")
+        .populate("topicIds", "topicName")
         .populate("teacherId", "name email")
         .sort({ date: -1 })
         .limit(100);
 
         const flattenedSchedule = schedule.map(cls => ({
             ...cls.toObject(),
-            subjectName: cls.subjectId?.masterSubjectId?.subName || cls.subjectId?.subjectName || "N/A",
-            academicSubjectName: cls.acadSubjectId?.subName || "N/A"
+            subjectName: cls.subjectId?.subName || "N/A",
+            academicClassName: cls.acadClassId?.className || "N/A",
+            academicSubjectName: cls.acadSubjectId?.masterSubjectId?.subName || "N/A",
+            academicChapterName: cls.chapterId?.chapterName || "N/A",
+            academicTopicNames: cls.topicIds?.map(t => t.topicName) || []
         }));
 
         res.json(flattenedSchedule);
@@ -178,18 +184,24 @@ export const getUpcomingClasses = async (req, res) => {
             status: "Upcoming",
             date: { $gte: today }
         })
+        .populate("subjectId", "subName")
+        .populate("acadClassId", "className")
         .populate({
-            path: "subjectId",
+            path: "acadSubjectId",
             populate: { path: "masterSubjectId", select: "subName" }
         })
-        .populate("acadSubjectId", "subName")
+        .populate("chapterId", "chapterName")
+        .populate("topicIds", "topicName")
         .populate("teacherId", "name email")
         .sort({ date: 1, startTime: 1 });
 
         const flattenedUpcoming = upcomingClasses.map(cls => ({
             ...cls.toObject(),
-            subjectName: cls.subjectId?.masterSubjectId?.subName || cls.subjectId?.subjectName || "N/A",
-            academicSubjectName: cls.acadSubjectId?.subName || "N/A"
+            subjectName: cls.subjectId?.subName || "N/A",
+            academicClassName: cls.acadClassId?.className || "N/A",
+            academicSubjectName: cls.acadSubjectId?.masterSubjectId?.subName || "N/A",
+            academicChapterName: cls.chapterId?.chapterName || "N/A",
+            academicTopicNames: cls.topicIds?.map(t => t.topicName) || []
         }));
 
         res.json(flattenedUpcoming);
@@ -224,18 +236,24 @@ export const getOngoingClasses = async (req, res) => {
             ],
             status: "Ongoing"
         })
+        .populate("subjectId", "subName")
+        .populate("acadClassId", "className")
         .populate({
-            path: "subjectId",
+            path: "acadSubjectId",
             populate: { path: "masterSubjectId", select: "subName" }
         })
-        .populate("acadSubjectId", "subName")
+        .populate("chapterId", "chapterName")
+        .populate("topicIds", "topicName")
         .populate("teacherId", "name email")
         .sort({ date: 1, startTime: 1 });
 
         const flattenedOngoing = ongoingClasses.map(cls => ({
             ...cls.toObject(),
-            subjectName: cls.subjectId?.masterSubjectId?.subName || cls.subjectId?.subjectName || "N/A",
-            academicSubjectName: cls.acadSubjectId?.subName || "N/A"
+            subjectName: cls.subjectId?.subName || "N/A",
+            academicClassName: cls.acadClassId?.className || "N/A",
+            academicSubjectName: cls.acadSubjectId?.masterSubjectId?.subName || "N/A",
+            academicChapterName: cls.chapterId?.chapterName || "N/A",
+            academicTopicNames: cls.topicIds?.map(t => t.topicName) || []
         }));
 
         res.json(flattenedOngoing);
@@ -271,11 +289,14 @@ export const getAttendance = async (req, res) => {
                 { batchId: { $in: batchIds } }
             ]
         })
+        .populate("subjectId", "subName")
+        .populate("acadClassId", "className")
         .populate({
-            path: "subjectId",
+            path: "acadSubjectId",
             populate: { path: "masterSubjectId", select: "subName" }
         })
-        .populate("acadSubjectId", "subName")
+        .populate("chapterId", "chapterName")
+        .populate("topicIds", "topicName")
         .populate("teacherId", "name email designation")
         .sort({ date: -1 });
 
@@ -289,8 +310,11 @@ export const getAttendance = async (req, res) => {
             
             return {
                 ...clsObj,
-                subjectName: cls.subjectId?.masterSubjectId?.subName || cls.subjectId?.subjectName || "N/A",
-                academicSubjectName: cls.acadSubjectId?.subName || "N/A",
+                subjectName: cls.subjectId?.subName || "N/A",
+                academicClassName: cls.acadClassId?.className || "N/A",
+                academicSubjectName: cls.acadSubjectId?.masterSubjectId?.subName || "N/A",
+                academicChapterName: cls.chapterId?.chapterName || "N/A",
+                academicTopicNames: cls.topicIds?.map(t => t.topicName) || [],
                 teacherName: cls.teacherId?.name || "N/A",
                 attendanceStatus: record ? record.status : "Not Marked",
                 attendanceMarkedDate: record ? record.createdAt : null
@@ -350,11 +374,14 @@ export const getSingleStudentReport = async (req, res) => {
                 { batchId: { $in: batchIds } }
             ]
         })
+        .populate("subjectId", "subName")
+        .populate("acadClassId", "className")
         .populate({
-            path: "subjectId",
+            path: "acadSubjectId",
             populate: { path: "masterSubjectId", select: "subName" }
         })
-        .populate("acadSubjectId", "subName")
+        .populate("chapterId", "chapterName")
+        .populate("topicIds", "topicName")
         .populate("teacherId", "name email designation")
         .sort({ date: -1 });
 
@@ -365,8 +392,11 @@ export const getSingleStudentReport = async (req, res) => {
             const clsObj = cls.toObject();
             return {
                 ...clsObj,
-                subjectName: cls.subjectId?.masterSubjectId?.subName || cls.subjectId?.subjectName || "N/A",
-                academicSubjectName: cls.acadSubjectId?.subName || "N/A",
+                subjectName: cls.subjectId?.subName || "N/A",
+                academicClassName: cls.acadClassId?.className || "N/A",
+                academicSubjectName: cls.acadSubjectId?.masterSubjectId?.subName || "N/A",
+                academicChapterName: cls.chapterId?.chapterName || "N/A",
+                academicTopicNames: cls.topicIds?.map(t => t.topicName) || [],
                 teacherName: cls.teacherId?.name || "N/A",
                 attendanceStatus: record ? record.status : "Not Marked",
                 attendanceMarkedDate: record ? record.createdAt : null
