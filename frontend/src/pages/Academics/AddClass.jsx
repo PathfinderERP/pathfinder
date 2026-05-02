@@ -499,7 +499,6 @@ const AddClass = () => {
                             onChange={handleChange}
                             placeholder="Select a class"
                             isDarkMode={isDarkMode}
-                            required
                         />
 
                         <SearchableSelect
@@ -511,7 +510,6 @@ const AddClass = () => {
                             onChange={handleChange}
                             placeholder="Select a subject"
                             isDarkMode={isDarkMode}
-                            required
                             disabled={!formData.acadClassId}
                         />
 
@@ -524,13 +522,12 @@ const AddClass = () => {
                             onChange={handleChange}
                             placeholder="Select a chapter"
                             isDarkMode={isDarkMode}
-                            required
                             disabled={!formData.acadSubjectId}
                         />
 
                         <div className="md:col-span-1">
                             <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                Topic (Academic)*
+                                Topic (Academic)
                             </label>
                             <CustomMultiSelect
                                 options={acadTopics.map(t => ({ value: t._id, label: t.topicName }))}

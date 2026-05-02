@@ -741,6 +741,7 @@ export const importClassesExcel = async (req, res) => {
 
             // Optional Lookups
             let coordinatorId = undefined;
+            let acadClassId = undefined;
             if (row['Coordinator']) {
                 const coordRegex = new RegExp(`^${String(row['Coordinator']).trim()}$`, "i");
                 const coordinator = await User.findOne({ name: coordRegex, role: 'Class_Coordinator' });
