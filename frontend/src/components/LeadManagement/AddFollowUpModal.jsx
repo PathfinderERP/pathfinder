@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaTimes, FaCalendarAlt, FaCommentAlt, FaSave, FaPhoneAlt, FaStopCircle, FaPlayCircle, FaClock, FaSync } from "react-icons/fa";
+import { FaTimes, FaCalendarAlt, FaCommentAlt, FaSave, FaSync } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 const FEEDBACK_OPTIONS = [
@@ -22,50 +22,8 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
         feedback: "",
         nextFollowUpDate: "",
         remarks: "",
-        callStartTime: null,
-        callEndTime: null,
-        callDuration: "",
         leadType: ""
     });
-
-    const [isCalling, setIsCalling] = useState(false);
-    const [elapsedTime, setElapsedTime] = useState(0);
-    const [startTime, setStartTime] = useState(null);
-
-    useEffect(() => {
-        let interval;
-        if (isCalling) {
-            interval = setInterval(() => {
-                setElapsedTime(Math.floor((new Date() - startTime) / 1000));
-            }, 1000);
-        } else {
-            clearInterval(interval);
-        }
-        return () => clearInterval(interval);
-    }, [isCalling, startTime]);
-
-    const formatTime = (seconds) => {
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = seconds % 60;
-        return [h, m, s].map(v => v < 10 ? "0" + v : v).filter((v, i) => v !== "00" || i > 0).join(":");
-    };
-
-    const handleStartCall = () => {
-        const now = new Date();
-        setStartTime(now);
-        setIsCalling(true);
-        setFormData(prev => ({ ...prev, callStartTime: now, callEndTime: null, callDuration: "" }));
-        toast.info("Starting call recording...");
-    };
-
-    const handleStopCall = () => {
-        const now = new Date();
-        setIsCalling(false);
-        const duration = formatTime(elapsedTime);
-        setFormData(prev => ({ ...prev, callEndTime: now, callDuration: duration }));
-        toast.success(`Call recording ended. Length: ${duration}`);
-    };
 
     useEffect(() => {
         const fetchOptions = async () => {
@@ -148,44 +106,6 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                 </div>
 
                 <div className={`p-6 space-y-6 flex-1 overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`}>
-                    {/* Call Timing Section */}
-                    <div className={`p-6 rounded-[4px] border border-dashed flex flex-col items-center gap-4 transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-500">
-                            <FaClock className={isCalling ? "text-red-500 animate-pulse" : "text-cyan-500"} />
-                            <span>Call Duration</span>
-                        </div>
-                        <div className={`text-4xl font-black font-mono tracking-tighter ${isCalling ? "text-red-500" : (isDarkMode ? "text-white" : "text-gray-900")}`}>
-                            {formatTime(elapsedTime)}
-                        </div>
-
-                        {!isCalling ? (
-                            <button
-                                type="button"
-                                onClick={handleStartCall}
-                                className={`w-full flex items-center justify-center gap-3 py-3 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg ${isDarkMode ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-500/10' : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-500/20'}`}
-                            >
-                                <FaPlayCircle size={14} /> Start Call
-                            </button>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={handleStopCall}
-                                className="w-full flex items-center justify-center gap-3 bg-red-600 text-white py-3 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(220,38,38,0.3)] animate-pulse active:scale-95"
-                            >
-                                <FaStopCircle size={14} /> End Call
-                            </button>
-                        )}
-
-                        {formData.callDuration && !isCalling && (
-                            <div className="flex items-center gap-2 mt-1">
-                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                                <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest italic">
-                                    Duration Recorded: {formData.callDuration}
-                                </p>
-                            </div>
-                        )}
-                    </div>
-
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black uppercase text-gray-500 ml-1 tracking-widest">FEEDBACK</label>
