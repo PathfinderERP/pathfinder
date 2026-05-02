@@ -39,8 +39,8 @@ export const createAdmission = async (req, res) => {
         } = req.body;
 
         // Validate required fields (Common)
-        if (!studentId || !centre || !academicSession || !downPayment || !numberOfInstallments) {
-            return res.status(400).json({ message: "All common required fields must be provided (Student, Centre, Session, Down Payment)" });
+        if (!studentId || !centre || !academicSession || (downPayment === undefined) || (numberOfInstallments === undefined)) {
+            return res.status(400).json({ message: "All common required fields must be provided (Student, Centre, Session, Down Payment, Installments)" });
         }
 
         // Validate Transaction ID for non-cash payments (except Cheque which has its own validation)
@@ -180,7 +180,9 @@ export const createAdmission = async (req, res) => {
             monthlyPaymentAmount = monthlyTaxable + monthlyCgst + monthlySgst;
         }
 
-        const installmentAmount = admissionType === "BOARD" ? monthlyPaymentAmount : Math.ceil(remainingAmount / numberOfInstallments);
+        const installmentAmount = admissionType === "BOARD" 
+            ? monthlyPaymentAmount 
+            : (numberOfInstallments > 0 ? Math.ceil(remainingAmount / numberOfInstallments) : 0);
 
         // Generate payment breakdown
         const paymentBreakdown = [];

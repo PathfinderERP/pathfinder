@@ -655,77 +655,107 @@ const InstallmentPayment = () => {
                     </div>
 
                     {!selectedStudent && (
-                        <div className="bg-[#131619] border border-gray-800 rounded-2xl p-4" style={{ width: '480px', height: '140px' }}>
-                            <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Payment Analytics</div>
-                            <ResponsiveContainer width="100%" height={90}>
-                                <BarChart
-                                    data={[
-                                        {
-                                            name: 'Completed',
-                                            value: admissionsList.filter(a => a.paymentStatus === "COMPLETED").length,
-                                            amount: admissionsList.filter(a => a.paymentStatus === "COMPLETED").reduce((sum, a) => sum + (a.totalPaid || 0), 0),
-                                            color: '#10b981'
-                                        },
-                                        {
-                                            name: 'Partial',
-                                            value: admissionsList.filter(a => a.paymentStatus === "PARTIAL").length,
-                                            amount: admissionsList.filter(a => a.paymentStatus === "PARTIAL").reduce((sum, a) => sum + (a.totalPaid || 0), 0),
-                                            color: '#f59e0b'
-                                        },
-                                        {
-                                            name: 'Pending',
-                                            value: admissionsList.filter(a => a.paymentStatus === "PENDING" || !a.paymentStatus).length,
-                                            amount: admissionsList.filter(a => a.paymentStatus === "PENDING" || !a.paymentStatus).reduce((sum, a) => sum + (a.totalPaid || 0), 0),
-                                            color: '#ef4444'
-                                        }
-                                    ]}
-                                    margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-                                    <XAxis
-                                        dataKey="name"
-                                        stroke="#6b7280"
-                                        style={{ fontSize: '10px', fontWeight: 'bold' }}
-                                        tick={{ fill: '#9ca3af' }}
-                                        axisLine={false}
-                                        tickLine={false}
+                        <div className="flex flex-col xl:flex-row gap-4">
+                            {/* Financial Summary Card */}
+                            <div className="bg-[#131619] border border-gray-800 rounded-2xl p-5 flex flex-col justify-between" style={{ width: '420px', height: '140px' }}>
+                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Financial Summary</div>
+                                <div className="flex justify-between items-center gap-4">
+                                    <div className="flex-1">
+                                        <div className="text-[8px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Fees</div>
+                                        <div className="text-lg font-black text-white italic">₹{admissionsList.reduce((sum, a) => sum + (parseFloat(a.totalFees) || 0), 0).toLocaleString('en-IN')}</div>
+                                    </div>
+                                    <div className="flex-1 border-x border-gray-800 px-4">
+                                        <div className="text-[8px] font-black text-emerald-500/70 uppercase tracking-widest mb-1">Total Paid</div>
+                                        <div className="text-lg font-black text-emerald-500 italic">₹{admissionsList.reduce((sum, a) => sum + (parseFloat(a.totalPaid) || 0), 0).toLocaleString('en-IN')}</div>
+                                    </div>
+                                    <div className="flex-1 text-right">
+                                        <div className="text-[8px] font-black text-red-500/70 uppercase tracking-widest mb-1">Total Due</div>
+                                        <div className="text-lg font-black text-red-500 italic">₹{admissionsList.reduce((sum, a) => sum + (parseFloat(a.remainingAmount) || 0), 0).toLocaleString('en-IN')}</div>
+                                    </div>
+                                </div>
+                                <div className="mt-2 h-1 bg-gray-800 rounded-full overflow-hidden flex">
+                                    <div 
+                                        className="h-full bg-emerald-500" 
+                                        style={{ 
+                                            width: `${(admissionsList.reduce((sum, a) => sum + (parseFloat(a.totalPaid) || 0), 0) / (admissionsList.reduce((sum, a) => sum + (parseFloat(a.totalFees) || 0), 0) || 1)) * 100}%` 
+                                        }} 
                                     />
-                                    <YAxis
-                                        stroke="#6b7280"
-                                        style={{ fontSize: '9px' }}
-                                        tick={{ fill: '#9ca3af' }}
-                                        axisLine={false}
-                                        tickLine={false}
-                                    />
-                                    <Tooltip
-                                        contentStyle={{
-                                            backgroundColor: '#1f2937',
-                                            border: '1px solid #374151',
-                                            borderRadius: '8px',
-                                            fontSize: '11px',
-                                            fontWeight: 'bold'
-                                        }}
-                                        labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '10px' }}
-                                        cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
-                                        formatter={(value, name) => {
-                                            if (name === 'value') return [value + ' Students', 'Count'];
-                                            if (name === 'amount') return ['₹' + value.toLocaleString(), 'Amount'];
-                                            return [value, name];
-                                        }}
-                                    />
-                                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                        {
-                                            [
-                                                { name: 'Completed', color: '#10b981' },
-                                                { name: 'Partial', color: '#f59e0b' },
-                                                { name: 'Pending', color: '#ef4444' }
-                                            ].map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} />
-                                            ))
-                                        }
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
+                                </div>
+                            </div>
+
+                            {/* Payment Analytics Card */}
+                            <div className="bg-[#131619] border border-gray-800 rounded-2xl p-4" style={{ width: '480px', height: '140px' }}>
+                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Payment Analytics</div>
+                                <ResponsiveContainer width="100%" height={90}>
+                                    <BarChart
+                                        data={[
+                                            {
+                                                name: 'Completed',
+                                                value: admissionsList.filter(a => a.paymentStatus === "COMPLETED").length,
+                                                amount: admissionsList.filter(a => a.paymentStatus === "COMPLETED").reduce((sum, a) => sum + (parseFloat(a.totalPaid) || 0), 0),
+                                                color: '#10b981'
+                                            },
+                                            {
+                                                name: 'Partial',
+                                                value: admissionsList.filter(a => a.paymentStatus === "PARTIAL").length,
+                                                amount: admissionsList.filter(a => a.paymentStatus === "PARTIAL").reduce((sum, a) => sum + (parseFloat(a.totalPaid) || 0), 0),
+                                                color: '#f59e0b'
+                                            },
+                                            {
+                                                name: 'Pending',
+                                                value: admissionsList.filter(a => a.paymentStatus === "PENDING" || !a.paymentStatus).length,
+                                                amount: admissionsList.filter(a => a.paymentStatus === "PENDING" || !a.paymentStatus).reduce((sum, a) => sum + (parseFloat(a.totalPaid) || 0), 0),
+                                                color: '#ef4444'
+                                            }
+                                        ]}
+                                        margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                                        <XAxis
+                                            dataKey="name"
+                                            stroke="#6b7280"
+                                            style={{ fontSize: '10px', fontWeight: 'bold' }}
+                                            tick={{ fill: '#9ca3af' }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                        />
+                                        <YAxis
+                                            stroke="#6b7280"
+                                            style={{ fontSize: '9px' }}
+                                            tick={{ fill: '#9ca3af' }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                        />
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor: '#1f2937',
+                                                border: '1px solid #374151',
+                                                borderRadius: '8px',
+                                                fontSize: '11px',
+                                                fontWeight: 'bold'
+                                            }}
+                                            labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '10px' }}
+                                            cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+                                            formatter={(value, name) => {
+                                                if (name === 'value') return [value + ' Students', 'Count'];
+                                                if (name === 'amount') return ['₹' + value.toLocaleString(), 'Amount'];
+                                                return [value, name];
+                                            }}
+                                        />
+                                        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                            {
+                                                [
+                                                    { name: 'Completed', color: '#10b981' },
+                                                    { name: 'Partial', color: '#f59e0b' },
+                                                    { name: 'Pending', color: '#ef4444' }
+                                                ].map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} />
+                                                ))
+                                            }
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
                     )}
 
