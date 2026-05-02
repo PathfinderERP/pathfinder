@@ -892,7 +892,7 @@ const EnrolledStudentsContent = () => {
             { label: 'Guardian Email', key: 'student.guardians.0.guardianEmail' },
 
             // Academic Info
-            { label: 'Class', key: 'class.className' },
+            { label: 'Class', key: 'class.name' },
             { label: 'Session', key: 'academicSession' },
             { label: 'Exam Tag', key: 'examTag.name' },
 
@@ -969,7 +969,7 @@ const EnrolledStudentsContent = () => {
                     }]
                 },
                 centre: centre,
-                class: { className: admission.class?.className || '' },
+                class: { name: admission.class?.name || admission.class?.className || '' },
                 academicSession: admission.academicSession || '',
                 examTag: { name: admission.examTag?.name || '' },
                 admissionNumber: admission.admissionNumber || '',
