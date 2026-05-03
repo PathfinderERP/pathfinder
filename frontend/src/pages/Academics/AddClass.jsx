@@ -557,11 +557,11 @@ const AddClass = () => {
                                     .filter(b => {
                                         // Filter by centre
                                         const matchesCentre = formData.centreIds.length > 0 
-                                            ? formData.centreIds.includes(b.centreId?.toString() || b.centre?._id?.toString())
+                                            ? (!b.centreId || formData.centreIds.some(cid => cid.toString() === b.centreId.toString()))
                                             : true;
                                         
                                         // Filter by search
-                                        const matchesSearch = b.batchName?.toLowerCase().includes(batchSearch.toLowerCase());
+                                        const matchesSearch = (b.batchName || b.name || "").toLowerCase().includes(batchSearch.toLowerCase());
                                         
                                         return matchesCentre && matchesSearch;
                                     })

@@ -1240,7 +1240,12 @@ const Classes = () => {
                                             />
                                         </div>
                                         <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200 shadow-inner'}`}>
-                                            {dropdownData.batches?.filter(b => (b.batchName || b.name || "").toLowerCase().includes(batchSearch.toLowerCase())).map(b => (
+                                            {dropdownData.batches?.filter(b => {
+                                                const matchesSearch = (b.batchName || b.name || "").toLowerCase().includes(batchSearch.toLowerCase());
+                                                const matchesCentre = !editingClassData.centreIds || editingClassData.centreIds.length === 0 || 
+                                                    (!b.centreId || editingClassData.centreIds.some(cid => cid.toString() === b.centreId.toString()));
+                                                return matchesSearch && matchesCentre;
+                                            }).map(b => (
                                                 <label key={b._id} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${editingClassData.batchIds?.map(id => id.toString()).includes(b._id.toString()) ? (isDarkMode ? 'bg-cyan-900/30 border-cyan-500 text-cyan-200' : 'bg-cyan-50 border-cyan-500 text-cyan-700') : (isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-gray-500 hover:border-gray-600' : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300')}`}>
                                                     <input
                                                         type="checkbox"
