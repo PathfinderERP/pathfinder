@@ -96,9 +96,9 @@ const RegularizeTable = () => {
 
                 {/* Filters */}
                 <div className="flex flex-wrap gap-4 p-4 bg-white dark:bg-[#1a1f24] rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 items-center">
-                    <input 
-                        type="date" 
-                        value={localFilters.date} 
+                    <input
+                        type="date"
+                        value={localFilters.date}
                         onChange={(e) => setLocalFilters({ ...localFilters, date: e.target.value })}
                         className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm outline-none dark:text-white"
                         title="Filter by Date"
@@ -113,17 +113,17 @@ const RegularizeTable = () => {
                             <option key={center} value={center}>{center}</option>
                         ))}
                     </select>
-                    <input 
-                        type="text" 
-                        placeholder="Search EMP ID..." 
-                        value={localFilters.empId} 
+                    <input
+                        type="text"
+                        placeholder="Search EMP ID..."
+                        value={localFilters.empId}
                         onChange={(e) => setLocalFilters({ ...localFilters, empId: e.target.value })}
                         className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm outline-none dark:text-white min-w-[150px] flex-1 max-w-[200px]"
                     />
-                    <input 
-                        type="text" 
-                        placeholder="Search Name..." 
-                        value={localFilters.name} 
+                    <input
+                        type="text"
+                        placeholder="Search Name..."
+                        value={localFilters.name}
                         onChange={(e) => setLocalFilters({ ...localFilters, name: e.target.value })}
                         className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm outline-none dark:text-white min-w-[150px] flex-1 max-w-[200px]"
                     />
@@ -137,7 +137,7 @@ const RegularizeTable = () => {
                         <option value="Approved">Approved</option>
                         <option value="Rejected">Rejected</option>
                     </select>
-                    <button onClick={() => { setLocalFilters({ date: "", center: "", name: "", empId: "" }); setFilters({status: ""}) }} className="px-6 py-2 bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 rounded-lg text-sm font-bold shadow-sm whitespace-nowrap">Reset All</button>
+                    <button onClick={() => { setLocalFilters({ date: "", center: "", name: "", empId: "" }); setFilters({ status: "" }) }} className="px-6 py-2 bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 rounded-lg text-sm font-bold shadow-sm whitespace-nowrap">Reset All</button>
                     <button onClick={fetchRequests} className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-sm whitespace-nowrap">Refresh DB</button>
                 </div>
 
@@ -154,13 +154,14 @@ const RegularizeTable = () => {
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Verification</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Status</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Approved By</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Approve</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                 {loading ? (
-                                    <tr><td colSpan="10" className="px-6 py-10 text-center text-blue-600"><FaSpinner className="animate-spin mx-auto" size={30} /></td></tr>
+                                    <tr><td colSpan="11" className="px-6 py-10 text-center text-blue-600"><FaSpinner className="animate-spin mx-auto" size={30} /></td></tr>
                                 ) : requests.filter(request => {
                                     const reqDate = new Date(request.date).toISOString().split('T')[0];
                                     if (localFilters.date && reqDate !== localFilters.date) return false;
@@ -234,9 +235,9 @@ const RegularizeTable = () => {
                                                         <span className="text-[8px] text-gray-400 font-bold">NO PHOTO</span>
                                                     )}
                                                     {request.latitude && request.longitude ? (
-                                                        <a 
-                                                            href={`https://www.google.com/maps?q=${request.latitude},${request.longitude}`} 
-                                                            target="_blank" 
+                                                        <a
+                                                            href={`https://www.google.com/maps?q=${request.latitude},${request.longitude}`}
+                                                            target="_blank"
                                                             rel="noopener noreferrer"
                                                             className="text-blue-500 hover:text-blue-700"
                                                             title="View on Map"
@@ -258,6 +259,16 @@ const RegularizeTable = () => {
                                                     }`}>
                                                     {request.status}
                                                 </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <div className="flex flex-col items-center">
+                                                    <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300 uppercase">
+                                                        {request.reviewedBy?.name || 'Not Approved Yet'}
+                                                    </span>
+                                                    {request.reviewedBy && (
+                                                        <span className="text-[8px] text-gray-400 font-medium tracking-tight">ADMINISTRATOR</span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex justify-center gap-2">
@@ -298,7 +309,7 @@ const RegularizeTable = () => {
                                 <button type="button" onClick={() => setReviewData({ ...reviewData, status: 'Approved' })} className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 ${reviewData.status === 'Approved' ? 'bg-green-500 border-green-500 text-white' : 'border-gray-100 text-gray-400'}`}>Approve</button>
                                 <button type="button" onClick={() => setReviewData({ ...reviewData, status: 'Rejected' })} className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 ${reviewData.status === 'Rejected' ? 'bg-red-500 border-red-500 text-white' : 'border-gray-100 text-gray-400'}`}>Reject</button>
                             </div>
-                            
+
                             {/* Verification Display in Modal */}
                             {selectedRequest && ((selectedRequest.photos && selectedRequest.photos.length > 0) || (selectedRequest.latitude && selectedRequest.longitude)) && (
                                 <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 space-y-3">
@@ -324,7 +335,7 @@ const RegularizeTable = () => {
                                             </div>
                                         )}
                                         {selectedRequest.latitude && (
-                                            <a 
+                                            <a
                                                 href={`https://www.google.com/maps?q=${selectedRequest.latitude},${selectedRequest.longitude}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
@@ -348,10 +359,10 @@ const RegularizeTable = () => {
                                             </p>
                                             <div className="flex gap-4 text-[10px] text-gray-500 font-medium">
                                                 {selectedRequest.existingAttendance?.checkIn?.time && (
-                                                    <span>In: {new Date(selectedRequest.existingAttendance.checkIn.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                                    <span>In: {new Date(selectedRequest.existingAttendance.checkIn.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                 )}
                                                 {selectedRequest.existingAttendance?.checkOut?.time && (
-                                                    <span>Out: {new Date(selectedRequest.existingAttendance.checkOut.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                                    <span>Out: {new Date(selectedRequest.existingAttendance.checkOut.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                 )}
                                             </div>
                                         </div>
@@ -369,23 +380,23 @@ const RegularizeTable = () => {
                                 <label className="text-[10px] font-black uppercase text-gray-500 ml-1 tracking-widest">Attendance Mode</label>
                                 <div className="flex gap-6 px-1">
                                     <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                                        <input 
-                                            type="radio" 
-                                            name="attendanceMode" 
+                                        <input
+                                            type="radio"
+                                            name="attendanceMode"
                                             className="accent-blue-500 w-4 h-4 cursor-pointer"
-                                            checked={reviewData.attendanceMode === 'full'} 
-                                            onChange={() => setReviewData({...reviewData, attendanceMode: 'full', fromTime: '09:30', toTime: '18:30'})} 
-                                        /> 
+                                            checked={reviewData.attendanceMode === 'full'}
+                                            onChange={() => setReviewData({ ...reviewData, attendanceMode: 'full', fromTime: '09:30', toTime: '18:30' })}
+                                        />
                                         <span className="font-bold text-[11px] uppercase tracking-wider">Full Day (9:30 - 18:30)</span>
                                     </label>
                                     <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                                        <input 
-                                            type="radio" 
+                                        <input
+                                            type="radio"
                                             name="attendanceMode"
-                                            className="accent-blue-500 w-4 h-4 cursor-pointer" 
-                                            checked={reviewData.attendanceMode === 'custom'} 
-                                            onChange={() => setReviewData({...reviewData, attendanceMode: 'custom'})} 
-                                        /> 
+                                            className="accent-blue-500 w-4 h-4 cursor-pointer"
+                                            checked={reviewData.attendanceMode === 'custom'}
+                                            onChange={() => setReviewData({ ...reviewData, attendanceMode: 'custom' })}
+                                        />
                                         <span className="font-bold text-[11px] uppercase tracking-wider">Remaining / Custom Time</span>
                                     </label>
                                 </div>
@@ -415,15 +426,15 @@ const RegularizeTable = () => {
             )}
             {/* Image Preview Modal */}
             {showPreviewModal && (
-                <div 
+                <div
                     className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in"
                     onClick={() => setShowPreviewModal(false)}
                 >
-                    <div 
+                    <div
                         className="relative max-w-4xl w-full flex flex-col items-center gap-6"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <button 
+                        <button
                             onClick={() => setShowPreviewModal(false)}
                             className="absolute -top-12 right-0 text-white/60 hover:text-white transition-colors"
                         >
@@ -431,21 +442,21 @@ const RegularizeTable = () => {
                         </button>
 
                         <div className="w-full bg-white dark:bg-gray-900 p-2 rounded-2xl shadow-2xl relative group overflow-hidden border border-white/10">
-                            <img 
-                                src={previewImage} 
-                                alt="Verification Evidence" 
+                            <img
+                                src={previewImage}
+                                alt="Verification Evidence"
                                 className="w-full h-auto max-h-[70vh] object-contain rounded-xl"
                             />
                         </div>
 
                         <div className="flex gap-4">
-                            <button 
+                            <button
                                 onClick={() => handleDownloadImage(previewImage, `regularization_proof_${selectedRequest?.employeeId?.name || 'employee'}.jpg`)}
                                 className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-blue-600/20 active:scale-95 transition-all"
                             >
                                 <FaPlus className="rotate-0" /> Download Proof Image
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setShowPreviewModal(false)}
                                 className="bg-white/10 hover:bg-white/20 text-white px-8 py-3 rounded-xl font-bold uppercase tracking-widest border border-white/10 active:scale-95 transition-all"
                             >
