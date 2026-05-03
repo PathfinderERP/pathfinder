@@ -74,6 +74,7 @@ const Classes = () => {
     const [editAcadSubjects, setEditAcadSubjects] = useState([]);
     const [editAcadChapters, setEditAcadChapters] = useState([]);
     const [editAcadTopics, setEditAcadTopics] = useState([]);
+    const [batchSearch, setBatchSearch] = useState("");
 
     // Feedback State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -464,7 +465,7 @@ const Classes = () => {
 
         setEditingClassData({
             ...cls,
-            centreId: cls.centreId?._id || cls.centreId,
+            centreIds: cls.centreIds?.map(c => c._id || c) || (cls.centreId?._id ? [cls.centreId._id] : (cls.centreId ? [cls.centreId] : [])),
             batchIds: cls.batchIds?.map(b => b._id) || (cls.batchId?._id ? [cls.batchId._id] : []),
             subjectId: cls.subjectId?._id || cls.subjectId,
             teacherId: cls.teacherId?._id || cls.teacherId,
@@ -487,6 +488,12 @@ const Classes = () => {
 
     const handleUpdateClass = async (e) => {
         e.preventDefault();
+
+        if (!editingClassData.batchIds || editingClassData.batchIds.length === 0) {
+            toast.error("Please select at least one batch");
+            return;
+        }
+
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${API_URL}/academics/class-schedule/update/${editingClassData._id}`, {
@@ -819,7 +826,7 @@ const Classes = () => {
                                                     {cls.classMode}
                                                 </span>
                                             </td>
-                                            <td className="p-4">{cls.centreId?.centreName || cls.centreId?.name || "-"}</td>
+                                            <td className="p-4">{cls.centreNames || "-"}</td>
                                             <td className="p-4">{cls.acadSubjectId?.masterSubjectId?.subName || cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "-"}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterId?.chapterName || cls.chapterName || "-"}</td>
                                             <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicIds && cls.topicIds.length > 0 ? cls.topicIds.map(t => t.topicName).join(", ") : (cls.topicName || "-")}</td>
@@ -1041,18 +1048,21 @@ const Classes = () => {
                                         </div>
                                     </div>
 
-                                    {/* Center */}
+                                    {/* Centers */}
                                     <div className="flex flex-col gap-2">
-                                        <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Center</label>
-                                        <select
-                                            required
-                                            value={editingClassData.centreId}
-                                            onChange={(e) => setEditingClassData({ ...editingClassData, centreId: e.target.value })}
-                                            className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
-                                        >
-                                            <option value="">Select Center</option>
-                                            {dropdownData.centres?.map(c => <option key={c._id} value={c._id}>{c.centreName || c.name}</option>)}
-                                        </select>
+                                        <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Centers</label>
+                                        <Select
+                                            isMulti
+                                            options={dropdownData.centres?.map(c => ({ value: c._id, label: c.centreName || c.name }))}
+                                            value={dropdownData.centres?.filter(c => editingClassData.centreIds?.includes(c._id)).map(c => ({ value: c._id, label: c.centreName || c.name }))}
+                                            onChange={(selected) => {
+                                                const values = selected ? selected.map(opt => opt.value) : [];
+                                                setEditingClassData({ ...editingClassData, centreIds: values });
+                                            }}
+                                            placeholder="Select Centers"
+                                            styles={customSelectStyles}
+                                            className="text-sm"
+                                        />
                                     </div>
 
                                     {/* Instructor */}
@@ -1073,7 +1083,6 @@ const Classes = () => {
                                     <div className="flex flex-col gap-2">
                                         <label className="text-xs font-bold text-gray-400 uppercase">Coordinator</label>
                                         <select
-                                            
                                             value={editingClassData.coordinatorId}
                                             onChange={(e) => setEditingClassData({ ...editingClassData, coordinatorId: e.target.value })}
                                             className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all transition-all shadow-lg"
@@ -1199,28 +1208,42 @@ const Classes = () => {
                                         </div>
                                     </div>
 
-                                    {/* Batches (Multi-select) */}
-                                    <div className="flex flex-col gap-2 md:col-span-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase flex justify-between">
-                                            <span>Batches (Select multiple)</span>
-                                            <span className="text-cyan-500 capitalize">{editingClassData.batchIds?.length || 0} selected</span>
-                                        </label>
-                                        <select
-                                            multiple
-                                            required
-                                            value={editingClassData.batchIds}
-                                            onChange={(e) => {
-                                                const options = Array.from(e.target.selectedOptions);
-                                                const values = options.map(opt => opt.value);
-                                                setEditingClassData({ ...editingClassData, batchIds: values });
-                                            }}
-                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all transition-all shadow-lg h-32 scrollbar-thin scrollbar-thumb-gray-800"
-                                        >
-                                            {dropdownData.batches?.map(b => (
-                                                <option key={b._id} value={b._id} className="p-2 border-b border-gray-800 last:border-0">{b.batchName || b.name}</option>
+                                    {/* Batches (Grid for better visibility) */}
+                                    <div className="flex flex-col gap-3 mb-3 md:col-span-2">
+                                        <div className="flex justify-between items-center">
+                                            <label className="text-xs font-bold text-gray-400 uppercase flex gap-2 items-center">
+                                                <span>Batches (Master Data)</span>
+                                                <span className="text-cyan-500 capitalize">{editingClassData.batchIds?.length || 0} selected</span>
+                                            </label>
+                                        </div>
+                                        <div className="flex justify-center">
+                                            <input
+                                                type="text"
+                                                placeholder="🔍 Search for a batch..."
+                                                value={batchSearch}
+                                                onChange={(e) => setBatchSearch(e.target.value)}
+                                                className={`w-full max-w-md px-6 py-2 text-sm rounded-2xl border outline-none transition-all text-center font-medium ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-yellow-500 shadow-2xl' : 'bg-white border-gray-200 text-gray-900 focus:border-yellow-600 shadow-md'}`}
+                                            />
+                                        </div>
+                                        <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200 shadow-inner'}`}>
+                                            {dropdownData.batches?.filter(b => (b.batchName || b.name || "").toLowerCase().includes(batchSearch.toLowerCase())).map(b => (
+                                                <label key={b._id} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${editingClassData.batchIds?.includes(b._id) ? (isDarkMode ? 'bg-cyan-900/30 border-cyan-500 text-cyan-200' : 'bg-cyan-50 border-cyan-500 text-cyan-700') : (isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-gray-500 hover:border-gray-600' : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300')}`}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={editingClassData.batchIds?.includes(b._id)}
+                                                        onChange={(e) => {
+                                                            const checked = e.target.checked;
+                                                            const updatedBatchIds = checked
+                                                                ? [...(editingClassData.batchIds || []), b._id]
+                                                                : editingClassData.batchIds.filter(id => id !== b._id);
+                                                            setEditingClassData({ ...editingClassData, batchIds: updatedBatchIds });
+                                                        }}
+                                                        className="hidden"
+                                                    />
+                                                    <span className="text-[10px] font-bold truncate uppercase tracking-tight">{b.batchName || b.name}</span>
+                                                </label>
                                             ))}
-                                        </select>
-                                        <p className="text-[10px] text-gray-500 italic mt-1">Hold Ctrl (Cmd) to select multiple batches</p>
+                                        </div>
                                     </div>
                                 </div>
 

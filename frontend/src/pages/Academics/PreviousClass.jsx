@@ -487,7 +487,7 @@ const PreviousClass = () => {
                                             <td className="p-4 font-bold text-gray-500">{(page - 1) * limit + index + 1}</td>
                                             <td className="p-4 font-semibold text-white">{cls.className}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">
-                                                {cls.centreId?.centreName || cls.centreId?.centerName || cls.centreId?.name || "-"}
+                                                {cls.centreNames || "-"}
                                             </td>
                                             <td className="p-4">
                                                 {cls.batchIds && cls.batchIds.length > 0

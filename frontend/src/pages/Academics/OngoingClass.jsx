@@ -513,7 +513,7 @@ const OngoingClass = () => {
                                                 </div>
                                             </td>
                                             <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
-                                            <td className="p-4">{cls.centreId?.centreName || cls.centreId?.name || "-"}</td>
+                                            <td className="p-4">{cls.centreNames || "-"}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">
                                                 {cls.startTime} - {cls.endTime}
                                             </td>

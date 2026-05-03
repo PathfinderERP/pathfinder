@@ -639,7 +639,7 @@ const UpcomingClass = () => {
                                                 {cls.teacherId?.name || "-"}
                                             </td>
                                             <td className="p-4">
-                                                {cls.centreId?.centreName || cls.centreId?.centerName || cls.centreId?.name || "-"}
+                                                {cls.centreNames || "-"}
                                             </td>
                                             <td className="p-4 whitespace-nowrap">{formatDate(cls.date)}</td>
                                             <td className="p-4 whitespace-nowrap text-[10px] text-gray-500">{formatDate(cls.updatedAt)}</td>

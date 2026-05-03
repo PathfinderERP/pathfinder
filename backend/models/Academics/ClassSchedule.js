@@ -51,11 +51,11 @@ const classScheduleSchema = new mongoose.Schema({
         ref: "Course",
         required: false
     },
-    centreId: {
+    centreIds: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "CentreSchema",
         required: true
-    },
+    }],
     batchIds: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Batch",

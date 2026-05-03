@@ -30,7 +30,8 @@ export const createClassSchedule = async (req, res) => {
             teacherId,
             session,
             examId,
-            centreId,
+            centreId, // fallback for old frontend
+            centreIds,
             batchId,
             batchIds,
             coordinatorId,
@@ -42,11 +43,22 @@ export const createClassSchedule = async (req, res) => {
             classHours
         } = req.body;
 
+        // Final centreIds list
+        const finalCentreIds = centreIds || (centreId ? [centreId] : []);
+
         // Center authorization check
         if (req.user.role !== 'superAdmin') {
             const userCentres = req.user.centres || [];
-            if (!userCentres.map(c => c.toString()).includes(centreId?.toString())) {
-                return res.status(403).json({ message: "You are not authorized to create classes for this center" });
+            const userCentreStrs = userCentres.map(c => c.toString());
+            
+            // Ensure at least one centre is provided and all provided centres are authorized
+            if (finalCentreIds.length === 0) {
+                return res.status(400).json({ message: "At least one center must be selected" });
+            }
+
+            const unauthorized = finalCentreIds.filter(cid => !userCentreStrs.includes(cid.toString()));
+            if (unauthorized.length > 0) {
+                return res.status(403).json({ message: "You are not authorized for one or more selected centers" });
             }
         }
 
@@ -60,8 +72,8 @@ export const createClassSchedule = async (req, res) => {
             teacherId,
             session,
             examId,
-            centreId,
-            batchIds: batchIds || [batchId], // Fallback if old frontend still sends batchId
+            centreIds: finalCentreIds,
+            batchIds: batchIds || (batchId ? [batchId] : []),
             coordinatorId: coordinatorId || undefined,
             acadClassId: acadClassId || undefined,
             acadSubjectId: acadSubjectId || undefined,
@@ -144,13 +156,13 @@ export const getClassSchedules = async (req, res) => {
                         const authorizedCentres = selectedCentres.filter(id => userCentres.map(c => c.toString()).includes(id.toString()));
 
                         if (authorizedCentres.length > 0) {
-                            query.centreId = { $in: authorizedCentres };
+                            query.centreIds = { $in: authorizedCentres };
                         } else {
                             // If none of the selected centers are authorized, restrict to userCentres
-                            query.centreId = { $in: userCentres };
+                            query.centreIds = { $in: userCentres };
                         }
                     } else {
-                        query.centreId = { $in: userCentres };
+                        query.centreIds = { $in: userCentres };
                     }
                 } else {
                     // Admins with no centers assigned see nothing
@@ -164,15 +176,15 @@ export const getClassSchedules = async (req, res) => {
                     // Ensure requested centres are in user's assigned list
                     const authorized = selectedCentres.filter(id => userCentres.map(c => c.toString()).includes(id.toString()));
                     if (authorized.length > 0) {
-                        query.centreId = { $in: authorized };
+                        query.centreIds = { $in: authorized };
                     } else {
                         // If none authorized, default to all assigned centres
-                        query.centreId = { $in: userCentres };
+                        query.centreIds = { $in: userCentres };
                     }
                 } else {
                     // Default to all assigned centres if no specific filter
                     if (userCentres.length > 0) {
-                        query.centreId = { $in: userCentres };
+                        query.centreIds = { $in: userCentres };
                     } else {
                         // User has no centres assigned -> sees nothing
                         return res.status(200).json({ classes: [], total: 0, currentPage: -1, totalPages: 0 }); // Return empty
@@ -181,7 +193,7 @@ export const getClassSchedules = async (req, res) => {
             }
         } else if (centreId) {
             const selectedCentres = centreId.split(',').filter(id => id.trim());
-            if (selectedCentres.length > 0) query.centreId = { $in: selectedCentres };
+            if (selectedCentres.length > 0) query.centreIds = { $in: selectedCentres };
         }
 
         if (batchId) {
@@ -249,7 +261,7 @@ export const getClassSchedules = async (req, res) => {
             .populate("teacherId", "name userType")
             .populate("examId", "name tagName")
             .populate("courseId", "courseName name")
-            .populate("centreId", "centreName centerName name latitude longitude")
+            .populate("centreIds", "centreName centerName name latitude longitude")
             .populate("coordinatorId", "name")
             .populate("batchIds", "batchName name")
             .populate("acadClassId", "className")
@@ -274,6 +286,7 @@ export const getClassSchedules = async (req, res) => {
                 ...clsObj,
                 subjectName: cls.subjectId?.subName || cls.subjectId?.subjectName || "N/A",
                 acadSubjectName: cls.acadSubjectId?.subName || "N/A",
+                centreNames: cls.centreIds?.map(c => c.centreName || c.name).join(", ") || "N/A",
                 batchNames: cls.batchIds?.map(b => b.batchName || b.name).join(", ") || (cls.batchId?.batchName || cls.batchId?.name) || "N/A"
             };
         });
@@ -360,7 +373,8 @@ export const updateClassSchedule = async (req, res) => {
             teacherId,
             session,
             examId,
-            centreId,
+            centreId, // fallback
+            centreIds,
             batchIds,
             coordinatorId,
             acadClassId,
@@ -370,6 +384,8 @@ export const updateClassSchedule = async (req, res) => {
             message,
             classHours
         } = req.body;
+
+        const finalCentreIds = centreIds || (centreId ? [centreId] : []);
 
         const currentClass = await ClassSchedule.findById(id);
         if (!currentClass) {
@@ -385,8 +401,12 @@ export const updateClassSchedule = async (req, res) => {
         // Center authorization check
         if (req.user.role !== 'superAdmin') {
             const userCentres = req.user.centres || [];
-            if (centreId && !userCentres.map(c => c.toString()).includes(centreId?.toString())) {
-                return res.status(403).json({ message: "You are not authorized to update classes for this center" });
+            const userCentreStrs = userCentres.map(c => c.toString());
+            if (finalCentreIds.length > 0) {
+                const unauthorized = finalCentreIds.filter(cid => !userCentreStrs.includes(cid.toString()));
+                if (unauthorized.length > 0) {
+                    return res.status(403).json({ message: "You are not authorized for one or more selected centers" });
+                }
             }
         }
 
@@ -404,7 +424,7 @@ export const updateClassSchedule = async (req, res) => {
                 teacherId,
                 session,
                 examId,
-                centreId,
+                centreIds: finalCentreIds,
                 batchIds,
                 coordinatorId: coordinatorId || undefined,
                 acadClassId: acadClassId || undefined,
@@ -435,7 +455,7 @@ export const updateClassSchedule = async (req, res) => {
                     teacherId,
                     session,
                     examId,
-                    centreId,
+                    centreIds: finalCentreIds,
                     batchIds,
                     coordinatorId: coordinatorId || undefined,
                     acadClassId: acadClassId || undefined,
@@ -772,7 +792,7 @@ export const importClassesExcel = async (req, res) => {
                 teacherId: teacher._id,
                 session: sessionDoc.sessionName, // Schema stores string or ObjectId, existing script usually passes string
                 examId: examId,
-                centreId: centre._id,
+                centreIds: [centre._id],
                 batchIds: batchIds,
                 coordinatorId: coordinatorId,
                 acadClassId: acadClassId,

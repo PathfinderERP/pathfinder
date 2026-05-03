@@ -7,6 +7,7 @@ import { hasPermission } from "../../config/permissions";
 import { FaPlus, FaTrash } from "react-icons/fa";
 import { useTheme } from "../../context/ThemeContext";
 import CustomMultiSelect from "../../components/common/CustomMultiSelect";
+import Select from "react-select";
 
 const AddClass = () => {
     const navigate = useNavigate();
@@ -31,7 +32,7 @@ const AddClass = () => {
         teacherId: "",
         session: "",
         examId: "",
-        centreId: "",
+        centreIds: [],
         batchIds: [],
         coordinatorId: "",
         // New Academic Fields
@@ -59,6 +60,7 @@ const AddClass = () => {
     const [acadSubjects, setAcadSubjects] = useState([]);
     const [acadChapters, setAcadChapters] = useState([]);
     const [acadTopics, setAcadTopics] = useState([]);
+    const [batchSearch, setBatchSearch] = useState("");
 
     const [loading, setLoading] = useState(false);
     const API_URL = import.meta.env.VITE_API_URL;
@@ -171,6 +173,71 @@ const AddClass = () => {
         );
     };
 
+    const customSelectStyles = {
+        control: (base, state) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#131619" : "#f9fafb",
+            borderColor: state.isFocused ? "#06b6d4" : isDarkMode ? "#374151" : "#d1d5db",
+            borderRadius: "0.5rem",
+            padding: "0.2rem",
+            fontSize: "1rem",
+            color: isDarkMode ? "white" : "black",
+            boxShadow: "none",
+            "&:hover": {
+                borderColor: "#06b6d4"
+            }
+        }),
+        menu: (base) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#1e2530" : "white",
+            border: `1px solid ${isDarkMode ? "#374151" : "#d1d5db"}`,
+            zIndex: 100
+        }),
+        option: (base, state) => ({
+            ...base,
+            backgroundColor: state.isFocused
+                ? isDarkMode ? "#2a3038" : "#f3f4f6"
+                : "transparent",
+            color: isDarkMode ? "white" : "black",
+            fontSize: "0.875rem",
+            "&:active": {
+                backgroundColor: "#06b6d4"
+            }
+        }),
+        multiValue: (base) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#06b6d420" : "#e0f2fe",
+            borderRadius: "0.25rem",
+            border: `1px solid ${isDarkMode ? "#06b6d440" : "#bae6fd"}`
+        }),
+        multiValueLabel: (base) => ({
+            ...base,
+            color: isDarkMode ? "#22d3ee" : "#0369a1",
+            fontSize: "0.75rem",
+            fontWeight: "bold"
+        }),
+        multiValueRemove: (base) => ({
+            ...base,
+            color: isDarkMode ? "#22d3ee" : "#0369a1",
+            "&:hover": {
+                backgroundColor: isDarkMode ? "#ef4444" : "#fee2e2",
+                color: isDarkMode ? "white" : "#b91c1c"
+            }
+        }),
+        input: (base) => ({
+            ...base,
+            color: isDarkMode ? "white" : "gray"
+        }),
+        placeholder: (base) => ({
+            ...base,
+            color: isDarkMode ? "#6b7280" : "#9ca3af"
+        }),
+        singleValue: (base) => ({
+            ...base,
+            color: isDarkMode ? "white" : "black"
+        })
+    };
+
     useEffect(() => {
         fetchDropdownData();
     }, []);
@@ -258,7 +325,7 @@ const AddClass = () => {
         // All other fields
         setFormData(prev => ({ ...prev, [name]: value }));
     };
-    
+
     const handleTopicChange = (selectedOptions) => {
         const values = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
         setFormData(prev => ({ ...prev, topicIds: values }));
@@ -266,6 +333,12 @@ const AddClass = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        if (!formData.batchIds || formData.batchIds.length === 0) {
+            toast.error("Please select at least one batch");
+            return;
+        }
+
         setLoading(true);
 
         try {
@@ -281,15 +354,9 @@ const AddClass = () => {
             const data = await response.json();
             if (response.ok) {
                 toast.success("Class scheduled successfully");
-                setFormData({
-                    className: "", date: "", classMode: "", startTime: "", endTime: "",
-                    subjectId: "", teacherId: "", session: "", examId: "", centreId: "", batchIds: [],
-                    acadClassId: "", acadSubjectId: "", chapterName: "", topicIds: [], message: "", classHours: 0
-                });
-                // Reset cascades
-                setAcadSubjects([]);
-                setAcadChapters([]);
-                setAcadTopics([]);
+                setTimeout(() => {
+                    navigate("/academics/classes");
+                }, 1500);
             } else {
                 toast.error(data.message || "Failed to schedule class");
             }
@@ -402,8 +469,8 @@ const AddClass = () => {
                             isDarkMode={isDarkMode}
                             required
                             filterFunc={(t) => {
-                                if (formData.centreId) {
-                                    return t.centres?.some(c => (c._id || c).toString() === formData.centreId);
+                                if (formData.centreIds.length > 0) {
+                                    return t.centres?.some(c => formData.centreIds.includes((c._id || c).toString()));
                                 }
                                 return true;
                             }}
@@ -416,11 +483,11 @@ const AddClass = () => {
                             options={dropdownData.coordinators}
                             displayPath="name"
                             onChange={handleChange}
-                            placeholder={formData.centreId ? 'Select a coordinator (Filtered by Centre)' : 'Select a coordinator'}
+                            placeholder={formData.centreIds.length > 0 ? 'Select a coordinator (Filtered by Centres)' : 'Select a coordinator'}
                             isDarkMode={isDarkMode}
                             filterFunc={(c) => {
-                                if (formData.centreId) {
-                                    return c.centres?.some(ctrl => (ctrl._id || ctrl).toString() === formData.centreId);
+                                if (formData.centreIds.length > 0) {
+                                    return c.centres?.some(ctrl => formData.centreIds.includes((ctrl._id || ctrl).toString()));
                                 }
                                 return true;
                             }}
@@ -452,40 +519,71 @@ const AddClass = () => {
                         />
 
 
-                        <SearchableSelect
-                            label="Centre"
-                            name="centreId"
-                            value={formData.centreId}
-                            options={dropdownData.centres}
-                            displayPath="centreName"
-                            onChange={handleChange}
-                            placeholder="Select a centre"
-                            isDarkMode={isDarkMode}
-                            required
-                        />
+                        <div className="md:col-span-1">
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                Centres*
+                            </label>
+                            <Select
+                                isMulti
+                                options={dropdownData.centres.map(c => ({ value: c._id, label: c.centreName || c.name }))}
+                                value={dropdownData.centres.filter(c => formData.centreIds.includes(c._id)).map(c => ({ value: c._id, label: c.centreName || c.name }))}
+                                onChange={(selected) => {
+                                    const values = selected ? selected.map(opt => opt.value) : [];
+                                    setFormData(prev => ({ ...prev, centreIds: values }));
+                                }}
+                                placeholder="Select Centres"
+                                styles={customSelectStyles}
+                                className="text-sm"
+                            />
+                        </div>
 
                         <div className="md:col-span-2">
-                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Batches*</label>
+                            <div className="flex flex-col gap-3 mb-3">
+                                <label className={`text-sm font-semibold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    Batches (Available for selected centres)*
+                                </label>
+                                <div className="flex justify-center">
+                                    <input
+                                        type="text"
+                                        placeholder="🔍 Search for a batch..."
+                                        value={batchSearch}
+                                        onChange={(e) => setBatchSearch(e.target.value)}
+                                        className={`w-full max-w-md px-6 py-2.5 text-sm rounded-2xl border outline-none transition-all text-center font-medium ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500 shadow-2xl' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-600 shadow-md'}`}
+                                    />
+                                </div>
+                            </div>
                             <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200 shadow-inner'}`}>
-                                {dropdownData.batches.map(b => (
-                                    <label key={b._id} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${formData.batchIds.includes(b._id) ? (isDarkMode ? 'bg-cyan-900/30 border-cyan-500 text-cyan-200' : 'bg-cyan-50 border-cyan-500 text-cyan-700') : (isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-gray-500 hover:border-gray-600' : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300')}`}>
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.batchIds.includes(b._id)}
-                                            onChange={(e) => {
-                                                const checked = e.target.checked;
-                                                setFormData(prev => ({
-                                                    ...prev,
-                                                    batchIds: checked
-                                                        ? [...prev.batchIds, b._id]
-                                                        : prev.batchIds.filter(id => id !== b._id)
-                                                }));
-                                            }}
-                                            className="hidden"
-                                        />
-                                        <span className="text-xs font-bold truncate uppercase tracking-tight">{b.batchName}</span>
-                                    </label>
-                                ))}
+                                {dropdownData.batches
+                                    .filter(b => {
+                                        // Filter by centre
+                                        const matchesCentre = formData.centreIds.length > 0 
+                                            ? formData.centreIds.includes(b.centreId?.toString() || b.centre?._id?.toString())
+                                            : true;
+                                        
+                                        // Filter by search
+                                        const matchesSearch = b.batchName?.toLowerCase().includes(batchSearch.toLowerCase());
+                                        
+                                        return matchesCentre && matchesSearch;
+                                    })
+                                    .map(b => (
+                                        <label key={b._id} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${formData.batchIds.includes(b._id) ? (isDarkMode ? 'bg-cyan-900/30 border-cyan-500 text-cyan-200' : 'bg-cyan-50 border-cyan-500 text-cyan-700') : (isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-gray-500 hover:border-gray-600' : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300')}`}>
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.batchIds.includes(b._id)}
+                                                onChange={(e) => {
+                                                    const checked = e.target.checked;
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        batchIds: checked
+                                                            ? [...prev.batchIds, b._id]
+                                                            : prev.batchIds.filter(id => id !== b._id)
+                                                    }));
+                                                }}
+                                                className="hidden"
+                                            />
+                                            <span className="text-xs font-bold truncate uppercase tracking-tight">{b.batchName}</span>
+                                        </label>
+                                    ))}
                             </div>
                         </div>
 
