@@ -262,6 +262,7 @@ export const getClassSchedules = async (req, res) => {
             .populate("examId", "name tagName")
             .populate("courseId", "courseName name")
             .populate("centreIds", "centreName centerName name latitude longitude")
+            .populate("centreId", "centreName centerName name latitude longitude")
             .populate("coordinatorId", "name")
             .populate("batchIds", "batchName name")
             .populate("acadClassId", "className")
@@ -282,11 +283,24 @@ export const getClassSchedules = async (req, res) => {
             if (clsObj.status === 'Upcoming' && new Date(clsObj.date) < todayMidnight) {
                 clsObj.status = 'Not Taken';
             }
+
+            // Combine names from both centreIds and centreId
+            const names = [];
+            if (cls.centreIds && cls.centreIds.length > 0) {
+                cls.centreIds.forEach(c => {
+                    const name = c.centreName || c.name;
+                    if (name) names.push(name);
+                });
+            } else if (cls.centreId) {
+                const name = cls.centreId.centreName || cls.centreId.name;
+                if (name) names.push(name);
+            }
+
             return {
                 ...clsObj,
                 subjectName: cls.subjectId?.subName || cls.subjectId?.subjectName || "N/A",
                 acadSubjectName: cls.acadSubjectId?.subName || "N/A",
-                centreNames: cls.centreIds?.map(c => c.centreName || c.name).join(", ") || "N/A",
+                centreNames: names.length > 0 ? names.join(", ") : "N/A",
                 batchNames: cls.batchIds?.map(b => b.batchName || b.name).join(", ") || (cls.batchId?.batchName || cls.batchId?.name) || "N/A"
             };
         });
@@ -925,6 +939,7 @@ export const exportClassSchedulesExcel = async (req, res) => {
             .populate("subjectId", "subName")
             .populate("teacherId", "name")
             .populate("centreId", "centreName name")
+            .populate("centreIds", "centreName name")
             .populate("batchIds", "batchName name")
             .sort({ date: -1 });
 
@@ -966,7 +981,19 @@ export const exportClassSchedulesExcel = async (req, res) => {
 
         for (const cls of classSchedules) {
             const clsBatchIds = cls.batchIds.map(b => b._id.toString());
-            const clsCentreName = cls.centreId?.centreName || cls.centreId?.name || "N/A";
+            
+            // Handle multiple centers
+            const names = [];
+            if (cls.centreIds && cls.centreIds.length > 0) {
+                cls.centreIds.forEach(c => {
+                    const name = c.centreName || c.name;
+                    if (name) names.push(name);
+                });
+            } else if (cls.centreId) {
+                const name = cls.centreId.centreName || cls.centreId.name;
+                if (name) names.push(name);
+            }
+            const clsCentreName = names.length > 0 ? names.join(", ") : "N/A";
 
             // Find students that belong to this class (matching batches AND center)
             const clsStudents = allStudents.filter(s =>

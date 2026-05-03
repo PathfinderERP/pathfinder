@@ -56,6 +56,11 @@ const classScheduleSchema = new mongoose.Schema({
         ref: "CentreSchema",
         required: true
     }],
+    centreId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "CentreSchema",
+        required: false
+    },
     batchIds: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Batch",
