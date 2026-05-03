@@ -114,7 +114,12 @@ export const generateOfferLetter = (req, res) => handleGenerateLetter(req, res, 
 export const generateAppointmentLetter = (req, res) => handleGenerateLetter(req, res, "Appointment Letter", pdfGenerator.generateAppointmentLetter.bind(pdfGenerator), (emp, body) => ({ companyName: body.companyName || "PathFinder ERP" }));
 export const generateContractLetter = (req, res) => handleGenerateLetter(req, res, "Contract Letter", pdfGenerator.generateContractLetter.bind(pdfGenerator), (emp, body) => ({ companyName: body.companyName || "PathFinder ERP" }));
 export const generateExperienceLetter = (req, res) => handleGenerateLetter(req, res, "Experience Letter", pdfGenerator.generateExperienceLetter.bind(pdfGenerator), (emp, body) => ({ companyName: body.companyName || "PathFinder ERP", relievingDate: body.relievingDate }));
-export const generateReleaseLetter = (req, res) => handleGenerateLetter(req, res, "Release Letter", pdfGenerator.generateReleaseLetter.bind(pdfGenerator), (emp, body) => ({ companyName: body.companyName || "PathFinder ERP", relievingDate: body.relievingDate || new Date().toISOString().split("T")[0] }));
+export const generateReleaseLetter = (req, res) => handleGenerateLetter(req, res, "Release Letter", pdfGenerator.generateReleaseLetter.bind(pdfGenerator), (emp, body) => ({ 
+    companyName: body.companyName || "PathFinder ERP", 
+    relievingDate: body.relievingDate || new Date().toISOString().split("T")[0],
+    endDate: body.endDate,
+    lastWorkingDay: body.lastWorkingDay
+}));
 export const generateVirtualId = (req, res) => handleGenerateLetter(req, res, "Virtual ID", pdfGenerator.generateVirtualId.bind(pdfGenerator), (emp, body) => ({ companyName: body.companyName || "PathFinder ERP" }));
 
 // Send Letters
