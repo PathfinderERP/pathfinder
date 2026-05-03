@@ -118,9 +118,11 @@ export const generateExperienceLetter = async (employee, data) => {
 
             // -------- Paragraph 3 --------
             doc.moveDown(1.5);
+            
+            const conductRemark = data.conductRemark || 'The employment records pertaining to the above-mentioned period are duly maintained in the official records of the organization. Their conduct was good during their association with the organization.';
 
             doc.text(
-                'The employment records pertaining to the above-mentioned period are duly maintained in the official records of the organization. Their conduct was good during their association with the organization.',
+                conductRemark,
                 centerX,
                 doc.y,
                 options

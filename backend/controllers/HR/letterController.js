@@ -116,7 +116,8 @@ export const generateContractLetter = (req, res) => handleGenerateLetter(req, re
 export const generateExperienceLetter = (req, res) => handleGenerateLetter(req, res, "Experience Letter", pdfGenerator.generateExperienceLetter.bind(pdfGenerator), (emp, body) => ({ 
     companyName: body.companyName || "PathFinder ERP", 
     relievingDate: body.relievingDate,
-    endDate: body.endDate
+    endDate: body.endDate,
+    conductRemark: body.conductRemark
 }));
 export const generateReleaseLetter = (req, res) => handleGenerateLetter(req, res, "Release Letter", pdfGenerator.generateReleaseLetter.bind(pdfGenerator), (emp, body) => ({ 
     companyName: body.companyName || "PathFinder ERP", 
