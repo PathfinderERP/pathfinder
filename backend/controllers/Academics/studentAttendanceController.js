@@ -7,7 +7,7 @@ import Admission from "../../models/Admission/Admission.js";
 export const getStudentsForAttendance = async (req, res) => {
     try {
         const { classScheduleId } = req.params;
-        const schedule = await ClassSchedule.findById(classScheduleId).populate("batchIds centreId");
+        const schedule = await ClassSchedule.findById(classScheduleId).populate("batchIds centreIds centreId");
 
         if (!schedule) {
             return res.status(404).json({ message: "Class schedule not found" });
@@ -15,16 +15,37 @@ export const getStudentsForAttendance = async (req, res) => {
 
         // Support legacy batchId
         const batchIds = (schedule.batchIds && schedule.batchIds.length > 0)
-            ? schedule.batchIds
+            ? schedule.batchIds.map(b => b._id || b)
             : (schedule.batchId ? [schedule.batchId] : []);
 
-        // Fetch students enrolled in these batches AND belonging to the class's center
-        const students = await Student.find({
+        // Gather all associated center names for filtering
+        const centerNames = [];
+        if (schedule.centreId?.centreName) centerNames.push(schedule.centreId.centreName);
+        if (schedule.centreIds) {
+            schedule.centreIds.forEach(c => {
+                if (c.centreName) centerNames.push(c.centreName);
+            });
+        }
+
+        const studentQuery = {
             batches: { $in: batchIds },
-            "studentsDetails.centre": schedule.centreId?.centreName,
             isEnrolled: true,
             status: "Active"
-        }).populate("course").select("studentsDetails examSchema batches course isEnrolled status");
+        };
+
+        // Only apply center filter if center names are available
+        if (centerNames.length > 0) {
+            studentQuery["studentsDetails.centre"] = { $in: centerNames };
+        }
+
+        // Fetch students
+        let students = await Student.find(studentQuery).populate("course").select("studentsDetails examSchema batches course isEnrolled status");
+
+        // Fallback: If no students found with center filter, try without it (Batch filter is primary)
+        if (students.length === 0 && centerNames.length > 0) {
+            delete studentQuery["studentsDetails.centre"];
+            students = await Student.find(studentQuery).populate("course").select("studentsDetails examSchema batches course isEnrolled status");
+        }
 
         // Fetch admissions for these students to get admissionNumber
         const studentIds = students.map(s => s._id);
@@ -37,7 +58,7 @@ export const getStudentsForAttendance = async (req, res) => {
         });
 
         // Format data grouping by batches
-        const batchWiseStudents = batchIds.map(batch => {
+        const batchWiseStudents = (schedule.batchIds && schedule.batchIds.length > 0 ? schedule.batchIds : batchIds).map(batch => {
             const batchIdStr = batch._id ? batch._id.toString() : batch.toString();
             const batchStudents = students.filter(student =>
                 student.batches.some(b => b.toString() === batchIdStr)

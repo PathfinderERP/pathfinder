@@ -557,7 +557,7 @@ const AddClass = () => {
                                     .filter(b => {
                                         // Filter by centre
                                         const matchesCentre = formData.centreIds.length > 0 
-                                            ? (!b.centreId || formData.centreIds.some(cid => cid.toString() === b.centreId.toString()))
+                                            ? (!b.centreId || formData.centreIds.some(cid => cid.toString() === b.centreId?.toString()))
                                             : true;
                                         
                                         // Filter by search
