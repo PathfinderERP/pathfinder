@@ -236,10 +236,7 @@ export const getEmployees = async (req, res) => {
         }
         if (centre) {
             const centreIds = centre.split(',').filter(Boolean);
-            query.$or = [
-                { primaryCentre: { $in: centreIds } },
-                { centres: { $in: centreIds } }
-            ];
+            query.primaryCentre = { $in: centreIds };
         }
         if (status) {
             const statusValues = status.split(',').filter(Boolean);

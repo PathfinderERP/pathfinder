@@ -3,7 +3,7 @@ import LeadManagement from "../../models/LeadManagement.js";
 export const addFollowUp = async (req, res) => {
     try {
         const { id } = req.params;
-        const { date, feedback, remarks, nextFollowUpDate, updatedBy, callStartTime, callEndTime, callDuration, leadType } = req.body;
+        const { date, feedback, remarks, nextFollowUpDate, updatedBy, leadType } = req.body;
         console.log(`[AddFollowUp] ID: ${id}, LeadType: ${leadType}, Feedback: ${feedback}`);
 
         const lead = await LeadManagement.findById(id);
@@ -18,9 +18,6 @@ export const addFollowUp = async (req, res) => {
             nextFollowUpDate,
             updatedBy: updatedBy || (req.user ? req.user.name : 'Unknown'),
             status: leadType, // Save the status at time of follow-up
-            callStartTime,
-            callEndTime,
-            callDuration
         };
 
         lead.followUps.push(newFollowUp);

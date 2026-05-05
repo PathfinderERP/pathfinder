@@ -205,103 +205,41 @@ const OngoingClass = () => {
         }
     };
 
-    const handleAttendance = async (classId, centreLat, centreLng, type = 'teacher') => {
+    const handleAttendance = async (classId, type = 'teacher') => {
         if (verifyingId === classId) return;
 
-        const cLat = parseFloat(centreLat);
-        const cLng = parseFloat(centreLng);
-
-        console.log(`${type === 'coordinator' ? 'Coordinator' : 'Teacher'} Attendance Check:`);
-        console.log("Centre Coordinates:", cLat, cLng);
-
-        if (isNaN(cLat) || isNaN(cLng)) {
-            toast.error("Center location coordinates are invalid or missing.");
-            return;
-        }
-
-        if (!navigator.geolocation) {
-            toast.error("Geolocation is not supported by your browser.");
-            return;
-        }
-
         setVerifyingId(classId);
-        const toastId = toast.loading("Acquiring precise location...");
+        const toastId = toast.loading("Marking attendance...");
 
-        navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                const userLat = position.coords.latitude;
-                const userLng = position.coords.longitude;
-                const accuracy = position.coords.accuracy || 0;
+        try {
+            const token = localStorage.getItem("token");
+            const endpoint = type === 'coordinator'
+                ? `${API_URL}/academics/class-schedule/mark-coordinator-attendance/${classId}`
+                : `${API_URL}/academics/class-schedule/mark-attendance/${classId}`;
 
-                console.log(`User Coordinates: ${userLat}, ${userLng} (Accuracy: ${accuracy}m)`);
-
-                const distance = getDistanceFromLatLonInMeters(userLat, userLng, cLat, cLng);
-                console.log("Calculated Distance (m):", distance);
-
-                // Allow 20 meters to account for GPS drift
-                const MAX_DISTANCE = 20;
-
-                if (distance > MAX_DISTANCE) {
-                    let msg = `You are ${Math.round(distance)}m away from center.`;
-
-                    if (accuracy > 100) {
-                        msg += ` Warning: Your device accuracy is poor (${Math.round(accuracy)}m). Please use a Mobile Phone with GPS.`;
-                    } else {
-                        msg += ` Max allowed is ${MAX_DISTANCE}m.`;
-                    }
-
-                    toast.update(toastId, {
-                        render: msg,
-                        type: "error",
-                        isLoading: false,
-                        autoClose: 8000
-                    });
-                    setVerifyingId(null);
-                    return;
-                }
-
-                try {
-                    const token = localStorage.getItem("token");
-                    const endpoint = type === 'coordinator'
-                        ? `${API_URL}/academics/class-schedule/mark-coordinator-attendance/${classId}`
-                        : `${API_URL}/academics/class-schedule/mark-attendance/${classId}`;
-
-                    const response = await fetch(endpoint, {
-                        method: "PUT",
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({
-                            latitude: userLat,
-                            longitude: userLng
-                        })
-                    });
-                    const data = await response.json();
-                    if (response.ok) {
-                        toast.update(toastId, { render: "Attendance marked successfully!", type: "success", isLoading: false, autoClose: 3000 });
-                        fetchClasses();
-                    } else {
-                        toast.update(toastId, { render: data.message || "Failed to mark attendance", type: "error", isLoading: false, autoClose: 3000 });
-                    }
-                } catch (error) {
-                    toast.update(toastId, { render: "Error marking attendance", type: "error", isLoading: false, autoClose: 3000 });
-                } finally {
-                    setVerifyingId(null);
-                }
-            },
-            (error) => {
-                console.error("Geolocation error:", error);
-                let errorMsg = "Unable to retrieve location.";
-                if (error.code === 1) errorMsg = "Location access denied. Please enable location permissions.";
-                else if (error.code === 2) errorMsg = "Location unavailable. Ensure GPS is on.";
-                else if (error.code === 3) errorMsg = "Location request timed out.";
-
-                toast.update(toastId, { render: errorMsg, type: "error", isLoading: false, autoClose: 4000 });
-                setVerifyingId(null);
-            },
-            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-        );
+            const response = await fetch(endpoint, {
+                method: "PUT",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    latitude: null,
+                    longitude: null
+                })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                toast.update(toastId, { render: "Attendance marked successfully!", type: "success", isLoading: false, autoClose: 3000 });
+                fetchClasses();
+            } else {
+                toast.update(toastId, { render: data.message || "Failed to mark attendance", type: "error", isLoading: false, autoClose: 3000 });
+            }
+        } catch (error) {
+            toast.update(toastId, { render: "Error marking attendance", type: "error", isLoading: false, autoClose: 3000 });
+        } finally {
+            setVerifyingId(null);
+        }
     };
 
     const handleStartStudy = async (id) => {
@@ -575,16 +513,16 @@ const OngoingClass = () => {
                                                 </div>
                                             </td>
                                             <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
-                                            <td className="p-4">{cls.centreId?.centreName || cls.centreId?.name || "-"}</td>
+                                            <td className="p-4">{cls.centreNames || "-"}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">
                                                 {cls.startTime} - {cls.endTime}
                                             </td>
                                             <td className="p-4">
                                                 {cls.actualStartTime ? new Date(cls.actualStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
                                             </td>
-                                            <td className="p-4 font-bold text-cyan-400">{cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "-"}</td>
-                                            <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterName || "-"}</td>
-                                            <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicName || "-"}</td>
+                                            <td className="p-4 font-bold text-cyan-400">{cls.acadSubjectId?.masterSubjectId?.subName || cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "-"}</td>
+                                            <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterId?.chapterName || cls.chapterName || "-"}</td>
+                                            <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicIds && cls.topicIds.length > 0 ? cls.topicIds.map(t => t.topicName).join(", ") : (cls.topicName || "-")}</td>
                                             <td className="p-4 text-center">
                                                 {cls.teacherAttendance ? (
                                                     <span className="bg-green-600/20 text-green-400 px-3 py-1 rounded-full text-[10px] font-bold border border-green-600/50 flex items-center justify-center gap-1 mx-auto w-fit">
@@ -594,7 +532,7 @@ const OngoingClass = () => {
                                                     isTeacher ? (
                                                         <button
                                                             disabled={verifyingId === cls._id}
-                                                            onClick={() => handleAttendance(cls._id, cls.centreId?.latitude, cls.centreId?.longitude, 'teacher')}
+                                                            onClick={() => handleAttendance(cls._id, 'teacher')}
                                                             className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-[10px] font-bold uppercase transition shadow-lg shadow-blue-900/20 disabled:opacity-50"
                                                         >
                                                             Mark Attendance

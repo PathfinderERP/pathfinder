@@ -6,6 +6,7 @@ import { updateLead } from "../../controllers/leadManagement/updateLead.js";
 import { deleteLead } from "../../controllers/leadManagement/deleteLead.js";
 import { bulkDeleteLeads } from "../../controllers/leadManagement/bulkDeleteLeads.js";
 import { addFollowUp } from "../../controllers/leadManagement/addFollowUp.js";
+import { bulkContactedLeads } from "../../controllers/leadManagement/bulkContactedLeads.js";
 import uploadRecording from "../../controllers/leadManagement/uploadRecording.js";
 import { getLeadDashboardStats } from "../../controllers/leadManagement/getLeadDashboard.js";
 import { getFollowUpStats } from "../../controllers/leadManagement/getFollowUpStats.js";
@@ -36,6 +37,7 @@ router.post("/red-flags/process-daily", requireAuth, processDailyPenalty);
 router.post("/performance/reset/:userId", requireAuth, resetPerformance);
 
 router.post("/bulk-delete", requireAuth, bulkDeleteLeads);
+router.post("/bulk-contacted", requireAuth, bulkContactedLeads);
 
 // Generic ID route must come AFTER specific routes
 router.get("/:id", requireAuth, getLeadById);

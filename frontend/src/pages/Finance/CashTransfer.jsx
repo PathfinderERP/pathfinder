@@ -22,13 +22,18 @@ const CashTransfer = () => {
         accountNumber: "",
         remarks: "",
         referenceNumber: "",
-        debitedDate: new Date().toISOString().split('T')[0]
+        debitedDate: new Date().toISOString().split('T')[0],
+        fromDate: "",
+        toDate: ""
     });
     const [receiptFile, setReceiptFile] = useState(null);
     const [receiptPreview, setReceiptPreview] = useState(null);
     const [generatedPassword, setGeneratedPassword] = useState("");
     const [serialNumber, setSerialNumber] = useState("");
     const [transferStatus, setTransferStatus] = useState("idle"); // idle, success
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const canTransfer = hasPermission(user, 'financeFees', 'cashTransfer', 'create');
@@ -185,15 +190,17 @@ const CashTransfer = () => {
                             <button
                                 onClick={() => {
                                     setTransferStatus("idle");
-                                    setFormData({
-                                        fromCentreId: "",
-                                        toCentreId: "",
-                                        amount: "",
-                                        accountNumber: "",
-                                        remarks: "",
-                                        referenceNumber: "",
-                                        debitedDate: new Date().toISOString().split('T')[0]
-                                    });
+                                     setFormData({
+                                         fromCentreId: "",
+                                         toCentreId: "",
+                                         amount: "",
+                                         accountNumber: "",
+                                         remarks: "",
+                                         referenceNumber: "",
+                                         debitedDate: new Date().toISOString().split('T')[0],
+                                         fromDate: "",
+                                         toDate: ""
+                                     });
                                     // Refetch to reset correctly with defaults
                                     fetchInitialData();
                                     setReceiptFile(null);
@@ -362,6 +369,37 @@ const CashTransfer = () => {
                                             value={formData.debitedDate}
                                             onChange={(e) => setFormData({ ...formData, debitedDate: e.target.value })}
                                             required
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* From Date / To Date Filter Row */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-400 ml-1">From Date</label>
+                                    <div className="relative">
+                                        <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                                        <input
+                                            type="date"
+                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all [color-scheme:dark]"
+                                            value={formData.fromDate}
+                                            onChange={(e) => setFormData({ ...formData, fromDate: e.target.value })}
+                                            max={formData.toDate || yesterdayStr}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-400 ml-1">To Date</label>
+                                    <div className="relative">
+                                        <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                                        <input
+                                            type="date"
+                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all [color-scheme:dark]"
+                                            value={formData.toDate}
+                                            onChange={(e) => setFormData({ ...formData, toDate: e.target.value })}
+                                            min={formData.fromDate}
+                                            max={yesterdayStr}
                                         />
                                     </div>
                                 </div>

@@ -50,7 +50,7 @@ const StudentAdmissionPage = () => {
         centre: "", // New field
         academicSession: "",
         downPayment: 0,
-        numberOfInstallments: 1,
+        numberOfInstallments: 0,
         studentImage: "",
         remarks: "",
         feeWaiver: 0,
@@ -100,6 +100,15 @@ const StudentAdmissionPage = () => {
         calculateFees();
         // eslint-disable-next-line
     }, [formData.courseId, formData.downPayment, formData.numberOfInstallments, formData.feeWaiver, admissionType, selectedSubjectIds, selectedBoard, boards, formData.customBoardDuration]);
+
+    // Auto-fill down payment to total fees if installments is 0
+    useEffect(() => {
+        if (admissionType === "NORMAL" && parseInt(formData.numberOfInstallments) === 0 && feeBreakdown.totalFees > 0) {
+            if (formData.downPayment !== feeBreakdown.totalFees) {
+                setFormData(prev => ({ ...prev, downPayment: feeBreakdown.totalFees }));
+            }
+        }
+    }, [formData.numberOfInstallments, feeBreakdown.totalFees, admissionType]);
 
     // Pre-select all matching fields when student and master data are loaded
     useEffect(() => {
@@ -324,15 +333,14 @@ const StudentAdmissionPage = () => {
         // For Board courses, use course duration - 1 for installments (since DP is Month 1)
         const numberOfInstallments = admissionType === "BOARD"
             ? Math.max(0, courseDurationMonths - 1)
-            : (parseInt(formData.numberOfInstallments) || 1);
+            : (parseInt(formData.numberOfInstallments) || 0);
 
         // ── Ceiling-based installment logic ──
-        // Each regular installment is rounded UP to the next whole rupee (Math.ceil)
-        // so students never underpay. The LAST installment is adjusted downward to
-        // ensure the sum equals the exact remainingAmount (may be a decimal ≤ ceil).
         let installmentAmount;
         if (admissionType === "BOARD") {
             installmentAmount = monthlyAmount; // Board: each month is the fixed monthly amount
+        } else if (numberOfInstallments === 0) {
+            installmentAmount = 0;
         } else {
             installmentAmount = numberOfInstallments === 1
                 ? remainingAmount           // Only one installment — keep exact (could be decimal)
@@ -1031,7 +1039,7 @@ const StudentAdmissionPage = () => {
                                         value={formData.numberOfInstallments}
                                         onChange={handleInputChange}
                                         className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                        min="1"
+                                        min="0"
                                         max="24"
                                         required
                                     />
@@ -1134,10 +1142,12 @@ const StudentAdmissionPage = () => {
                                         <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Remaining Amount</span>
                                         <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(feeBreakdown.remainingAmount)}</span>
                                     </div>
-                                    <div className="flex justify-between">
-                                        <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{admissionType === "BOARD" ? "Per Month" : "Per Installment"}</span>
-                                        <span className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'} font-medium`}>₹{fmt(feeBreakdown.installmentAmount)}</span>
-                                    </div>
+                                    {feeBreakdown.installmentAmount > 0 && (
+                                        <div className="flex justify-between">
+                                            <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{admissionType === "BOARD" ? "Per Month" : "Per Installment"}</span>
+                                            <span className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'} font-medium`}>₹{fmt(feeBreakdown.installmentAmount)}</span>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Payment Schedule / Monthly Breakdown */}

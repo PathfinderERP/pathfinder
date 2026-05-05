@@ -35,7 +35,7 @@ const getSignedReceiptUrl = async (key) => {
 
 export const initiateCashTransfer = async (req, res) => {
     try {
-        const { fromCentreId, toCentreId, amount, accountNumber, remarks, referenceNumber, debitedDate } = req.body;
+        const { fromCentreId, toCentreId, amount, accountNumber, remarks, referenceNumber, debitedDate, fromDate, toDate } = req.body;
 
         if (!fromCentreId || !toCentreId || !amount || !accountNumber) {
             return res.status(400).json({ message: "Missing required fields" });
@@ -69,7 +69,9 @@ export const initiateCashTransfer = async (req, res) => {
             receiptFile: receiptFileKey,
             transferredBy: req.user.id || req.user._id,
             remarks,
-            debitedDate: debitedDate ? new Date(debitedDate) : null
+            debitedDate: debitedDate ? new Date(debitedDate) : null,
+            fromDate: fromDate ? new Date(fromDate) : null,
+            toDate: toDate ? new Date(toDate) : null
         });
 
         await transfer.save();
@@ -252,13 +254,28 @@ export const getCashReport = async (req, res) => {
             }).select("_id");
             const admissionIds = admissions.map(a => a._id);
 
+            let paymentMatchQuery = {
+                admission: { $in: admissionIds },
+                paymentMethod: "CASH",
+                status: { $in: ["PAID", "PARTIAL"] },
+                paidAmount: { $gte: 0 },
+                billId: { $exists: true, $nin: [null, ""] }
+            };
+
+            if (startDate || endDate) {
+                let andClauses = [];
+                if (startDate) andClauses.push({ $gte: [{ $ifNull: ["$paidDate", "$createdAt"] }, new Date(startDate)] });
+                if (endDate) {
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    andClauses.push({ $lte: [{ $ifNull: ["$paidDate", "$createdAt"] }, end] });
+                }
+                paymentMatchQuery.$expr = { $and: andClauses };
+            }
+
             const collections = await Payment.aggregate([
                 {
-                    $match: {
-                        admission: { $in: admissionIds },
-                        paymentMethod: "CASH",
-                        status: "PAID"
-                    }
+                    $match: paymentMatchQuery
                 },
                 {
                     $group: {
@@ -269,12 +286,24 @@ export const getCashReport = async (req, res) => {
             ]);
             const totalCollected = collections.length > 0 ? collections[0].total : 0;
 
+            let transferOutMatchQuery = {
+                fromCentre: centre._id,
+                status: { $in: ["PENDING", "RECEIVED"] }
+            };
+
+            if (startDate || endDate) {
+                transferOutMatchQuery.createdAt = {};
+                if (startDate) transferOutMatchQuery.createdAt.$gte = new Date(startDate);
+                if (endDate) {
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    transferOutMatchQuery.createdAt.$lte = end;
+                }
+            }
+
             const transfersOut = await CashTransfer.aggregate([
                 {
-                    $match: {
-                        fromCentre: centre._id,
-                        status: { $in: ["PENDING", "RECEIVED"] }
-                    }
+                    $match: transferOutMatchQuery
                 },
                 {
                     $group: {
@@ -287,12 +316,24 @@ export const getCashReport = async (req, res) => {
             const sentConfirmed = transfersOut.find(t => t._id === "RECEIVED")?.total || 0;
             const sentPending = transfersOut.find(t => t._id === "PENDING")?.total || 0;
 
+            let transferInMatchQuery = {
+                toCentre: centre._id,
+                status: "RECEIVED"
+            };
+
+            if (startDate || endDate) {
+                transferInMatchQuery.receivedDate = {};
+                if (startDate) transferInMatchQuery.receivedDate.$gte = new Date(startDate);
+                if (endDate) {
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    transferInMatchQuery.receivedDate.$lte = end;
+                }
+            }
+
             const transfersIn = await CashTransfer.aggregate([
                 {
-                    $match: {
-                        toCentre: centre._id,
-                        status: "RECEIVED"
-                    }
+                    $match: transferInMatchQuery
                 },
                 {
                     $group: {

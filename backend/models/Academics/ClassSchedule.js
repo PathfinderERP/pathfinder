@@ -49,12 +49,17 @@ const classScheduleSchema = new mongoose.Schema({
     courseId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Course",
-        required: true
+        required: false
     },
-    centreId: {
+    centreIds: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "CentreSchema",
         required: true
+    }],
+    centreId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "CentreSchema",
+        required: false
     },
     batchIds: [{
         type: mongoose.Schema.Types.ObjectId,
@@ -73,22 +78,23 @@ const classScheduleSchema = new mongoose.Schema({
     // New Fields from Screenshot (Academics Content)
     acadClassId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Class",
+        ref: "AcademicsClass",
         required: false // Optional for now as not all schedules might have content
     },
     acadSubjectId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Subject",
+        ref: "AcademicsSubject",
         required: false
     },
-    chapterName: {
-        type: String,
-        default: ""
+    chapterId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "AcademicsChapter",
+        required: false
     },
-    topicName: {
-        type: String,
-        default: ""
-    },
+    topicIds: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "AcademicsTopic"
+    }],
     message: {
         type: String,
         default: ""

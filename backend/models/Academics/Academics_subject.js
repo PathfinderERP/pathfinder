@@ -8,7 +8,7 @@ const academicsSubjectSchema = new mongoose.Schema({
     },
     classId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Class',
+        ref: 'AcademicsClass',
         required: true
     }
 }, { timestamps: true });

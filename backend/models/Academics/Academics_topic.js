@@ -10,6 +10,16 @@ const academicsTopicSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "AcademicsChapter",
         required: true
+    },
+    subjectId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "AcademicsSubject",
+        required: true
+    },
+    classId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "AcademicsClass",
+        required: true
     }
 }, { timestamps: true });
 

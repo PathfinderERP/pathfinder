@@ -205,47 +205,47 @@ const QuarterlyTargetReport = () => {
                                             <td className="p-4 text-xs font-black uppercase sticky left-0 z-10 bg-inherit group-hover:bg-blue-600 group-hover:text-white transition-all shadow-xl">{item.centreName}</td>
                                             
                                             {/* Q1 */}
-                                            <td className="p-4 text-xs text-right border-l border-gray-800/10">{item.q1.target.toLocaleString()}</td>
+                                            <td className="p-4 text-xs text-right border-l border-gray-800/10">{(item.q1.targetWithGST || item.q1.target * 1.18).toLocaleString()}</td>
                                             <td className="p-4 text-xs text-right">
                                                 <div className="font-bold">{item.q1.achieved.toLocaleString()}</div>
-                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.q1.achieved, item.q1.target))}`}>
-                                                    {getPct(item.q1.achieved, item.q1.target).toFixed(1)}%
+                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.q1.achieved, item.q1.targetWithGST || item.q1.target * 1.18))}`}>
+                                                    {getPct(item.q1.achieved, item.q1.targetWithGST || item.q1.target * 1.18).toFixed(1)}%
                                                 </div>
                                             </td>
                                             
                                             {/* Q2 */}
-                                            <td className="p-4 text-xs text-right border-l border-gray-800/10">{item.q2.target.toLocaleString()}</td>
+                                            <td className="p-4 text-xs text-right border-l border-gray-800/10">{(item.q2.targetWithGST || item.q2.target * 1.18).toLocaleString()}</td>
                                             <td className="p-4 text-xs text-right">
                                                 <div className="font-bold">{item.q2.achieved.toLocaleString()}</div>
-                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.q2.achieved, item.q2.target))}`}>
-                                                    {getPct(item.q2.achieved, item.q2.target).toFixed(1)}%
+                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.q2.achieved, item.q2.targetWithGST || item.q2.target * 1.18))}`}>
+                                                    {getPct(item.q2.achieved, item.q2.targetWithGST || item.q2.target * 1.18).toFixed(1)}%
                                                 </div>
                                             </td>
                                             
                                             {/* Q3 */}
-                                            <td className="p-4 text-xs text-right border-l border-gray-800/10">{item.q3.target.toLocaleString()}</td>
+                                            <td className="p-4 text-xs text-right border-l border-gray-800/10">{(item.q3.targetWithGST || item.q3.target * 1.18).toLocaleString()}</td>
                                             <td className="p-4 text-xs text-right">
                                                 <div className="font-bold">{item.q3.achieved.toLocaleString()}</div>
-                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.q3.achieved, item.q3.target))}`}>
-                                                    {getPct(item.q3.achieved, item.q3.target).toFixed(1)}%
+                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.q3.achieved, item.q3.targetWithGST || item.q3.target * 1.18))}`}>
+                                                    {getPct(item.q3.achieved, item.q3.targetWithGST || item.q3.target * 1.18).toFixed(1)}%
                                                 </div>
                                             </td>
                                             
                                             {/* Q4 */}
-                                            <td className="p-4 text-xs text-right border-l border-gray-800/10">{item.q4.target.toLocaleString()}</td>
+                                            <td className="p-4 text-xs text-right border-l border-gray-800/10">{(item.q4.targetWithGST || item.q4.target * 1.18).toLocaleString()}</td>
                                             <td className="p-4 text-xs text-right">
                                                 <div className="font-bold">{item.q4.achieved.toLocaleString()}</div>
-                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.q4.achieved, item.q4.target))}`}>
-                                                    {getPct(item.q4.achieved, item.q4.target).toFixed(1)}%
+                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.q4.achieved, item.q4.targetWithGST || item.q4.target * 1.18))}`}>
+                                                    {getPct(item.q4.achieved, item.q4.targetWithGST || item.q4.target * 1.18).toFixed(1)}%
                                                 </div>
                                             </td>
                                             
                                             {/* Total */}
-                                            <td className="p-4 text-xs text-right font-black border-l border-green-800/10 bg-green-500/5">{item.total.target.toLocaleString()}</td>
+                                            <td className="p-4 text-xs text-right font-black border-l border-green-800/10 bg-green-500/5">{(item.total.targetWithGST || item.total.target * 1.18).toLocaleString()}</td>
                                             <td className="p-4 text-xs text-right font-black bg-green-500/5">
                                                 <div className="font-bold">{item.total.achieved.toLocaleString()}</div>
-                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.total.achieved, item.total.target))}`}>
-                                                    {getPct(item.total.achieved, item.total.target).toFixed(1)}%
+                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.total.achieved, item.total.targetWithGST || item.total.target * 1.18))}`}>
+                                                    {getPct(item.total.achieved, item.total.targetWithGST || item.total.target * 1.18).toFixed(1)}%
                                                 </div>
                                             </td>
                                         </tr>

@@ -639,7 +639,7 @@ const UpcomingClass = () => {
                                                 {cls.teacherId?.name || "-"}
                                             </td>
                                             <td className="p-4">
-                                                {cls.centreId?.centreName || cls.centreId?.centerName || cls.centreId?.name || "-"}
+                                                {cls.centreNames || "-"}
                                             </td>
                                             <td className="p-4 whitespace-nowrap">{formatDate(cls.date)}</td>
                                             <td className="p-4 whitespace-nowrap text-[10px] text-gray-500">{formatDate(cls.updatedAt)}</td>
@@ -657,10 +657,10 @@ const UpcomingClass = () => {
                                                 {cls.classHours || 0}
                                             </td>
                                             <td className="p-4">
-                                                {cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "-"}
+                                                {cls.acadSubjectId?.masterSubjectId?.subName || cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "-"}
                                             </td>
-                                            <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterName || "-"}</td>
-                                            <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicName || "-"}</td>
+                                            <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterId?.chapterName || cls.chapterName || "-"}</td>
+                                            <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicIds && cls.topicIds.length > 0 ? cls.topicIds.map(t => t.topicName).join(", ") : (cls.topicName || "-")}</td>
                                             <td className="p-4 text-center">
                                                 {isAcademicAdmin ? (
                                                     <button

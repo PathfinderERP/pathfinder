@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../../components/Layout";
-import { FaEdit, FaTrash, FaPlus, FaSearch, FaBook, FaLayerGroup } from "react-icons/fa";
+import { FaEdit, FaTrash, FaPlus, FaSearch, FaBook } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useTheme } from "../../../context/ThemeContext";
+import { hasPermission } from "../../../config/permissions";
 
 const SubjectList = () => {
     const { theme } = useTheme();
@@ -22,6 +23,11 @@ const SubjectList = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalRecords, setTotalRecords] = useState(0);
     const [selectedIds, setSelectedIds] = useState([]);
+
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canCreate = hasPermission(user, "academics", "subjects", "create");
+    const canEdit = hasPermission(user, "academics", "subjects", "edit");
+    const canDelete = hasPermission(user, "academics", "subjects", "delete");
 
     const API_URL = import.meta.env.VITE_API_URL;
 
@@ -90,6 +96,7 @@ const SubjectList = () => {
     }, [fetchClasses, fetchMasterSubjects]);
 
     const handleEdit = (sub) => {
+        if (!canEdit) return toast.error("Permission denied");
         setFormData({
             masterSubjectId: sub.masterSubjectId?._id || sub.masterSubjectId,
             classId: sub.classId?._id || sub.classId
@@ -99,6 +106,7 @@ const SubjectList = () => {
     };
 
     const handleDelete = async (id) => {
+        if (!canDelete) return toast.error("Permission denied");
         if (!window.confirm("Are you sure you want to delete this subject?")) return;
         try {
             const token = localStorage.getItem("token");
@@ -119,6 +127,7 @@ const SubjectList = () => {
     };
 
     const handleBulkDelete = async () => {
+        if (!canDelete) return toast.error("Permission denied");
         if (selectedIds.length === 0) return;
         if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} subjects?`)) return;
 
@@ -194,6 +203,7 @@ const SubjectList = () => {
     };
 
     const openAddModal = () => {
+        if (!canCreate) return toast.error("Permission denied");
         setFormData({ masterSubjectId: "", classId: "" });
         setEditId(null);
         setShowModal(true);
@@ -233,7 +243,7 @@ const SubjectList = () => {
                             ))}
                         </select>
                     </div>
-                    {selectedIds.length > 0 && (
+                    {selectedIds.length > 0 && canDelete && (
                         <button
                             onClick={handleBulkDelete}
                             className="bg-red-600 hover:bg-red-500 text-white px-5 py-2 rounded-lg flex items-center gap-2 font-bold transition shadow-md shadow-red-600/20"
@@ -241,12 +251,14 @@ const SubjectList = () => {
                             <FaTrash /> Delete ({selectedIds.length})
                         </button>
                     )}
-                    <button
-                        onClick={openAddModal}
-                        className="bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-2 rounded-lg flex items-center gap-2 font-bold transition shadow-md shadow-cyan-600/20"
-                    >
-                        <FaPlus /> Add Subject
-                    </button>
+                    {canCreate && (
+                        <button
+                            onClick={openAddModal}
+                            className="bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-2 rounded-lg flex items-center gap-2 font-bold transition shadow-md shadow-cyan-600/20"
+                        >
+                            <FaPlus /> Add Subject
+                        </button>
+                    )}
                 </div>
 
                 {/* Table */}
@@ -288,18 +300,22 @@ const SubjectList = () => {
                                         <td className={`p-4 font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{sub.subjectName}</td>
                                         <td className={`p-4 font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{sub.className || "N/A"}</td>
                                         <td className="p-4 flex gap-4 justify-end">
-                                            <button
-                                                onClick={() => handleEdit(sub)}
-                                                className="text-yellow-400 hover:text-yellow-300 flex items-center gap-1 transition-colors"
-                                            >
-                                                <FaEdit /> Edit
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(sub._id)}
-                                                className="text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
-                                            >
-                                                <FaTrash /> Delete
-                                            </button>
+                                            {canEdit && (
+                                                <button
+                                                    onClick={() => handleEdit(sub)}
+                                                    className="text-yellow-400 hover:text-yellow-300 flex items-center gap-1 transition-colors"
+                                                >
+                                                    <FaEdit /> Edit
+                                                </button>
+                                            )}
+                                            {canDelete && (
+                                                <button
+                                                    onClick={() => handleDelete(sub._id)}
+                                                    className="text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
+                                                >
+                                                    <FaTrash /> Delete
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))

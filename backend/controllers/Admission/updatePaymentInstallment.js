@@ -4,6 +4,7 @@ import Student from "../../models/Students.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 import { updateCentreTargetAchieved } from "../../services/centreTargetService.js";
+import { clearCachePattern } from "../../utils/redisCache.js";
 
 // Helper to calculate next months due date
 const getNextMonthDate = (startDate, monthsToAdd) => {
@@ -337,6 +338,10 @@ export const updatePaymentInstallment = async (req, res) => {
             .populate('class')
             .populate('examTag')
             .populate('department');
+
+        // Invalidate transaction and daily collection caches
+        await clearCachePattern("finance:transaction_report:*");
+        await clearCachePattern("finance:daily_collection:*");
 
         res.status(200).json({
             message: "Payment updated successfully",

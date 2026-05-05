@@ -1,5 +1,5 @@
 import AcademicsSubject from "../../models/Academics/Academics_subject.js";
-import Class from "../../models/Master_data/Class.js";
+import AcademicsClass from "../../models/Academics/Academics_class.js";
 
 // Create Subject
 export const createSubject = async (req, res) => {
@@ -9,7 +9,7 @@ export const createSubject = async (req, res) => {
             return res.status(400).json({ message: "Master Subject ID and Class ID are required" });
         }
 
-        const classExists = await Class.findById(classId);
+        const classExists = await AcademicsClass.findById(classId);
         if (!classExists) {
             return res.status(404).json({ message: "Class not found" });
         }
@@ -42,7 +42,7 @@ export const getAllSubjects = async (req, res) => {
         // Backward compatibility: If no pagination, return plain array
         if (!page && !limit) {
             const subjects = await AcademicsSubject.find(query)
-                .populate('classId', 'name')
+                .populate('classId', 'className')
                 .populate('masterSubjectId', 'subName')
                 .sort({ createdAt: -1 });
 
@@ -50,7 +50,7 @@ export const getAllSubjects = async (req, res) => {
             const flattenedSub = subjects.map(s => ({
                 ...s.toObject(),
                 subjectName: s.masterSubjectId?.subName || "Unnamed Subject",
-                className: s.classId?.name || "N/A"
+                className: s.classId?.className || "N/A"
             }));
 
             return res.status(200).json(flattenedSub);
@@ -58,7 +58,7 @@ export const getAllSubjects = async (req, res) => {
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const subjects = await AcademicsSubject.find(query)
-            .populate('classId', 'name')
+            .populate('classId', 'className')
             .populate('masterSubjectId', 'subName')
             .sort({ createdAt: -1 })
             .skip(skip)
@@ -70,7 +70,7 @@ export const getAllSubjects = async (req, res) => {
         const flattenedSubjects = subjects.map(s => ({
             ...s.toObject(),
             subjectName: s.masterSubjectId?.subName || "Unnamed Subject",
-            className: s.classId?.name || "N/A"
+            className: s.classId?.className || "N/A"
         }));
 
         res.status(200).json({

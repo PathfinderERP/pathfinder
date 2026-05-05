@@ -26,7 +26,9 @@ const ReleaseLetter = () => {
 
     const [letterData, setLetterData] = useState({
         companyName: "PathFinder ERP",
-        relievingDate: new Date().toISOString().split('T')[0]
+        relievingDate: new Date().toISOString().split('T')[0],
+        endDate: new Date().toISOString().split('T')[0],
+        lastWorkingDay: new Date().toISOString().split('T')[0],
     });
 
     const fetchEmployeeDetails = React.useCallback(async () => {
@@ -295,8 +297,20 @@ const ReleaseLetter = () => {
                                     <input type="text" value={letterData.companyName} onChange={(e) => setLetterData({ ...letterData, companyName: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition-all text-sm" />
                                 </div>
                                 <div className="space-y-1.5 font-medium text-gray-500">
+                                    <label className="text-[10px] font-bold uppercase ml-1">Start Date (Joining Date)</label>
+                                    <input type="text" value={employee?.dateOfJoining ? new Date(employee.dateOfJoining).toLocaleDateString() : 'N/A'} readOnly className="w-full px-4 py-2.5 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl outline-none dark:text-gray-400 cursor-not-allowed text-sm" />
+                                </div>
+                                <div className="space-y-1.5 font-medium text-gray-500">
                                     <label className="text-[10px] font-bold uppercase ml-1">Relieving Date</label>
                                     <input type="date" value={letterData.relievingDate} onChange={(e) => setLetterData({ ...letterData, relievingDate: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition-all text-sm" />
+                                </div>
+                                <div className="space-y-1.5 font-medium text-gray-500">
+                                    <label className="text-[10px] font-bold uppercase ml-1">End Date</label>
+                                    <input type="date" value={letterData.endDate} onChange={(e) => setLetterData({ ...letterData, endDate: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition-all text-sm" />
+                                </div>
+                                <div className="space-y-1.5 font-medium text-gray-500">
+                                    <label className="text-[10px] font-bold uppercase ml-1">Last Working Day</label>
+                                    <input type="date" value={letterData.lastWorkingDay} onChange={(e) => setLetterData({ ...letterData, lastWorkingDay: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition-all text-sm" />
                                 </div>
                             </div>
                         </div>

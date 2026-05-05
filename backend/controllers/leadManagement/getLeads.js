@@ -52,7 +52,7 @@ export const getLeads = async (req, res) => {
         const skip = (page - 1) * limit;
 
         // Build Filter
-        const { search, leadType, source, centre, course, leadResponsibility, board, className, fromDate, toDate, feedback } = req.query;
+        const { search, leadType, source, centre, course, leadResponsibility, board, className, fromDate, toDate, feedback, scheduledDate } = req.query;
         const query = {};
 
         if (feedback) {
@@ -62,7 +62,7 @@ export const getLeads = async (req, res) => {
             };
         }
 
-        // Date range filter
+        // Date range filter (Created At)
         if (fromDate || toDate) {
             query.createdAt = {};
             if (fromDate) query.createdAt.$gte = new Date(fromDate);
@@ -71,6 +71,15 @@ export const getLeads = async (req, res) => {
                 end.setHours(23, 59, 59, 999);
                 query.createdAt.$lte = end;
             }
+        }
+
+        // Scheduled Date filter (Next Follow Up)
+        if (scheduledDate) {
+            const start = new Date(scheduledDate);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(scheduledDate);
+            end.setHours(23, 59, 59, 999);
+            query.nextFollowUpDate = { $gte: start, $lte: end };
         }
         if (leadType) query.leadType = Array.isArray(leadType) ? { $in: leadType } : leadType;
         if (source) query.source = Array.isArray(source) ? { $in: source } : source;

@@ -309,7 +309,7 @@ export const getCentreRankings = async (req, res) => {
             const centerId = (centerObj._id || t._id).toString();
             const cName = (centerObj.centreName || "").trim().toUpperCase();
 
-            const targetAmt = t.targetAmount || 0;
+            const targetAmt = (t.targetAmount || 0) * 1.18;
             // Use exact payment data if available, otherwise fallback to target's achieved amount
             const achievedAmt = paymentMap[cName] !== undefined ? paymentMap[cName] : (t.achievedAmount || 0);
 

@@ -88,15 +88,6 @@ const leadManagementSchema = new mongoose.Schema({
         status: {
             type: String, // Tracking lead status at the time of follow-up
             enum: ['HOT LEAD', 'COLD LEAD', 'NEGATIVE']
-        },
-        callStartTime: {
-            type: Date
-        },
-        callEndTime: {
-            type: Date
-        },
-        callDuration: {
-            type: String
         }
     }],
     recordings: [{

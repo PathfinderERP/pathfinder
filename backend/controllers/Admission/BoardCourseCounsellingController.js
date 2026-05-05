@@ -203,6 +203,7 @@ export const createBoardCourseCounselling = async (req, res) => {
         });
 
         await counselling.save();
+
         res.status(201).json({ message: "Board course counselling recorded", counselling });
     } catch (error) {
         console.error("Error in createBoardCourseCounselling:", error);
@@ -230,6 +231,7 @@ export const getBoardCourseCounselling = async (req, res) => {
         }
 
         const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
+
         let query = { status: "PENDING" };
 
         if (!isSuperAdmin) {
@@ -249,6 +251,7 @@ export const getBoardCourseCounselling = async (req, res) => {
             .populate('selectedSubjects.subjectId')
             .populate('counselledBy', 'name email')
             .sort({ counselledDate: -1, createdAt: -1 });
+
         res.status(200).json(counselling);
     } catch (error) {
         res.status(500).json({ message: "Server error", error: error.message });
@@ -308,6 +311,7 @@ export const updateBoardCourseCounselling = async (req, res) => {
         }
 
         await counselling.save();
+
         res.status(200).json({ message: "Counselling record updated", counselling });
     } catch (error) {
         console.error("Error in updateBoardCourseCounselling:", error);

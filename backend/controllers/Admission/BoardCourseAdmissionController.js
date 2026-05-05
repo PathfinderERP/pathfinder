@@ -294,8 +294,8 @@ export const createBoardAdmission = async (req, res) => {
 export const getBoardAdmissions = async (req, res) => {
     try {
         const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
+        
         let query = {};
-
         if (!isSuperAdmin) {
             // Get centre names for the user's assigned centre IDs
             const centres = await Centre.find({ _id: { $in: req.user.centres } });
@@ -310,6 +310,7 @@ export const getBoardAdmissions = async (req, res) => {
             .populate('installments.subjects.subjectId')
             .populate('createdBy', 'name')
             .sort({ createdAt: -1 });
+
         res.status(200).json(admissions);
     } catch (error) {
         res.status(500).json({ message: "Server error", error: error.message }); console.error("GET ADMISSIONS ERROR:", error)
@@ -459,6 +460,7 @@ export const updateBoardSubjects = async (req, res) => {
             sum + (inst.paidAmount || 0), 0) + (Number(admission.examFeePaid) || 0);
 
         await admission.save();
+
         res.status(200).json({ message: "Subjects updated from month " + startMonth, admission });
 
     } catch (error) {
@@ -980,21 +982,19 @@ export const collectNcrpFees = async (req, res) => {
 export const getBoardAdmissionAnalysis = async (req, res) => {
     try {
         const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
-        let match = {};
 
-        // 1. Role-based filtering
+        let match = {};
+        // ... (rest of the aggregation logic)
         if (!isSuperAdmin) {
             const centres = await Centre.find({ _id: { $in: req.user.centres } });
             const centreNames = centres.map(c => c.centreName);
             match.centre = { $in: centreNames };
         }
 
-        // 2. Query-based filtering (explicit centre selection)
         if (req.query.centre) {
             match.centre = req.query.centre;
         }
 
-        // 3. Aggregate Data
         const stats = await BoardCourseAdmission.aggregate([
             { $match: match },
             {
@@ -1059,16 +1059,17 @@ export const getBoardAdmissionAnalysis = async (req, res) => {
             { $sort: { "_id.year": 1, "_id.month": 1 } }
         ]);
 
-        res.status(200).json({
+        const responseData = {
             success: true,
             overview: stats[0] || { totalAdmissions: 0, totalExpected: 0, totalPaid: 0, totalWaiver: 0 },
             byCentre: centreStats,
             byBoard: boardStats,
             byMonth: monthlyStats
-        });
+        };
+
+        res.status(200).json(responseData);
     } catch (error) {
         console.error("Board Analysis Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
-

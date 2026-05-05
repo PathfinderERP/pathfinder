@@ -27,7 +27,6 @@ const TransactionReport = () => {
     const [courses, setCourses] = useState([]);
     const [examTags, setExamTags] = useState([]);
     const [departments, setDepartments] = useState([]);
-    const [sessions, setSessions] = useState([]); // Dynamic sessions from master data
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
 
@@ -37,7 +36,6 @@ const TransactionReport = () => {
     const [selectedDepartments, setSelectedDepartments] = useState([]);
     const [selectedExamTag, setSelectedExamTag] = useState("");
     const [displayMode, setDisplayMode] = useState("chart"); // chart, table, card
-    const [selectedSession, setSelectedSession] = useState("");
     const [timePeriod, setTimePeriod] = useState("All Time"); // Default to All Time for broader view
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
@@ -74,7 +72,7 @@ const TransactionReport = () => {
             return;
         }
         fetchReportData();
-    }, [selectedCentres, selectedCourses, selectedDepartments, selectedExamTag, selectedSession, timePeriod, startDate, endDate]);
+    }, [selectedCentres, selectedCourses, selectedDepartments, selectedExamTag, timePeriod, startDate, endDate]);
 
     // ---- API Calls ----
     const fetchMasterData = async () => {
@@ -82,11 +80,10 @@ const TransactionReport = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [cRes, coRes, eRes, sRes, dRes] = await Promise.all([
+            const [cRes, coRes, eRes, dRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/course`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/department`, { headers })
             ]);
 
@@ -108,15 +105,6 @@ const TransactionReport = () => {
             }
             if (coRes.ok) setCourses(await coRes.json());
             if (eRes.ok) setExamTags(await eRes.json());
-            if (sRes.ok) {
-                const sessionData = await sRes.json();
-                const sessionList = (Array.isArray(sessionData) ? sessionData : []).sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
-                setSessions(sessionList);
-                if (sessionList.length > 0 && !selectedSession) {
-                    const defaultSession = sessionList.find(s => s.sessionName === "2026-2027");
-                    setSelectedSession(defaultSession ? defaultSession.sessionName : sessionList[0].sessionName);
-                }
-            }
             if (dRes.ok) {
                 const allDepts = await dRes.json();
                 const visibleDepts = allDepts.filter(dept => dept.showInAdmission !== false);
@@ -172,7 +160,6 @@ const TransactionReport = () => {
                 params.append("endDate", end.toISOString().split('T')[0]);
             }
 
-            if (selectedSession) params.append("session", selectedSession);
             if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
             if (selectedCourses.length > 0) params.append("courseIds", selectedCourses.join(","));
             if (selectedDepartments.length > 0) params.append("departmentIds", selectedDepartments.join(","));
@@ -211,7 +198,6 @@ const TransactionReport = () => {
         setSelectedCentres([]);
         setSelectedCourses([]);
         setSelectedExamTag("");
-        setSelectedSession("");
         setTimePeriod("All Time");
         setStartDate("");
         setEndDate("");
@@ -256,7 +242,7 @@ const TransactionReport = () => {
             ["Monthly Revenue Report"], // Title
             ["Generated on:", dateStr],
             ["Date Range:", dateRangeStr],
-            ["Session:", selectedSession || "All Sessions", "Exam Tag:", selectedExamTag ? (examTags.find(e => e._id === selectedExamTag)?.name || "Selected") : "All"],
+            ["Exam Tag:", selectedExamTag ? (examTags.find(e => e._id === selectedExamTag)?.name || "Selected") : "All"],
             ["Centers:", selectedCentres.length ? "Selected" : "All Centers", "Courses:", selectedCourses.length ? "Selected" : "All Courses"],
             [], // Empty row
         ];
@@ -547,23 +533,6 @@ const TransactionReport = () => {
                                 </div>
                             )}
                         </div>
-
-                        {/* Session */}
-                        <select
-                            value={selectedSession}
-                            onChange={(e) => setSelectedSession(e.target.value)}
-                            className={`h-10 px-3 py-2 border rounded-md text-sm outline-none transition-colors min-w-[150px] ${isDarkMode
-                                ? 'bg-[#131619] border-gray-700 text-gray-300 focus:border-blue-500'
-                                : 'bg-white border-gray-300 text-gray-700 focus:border-blue-500 shadow-sm'
-                                }`}
-                        >
-                            <option value="">Select Session</option>
-                            {sessions.length === 0 ? (
-                                <option value="">Loading...</option>
-                            ) : (
-                                sessions.map(s => <option key={s._id} value={s.sessionName}>{s.sessionName}</option>)
-                            )}
-                        </select>
 
                         {/* Exam Tag */}
                         <select

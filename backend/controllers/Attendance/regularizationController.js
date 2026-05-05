@@ -57,6 +57,10 @@ export const getRegularizations = async (req, res) => {
                 select: 'name employeeId profileImage primaryCentre centerArray centres',
                 populate: { path: 'primaryCentre' }
             })
+            .populate({
+                path: 'reviewedBy',
+                select: 'name'
+            })
             .sort({ createdAt: -1 });
 
         // Sign photo URLs (Array)
@@ -116,7 +120,10 @@ export const updateRegularizationStatus = async (req, res) => {
             req.params.id,
             updateData,
             { new: true }
-        );
+        ).populate({
+            path: 'reviewedBy',
+            select: 'name'
+        });
 
         if (!regularization) return res.status(404).json({ message: 'Regularization not found' });
 

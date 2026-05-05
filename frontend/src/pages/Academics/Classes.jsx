@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
 import { FaSearch, FaTimes, FaEdit, FaTrash, FaPlus, FaCheck, FaFileExcel, FaDownload, FaUpload } from "react-icons/fa";
 import * as XLSX from "xlsx";
+import CustomMultiSelect from "../../components/common/CustomMultiSelect";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useNavigate } from "react-router-dom";
@@ -62,13 +63,18 @@ const Classes = () => {
         teachers: [],
         coordinators: [],
         sessions: [],
-        exams: [],
-        courses: []
+        exams: []
     });
 
     // Edit Modal State
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingClassData, setEditingClassData] = useState(null);
+
+    // Edit modal cascading states
+    const [editAcadSubjects, setEditAcadSubjects] = useState([]);
+    const [editAcadChapters, setEditAcadChapters] = useState([]);
+    const [editAcadTopics, setEditAcadTopics] = useState([]);
+    const [batchSearch, setBatchSearch] = useState("");
 
     // Feedback State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -127,7 +133,6 @@ const Classes = () => {
                 "Teacher": "ANITA PAUL",
                 "Session": "2024-2025",
                 "Exam": "",
-                "Course": "Foundation Course",
                 "Coordinator": "Optional Coordinator Name",
                 "Academic Class": "Class 11",
                 "Chapter Name": "Algebra",
@@ -422,24 +427,81 @@ const Classes = () => {
         }
     };
 
+    const fetchEditAcadSubjects = async (classId) => {
+        if (!classId) { setEditAcadSubjects([]); return; }
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_URL}/academics/subject/list/class/${classId}`, { headers: { Authorization: `Bearer ${token}` } });
+            const data = await res.json();
+            if (res.ok) setEditAcadSubjects(data);
+        } catch (e) { console.error(e); }
+    };
+
+    const fetchEditAcadChapters = async (subjectId) => {
+        if (!subjectId) { setEditAcadChapters([]); return; }
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_URL}/academics/chapter/list/subject/${subjectId}`, { headers: { Authorization: `Bearer ${token}` } });
+            const data = await res.json();
+            if (res.ok) setEditAcadChapters(data);
+        } catch (e) { console.error(e); }
+    };
+
+    const fetchEditAcadTopics = async (chapterId) => {
+        if (!chapterId) { setEditAcadTopics([]); return; }
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_URL}/academics/topic/list/chapter/${chapterId}`, { headers: { Authorization: `Bearer ${token}` } });
+            const data = await res.json();
+            if (res.ok) setEditAcadTopics(data);
+        } catch (e) { console.error(e); }
+    };
+
     const handleEdit = (cls) => {
+        const acadClassId = (cls.acadClassId?._id || cls.acadClassId || "").toString();
+        const acadSubjectId = (cls.acadSubjectId?._id || cls.acadSubjectId || "").toString();
+        const chapterId = (cls.chapterId?._id || cls.chapterId || "").toString();
+        const topicIds = (cls.topicIds?.map(t => (t._id || t).toString()) || 
+                         (cls.topicId?._id ? [cls.topicId._id.toString()] : 
+                         (cls.topicId ? [cls.topicId.toString()] : [])));
+        const centreIds = (cls.centreIds?.map(c => (c._id || c).toString()) || 
+                          (cls.centreId?._id ? [cls.centreId._id.toString()] : 
+                          (cls.centreId ? [cls.centreId.toString()] : [])));
+        const batchIds = (cls.batchIds?.map(b => (b._id || b).toString()) || 
+                         (cls.batchId?._id ? [cls.batchId._id.toString()] : 
+                         (cls.batchId ? [cls.batchId.toString()] : [])));
+
         setEditingClassData({
             ...cls,
-            centreId: cls.centreId?._id || cls.centreId,
-            batchIds: cls.batchIds?.map(b => b._id) || (cls.batchId?._id ? [cls.batchId._id] : []),
-            subjectId: cls.subjectId?._id || cls.subjectId,
-            teacherId: cls.teacherId?._id || cls.teacherId,
-            coordinatorId: cls.coordinatorId?._id || cls.coordinatorId,
-            courseId: cls.courseId?._id || cls.courseId,
-            examId: cls.examId?._id || cls.examId,
-            acadClassId: cls.acadClassId?._id || cls.acadClassId,
+            acadClassId,
+            acadSubjectId,
+            chapterId,
+            topicIds,
+            centreIds,
+            batchIds,
+            subjectId: (cls.subjectId?._id || cls.subjectId || "").toString(),
+            teacherId: (cls.teacherId?._id || cls.teacherId || "").toString(),
+            coordinatorId: (cls.coordinatorId?._id || cls.coordinatorId || "").toString(),
+            examId: (cls.examId?._id || cls.examId || "").toString(),
             date: cls.date ? new Date(cls.date).toISOString().split('T')[0] : ""
         });
+
+        // Pre-load cascading dropdowns
+        if (acadClassId) fetchEditAcadSubjects(acadClassId);
+        if (acadSubjectId) fetchEditAcadChapters(acadSubjectId);
+        if (chapterId) fetchEditAcadTopics(chapterId);
+
         setShowEditModal(true);
     };
 
     const handleUpdateClass = async (e) => {
         e.preventDefault();
+
+        if (!editingClassData.batchIds || editingClassData.batchIds.length === 0) {
+            toast.error("Please select at least one batch");
+            return;
+        }
+
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${API_URL}/academics/class-schedule/update/${editingClassData._id}`, {
@@ -772,10 +834,10 @@ const Classes = () => {
                                                     {cls.classMode}
                                                 </span>
                                             </td>
-                                            <td className="p-4">{cls.centreId?.centreName || cls.centreId?.name || "-"}</td>
-                                            <td className="p-4">{cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "-"}</td>
-                                            <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterName || "-"}</td>
-                                            <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicName || "-"}</td>
+                                            <td className="p-4">{cls.centreNames || "-"}</td>
+                                            <td className="p-4">{cls.acadSubjectId?.masterSubjectId?.subName || cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "-"}</td>
+                                            <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterId?.chapterName || cls.chapterName || "-"}</td>
+                                            <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicIds && cls.topicIds.length > 0 ? cls.topicIds.map(t => t.topicName).join(", ") : (cls.topicName || "-")}</td>
                                             <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
                                             <td className="p-4">{cls.coordinatorId?.name || "-"}</td>
                                             <td className="p-4 font-mono">{formatDate(cls.date)}</td>
@@ -994,18 +1056,24 @@ const Classes = () => {
                                         </div>
                                     </div>
 
-                                    {/* Center */}
+                                    {/* Centers */}
                                     <div className="flex flex-col gap-2">
-                                        <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Center</label>
-                                        <select
-                                            required
-                                            value={editingClassData.centreId}
-                                            onChange={(e) => setEditingClassData({ ...editingClassData, centreId: e.target.value })}
-                                            className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
-                                        >
-                                            <option value="">Select Center</option>
-                                            {dropdownData.centres?.map(c => <option key={c._id} value={c._id}>{c.centreName || c.name}</option>)}
-                                        </select>
+                                        <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Centers</label>
+                                        <Select
+                                            isMulti
+                                            options={dropdownData.centres?.map(c => ({ value: c._id, label: c.centreName || c.name }))}
+                                            value={editingClassData.centreIds?.map(id => {
+                                                const centre = dropdownData.centres?.find(c => c._id.toString() === id.toString());
+                                                return centre ? { value: centre._id, label: centre.centreName || centre.name } : null;
+                                            }).filter(v => v)}
+                                            onChange={(selected) => {
+                                                const values = selected ? selected.map(opt => opt.value) : [];
+                                                setEditingClassData({ ...editingClassData, centreIds: values });
+                                            }}
+                                            placeholder="Select Centers"
+                                            styles={customSelectStyles}
+                                            className="text-sm"
+                                        />
                                     </div>
 
                                     {/* Instructor */}
@@ -1026,7 +1094,6 @@ const Classes = () => {
                                     <div className="flex flex-col gap-2">
                                         <label className="text-xs font-bold text-gray-400 uppercase">Coordinator</label>
                                         <select
-                                            
                                             value={editingClassData.coordinatorId}
                                             onChange={(e) => setEditingClassData({ ...editingClassData, coordinatorId: e.target.value })}
                                             className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all transition-all shadow-lg"
@@ -1036,19 +1103,6 @@ const Classes = () => {
                                         </select>
                                     </div>
 
-                                    {/* Course */}
-                                    <div className="flex flex-col gap-2">
-                                        <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course</label>
-                                        <select
-                                            required
-                                            value={editingClassData.courseId}
-                                            onChange={(e) => setEditingClassData({ ...editingClassData, courseId: e.target.value })}
-                                            className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
-                                        >
-                                            <option value="">Select Course</option>
-                                            {dropdownData.courses?.map(c => <option key={c._id} value={c._id}>{c.courseName || c.name}</option>)}
-                                        </select>
-                                    </div>
 
                                     {/* Session & Academic Class */}
                                     <div className="grid grid-cols-2 gap-4">
@@ -1067,12 +1121,19 @@ const Classes = () => {
                                         <div className="flex flex-col gap-2">
                                             <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Standard (Class)</label>
                                             <select
-                                                value={editingClassData.acadClassId}
-                                                onChange={(e) => setEditingClassData({ ...editingClassData, acadClassId: e.target.value })}
+                                                value={(editingClassData.acadClassId || "").toString()}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setEditingClassData({ ...editingClassData, acadClassId: val, acadSubjectId: "", chapterId: "", topicIds: [] });
+                                                    setEditAcadSubjects([]);
+                                                    setEditAcadChapters([]);
+                                                    setEditAcadTopics([]);
+                                                    if (val) fetchEditAcadSubjects(val);
+                                                }}
                                                 className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                                             >
                                                 <option value="">Select Class</option>
-                                                {dropdownData.academicClasses?.map(c => <option key={c._id} value={c._id}>{c.className || c.name}</option>)}
+                                                {dropdownData.academicClasses?.map(c => <option key={c._id.toString()} value={c._id.toString()}>{c.className || c.name}</option>)}
                                             </select>
                                         </div>
                                     </div>
@@ -1096,61 +1157,112 @@ const Classes = () => {
                                         <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Subject</label>
                                         <select
                                             required
-                                            value={editingClassData.subjectId}
+                                            value={(editingClassData.subjectId || "").toString()}
                                             onChange={(e) => setEditingClassData({ ...editingClassData, subjectId: e.target.value })}
                                             className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                                         >
                                             <option value="">Select Subject</option>
-                                            {dropdownData.subjects?.map(s => <option key={s._id} value={s._id}>{s.subName || s.name}</option>)}
+                                            {dropdownData.subjects?.map(s => <option key={s._id.toString()} value={s._id.toString()}>{s.subName || s.name}</option>)}
                                         </select>
                                     </div>
 
-                                    {/* Chapter & Topic */}
-                                    <div className="grid grid-cols-2 gap-4">
+                                    {/* Academic Subject, Chapter & Topic (cascading from Academic Class) */}
+                                    <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                                        <div className="flex flex-col gap-2">
+                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Academic Subject</label>
+                                            <select
+                                                value={(editingClassData.acadSubjectId || "").toString()}
+                                                disabled={!editingClassData.acadClassId}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setEditingClassData({ ...editingClassData, acadSubjectId: val, chapterId: "", topicIds: [] });
+                                                    setEditAcadChapters([]);
+                                                    setEditAcadTopics([]);
+                                                    if (val) fetchEditAcadChapters(val);
+                                                }}
+                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all disabled:opacity-50 ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                            >
+                                                <option value="">Select Subject</option>
+                                                {editAcadSubjects.map(s => <option key={s._id.toString()} value={s._id.toString()}>{s.subjectName || s.masterSubjectId?.subName || s.name}</option>)}
+                                            </select>
+                                        </div>
                                         <div className="flex flex-col gap-2">
                                             <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Chapter</label>
-                                            <input
-                                                type="text"
-                                                placeholder="Enter Chapter"
-                                                value={editingClassData.chapterName || ""}
-                                                onChange={(e) => setEditingClassData({ ...editingClassData, chapterName: e.target.value })}
-                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
-                                            />
+                                            <select
+                                                value={(editingClassData.chapterId || "").toString()}
+                                                disabled={!editingClassData.acadSubjectId}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setEditingClassData({ ...editingClassData, chapterId: val, topicIds: [] });
+                                                    setEditAcadTopics([]);
+                                                    if (val) fetchEditAcadTopics(val);
+                                                }}
+                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all disabled:opacity-50 ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                            >
+                                                <option value="">Select Chapter</option>
+                                                {editAcadChapters.map(c => <option key={c._id.toString()} value={c._id.toString()}>{c.chapterName}</option>)}
+                                            </select>
                                         </div>
                                         <div className="flex flex-col gap-2">
-                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Topic</label>
-                                            <input
-                                                type="text"
-                                                placeholder="Enter Topic"
-                                                value={editingClassData.topicName || ""}
-                                                onChange={(e) => setEditingClassData({ ...editingClassData, topicName: e.target.value })}
-                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Topics</label>
+                                            <CustomMultiSelect
+                                                options={editAcadTopics.map(t => ({ value: t._id, label: t.topicName }))}
+                                                value={editingClassData.topicIds?.map(id => {
+                                                    const topic = editAcadTopics.find(t => t._id.toString() === id.toString());
+                                                    return topic ? { value: topic._id, label: topic.topicName } : null;
+                                                }).filter(v => v)}
+                                                onChange={(selectedOptions) => {
+                                                    const values = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
+                                                    setEditingClassData({ ...editingClassData, topicIds: values });
+                                                }}
+                                                placeholder="Select Topics"
+                                                isDarkMode={isDarkMode}
+                                                isDisabled={!editingClassData.chapterId}
                                             />
                                         </div>
                                     </div>
 
-                                    {/* Batches (Multi-select) */}
-                                    <div className="flex flex-col gap-2 md:col-span-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase flex justify-between">
-                                            <span>Batches (Select multiple)</span>
-                                            <span className="text-cyan-500 capitalize">{editingClassData.batchIds?.length || 0} selected</span>
-                                        </label>
-                                        <select
-                                            multiple
-                                            required
-                                            value={editingClassData.batchIds}
-                                            onChange={(e) => {
-                                                const options = Array.from(e.target.selectedOptions);
-                                                const values = options.map(opt => opt.value);
-                                                setEditingClassData({ ...editingClassData, batchIds: values });
-                                            }}
-                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all transition-all shadow-lg h-32 scrollbar-thin scrollbar-thumb-gray-800"
-                                        >
-                                            {dropdownData.batches?.map(b => (
-                                                <option key={b._id} value={b._id} className="p-2 border-b border-gray-800 last:border-0">{b.batchName || b.name}</option>
+                                    {/* Batches (Grid for better visibility) */}
+                                    <div className="flex flex-col gap-3 mb-3 md:col-span-2">
+                                        <div className="flex justify-between items-center">
+                                            <label className="text-xs font-bold text-gray-400 uppercase flex gap-2 items-center">
+                                                <span>Batches (Master Data)</span>
+                                                <span className="text-cyan-500 capitalize">{editingClassData.batchIds?.length || 0} selected</span>
+                                            </label>
+                                        </div>
+                                        <div className="flex justify-center">
+                                            <input
+                                                type="text"
+                                                placeholder="🔍 Search for a batch..."
+                                                value={batchSearch}
+                                                onChange={(e) => setBatchSearch(e.target.value)}
+                                                className={`w-full max-w-md px-6 py-2 text-sm rounded-2xl border outline-none transition-all text-center font-medium ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-yellow-500 shadow-2xl' : 'bg-white border-gray-200 text-gray-900 focus:border-yellow-600 shadow-md'}`}
+                                            />
+                                        </div>
+                                        <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200 shadow-inner'}`}>
+                                            {dropdownData.batches?.filter(b => {
+                                                const matchesSearch = (b.batchName || b.name || "").toLowerCase().includes(batchSearch.toLowerCase());
+                                                const matchesCentre = !editingClassData.centreIds || editingClassData.centreIds.length === 0 || 
+                                                    (!b.centreId || editingClassData.centreIds.some(cid => cid.toString() === b.centreId?.toString()));
+                                                return matchesSearch && matchesCentre;
+                                            }).map(b => (
+                                                <label key={b._id} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${editingClassData.batchIds?.map(id => id.toString()).includes(b._id.toString()) ? (isDarkMode ? 'bg-cyan-900/30 border-cyan-500 text-cyan-200' : 'bg-cyan-50 border-cyan-500 text-cyan-700') : (isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-gray-500 hover:border-gray-600' : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300')}`}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={editingClassData.batchIds?.map(id => id.toString()).includes(b._id.toString())}
+                                                        onChange={(e) => {
+                                                            const checked = e.target.checked;
+                                                            const updatedBatchIds = checked
+                                                                ? [...(editingClassData.batchIds || []), b._id]
+                                                                : editingClassData.batchIds.filter(id => id !== b._id);
+                                                            setEditingClassData({ ...editingClassData, batchIds: updatedBatchIds });
+                                                        }}
+                                                        className="hidden"
+                                                    />
+                                                    <span className="text-[10px] font-bold truncate uppercase tracking-tight">{b.batchName || b.name}</span>
+                                                </label>
                                             ))}
-                                        </select>
-                                        <p className="text-[10px] text-gray-500 italic mt-1">Hold Ctrl (Cmd) to select multiple batches</p>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1261,7 +1373,6 @@ const Classes = () => {
                                 <li><strong>Teacher</strong>: Must exactly match a Teacher's Name registered in User Management (Case-Insensitive).</li>
                                 <li><strong>Subject</strong>: Must exactly match an Academics Subject Name.</li>
                                 <li><strong>Center</strong>: Must match an active Center Name (e.g., HAZRA H.O).</li>
-                                <li><strong>Course</strong>: Must exactly match a master Course Name.</li>
                                 <li><strong>Batch</strong>: Must match a Batch Name. If multiple batches, separate them with a comma (e.g., <code className="bg-gray-500/20 px-1 rounded">Batch A, Batch B</code>).</li>
                                 <li><strong>Exam (Optional)</strong>: If provided, must exactly match an Exam Tag Name (e.g., JEE MAINS).</li>
                                 <li><strong>Session</strong>: Must exactly match a Session Name (e.g., 2024-2025).</li>

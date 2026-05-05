@@ -6,6 +6,7 @@ import User from "../models/User.js";
 import Employee from "../models/HR/Employee.js";
 import { getSignedFileUrl } from "../utils/r2Upload.js";
 import jwt from "jsonwebtoken";
+import { getCache, setCache, generateCacheKey, clearCachePattern } from "../utils/redisCache.js";
 
 // Login: Username (Email) + Password (Admission Number)
 export const login = async (req, res) => {
@@ -127,19 +128,25 @@ export const getClasses = async (req, res) => {
                 { batchId: { $in: batchIds } }
             ]
         })
+        .populate("subjectId", "subName")
+        .populate("acadClassId", "className")
         .populate({
-            path: "subjectId",
+            path: "acadSubjectId",
             populate: { path: "masterSubjectId", select: "subName" }
         })
-        .populate("acadSubjectId", "subName")
+        .populate("chapterId", "chapterName")
+        .populate("topicIds", "topicName")
         .populate("teacherId", "name email")
         .sort({ date: -1 })
         .limit(100);
 
         const flattenedSchedule = schedule.map(cls => ({
             ...cls.toObject(),
-            subjectName: cls.subjectId?.masterSubjectId?.subName || cls.subjectId?.subjectName || "N/A",
-            academicSubjectName: cls.acadSubjectId?.subName || "N/A"
+            subjectName: cls.subjectId?.subName || "N/A",
+            academicClassName: cls.acadClassId?.className || "N/A",
+            academicSubjectName: cls.acadSubjectId?.masterSubjectId?.subName || "N/A",
+            academicChapterName: cls.chapterId?.chapterName || "N/A",
+            academicTopicNames: cls.topicIds?.map(t => t.topicName) || []
         }));
 
         res.json(flattenedSchedule);
@@ -177,18 +184,24 @@ export const getUpcomingClasses = async (req, res) => {
             status: "Upcoming",
             date: { $gte: today }
         })
+        .populate("subjectId", "subName")
+        .populate("acadClassId", "className")
         .populate({
-            path: "subjectId",
+            path: "acadSubjectId",
             populate: { path: "masterSubjectId", select: "subName" }
         })
-        .populate("acadSubjectId", "subName")
+        .populate("chapterId", "chapterName")
+        .populate("topicIds", "topicName")
         .populate("teacherId", "name email")
         .sort({ date: 1, startTime: 1 });
 
         const flattenedUpcoming = upcomingClasses.map(cls => ({
             ...cls.toObject(),
-            subjectName: cls.subjectId?.masterSubjectId?.subName || cls.subjectId?.subjectName || "N/A",
-            academicSubjectName: cls.acadSubjectId?.subName || "N/A"
+            subjectName: cls.subjectId?.subName || "N/A",
+            academicClassName: cls.acadClassId?.className || "N/A",
+            academicSubjectName: cls.acadSubjectId?.masterSubjectId?.subName || "N/A",
+            academicChapterName: cls.chapterId?.chapterName || "N/A",
+            academicTopicNames: cls.topicIds?.map(t => t.topicName) || []
         }));
 
         res.json(flattenedUpcoming);
@@ -223,18 +236,24 @@ export const getOngoingClasses = async (req, res) => {
             ],
             status: "Ongoing"
         })
+        .populate("subjectId", "subName")
+        .populate("acadClassId", "className")
         .populate({
-            path: "subjectId",
+            path: "acadSubjectId",
             populate: { path: "masterSubjectId", select: "subName" }
         })
-        .populate("acadSubjectId", "subName")
+        .populate("chapterId", "chapterName")
+        .populate("topicIds", "topicName")
         .populate("teacherId", "name email")
         .sort({ date: 1, startTime: 1 });
 
         const flattenedOngoing = ongoingClasses.map(cls => ({
             ...cls.toObject(),
-            subjectName: cls.subjectId?.masterSubjectId?.subName || cls.subjectId?.subjectName || "N/A",
-            academicSubjectName: cls.acadSubjectId?.subName || "N/A"
+            subjectName: cls.subjectId?.subName || "N/A",
+            academicClassName: cls.acadClassId?.className || "N/A",
+            academicSubjectName: cls.acadSubjectId?.masterSubjectId?.subName || "N/A",
+            academicChapterName: cls.chapterId?.chapterName || "N/A",
+            academicTopicNames: cls.topicIds?.map(t => t.topicName) || []
         }));
 
         res.json(flattenedOngoing);
@@ -270,11 +289,14 @@ export const getAttendance = async (req, res) => {
                 { batchId: { $in: batchIds } }
             ]
         })
+        .populate("subjectId", "subName")
+        .populate("acadClassId", "className")
         .populate({
-            path: "subjectId",
+            path: "acadSubjectId",
             populate: { path: "masterSubjectId", select: "subName" }
         })
-        .populate("acadSubjectId", "subName")
+        .populate("chapterId", "chapterName")
+        .populate("topicIds", "topicName")
         .populate("teacherId", "name email designation")
         .sort({ date: -1 });
 
@@ -288,8 +310,11 @@ export const getAttendance = async (req, res) => {
             
             return {
                 ...clsObj,
-                subjectName: cls.subjectId?.masterSubjectId?.subName || cls.subjectId?.subjectName || "N/A",
-                academicSubjectName: cls.acadSubjectId?.subName || "N/A",
+                subjectName: cls.subjectId?.subName || "N/A",
+                academicClassName: cls.acadClassId?.className || "N/A",
+                academicSubjectName: cls.acadSubjectId?.masterSubjectId?.subName || "N/A",
+                academicChapterName: cls.chapterId?.chapterName || "N/A",
+                academicTopicNames: cls.topicIds?.map(t => t.topicName) || [],
                 teacherName: cls.teacherId?.name || "N/A",
                 attendanceStatus: record ? record.status : "Not Marked",
                 attendanceMarkedDate: record ? record.createdAt : null
@@ -314,11 +339,17 @@ export const getAttendance = async (req, res) => {
 export const getSingleStudentReport = async (req, res) => {
     try {
         let studentId = req.params.studentId || req.user.id;
-        const userRole = req.user.role?.toLowerCase() || "";
 
         // Security: Students can ONLY query their own ID
         if (req.user.role === "student" && studentId.toString() !== req.user.id.toString()) {
             return res.status(403).json({ message: "Access denied. You can only view your own report." });
+        }
+
+        // REDIS CACHING
+        const cacheKey = `student:report:${studentId}`;
+        const cachedReport = await getCache(cacheKey);
+        if (cachedReport) {
+            return res.status(200).json(cachedReport);
         }
 
         // 1. Fetch Student Profile
@@ -343,11 +374,14 @@ export const getSingleStudentReport = async (req, res) => {
                 { batchId: { $in: batchIds } }
             ]
         })
+        .populate("subjectId", "subName")
+        .populate("acadClassId", "className")
         .populate({
-            path: "subjectId",
+            path: "acadSubjectId",
             populate: { path: "masterSubjectId", select: "subName" }
         })
-        .populate("acadSubjectId", "subName")
+        .populate("chapterId", "chapterName")
+        .populate("topicIds", "topicName")
         .populate("teacherId", "name email designation")
         .sort({ date: -1 });
 
@@ -358,15 +392,18 @@ export const getSingleStudentReport = async (req, res) => {
             const clsObj = cls.toObject();
             return {
                 ...clsObj,
-                subjectName: cls.subjectId?.masterSubjectId?.subName || cls.subjectId?.subjectName || "N/A",
-                academicSubjectName: cls.acadSubjectId?.subName || "N/A",
+                subjectName: cls.subjectId?.subName || "N/A",
+                academicClassName: cls.acadClassId?.className || "N/A",
+                academicSubjectName: cls.acadSubjectId?.masterSubjectId?.subName || "N/A",
+                academicChapterName: cls.chapterId?.chapterName || "N/A",
+                academicTopicNames: cls.topicIds?.map(t => t.topicName) || [],
                 teacherName: cls.teacherId?.name || "N/A",
                 attendanceStatus: record ? record.status : "Not Marked",
                 attendanceMarkedDate: record ? record.createdAt : null
             };
         });
 
-        res.json({
+        const reportData = {
             success: true,
             profile: student,
             admissions,
@@ -376,7 +413,12 @@ export const getSingleStudentReport = async (req, res) => {
                 absentCount: attendanceRecords.filter(r => r.status === "Absent").length,
                 classes: detailedAttendance
             }
-        });
+        };
+
+        // Cache for 30 minutes
+        await setCache(cacheKey, reportData, 1800);
+
+        res.json(reportData);
 
     } catch (error) {
         console.error("Single Student Report Error:", error);

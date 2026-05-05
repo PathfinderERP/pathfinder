@@ -5,6 +5,9 @@ import Course from "../../models/Master_data/Courses.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Batch from "../../models/Master_data/Batch.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
+import AcademicsClass from "../../models/Academics/Academics_class.js";
+import AcademicsChapter from "../../models/Academics/Academics_chapter.js";
+import AcademicsTopic from "../../models/Academics/Academics_topic.js";
 import Class from "../../models/Master_data/Class.js";
 import Session from "../../models/Master_data/Session.js";
 import Subject from "../../models/Master_data/Subject.js";
@@ -27,24 +30,35 @@ export const createClassSchedule = async (req, res) => {
             teacherId,
             session,
             examId,
-            courseId,
-            centreId,
+            centreId, // fallback for old frontend
+            centreIds,
             batchId,
             batchIds,
             coordinatorId,
             acadClassId,
             acadSubjectId,
-            chapterName,
-            topicName,
+            chapterId,
+            topicIds,
             message,
             classHours
         } = req.body;
 
+        // Final centreIds list
+        const finalCentreIds = centreIds || (centreId ? [centreId] : []);
+
         // Center authorization check
         if (req.user.role !== 'superAdmin') {
             const userCentres = req.user.centres || [];
-            if (!userCentres.map(c => c.toString()).includes(centreId?.toString())) {
-                return res.status(403).json({ message: "You are not authorized to create classes for this center" });
+            const userCentreStrs = userCentres.map(c => c.toString());
+            
+            // Ensure at least one centre is provided and all provided centres are authorized
+            if (finalCentreIds.length === 0) {
+                return res.status(400).json({ message: "At least one center must be selected" });
+            }
+
+            const unauthorized = finalCentreIds.filter(cid => !userCentreStrs.includes(cid.toString()));
+            if (unauthorized.length > 0) {
+                return res.status(403).json({ message: "You are not authorized for one or more selected centers" });
             }
         }
 
@@ -58,14 +72,13 @@ export const createClassSchedule = async (req, res) => {
             teacherId,
             session,
             examId,
-            courseId,
-            centreId,
-            batchIds: batchIds || [batchId], // Fallback if old frontend still sends batchId
+            centreIds: finalCentreIds,
+            batchIds: batchIds || (batchId ? [batchId] : []),
             coordinatorId: coordinatorId || undefined,
             acadClassId: acadClassId || undefined,
             acadSubjectId: acadSubjectId || undefined,
-            chapterName,
-            topicName,
+            chapterId: chapterId || undefined,
+            topicIds: topicIds || [],
             message,
             classHours
         });
@@ -134,53 +147,54 @@ export const getClassSchedules = async (req, res) => {
         if (req.user && req.user.role !== 'superAdmin') {
             const userCentres = req.user.centres || [];
 
-            // For teachers and coordinators, we already filtered by their ID.
-            // Only apply centre filter to Admins or if they have centres but no ID field matched (though role check handles it)
             if (req.user.role === 'admin') {
                 if (userCentres.length > 0) {
+                    let filterCentres = userCentres;
                     if (centreId) {
                         const selectedCentres = centreId.split(',').filter(id => id.trim());
                         const authorizedCentres = selectedCentres.filter(id => userCentres.map(c => c.toString()).includes(id.toString()));
-
-                        if (authorizedCentres.length > 0) {
-                            query.centreId = { $in: authorizedCentres };
-                        } else {
-                            // If none of the selected centers are authorized, restrict to userCentres
-                            query.centreId = { $in: userCentres };
-                        }
-                    } else {
-                        query.centreId = { $in: userCentres };
+                        if (authorizedCentres.length > 0) filterCentres = authorizedCentres;
                     }
+                    query.$and = query.$and || [];
+                    query.$and.push({
+                        $or: [
+                            { centreIds: { $in: filterCentres } },
+                            { centreId: { $in: filterCentres } }
+                        ]
+                    });
                 } else {
-                    // Admins with no centers assigned see nothing
                     return res.status(200).json({ classes: [], total: 0, currentPage: parseInt(page), totalPages: 0 });
                 }
             } else {
-                // For other roles (teachers, coordinators, etc.), restrict to their assigned centres.
-                // Allow filtering within assigned centres.
-                if (centreId) {
-                    const selectedCentres = centreId.split(',').filter(id => id.trim());
-                    // Ensure requested centres are in user's assigned list
-                    const authorized = selectedCentres.filter(id => userCentres.map(c => c.toString()).includes(id.toString()));
-                    if (authorized.length > 0) {
-                        query.centreId = { $in: authorized };
-                    } else {
-                        // If none authorized, default to all assigned centres
-                        query.centreId = { $in: userCentres };
+                if (userCentres.length > 0) {
+                    let filterCentres = userCentres;
+                    if (centreId) {
+                        const selectedCentres = centreId.split(',').filter(id => id.trim());
+                        const authorized = selectedCentres.filter(id => userCentres.map(c => c.toString()).includes(id.toString()));
+                        if (authorized.length > 0) filterCentres = authorized;
                     }
+                    query.$and = query.$and || [];
+                    query.$and.push({
+                        $or: [
+                            { centreIds: { $in: filterCentres } },
+                            { centreId: { $in: filterCentres } }
+                        ]
+                    });
                 } else {
-                    // Default to all assigned centres if no specific filter
-                    if (userCentres.length > 0) {
-                        query.centreId = { $in: userCentres };
-                    } else {
-                        // User has no centres assigned -> sees nothing
-                        return res.status(200).json({ classes: [], total: 0, currentPage: -1, totalPages: 0 }); // Return empty
-                    }
+                    return res.status(200).json({ classes: [], total: 0, currentPage: -1, totalPages: 0 });
                 }
             }
         } else if (centreId) {
             const selectedCentres = centreId.split(',').filter(id => id.trim());
-            if (selectedCentres.length > 0) query.centreId = { $in: selectedCentres };
+            if (selectedCentres.length > 0) {
+                query.$and = query.$and || [];
+                query.$and.push({
+                    $or: [
+                        { centreIds: { $in: selectedCentres } },
+                        { centreId: { $in: selectedCentres } }
+                    ]
+                });
+            }
         }
 
         if (batchId) {
@@ -228,13 +242,16 @@ export const getClassSchedules = async (req, res) => {
         }
 
         if (search) {
-            query.$or = [
-                { className: { $regex: search, $options: "i" } },
-                { startTime: { $regex: search, $options: "i" } },
-                { endTime: { $regex: search, $options: "i" } },
-                { classMode: { $regex: search, $options: "i" } },
-                { session: { $regex: search, $options: "i" } },
-            ];
+            query.$and = query.$and || [];
+            query.$and.push({
+                $or: [
+                    { className: { $regex: search, $options: "i" } },
+                    { startTime: { $regex: search, $options: "i" } },
+                    { endTime: { $regex: search, $options: "i" } },
+                    { classMode: { $regex: search, $options: "i" } },
+                    { session: { $regex: search, $options: "i" } },
+                ]
+            });
         }
 
         if (req.query.hasFeedback === 'true') {
@@ -245,13 +262,20 @@ export const getClassSchedules = async (req, res) => {
 
         const classSchedules = await ClassSchedule.find(query)
             .populate("subjectId", "subName")
-            .populate("acadSubjectId", "subName")
             .populate("teacherId", "name userType")
             .populate("examId", "name tagName")
             .populate("courseId", "courseName name")
+            .populate("centreIds", "centreName centerName name latitude longitude")
             .populate("centreId", "centreName centerName name latitude longitude")
             .populate("coordinatorId", "name")
             .populate("batchIds", "batchName name")
+            .populate("acadClassId", "className")
+            .populate({
+                path: "acadSubjectId",
+                populate: { path: "masterSubjectId", select: "subName" }
+            })
+            .populate("chapterId", "chapterName")
+            .populate("topicIds", "topicName")
             .sort({ date: -1 })
             .skip(skip)
             .limit(parseInt(limit));
@@ -263,10 +287,24 @@ export const getClassSchedules = async (req, res) => {
             if (clsObj.status === 'Upcoming' && new Date(clsObj.date) < todayMidnight) {
                 clsObj.status = 'Not Taken';
             }
+
+            // Combine names from both centreIds and centreId
+            const names = [];
+            if (cls.centreIds && cls.centreIds.length > 0) {
+                cls.centreIds.forEach(c => {
+                    const name = c.centreName || c.name;
+                    if (name) names.push(name);
+                });
+            } else if (cls.centreId) {
+                const name = cls.centreId.centreName || cls.centreId.name;
+                if (name) names.push(name);
+            }
+
             return {
                 ...clsObj,
                 subjectName: cls.subjectId?.subName || cls.subjectId?.subjectName || "N/A",
                 acadSubjectName: cls.acadSubjectId?.subName || "N/A",
+                centreNames: names.length > 0 ? names.join(", ") : "N/A",
                 batchNames: cls.batchIds?.map(b => b.batchName || b.name).join(", ") || (cls.batchId?.batchName || cls.batchId?.name) || "N/A"
             };
         });
@@ -353,17 +391,19 @@ export const updateClassSchedule = async (req, res) => {
             teacherId,
             session,
             examId,
-            courseId,
-            centreId,
+            centreId, // fallback
+            centreIds,
             batchIds,
             coordinatorId,
             acadClassId,
             acadSubjectId,
-            chapterName,
-            topicName,
+            chapterId,
+            topicIds,
             message,
             classHours
         } = req.body;
+
+        const finalCentreIds = centreIds || (centreId ? [centreId] : []);
 
         const currentClass = await ClassSchedule.findById(id);
         if (!currentClass) {
@@ -379,8 +419,12 @@ export const updateClassSchedule = async (req, res) => {
         // Center authorization check
         if (req.user.role !== 'superAdmin') {
             const userCentres = req.user.centres || [];
-            if (centreId && !userCentres.map(c => c.toString()).includes(centreId?.toString())) {
-                return res.status(403).json({ message: "You are not authorized to update classes for this center" });
+            const userCentreStrs = userCentres.map(c => c.toString());
+            if (finalCentreIds.length > 0) {
+                const unauthorized = finalCentreIds.filter(cid => !userCentreStrs.includes(cid.toString()));
+                if (unauthorized.length > 0) {
+                    return res.status(403).json({ message: "You are not authorized for one or more selected centers" });
+                }
             }
         }
 
@@ -398,14 +442,13 @@ export const updateClassSchedule = async (req, res) => {
                 teacherId,
                 session,
                 examId,
-                courseId,
-                centreId,
+                centreIds: finalCentreIds,
                 batchIds,
                 coordinatorId: coordinatorId || undefined,
                 acadClassId: acadClassId || undefined,
                 acadSubjectId: acadSubjectId || undefined,
-                chapterName,
-                topicName,
+                chapterId: chapterId || undefined,
+                topicIds: topicIds || [],
                 message,
                 classHours,
                 status: "Upcoming" // Reset status for the new instance
@@ -430,14 +473,13 @@ export const updateClassSchedule = async (req, res) => {
                     teacherId,
                     session,
                     examId,
-                    courseId,
-                    centreId,
+                    centreIds: finalCentreIds,
                     batchIds,
                     coordinatorId: coordinatorId || undefined,
                     acadClassId: acadClassId || undefined,
                     acadSubjectId: acadSubjectId || undefined,
-                    chapterName,
-                    topicName,
+                    chapterId: chapterId || undefined,
+                    topicIds,
                     message,
                     classHours
                 },
@@ -593,7 +635,7 @@ export const getClassDropdownData = async (req, res) => {
             batches = await Batch.find();
         }
         const exams = await ExamTag.find();
-        const academicClasses = await Class.find();
+        const academicClasses = await AcademicsClass.find();
         const sessions = await Session.find();
 
         res.status(200).json({
@@ -641,7 +683,7 @@ export const importClassesExcel = async (req, res) => {
             const rowNumber = i + 2; // +2 considering header and 0-indexing
 
             // 1. Check Mandatory string fields
-            const requiredFields = ['Class Name', 'Date', 'Class Mode', 'Start Time', 'End Time', 'Center', 'Batch', 'Subject', 'Teacher', 'Session', 'Course'];
+            const requiredFields = ['Class Name', 'Date', 'Class Mode', 'Start Time', 'End Time', 'Center', 'Batch', 'Subject', 'Teacher', 'Session'];
             let missingFields = [];
             for (let field of requiredFields) {
                 if (!row[field]) missingFields.push(field);
@@ -684,13 +726,6 @@ export const importClassesExcel = async (req, res) => {
                 continue;
             }
 
-            // Course
-            const courseRegex = new RegExp(`^${String(row['Course']).trim()}$`, "i");
-            const course = await Course.findOne({ $or: [{ courseName: courseRegex }, { name: courseRegex }] });
-            if (!course) {
-                errors.push(`Row ${rowNumber}: Course '${row['Course']}' not found`);
-                continue;
-            }
 
             // Exam (Optional)
             let examId = undefined;
@@ -744,6 +779,7 @@ export const importClassesExcel = async (req, res) => {
 
             // Optional Lookups
             let coordinatorId = undefined;
+            let acadClassId = undefined;
             if (row['Coordinator']) {
                 const coordRegex = new RegExp(`^${String(row['Coordinator']).trim()}$`, "i");
                 const coordinator = await User.findOne({ name: coordRegex, role: 'Class_Coordinator' });
@@ -774,8 +810,7 @@ export const importClassesExcel = async (req, res) => {
                 teacherId: teacher._id,
                 session: sessionDoc.sessionName, // Schema stores string or ObjectId, existing script usually passes string
                 examId: examId,
-                courseId: course._id,
-                centreId: centre._id,
+                centreIds: [centre._id],
                 batchIds: batchIds,
                 coordinatorId: coordinatorId,
                 acadClassId: acadClassId,
@@ -845,19 +880,33 @@ export const exportClassSchedulesExcel = async (req, res) => {
         if (req.user && req.user.role !== 'superAdmin') {
             const userCentres = req.user.centres || [];
             if (userCentres.length > 0) {
+                let filterCentres = userCentres;
                 if (centreId) {
                     const selectedCentres = centreId.split(',').filter(id => id.trim());
                     const authorized = selectedCentres.filter(id => userCentres.map(c => c.toString()).includes(id.toString()));
-                    query.centreId = { $in: authorized.length > 0 ? authorized : userCentres };
-                } else {
-                    query.centreId = { $in: userCentres };
+                    if (authorized.length > 0) filterCentres = authorized;
                 }
+                query.$and = query.$and || [];
+                query.$and.push({
+                    $or: [
+                        { centreId: { $in: filterCentres } },
+                        { centreIds: { $in: filterCentres } }
+                    ]
+                });
             } else if (userRole === 'admin') {
                 return res.status(200).json({ message: "No centers assigned" });
             }
         } else if (centreId) {
             const selectedCentres = centreId.split(',').filter(id => id.trim());
-            if (selectedCentres.length > 0) query.centreId = { $in: selectedCentres };
+            if (selectedCentres.length > 0) {
+                query.$and = query.$and || [];
+                query.$and.push({
+                    $or: [
+                        { centreId: { $in: selectedCentres } },
+                        { centreIds: { $in: selectedCentres } }
+                    ]
+                });
+            }
         }
 
         if (batchId) {
@@ -898,16 +947,20 @@ export const exportClassSchedulesExcel = async (req, res) => {
         }
 
         if (search) {
-            query.$or = [
-                { className: { $regex: search, $options: "i" } },
-                { session: { $regex: search, $options: "i" } },
-            ];
+            query.$and = query.$and || [];
+            query.$and.push({
+                $or: [
+                    { className: { $regex: search, $options: "i" } },
+                    { session: { $regex: search, $options: "i" } },
+                ]
+            });
         }
 
         const classSchedules = await ClassSchedule.find(query)
             .populate("subjectId", "subName")
             .populate("teacherId", "name")
             .populate("centreId", "centreName name")
+            .populate("centreIds", "centreName name")
             .populate("batchIds", "batchName name")
             .sort({ date: -1 });
 
@@ -918,7 +971,7 @@ export const exportClassSchedulesExcel = async (req, res) => {
         // Fetch all student attendance for these schedules
         const scheduleIds = classSchedules.map(cls => cls._id);
         const attendanceRecords = await StudentAttendance.find({ classScheduleId: { $in: scheduleIds } });
-        
+
         // Map attendance by classScheduleId and studentId
         const attendanceMap = {};
         attendanceRecords.forEach(rec => {
@@ -949,10 +1002,22 @@ export const exportClassSchedulesExcel = async (req, res) => {
 
         for (const cls of classSchedules) {
             const clsBatchIds = cls.batchIds.map(b => b._id.toString());
-            const clsCentreName = cls.centreId?.centreName || cls.centreId?.name || "N/A";
+            
+            // Handle multiple centers
+            const names = [];
+            if (cls.centreIds && cls.centreIds.length > 0) {
+                cls.centreIds.forEach(c => {
+                    const name = c.centreName || c.name;
+                    if (name) names.push(name);
+                });
+            } else if (cls.centreId) {
+                const name = cls.centreId.centreName || cls.centreId.name;
+                if (name) names.push(name);
+            }
+            const clsCentreName = names.length > 0 ? names.join(", ") : "N/A";
 
             // Find students that belong to this class (matching batches AND center)
-            const clsStudents = allStudents.filter(s => 
+            const clsStudents = allStudents.filter(s =>
                 s.batches.some(b => clsBatchIds.includes(b.toString())) &&
                 s.studentsDetails?.some(d => d.centre === clsCentreName)
             );

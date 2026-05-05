@@ -2,6 +2,7 @@ import AcademicsTopic from "../../models/Academics/Academics_topic.js";
 import AcademicsChapter from "../../models/Academics/Academics_chapter.js";
 import AcademicsSubject from "../../models/Academics/Academics_subject.js";
 import AcademicsClass from "../../models/Academics/Academics_class.js";
+import Subject from "../../models/Master_data/Subject.js";
 
 // Bulk Import Topics
 export const bulkImportTopics = async (req, res) => {
@@ -59,12 +60,24 @@ export const bulkImportTopics = async (req, res) => {
                 const subjectKey = `${classId}_${normSubjectName}`.toLowerCase();
                 let subjectId = subjectCache[subjectKey];
                 if (!subjectId) {
+                    // Find master subject first
+                    const mSubject = await Subject.findOne({
+                        subName: { $regex: new RegExp(`^${normSubjectName}$`, "i") }
+                    });
+
+                    if (!mSubject) {
+                        results.failedCount++;
+                        results.errors.push({ row, error: `Master Subject '${normSubjectName}' not found` });
+                        continue;
+                    }
+
                     let subjectDoc = await AcademicsSubject.findOne({
-                        subjectName: { $regex: new RegExp(`^${normSubjectName}$`, "i") },
+                        masterSubjectId: mSubject._id,
                         classId: classId
                     });
+
                     if (!subjectDoc) {
-                        subjectDoc = new AcademicsSubject({ subjectName: normSubjectName, classId: classId });
+                        subjectDoc = new AcademicsSubject({ masterSubjectId: mSubject._id, classId: classId });
                         await subjectDoc.save();
                     }
                     subjectId = subjectDoc._id;
@@ -101,7 +114,9 @@ export const bulkImportTopics = async (req, res) => {
                 // 5. Create Topic
                 const newTopic = new AcademicsTopic({
                     topicName: normTopicName,
-                    chapterId: chapterId
+                    chapterId: chapterId,
+                    subjectId: subjectId,
+                    classId: classId
                 });
 
                 await newTopic.save();
@@ -126,18 +141,12 @@ export const bulkImportTopics = async (req, res) => {
 // Create Topic
 export const createTopic = async (req, res) => {
     try {
-        const { topicName, chapterId } = req.body;
-        if (!topicName || !chapterId) {
-            return res.status(400).json({ message: "Topic Name and Chapter ID are required" });
+        const { topicName, chapterId, subjectId, classId } = req.body;
+        if (!topicName || !chapterId || !subjectId || !classId) {
+            return res.status(400).json({ message: "Topic Name, Chapter, Subject and Class are required" });
         }
 
-        // Verify chapter exists
-        const chapterExists = await AcademicsChapter.findById(chapterId);
-        if (!chapterExists) {
-            return res.status(404).json({ message: "Chapter not found" });
-        }
-
-        const newTopic = new AcademicsTopic({ topicName, chapterId });
+        const newTopic = new AcademicsTopic({ topicName, chapterId, subjectId, classId });
         await newTopic.save();
         res.status(201).json({ message: "Topic created successfully", data: newTopic });
     } catch (error) {
@@ -158,45 +167,139 @@ export const getAllTopics = async (req, res) => {
             query.chapterId = chapterId;
         } else if (subjectId) {
             const chapters = await AcademicsChapter.find({ subjectId }).select('_id');
-            query.chapterId = { $in: chapters.map(c => c._id) };
+            query.$or = [
+                { subjectId: subjectId },
+                { chapterId: { $in: chapters.map(c => c._id) } }
+            ];
         } else if (classId) {
             const subjects = await AcademicsSubject.find({ classId }).select('_id');
             const chapters = await AcademicsChapter.find({ subjectId: { $in: subjects.map(s => s._id) } }).select('_id');
-            query.chapterId = { $in: chapters.map(c => c._id) };
+            query.$or = [
+                { classId: classId },
+                { chapterId: { $in: chapters.map(c => c._id) } }
+            ];
         }
 
         // Backward compatibility: If no pagination, return plain array
         if (!page && !limit) {
-            const topics = await AcademicsTopic.find(query).populate({
-                path: 'chapterId',
-                select: 'chapterName subjectId',
-                populate: {
+            const topics = await AcademicsTopic.find(query)
+                .populate({
+                    path: 'chapterId',
+                    model: 'AcademicsChapter',
+                    select: 'chapterName subjectId',
+                    populate: {
+                        path: 'subjectId',
+                        model: 'AcademicsSubject',
+                        select: 'masterSubjectId classId',
+                        populate: [
+                            { path: 'masterSubjectId', model: 'Subject', select: 'subName' },
+                            { path: 'classId', model: 'AcademicsClass', select: 'className' }
+                        ]
+                    }
+                })
+                .populate({
                     path: 'subjectId',
-                    select: 'subjectName classId',
-                    populate: { path: 'classId', select: 'className' }
+                    model: 'AcademicsSubject',
+                    populate: { path: 'masterSubjectId', model: 'Subject', select: 'subName' }
+                })
+                .populate({
+                    path: 'classId',
+                    model: 'AcademicsClass',
+                    select: 'className'
+                })
+                .sort({ createdAt: -1 })
+                .lean();
+
+            const flattenedTopics = topics.map(t => {
+                const chapter = t.chapterId;
+                const subject = t.subjectId || chapter?.subjectId;
+                const academicsClass = t.classId || subject?.classId;
+
+                const subjectName = subject?.masterSubjectId?.subName || subject?.subjectName || "N/A";
+                const className = academicsClass?.className || "N/A";
+
+                // Support nested structure for frontend compatibility
+                if (chapter) {
+                    if (chapter.subjectId) {
+                        chapter.subjectId.subjectName = subjectName;
+                        if (chapter.subjectId.classId) {
+                            chapter.subjectId.classId.className = className;
+                        }
+                    }
                 }
-            }).sort({ createdAt: -1 });
-            return res.status(200).json(topics);
+
+                return {
+                    ...t,
+                    chapterName: chapter?.chapterName || "N/A",
+                    subjectName,
+                    className
+                };
+            });
+
+            return res.status(200).json(flattenedTopics);
         }
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
-        const topics = await AcademicsTopic.find(query).populate({
-            path: 'chapterId',
-            select: 'chapterName subjectId',
-            populate: {
+        const topics = await AcademicsTopic.find(query)
+            .populate({
+                path: 'chapterId',
+                model: 'AcademicsChapter',
+                select: 'chapterName subjectId',
+                populate: {
+                    path: 'subjectId',
+                    model: 'AcademicsSubject',
+                    select: 'masterSubjectId classId',
+                    populate: [
+                        { path: 'masterSubjectId', model: 'Subject', select: 'subName' },
+                        { path: 'classId', model: 'AcademicsClass', select: 'className' }
+                    ]
+                }
+            })
+            .populate({
                 path: 'subjectId',
-                select: 'subjectName classId',
-                populate: { path: 'classId', select: 'className' }
-            }
-        })
+                model: 'AcademicsSubject',
+                populate: { path: 'masterSubjectId', model: 'Subject', select: 'subName' }
+            })
+            .populate({
+                path: 'classId',
+                model: 'AcademicsClass',
+                select: 'className'
+            })
             .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(parseInt(limit));
+            .limit(parseInt(limit))
+            .lean();
 
         const total = await AcademicsTopic.countDocuments(query);
 
+        const flattenedTopics = topics.map(t => {
+            const chapter = t.chapterId;
+            const subject = t.subjectId || chapter?.subjectId;
+            const academicsClass = t.classId || subject?.classId;
+
+            const subjectName = subject?.masterSubjectId?.subName || subject?.subjectName || "N/A";
+            const className = academicsClass?.className || "N/A";
+
+            // Support nested structure for frontend compatibility
+            if (chapter) {
+                if (chapter.subjectId) {
+                    chapter.subjectId.subjectName = subjectName;
+                    if (chapter.subjectId.classId) {
+                        chapter.subjectId.classId.className = className;
+                    }
+                }
+            }
+
+            return {
+                ...t,
+                chapterName: chapter?.chapterName || "N/A",
+                subjectName,
+                className
+            };
+        });
+
         res.status(200).json({
-            topics,
+            topics: flattenedTopics,
             total,
             currentPage: parseInt(page),
             totalPages: Math.ceil(total / parseInt(limit))
@@ -239,10 +342,10 @@ export const getTopicsByChapter = async (req, res) => {
 export const updateTopic = async (req, res) => {
     try {
         const { id } = req.params;
-        const { topicName, chapterId } = req.body;
+        const { topicName, chapterId, subjectId, classId } = req.body;
         const updatedTopic = await AcademicsTopic.findByIdAndUpdate(
             id,
-            { topicName, chapterId },
+            { topicName, chapterId, subjectId, classId },
             { new: true }
         );
         if (!updatedTopic) return res.status(404).json({ message: "Topic not found" });

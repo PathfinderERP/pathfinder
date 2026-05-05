@@ -32,15 +32,7 @@ export const calculateCentreTargetAchieved = async (centreName, month, year) => 
             return { totalWithGST: 0, totalExclGST: 0 };
         }
 
-        // Determine the start of the financial year (April 1st)
-        // If target month is Jan(0), Feb(1), Mar(2), then FY started in April of (year - 1)
-        // If target month is Apr(3) to Dec(11), then FY started in April of (year)
-        let fyStartYear = year;
-        if (monthIndex < 3) {
-            fyStartYear = year - 1;
-        }
-
-        const startOfFY = new Date(fyStartYear, 3, 1); // April 1st
+        const startOfMonth = new Date(year, monthIndex, 1);
         const endOfTargetMonth = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
 
         const result = await Payment.aggregate([
@@ -74,33 +66,36 @@ export const calculateCentreTargetAchieved = async (centreName, month, year) => 
             {
                 $match: {
                     "admissionDetails.centre": centreName,
+                    billId: { $exists: true, $nin: [null, "", "-"] },
                     $or: [
-                        { status: { $in: ["PAID", "PARTIAL"] } },
-                        { paymentMethod: "CHEQUE", status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] } }
+                        { status: { $in: ["PAID", "PARTIAL", "PENDING_CLEARANCE", "REJECTED"] } },
+                        { paymentMethod: "CHEQUE" },
+                        { paidAmount: { $gt: 0 } }
                     ]
                 }
             },
             {
                 $addFields: {
-                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate"] }
+                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
+                    revenueBase: { $cond: [{ $gt: ["$courseFee", 0] }, "$courseFee", { $divide: ["$paidAmount", 1.18] }] }
                 }
             },
             {
                 $match: {
-                    "effectiveDate": { $gte: startOfFY, $lte: endOfTargetMonth }
+                    "effectiveDate": { $gte: startOfMonth, $lte: endOfTargetMonth }
                 }
             },
             {
                 $group: {
                     _id: null,
-                    totalWithGST: { $sum: "$paidAmount" }
+                    totalWithGST: { $sum: "$paidAmount" },
+                    totalExclGST: { $sum: "$revenueBase" }
                 }
             }
         ]);
 
         const totalWithGST = result.length > 0 ? result[0].totalWithGST : 0;
-        // GST is typically 18%. So Amount Excl GST = Amount / 1.18
-        const totalExclGST = totalWithGST / 1.18;
+        const totalExclGST = result.length > 0 ? result[0].totalExclGST : 0;
 
         return { totalWithGST, totalExclGST };
     } catch (error) {
@@ -161,15 +156,18 @@ export const calculateCentreTargetAchievedYearly = async (centreName, financialY
             {
                 $match: {
                     "admissionDetails.centre": centreName,
+                    billId: { $exists: true, $nin: [null, "", "-"] },
                     $or: [
-                        { status: { $in: ["PAID", "PARTIAL"] } },
-                        { paymentMethod: "CHEQUE", status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] } }
+                        { status: { $in: ["PAID", "PARTIAL", "PENDING_CLEARANCE", "REJECTED"] } },
+                        { paymentMethod: "CHEQUE" },
+                        { paidAmount: { $gt: 0 } }
                     ]
                 }
             },
             {
                 $addFields: {
-                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate"] }
+                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
+                    revenueBase: { $cond: [{ $gt: ["$courseFee", 0] }, "$courseFee", { $divide: ["$paidAmount", 1.18] }] }
                 }
             },
             {
@@ -180,13 +178,14 @@ export const calculateCentreTargetAchievedYearly = async (centreName, financialY
             {
                 $group: {
                     _id: null,
-                    totalWithGST: { $sum: "$paidAmount" }
+                    totalWithGST: { $sum: "$paidAmount" },
+                    totalExclGST: { $sum: "$revenueBase" }
                 }
             }
         ]);
 
         const totalWithGST = result.length > 0 ? result[0].totalWithGST : 0;
-        const totalExclGST = totalWithGST / 1.18;
+        const totalExclGST = result.length > 0 ? result[0].totalExclGST : 0;
 
         return { totalWithGST, totalExclGST };
     } catch (error) {
@@ -263,15 +262,18 @@ export const calculateCentreTargetAchievedMultiMonth = async (centreName, monthS
             {
                 $match: {
                     "admissionDetails.centre": centreName,
+                    billId: { $exists: true, $nin: [null, "", "-"] },
                     $or: [
-                        { status: { $in: ["PAID", "PARTIAL"] } },
-                        { paymentMethod: "CHEQUE", status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] } }
+                        { status: { $in: ["PAID", "PARTIAL", "PENDING_CLEARANCE", "REJECTED"] } },
+                        { paymentMethod: "CHEQUE" },
+                        { paidAmount: { $gt: 0 } }
                     ]
                 }
             },
             {
                 $addFields: {
-                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate"] }
+                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
+                    revenueBase: { $cond: [{ $gt: ["$courseFee", 0] }, "$courseFee", { $divide: ["$paidAmount", 1.18] }] }
                 }
             },
             {
@@ -282,13 +284,14 @@ export const calculateCentreTargetAchievedMultiMonth = async (centreName, monthS
             {
                 $group: {
                     _id: null,
-                    totalWithGST: { $sum: "$paidAmount" }
+                    totalWithGST: { $sum: "$paidAmount" },
+                    totalExclGST: { $sum: "$revenueBase" }
                 }
             }
         ]);
 
         const totalWithGST = result.length > 0 ? result[0].totalWithGST : 0;
-        const totalExclGST = totalWithGST / 1.18;
+        const totalExclGST = result.length > 0 ? result[0].totalExclGST : 0;
 
         return { totalWithGST, totalExclGST };
     } catch (error) {

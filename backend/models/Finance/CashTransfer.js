@@ -60,6 +60,12 @@ const cashTransferSchema = new mongoose.Schema({
     },
     remarks: {
         type: String
+    },
+    fromDate: {
+        type: Date  // Start of the cash collection period being transferred
+    },
+    toDate: {
+        type: Date  // End of the cash collection period being transferred
     }
 }, { timestamps: true });
 

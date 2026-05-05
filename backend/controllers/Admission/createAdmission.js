@@ -8,6 +8,7 @@ import Board from "../../models/Master_data/Boards.js"; // Corrected filename
 import Subject from "../../models/Master_data/Subject.js"; // Import Subject model
 import { updateCentreTargetAchieved } from "../../services/centreTargetService.js";
 import { rebalanceBoardHistory } from "./generateMonthlyBill.js";
+import { clearCachePattern } from "../../utils/redisCache.js";
 
 export const createAdmission = async (req, res) => {
     try {
@@ -38,8 +39,8 @@ export const createAdmission = async (req, res) => {
         } = req.body;
 
         // Validate required fields (Common)
-        if (!studentId || !centre || !academicSession || !downPayment || !numberOfInstallments) {
-            return res.status(400).json({ message: "All common required fields must be provided (Student, Centre, Session, Down Payment)" });
+        if (!studentId || !centre || !academicSession || (downPayment === undefined) || (numberOfInstallments === undefined)) {
+            return res.status(400).json({ message: "All common required fields must be provided (Student, Centre, Session, Down Payment, Installments)" });
         }
 
         // Validate Transaction ID for non-cash payments (except Cheque which has its own validation)
@@ -179,7 +180,9 @@ export const createAdmission = async (req, res) => {
             monthlyPaymentAmount = monthlyTaxable + monthlyCgst + monthlySgst;
         }
 
-        const installmentAmount = admissionType === "BOARD" ? monthlyPaymentAmount : Math.ceil(remainingAmount / numberOfInstallments);
+        const installmentAmount = admissionType === "BOARD" 
+            ? monthlyPaymentAmount 
+            : (numberOfInstallments > 0 ? Math.ceil(remainingAmount / numberOfInstallments) : 0);
 
         // Generate payment breakdown
         const paymentBreakdown = [];
@@ -337,6 +340,9 @@ export const createAdmission = async (req, res) => {
         if (admission.admissionType === "BOARD") {
             await rebalanceBoardHistory(admission._id);
         }
+
+        // Invalidate admissions list and finance report cache
+        await clearCachePattern("finance:transaction_report:*");
 
         const populatedAdmission = await Admission.findById(admission._id)
             .populate('student')

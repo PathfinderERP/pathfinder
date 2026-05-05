@@ -18,14 +18,12 @@ const DailyCollection = () => {
     const [courses, setCourses] = useState([]);
     const [examTags, setExamTags] = useState([]);
     const [departments, setDepartments] = useState([]);
-    const [sessions, setSessions] = useState([]);
     const [paymentMethodsList, setPaymentMethodsList] = useState([]);
 
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedCourses, setSelectedCourses] = useState([]);
     const [selectedDepartments, setSelectedDepartments] = useState([]);
     const [selectedExamTags, setSelectedExamTags] = useState([]);
-    const [selectedSessions, setSelectedSessions] = useState([]);
     const [selectedPaymentMethods, setSelectedPaymentMethods] = useState([]);
     const [searchText, setSearchText] = useState("");
 
@@ -33,7 +31,6 @@ const DailyCollection = () => {
     const [courseSearch, setCourseSearch] = useState("");
     const [departmentSearch, setDepartmentSearch] = useState("");
     const [examTagSearch, setExamTagSearch] = useState("");
-    const [sessionSearch, setSessionSearch] = useState("");
     const [paymentMethodSearch, setPaymentMethodSearch] = useState("");
 
     const [currentPage, setCurrentPage] = useState(1);
@@ -44,7 +41,6 @@ const DailyCollection = () => {
     const [isCourseOpen, setIsCourseOpen] = useState(false);
     const [isDepartmentOpen, setIsDepartmentOpen] = useState(false);
     const [isExamTagOpen, setIsExamTagOpen] = useState(false);
-    const [isSessionOpen, setIsSessionOpen] = useState(false);
     const [isPaymentMethodOpen, setIsPaymentMethodOpen] = useState(false);
 
     const { theme } = useTheme();
@@ -86,18 +82,17 @@ const DailyCollection = () => {
 
     useEffect(() => {
         fetchDailyCollection();
-    }, [date, selectedCentres, selectedCourses, selectedDepartments, selectedExamTags, selectedSessions, selectedPaymentMethods, searchText]);
+    }, [date, selectedCentres, selectedCourses, selectedDepartments, selectedExamTags, selectedPaymentMethods, searchText]);
 
     const fetchMasterData = async () => {
         try {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [cRes, coRes, eRes, sRes, dRes] = await Promise.all([
+            const [cRes, coRes, eRes, dRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/course`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/department`, { headers })
             ]);
 
@@ -124,21 +119,6 @@ const DailyCollection = () => {
             }
             if (coRes.ok) setCourses(await coRes.json());
             if (eRes.ok) setExamTags(await eRes.json());
-            if (sRes.ok) {
-                const sessionData = await sRes.json();
-                const sessionList = (Array.isArray(sessionData)
-                    ? sessionData.map(item => typeof item === "string" ? item : item?.sessionName || item?.name || item?._id || "")
-                    : []).sort((a, b) => b.localeCompare(a));
-                setSessions(sessionList.filter(Boolean));
-                
-                if (sessionList.length > 0 && selectedSessions.length === 0) {
-                    if (sessionList.includes("2026-2027")) {
-                        setSelectedSessions(["2026-2027"]);
-                    } else {
-                        setSelectedSessions([sessionList[0]]);
-                    }
-                }
-            }
             if (dRes.ok) {
                 const allDepts = await dRes.json();
                 const visibleDepts = allDepts.filter(dept => dept.showInAdmission !== false);
@@ -155,7 +135,6 @@ const DailyCollection = () => {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams();
             params.append("date", date);
-            if (selectedSessions.length) params.append("session", selectedSessions.join(","));
             if (selectedCentres.length) params.append("centreIds", selectedCentres.join(","));
             if (selectedCourses.length) params.append("courseIds", selectedCourses.join(","));
             if (selectedDepartments.length) params.append("departmentIds", selectedDepartments.join(","));
@@ -199,13 +178,11 @@ const DailyCollection = () => {
         setSelectedCourses([]);
         setSelectedDepartments([]);
         setSelectedExamTags([]);
-        setSelectedSessions([]);
         setSelectedPaymentMethods([]);
         setCentreSearch("");
         setCourseSearch("");
         setDepartmentSearch("");
         setExamTagSearch("");
-        setSessionSearch("");
         setPaymentMethodSearch("");
         setSearchText("");
         setDate(new Date().toISOString().split("T")[0]);
@@ -371,10 +348,6 @@ const DailyCollection = () => {
 
     const filteredExamTags = examTags.filter((t) =>
         `${t.name || t.examName || ""}`.toLowerCase().includes(examTagSearch.toLowerCase())
-    );
-
-    const filteredSessions = sessions.filter((sessionItem) =>
-        sessionItem.toLowerCase().includes(sessionSearch.toLowerCase())
     );
 
     const filteredPaymentMethods = paymentMethodsList.filter((method) =>
@@ -570,7 +543,6 @@ const DailyCollection = () => {
                                     setIsCentreOpen(false);
                                     setIsCourseOpen(false);
                                     setIsExamTagOpen(false);
-                                    setIsSessionOpen(false);
                                 }}
                                 className={`w-full rounded-\[4px\] p-3 text-left flex justify-between items-center ${filterButtonClass}`}
                             >
@@ -625,7 +597,6 @@ const DailyCollection = () => {
                                     setIsCentreOpen(false);
                                     setIsCourseOpen(false);
                                     setIsDepartmentOpen(false);
-                                    setIsSessionOpen(false);
                                 }}
                                 className={`w-full rounded-\[4px\] p-3 text-left flex justify-between items-center ${filterButtonClass}`}
                             >
@@ -673,61 +644,6 @@ const DailyCollection = () => {
                         </div>
 
                         <div className="relative">
-                            <label className={`block mb-2 text-sm ${secondaryTextClass}`}>Session</label>
-                            <button
-                                onClick={() => {
-                                    setIsSessionOpen(!isSessionOpen);
-                                    setIsCentreOpen(false);
-                                    setIsCourseOpen(false);
-                                    setIsDepartmentOpen(false);
-                                    setIsExamTagOpen(false);
-                                }}
-                                className={`w-full rounded-\[4px\] p-3 text-left flex justify-between items-center ${filterButtonClass}`}
-                            >
-                                <span>{selectedSessions.length === 0 ? "All Sessions" : `${selectedSessions.length} selected`}</span>
-                                <FaChevronDown className={`transform transition ${isSessionOpen ? "rotate-180" : ""}`} />
-                            </button>
-                            {isSessionOpen && (
-                                <div className={`absolute top-full left-0 right-0 mt-1 rounded-\[4px\] shadow-lg z-50 ${filterPopupClass}`}>
-                                    <div className="flex items-center justify-between px-4 py-2">
-                                        <input
-                                            type="text"
-                                            placeholder="Search session..."
-                                            value={sessionSearch}
-                                            onChange={(e) => setSessionSearch(e.target.value)}
-                                            className={`w-full rounded-t-\[4px\] p-2 text-sm ${filterInputClass}`}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setSelectedSessions([]);
-                                                setSessionSearch("");
-                                            }}
-                                            className={`ml-2 text-xs font-medium ${clearButtonClass}`}
-                                        >
-                                            Clear
-                                        </button>
-                                    </div>
-                                    <div className="max-h-56 overflow-y-auto">
-                                        {filteredSessions.length > 0 ? filteredSessions.map((sessionItem, index) => (
-                                            <label key={`${sessionItem}_${index}`} className={`flex items-center px-4 py-2 cursor-pointer ${filterOptionClass}`}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedSessions.includes(sessionItem)}
-                                                    onChange={() => toggleSelection(sessionItem, selectedSessions, setSelectedSessions)}
-                                                    className="mr-2 w-4 h-4"
-                                                />
-                                                <span>{sessionItem}</span>
-                                            </label>
-                                        )) : (
-                                            <div className="px-4 py-2 text-gray-500 text-sm">No sessions found</div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="relative">
                             <label className={`block mb-2 text-sm ${secondaryTextClass}`}>Payment Method</label>
                             <button
                                 onClick={() => {
@@ -736,7 +652,6 @@ const DailyCollection = () => {
                                     setIsCourseOpen(false);
                                     setIsDepartmentOpen(false);
                                     setIsExamTagOpen(false);
-                                    setIsSessionOpen(false);
                                 }}
                                 className={`w-full rounded-[4px] p-3 text-left flex justify-between items-center ${filterButtonClass}`}
                             >

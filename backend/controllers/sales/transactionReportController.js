@@ -5,11 +5,26 @@ import Course from "../../models/Master_data/Courses.js";
 import Student from "../../models/Students.js"; // Importing to ensure schema registration for lookups if needed
 import StudentAttendance from "../../models/Academics/StudentAttendance.js";
 import mongoose from "mongoose";
+import { getCache, setCache, generateCacheKey } from "../../utils/redisCache.js";
 
 export const getTransactionReport = async (req, res) => {
     try {
         const userRole = (req.user.role || "").toLowerCase();
         const isSuperAdmin = userRole === 'superadmin' || userRole === 'super admin';
+
+        // REDIS CACHING LOGIC START
+        const cacheKey = generateCacheKey("finance:transaction_report_v3", {
+            query: req.query,
+            userId: req.user._id,
+            role: req.user.role,
+            centres: req.user.centres
+        });
+
+        const cachedData = await getCache(cacheKey);
+        if (cachedData) {
+            return res.status(200).json(cachedData);
+        }
+        // REDIS CACHING LOGIC END
 
         const {
             year,
@@ -27,17 +42,13 @@ export const getTransactionReport = async (req, res) => {
             search
         } = req.query;
 
-        // Base Match for Payment (paidAmount > 0 AND status is PAID or PARTIAL, or any status for CHEQUE)
+        // Base Match for Payment (Inclusive: Show all transactions with activity)
         let baseAttributesMatch = {
-            paidAmount: { $gt: 0 },
-            $or: [
-                { status: { $in: ["PAID", "PARTIAL", "COMPLETED", "SUCCESS"] } },
-                { paymentMethod: "CHEQUE" }, // Show all cheques (pending, cleared, rejected) in report for visibility
-                { billId: { $exists: true, $ne: null } } // Any record that has been billed should be visible
-            ]
+            billId: { $regex: /^PATH/i }
         };
 
         if (minAmount || maxAmount) {
+            baseAttributesMatch.paidAmount = {};
             if (minAmount) baseAttributesMatch.paidAmount.$gte = parseFloat(minAmount);
             if (maxAmount) baseAttributesMatch.paidAmount.$lte = parseFloat(maxAmount);
         }
@@ -45,6 +56,11 @@ export const getTransactionReport = async (req, res) => {
         if (paymentMode) {
             const modes = paymentMode.split(',');
             baseAttributesMatch.paymentMethod = { $in: modes };
+        }
+
+        if (req.query.status) {
+            const statuses = req.query.status.split(',');
+            baseAttributesMatch.status = { $in: statuses };
         }
 
         if (transactionType) {
@@ -62,7 +78,10 @@ export const getTransactionReport = async (req, res) => {
             }
         }
 
-        let paymentMatch = { ...baseAttributesMatch };
+        let paymentMatch = { 
+            ...baseAttributesMatch,
+            billId: { $regex: /^PATH/i }
+        };
 
         // Filter by Date Range (startDate/endDate OR year) for the main report
         if (startDate && endDate) {
@@ -71,8 +90,8 @@ export const getTransactionReport = async (req, res) => {
             end.setHours(23, 59, 59, 999);
             paymentMatch.$expr = {
                 $and: [
-                    { $gte: [{ $ifNull: ["$paidDate", "$createdAt"] }, start] },
-                    { $lte: [{ $ifNull: ["$paidDate", "$createdAt"] }, end] }
+                    { $gte: [{ $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] }, start] },
+                    { $lte: [{ $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] }, end] }
                 ]
             };
         } else if (year && !isNaN(parseInt(year))) {
@@ -81,8 +100,8 @@ export const getTransactionReport = async (req, res) => {
             const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59);
             paymentMatch.$expr = {
                 $and: [
-                    { $gte: [{ $ifNull: ["$paidDate", "$createdAt"] }, startOfYear] },
-                    { $lte: [{ $ifNull: ["$paidDate", "$createdAt"] }, endOfYear] }
+                    { $gte: [{ $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] }, startOfYear] },
+                    { $lte: [{ $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] }, endOfYear] }
                 ]
             };
         } else if (!search) {
@@ -188,7 +207,7 @@ export const getTransactionReport = async (req, res) => {
 
         const chartPipeline = [
             { $match: paymentMatch },
-            { $addFields: { reportDate: { $ifNull: ["$paidDate", "$createdAt"] }, revenueBase: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] } } }
+            { $addFields: { reportDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] }, revenueBase: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] } } }
         ];
 
         if (needsAdmissionLookup) {
@@ -230,7 +249,7 @@ export const getTransactionReport = async (req, res) => {
         // Process Detailed Report (Separate Query for Flattened Data)
         const detailedPipeline = [
             { $match: paymentMatch },
-            { $addFields: { effectiveDate: { $ifNull: ["$paidDate", "$createdAt"] } } },
+            { $addFields: { effectiveDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] } } },
             { $sort: { createdAt: -1, effectiveDate: -1 } },
             { $limit: 5000 }, // Prevent massive data dumps that cause timeouts
             // 2. Lookup Admission Details from both potential collections
@@ -356,7 +375,7 @@ export const getTransactionReport = async (req, res) => {
             {
                 $project: {
                     transactionId: "$transactionId",
-                    paymentDate: { $ifNull: ["$paidDate", "$createdAt"] },
+                    paymentDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
                     amount: "$paidAmount",
                     method: "$paymentMethod",
                     status: "$status",
@@ -380,7 +399,12 @@ export const getTransactionReport = async (req, res) => {
                     installmentNumber: "$installmentNumber",
                     revenueWithoutGst: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] },
                     gstAmount: { $ifNull: [{ $add: ["$cgst", "$sgst"] }, { $subtract: ["$paidAmount", { $divide: ["$paidAmount", 1.18] }] }] },
-                    takenBy: { $ifNull: [{ $arrayElemAt: ["$collectorInfo.name", 0] }, "System"] },
+                    takenBy: { 
+                        $ifNull: [
+                            { $arrayElemAt: ["$collectorInfo.name", 0] }, 
+                            "N/A"
+                        ] 
+                    },
 
                     // Attendance Info
                     totalClasses: { $ifNull: ["$attendanceStats.totalClasses", 0] },
@@ -428,7 +452,7 @@ export const getTransactionReport = async (req, res) => {
 
         const statsPipeline = [
             { $match: baseAttributesMatch },
-            { $addFields: { effectiveDate: { $ifNull: ["$paidDate", "$createdAt"] } } }
+            { $addFields: { effectiveDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] } } }
         ];
 
         if (needsAdmissionLookup) {
@@ -513,7 +537,7 @@ export const getTransactionReport = async (req, res) => {
             percent: totalRevenue > 0 ? ((item.value / totalRevenue) * 100).toFixed(1) : 0
         }));
 
-        res.status(200).json({
+        const responseData = {
             monthlyRevenue: finalMonthly,
             paymentMethods: formattedMethods,
             centreRevenue: result.centreRevenue, // New
@@ -536,7 +560,12 @@ export const getTransactionReport = async (req, res) => {
                 selectionTotalWithGst: result.paymentMethods.reduce((acc, curr) => acc + curr.value, 0),
                 selectionTotalBase: result.paymentMethods.reduce((acc, curr) => acc + (curr.revenueWithoutGst || 0), 0)
             }
-        });
+        };
+
+        // Cache for 10 minutes
+        await setCache(cacheKey, responseData, 600);
+
+        res.status(200).json(responseData);
 
     } catch (error) {
         console.error("Error in Transaction Report:", error);
