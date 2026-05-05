@@ -37,6 +37,7 @@ const LeadManagementContent = () => {
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [dailyLeads, setDailyLeads] = useState([]); // Added state
     const [selectedLeads, setSelectedLeads] = useState([]);
+    const [isAllFilteredSelected, setIsAllFilteredSelected] = useState(false);
     const [followUpStats, setFollowUpStats] = useState({
         totalFollowUps: 0,
         hotLeads: 0,
@@ -249,6 +250,10 @@ const LeadManagementContent = () => {
         }
     }, [currentPage, filters, limit, searchTerm]);
 
+    useEffect(() => {
+        clearSelection();
+    }, [filters, searchTerm]);
+
     const fetchAllowedCentres = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
@@ -428,39 +433,79 @@ const LeadManagementContent = () => {
             setSelectedLeads(prev => [...prev, leadId]);
         } else {
             setSelectedLeads(prev => prev.filter(id => id !== leadId));
+            // If we were in "select all filtered" mode, we're not anymore
+            setIsAllFilteredSelected(false);
         }
     };
 
     const handleSelectAll = (e) => {
         if (e.target.checked) {
-            const leadIds = leads.map(lead => lead._id);
-            setSelectedLeads(leadIds);
+            const pageLeadIds = leads.map(lead => lead._id);
+            // Add current page IDs to selection
+            setSelectedLeads(prev => [...new Set([...prev, ...pageLeadIds])]);
+            
+            // If there are more leads than what's on the page, select all matching filters
+            if (totalLeads > leads.length) {
+                setIsAllFilteredSelected(true);
+            }
         } else {
             setSelectedLeads([]);
+            setIsAllFilteredSelected(false);
         }
     };
 
+    const handleSelectAllFiltered = () => {
+        setIsAllFilteredSelected(true);
+        // We don't need to put all IDs in the array, we'll use the flag and filters
+    };
+
+    const clearSelection = () => {
+        setSelectedLeads([]);
+        setIsAllFilteredSelected(false);
+    };
+
     const handleMultipleDelete = async () => {
-        if (!window.confirm(`Are you sure you want to delete ${selectedLeads.length} leads?`)) {
+        const totalMatching = totalLeads;
+        const visibleCount = selectedLeads.filter(id => leads.some(l => l._id === id)).length;
+        
+        let confirmMsg = "";
+        let endpoint = "bulk-delete";
+        let body = {};
+
+        if (isAllFilteredSelected) {
+            confirmMsg = `Are you sure you want to delete ALL ${totalMatching} leads matching the current filters across ALL pages? This action cannot be undone.`;
+            endpoint = "bulk-delete-filtered";
+            body = { filters: { ...filters, search: searchTerm } };
+        } else {
+            const visibleSelectedLeads = selectedLeads.filter(id => leads.some(l => l._id === id));
+            if (visibleSelectedLeads.length === 0) {
+                toast.warning("No visible leads selected for deletion");
+                return;
+            }
+            confirmMsg = `Are you sure you want to delete ${visibleSelectedLeads.length} selected leads visible on this page?`;
+            body = { leadIds: visibleSelectedLeads };
+        }
+
+        if (!window.confirm(confirmMsg)) {
             return;
         }
         
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/bulk-delete`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/${endpoint}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({ leadIds: selectedLeads }),
+                body: JSON.stringify(body),
             });
 
             const data = await response.json();
 
             if (response.ok) {
-                toast.success("Leads deleted successfully");
-                setSelectedLeads([]);
+                toast.success(data.message || "Leads deleted successfully");
+                clearSelection();
                 fetchLeads();
             } else {
                 toast.error(data.message || "Failed to delete leads");
@@ -704,7 +749,7 @@ const LeadManagementContent = () => {
                                 onClick={handleMultipleDelete}
                                 className="px-6 py-3 bg-red-500 text-white hover:bg-red-600 rounded-[2px] shadow-[0_0_20px_rgba(239,68,68,0.2)] transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"
                             >
-                                <FaTrash /> Delete Selected ({selectedLeads.length})
+                                <FaTrash /> Delete Selected ({isAllFilteredSelected ? totalLeads : selectedLeads.filter(id => leads.some(l => l._id === id)).length})
                             </button>
                         )}
                     </div>
@@ -1258,7 +1303,7 @@ const LeadManagementContent = () => {
                                         <div className="flex items-center gap-2">
                                             <input 
                                                 type="checkbox" 
-                                                checked={leads.length > 0 && selectedLeads.length === leads.length}
+                                                checked={isAllFilteredSelected || (leads.length > 0 && leads.every(lead => selectedLeads.includes(lead._id)))}
                                                 onChange={handleSelectAll}
                                                 className="cursor-pointer"
                                             />
@@ -1300,8 +1345,26 @@ const LeadManagementContent = () => {
                                             No leads found
                                         </td>
                                     </tr>
-                                ) : (
-                                    leads.map((lead, index) => (
+                                ) : <>
+                                        {/* Bulk Selection Banner */}
+                                        {leads.length > 0 && leads.every(lead => selectedLeads.includes(lead._id)) && totalLeads > leads.length && (
+                                            <tr>
+                                                <td colSpan="14" className={`px-6 py-3 text-center text-[10px] font-black uppercase tracking-[0.15em] transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-700'}`}>
+                                                    {isAllFilteredSelected ? (
+                                                        <div className="flex items-center justify-center gap-4">
+                                                            <span>All {totalLeads} leads matching these filters are selected.</span>
+                                                            <button onClick={clearSelection} className="underline hover:no-underline">Clear selection</button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center justify-center gap-4">
+                                                            <span>All {leads.length} leads on this page are selected.</span>
+                                                            <button onClick={handleSelectAllFiltered} className="underline hover:no-underline text-cyan-500">Select all {totalLeads} leads matching filters</button>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        )}
+                                        {leads.map((lead, index) => (
                                         <tr key={lead._id} onClick={() => handleRowClick(lead)} className={`transition-all group cursor-pointer ${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'}`}>
                                             <td className={`px-6 py-4 text-[10px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                                                 <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
@@ -1407,9 +1470,10 @@ const LeadManagementContent = () => {
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))
-                                )}
-                            </tbody>
+                                    ))}
+                                </>
+                            }
+                        </tbody>
                         </table>
                     </div>
                 </div>

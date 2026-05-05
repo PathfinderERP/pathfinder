@@ -4,101 +4,14 @@ import Boards from "../../models/Master_data/Boards.js";
 import Course from "../../models/Master_data/Courses.js";
 import XLSX from "xlsx";
 import mongoose from "mongoose";
+import { buildLeadQuery } from "../../utils/leadQueryHelper.js";
 
 export const exportLeadsExcel = async (req, res) => {
     try {
         const { search, centre, course, leadResponsibility, fromDate, toDate, leadType, board, className } = req.query;
 
         // Build base query
-        const query = {};
-
-        if (fromDate || toDate) {
-            query.createdAt = {};
-            if (fromDate) query.createdAt.$gte = new Date(fromDate);
-            if (toDate) {
-                const end = new Date(toDate);
-                end.setHours(23, 59, 59, 999);
-                query.createdAt.$lte = end;
-            }
-        }
-
-        if (search) {
-            query.$or = [
-                { name: { $regex: search, $options: "i" } },
-                { email: { $regex: search, $options: "i" } },
-                { phoneNumber: { $regex: search, $options: "i" } }
-            ];
-        }
-
-        if (centre) {
-            const centreIds = Array.isArray(centre) ? centre : [centre];
-            query.centre = { $in: centreIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
-        }
-        if (course) {
-            const courseIds = Array.isArray(course) ? course : [course];
-            query.course = { $in: courseIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
-        }
-        if (leadResponsibility) {
-            query.leadResponsibility = Array.isArray(leadResponsibility)
-                ? { $in: leadResponsibility }
-                : { $regex: leadResponsibility, $options: "i" };
-        }
-        if (board) {
-            const boardIds = Array.isArray(board) ? board : [board];
-            query.board = { $in: boardIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
-        }
-        if (className) {
-            const classIds = Array.isArray(className) ? className : [className];
-            query.className = { $in: classIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
-        }
-        if (leadType) {
-            query.leadType = Array.isArray(leadType) ? { $in: leadType } : leadType;
-        }
-        if (req.query.feedback) {
-            const feedbackArray = Array.isArray(req.query.feedback) ? req.query.feedback : [req.query.feedback];
-            query.followUps = {
-                $elemMatch: { feedback: { $in: feedbackArray } }
-            };
-        }
-
-        // Access Control (Sync with getLeads.js)
-        const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead', 'hr', 'class_coordinator', 'rm', 'hod'];
-        const isPrivileged = privilegedRoles.includes(userRoleStr);
-
-        if (userRoleStr !== 'superadmin' && userRoleStr !== 'super admin') {
-            const userDoc = await User.findById(req.user.id).select('centres role name');
-            if (!userDoc) return res.status(401).json({ message: "User not found" });
-
-            const userCentreIds = userDoc.centres || [];
-            const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-            const orConditions = [
-                { createdBy: userDoc._id },
-                { leadResponsibility: { $regex: new RegExp(`^${escapedName}$`, "i") } }
-            ];
-
-            if (isPrivileged && userCentreIds.length > 0) {
-                // ONLY privileged roles see center-wide
-                orConditions.push({ centre: { $in: userCentreIds } });
-            }
-
-            query.$and = query.$and || [];
-            query.$and.push({ $or: orConditions });
-
-            // Handle specific centre filter from query if requested, restricted by what they are allowed to see
-            if (centre) {
-                const requestedCentres = Array.isArray(centre) ? centre : [centre];
-                const validRequestedCentres = requestedCentres.filter(reqCentre =>
-                    userCentreIds.some(allowedCentre => allowedCentre.toString() === reqCentre.toString())
-                );
-                query.centre = { $in: validRequestedCentres };
-            } else if (userCentreIds.length > 0 && isPrivileged) {
-                // If privileged and no specific centre requested, lead query already has $or condition for centers
-                // but we can also set the main centre filter for clarity
-                query.centre = { $in: userCentreIds };
-            }
-        }
+        const query = await buildLeadQuery(req.query, req.user);
 
         const leads = await LeadManagement.find(query)
             .populate('className', 'name')

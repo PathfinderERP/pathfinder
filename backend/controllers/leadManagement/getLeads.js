@@ -7,6 +7,7 @@ import Course from "../../models/Master_data/Courses.js";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import s3Client from "../../config/r2Config.js";
+import { buildLeadQuery } from "../../utils/leadQueryHelper.js";
 
 // Helper function to refresh presigned URLs for recordings
 const refreshAudioUrls = async (leads) => {
@@ -52,135 +53,7 @@ export const getLeads = async (req, res) => {
         const skip = (page - 1) * limit;
 
         // Build Filter
-        const { search, leadType, source, centre, course, leadResponsibility, board, className, fromDate, toDate, feedback, scheduledDate } = req.query;
-        const query = {};
-
-        if (feedback) {
-            const feedbackArray = Array.isArray(feedback) ? feedback : [feedback];
-            query.followUps = {
-                $elemMatch: { feedback: { $in: feedbackArray.map(f => f) } }
-            };
-        }
-
-        // Date range filter (Created At)
-        if (fromDate || toDate) {
-            query.createdAt = {};
-            if (fromDate) query.createdAt.$gte = new Date(fromDate);
-            if (toDate) {
-                const end = new Date(toDate);
-                end.setHours(23, 59, 59, 999);
-                query.createdAt.$lte = end;
-            }
-        }
-
-        // Scheduled Date filter (Next Follow Up)
-        if (scheduledDate) {
-            const start = new Date(scheduledDate);
-            start.setHours(0, 0, 0, 0);
-            const end = new Date(scheduledDate);
-            end.setHours(23, 59, 59, 999);
-            query.nextFollowUpDate = { $gte: start, $lte: end };
-        }
-        if (leadType) query.leadType = Array.isArray(leadType) ? { $in: leadType } : leadType;
-        if (source) query.source = Array.isArray(source) ? { $in: source } : source;
-        if (course) query.course = Array.isArray(course) ? { $in: course } : course;
-        if (board) query.board = Array.isArray(board) ? { $in: board } : board;
-        if (className) query.className = Array.isArray(className) ? { $in: className } : className;
-
-        if (leadResponsibility) {
-            const names = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
-            // Use regex for each name to handle case-insensitivity in an array
-            query.leadResponsibility = {
-                $in: names.map(n => new RegExp(`^${n}$`, "i"))
-            };
-        }
-        // Filter by Follow-up Status (Contacted vs Remaining)
-        const { followUpStatus } = req.query;
-        if (followUpStatus === 'contacted') {
-            query.followUps = { $exists: true, $not: { $size: 0 } };
-        } else if (followUpStatus === 'remaining') {
-            query.followUps = { $size: 0 };
-        }
-        // Exclude counseled leads from dashboard stats to match lead list logic
-        query.isCounseled = { $ne: true };
-        // Centre-based access control
-        const userRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead', 'hr', 'class_coordinator', 'rm', 'hod'];
-        const isPrivileged = privilegedRoles.includes(userRole);
-        const isSuperAdmin = ['superadmin', 'super admin'].includes(userRole);
-
-        if (!isSuperAdmin) {
-            // Fetch user's centres from database
-            const userDoc = await User.findById(req.user.id).select('centres role name');
-            if (!userDoc) return res.status(401).json({ message: "User not found" });
-
-            const userCentreIds = userDoc.centres || [];
-            const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-            const orConditions = [
-                { createdBy: userDoc._id },
-                { leadResponsibility: { $regex: new RegExp(`^${escapedName}$`, "i") } }
-            ];
-
-            if (isPrivileged && userCentreIds.length > 0) {
-                // ONLY privileged roles see center-wide
-                orConditions.push({ centre: { $in: userCentreIds } });
-            }
-
-            // Security Fix: If a non-privileged user (like a Telecaller) is filtering by their own name,
-            // the strict top-level leadResponsibility filter would hide leads they created but haven't assigned yet.
-            // We need to move this logic into the $or block or handle it inclusively.
-            if (query.leadResponsibility && !isPrivileged) {
-                const filterNames = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
-                const isFilteringSelf = filterNames.some(n => {
-                    const normalizedFilter = n?.toLowerCase()?.trim() || "";
-                    const normalizedUser = userDoc.name?.toLowerCase()?.trim() || "";
-                    return normalizedFilter === normalizedUser || normalizedFilter.includes(normalizedUser) || normalizedUser.includes(normalizedFilter);
-                });
-                
-                if (isFilteringSelf) {
-                    // Remove the top-level strict filter so it doesn't AND with the security block
-                    delete query.leadResponsibility;
-                }
-            }
-
-            query.$and = query.$and || [];
-            query.$and.push({ $or: orConditions });
-
-            // Handle specific centre filter from query if requested, restricted by what they are allowed to see
-            if (centre) {
-                const requestedCentres = Array.isArray(centre) ? centre : [centre];
-                const validRequestedCentres = requestedCentres.filter(reqCentre =>
-                    userCentreIds.some(allowedCentre => allowedCentre.toString() === reqCentre.toString())
-                );
-                query.centre = { $in: validRequestedCentres.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
-            }
-        } else {
-            // Unrestricted users can filter by any centre
-            if (centre) {
-                const requestedCentres = Array.isArray(centre) ? centre : [centre];
-                query.centre = { $in: requestedCentres.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
-            }
-        }
-
-        if (search) {
-            const searchOr = [
-                { name: { $regex: search, $options: "i" } },
-                { email: { $regex: search, $options: "i" } },
-                { phoneNumber: { $regex: search, $options: "i" } },
-                { schoolName: { $regex: search, $options: "i" } },
-            ];
-
-            if (query.$and) {
-                query.$and.push({ $or: searchOr });
-            } else if (query.$or) {
-                // If there's already an $or, we must wrap both in an $and to preserve logic
-                query.$and = [{ $or: query.$or }, { $or: searchOr }];
-                delete query.$or;
-            } else {
-                query.$or = searchOr;
-            }
-        }
+        const query = await buildLeadQuery(req.query, req.user);
 
 
 

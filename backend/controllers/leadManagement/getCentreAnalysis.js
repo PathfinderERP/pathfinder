@@ -1,6 +1,7 @@
 import LeadManagement from "../../models/LeadManagement.js";
 import User from "../../models/User.js";
 import mongoose from "mongoose";
+import { buildLeadQuery } from "../../utils/leadQueryHelper.js";
 
 /**
  * Get lead analysis grouped by centres and classes
@@ -8,67 +9,16 @@ import mongoose from "mongoose";
  */
 export const getCentreLeadAnalysis = async (req, res) => {
     try {
-        const { fromDate, toDate, centre, leadResponsibility } = req.query;
-        const query = { isCounseled: { $ne: true } };
+        const query = await buildLeadQuery(req.query, req.user);
 
-        // 1. Resolve potential telecaller names
-        let telecallerNames = [];
-        if (leadResponsibility) {
-            const namesToSearch = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
-            // Resolve names to ensure case consistency
-            const users = await User.find({ name: { $in: namesToSearch.map(n => new RegExp(`^${n}$`, "i")) } });
-            telecallerNames = users.length > 0 ? users.map(u => u.name) : namesToSearch;
-            query.leadResponsibility = { $in: telecallerNames };
-        }
-
-        // 2. Resolve Centre IDs
-        if (centre) {
-            const rawCentres = Array.isArray(centre) ? centre : [centre];
-            query.centre = { $in: rawCentres.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
-        }
-
-        // Handle date filtering",
-        if (fromDate || toDate) {
-            query.createdAt = {};
-            if (fromDate) query.createdAt.$gte = new Date(fromDate);
-            if (toDate) {
-                const end = new Date(toDate);
-                end.setHours(23, 59, 59, 999);
-                query.createdAt.$lte = end;
-            }
-        }
-
-        // Access Control
+        // Access Control (Extra check for non-privileged)
         const curUserRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
         const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead', 'hr', 'class_coordinator', 'rm', 'hod'];
         const isPrivileged = privilegedRoles.includes(curUserRole);
 
         if (curUserRole !== 'superadmin' && curUserRole !== 'super admin') {
-            const userDoc = await User.findById(req.user.id).select('centres role name');
-            if (!userDoc) return res.status(401).json({ message: "User not found" });
-
             if (!isPrivileged) {
-                // Non-privileged users should only see their own data if anything, 
-                // but center analysis is meant for privileged roles.
                 return res.status(200).json([]);
-            }
-
-            if (userDoc.role === 'telecaller') {
-                const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                // Ensure telecaller can only see their own leads, even if they try to filter for someone else
-                query.leadResponsibility = { $regex: new RegExp(`^${escapedName}$`, "i") };
-            }
-
-            const userCentreIds = userDoc.centres || [];
-            if (userCentreIds.length === 0) return res.status(200).json([]);
-
-            // Intersection of requested centres and allowed centres
-            if (query.centre) {
-                const allowedStrings = userCentreIds.map(id => id.toString());
-                const requested = (query.centre.$in || []).filter(id => allowedStrings.includes(id.toString()));
-                query.centre = { $in: requested.length > 0 ? requested : userCentreIds };
-            } else {
-                query.centre = { $in: userCentreIds };
             }
         }
 
