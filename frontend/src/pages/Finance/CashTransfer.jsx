@@ -340,7 +340,7 @@ const CashTransfer = () => {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 ml-1">Reference Number</label>
+                                    <label className="text-sm font-medium text-gray-400 ml-1">Reference Number (Optional)</label>
                                     <div className="relative">
                                         <FaHashtag className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <input

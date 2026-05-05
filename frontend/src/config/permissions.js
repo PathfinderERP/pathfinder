@@ -436,6 +436,15 @@ export const PERMISSION_MODULES = {
             }
         }
     },
+    dailyCenterTracking: {
+        label: "Daily Center Tracking",
+        sections: {
+            dashboard: {
+                label: "Dashboard",
+                operations: ["view", "create", "edit", "delete"]
+            }
+        }
+    },
     courseManagement: {
         label: "Course Management",
         sections: {

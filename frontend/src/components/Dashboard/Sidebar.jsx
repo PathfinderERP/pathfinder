@@ -276,6 +276,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Follow-up Feedback", path: "/master-data/follow-up-feedback", permissionSection: "followUpFeedback" },
             ],
         },
+        { name: "Daily Center Tracking", icon: <FaBuilding />, path: "/daily-center-tracking", permissionModule: "dailyCenterTracking" },
         {
             name: "Course Management",
             icon: <FaBook />,
