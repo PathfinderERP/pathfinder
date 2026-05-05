@@ -67,11 +67,10 @@ import ceoRoutes from "./routes/ceoControlTower.js";
 import postRoutes from "./routes/post.routes.js";
 import communityRoutes from "./routes/community.routes.js";
 import teacherRoutineRoutes from "./routes/Academics/teacherRoutine.routes.js";
-
+//updated
 
 import allocationRoutes from "./routes/Inventory/allocation.routes.js";
 import marketingOperationsRoutes from "./routes/Operations/marketing.routes.js";
-import dailyTrackingRoutes from "./routes/operations/dailyTrackingRoutes.js";
 import aiRoutes from "./routes/ai.routes.js";
 import razorpaySMSRoutes from "./routes/payment/razorpaySMS.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
@@ -190,7 +189,6 @@ app.use("/api/community", communityRoutes);
 app.use("/api/student-portal", studentPortalRoutes);
 app.use("/api/inventory/allocation", allocationRoutes);
 app.use("/api/operations/marketing", marketingOperationsRoutes);
-// app.use("/api/operations/daily-tracking", dailyTrackingRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/payment/sms", razorpaySMSRoutes);
 app.use("/api/notifications", notificationRoutes);
