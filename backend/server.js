@@ -71,7 +71,7 @@ import teacherRoutineRoutes from "./routes/Academics/teacherRoutine.routes.js";
 
 import allocationRoutes from "./routes/Inventory/allocation.routes.js";
 import marketingOperationsRoutes from "./routes/Operations/marketing.routes.js";
-// import dailyTrackingRoutes from "./routes/operations/dailyTrackingRoutes.js";
+import dailyTrackingRoutes from "./routes/operations/dailyTrackingRoutes.js";
 import aiRoutes from "./routes/ai.routes.js";
 import razorpaySMSRoutes from "./routes/payment/razorpaySMS.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";

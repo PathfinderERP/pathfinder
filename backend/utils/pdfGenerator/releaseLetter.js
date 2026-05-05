@@ -486,7 +486,7 @@ export const generateReleaseLetter = async (employee, data) => {
                 options
             );
 
-            // ---------------- SIGNATURE ----------------
+            // ---------------- SIGNATURE + STAMP ----------------
             doc.moveDown(3);
 
             doc.text('Yours Sincerely,', centerX, doc.y, {
@@ -496,18 +496,29 @@ export const generateReleaseLetter = async (employee, data) => {
 
             doc.moveDown(1);
 
+            const sigStampY = doc.y;
+
+            // Signature (left side)
             if (data.signatureImage) {
                 try {
-                    doc.image(data.signatureImage, centerX, doc.y, { width: 100 });
-                    doc.y += 50;
+                    doc.image(data.signatureImage, centerX, sigStampY, { width: 100, height: 50, fit: [100, 50] });
                 } catch {
-                    doc.text('..........................', centerX, doc.y);
+                    doc.text('..........................', centerX, sigStampY);
                 }
             } else {
-                doc.text('..........................', centerX, doc.y);
+                doc.text('..........................', centerX, sigStampY);
             }
 
-            doc.moveDown(1);
+            // Stamp (right side, aligned with signature)
+            if (data.stampImage) {
+                try {
+                    doc.image(data.stampImage, centerX + contentWidth - 100, sigStampY, { width: 90, height: 50, fit: [90, 50] });
+                } catch (stampErr) {
+                    console.error('Error adding stamp to releaseLetter PDF:', stampErr);
+                }
+            }
+
+            doc.y = sigStampY + 55;
 
             doc.font('Helvetica-Bold')
                 .text('Sanchita Dutta', centerX, doc.y, { width: contentWidth });
