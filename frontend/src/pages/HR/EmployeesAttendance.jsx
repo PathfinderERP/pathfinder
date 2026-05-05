@@ -489,7 +489,7 @@ const EmployeesAttendance = () => {
     const [showCautionModal, setShowCautionModal] = useState(false);
     const [showManualMarkModal, setShowManualMarkModal] = useState(false);
     const [activeCaution, setActiveCaution] = useState(null); // 'Overtime', 'Early Leave', 'Half Day', 'Short Leave'
-    const { theme, toggleTheme } = useTheme();
+    const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
 
     // Individual User Analysis State
@@ -900,12 +900,7 @@ const EmployeesAttendance = () => {
                         </div>
 
                         <div className="flex flex-wrap gap-4 items-center">
-                            <button
-                                onClick={toggleTheme}
-                                className={`p-3 rounded-[2px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
-                            >
-                                {isDarkMode ? <><FaSun /> Day Mode</> : <><FaMoon /> Night Mode</>}
-                            </button>
+
 
                             <button
                                 onClick={() => setShowManualMarkModal(true)}
@@ -1386,7 +1381,7 @@ const EmployeesAttendance = () => {
                                                         </div>
                                                         <div className="w-[100px] text-center">
                                                             <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Duration</p>
-                                                            <LiveTimer checkIn={att.checkIn?.time} checkOut={att.checkOut?.time} />
+                                                            <LiveTimer checkIn={att.checkIn?.time} checkOut={att.checkOut?.time} isDarkMode={isDarkMode} />
                                                         </div>
                                                         {(() => {
                                                             const hours = att.workingHours || 0;

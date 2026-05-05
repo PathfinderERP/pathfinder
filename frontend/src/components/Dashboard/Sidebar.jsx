@@ -442,9 +442,9 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                             onClick={() =>
                                 item.subItems ? toggleMenu(item.name) : navigate(item.path)
                             }
-                            className={`flex items-center justify-between p-3 rounded cursor-pointer transition-colors ${item.name === activePage
-                                ? "bg-cyan-500 text-white dark:text-black font-semibold shadow-lg shadow-cyan-500/20"
-                                : "hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
+                            className={`flex items-center justify-between p-3 rounded cursor-pointer transition-all duration-200 ${item.name === activePage
+                                ? "bg-cyan-600 dark:bg-cyan-500 text-white font-bold shadow-lg shadow-cyan-600/20 dark:shadow-cyan-500/20"
+                                : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-white"
                                 }`}
                         >
                             <div className="flex items-center gap-3">
@@ -459,14 +459,17 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                         </div>
 
                         {item.subItems && openMenus[item.name] && (
-                            <div className="ml-4 mt-1 space-y-1 border-l border-gray-700 pl-2">
+                            <div className="ml-4 mt-1 space-y-1 border-l border-gray-200 dark:border-gray-800 pl-2">
                                 {item.subItems.map((sub, idx) => (
                                     <div key={idx}>
                                         {sub.subItems ? (
                                             <div>
                                                 <div
                                                     onClick={() => toggleMenu(sub.name)}
-                                                    className="p-2 rounded cursor-pointer text-sm transition-colors hover:text-white hover:bg-gray-800/50 flex justify-between items-center"
+                                                    className={`p-2 rounded cursor-pointer text-sm transition-all flex justify-between items-center ${openMenus[sub.name] 
+                                                        ? "text-cyan-700 dark:text-cyan-400 font-bold" 
+                                                        : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800/30"
+                                                    }`}
                                                 >
                                                     <div className="flex items-center gap-2">
                                                         {sub.icon && <span className="opacity-70">{sub.icon}</span>}
@@ -477,14 +480,14 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                                     </span>
                                                 </div>
                                                 {openMenus[sub.name] && (
-                                                    <div className="ml-4 mt-1 space-y-1 border-l border-gray-700 pl-2">
+                                                    <div className="ml-4 mt-1 space-y-1 border-l border-gray-200 dark:border-gray-800 pl-2">
                                                         {sub.subItems.map((nestedSub, nestedIdx) => (
                                                             <div
                                                                 key={nestedIdx}
                                                                 onClick={() => navigate(nestedSub.path)}
-                                                                className={`p-2 rounded cursor-pointer text-sm transition-colors ${(location.pathname + location.search) === nestedSub.path
-                                                                    ? "text-cyan-400 font-semibold bg-gray-800"
-                                                                    : "hover:text-white hover:bg-gray-800/50"
+                                                                className={`p-2 rounded cursor-pointer text-sm transition-all ${(location.pathname + location.search) === nestedSub.path
+                                                                    ? "text-cyan-700 dark:text-cyan-400 font-bold bg-cyan-50 dark:bg-cyan-500/10 shadow-sm"
+                                                                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800/30"
                                                                     }`}
                                                             >
                                                                 {nestedSub.name}
@@ -496,9 +499,9 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                         ) : (
                                             <div
                                                 onClick={() => navigate(sub.path)}
-                                                className={`p-2 rounded cursor-pointer text-sm transition-colors flex items-center gap-2 ${(location.pathname + location.search) === sub.path
-                                                    ? "text-cyan-400 font-semibold bg-gray-800"
-                                                    : "hover:text-white hover:bg-gray-800/50"
+                                                className={`p-2 rounded cursor-pointer text-sm transition-all flex items-center gap-2 ${(location.pathname + location.search) === sub.path
+                                                    ? "text-cyan-700 dark:text-cyan-400 font-bold bg-cyan-50 dark:bg-cyan-500/10 shadow-sm"
+                                                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800/30"
                                                     }`}
                                             >
                                                 {sub.icon && <span className="opacity-70">{sub.icon}</span>}

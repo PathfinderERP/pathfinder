@@ -4,8 +4,10 @@ import { FaFilter, FaDownload, FaChevronDown, FaEraser, FaChartBar, FaTable, FaT
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { useTheme } from "../../context/ThemeContext";
 
 const TransactionList = () => {
+    const { isDarkMode } = useTheme();
     // ---- State ----
     const [loading, setLoading] = useState(false);
     const [detailedReport, setDetailedReport] = useState([]);
@@ -368,7 +370,7 @@ const TransactionList = () => {
 
     return (
         <Layout activePage="Finance & Fees">
-            <div className="space-y-6 animate-fade-in pb-10">
+            <div className={`p-4 md:p-10 max-w-[1800px] mx-auto min-h-screen pb-20 transition-all duration-500 space-y-6 animate-fade-in ${isDarkMode ? 'bg-[#0d0f11]' : 'bg-gray-50'}`}>
 
                 {/* Stats Cards Row (Optional - based on user preference for "Transaction List" page) */}
                 {/* The user screenshot shows stats cards at the top */}

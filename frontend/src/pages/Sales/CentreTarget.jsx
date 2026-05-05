@@ -11,7 +11,7 @@ import CustomMultiSelect from "../../components/common/CustomMultiSelect";
 import { useNavigate } from "react-router-dom";
 
 const CentreTarget = () => {
-    const { theme, toggleTheme } = useTheme();
+    const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
     const navigate = useNavigate();
     const [targets, setTargets] = useState([]);
@@ -196,15 +196,7 @@ const CentreTarget = () => {
                         <p className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'} font-semibold`}>Manage monthly and yearly targets for centres</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <button
-                            onClick={toggleTheme}
-                            className={`p-2.5 rounded-lg border transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-widest ${isDarkMode
-                                ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black'
-                                : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'
-                                }`}
-                        >
-                            {isDarkMode ? <><FaSun /> Day Mode</> : <><FaMoon /> Night Mode</>}
-                        </button>
+
                         <button
                             onClick={handleExport}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all duration-300 ${isDarkMode

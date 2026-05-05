@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import jsPDF from 'jspdf';
 import logo from '../../assets/logo-1.svg';
 
-const BillGenerator = ({ admission, installment, onClose }) => {
+const BillGenerator = ({ admission, installment, onClose, isDarkMode }) => {
     const [generating, setGenerating] = useState(false);
     const [billData, setBillData] = useState(null);
     const [logoBase64, setLogoBase64] = useState(null);
@@ -460,17 +460,17 @@ const BillGenerator = ({ admission, installment, onClose }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-            <div className="bg-[#1a1f24] rounded-xl border border-gray-700 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+            <div className={`rounded-2xl border w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
                 {/* Header */}
-                <div className="p-6 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-[#1a1f24] z-10">
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                        <FaFileInvoice className="text-cyan-400" />
+                <div className={`p-6 border-b flex justify-between items-center sticky top-0 z-10 ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-100'}`}>
+                    <h2 className={`text-xl font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <FaFileInvoice className="text-cyan-500" />
                         Bill Generator
                     </h2>
                     <button
                         onClick={onClose}
-                        className="text-gray-400 hover:text-white text-2xl"
+                        className={`text-2xl transition-colors ${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}
                     >
                         &times;
                     </button>
@@ -480,17 +480,17 @@ const BillGenerator = ({ admission, installment, onClose }) => {
                 <div className="p-6">
                     {!billData ? (
                         <div className="text-center py-12">
-                            <FaFileInvoice className="text-6xl text-gray-600 mx-auto mb-4" />
-                            <h3 className="text-xl font-semibold text-white mb-2">
+                            <FaFileInvoice className={`text-6xl mx-auto mb-4 opacity-20 ${isDarkMode ? 'text-gray-400' : 'text-gray-300'}`} />
+                            <h3 className={`text-xl font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                 Generate Bill for Installment #{installment?.installmentNumber}
                             </h3>
-                            <p className="text-gray-400 mb-6">
+                            <p className={`mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                 Click the button below to generate a bill for this payment
                             </p>
                             <button
                                 onClick={generateBill}
                                 disabled={generating}
-                                className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg flex items-center gap-2 mx-auto disabled:opacity-50"
+                                className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg flex items-center gap-2 mx-auto disabled:opacity-50 transition-all shadow-lg"
                             >
                                 {generating ? (
                                     <>
@@ -508,15 +508,22 @@ const BillGenerator = ({ admission, installment, onClose }) => {
                     ) : (
                         <div>
                             {/* Bill Preview */}
-                            <div className="bg-[#252b32] rounded-lg p-6 mb-6">
+                            <div className={`rounded-xl p-8 mb-6 border ${isDarkMode ? 'bg-[#252b32] border-gray-700' : 'bg-gray-50 border-gray-200 shadow-inner'}`}>
                                 {/* Bill Header */}
-                                <div className="text-center mb-6 pb-6 border-b border-gray-700">
-                                    <h1 className="text-3xl font-bold text-cyan-400 mb-2">PATHFINDER ERP</h1>
-                                    <p className="text-gray-400">Fee Payment Receipt</p>
-                                    <div className="flex justify-between mt-4 text-sm items-center">
-                                        <div className="text-left">
-                                            <span className="text-white font-semibold block">Bill ID: {billData.billId}</span>
-                                            <span className="text-gray-400 block">Date: {new Date(billData.billDate).toLocaleDateString('en-IN')}</span>
+                                <div className={`text-center mb-8 pb-6 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                                    <h1 className="text-3xl font-black text-cyan-600 mb-2 italic tracking-tighter">PATHFINDER <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>ERP</span></h1>
+                                    <p className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Official Fee Payment Receipt</p>
+                                    
+                                    <div className="flex justify-between mt-8 text-xs items-end">
+                                        <div className="text-left space-y-1">
+                                            <div>
+                                                <span className={`font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Bill ID:</span>
+                                                <span className={`font-black ml-2 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{billData.billId}</span>
+                                            </div>
+                                            <div>
+                                                <span className={`font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Date:</span>
+                                                <span className={`font-bold ml-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{new Date(billData.billDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                                            </div>
                                         </div>
                                         <div className="text-right">
                                             {(() => {
@@ -524,123 +531,149 @@ const BillGenerator = ({ admission, installment, onClose }) => {
                                                 const method = safeStr(billData.payment?.paymentMethod).toUpperCase();
                                                 
                                                 if (status === "REJECTED") {
-                                                    return <span className="text-sm font-bold px-3 py-1 rounded-full bg-red-500/20 text-red-500">REJECTED</span>;
+                                                    return <span className="text-[10px] font-black px-4 py-1.5 rounded-full bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-widest">REJECTED</span>;
                                                 }
                                                 if (status === "CANCELLED") {
-                                                    return <span className="text-sm font-bold px-3 py-1 rounded-full bg-gray-500/20 text-gray-400">CANCELLED</span>;
+                                                    return <span className="text-[10px] font-black px-4 py-1.5 rounded-full bg-gray-500/10 text-gray-500 border border-gray-500/20 uppercase tracking-widest">CANCELLED</span>;
                                                 }
                                                 if (status === "PENDING_CLEARANCE" || (method === "CHEQUE" && status === "PENDING")) {
-                                                    return <span className="text-sm font-bold px-3 py-1 rounded-full bg-blue-500/20 text-blue-400">IN PROCESS</span>;
+                                                    return <span className="text-[10px] font-black px-4 py-1.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20 uppercase tracking-widest">IN PROCESS</span>;
                                                 }
-                                                return <span className="text-sm font-bold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400">RECEIVED</span>;
+                                                return <span className="text-[10px] font-black px-4 py-1.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase tracking-widest">RECEIVED</span>;
                                             })()}
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Student Details */}
-                                <div className="mb-6">
-                                    <h3 className="text-lg font-bold text-cyan-400 mb-3">Student Details</h3>
-                                    <div className="grid grid-cols-2 gap-3 text-sm">
-                                        <div><span className="text-gray-400">Name:</span> <span className="text-white font-medium">{billData.student.name}</span></div>
-                                        <div><span className="text-gray-400">Admission No:</span> <span className="text-white font-medium">{billData.student.admissionNumber}</span></div>
-                                        <div><span className="text-gray-400">Phone:</span> <span className="text-white font-medium">{billData.student.phoneNumber}</span></div>
-                                        <div className="col-span-2"><span className="text-gray-400">Email:</span> <span className="text-white font-medium">{billData.student.email || 'N/A'}</span></div>
-                                    </div>
-                                </div>
-
-                                {/* Course Details */}
-                                <div className="mb-6">
-                                    <h3 className="text-lg font-bold text-cyan-400 mb-3">Course Details</h3>
-                                    <div className="grid grid-cols-2 gap-3 text-sm">
-                                        <div className="col-span-2 flex flex-wrap">
-                                            <span className="text-gray-400 mr-1">Course:</span>
-                                            <span className="text-white font-medium">{billData.course.name}</span>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                                    {/* Student Details */}
+                                    <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-black/20 border-gray-700' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                        <h3 className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-4">Student Intelligence</h3>
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between text-xs">
+                                                <span className={isDarkMode ? 'text-gray-500' : 'text-gray-400'}>Full Name</span>
+                                                <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{billData.student.name}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs">
+                                                <span className={isDarkMode ? 'text-gray-500' : 'text-gray-400'}>Admission No</span>
+                                                <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{billData.student.admissionNumber}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs">
+                                                <span className={isDarkMode ? 'text-gray-500' : 'text-gray-400'}>Contact</span>
+                                                <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{billData.student.phoneNumber}</span>
+                                            </div>
                                         </div>
-                                        <div><span className="text-gray-400">Department:</span> <span className="text-white font-medium">{billData.course.department}</span></div>
-                                        <div><span className="text-gray-400">Exam Tag:</span> <span className="text-white font-medium">{billData.course.examTag}</span></div>
-                                        <div><span className="text-gray-400">Class:</span> <span className="text-white font-medium">{billData.course.class}</span></div>
-                                        <div><span className="text-gray-400">Session:</span> <span className="text-white font-medium">{billData.course.session}</span></div>
+                                    </div>
+
+                                    {/* Course Details */}
+                                    <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-black/20 border-gray-700' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                        <h3 className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-4">Program Details</h3>
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between text-xs">
+                                                <span className={isDarkMode ? 'text-gray-500' : 'text-gray-400'}>Course</span>
+                                                <span className={`font-bold text-right max-w-[150px] truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{billData.course.name}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs">
+                                                <span className={isDarkMode ? 'text-gray-500' : 'text-gray-400'}>Academic Session</span>
+                                                <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{billData.course.session}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs">
+                                                <span className={isDarkMode ? 'text-gray-500' : 'text-gray-400'}>Department</span>
+                                                <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{billData.course.department}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Payment Details */}
-                                <div className="mb-6">
-                                    <h3 className="text-lg font-bold text-cyan-400 mb-3">Payment Details</h3>
-                                    <div className="grid grid-cols-2 gap-3 text-sm">
-                                        <div><span className="text-gray-400">Installment:</span> <span className="text-white font-medium">#{billData.payment.installmentNumber}</span></div>
-                                        <div><span className="text-gray-400">Payment Method:</span> <span className="text-white font-medium">{billData.payment.paymentMethod || 'N/A'}</span></div>
-                                        <div>
-                                            <span className="text-gray-400 font-bold text-cyan-400 uppercase">Received Date:</span>
-                                            <span className="text-cyan-400 font-bold ml-1">
+                                {/* Payment Info */}
+                                <div className={`p-6 rounded-xl border mb-8 ${isDarkMode ? 'bg-black/20 border-gray-700' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                    <h3 className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 text-center">Transaction Summary</h3>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div className="text-center">
+                                            <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Installment</div>
+                                            <div className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>#{billData.payment.installmentNumber}</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Method</div>
+                                            <div className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{billData.payment.paymentMethod}</div>
+                                        </div>
+                                        <div className="text-center col-span-2 md:col-span-1">
+                                            <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Received Date</div>
+                                            <div className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                 {(billData.payment.receivedDate || installment?.receivedDate)
                                                     ? new Date(billData.payment.receivedDate || installment?.receivedDate).toLocaleDateString('en-IN')
                                                     : 'N/A'}
-                                            </span>
-                                        </div>
-                                        {billData.payment.paymentMethod?.toUpperCase() !== 'CASH' && (
-                                            <div>
-                                                <span className="text-gray-400">Transaction ID:</span> 
-                                                <span className="text-white font-medium ml-1">
-                                                    {billData.payment.transactionId || (installment?.transactionId || 'N/A')}
-                                                </span>
                                             </div>
-                                        )}
-                                        <div><span className="text-gray-400">Payment Date:</span> <span className="text-white font-medium">{new Date(billData.payment.paidDate || billData.payment.receivedDate).toLocaleDateString('en-IN')}</span></div>
-                                        {['CHEQUE', 'BANK_TRANSFER'].includes(billData.payment.paymentMethod) && (
-                                            <>
-                                                <div><span className="text-gray-400">Payer Name:</span> <span className="text-white font-medium">{billData.payment.accountHolderName || 'N/A'}</span></div>
-                                                <div><span className="text-gray-400">Cheque Date:</span> <span className="text-white font-medium">{billData.payment.chequeDate ? new Date(billData.payment.chequeDate).toLocaleDateString('en-IN') : 'N/A'}</span></div>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Fee Breakdown */}
-                                <div className="bg-[#1a1f24] rounded-lg p-4">
-                                    <h3 className="text-lg font-bold text-cyan-400 mb-4">Fee Breakdown</h3>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-400">Course Fee</span>
-                                            <span className="text-white font-medium">₹ {billData.amounts.courseFee.toFixed(2)}</span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-400">CGST (9%)</span>
-                                            <span className="text-white font-medium">₹ {billData.amounts.cgst.toFixed(2)}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-400">SGST (9%)</span>
-                                            <span className="text-white font-medium">₹ {billData.amounts.sgst.toFixed(2)}</span>
-                                        </div>
-                                        <div className="border-t border-gray-700 pt-2 mt-2">
-                                            <div className="flex justify-between text-lg font-bold">
-                                                <span className="text-cyan-400">TOTAL AMOUNT</span>
-                                                <span className="text-cyan-400">₹ {billData.amounts.totalAmount.toFixed(2)}</span>
+                                        <div className="text-center col-span-2 md:col-span-1">
+                                            <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Transaction ID</div>
+                                            <div className={`text-sm font-black truncate px-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                {billData.payment.transactionId || (installment?.transactionId || 'N/A')}
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <p className="text-xs text-gray-500 text-center mt-6 italic">
-                                    This is a computer-generated receipt and does not require a signature.
-                                </p>
+                                {/* Fee Breakdown Table */}
+                                <div className={`rounded-xl overflow-hidden border ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    <table className="w-full text-xs">
+                                        <thead>
+                                            <tr className={isDarkMode ? 'bg-gray-800/50' : 'bg-gray-50'}>
+                                                <th className={`text-left py-3 px-4 font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Description</th>
+                                                <th className={`text-right py-3 px-4 font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
+                                            <tr className={`border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                                <td className="py-3 px-4 font-bold">Base Course Fees</td>
+                                                <td className="text-right py-3 px-4 font-black">₹ {billData.amounts.courseFee.toFixed(2)}</td>
+                                            </tr>
+                                            <tr className={`border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                                <td className="py-3 px-4 font-bold text-gray-500">CGST (9%)</td>
+                                                <td className="text-right py-3 px-4 font-black text-gray-500">₹ {billData.amounts.cgst.toFixed(2)}</td>
+                                            </tr>
+                                            <tr className={`border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                                <td className="py-3 px-4 font-bold text-gray-500">SGST (9%)</td>
+                                                <td className="text-right py-3 px-4 font-black text-gray-500">₹ {billData.amounts.sgst.toFixed(2)}</td>
+                                            </tr>
+                                            <tr className={isDarkMode ? 'bg-cyan-500/10' : 'bg-cyan-50'}>
+                                                <td className={`py-4 px-4 font-black uppercase tracking-widest ${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'}`}>Grand Total</td>
+                                                <td className={`text-right py-4 px-4 font-black text-lg ${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'}`}>₹ {billData.amounts.totalAmount.toFixed(2)}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div className="mt-8 text-center">
+                                    <p className={`text-[10px] font-bold italic mb-4 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
+                                        * This is a computer-generated digital receipt and does not require a physical signature.
+                                    </p>
+                                    <p className={`text-[9px] font-black uppercase tracking-[0.3em] ${isDarkMode ? 'text-gray-700' : 'text-gray-300'}`}>
+                                        Pathfinder ERP Intelligence System
+                                    </p>
+                                </div>
                             </div>
 
                             {/* Action Buttons */}
-                            <div className="flex gap-4 justify-center">
+                            <div className="flex gap-4 max-w-md mx-auto">
+                                <button
+                                    onClick={() => setBillData(null)}
+                                    className={`flex-1 py-4 px-6 border rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
+                                >
+                                    New Bill
+                                </button>
                                 <button
                                     onClick={downloadPDF}
-                                    className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg flex items-center gap-2"
+                                    className="flex-1 py-4 px-6 bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-cyan-500/20 active:scale-95"
                                 >
                                     <FaDownload />
                                     Download PDF
                                 </button>
                                 <button
                                     onClick={printBill}
-                                    className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-lg flex items-center gap-2"
+                                    className={`p-4 border rounded-2xl transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}
                                 >
                                     <FaPrint />
-                                    Print
                                 </button>
                             </div>
                         </div>

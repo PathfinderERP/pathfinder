@@ -2,8 +2,11 @@ import React, { useState, useEffect } from "react";
 import Layout from "../../../components/Layout";
 import { FaCheck, FaTimes, FaSpinner, FaHistory, FaSearch, FaUserEdit, FaPlus, FaCamera, FaMapMarkedAlt, FaExternalLinkAlt } from "react-icons/fa";
 import { toast } from "react-toastify";
+import { useTheme } from "../../../context/ThemeContext";
 
 const RegularizeTable = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({ status: "" });
@@ -87,26 +90,26 @@ const RegularizeTable = () => {
     return (
         <Layout activePage="HR & Manpower">
             <div className="p-6 space-y-6 animate-fade-in">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
+                <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl shadow-sm border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100'}`}>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Attendance Regularization</h1>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Approve or reject employee attendance correction requests</p>
+                        <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Attendance Regularization</h1>
+                        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Approve or reject employee attendance correction requests</p>
                     </div>
                 </div>
 
                 {/* Filters */}
-                <div className="flex flex-wrap gap-4 p-4 bg-white dark:bg-[#1a1f24] rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 items-center">
+                <div className={`flex flex-wrap gap-4 p-4 rounded-xl shadow-sm border items-center ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100'}`}>
                     <input 
                         type="date" 
                         value={localFilters.date} 
                         onChange={(e) => setLocalFilters({ ...localFilters, date: e.target.value })}
-                        className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm outline-none dark:text-white"
+                        className={`px-4 py-2 rounded-lg text-sm outline-none border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200'}`}
                         title="Filter by Date"
                     />
                     <select
                         value={localFilters.center}
                         onChange={(e) => setLocalFilters({ ...localFilters, center: e.target.value })}
-                        className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm outline-none dark:text-white min-w-[150px]"
+                        className={`px-4 py-2 rounded-lg text-sm outline-none min-w-[150px] border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200'}`}
                     >
                         <option value="">All Centers</option>
                         {[...new Set(requests.flatMap(r => [r.employeeId?.primaryCentre?.centreName, ...(r.employeeId?.centerArray || [])]).filter(Boolean))].map(center => (
@@ -118,34 +121,34 @@ const RegularizeTable = () => {
                         placeholder="Search EMP ID..." 
                         value={localFilters.empId} 
                         onChange={(e) => setLocalFilters({ ...localFilters, empId: e.target.value })}
-                        className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm outline-none dark:text-white min-w-[150px] flex-1 max-w-[200px]"
+                        className={`px-4 py-2 rounded-lg text-sm outline-none min-w-[150px] flex-1 max-w-[200px] border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200'}`}
                     />
                     <input 
                         type="text" 
                         placeholder="Search Name..." 
                         value={localFilters.name} 
                         onChange={(e) => setLocalFilters({ ...localFilters, name: e.target.value })}
-                        className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm outline-none dark:text-white min-w-[150px] flex-1 max-w-[200px]"
+                        className={`px-4 py-2 rounded-lg text-sm outline-none min-w-[150px] flex-1 max-w-[200px] border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200'}`}
                     />
                     <select
                         value={filters.status}
                         onChange={(e) => { setFilters({ ...filters, status: e.target.value }); }}
-                        className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm outline-none dark:text-white w-full sm:w-auto"
+                        className={`px-4 py-2 rounded-lg text-sm outline-none w-full sm:w-auto border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200'}`}
                     >
                         <option value="">All Status</option>
                         <option value="Pending">Pending</option>
                         <option value="Approved">Approved</option>
                         <option value="Rejected">Rejected</option>
                     </select>
-                    <button onClick={() => { setLocalFilters({ date: "", center: "", name: "", empId: "" }); setFilters({status: ""}) }} className="px-6 py-2 bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 rounded-lg text-sm font-bold shadow-sm whitespace-nowrap">Reset All</button>
+                    <button onClick={() => { setLocalFilters({ date: "", center: "", name: "", empId: "" }); setFilters({status: ""}) }} className={`px-6 py-2 rounded-lg text-sm font-bold shadow-sm whitespace-nowrap ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>Reset All</button>
                     <button onClick={fetchRequests} className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-sm whitespace-nowrap">Refresh DB</button>
                 </div>
 
-                <div className="bg-white dark:bg-[#1a1f24] rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+                <div className={`rounded-2xl shadow-sm border overflow-hidden ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100'}`}>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
+                                <tr className={`border-b ${isDarkMode ? 'bg-gray-800/50 border-gray-800' : 'bg-gray-50/50 border-gray-100'}`}>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Sl No.</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Employee Name</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Date</th>
@@ -158,7 +161,7 @@ const RegularizeTable = () => {
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                 {loading ? (
                                     <tr><td colSpan="10" className="px-6 py-10 text-center text-blue-600"><FaSpinner className="animate-spin mx-auto" size={30} /></td></tr>
                                 ) : requests.filter(request => {
@@ -185,26 +188,26 @@ const RegularizeTable = () => {
                                         if (localFilters.empId && !request.employeeId?.employeeId?.toLowerCase().includes(localFilters.empId.toLowerCase())) return false;
                                         return true;
                                     }).map((request, index) => (
-                                        <tr key={request._id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20">
+                                        <tr key={request._id} className={isDarkMode ? 'hover:bg-gray-800/20' : 'hover:bg-gray-50/50'}>
                                             <td className="px-6 py-4 text-sm text-gray-500 font-medium">{index + 1}</td>
                                             <td className="px-6 py-4">
-                                                <div className="font-bold text-gray-800 dark:text-white uppercase text-sm tracking-tight">{request.employeeId?.name || "N/A"}</div>
+                                                <div className={`font-bold uppercase text-sm tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{request.employeeId?.name || "N/A"}</div>
                                                 <div className="text-[10px] text-gray-500 font-medium tracking-widest">{request.employeeId?.employeeId || "UNKNOWN ID"}</div>
                                             </td>
-                                            <td className="px-6 py-4 text-center text-sm font-medium text-gray-600 dark:text-gray-400">
+                                            <td className={`px-6 py-4 text-center text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                                 {new Date(request.date).toLocaleDateString('en-GB')}
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${request.type === 'On Duty' ? 'bg-purple-100 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400' :
-                                                    request.type === 'Missed Punch' ? 'bg-orange-100 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400' :
-                                                        'bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400'
+                                                <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${request.type === 'On Duty' ? (isDarkMode ? 'bg-purple-500/10 text-purple-400' : 'bg-purple-100 text-purple-600') :
+                                                    request.type === 'Missed Punch' ? (isDarkMode ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-100 text-orange-600') :
+                                                        (isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-100 text-blue-600')
                                                     }`}>
                                                     {request.type || 'On Duty'}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-center text-sm text-gray-600 dark:text-gray-400">
+                                            <td className={`px-6 py-4 text-center text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                                 {request.fromTime && request.toTime ? (
-                                                    <span className="font-mono text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                                                    <span className={`font-mono text-xs px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
                                                         {request.fromTime} - {request.toTime}
                                                     </span>
                                                 ) : (
@@ -225,7 +228,7 @@ const RegularizeTable = () => {
                                                                 />
                                                             ))}
                                                             {request.photos.length > 3 && (
-                                                                <div className="w-8 h-8 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[9px] font-black text-gray-500 cursor-pointer"
+                                                                <div className={`w-8 h-8 rounded flex items-center justify-center text-[9px] font-black text-gray-500 cursor-pointer ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'}`}
                                                                     onClick={() => { setPreviewImage(request.photos[3]); setShowPreviewModal(true); }}
                                                                 >+{request.photos.length - 3}</div>
                                                             )}
@@ -248,7 +251,7 @@ const RegularizeTable = () => {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 truncate max-w-[200px]" title={request.reason}>
+                                            <td className={`px-6 py-4 text-sm truncate max-w-[200px] ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} title={request.reason}>
                                                 {request.reason}
                                             </td>
                                             <td className="px-6 py-4 text-center">
@@ -272,7 +275,7 @@ const RegularizeTable = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <button onClick={() => { setSelectedRequest(request); setReviewData({ status: request.status, remark: request.reviewRemark || "", fromTime: request.fromTime || "", toTime: request.toTime || "", attendanceMode: "custom" }); setShowStatusModal(true); }} className="p-2 text-blue-600 bg-blue-50 dark:bg-blue-500/10 rounded-lg"><FaUserEdit size={14} /></button>
+                                                <button onClick={() => { setSelectedRequest(request); setReviewData({ status: request.status, remark: request.reviewRemark || "", fromTime: request.fromTime || "", toTime: request.toTime || "", attendanceMode: "custom" }); setShowStatusModal(true); }} className={`p-2 text-blue-600 rounded-lg ${isDarkMode ? 'bg-blue-500/10' : 'bg-blue-50'}`}><FaUserEdit size={14} /></button>
                                             </td>
                                         </tr>
                                     ))
@@ -288,9 +291,9 @@ const RegularizeTable = () => {
             {/* Modal */}
             {showStatusModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-[#1a1f24] w-full max-w-md rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-                        <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-                            <h2 className="text-lg font-bold text-gray-800 dark:text-white uppercase tracking-tight">Review Regularization</h2>
+                    <div className={`w-full max-w-md rounded-2xl shadow-2xl border overflow-hidden ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <div className={`p-6 border-b flex items-center justify-between ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                            <h2 className={`text-lg font-bold uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Review Regularization</h2>
                             <button onClick={() => setShowStatusModal(false)} className="text-gray-400 hover:text-white"><FaPlus size={20} className="rotate-45" /></button>
                         </div>
                         <form onSubmit={handleStatusUpdate} className="p-6 space-y-4">
@@ -301,12 +304,12 @@ const RegularizeTable = () => {
                             
                             {/* Verification Display in Modal */}
                             {selectedRequest && ((selectedRequest.photos && selectedRequest.photos.length > 0) || (selectedRequest.latitude && selectedRequest.longitude)) && (
-                                <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 space-y-3">
+                                <div className={`p-4 rounded-xl border space-y-3 ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Verification Details ({selectedRequest.photos?.length || 0} Photo{selectedRequest.photos?.length !== 1 ? 's' : ''})</p>
                                     {selectedRequest.photos && selectedRequest.photos.length > 0 && (
                                         <div className="grid grid-cols-3 gap-2">
                                             {selectedRequest.photos.map((photo, idx) => (
-                                                <div key={idx} className="aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 shadow-sm relative group cursor-pointer"
+                                                <div key={idx} className={`aspect-square rounded-lg overflow-hidden border shadow-sm relative group cursor-pointer ${isDarkMode ? 'border-gray-600' : 'border-gray-200'}`}
                                                     onClick={() => { setPreviewImage(photo); setShowPreviewModal(true); }}
                                                 >
                                                     <img src={photo} className="w-full h-full object-cover" alt={`Verification ${idx + 1}`} />
@@ -319,7 +322,7 @@ const RegularizeTable = () => {
                                     )}
                                     <div className="flex-1 space-y-2">
                                         {selectedRequest.latitude && (
-                                            <div className="text-[10px] font-bold text-gray-600 dark:text-gray-400">
+                                            <div className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                                 📍 {selectedRequest.latitude.toFixed(6)}, {selectedRequest.longitude.toFixed(6)}
                                             </div>
                                         )}
@@ -339,11 +342,11 @@ const RegularizeTable = () => {
 
                             {/* Existing Attendance Display */}
                             {selectedRequest?.existingAttendance && selectedRequest.existingAttendance.workingHours > 0 && (
-                                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800 space-y-2 mb-2 animate-fade-in">
-                                    <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Existing Logged Attendance</p>
+                                <div className={`p-4 rounded-xl border space-y-2 mb-2 animate-fade-in ${isDarkMode ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-100'}`}>
+                                    <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>Existing Logged Attendance</p>
                                     <div className="flex gap-4 items-center justify-between">
                                         <div className="flex-1">
-                                            <p className="text-lg font-bold text-gray-800 dark:text-white">
+                                            <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
                                                 {selectedRequest.existingAttendance.workingHours} <span className="text-xs font-medium text-gray-500">Hours Recorded</span>
                                             </p>
                                             <div className="flex gap-4 text-[10px] text-gray-500 font-medium">
@@ -355,7 +358,7 @@ const RegularizeTable = () => {
                                                 )}
                                             </div>
                                         </div>
-                                        <div className="bg-white dark:bg-gray-800 rounded-lg px-4 py-2 border border-blue-200 dark:border-blue-700 text-center shadow-sm">
+                                        <div className={`rounded-lg px-4 py-2 border text-center shadow-sm ${isDarkMode ? 'bg-gray-800 border-blue-700' : 'bg-white border-blue-200'}`}>
                                             <p className="text-[9px] uppercase tracking-widest font-black text-gray-400">Remaining to 9H</p>
                                             <p className="text-lg font-black text-blue-600">
                                                 {Math.max(0, 9 - selectedRequest.existingAttendance.workingHours)} <span className="text-[10px] text-blue-400">Hrs</span>
@@ -368,7 +371,7 @@ const RegularizeTable = () => {
                             <div className="space-y-3">
                                 <label className="text-[10px] font-black uppercase text-gray-500 ml-1 tracking-widest">Attendance Mode</label>
                                 <div className="flex gap-6 px-1">
-                                    <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                                    <label className={`flex items-center gap-2 text-sm cursor-pointer ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                         <input 
                                             type="radio" 
                                             name="attendanceMode" 
@@ -378,7 +381,7 @@ const RegularizeTable = () => {
                                         /> 
                                         <span className="font-bold text-[11px] uppercase tracking-wider">Full Day (9:30 - 18:30)</span>
                                     </label>
-                                    <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                                    <label className={`flex items-center gap-2 text-sm cursor-pointer ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                         <input 
                                             type="radio" 
                                             name="attendanceMode"
@@ -394,19 +397,19 @@ const RegularizeTable = () => {
                             <div className="grid grid-cols-2 gap-4 animate-fade-in">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">From Time</label>
-                                    <input type="time" value={reviewData.fromTime} onChange={(e) => setReviewData({ ...reviewData, fromTime: e.target.value })} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800 border dark:border-gray-700 rounded-xl outline-none dark:text-white text-sm" />
+                                    <input type="time" value={reviewData.fromTime} onChange={(e) => setReviewData({ ...reviewData, fromTime: e.target.value })} className={`w-full px-4 py-2 rounded-xl outline-none text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200'}`} />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">To Time</label>
-                                    <input type="time" value={reviewData.toTime} onChange={(e) => setReviewData({ ...reviewData, toTime: e.target.value })} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800 border dark:border-gray-700 rounded-xl outline-none dark:text-white text-sm" />
+                                    <input type="time" value={reviewData.toTime} onChange={(e) => setReviewData({ ...reviewData, toTime: e.target.value })} className={`w-full px-4 py-2 rounded-xl outline-none text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200'}`} />
                                 </div>
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Admin Remark</label>
-                                <textarea rows="3" value={reviewData.remark} onChange={(e) => setReviewData({ ...reviewData, remark: e.target.value })} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border dark:border-gray-700 rounded-xl outline-none dark:text-white text-sm resize-none" placeholder="Reason for approval/rejection..." />
+                                <textarea rows="3" value={reviewData.remark} onChange={(e) => setReviewData({ ...reviewData, remark: e.target.value })} className={`w-full px-4 py-3 rounded-xl outline-none text-sm resize-none border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200'}`} placeholder="Reason for approval/rejection..." />
                             </div>
                             <div className="pt-2 flex gap-3">
-                                <button type="button" onClick={() => setShowStatusModal(false)} className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-800 text-gray-600 rounded-xl font-bold border dark:border-gray-700">Cancel</button>
+                                <button type="button" onClick={() => setShowStatusModal(false)} className={`flex-1 px-4 py-3 rounded-xl font-bold border ${isDarkMode ? 'bg-gray-800 text-gray-300 border-gray-700' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>Cancel</button>
                                 <button type="submit" className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-600/20">Submit Review</button>
                             </div>
                         </form>
@@ -430,7 +433,7 @@ const RegularizeTable = () => {
                             <FaPlus size={32} className="rotate-45" />
                         </button>
 
-                        <div className="w-full bg-white dark:bg-gray-900 p-2 rounded-2xl shadow-2xl relative group overflow-hidden border border-white/10">
+                        <div className={`w-full p-2 rounded-2xl shadow-2xl relative group overflow-hidden border border-white/10 ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
                             <img 
                                 src={previewImage} 
                                 alt="Verification Evidence" 

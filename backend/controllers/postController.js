@@ -147,7 +147,7 @@ export const createPost = async (req, res) => {
 export const getAllPosts = async (req, res) => {
     try {
         const posts = await Post.find()
-            .sort({ createdAt: -1 })
+            .sort({ isPinned: -1, pinnedAt: -1, createdAt: -1 })
             .populate("author", "name email role designation teacherDepartment")
             .populate("tags", "name email")
             .populate("likes", "name email role designation teacherDepartment")
@@ -523,5 +523,44 @@ export const getSocialActivity = async (req, res) => {
     } catch (error) {
         console.error("Social activity error:", error);
         res.status(500).json({ message: "Error fetching social activity" });
+    }
+};
+
+export const togglePinPost = async (req, res) => {
+    try {
+        if (req.user.role !== 'superAdmin') {
+            return res.status(403).json({ message: "Only SuperAdmins can pin posts" });
+        }
+
+        const post = await Post.findById(req.params.id);
+        if (!post) return res.status(404).json({ message: "Post not found" });
+
+        if (!post.isPinned) {
+            // Trying to pin, check count
+            const pinnedCount = await Post.countDocuments({ isPinned: true });
+            if (pinnedCount >= 10) {
+                return res.status(400).json({ message: "Maximum 10 posts can be pinned at a time. Please unpin a post first." });
+            }
+            post.isPinned = true;
+            post.pinnedAt = new Date();
+        } else {
+            post.isPinned = false;
+            post.pinnedAt = undefined;
+        }
+
+        await post.save();
+
+        const updatedPost = await Post.findById(post._id)
+            .populate("author", "name email role designation teacherDepartment")
+            .populate("tags", "name email")
+            .populate("likes", "name email role designation teacherDepartment")
+            .populate("comments.user", "name email")
+            .populate("poll.options.votes", "name email role designation teacherDepartment");
+
+        const postObj = await enhancePostAuthor(updatedPost);
+        res.json(postObj);
+    } catch (error) {
+        console.error("Toggle Pin Error:", error);
+        res.status(500).json({ message: "Error toggling pin status" });
     }
 };

@@ -83,7 +83,8 @@ export const getAdmissionPerformanceReport = async (req, res) => {
 
         // Get User details
         const users = await User.find({
-            _id: { $in: Object.keys(userStats) }
+            _id: { $in: Object.keys(userStats) },
+            isActive: { $ne: false }
         }).select('name role centres').populate('centres', 'centreName');
 
         const report = users.map(u => {

@@ -85,7 +85,7 @@ const ScrollableChartContainer = ({ title, children, isDarkMode, color = "cyan",
 );
 
 const CEOControlTowerContent = () => {
-    const { theme, toggleTheme } = useTheme();
+    const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
@@ -223,20 +223,6 @@ const CEOControlTowerContent = () => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <div className={`flex items-center gap-1 p-1 rounded-[2px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
-                        <button
-                            onClick={() => theme === 'light' && toggleTheme()}
-                            className={`p-2 rounded-[1px] transition-all ${isDarkMode ? "bg-cyan-500 text-black" : "text-gray-500 hover:text-cyan-500"}`}
-                        >
-                            <FaMoon size={12} />
-                        </button>
-                        <button
-                            onClick={() => theme === 'dark' && toggleTheme()}
-                            className={`p-2 rounded-[1px] transition-all ${!isDarkMode ? "bg-cyan-500 text-black" : "text-gray-600 hover:text-cyan-500"}`}
-                        >
-                            <FaSun size={12} />
-                        </button>
-                    </div>
                 </div>
             </div>
 

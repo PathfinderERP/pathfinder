@@ -356,15 +356,18 @@ export const togglePinPost = async (req, res) => {
         const post = await CommunityPost.findById(req.params.id);
         if (!post) return res.status(404).json({ message: "Post not found" });
 
-        const newState = !post.isPinned;
-        
-        // Option: Unpin others if we only want one pinned post
-        // if (newState) {
-        //     await CommunityPost.updateMany({ isPinned: true }, { isPinned: false });
-        // }
-
-        post.isPinned = newState;
-        post.pinnedAt = newState ? new Date() : undefined;
+        if (!post.isPinned) {
+            // Trying to pin, check count
+            const pinnedCount = await CommunityPost.countDocuments({ isPinned: true });
+            if (pinnedCount >= 10) {
+                return res.status(400).json({ message: "Maximum 10 messages can be pinned at a time. Please unpin a message first." });
+            }
+            post.isPinned = true;
+            post.pinnedAt = new Date();
+        } else {
+            post.isPinned = false;
+            post.pinnedAt = undefined;
+        }
         await post.save();
 
         const populatedPost = await CommunityPost.findById(post._id)
@@ -379,7 +382,7 @@ export const togglePinPost = async (req, res) => {
         getIO().to("community").emit("post_updated", postObj);
         
         // Send a specific notification event if needed
-        if (newState) {
+        if (post.isPinned) {
             getIO().to("community").emit("notification", {
                 type: "PINNED_POST",
                 message: `A message was pinned: "${post.content?.substring(0, 50)}..."`,

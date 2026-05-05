@@ -12,7 +12,7 @@ const QuarterlyTargetReport = () => {
     const [loading, setLoading] = useState(false);
     const [sessions, setSessions] = useState([]);
     const [filterFinancialYear, setFilterFinancialYear] = useState("");
-    const { theme, toggleTheme } = useTheme();
+    const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
     const navigate = useNavigate();
 
@@ -127,15 +127,6 @@ const QuarterlyTargetReport = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
-                         <button
-                            onClick={toggleTheme}
-                             className={`p-2.5 rounded-lg border transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-widest ${isDarkMode
-                                ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black'
-                                : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'
-                                }`}
-                        >
-                            {isDarkMode ? <><FaSun /> Day Mode</> : <><FaMoon /> Night Mode</>}
-                        </button>
                         <select
                             value={filterFinancialYear}
                             onChange={(e) => setFilterFinancialYear(e.target.value)}

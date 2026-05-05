@@ -6,7 +6,7 @@ import { FaSearch, FaTimes, FaSun, FaMoon, FaSync, FaFilter, FaLayerGroup } from
 import CustomMultiSelect from '../common/CustomMultiSelect';
 
 const SectionAllotmentContent = () => {
-    const { theme, toggleTheme } = useTheme();
+    const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
 
     const [students, setStudents] = useState([]);
@@ -274,13 +274,6 @@ const SectionAllotmentContent = () => {
                             Bulk Allot ({selectedIds.length})
                         </button>
                     )}
-                    <button
-                        onClick={toggleTheme}
-                        className={`p-2.5 rounded-[4px] border transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 text-yellow-400 hover:bg-white/10' : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'}`}
-                        title="Toggle Local Theme"
-                    >
-                        {isDarkMode ? <FaSun /> : <FaMoon />}
-                    </button>
                     <button
                         onClick={fetchData}
                         className={`p-2.5 rounded-[4px] border transition-all active:scale-95 ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500 hover:text-black' : 'bg-cyan-50 border-cyan-200 text-cyan-600 hover:bg-cyan-100'}`}

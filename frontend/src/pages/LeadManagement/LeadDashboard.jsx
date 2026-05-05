@@ -6,7 +6,7 @@ import { useTheme } from "../../context/ThemeContext";
 import CustomMultiSelect from "../../components/common/CustomMultiSelect";
 
 const LeadDashboard = () => {
-    const { theme, toggleTheme } = useTheme();
+    const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
 
     const [stats, setStats] = useState(null);
@@ -232,13 +232,6 @@ const LeadDashboard = () => {
                     </div>
 
                     <div className="flex items-center gap-4 relative z-10 text-nowrap">
-                        <button
-                            onClick={toggleTheme}
-                            className={`p-4 rounded-[4px] border transition-all active:scale-95 flex items-center gap-2 group/toggle ${isDarkMode ? 'bg-gray-800 border-gray-700 text-yellow-400 hover:bg-gray-700' : 'bg-white border-gray-200 text-indigo-600 hover:bg-gray-50'}`}
-                        >
-                            {isDarkMode ? <FaSun size={18} /> : <FaMoon size={18} />}
-                            <span className="text-[10px] font-black uppercase tracking-widest hidden lg:block">Toggle Interface</span>
-                        </button>
                         <button
                             onClick={handleExportExcel}
                             className="flex items-center gap-3 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[4px] text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all hover:-translate-y-0.5 active:scale-95"

@@ -30,7 +30,7 @@ const AdmissionsContent = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
-    const { theme, toggleTheme } = useTheme();
+    const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
 
     const itemsPerPage = 10;
@@ -598,12 +598,7 @@ const AdmissionsContent = () => {
                         </div>
                     </div>
 
-                    <button
-                        onClick={toggleTheme}
-                        className={`p-3 rounded-[4px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
-                    >
-                        {isDarkMode ? <><FaSun /> Day</> : <><FaMoon /> Night</>}
-                    </button>
+
 
                     {canCreate && (
                         <button

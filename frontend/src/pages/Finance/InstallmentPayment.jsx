@@ -6,13 +6,14 @@ import { toast } from "react-toastify";
 import Select from "react-select";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { useTheme } from "../../context/ThemeContext";
 import BillGenerator from "../../components/Finance/BillGenerator";
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Pagination from "../../components/common/Pagination";
 import RazorpayPOSModal from "../../components/Finance/RazorpayPOSModal";
 import RazorpaySMSModal from "../../components/Finance/RazorpaySMSModal";
 
-const EditScheduleModal = ({ admission, onClose, onSave }) => {
+const EditScheduleModal = ({ admission, onClose, onSave, isDarkMode }) => {
     // Initialize with existing unpaid installments
     const [schedule, setSchedule] = useState(() => {
         const unpaid = admission.paymentBreakdown
@@ -67,11 +68,11 @@ const EditScheduleModal = ({ admission, onClose, onSave }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl">
-            <div className="bg-[#0d0f11] border border-gray-800 w-full max-w-2xl rounded-[3rem] overflow-hidden shadow-[0_0_100px_rgba(6,182,212,0.1)] flex flex-col max-h-[90vh]">
-                <div className="p-8 border-b border-gray-800 bg-gradient-to-r from-cyan-500/10 via-transparent to-transparent flex justify-between items-center">
+        <div className={`fixed inset-0 z-[110] flex items-center justify-center p-4 backdrop-blur-xl ${isDarkMode ? 'bg-black/95' : 'bg-gray-900/40'}`}>
+            <div className={`border w-full max-w-2xl rounded-[3rem] overflow-hidden flex flex-col max-h-[90vh] shadow-2xl ${isDarkMode ? 'bg-[#0d0f11] border-gray-800 shadow-[0_0_100px_rgba(6,182,212,0.1)]' : 'bg-white border-gray-200 shadow-cyan-900/10'}`}>
+                <div className={`p-8 border-b flex justify-between items-center ${isDarkMode ? 'border-gray-800 bg-gradient-to-r from-cyan-500/10 via-transparent to-transparent' : 'border-gray-100 bg-gray-50'}`}>
                     <div>
-                        <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Edit <span className="text-cyan-500">Schedule</span></h2>
+                        <h2 className={`text-2xl font-black italic uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Edit <span className="text-cyan-500">Schedule</span></h2>
                         <div className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] mt-1">Admission # {admission.admissionNumber}</div>
                     </div>
                     <div className="text-right">
@@ -80,11 +81,11 @@ const EditScheduleModal = ({ admission, onClose, onSave }) => {
                     </div>
                 </div>
 
-                <div className="p-8 overflow-y-auto custom-scrollbar flex-1 bg-black/20">
+                <div className={`p-8 overflow-y-auto custom-scrollbar flex-1 ${isDarkMode ? 'bg-black/20' : 'bg-gray-50/30'}`}>
                     <div className="space-y-4">
                         {schedule.map((inst, idx) => (
-                            <div key={idx} className="bg-gray-900/40 border border-gray-800 p-6 rounded-3xl flex flex-wrap md:flex-nowrap items-center gap-6 group hover:border-gray-700 transition-all">
-                                <div className="w-12 h-12 rounded-2xl bg-gray-800 flex items-center justify-center text-cyan-500 font-black italic shadow-lg">
+                            <div key={idx} className={`border p-6 rounded-3xl flex flex-wrap md:flex-nowrap items-center gap-6 group hover:border-gray-700 transition-all ${isDarkMode ? 'bg-gray-900/40 border-gray-800' : 'bg-white border-gray-200'}`}>
+                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-cyan-500 font-black italic shadow-lg ${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
                                     #{inst.installmentNumber}
                                 </div>
                                 <div className="flex-1 min-w-[150px]">
@@ -93,7 +94,7 @@ const EditScheduleModal = ({ admission, onClose, onSave }) => {
                                         type="date"
                                         value={inst.dueDate}
                                         onChange={(e) => handleChange(idx, 'dueDate', e.target.value)}
-                                        className="w-full bg-black/40 border border-gray-800 rounded-xl py-2 px-3 text-white text-xs font-bold outline-none focus:border-cyan-500/50 transition-all"
+                                        className={`w-full border rounded-xl py-2 px-3 text-xs font-bold outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                     />
                                 </div>
                                 <div className="flex-1 min-w-[120px]">
@@ -103,12 +104,12 @@ const EditScheduleModal = ({ admission, onClose, onSave }) => {
                                         value={inst.amount}
                                         onFocus={(e) => e.target.select()}
                                         onChange={(e) => handleChange(idx, 'amount', e.target.value)}
-                                        className="w-full bg-black/40 border border-gray-800 rounded-xl py-2 px-3 text-white text-xs font-black outline-none focus:border-cyan-500/50 transition-all"
+                                        className={`w-full border rounded-xl py-2 px-3 text-xs font-black outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                     />
                                 </div>
                                 <button
                                     onClick={() => handleRemove(idx)}
-                                    className="h-10 w-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center opacity-0 group-hover:opacity-100"
+                                    className="h-10 w-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center md:opacity-0 group-hover:opacity-100"
                                     title="Remove Installment"
                                 >
                                     <FaTrash className="text-xs" />
@@ -119,13 +120,13 @@ const EditScheduleModal = ({ admission, onClose, onSave }) => {
 
                     <button
                         onClick={handleAdd}
-                        className="w-full mt-6 py-4 border-2 border-dashed border-gray-800 rounded-3xl text-gray-500 font-black uppercase text-[10px] tracking-widest hover:border-cyan-500/50 hover:text-cyan-500 transition-all flex items-center justify-center gap-2"
+                        className={`w-full mt-6 py-4 border-2 border-dashed rounded-3xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-2 ${isDarkMode ? 'border-gray-800 text-gray-500 hover:border-cyan-500/50 hover:text-cyan-500' : 'border-gray-200 text-gray-400 hover:border-cyan-500/50 hover:text-cyan-600'}`}
                     >
                         <FaPlus /> Add New Installment
                     </button>
                 </div>
 
-                <div className="p-8 border-t border-gray-800 bg-black/40 backdrop-blur-xl">
+                <div className={`p-8 border-t backdrop-blur-xl ${isDarkMode ? 'border-gray-800 bg-black/40' : 'border-gray-100 bg-gray-50'}`}>
                     <div className="flex items-center justify-between mb-6 px-2">
                         <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
                             New Total: <span className={isValid ? "text-emerald-500" : "text-red-500"}>₹{totalNew.toLocaleString()}</span>
@@ -139,7 +140,7 @@ const EditScheduleModal = ({ admission, onClose, onSave }) => {
                     <div className="flex gap-4">
                         <button
                             onClick={onClose}
-                            className="flex-1 py-4 bg-gray-900 text-gray-500 font-black uppercase text-[10px] tracking-widest rounded-2xl hover:bg-gray-800 hover:text-white transition-all border border-gray-800"
+                            className={`flex-1 py-4 border font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all ${isDarkMode ? 'bg-gray-900 border-gray-800 text-gray-500 hover:bg-gray-800 hover:text-white' : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-900'}`}
                         >
                             Cancel
                         </button>
@@ -148,7 +149,7 @@ const EditScheduleModal = ({ admission, onClose, onSave }) => {
                             disabled={!isValid || schedule.length === 0 || isSaving}
                             className={`flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all shadow-xl flex items-center justify-center gap-2 ${isValid && schedule.length > 0 && !isSaving
                                 ? "bg-gradient-to-r from-emerald-600 to-emerald-400 text-black shadow-emerald-500/20 hover:scale-105 active:scale-95"
-                                : "bg-gray-800 text-gray-600 cursor-not-allowed"
+                                : (isDarkMode ? "bg-gray-800 text-gray-600 cursor-not-allowed" : "bg-gray-100 text-gray-400 cursor-not-allowed")
                                 }`}
                         >
                             {isSaving ? "Saving..." : "Save New Schedule"}
@@ -161,6 +162,8 @@ const EditScheduleModal = ({ admission, onClose, onSave }) => {
 };
 
 const InstallmentPayment = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [loading, setLoading] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [financialData, setFinancialData] = useState(null);
@@ -584,26 +587,28 @@ const InstallmentPayment = () => {
     const selectStyles = {
         control: (base) => ({
             ...base,
-            backgroundColor: 'rgba(0, 0, 0, 0.4)',
-            borderColor: '#1f2937',
+            backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.4)' : '#fff',
+            borderColor: isDarkMode ? '#1f2937' : '#e5e7eb',
             borderRadius: '0.75rem',
             padding: '0.25rem',
-            '&:hover': { borderColor: 'rgba(6, 182, 212, 0.5)' }
+            '&:hover': { borderColor: isDarkMode ? 'rgba(6, 182, 212, 0.5)' : '#06b6d4' }
         }),
         menu: (base) => ({
             ...base,
-            backgroundColor: '#131619',
-            border: '1px solid #1f2937',
+            backgroundColor: isDarkMode ? '#131619' : '#fff',
+            border: isDarkMode ? '1px solid #1f2937' : '1px solid #e5e7eb',
             borderRadius: '0.75rem',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            zIndex: 100
         }),
         option: (base, state) => ({
             ...base,
             backgroundColor: state.isFocused ? 'rgba(6, 182, 212, 0.1)' : 'transparent',
-            color: state.isFocused ? '#06b6d4' : '#9ca3af',
+            color: state.isFocused ? '#06b6d4' : (isDarkMode ? '#9ca3af' : '#4b5563'),
             fontWeight: 'bold',
             fontSize: '0.75rem',
             textTransform: 'uppercase',
+            cursor: 'pointer',
             '&:active': { backgroundColor: 'rgba(6, 182, 212, 0.2)' }
         }),
         multiValue: (base) => ({
@@ -627,14 +632,18 @@ const InstallmentPayment = () => {
         }),
         placeholder: (base) => ({
             ...base,
-            color: '#6b7280',
+            color: isDarkMode ? '#6b7280' : '#9ca3af',
             fontWeight: 'bold',
             fontSize: '0.75rem',
             textTransform: 'uppercase'
         }),
+        singleValue: (base) => ({
+            ...base,
+            color: isDarkMode ? '#fff' : '#111827'
+        }),
         input: (base) => ({
             ...base,
-            color: '#fff',
+            color: isDarkMode ? '#fff' : '#111827',
             fontWeight: 'bold',
             fontSize: '0.75rem'
         })
@@ -642,11 +651,11 @@ const InstallmentPayment = () => {
 
     return (
         <Layout activePage="Finance & Fees">
-            <div className="p-4 md:p-10 max-w-[1800px] mx-auto min-h-screen pb-20">
+            <div className={`p-4 md:p-10 max-w-[1800px] mx-auto min-h-screen pb-20 transition-colors duration-500 ${isDarkMode ? 'bg-[#0d0f11]' : 'bg-gray-50'}`}>
                 {/* Header */}
                 <div className="mb-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
                     <div>
-                        <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">
+                        <h1 className={`text-4xl font-black italic uppercase tracking-tighter mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             Installment <span className="text-cyan-500">Payment</span>
                         </h1>
                         <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">
@@ -655,7 +664,7 @@ const InstallmentPayment = () => {
                     </div>
 
                     {!selectedStudent && (
-                        <div className="bg-[#131619] border border-gray-800 rounded-2xl p-4" style={{ width: '480px', height: '140px' }}>
+                        <div className={`border rounded-2xl p-4 transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`} style={{ width: '480px', height: '140px' }}>
                             <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Payment Analytics</div>
                             <ResponsiveContainer width="100%" height={90}>
                                 <BarChart
@@ -735,7 +744,7 @@ const InstallmentPayment = () => {
                                 setFinancialData(null);
                                 setSelectedStudent(null);
                             }}
-                            className="px-6 py-3 bg-gray-800 text-gray-300 font-bold uppercase text-xs rounded-xl hover:bg-gray-700 transition-all border border-gray-700"
+                            className={`px-6 py-3 border font-bold uppercase text-xs rounded-xl transition-all ${isDarkMode ? 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 shadow-sm'}`}
                         >
                             Back to Student List
                         </button>
@@ -745,7 +754,7 @@ const InstallmentPayment = () => {
                 {!selectedStudent ? (
                     <>
                         {/* Filters Section */}
-                        <div className="bg-[#131619] border border-gray-800 rounded-3xl p-6 mb-8">
+                        <div className={`border rounded-3xl p-6 mb-8 transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 items-end">
                                 {/* Date Range */}
                                 <div className="lg:col-span-1">
@@ -755,7 +764,7 @@ const InstallmentPayment = () => {
                                         name="startDate"
                                         value={filters.startDate}
                                         onChange={handleFilterChange}
-                                        className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-white font-bold text-xs outline-none focus:border-cyan-500/50 transition-all"
+                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                     />
                                 </div>
                                 <div className="lg:col-span-1">
@@ -765,7 +774,7 @@ const InstallmentPayment = () => {
                                         name="endDate"
                                         value={filters.endDate}
                                         onChange={handleFilterChange}
-                                        className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-white font-bold text-xs outline-none focus:border-cyan-500/50 transition-all"
+                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                     />
                                 </div>
 
@@ -835,30 +844,29 @@ const InstallmentPayment = () => {
                                 </div>
                             </div>
 
-                            {/* Additional Filters: Amount Range */}
-                            <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-6 items-end border-t border-gray-800/50 pt-6">
-                                <div className="md:col-span-2 flex items-center gap-4 bg-black/20 p-4 rounded-2xl border border-gray-800/50">
+                            <div className={`mt-6 grid grid-cols-1 md:grid-cols-4 gap-6 items-end border-t pt-6 ${isDarkMode ? 'border-gray-800/50' : 'border-gray-100'}`}>
+                                <div className={`md:col-span-2 flex items-center gap-4 p-4 rounded-2xl border ${isDarkMode ? 'bg-black/20 border-gray-800/50' : 'bg-gray-50 border-gray-100'}`}>
                                     <div className="flex-1">
                                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Min Remaining Fee</label>
                                         <input
                                             type="number"
                                             name="minRemaining"
-                                            placeholder="₹ Min (e.g. 5000)"
+                                            placeholder="₹ Min"
                                             value={filters.minRemaining}
                                             onChange={handleFilterChange}
-                                            className="w-full bg-black/40 border border-gray-800 rounded-xl py-2 px-4 text-white font-bold text-xs outline-none focus:border-cyan-500/50 transition-all"
+                                            className={`w-full border rounded-xl py-2 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
                                         />
                                     </div>
-                                    <div className="text-gray-700 mt-6">-</div>
+                                    <div className="text-gray-400 mt-6">-</div>
                                     <div className="flex-1">
                                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Max Remaining Fee</label>
                                         <input
                                             type="number"
                                             name="maxRemaining"
-                                            placeholder="₹ Max (e.g. 50000)"
+                                            placeholder="₹ Max"
                                             value={filters.maxRemaining}
                                             onChange={handleFilterChange}
-                                            className="w-full bg-black/40 border border-gray-800 rounded-xl py-2 px-4 text-white font-bold text-xs outline-none focus:border-cyan-500/50 transition-all"
+                                            className={`w-full border rounded-xl py-2 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
                                         />
                                     </div>
                                 </div>
@@ -883,7 +891,7 @@ const InstallmentPayment = () => {
                                         value={filters.searchTerm}
                                         onChange={handleFilterChange}
                                         onKeyPress={(e) => e.key === "Enter" && fetchAdmissions()}
-                                        className="w-full bg-black/20 border border-gray-800 rounded-2xl py-4 pl-12 pr-4 text-gray-200 font-bold text-sm uppercase tracking-wider outline-none focus:border-cyan-500/50 transition-all focus:bg-black/40"
+                                        className={`w-full border rounded-2xl py-4 pl-12 pr-4 font-bold text-sm uppercase tracking-wider outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/20 border-gray-800 text-gray-200 focus:bg-black/40' : 'bg-gray-50 border-gray-200 text-gray-800 focus:bg-white'}`}
                                     />
                                 </div>
                                 <div className="w-full md:w-64">
@@ -902,11 +910,11 @@ const InstallmentPayment = () => {
                         </div>
 
                         {/* Students List Table */}
-                        <div className="bg-[#131619] border border-gray-800 rounded-3xl overflow-hidden shadow-2xl">
+                        <div className={`border rounded-3xl overflow-hidden shadow-2xl transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
-                                        <tr className="bg-gray-900/50 border-b border-gray-800">
+                                        <tr className={`border-b ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                             <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Enrollment No.</th>
                                             <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Student</th>
                                             <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Course / Dept</th>
@@ -917,7 +925,7 @@ const InstallmentPayment = () => {
                                             <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Action</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-800/50">
+                                    <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800/50' : 'divide-gray-100'}`}>
                                         {loading ? (
                                             <tr>
                                                 <td colSpan="8" className="p-20 text-center">
@@ -944,21 +952,21 @@ const InstallmentPayment = () => {
                                                     </td>
                                                     <td className="p-6">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-black font-black uppercase">
+                                                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-black font-black uppercase shadow-sm">
                                                                 {adm.studentName.charAt(0)}
                                                             </div>
                                                             <div>
-                                                                <div className="text-white font-black uppercase text-sm">{adm.studentName}</div>
-                                                                <div className="text-[10px] text-gray-500 mt-0.5">{adm.mobile} • {adm.email}</div>
+                                                                <div className={`font-black uppercase text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{adm.studentName}</div>
+                                                                <div className="text-[10px] text-gray-500 mt-0.5 font-medium">{adm.mobile} • {adm.email}</div>
                                                             </div>
                                                         </div>
                                                     </td>
                                                     <td className="p-6">
-                                                        <div className="text-gray-200 font-bold text-xs uppercase">{adm.course}</div>
+                                                        <div className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>{adm.course}</div>
                                                         <div className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-tighter">{adm.department}</div>
                                                     </td>
                                                     <td className="p-6">
-                                                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-800/50 border border-gray-700/50 rounded-lg text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${isDarkMode ? 'bg-gray-800/50 border-gray-700/50 text-gray-400' : 'bg-gray-50 border-gray-100 text-gray-600'}`}>
                                                             <FaMapMarkerAlt className="text-cyan-500" />
                                                             {adm.centre}
                                                         </div>
@@ -967,13 +975,13 @@ const InstallmentPayment = () => {
                                                         <div className="space-y-1">
                                                             <div className="text-[10px] flex justify-between gap-4">
                                                                 <span className="text-gray-500 font-bold">TOTAL:</span>
-                                                                <span className="text-white font-black">₹{adm.totalFees.toLocaleString()}</span>
+                                                                <span className={`font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{adm.totalFees.toLocaleString()}</span>
                                                             </div>
                                                             <div className="text-[10px] flex justify-between gap-4">
                                                                 <span className="text-emerald-500 font-bold">PAID:</span>
                                                                 <span className="text-emerald-500 font-black">₹{adm.totalPaid.toLocaleString()}</span>
                                                             </div>
-                                                            <div className="text-[10px] flex justify-between gap-4 border-t border-gray-800 pt-1">
+                                                            <div className={`text-[10px] flex justify-between gap-4 border-t pt-1 ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                                                                 <span className="text-orange-500 font-bold">DUE:</span>
                                                                 <span className="text-orange-500 font-black">₹{adm.remainingAmount.toLocaleString()}</span>
                                                             </div>
@@ -986,7 +994,7 @@ const InstallmentPayment = () => {
                                                         {getDueStatusBadge(adm)}
                                                     </td>
                                                     <td className="p-6 text-right">
-                                                        <button className="h-10 w-10 rounded-xl bg-gray-800/50 group-hover:bg-cyan-500 group-hover:text-black text-cyan-500 flex items-center justify-center transition-all border border-gray-700 group-hover:border-cyan-400 shadow-lg shadow-black/20">
+                                                        <button className={`h-10 w-10 rounded-xl flex items-center justify-center transition-all border shadow-lg ${isDarkMode ? 'bg-gray-800/50 group-hover:bg-cyan-500 group-hover:text-black text-cyan-500 border-gray-700 group-hover:border-cyan-400 shadow-black/20' : 'bg-white group-hover:bg-cyan-500 group-hover:text-black text-cyan-600 border-gray-200 group-hover:border-cyan-400 shadow-cyan-900/5'}`}>
                                                             <FaChevronRight className="text-xs" />
                                                         </button>
                                                     </td>
@@ -1018,7 +1026,7 @@ const InstallmentPayment = () => {
                         {!loading && financialData && (
                             <>
                                 {/* Student Info Card */}
-                                <div className="bg-gradient-to-br from-[#131619] to-[#0a0c0e] border border-cyan-500/20 rounded-[2.5rem] p-8 mb-8 relative overflow-hidden shadow-2xl">
+                                <div className={`border rounded-[2.5rem] p-8 mb-8 relative overflow-hidden shadow-2xl transition-all ${isDarkMode ? 'bg-gradient-to-br from-[#131619] to-[#0a0c0e] border-cyan-500/20' : 'bg-white border-gray-200'}`}>
                                     <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-[100px] -mr-32 -mt-32"></div>
                                     <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/5 rounded-full blur-[100px] -ml-32 -mb-32"></div>
 
@@ -1027,19 +1035,19 @@ const InstallmentPayment = () => {
                                             {selectedStudent.name.charAt(0)}
                                         </div>
                                         <div className="flex-1 text-center md:text-left">
-                                            <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-4">{selectedStudent.name}</h2>
+                                            <h2 className={`text-4xl font-black italic uppercase tracking-tighter mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedStudent.name}</h2>
                                             <div className="flex flex-wrap justify-center md:justify-start gap-4">
-                                                <div className="bg-black/40 border border-gray-800 px-4 py-2 rounded-xl flex items-center gap-3">
+                                                <div className={`border px-4 py-2 rounded-xl flex items-center gap-3 ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                                     <FaEnvelope className="text-cyan-500" />
-                                                    <span className="text-gray-300 font-bold text-xs uppercase">{selectedStudent.email}</span>
+                                                    <span className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{selectedStudent.email}</span>
                                                 </div>
-                                                <div className="bg-black/40 border border-gray-800 px-4 py-2 rounded-xl flex items-center gap-3">
+                                                <div className={`border px-4 py-2 rounded-xl flex items-center gap-3 ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                                     <FaPhone className="text-cyan-500" />
-                                                    <span className="text-gray-300 font-bold text-xs uppercase">{selectedStudent.mobile}</span>
+                                                    <span className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{selectedStudent.mobile}</span>
                                                 </div>
-                                                <div className="bg-black/40 border border-gray-800 px-4 py-2 rounded-xl flex items-center gap-3">
+                                                <div className={`border px-4 py-2 rounded-xl flex items-center gap-3 ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                                     <FaMapMarkerAlt className="text-cyan-500" />
-                                                    <span className="text-gray-300 font-bold text-xs uppercase">{selectedStudent.centre}</span>
+                                                    <span className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{selectedStudent.centre}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -1047,19 +1055,19 @@ const InstallmentPayment = () => {
 
                                     {/* Summary Stats */}
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-10">
-                                        <div className="bg-black/40 backdrop-blur-xl border border-gray-800 rounded-2xl p-5 hover:border-cyan-500/30 transition-all group">
+                                        <div className={`backdrop-blur-xl border rounded-2xl p-5 hover:border-cyan-500/30 transition-all group ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                             <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 group-hover:text-cyan-500 transition-colors">Total Admissions</div>
-                                            <div className="text-2xl font-black text-white">{financialData.summary.totalAdmissions}</div>
+                                            <div className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{financialData.summary.totalAdmissions}</div>
                                         </div>
-                                        <div className="bg-black/40 backdrop-blur-xl border border-gray-800 rounded-2xl p-5 hover:border-cyan-500/30 transition-all group">
+                                        <div className={`backdrop-blur-xl border rounded-2xl p-5 hover:border-cyan-500/30 transition-all group ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                             <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 group-hover:text-cyan-500 transition-colors">Total Fees</div>
-                                            <div className="text-2xl font-black text-white">₹{financialData.summary.totalFeesAcrossAll.toLocaleString()}</div>
+                                            <div className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{financialData.summary.totalFeesAcrossAll.toLocaleString()}</div>
                                         </div>
-                                        <div className="bg-black/40 backdrop-blur-xl border border-emerald-500/20 rounded-2xl p-5 hover:border-emerald-500/40 transition-all group">
+                                        <div className={`backdrop-blur-xl border rounded-2xl p-5 hover:border-emerald-500/40 transition-all group ${isDarkMode ? 'bg-black/40 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'}`}>
                                             <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 text-emerald-500/70">Total Paid</div>
                                             <div className="text-2xl font-black text-emerald-500">₹{financialData.summary.totalPaidAcrossAll.toLocaleString()}</div>
                                         </div>
-                                        <div className="bg-black/40 backdrop-blur-xl border border-orange-500/20 rounded-2xl p-5 hover:border-orange-500/40 transition-all group">
+                                        <div className={`backdrop-blur-xl border rounded-2xl p-5 hover:border-orange-500/40 transition-all group ${isDarkMode ? 'bg-black/40 border-orange-500/20' : 'bg-orange-50 border-orange-100'}`}>
                                             <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 text-orange-500/70">Total Remaining</div>
                                             <div className="text-2xl font-black text-orange-500">₹{financialData.summary.totalRemainingAcrossAll.toLocaleString()}</div>
                                         </div>
@@ -1068,16 +1076,16 @@ const InstallmentPayment = () => {
 
                                 {/* Admissions List */}
                                 {financialData.admissions.map((admission, admIndex) => (
-                                    <div key={admIndex} className="bg-[#131619] border border-gray-800 rounded-[2.5rem] p-8 mb-8 relative overflow-hidden group hover:border-gray-700 transition-all shadow-xl">
+                                    <div key={admIndex} className={`border rounded-[2.5rem] p-8 mb-8 relative overflow-hidden group hover:border-gray-700 transition-all shadow-xl ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
                                         {/* Admission Header */}
-                                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8 pb-8 border-b border-gray-800">
+                                        <div className={`flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8 pb-8 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                                             <div className="flex items-center gap-6">
                                                 <div className="h-16 w-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-2xl text-cyan-500 group-hover:bg-cyan-500 group-hover:text-black transition-all">
                                                     <FaFileInvoice />
                                                 </div>
                                                 <div>
                                                     <div className="flex items-center gap-4 mb-2">
-                                                        <h3 className="text-2xl font-black text-white italic tracking-tight">{admission.course}</h3>
+                                                        <h3 className={`text-2xl font-black italic tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{admission.course}</h3>
                                                         {getStatusBadge(admission.paymentStatus)}
                                                     </div>
                                                     <div className="text-xs font-black text-gray-500 uppercase tracking-widest">
@@ -1087,25 +1095,25 @@ const InstallmentPayment = () => {
                                             </div>
                                             <div className="grid grid-cols-2 md:grid-cols-1 gap-4 text-right">
                                                 <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Admission Date</div>
-                                                <div className="text-white font-black">{new Date(admission.admissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+                                                <div className={`font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{new Date(admission.admissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
                                             </div>
                                         </div>
 
                                         {/* Fee Breakdown */}
                                         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-                                            <div className="bg-black/30 border border-gray-800/50 rounded-2xl p-4">
+                                            <div className={`border rounded-2xl p-4 ${isDarkMode ? 'bg-black/30 border-gray-800/50' : 'bg-gray-50 border-gray-100'}`}>
                                                 <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">Base Fees</div>
-                                                <div className="text-lg font-black text-white">₹{admission.baseFees.toLocaleString()}</div>
+                                                <div className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{admission.baseFees.toLocaleString()}</div>
                                             </div>
-                                            <div className="bg-black/30 border border-gray-800/50 rounded-2xl p-4">
+                                            <div className={`border rounded-2xl p-4 ${isDarkMode ? 'bg-black/30 border-gray-800/50' : 'bg-red-50 border-red-100'}`}>
                                                 <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 text-red-500/70">Waiver</div>
                                                 <div className="text-lg font-black text-red-500">-₹{admission.discountAmount.toLocaleString()}</div>
                                             </div>
-                                            <div className="bg-black/30 border border-gray-800/50 rounded-2xl p-4">
+                                            <div className={`border rounded-2xl p-4 ${isDarkMode ? 'bg-black/30 border-gray-800/50' : 'bg-gray-50 border-gray-100'}`}>
                                                 <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">GST</div>
-                                                <div className="text-lg font-black text-white">₹{(admission.cgstAmount + admission.sgstAmount).toLocaleString()}</div>
+                                                <div className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{(admission.cgstAmount + admission.sgstAmount).toLocaleString()}</div>
                                             </div>
-                                            <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-2xl p-4">
+                                            <div className={`border rounded-2xl p-4 ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-cyan-50 border-cyan-100'}`}>
                                                 <div className="text-[9px] font-black text-cyan-500 uppercase tracking-widest mb-2">Net Payable</div>
                                                 <div className="text-lg font-black text-cyan-500">₹{admission.totalFees.toLocaleString()}</div>
                                             </div>
@@ -1236,10 +1244,10 @@ const InstallmentPayment = () => {
                                                         </button>
                                                     )}
                                                 </div>
-                                                <div className="bg-black/20 border border-gray-800 rounded-[2rem] overflow-hidden">
+                                                <div className={`rounded-[2rem] overflow-hidden border ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
                                                     <table className="w-full text-left border-collapse">
                                                         <thead>
-                                                            <tr className="bg-gray-900/50 border-b border-gray-800">
+                                                            <tr className={`border-b ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                                                 <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Installment</th>
                                                                 <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Due Date</th>
                                                                 <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Amount</th>
@@ -1250,7 +1258,7 @@ const InstallmentPayment = () => {
                                                                 <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest text-right">Action</th>
                                                             </tr>
                                                         </thead>
-                                                        <tbody className="divide-y divide-gray-800/50">
+                                                        <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800/50' : 'divide-gray-100'}`}>
                                                             {admission.paymentBreakdown && admission.paymentBreakdown.map((installment, idx) => {
                                                                 const today = new Date();
                                                                 today.setHours(0, 0, 0, 0);
@@ -1321,10 +1329,10 @@ const InstallmentPayment = () => {
                                                     <div className="h-1 w-8 bg-emerald-500 rounded-full"></div>
                                                     Payment History ({admission.paymentHistory.length})
                                                 </h4>
-                                                <div className="bg-black/20 border border-gray-800 rounded-[2rem] overflow-hidden">
+                                                <div className={`rounded-[2rem] overflow-hidden border ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
                                                     <table className="w-full text-left border-collapse">
                                                         <thead>
-                                                            <tr className="bg-gray-900/50 border-b border-gray-800 text-[9px] font-black text-gray-500 uppercase tracking-widest">
+                                                            <tr className={`border-b text-[9px] font-black text-gray-500 uppercase tracking-widest ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                                                 <th className="p-5">Date</th>
                                                                 <th className="p-5">Inst #</th>
                                                                 <th className="p-5">Details</th>
@@ -1334,22 +1342,22 @@ const InstallmentPayment = () => {
                                                                 <th className="p-5 text-right">Action</th>
                                                             </tr>
                                                         </thead>
-                                                        <tbody className="divide-y divide-gray-800/50">
+                                                        <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800/50' : 'divide-gray-100'}`}>
                                                             {admission.paymentHistory.map((payment, idx) => (
                                                                 <tr key={idx} className="hover:bg-emerald-500/[0.03] transition-colors">
-                                                                    <td className="p-5 text-gray-300 text-[10px] font-bold">{new Date(payment.createdAt).toLocaleDateString('en-GB')}</td>
+                                                                    <td className={`p-5 text-[10px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>{new Date(payment.createdAt).toLocaleDateString('en-GB')}</td>
                                                                     <td className="p-5 text-cyan-500 font-black italic text-xs">#{payment.installmentNumber}</td>
-                                                                    <td className="p-5 text-gray-400 text-[10px] font-bold uppercase tracking-tighter">
+                                                                    <td className={`p-5 text-[10px] font-bold uppercase tracking-tighter ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                                                         {payment.installmentNumber === 0 ? (
                                                                             <span className="text-emerald-500 font-black">Down Payment</span>
                                                                         ) : payment.billingMonth ? (
-                                                                            <span>Monthly Fee: <span className="text-white">{payment.billingMonth}</span></span>
+                                                                            <span>Monthly Fee: <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{payment.billingMonth}</span></span>
                                                                         ) : (
                                                                             `Installment #${payment.installmentNumber}`
                                                                         )}
                                                                     </td>
-                                                                    <td className="p-5 text-white font-black">₹{payment.paidAmount.toLocaleString()}</td>
-                                                                    <td className="p-5 text-gray-500 text-[10px] font-bold uppercase tracking-widest">{payment.paymentMethod}</td>
+                                                                    <td className={`p-5 font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{payment.paidAmount.toLocaleString()}</td>
+                                                                    <td className={`p-5 text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{payment.paymentMethod}</td>
                                                                     <td className="p-5">{getStatusBadge(payment.status)}</td>
                                                                     <td className="p-5 text-right">
                                                                         <button
@@ -1388,11 +1396,11 @@ const InstallmentPayment = () => {
 
                 {/* Record Payment Modal */}
                 {showPayModal && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
-                        <div className="bg-[#0d0f11] border border-gray-800 w-full max-w-lg rounded-[3rem] overflow-hidden animate-in zoom-in-95 duration-300 shadow-[0_0_100px_rgba(6,182,212,0.1)] flex flex-col max-h-[90vh]">
-                            <div className="p-10 border-b border-gray-800 bg-gradient-to-r from-cyan-500/10 via-transparent to-transparent flex justify-between items-start">
+                    <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md ${isDarkMode ? 'bg-black/90' : 'bg-gray-900/40'}`}>
+                        <div className={`border w-full max-w-lg rounded-[3rem] overflow-hidden animate-in zoom-in-95 duration-300 shadow-2xl flex flex-col max-h-[90vh] ${isDarkMode ? 'bg-[#0d0f11] border-gray-800' : 'bg-white border-gray-200'}`}>
+                            <div className={`p-10 border-b flex justify-between items-start ${isDarkMode ? 'border-gray-800 bg-gradient-to-r from-cyan-500/10 via-transparent to-transparent' : 'border-gray-100 bg-gray-50'}`}>
                                 <div>
-                                    <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter">Record <span className="text-cyan-500">Payment</span></h2>
+                                    <h2 className={`text-3xl font-black italic uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Record <span className="text-cyan-500">Payment</span></h2>
                                     <p className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] mt-2">Installment # {activeInstallment?.installmentNumber}</p>
                                 </div>
                                 <div className="text-right">
@@ -1408,7 +1416,7 @@ const InstallmentPayment = () => {
                                         type="number"
                                         value={payFormData.paidAmount}
                                         onChange={(e) => setPayFormData({ ...payFormData, paidAmount: e.target.value })}
-                                        className="w-full bg-black/40 border border-gray-800 rounded-2xl py-4 px-6 text-white text-lg font-black outline-none focus:border-cyan-500/50 transition-all shadow-inner"
+                                        className={`w-full border rounded-2xl py-4 px-6 text-lg font-black outline-none focus:border-cyan-500/50 transition-all shadow-inner ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                     />
                                 </div>
 
@@ -1418,7 +1426,7 @@ const InstallmentPayment = () => {
                                         type="date"
                                         value={payFormData.receivedDate}
                                         onChange={(e) => setPayFormData({ ...payFormData, receivedDate: e.target.value })}
-                                        className="w-full bg-black/40 border border-gray-800 rounded-2xl py-4 px-6 text-white text-sm font-black outline-none focus:border-cyan-500/50 transition-all"
+                                        className={`w-full border rounded-2xl py-4 px-6 text-sm font-black outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                     />
                                     <p className="text-[9px] text-gray-500 mt-2 uppercase font-black">Actual date when money was received</p>
                                 </div>
@@ -1433,7 +1441,7 @@ const InstallmentPayment = () => {
                                                 onClick={() => setPayFormData({ ...payFormData, paymentMethod: method })}
                                                 className={`py-3 px-1 rounded-xl text-[9px] font-black border transition-all ${payFormData.paymentMethod === method
                                                     ? "bg-cyan-500 border-cyan-400 text-black shadow-lg shadow-cyan-500/20"
-                                                    : "bg-black/40 border-gray-800 text-gray-500 hover:border-gray-700"
+                                                    : (isDarkMode ? "bg-black/40 border-gray-800 text-gray-500 hover:border-gray-700" : "bg-gray-50 border-gray-200 text-gray-400 hover:border-cyan-500/30")
                                                     }`}
                                             >
                                                 {method.replace('_', ' ')}
@@ -1451,7 +1459,7 @@ const InstallmentPayment = () => {
                                                     type="text"
                                                     value={payFormData.transactionId}
                                                     onChange={(e) => setPayFormData({ ...payFormData, transactionId: e.target.value })}
-                                                    className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-white font-bold text-xs outline-none focus:border-cyan-500/50 transition-all font-mono"
+                                                    className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all font-mono ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                                     placeholder="CHQXXXXXX"
                                                 />
                                             </div>
@@ -1461,7 +1469,7 @@ const InstallmentPayment = () => {
                                                     type="date"
                                                     value={payFormData.chequeDate}
                                                     onChange={(e) => setPayFormData({ ...payFormData, chequeDate: e.target.value })}
-                                                    className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-white font-bold text-xs outline-none focus:border-cyan-500/50 transition-all"
+                                                    className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                                 />
                                             </div>
                                         </div>
@@ -1471,7 +1479,7 @@ const InstallmentPayment = () => {
                                                 type="text"
                                                 value={payFormData.accountHolderName}
                                                 onChange={(e) => setPayFormData({ ...payFormData, accountHolderName: e.target.value })}
-                                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-white font-bold text-xs outline-none focus:border-cyan-500/50 transition-all"
+                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                                 placeholder="e.g. HDFC, ICICI, SBI..."
                                             />
                                         </div>
@@ -1485,7 +1493,7 @@ const InstallmentPayment = () => {
                                             type="text"
                                             value={payFormData.transactionId}
                                             onChange={(e) => setPayFormData({ ...payFormData, transactionId: e.target.value })}
-                                            className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-white font-bold text-xs outline-none focus:border-cyan-500/50 transition-all font-mono"
+                                            className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all font-mono ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                             placeholder={(['UPI', 'CARD', 'BANK_TRANSFER'].includes(payFormData.paymentMethod)) ? `Enter ${payFormData.paymentMethod} Transaction ID (Mandatory)` : "Optional transaction reference"}
                                             required={['UPI', 'CARD', 'BANK_TRANSFER'].includes(payFormData.paymentMethod)}
                                         />
@@ -1494,7 +1502,7 @@ const InstallmentPayment = () => {
                                 )}
 
                                 {parseFloat(payFormData.paidAmount) < (activeInstallment?.amount || 0) && (
-                                    <div className="bg-orange-500/10 border border-orange-500/20 p-4 rounded-2xl flex items-center justify-between">
+                                    <div className={`border p-4 rounded-2xl flex items-center justify-between ${isDarkMode ? 'bg-orange-500/10 border-orange-500/20' : 'bg-orange-50 border-orange-100'}`}>
                                         <div className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
                                             Carry forward balance?
                                         </div>
@@ -1502,7 +1510,7 @@ const InstallmentPayment = () => {
                                             type="checkbox"
                                             checked={payFormData.carryForward}
                                             onChange={(e) => setPayFormData({ ...payFormData, carryForward: e.target.checked })}
-                                            className="h-5 w-5 rounded border-gray-800 bg-black/40 text-cyan-500 focus:ring-cyan-500/50"
+                                            className={`h-5 w-5 rounded border-gray-300 text-cyan-500 focus:ring-cyan-500/50 ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-white'}`}
                                         />
                                     </div>
                                 )}
@@ -1512,16 +1520,16 @@ const InstallmentPayment = () => {
                                     <textarea
                                         value={payFormData.remarks}
                                         onChange={(e) => setPayFormData({ ...payFormData, remarks: e.target.value })}
-                                        className="w-full bg-black/40 border border-gray-800 rounded-2xl py-4 px-6 text-white font-bold text-xs outline-none focus:border-cyan-500/50 transition-all resize-none h-24 shadow-inner"
+                                        className={`w-full border rounded-2xl py-4 px-6 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all resize-none h-24 shadow-inner ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                         placeholder="Add payment notes..."
                                     />
                                 </div>
                             </div>
 
-                            <div className="p-10 border-t border-gray-800 flex gap-4 bg-black/40 backdrop-blur-xl">
+                            <div className={`p-10 border-t flex gap-4 backdrop-blur-xl ${isDarkMode ? 'border-gray-800 bg-black/40' : 'border-gray-100 bg-gray-50'}`}>
                                 <button
                                     onClick={() => setShowPayModal(false)}
-                                    className="flex-1 py-4 bg-gray-900 text-gray-500 font-black uppercase text-[10px] tracking-widest rounded-2xl hover:bg-gray-800 hover:text-white transition-all border border-gray-800"
+                                    className={`flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-gray-500 hover:bg-gray-800 hover:text-white' : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-900'}`}
                                 >
                                     Cancel
                                 </button>
@@ -1549,6 +1557,7 @@ const InstallmentPayment = () => {
                     <BillGenerator
                         admission={billModal.admission}
                         installment={billModal.installment}
+                        isDarkMode={isDarkMode}
                         onClose={() => setBillModal({ show: false, admission: null, installment: null })}
                     />
                 )}
@@ -1557,6 +1566,7 @@ const InstallmentPayment = () => {
                 {showEditScheduleModal && (
                     <EditScheduleModal
                         admission={editingAdmission}
+                        isDarkMode={isDarkMode}
                         onClose={() => {
                             setShowEditScheduleModal(false);
                             setEditingAdmission(null);
@@ -1603,6 +1613,7 @@ const InstallmentPayment = () => {
                     studentInfo={selectedStudent}
                     admissionId={activeAdmissionId}
                     admissionType="NORMAL"
+                    isDarkMode={isDarkMode}
                     onPaymentSuccess={(posData) => {
                         console.log("POS Success Callback Data:", posData);
                         // Exhaustive extraction of any potential transaction identifier
@@ -1639,6 +1650,7 @@ const InstallmentPayment = () => {
                     admissionId={activeAdmissionId}
                     studentInfo={selectedStudent}
                     admissionType="NORMAL"
+                    isDarkMode={isDarkMode}
                     onPaymentSuccess={(smsData) => {
                         console.log("SMS Success Callback Data:", smsData);
                         const finalId = smsData.id || smsData.paymentId;

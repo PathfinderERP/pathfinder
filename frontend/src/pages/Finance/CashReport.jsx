@@ -11,8 +11,11 @@ import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import { useTheme } from "../../context/ThemeContext";
 
 const CashReport = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [reportData, setReportData] = useState([]);
@@ -166,20 +169,24 @@ const CashReport = () => {
     const paginatedLedger = mergedLedger.slice(startIndex, startIndex + itemsPerPage);
 
     return (
-        <Layout activePage="Cash Report">
-            <div className="p-4 md:p-6 space-y-8 animate-in fade-in duration-700">
+        <Layout activePage="Finance & Fees">
+            <div className={`p-4 md:p-10 max-w-[1800px] mx-auto min-h-screen pb-20 transition-colors duration-500 ${isDarkMode ? 'bg-[#0d0f11]' : 'bg-gray-50'}`}>
                 {/* Header Section */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-10">
                     <div>
-                        <h1 className="text-2xl md:text-3xl font-black text-white italic tracking-tight">CASH INTELLIGENCE <span className="text-cyan-500">LEDGER</span></h1>
-                        <p className="text-gray-500 text-xs font-bold uppercase tracking-[0.3em] mt-1">Unified Financial Flow & Liquidity Control</p>
+                        <h1 className={`text-4xl font-black italic uppercase tracking-tighter mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            CASH INTELLIGENCE <span className="text-cyan-500">LEDGER</span>
+                        </h1>
+                        <p className="text-gray-500 text-xs font-bold uppercase tracking-widest whitespace-nowrap">
+                            Unified Financial Flow & Liquidity Control
+                        </p>
                     </div>
-                    <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
+                    <div className="flex items-center gap-3 w-full md:w-auto">
                         <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest whitespace-nowrap">Show:</span>
                         <select
                             value={itemsPerPage}
                             onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                            className="bg-[#131619] border border-gray-800 rounded-xl px-4 py-2 text-[10px] font-black text-white outline-none focus:border-cyan-500 transition-all appearance-none cursor-pointer"
+                            className={`border rounded-xl px-4 py-2 text-[10px] font-black outline-none focus:border-cyan-500 transition-all appearance-none cursor-pointer ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
                         >
                             <option value={10}>10 ROWS</option>
                             <option value={25}>25 ROWS</option>
@@ -196,7 +203,7 @@ const CashReport = () => {
 
                 {/* KPI Summary Grid */}
                 <div className="grid col-span-full md:grid-cols-3 gap-6">
-                    <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2rem] hover:border-cyan-500/30 transition-all shadow-2xl relative overflow-hidden group">
+                    <div className={`border p-6 rounded-[2rem] hover:border-cyan-500/30 transition-all shadow-2xl relative overflow-hidden group ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
                         <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                             <FaMoneyBillWave className="text-7xl -rotate-12" />
                         </div>
@@ -206,12 +213,12 @@ const CashReport = () => {
                             </div>
                             <div>
                                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Total Net Reserves</p>
-                                <h3 className="text-3xl font-black text-white mt-1 group-hover:text-cyan-400 transition-colors">₹{summary.totalCashLeft.toLocaleString()}</h3>
+                                <h3 className={`text-3xl font-black mt-1 group-hover:text-cyan-400 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{summary.totalCashLeft.toLocaleString()}</h3>
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2rem] hover:border-amber-500/30 transition-all shadow-2xl relative overflow-hidden group">
+                    <div className={`border p-6 rounded-[2rem] hover:border-amber-500/30 transition-all shadow-2xl relative overflow-hidden group ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
                         <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                             <FaExchangeAlt className="text-7xl -rotate-12" />
                         </div>
@@ -221,12 +228,12 @@ const CashReport = () => {
                             </div>
                             <div>
                                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Assets In Transit</p>
-                                <h3 className="text-3xl font-black text-white mt-1 group-hover:text-amber-400 transition-colors">₹{summary.totalTransit.toLocaleString()}</h3>
+                                <h3 className={`text-3xl font-black mt-1 group-hover:text-amber-400 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{summary.totalTransit.toLocaleString()}</h3>
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-[#131619] border border-gray-800 p-6 rounded-[2rem] hover:border-emerald-500/30 transition-all shadow-2xl relative overflow-hidden group">
+                    <div className={`border p-6 rounded-[2rem] hover:border-emerald-500/30 transition-all shadow-2xl relative overflow-hidden group ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
                         <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                             <FaHistory className="text-7xl -rotate-12" />
                         </div>
@@ -236,19 +243,19 @@ const CashReport = () => {
                             </div>
                             <div>
                                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Monthly Velocity</p>
-                                <h3 className="text-3xl font-black text-white mt-1 group-hover:text-emerald-400 transition-colors">₹{summary.totalTransferredLastMonth.toLocaleString()}</h3>
+                                <h3 className={`text-3xl font-black mt-1 group-hover:text-emerald-400 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{summary.totalTransferredLastMonth.toLocaleString()}</h3>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Tactical Search & High-End Filters */}
-                <div className={`bg-gray-900/40 backdrop-blur-md border border-gray-800 p-6 rounded-[2.5rem] shadow-2xl space-y-4 relative ${showCentreDropdown ? 'z-[100]' : 'z-20'}`}>
+                <div className={`backdrop-blur-md border p-6 rounded-[2.5rem] shadow-2xl space-y-4 relative ${showCentreDropdown ? 'z-[100]' : 'z-20'} ${isDarkMode ? 'bg-gray-900/40 border-gray-800' : 'bg-white border-gray-200'}`}>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className={`relative ${showCentreDropdown ? 'z-[110]' : 'z-10'}`} ref={centreDropdownRef}>
                             <button
                                 onClick={() => setShowCentreDropdown(!showCentreDropdown)}
-                                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-sm flex items-center justify-between text-left"
+                                className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all text-sm flex items-center justify-between text-left ${isDarkMode ? 'bg-gray-800/50 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                             >
                                 <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                 <span className="truncate">
@@ -260,8 +267,8 @@ const CashReport = () => {
                             </button>
 
                             {showCentreDropdown && (
-                                <div className="absolute top-full left-0 right-0 mt-2 bg-[#1a1f24] border border-gray-700 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-[9999] max-h-60 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-gray-700 pointer-events-auto">
-                                    <div className="flex justify-between items-center px-3 py-2 border-b border-gray-800 mb-2">
+                                <div className={`absolute top-full left-0 right-0 mt-2 border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-[9999] max-h-60 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-gray-700 pointer-events-auto ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    <div className={`flex justify-between items-center px-3 py-2 border-b mb-2 ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                                         <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Available Nodes</span>
                                         {filters.centreName.length > 0 && (
                                             <button
@@ -274,7 +281,7 @@ const CashReport = () => {
                                     </div>
 
                                     {/* Dropdown Search Input */}
-                                    <div className="px-2 mb-2 sticky top-0 bg-[#1a1f24] pb-2 border-b border-gray-800/50">
+                                    <div className={`px-2 mb-2 sticky top-0 pb-2 border-b ${isDarkMode ? 'bg-[#1a1f24] border-gray-800/50' : 'bg-white border-gray-100'}`}>
                                         <div className="relative">
                                             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
                                             <input
@@ -283,7 +290,7 @@ const CashReport = () => {
                                                 value={dropdownSearchTerm}
                                                 onChange={(e) => setDropdownSearchTerm(e.target.value)}
                                                 onClick={(e) => e.stopPropagation()}
-                                                className="w-full bg-gray-800/80 border border-gray-700 rounded-lg py-1.5 pl-8 pr-3 text-[11px] text-white focus:outline-none focus:border-cyan-500 transition-all placeholder:text-gray-600"
+                                                className={`w-full border rounded-lg py-1.5 pl-8 pr-3 text-[11px] focus:outline-none focus:border-cyan-500 transition-all placeholder:text-gray-600 ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                             />
                                         </div>
                                     </div>
@@ -300,9 +307,9 @@ const CashReport = () => {
                                                     {filters.centreName.includes(c.centreName) ? (
                                                         <FaCheckSquare className="text-cyan-500" />
                                                     ) : (
-                                                        <FaSquare className="text-gray-700 group-hover:text-gray-600" />
+                                                        <FaSquare className={`${isDarkMode ? 'text-gray-700 group-hover:text-gray-600' : 'text-gray-300 group-hover:text-gray-400'}`} />
                                                     )}
-                                                    <span className={`text-[11px] font-bold ${filters.centreName.includes(c.centreName) ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'}`}>
+                                                    <span className={`text-[11px] font-bold ${filters.centreName.includes(c.centreName) ? (isDarkMode ? 'text-white' : 'text-gray-900') : (isDarkMode ? 'text-gray-400 group-hover:text-gray-300' : 'text-gray-500 group-hover:text-gray-700')}`}>
                                                         {c.centreName}
                                                     </span>
                                                 </div>
@@ -321,7 +328,7 @@ const CashReport = () => {
                             <input
                                 type="text"
                                 placeholder="Search Serial #..."
-                                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-sm"
+                                className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all text-sm ${isDarkMode ? 'bg-gray-800/50 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                 value={filters.serialNumber}
                                 onChange={(e) => setFilters({ ...filters, serialNumber: e.target.value })}
                             />
@@ -331,7 +338,7 @@ const CashReport = () => {
                             <input
                                 type="text"
                                 placeholder="Ref / UTR Number..."
-                                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-sm"
+                                className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all text-sm ${isDarkMode ? 'bg-gray-800/50 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                 value={filters.referenceNumber}
                                 onChange={(e) => setFilters({ ...filters, referenceNumber: e.target.value })}
                             />
@@ -341,7 +348,7 @@ const CashReport = () => {
                             <input
                                 type="text"
                                 placeholder="A/C Number..."
-                                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-sm"
+                                className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all text-sm ${isDarkMode ? 'bg-gray-800/50 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                 value={filters.accountNumber}
                                 onChange={(e) => setFilters({ ...filters, accountNumber: e.target.value })}
                             />
@@ -354,7 +361,7 @@ const CashReport = () => {
                                 <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                 <input
                                     type="date"
-                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-sm [color-scheme:dark]"
+                                    className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all text-sm [color-scheme:dark] ${isDarkMode ? 'bg-gray-800/50 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                     value={filters.startDate}
                                     onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
                                 />
@@ -363,7 +370,7 @@ const CashReport = () => {
                                 <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                 <input
                                     type="date"
-                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-sm [color-scheme:dark]"
+                                    className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all text-sm [color-scheme:dark] ${isDarkMode ? 'bg-gray-800/50 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                     value={filters.endDate}
                                     onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
                                 />
@@ -372,7 +379,7 @@ const CashReport = () => {
                                 <input
                                     type="number"
                                     placeholder="Min Cash Left"
-                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-sm"
+                                    className={`w-full border rounded-xl py-3 px-4 focus:outline-none focus:border-cyan-500 transition-all text-sm ${isDarkMode ? 'bg-gray-800/50 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                     value={filters.minAmount}
                                     onChange={(e) => setFilters({ ...filters, minAmount: e.target.value })}
                                 />
@@ -381,7 +388,7 @@ const CashReport = () => {
                                 <input
                                     type="number"
                                     placeholder="Max Cash Left"
-                                    className="w-full bg-gray-800/50 border border-gray-800 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-sm"
+                                    className={`w-full border rounded-xl py-3 px-4 focus:outline-none focus:border-cyan-500 transition-all text-sm ${isDarkMode ? 'bg-gray-800/50 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                     value={filters.maxAmount}
                                     onChange={(e) => setFilters({ ...filters, maxAmount: e.target.value })}
                                 />
@@ -389,7 +396,7 @@ const CashReport = () => {
                         </div>
                         <button
                             onClick={resetFilters}
-                            className="w-full lg:w-auto px-8 py-3 bg-gray-800 border border-gray-700 rounded-xl text-gray-400 hover:text-white transition-all shadow-lg flex items-center justify-center gap-2 font-bold"
+                            className={`w-full lg:w-auto px-8 py-3 border rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 font-bold ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white' : 'bg-gray-100 border-gray-200 text-gray-500 hover:text-gray-900'}`}
                         >
                             <FaTimes /> Reset
                         </button>
@@ -397,11 +404,11 @@ const CashReport = () => {
                 </div>
 
                 {/* UNIFIED MASTER LEDGER TABLE */}
-                <div className="bg-[#131619]/60 backdrop-blur-xl border border-gray-800 rounded-[2.5rem] overflow-hidden shadow-2xl">
+                <div className={`backdrop-blur-xl border rounded-[2.5rem] overflow-hidden shadow-2xl transition-all ${isDarkMode ? 'bg-[#131619]/60 border-gray-800' : 'bg-white border-gray-200'}`}>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-gray-800/80 border-b border-gray-700">
+                                <tr className={`border-b ${isDarkMode ? 'bg-gray-800/80 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
                                     <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Network Entity</th>
                                     <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">A/C Number</th>
                                     <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] text-right">Liquidity (Available)</th>
@@ -413,7 +420,7 @@ const CashReport = () => {
                                     <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] text-center">Audit</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-800/50">
+                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800/50' : 'divide-gray-100'}`}>
                                 {loading ? (
                                     <tr>
                                         <td colSpan="9" className="p-20 text-center">
@@ -431,15 +438,15 @@ const CashReport = () => {
                                     </tr>
                                 ) : (
                                     paginatedLedger.map((item, index) => (
-                                        <tr key={item.centreId} className="hover:bg-gray-800/30 transition-all group">
+                                        <tr key={item.centreId} className={`transition-all group ${isDarkMode ? 'hover:bg-gray-800/30' : 'hover:bg-gray-50'}`}>
                                             {/* Node Identity */}
                                             <td className="p-6">
                                                 <div className="flex items-center gap-4">
-                                                    <div className="w-12 h-12 rounded-2xl bg-gray-800 flex items-center justify-center border border-gray-700 group-hover:border-cyan-500/50 transition-all shrink-0">
-                                                        <FaBuilding className="text-gray-400 group-hover:text-cyan-400 text-xl" />
+                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border group-hover:border-cyan-500/50 transition-all shrink-0 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                                                        <FaBuilding className={`text-xl group-hover:text-cyan-400 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
                                                     </div>
                                                     <div>
-                                                        <span className="text-white font-black block text-base leading-none">{item.centreName}</span>
+                                                        <span className={`font-black block text-base leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.centreName}</span>
                                                     </div>
                                                 </div>
                                             </td>
@@ -504,7 +511,7 @@ const CashReport = () => {
                                             {/* Reference / UTR */}
                                             <td className="p-6">
                                                 <div className="space-y-1 max-w-[150px]">
-                                                    <span className="text-gray-300 font-mono text-xs block truncate">{item.lastActivity?.referenceNumber || 'N/A'}</span>
+                                                    <span className={`font-mono text-xs block truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{item.lastActivity?.referenceNumber || 'N/A'}</span>
                                                     <span className="text-[8px] text-gray-500 uppercase tracking-tighter block truncate">Partner: {item.lastActivity?.fromCentre?._id === item.centreId ? item.lastActivity?.toCentre?.centreName : item.lastActivity?.fromCentre?.centreName || 'DIRECT'}</span>
                                                 </div>
                                             </td>
@@ -512,7 +519,7 @@ const CashReport = () => {
                                             {/* Debited Date */}
                                             <td className="p-6">
                                                 {item.lastActivity?.debitedDate ? (
-                                                    <span className="text-white text-[11px] font-bold block">{new Date(item.lastActivity.debitedDate).toLocaleDateString()}</span>
+                                                    <span className={`text-[11px] font-bold block ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{new Date(item.lastActivity.debitedDate).toLocaleDateString()}</span>
                                                 ) : (
                                                     <span className="text-gray-700 text-[10px] font-bold">-</span>
                                                 )}
@@ -522,7 +529,7 @@ const CashReport = () => {
                                             <td className="p-6">
                                                 {item.lastActivity ? (
                                                     <div className="space-y-0.5 whitespace-nowrap">
-                                                        <span className="text-white text-[11px] font-bold block">{new Date(item.lastActivity.transferDate).toLocaleDateString()}</span>
+                                                        <span className={`text-[11px] font-bold block ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{new Date(item.lastActivity.transferDate).toLocaleDateString()}</span>
                                                         <span className="text-gray-500 text-[9px] flex items-center gap-1 font-mono uppercase italic leading-none"><FaRegClock className="text-[8px]" /> {new Date(item.lastActivity.transferDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                     </div>
                                                 ) : (
@@ -534,7 +541,7 @@ const CashReport = () => {
                                             <td className="p-6 text-center">
                                                 <div className="flex items-center justify-center gap-2">
                                                     {item.lastActivity?.receiptFile && (
-                                                        <a href={item.lastActivity.receiptFile} target="_blank" rel="noopener noreferrer" className="p-2.5 bg-gray-800 text-cyan-400 rounded-xl hover:bg-cyan-600 hover:text-white transition-all border border-gray-700 shadow-lg" title="View Evidence">
+                                                        <a href={item.lastActivity.receiptFile} target="_blank" rel="noopener noreferrer" className={`p-2.5 rounded-xl transition-all border shadow-lg ${isDarkMode ? 'bg-gray-800 text-cyan-400 border-gray-700 hover:bg-cyan-600 hover:text-white' : 'bg-gray-50 text-cyan-600 border-gray-200 hover:bg-cyan-600 hover:text-white'}`} title="View Evidence">
                                                             <FaFileAlt />
                                                         </a>
                                                     )}
@@ -555,7 +562,7 @@ const CashReport = () => {
 
                     {/* Pagination Footer */}
                     {!loading && mergedLedger.length > 0 && (
-                        <div className="mt-8 flex flex-col md:flex-row items-center justify-between gap-6 bg-gray-900/30 p-6 rounded-3xl border border-gray-800/50">
+                        <div className={`mt-8 flex flex-col md:flex-row items-center justify-between gap-6 p-6 rounded-3xl border ${isDarkMode ? 'bg-gray-900/30 border-gray-800/50' : 'bg-gray-50 border-gray-100'}`}>
                             <div className="text-[10px] text-gray-500 font-black uppercase tracking-[0.3em]">
                                 Node Map: {startIndex + 1} - {Math.min(startIndex + itemsPerPage, mergedLedger.length)} OF {mergedLedger.length} Active Entities
                             </div>
@@ -563,7 +570,7 @@ const CashReport = () => {
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="p-3 bg-gray-800/50 border border-gray-700/50 rounded-2xl text-gray-500 disabled:opacity-20 hover:text-cyan-400 transition-all active:scale-95"
+                                    className={`p-3 rounded-2xl disabled:opacity-20 transition-all active:scale-95 border ${isDarkMode ? 'bg-gray-800/50 border-gray-700/50 text-gray-500 hover:text-cyan-400' : 'bg-white border-gray-200 text-gray-400 hover:text-cyan-600'}`}
                                 >
                                     <FaChevronLeft size={14} />
                                 </button>
@@ -576,7 +583,7 @@ const CashReport = () => {
                                                 <button
                                                     key={pageNum}
                                                     onClick={() => setCurrentPage(pageNum)}
-                                                    className={`w-10 h-10 rounded-xl text-[10px] font-black transition-all active:scale-90 ${currentPage === pageNum ? 'bg-cyan-600 text-white shadow-xl shadow-cyan-900/40' : 'bg-gray-800/30 border border-gray-800 text-gray-500 hover:bg-gray-800'}`}
+                                                    className={`w-10 h-10 rounded-xl text-[10px] font-black transition-all active:scale-90 ${currentPage === pageNum ? 'bg-cyan-600 text-white shadow-xl shadow-cyan-900/40' : (isDarkMode ? 'bg-gray-800/30 border border-gray-800 text-gray-500 hover:bg-gray-800' : 'bg-white border border-gray-200 text-gray-400 hover:bg-gray-50')}`}
                                                 >
                                                     {pageNum}
                                                 </button>
@@ -591,7 +598,7 @@ const CashReport = () => {
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                     disabled={currentPage === totalPages}
-                                    className="p-3 bg-gray-800/50 border border-gray-700/50 rounded-2xl text-gray-500 disabled:opacity-20 hover:text-cyan-400 transition-all active:scale-95"
+                                    className={`p-3 rounded-2xl disabled:opacity-20 transition-all active:scale-95 border ${isDarkMode ? 'bg-gray-800/50 border-gray-700/50 text-gray-500 hover:text-cyan-400' : 'bg-white border-gray-200 text-gray-400 hover:text-cyan-600'}`}
                                 >
                                     <FaChevronRight size={14} />
                                 </button>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaFilter, FaUpload, FaPaperPlane, FaImage, FaPoll, FaAt, FaThumbsUp, FaComment, FaCheckCircle, FaChartBar, FaEnvelope, FaBuilding, FaTrash, FaEllipsisV, FaEdit, FaChevronLeft, FaChevronRight, FaTimes, FaExpand, FaEye, FaHistory, FaVideo, FaUser, FaPhone, FaBriefcase, FaMapMarkerAlt, FaDownload, FaPlay, FaRegSmile } from "react-icons/fa";
+import { FaFilter, FaUpload, FaPaperPlane, FaImage, FaPoll, FaAt, FaThumbsUp, FaComment, FaCheckCircle, FaChartBar, FaEnvelope, FaBuilding, FaTrash, FaEllipsisV, FaEdit, FaChevronLeft, FaChevronRight, FaTimes, FaExpand, FaEye, FaHistory, FaVideo, FaUser, FaPhone, FaBriefcase, FaMapMarkerAlt, FaDownload, FaPlay, FaRegSmile, FaThumbtack } from "react-icons/fa";
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
@@ -141,6 +141,30 @@ const SocialFeed = () => {
             }
         } catch {
             toast.error("Error deleting post");
+        }
+    };
+
+    const handleTogglePin = async (postId) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/posts/${postId}/pin`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const updatedPost = await response.json();
+                setPosts(posts.map(p => p._id === postId ? updatedPost : p));
+                toast.success(updatedPost.isPinned ? "Post pinned successfully" : "Post unpinned successfully");
+                fetchPosts(); // Refresh to ensure correct sorting
+            } else {
+                const data = await response.json();
+                toast.error(data.message || "Failed to toggle pin status");
+            }
+        } catch (error) {
+            toast.error("Error toggling pin status");
         }
     };
 
@@ -786,6 +810,7 @@ const SocialFeed = () => {
                                     onUpdateComment={(commentId, text) => handleUpdateComment(post._id, commentId, text)}
                                     onViewParticipants={(title, users) => setParticipantModalData({ title, users })}
                                     onView={() => handlePostView(post._id)}
+                                    onPin={() => handleTogglePin(post._id)}
                                     currentUser={currentUser}
                                     theme={theme}
                                 />
@@ -1100,7 +1125,7 @@ const ParticipantModal = ({ data, onClose, theme }) => {
     );
 };
 
-const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, onUpdate, onDeleteComment, onUpdateComment, onViewParticipants, onView, currentUser, theme }) => {
+const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, onUpdate, onDeleteComment, onUpdateComment, onViewParticipants, onView, onPin, currentUser, theme }) => {
     const [commentText, setCommentText] = useState("");
     const [showComments, setShowComments] = useState(false);
     const [showCommentTagList, setShowCommentTagList] = useState(false);
@@ -1215,10 +1240,22 @@ const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, on
                             <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 text-[9px] font-black uppercase tracking-widest border border-cyan-500/20 shrink-0">
                                 {post.author?.role}
                             </span>
+                            {post.isPinned && (
+                                <span className="px-1.5 py-0.5 rounded bg-cyan-500 text-white text-[9px] font-black uppercase tracking-widest border border-cyan-500 shrink-0 shadow-[0_0_10px_rgba(6,182,212,0.5)] flex items-center gap-1 animate-pulse">
+                                    <FaThumbtack size={8} className="rotate-45" /> Pinned
+                                </span>
+                            )}
 
                             {/* Action Buttons for SuperAdmin only */}
                             {currentUser.role === "superAdmin" && !isEditing && (
                                 <div className="flex items-center gap-2 sm:gap-3 ml-auto sm:ml-4">
+                                    <button
+                                        onClick={onPin}
+                                        className={`flex items-center gap-1 font-black text-[9px] uppercase tracking-widest transition-all hover:scale-105 px-2 py-1 rounded-md border ${post.isPinned ? 'text-cyan-500 bg-cyan-500/10 border-cyan-500/20' : 'text-gray-500 hover:text-cyan-500 bg-gray-500/5 border-gray-500/10'}`}
+                                        title={post.isPinned ? "Unpin Post" : "Pin Post"}
+                                    >
+                                        <FaThumbtack size={10} className={post.isPinned ? "rotate-45" : ""} /> <span className="hidden xs:inline">{post.isPinned ? 'Unpin' : 'Pin'}</span>
+                                    </button>
                                     <button
                                         onClick={() => setIsEditing(true)}
                                         className="flex items-center gap-1 text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-black text-[9px] uppercase tracking-widest transition-all hover:scale-105 bg-cyan-500/5 px-2 py-1 rounded-md border border-cyan-500/10"

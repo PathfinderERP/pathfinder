@@ -38,7 +38,7 @@ const EnrolledStudentsContent = () => {
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
-    const { theme, toggleTheme } = useTheme();
+    const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
 
     // Display helper: always show ceiling (whole rupee) — stored values stay exact
@@ -1038,12 +1038,7 @@ const EnrolledStudentsContent = () => {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-4">
-                    <button
-                        onClick={toggleTheme}
-                        className={`p-3 rounded-[4px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
-                    >
-                        {isDarkMode ? <><FaSun /> Day</> : <><FaMoon /> Night</>}
-                    </button>
+
 
                     <button
                         onClick={handleRefresh}
@@ -1071,23 +1066,11 @@ const EnrolledStudentsContent = () => {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
                 <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-green-500 hover:scale-[1.02] transition-all`}>
                     <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Total Students</h3>
                     <p className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{filteredStudents.length}</p>
                     <p className="text-gray-500 text-[10px] font-bold uppercase mt-2">Active in view</p>
-                </div>
-
-                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-cyan-500 hover:scale-[1.02] transition-all`}>
-                    <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Total Courses</h3>
-                    <p className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{filteredAdmissions.length}</p>
-                    <p className="text-gray-500 text-[10px] font-bold uppercase mt-2">Active Enrollments</p>
-                </div>
-
-                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-yellow-500 hover:scale-[1.02] transition-all`}>
-                    <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Pending Payment</h3>
-                    <p className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{pendingPaymentCount}</p>
-                    <p className="text-gray-500 text-[10px] font-bold uppercase mt-2">Action Required</p>
                 </div>
 
                 <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-blue-500 hover:scale-[1.02] transition-all`}>

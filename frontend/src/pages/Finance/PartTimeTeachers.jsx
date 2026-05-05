@@ -5,6 +5,7 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { useTheme } from "../../context/ThemeContext";
 
 const MultiSelectDropdown = ({ label, options, selected, onChange }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -31,7 +32,7 @@ const MultiSelectDropdown = ({ label, options, selected, onChange }) => {
         <div className="relative" ref={dropdownRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center justify-between w-full md:w-48 px-4 py-2 bg-gray-900 border border-gray-700 rounded-xl text-xs font-bold text-gray-300 uppercase tracking-wider hover:border-purple-500/50 transition-colors"
+                className="flex items-center justify-between w-full md:w-48 px-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider hover:border-purple-500/50 transition-colors"
                 type="button"
             >
                 <span className="truncate">{selected.length > 0 ? `${selected.length} ${label} Selected` : `Select ${label}`}</span>
@@ -39,7 +40,7 @@ const MultiSelectDropdown = ({ label, options, selected, onChange }) => {
             </button>
 
             {isOpen && (
-                <div className="absolute z-50 w-64 mt-2 bg-[#1a1f24] border border-gray-700 rounded-xl shadow-2xl p-2 max-h-60 overflow-y-auto">
+                <div className="absolute z-50 w-64 mt-2 bg-white dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl p-2 max-h-60 overflow-y-auto">
                     {options.length === 0 ? (
                         <div className="p-2 text-center text-gray-500 text-xs">No options found</div>
                     ) : (
@@ -47,12 +48,12 @@ const MultiSelectDropdown = ({ label, options, selected, onChange }) => {
                             <div
                                 key={option}
                                 onClick={() => toggleOption(option)}
-                                className="flex items-center gap-3 p-2 hover:bg-gray-800 rounded-lg cursor-pointer transition-colors group"
+                                className="flex items-center gap-3 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition-colors group"
                             >
                                 <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${selected.includes(option) ? "bg-purple-500 border-purple-500" : "border-gray-600 group-hover:border-purple-400"}`}>
                                     {selected.includes(option) && <span className="text-white text-[10px]">✓</span>}
                                 </div>
-                                <span className="text-gray-300 text-xs font-medium">{option}</span>
+                                <span className="text-gray-700 dark:text-gray-300 text-xs font-medium">{option}</span>
                             </div>
                         ))
                     )}
@@ -63,6 +64,7 @@ const MultiSelectDropdown = ({ label, options, selected, onChange }) => {
 };
 
 const PartTimeTeachers = () => {
+    const { isDarkMode } = useTheme();
     const [teachers, setTeachers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
@@ -295,24 +297,23 @@ const PartTimeTeachers = () => {
 
     return (
         <Layout activePage="Finance & Fees">
-            <div className="p-4 space-y-6">
-                <ToastContainer position="top-right" theme="dark" />
+            <div className={`p-4 md:p-10 max-w-[1800px] mx-auto min-h-screen pb-20 transition-colors duration-500 ${isDarkMode ? 'bg-[#0d0f11]' : 'bg-gray-50'}`}>
+                <ToastContainer position="top-right" theme={isDarkMode ? "dark" : "light"} />
 
                 {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-10">
                     <div>
-                        <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-                            <span className="p-2 bg-purple-500/10 rounded-lg text-purple-400">
-                                <FaChalkboardTeacher size={24} />
-                            </span>
-                            Part Time Teachers
+                        <h1 className={`text-4xl font-black italic uppercase tracking-tighter mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            Part Time <span className="text-cyan-500">Teachers</span>
                         </h1>
-                        <p className="text-gray-400 text-sm mt-1">Manage part-time faculty and their fee structures</p>
+                        <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">
+                            Manage part-time faculty and their fee structures
+                        </p>
                     </div>
                 </div>
 
                 {/* Filter Bar */}
-                <div className="bg-[#1a1f24] p-4 rounded-2xl border border-gray-800 space-y-4 shadow-xl">
+                <div className="bg-white dark:bg-[#1a1f24] p-4 rounded-2xl border border-gray-200 dark:border-gray-800 space-y-4 shadow-xl">
                     <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
                         <div className="relative w-full md:w-64 group">
                             <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-purple-400 transition-colors" />
@@ -321,7 +322,7 @@ const PartTimeTeachers = () => {
                                 placeholder="Search..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full bg-gray-900/50 border border-gray-700 text-white pl-12 pr-4 py-2 rounded-xl focus:outline-none focus:border-purple-500/50 transition-all text-xs font-medium"
+                                className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white pl-12 pr-4 py-2 rounded-xl focus:outline-none focus:border-purple-500/50 transition-all text-xs font-medium"
                             />
                         </div>
 
@@ -353,16 +354,16 @@ const PartTimeTeachers = () => {
                         </div>
                     </div>
 
-                    <div className="flex flex-col md:flex-row gap-4 items-center justify-between pt-4 border-t border-gray-800">
+                    <div className="flex flex-col md:flex-row gap-4 items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-800">
                         <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg px-2 py-1">
+                            <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1">
                                 <span className="text-gray-500 text-[10px] font-bold uppercase">Rate Range:</span>
                                 <input
                                     type="number"
                                     placeholder="Min"
                                     value={filters.minRate}
                                     onChange={(e) => setFilters({ ...filters, minRate: e.target.value })}
-                                    className="w-16 bg-transparent text-white text-xs text-center focus:outline-none"
+                                    className="w-16 bg-transparent text-gray-900 dark:text-white text-xs text-center focus:outline-none"
                                 />
                                 <span className="text-gray-600">-</span>
                                 <input
@@ -370,7 +371,7 @@ const PartTimeTeachers = () => {
                                     placeholder="Max"
                                     value={filters.maxRate}
                                     onChange={(e) => setFilters({ ...filters, maxRate: e.target.value })}
-                                    className="w-16 bg-transparent text-white text-xs text-center focus:outline-none"
+                                    className="w-16 bg-transparent text-gray-900 dark:text-white text-xs text-center focus:outline-none"
                                 />
                             </div>
                         </div>
@@ -378,7 +379,7 @@ const PartTimeTeachers = () => {
                         <div className="flex gap-2">
                             <button
                                 onClick={handleRefreshFilters}
-                                className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-colors border border-gray-700 hover:border-gray-500"
+                                className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-lg text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-colors border border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500"
                             >
                                 <FaSync /> Refresh Filters
                             </button>
@@ -393,11 +394,11 @@ const PartTimeTeachers = () => {
                 </div>
 
                 {/* Table */}
-                <div className="bg-[#1a1f24] rounded-2xl border border-gray-800 shadow-2xl overflow-hidden">
+                <div className="bg-white dark:bg-[#1a1f24] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-2xl overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse">
                             <thead>
-                                <tr className="bg-gray-900/50 border-b border-gray-800">
+                                <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-800">
                                     <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-gray-500">Name</th>
                                     <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-gray-500">Email</th>
                                     <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-gray-500">Mobile</th>
@@ -409,7 +410,7 @@ const PartTimeTeachers = () => {
                                     <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-gray-500">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-800/50">
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800/50">
                                 {loading ? (
                                     <tr>
                                         <td colSpan="9" className="px-6 py-24 text-center">
@@ -427,17 +428,17 @@ const PartTimeTeachers = () => {
                                     teachers.map((teacher) => (
                                         <tr key={teacher._id} className="hover:bg-purple-500/5 transition-colors group">
                                             <td className="px-6 py-4">
-                                                <span className="text-white font-bold text-sm tracking-tight">{teacher.name?.toUpperCase()}</span>
+                                                <span className="text-gray-900 dark:text-white font-bold text-sm tracking-tight">{teacher.name?.toUpperCase()}</span>
                                             </td>
-                                            <td className="px-6 py-4 text-gray-400 text-xs">{teacher.email || "N/A"}</td>
-                                            <td className="px-6 py-4 text-gray-400 text-xs font-mono">{teacher.mobile || "N/A"}</td>
+                                            <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs">{teacher.email || "N/A"}</td>
+                                            <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs font-mono">{teacher.mobile || "N/A"}</td>
                                             <td className="px-6 py-4">
-                                                <span className="text-gray-300 text-xs">{teacher.subject || "N/A"}</span>
+                                                <span className="text-gray-600 dark:text-gray-300 text-xs">{teacher.subject || "N/A"}</span>
                                             </td>
-                                            <td className="px-6 py-4 text-gray-400 text-xs">{teacher.designation || "N/A"}</td>
-                                            <td className="px-6 py-4 text-gray-400 text-xs">{teacher.department || "N/A"}</td>
+                                            <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs">{teacher.designation || "N/A"}</td>
+                                            <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs">{teacher.department || "N/A"}</td>
                                             <td className="px-6 py-4">
-                                                <span className="px-2 py-1 rounded bg-gray-800 border border-gray-700 text-[10px] font-black uppercase text-gray-400">
+                                                <span className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-[10px] font-black uppercase text-gray-600 dark:text-gray-400">
                                                     {teacher.boardType || "N/A"}
                                                 </span>
                                             </td>
@@ -467,7 +468,7 @@ const PartTimeTeachers = () => {
                         </table>
                     </div>
                     {/* Pagination */}
-                    <div className="p-4 border-t border-gray-800 bg-gray-900/30 flex justify-between items-center">
+                    <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/30 flex justify-between items-center">
                         <button
                             disabled={currentPage === 1}
                             onClick={() => setCurrentPage(prev => prev - 1)}
@@ -475,7 +476,7 @@ const PartTimeTeachers = () => {
                         >
                             Previous
                         </button>
-                        <span className="text-gray-400 text-xs font-bold uppercase tracking-widest text-center">Page {currentPage} of {totalPages}<br /><span className="text-[10px] text-gray-600">{totalItems} Results</span></span>
+                        <span className="text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-widest text-center">Page {currentPage} of {totalPages}<br /><span className="text-[10px] text-gray-400 dark:text-gray-600">{totalItems} Results</span></span>
                         <button
                             disabled={currentPage === totalPages}
                             onClick={() => setCurrentPage(prev => prev + 1)}
@@ -489,10 +490,10 @@ const PartTimeTeachers = () => {
 
             {/* Edit/Add Fee Modal */}
             {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="bg-[#1a1f24] w-full max-w-md rounded-2xl border border-gray-800 shadow-2xl overflow-hidden">
-                        <div className="p-6 border-b border-gray-800 bg-gray-900/50 flex justify-between items-center">
-                            <h3 className="text-lg font-black text-white tracking-tight">
+                <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm ${isDarkMode ? 'bg-black/80' : 'bg-gray-900/40'}`}>
+                    <div className="bg-white dark:bg-[#1a1f24] w-full max-w-md rounded-2xl border border-gray-200 dark:border-gray-800 shadow-2xl overflow-hidden">
+                        <div className="p-6 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 flex justify-between items-center">
+                            <h3 className="text-lg font-black text-gray-900 dark:text-white tracking-tight">
                                 Manage Fee Structure
                             </h3>
                             <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-white transition-colors">
@@ -506,8 +507,8 @@ const PartTimeTeachers = () => {
                                     {formData.name.charAt(0)}
                                 </div>
                                 <div>
-                                    <h4 className="text-white font-bold text-sm">{formData.name}</h4>
-                                    <p className="text-gray-400 text-xs">{formData.subject} • {formData.email}</p>
+                                    <h4 className="text-gray-900 dark:text-white font-bold text-sm">{formData.name}</h4>
+                                    <p className="text-gray-500 dark:text-gray-400 text-xs">{formData.subject} • {formData.email}</p>
                                 </div>
                             </div>
                         </div>
@@ -515,12 +516,12 @@ const PartTimeTeachers = () => {
                         <form onSubmit={handleSubmit} className="p-6 pt-0 space-y-6">
                             <div className="space-y-4">
                                 <div className="space-y-2">
-                                    <label className="text-xs font-bold uppercase tracking-widest text-gray-500">Fee Type</label>
+                                    <label className="text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-500">Fee Type</label>
                                     <select
                                         name="feeType"
                                         value={formData.feeType}
                                         onChange={handleInputChange}
-                                        className="w-full bg-gray-900 border border-gray-700 text-white px-4 py-3 rounded-xl focus:border-purple-500 focus:outline-none transition-colors appearance-none"
+                                        className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white px-4 py-3 rounded-xl focus:border-purple-500 focus:outline-none transition-colors appearance-none"
                                     >
                                         <option value="HOURLY">Hourly Rate</option>
                                         <option value="CLASS_WISE">Per Class Rate</option>
@@ -537,7 +538,7 @@ const PartTimeTeachers = () => {
                                         value={formData.rate}
                                         onChange={handleInputChange}
                                         placeholder="Enter amount..."
-                                        className="w-full bg-gray-900 border border-gray-700 text-white px-4 py-3 rounded-xl focus:border-purple-500 focus:outline-none transition-colors font-bold text-lg"
+                                        className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white px-4 py-3 rounded-xl focus:border-purple-500 focus:outline-none transition-colors font-bold text-lg"
                                     />
                                 </div>
                             </div>

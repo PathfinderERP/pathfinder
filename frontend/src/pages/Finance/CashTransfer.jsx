@@ -4,11 +4,12 @@ import { hasPermission } from "../../config/permissions";
 import { FaExchangeAlt, FaPaperPlane, FaBuilding, FaWallet, FaLock, FaKey, FaArrowRight, FaCheckCircle, FaHashtag, FaFileInvoice, FaCloudUploadAlt, FaTimes, FaCalendarAlt } from "react-icons/fa";
 import axios from "axios";
 import { toast } from "react-toastify";
-
+import { useTheme } from "../../context/ThemeContext";
 import { useNavigate } from "react-router-dom";
 
 const CashTransfer = () => {
     const navigate = useNavigate();
+    const { isDarkMode } = useTheme();
     const [loading, setLoading] = useState(false);
     const [centres, setCentres] = useState([]);
     const [userCentres, setUserCentres] = useState([]);
@@ -169,21 +170,21 @@ const CashTransfer = () => {
         return (
             <Layout activePage="Cash Transfer">
                 <div className="flex items-center justify-center h-[calc(100vh-100px)] animate-in zoom-in duration-500 p-4">
-                    <div className="bg-gray-900/60 backdrop-blur-xl border border-emerald-500/30 p-6 md:p-10 rounded-3xl shadow-2xl shadow-emerald-500/10 max-w-lg w-full text-center space-y-6">
+                    <div className={`backdrop-blur-xl border p-6 md:p-10 rounded-3xl shadow-2xl max-w-lg w-full text-center space-y-6 ${isDarkMode ? 'bg-gray-900/60 border-emerald-500/30 shadow-emerald-500/10' : 'bg-white border-emerald-200 shadow-emerald-900/10'}`}>
                         <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto border border-emerald-500/40">
                             <FaCheckCircle className="text-5xl text-emerald-400" />
                         </div>
                         <div>
-                            <h2 className="text-2xl md:text-3xl font-bold text-white">Transfer Success!</h2>
+                            <h2 className={`text-2xl md:text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Transfer Success!</h2>
                             <p className="text-cyan-400 font-mono text-sm mt-1">Transaction ID: #{serialNumber}</p>
                         </div>
 
                         <p className="text-gray-400 text-sm md:text-lg">Transfer request created. Securely share this password with the recipient.</p>
 
-                        <div className="bg-gray-800/80 border-2 border-dashed border-cyan-500/40 p-6 rounded-2xl relative group overflow-hidden">
+                        <div className={`border-2 border-dashed p-6 rounded-2xl relative group overflow-hidden ${isDarkMode ? 'bg-gray-800/80 border-cyan-500/40' : 'bg-cyan-50 border-cyan-200'}`}>
                             <div className="absolute inset-0 bg-cyan-500/5 group-hover:bg-cyan-500/10 transition-colors"></div>
                             <p className="text-xs text-cyan-400 font-semibold uppercase tracking-widest relative">Unique Transfer Password</p>
-                            <h1 className="text-4xl md:text-5xl font-black text-white mt-2 tracking-widest relative">{generatedPassword}</h1>
+                            <h1 className={`text-4xl md:text-5xl font-black mt-2 tracking-widest relative ${isDarkMode ? 'text-white' : 'text-cyan-900'}`}>{generatedPassword}</h1>
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-4 mt-8">
@@ -206,7 +207,7 @@ const CashTransfer = () => {
                                     setReceiptFile(null);
                                     setReceiptPreview(null);
                                 }}
-                                className="flex-1 bg-gray-800 text-white font-bold py-4 rounded-xl hover:bg-gray-700 transition-all border border-gray-700"
+                                className={`flex-1 font-bold py-4 rounded-xl transition-all border ${isDarkMode ? 'bg-gray-800 text-white border-gray-700 hover:bg-gray-700' : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'}`}
                             >
                                 New Transfer
                             </button>
@@ -224,15 +225,20 @@ const CashTransfer = () => {
     }
 
     return (
-        <Layout activePage="Cash Transfer">
-            <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-8 animate-in slide-in-from-bottom-10 duration-700">
-                <div className="flex items-center justify-between">
+        <Layout activePage="Finance & Fees">
+            <div className={`p-4 md:p-10 max-w-[1800px] mx-auto min-h-screen pb-20 transition-colors duration-500 ${isDarkMode ? 'bg-[#0d0f11]' : 'bg-gray-50'}`}>
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-10">
                     <div>
-                        <h1 className="text-2xl md:text-3xl font-bold text-white">Cash Transfer</h1>
-                        <p className="text-gray-400 text-sm mt-1">Securely move funds with unique password authentication</p>
+                        <h1 className={`text-4xl font-black italic uppercase tracking-tighter mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            Cash <span className="text-cyan-500">Transfer</span>
+                        </h1>
+                        <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">
+                            Securely move funds with unique password authentication
+                        </p>
                     </div>
                     {serialNumber && (
-                        <div className="bg-gray-800/50 px-4 py-2 rounded-lg border border-gray-700">
+                        <div className={`px-4 py-2 rounded-lg border ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
                             <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Next Serial #</p>
                             <p className="text-xl font-black text-cyan-400">#{parseInt(serialNumber) + 1 || '...'}</p>
                         </div>
@@ -241,8 +247,8 @@ const CashTransfer = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Form Section */}
-                    <div className="lg:col-span-2 bg-gray-900/40 backdrop-blur-md border border-gray-800 p-6 md:p-8 rounded-3xl shadow-2xl space-y-8">
-                        <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                    <div className={`lg:col-span-2 backdrop-blur-md border p-6 md:p-8 rounded-3xl shadow-2xl space-y-8 ${isDarkMode ? 'bg-gray-900/40 border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <h3 className={`text-xl font-bold flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             <div className="p-2 bg-cyan-500/10 rounded-lg">
                                 <FaPaperPlane className="text-cyan-400" />
                             </div>
@@ -252,11 +258,11 @@ const CashTransfer = () => {
                         <form onSubmit={handleTransfer} className="space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 ml-1">From Centre (Auto-detected)</label>
+                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>From Centre (Auto-detected)</label>
                                     <div className="relative">
                                         <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <select
-                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all appearance-none disabled:opacity-50"
+                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all appearance-none disabled:opacity-50 ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                             value={formData.fromCentreId}
                                             onChange={(e) => setFormData({ ...formData, fromCentreId: e.target.value })}
                                             disabled={userCentres.length <= 1}
@@ -273,11 +279,11 @@ const CashTransfer = () => {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 ml-1">To Centre / Head Office</label>
+                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>To Centre / Head Office</label>
                                     <div className="relative">
                                         <FaArrowRight className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <select
-                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all appearance-none disabled:opacity-75"
+                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all appearance-none disabled:opacity-75 ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                             value={formData.toCentreId}
                                             onChange={(e) => {
                                                 const selectedCentre = centres.find(c => c._id === e.target.value);
@@ -307,12 +313,12 @@ const CashTransfer = () => {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 ml-1">Amount (₹)</label>
+                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Amount (₹)</label>
                                     <div className="relative">
                                         <FaWallet className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <input
                                             type="number"
-                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all"
+                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                             placeholder="Enter amount"
                                             value={formData.amount}
                                             onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
@@ -320,11 +326,11 @@ const CashTransfer = () => {
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 ml-1">Account Number</label>
+                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Account Number</label>
                                     <div className="relative">
                                         <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <select
-                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all appearance-none"
+                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all appearance-none ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                             value={formData.accountNumber}
                                             onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
                                         >
@@ -347,12 +353,12 @@ const CashTransfer = () => {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 ml-1">Reference Number</label>
+                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Reference Number</label>
                                     <div className="relative">
                                         <FaHashtag className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <input
                                             type="text"
-                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all"
+                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                             placeholder="Bank Ref / ChUTR"
                                             value={formData.referenceNumber}
                                             onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })}
@@ -360,12 +366,12 @@ const CashTransfer = () => {
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 ml-1">Deposit Date</label>
+                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Deposit Date</label>
                                     <div className="relative">
                                         <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <input
                                             type="date"
-                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all [color-scheme:dark]"
+                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white [color-scheme:dark]' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                             value={formData.debitedDate}
                                             onChange={(e) => setFormData({ ...formData, debitedDate: e.target.value })}
                                             required
@@ -377,12 +383,12 @@ const CashTransfer = () => {
                             {/* From Date / To Date Filter Row */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 ml-1">From Date</label>
+                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>From Date</label>
                                     <div className="relative">
                                         <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <input
                                             type="date"
-                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all [color-scheme:dark]"
+                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white [color-scheme:dark]' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                             value={formData.fromDate}
                                             onChange={(e) => setFormData({ ...formData, fromDate: e.target.value })}
                                             max={formData.toDate || yesterdayStr}
@@ -390,12 +396,12 @@ const CashTransfer = () => {
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 ml-1">To Date</label>
+                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>To Date</label>
                                     <div className="relative">
                                         <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <input
                                             type="date"
-                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all [color-scheme:dark]"
+                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white [color-scheme:dark]' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                             value={formData.toDate}
                                             onChange={(e) => setFormData({ ...formData, toDate: e.target.value })}
                                             min={formData.fromDate}
@@ -407,7 +413,7 @@ const CashTransfer = () => {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 ml-1">Bank Receipt (Img/PDF)</label>
+                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Bank Receipt (Img/PDF)</label>
                                     <div className="relative">
                                         <input
                                             type="file"
@@ -418,7 +424,7 @@ const CashTransfer = () => {
                                         />
                                         <label
                                             htmlFor="receiptInput"
-                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 px-4 text-gray-400 cursor-pointer flex items-center justify-between hover:border-cyan-500 transition-all"
+                                            className={`w-full border rounded-xl py-3 px-4 cursor-pointer flex items-center justify-between hover:border-cyan-500 transition-all ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-500'}`}
                                         >
                                             <span className="truncate">{receiptFile ? receiptFile.name : "Select Receipt File"}</span>
                                             <FaCloudUploadAlt className="text-cyan-400" />
@@ -428,7 +434,7 @@ const CashTransfer = () => {
                             </div>
 
                             {receiptPreview && (
-                                <div className="relative w-full h-32 bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden flex items-center justify-center group">
+                                <div className={`relative w-full h-32 rounded-2xl border overflow-hidden flex items-center justify-center group ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
                                     {receiptPreview === 'pdf' ? (
                                         <div className="flex flex-col items-center">
                                             <FaFileInvoice className="text-4xl text-cyan-400" />
@@ -448,9 +454,9 @@ const CashTransfer = () => {
                             )}
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-400 ml-1">Remarks (Optional)</label>
+                                <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Remarks (Optional)</label>
                                 <textarea
-                                    className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-4 px-4 text-white focus:outline-none focus:border-cyan-500 transition-all resize-none"
+                                    className={`w-full border rounded-xl py-4 px-4 focus:outline-none focus:border-cyan-500 transition-all resize-none ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                     rows="3"
                                     placeholder="Add notes for recipient centre..."
                                     value={formData.remarks}
@@ -479,15 +485,15 @@ const CashTransfer = () => {
 
                     {/* Side Info */}
                     <div className="space-y-6">
-                        <div className="bg-gradient-to-br from-cyan-900/40 via-cyan-800/20 to-transparent border border-cyan-500/20 p-8 rounded-3xl backdrop-blur-xl relative overflow-hidden group">
+                        <div className={`border p-8 rounded-3xl backdrop-blur-xl relative overflow-hidden group ${isDarkMode ? 'bg-gradient-to-br from-cyan-900/40 via-cyan-800/20 to-transparent border-cyan-500/20' : 'bg-gradient-to-br from-cyan-50 via-white to-white border-cyan-100 shadow-sm'}`}>
                             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                                <FaExchangeAlt className="text-9xl -rotate-12" />
+                                <FaExchangeAlt className={`text-9xl -rotate-12 ${isDarkMode ? '' : 'text-cyan-900'}`} />
                             </div>
                             <div className="space-y-1 relative">
-                                <p className="text-cyan-400 font-bold text-xs uppercase tracking-widest">
+                                <p className="text-cyan-600 font-bold text-xs uppercase tracking-widest">
                                     {formData.fromCentreId ? "Centre Cash Balance" : "Total Available Cash"}
                                 </p>
-                                <h4 className="text-3xl md:text-4xl font-black text-white">
+                                <h4 className={`text-3xl md:text-4xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                     ₹{(() => {
                                         if (formData.fromCentreId) {
                                             const centreReport = auditReports.find(r => r.centreId === formData.fromCentreId);
@@ -505,8 +511,8 @@ const CashTransfer = () => {
                             </div>
                         </div>
 
-                        <div className="bg-gray-900/60 border border-gray-800 p-8 rounded-3xl space-y-6">
-                            <h4 className="text-white font-bold text-lg flex items-center gap-3">
+                        <div className={`border p-8 rounded-3xl space-y-6 ${isDarkMode ? 'bg-gray-900/60 border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                            <h4 className={`font-bold text-lg flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                 <div className="p-2 bg-amber-500/10 rounded-lg">
                                     <FaKey className="text-amber-400" />
                                 </div>
@@ -514,23 +520,23 @@ const CashTransfer = () => {
                             </h4>
                             <div className="space-y-6 mt-4">
                                 <div className="flex gap-4 group">
-                                    <div className="w-8 h-8 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center text-cyan-400 font-bold shrink-0 group-hover:border-cyan-500 transition-colors">1</div>
+                                    <div className={`w-8 h-8 rounded-xl border flex items-center justify-center font-bold shrink-0 transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700 text-cyan-400 group-hover:border-cyan-500' : 'bg-gray-100 border-gray-200 text-cyan-600 group-hover:border-cyan-400'}`}>1</div>
                                     <div>
-                                        <p className="text-sm font-bold text-gray-300">Initiate</p>
+                                        <p className={`text-sm font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Initiate</p>
                                         <p className="text-xs text-gray-500 mt-0.5">Enter details and upload bank receipt for verification.</p>
                                     </div>
                                 </div>
                                 <div className="flex gap-4 group">
                                     <div className="w-8 h-8 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center text-cyan-400 font-bold shrink-0 group-hover:border-cyan-500 transition-colors">2</div>
                                     <div>
-                                        <p className="text-sm font-bold text-gray-300">Passcode</p>
+                                        <p className={`text-sm font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Passcode</p>
                                         <p className="text-xs text-gray-500 mt-0.5">Share the generated 6-digit code with the receiving centre.</p>
                                     </div>
                                 </div>
                                 <div className="flex gap-4 group">
                                     <div className="w-8 h-8 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center text-cyan-400 font-bold shrink-0 group-hover:border-cyan-500 transition-colors">3</div>
                                     <div>
-                                        <p className="text-sm font-bold text-gray-300">Complete</p>
+                                        <p className={`text-sm font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Complete</p>
                                         <p className="text-xs text-gray-500 mt-0.5">Recieving centre verifies code to update transaction history.</p>
                                     </div>
                                 </div>

@@ -17,7 +17,11 @@ import {
     ResponsiveContainer
 } from 'recharts';
 
+import { useTheme } from "../../context/ThemeContext";
+
 const CancelChequePayment = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [searchTerm, setSearchTerm] = useState("");
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -176,19 +180,16 @@ const CancelChequePayment = () => {
         toast.success("Exported successfully!");
     };
 
-
-
-
     const customStyles = {
         control: (provided) => ({
             ...provided,
-            backgroundColor: 'rgba(0, 0, 0, 0.4)',
-            borderColor: '#1f2937',
+            backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.4)' : '#ffffff',
+            borderColor: isDarkMode ? '#1f2937' : '#e5e7eb',
             borderRadius: '0.75rem',
             padding: '4px',
             fontSize: '0.75rem',
             fontWeight: 'bold',
-            color: 'white',
+            color: isDarkMode ? 'white' : '#111827',
             outline: 'none',
             '&:hover': {
                 borderColor: 'rgba(59, 130, 246, 0.5)',
@@ -196,15 +197,15 @@ const CancelChequePayment = () => {
         }),
         menu: (provided) => ({
             ...provided,
-            backgroundColor: '#131619',
-            border: '1px solid #1f2937',
+            backgroundColor: isDarkMode ? '#131619' : '#ffffff',
+            border: isDarkMode ? '1px solid #1f2937' : '1px solid #e5e7eb',
             borderRadius: '0.75rem',
             zIndex: 999
         }),
         option: (provided, state) => ({
             ...provided,
             backgroundColor: state.isFocused ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-            color: state.isFocused ? '#3b82f6' : '#9ca3af',
+            color: state.isFocused ? '#3b82f6' : (isDarkMode ? '#9ca3af' : '#4b5563'),
             fontSize: '0.75rem',
             fontWeight: 'bold',
             cursor: 'pointer',
@@ -215,7 +216,7 @@ const CancelChequePayment = () => {
         }),
         multiValue: (provided) => ({
             ...provided,
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.1)' : '#eff6ff',
             borderRadius: '6px',
         }),
         multiValueLabel: (provided) => ({
@@ -235,21 +236,21 @@ const CancelChequePayment = () => {
         }),
         input: (provided) => ({
             ...provided,
-            color: 'white',
+            color: isDarkMode ? 'white' : '#111827',
         }),
         singleValue: (provided) => ({
             ...provided,
-            color: 'white',
+            color: isDarkMode ? 'white' : '#111827',
         }),
     };
 
     return (
         <Layout activePage="Finance & Fees">
-            <div className="p-4 md:p-10 max-w-[1600px] mx-auto min-h-screen pb-20">
+            <div className={`p-4 md:p-10 max-w-[1600px] mx-auto min-h-screen pb-20 transition-all duration-500 ${isDarkMode ? 'bg-[#0d0f11]' : 'bg-gray-50'}`}>
                 {/* Header */}
                 <div className="mb-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
                     <div>
-                        <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">
+                        <h1 className={`text-4xl font-black italic uppercase tracking-tighter mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             Cheque Payment <span className="text-cyan-500">Records</span>
                         </h1>
                         <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">
@@ -257,7 +258,7 @@ const CancelChequePayment = () => {
                         </p>
                     </div>
 
-                    <div className="bg-[#131619] border border-gray-800 rounded-2xl p-4" style={{ width: '480px', height: '140px' }}>
+                    <div className={`border rounded-2xl p-4 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`} style={{ width: '480px', height: '140px' }}>
                         <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Cheque Processing Analytics</div>
                         <ResponsiveContainer width="100%" height={90}>
                             <BarChart
@@ -301,14 +302,15 @@ const CancelChequePayment = () => {
                                 />
                                 <Tooltip
                                     contentStyle={{
-                                        backgroundColor: '#1f2937',
-                                        border: '1px solid #374151',
+                                        backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
+                                        border: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb',
                                         borderRadius: '8px',
                                         fontSize: '11px',
-                                        fontWeight: 'bold'
+                                        fontWeight: 'bold',
+                                        color: isDarkMode ? '#fff' : '#111827'
                                     }}
-                                    labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '10px' }}
-                                    cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+                                    labelStyle={{ color: isDarkMode ? '#fff' : '#111827', fontWeight: 'bold', fontSize: '10px' }}
+                                    cursor={{ fill: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)' }}
                                     formatter={(value, name) => {
                                         if (name === 'value') return [value + ' Cheques', 'Count'];
                                         if (name === 'amount') return ['₹' + value.toLocaleString(), 'Amount'];
@@ -332,7 +334,7 @@ const CancelChequePayment = () => {
                 </div>
 
                 {/* Filters Section */}
-                <div className="bg-[#131619] border border-gray-800 rounded-3xl p-6 mb-8">
+                <div className={`border rounded-3xl p-6 mb-8 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end mb-6">
                         <div>
                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
@@ -399,7 +401,7 @@ const CancelChequePayment = () => {
                                 type="date"
                                 value={filters.startDate}
                                 onChange={(e) => handleFilterChange("startDate", e.target.value)}
-                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-gray-400 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all uppercase"
+                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all uppercase ${isDarkMode ? 'bg-black/40 border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-700'}`}
                             />
                         </div>
                         <div>
@@ -408,7 +410,7 @@ const CancelChequePayment = () => {
                                 type="date"
                                 value={filters.endDate}
                                 onChange={(e) => handleFilterChange("endDate", e.target.value)}
-                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-gray-400 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all uppercase"
+                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all uppercase ${isDarkMode ? 'bg-black/40 border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-700'}`}
                             />
                         </div>
                         <div>
@@ -417,7 +419,7 @@ const CancelChequePayment = () => {
                                 type="date"
                                 value={filters.chequeStartDate}
                                 onChange={(e) => handleFilterChange("chequeStartDate", e.target.value)}
-                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-gray-400 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all uppercase"
+                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all uppercase ${isDarkMode ? 'bg-black/40 border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-700'}`}
                             />
                         </div>
                         <div>
@@ -426,7 +428,7 @@ const CancelChequePayment = () => {
                                 type="date"
                                 value={filters.chequeEndDate}
                                 onChange={(e) => handleFilterChange("chequeEndDate", e.target.value)}
-                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-gray-400 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all uppercase"
+                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all uppercase ${isDarkMode ? 'bg-black/40 border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-700'}`}
                             />
                         </div>
                     </div>
@@ -434,7 +436,7 @@ const CancelChequePayment = () => {
                     <div className="flex flex-col md:flex-row gap-4 pt-6 border-t border-gray-800/50">
                         <button
                             onClick={clearFilters}
-                            className="flex-1 py-3 bg-gray-800 text-gray-400 font-black uppercase text-xs tracking-widest rounded-xl hover:bg-gray-700 hover:text-white transition-all border border-gray-700 flex items-center justify-center gap-2"
+                            className={`flex-1 py-3 font-black uppercase text-xs tracking-widest rounded-xl transition-all border flex items-center justify-center gap-2 ${isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-white' : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200 hover:text-gray-900'}`}
                         >
                             <FaTimes /> Clear Filters
                         </button>
@@ -449,22 +451,22 @@ const CancelChequePayment = () => {
 
                 {/* Search */}
                 <div className="relative group mb-8">
-                    <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-cyan-500 transition-colors" />
+                    <FaSearch className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-gray-600 group-focus-within:text-cyan-500' : 'text-gray-400 group-focus-within:text-cyan-600'}`} />
                     <input
                         type="text"
                         placeholder="SEARCH BY NAME, ADMISSION NO, OR CHEQUE NUMBER..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-[#131619] border border-gray-800 rounded-xl py-4 pl-12 pr-4 text-gray-200 font-bold text-xs uppercase tracking-wider outline-none focus:border-cyan-500/50 transition-all shadow-inner"
+                        className={`w-full border rounded-xl py-4 pl-12 pr-4 font-bold text-xs uppercase tracking-wider outline-none focus:border-cyan-500/50 transition-all shadow-inner ${isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-200' : 'bg-white border-gray-200 text-gray-800'}`}
                     />
                 </div>
 
                 {/* Table */}
-                <div className="bg-[#131619] border border-gray-800 rounded-[2rem] overflow-hidden shadow-2xl">
+                <div className={`border rounded-[2rem] overflow-hidden shadow-2xl transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse min-w-[1400px]">
                             <thead>
-                                <tr className="bg-gray-900/50 border-b border-gray-800 text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                                <tr className={`border-b text-[10px] font-black text-gray-500 uppercase tracking-widest ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                     <th className="p-6">Cheque No.</th>
                                     <th className="p-6">Student</th>
                                     <th className="p-6">Bank</th>
@@ -476,7 +478,7 @@ const CancelChequePayment = () => {
                                     <th className="p-6 text-right">Remarks / Notes</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-800">
+                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                 {loading ? (
                                     <tr>
                                         <td colSpan="9" className="p-12 text-center">
@@ -492,22 +494,22 @@ const CancelChequePayment = () => {
                                     </tr>
                                 ) : (
                                     cheques.map((cheque) => (
-                                        <tr key={cheque.id || cheque.paymentId} className="hover:bg-cyan-500/[0.02] transition-colors group">
+                                        <tr key={cheque.id || cheque.paymentId} className={`transition-colors group ${isDarkMode ? 'hover:bg-cyan-500/[0.02]' : 'hover:bg-cyan-500/[0.01]'}`}>
                                             <td className="p-6">
                                                 <span className="text-cyan-500 font-black">{cheque.chequeNumber}</span>
                                             </td>
                                             <td className="p-6">
-                                                <div className="font-bold text-white uppercase">{cheque.studentName}</div>
+                                                <div className={`font-bold uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{cheque.studentName}</div>
                                                 <div className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">{cheque.admissionNo}</div>
                                             </td>
-                                            <td className="p-6 text-gray-300 font-bold text-xs">
+                                            <td className={`p-6 font-bold text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                                                 {cheque.bankName && cheque.bankName !== "N/A" ? cheque.bankName : (cheque.accountHolderName || "N/A")}
                                             </td>
-                                            <td className="p-6 text-white font-black">₹{cheque.amount.toLocaleString()}</td>
-                                            <td className="p-6 text-gray-300 font-bold text-xs">
+                                            <td className={`p-6 font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{cheque.amount.toLocaleString()}</td>
+                                            <td className={`p-6 font-bold text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                                                 {cheque.chequeDate ? new Date(cheque.chequeDate).toLocaleDateString('en-IN') : "N/A"}
                                             </td>
-                                            <td className="p-6 text-gray-300 font-bold text-xs">
+                                            <td className={`p-6 font-bold text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                                                 {cheque.clearedOrRejectedDate ? new Date(cheque.clearedOrRejectedDate).toLocaleDateString('en-IN') : "N/A"}
                                             </td>
                                             <td className="p-6 text-center">
@@ -522,7 +524,7 @@ const CancelChequePayment = () => {
                                                 </span>
                                             </td>
                                             <td className="p-6">
-                                                <div className="text-gray-300 text-xs font-black uppercase italic tracking-tighter">
+                                                <div className={`text-xs font-black uppercase italic tracking-tighter ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                                                     {cheque.processedBy || "N/A"}
                                                 </div>
                                             </td>

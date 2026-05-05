@@ -18,7 +18,7 @@ import {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 const MarketingCRM = () => {
-    const { theme, toggleTheme } = useTheme();
+    const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
     const navigate = useNavigate();
 
@@ -204,13 +204,7 @@ const MarketingCRM = () => {
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <button
-                            onClick={toggleTheme}
-                            className={`p-2.5 rounded-[4px] border transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 text-yellow-400 hover:bg-white/10' : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'}`}
-                            title="Toggle Mode"
-                        >
-                            {isDarkMode ? <FaSun /> : <FaMoon />}
-                        </button>
+
                         <button
                             onClick={() => fetchAllPerformance(timePeriod, filters)}
                             className={`p-2.5 rounded-[4px] border transition-all active:scale-95 ${isDarkMode ? 'bg-orange-500/10 border-orange-500/20 text-orange-400 hover:bg-orange-500 hover:text-black' : 'bg-orange-50 border-orange-200 text-orange-600 hover:bg-orange-100 shadow-sm'}`}

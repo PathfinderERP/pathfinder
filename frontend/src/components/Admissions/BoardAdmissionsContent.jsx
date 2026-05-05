@@ -38,7 +38,7 @@ const BoardAdmissionsContent = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
-    const { theme, toggleTheme } = useTheme();
+    const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
 
     const itemsPerPage = 10;
@@ -935,9 +935,7 @@ const BoardAdmissionsContent = () => {
                         <span>Add Counselling</span>
                     </button>
 
-                    <button onClick={toggleTheme} className={`p-3 rounded-[4px] border transition-all text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}>
-                        {isDarkMode ? <FaSun /> : <FaMoon />}
-                    </button>
+
                 </div>
             </div>
 

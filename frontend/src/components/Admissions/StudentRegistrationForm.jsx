@@ -10,7 +10,7 @@ const StudentRegistrationForm = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const [loading, setLoading] = useState(false);
-    const { theme, toggleTheme } = useTheme();
+    const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
     const [centres, setCentres] = useState([]);
     const [examTags, setExamTags] = useState([]);
@@ -593,12 +593,6 @@ const StudentRegistrationForm = () => {
                     </p>
                 </div>
                 <div className="flex items-center gap-4">
-                    <button
-                        onClick={toggleTheme}
-                        className={`p-2.5 rounded-[4px] border transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 text-yellow-400 hover:bg-white/10' : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'}`}
-                    >
-                        {isDarkMode ? <FaSun /> : <FaMoon />}
-                    </button>
                     <button
                         onClick={() => navigate("/admissions")}
                         className={`flex items-center gap-3 px-6 py-2.5 rounded-[4px] text-[10px] font-black uppercase tracking-widest border transition-all active:scale-95 ${isDarkMode ? 'bg-[#131619] text-gray-400 border-gray-800 hover:text-white hover:border-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}

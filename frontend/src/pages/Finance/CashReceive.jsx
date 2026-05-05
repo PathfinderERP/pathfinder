@@ -6,8 +6,10 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import axios from "axios";
 import { toast } from "react-toastify";
+import { useTheme } from "../../context/ThemeContext";
 
 const CashReceive = () => {
+    const { isDarkMode } = useTheme();
     const [loading, setLoading] = useState(true);
     const [requests, setRequests] = useState([]);
     const [selectedRequest, setSelectedRequest] = useState(null);
@@ -178,18 +180,23 @@ const CashReceive = () => {
 
     return (
         <Layout activePage="Cash Receive">
-            <div className="p-4 md:p-6 space-y-8 animate-in fade-in duration-700">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className={`p-4 md:p-10 max-w-[1800px] mx-auto min-h-screen pb-20 transition-colors duration-500 ${isDarkMode ? 'bg-[#0d0f11]' : 'bg-gray-50'}`}>
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-10">
                     <div>
-                        <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Incoming Cash</h1>
-                        <p className="text-gray-400 mt-1">Verify and acknowledge cash transfers assigned to your center</p>
+                        <h1 className={`text-4xl font-black italic uppercase tracking-tighter mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            Incoming <span className="text-cyan-500">Cash</span>
+                        </h1>
+                        <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">
+                            Verify and acknowledge cash transfers assigned to your center
+                        </p>
                     </div>
 
                     <div className="flex items-center gap-3">
                         <div className="relative">
                             <FaFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs" />
                             <select
-                                className="bg-gray-800/80 border border-gray-700 rounded-xl pl-9 pr-4 py-2.5 text-white text-sm focus:border-cyan-500 transition-all outline-none appearance-none min-w-[150px]"
+                                className={`border rounded-xl pl-9 pr-4 py-2.5 text-sm focus:border-cyan-500 transition-all outline-none appearance-none min-w-[150px] ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-700'}`}
                                 value={filters.status}
                                 onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                             >
@@ -204,11 +211,11 @@ const CashReceive = () => {
                 </div>
 
                 {/* Filter Bar */}
-                <div className="bg-gray-900/40 backdrop-blur-md border border-gray-800 p-4 rounded-2xl grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 items-center shadow-xl">
+                <div className={`backdrop-blur-md border p-4 rounded-2xl grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 items-center shadow-xl ${isDarkMode ? 'bg-gray-900/40 border-gray-800' : 'bg-white border-gray-200'}`}>
                     <div className="relative flex-1 w-full">
                         <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                         <select
-                            className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-2.5 pl-11 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-[11px] appearance-none"
+                            className={`w-full border rounded-xl py-2.5 pl-11 pr-4 focus:outline-none focus:border-cyan-500 transition-all text-[11px] appearance-none ${isDarkMode ? 'bg-gray-800/50 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                             value={filters.fromCentreId}
                             onChange={(e) => setFilters({ ...filters, fromCentreId: e.target.value })}
                         >
@@ -219,7 +226,7 @@ const CashReceive = () => {
                     <div className="relative flex-1 w-full">
                         <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                         <select
-                            className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-2.5 pl-11 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-[11px] appearance-none"
+                            className={`w-full border rounded-xl py-2.5 pl-11 pr-4 focus:outline-none focus:border-cyan-500 transition-all text-[11px] appearance-none ${isDarkMode ? 'bg-gray-800/50 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                             value={filters.centreId}
                             onChange={(e) => setFilters({ ...filters, centreId: e.target.value })}
                         >
@@ -232,7 +239,7 @@ const CashReceive = () => {
                         <input
                             type="text"
                             placeholder="Serial Number..."
-                            className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-2.5 pl-11 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-sm"
+                            className={`w-full border rounded-xl py-2.5 pl-11 pr-4 focus:outline-none focus:border-cyan-500 transition-all text-sm ${isDarkMode ? 'bg-gray-800/50 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                             value={filters.serialNumber}
                             onChange={(e) => setFilters({ ...filters, serialNumber: e.target.value })}
                         />
@@ -242,7 +249,7 @@ const CashReceive = () => {
                         <input
                             type="text"
                             placeholder="Reference Number..."
-                            className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-2.5 pl-11 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-sm"
+                            className={`w-full border rounded-xl py-2.5 pl-11 pr-4 focus:outline-none focus:border-cyan-500 transition-all text-sm ${isDarkMode ? 'bg-gray-800/50 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                             value={filters.referenceNumber}
                             onChange={(e) => setFilters({ ...filters, referenceNumber: e.target.value })}
                         />
@@ -252,7 +259,7 @@ const CashReceive = () => {
                             <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                             <input
                                 type="date"
-                                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-2.5 pl-11 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-sm [color-scheme:dark]"
+                                className={`w-full border rounded-xl py-2.5 pl-11 pr-4 focus:outline-none focus:border-cyan-500 transition-all text-sm ${isDarkMode ? 'bg-gray-800/50 border-gray-700 text-white [color-scheme:dark]' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                 value={filters.startDate}
                                 onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
                                 title="Start Date"
@@ -262,7 +269,7 @@ const CashReceive = () => {
                             <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                             <input
                                 type="date"
-                                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-2.5 pl-11 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all text-sm [color-scheme:dark]"
+                                className={`w-full border rounded-xl py-2.5 pl-11 pr-4 focus:outline-none focus:border-cyan-500 transition-all text-sm ${isDarkMode ? 'bg-gray-800/50 border-gray-700 text-white [color-scheme:dark]' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                 value={filters.endDate}
                                 onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
                                 title="End Date"
@@ -280,7 +287,7 @@ const CashReceive = () => {
                         </button>
                         <button
                             onClick={resetFilters}
-                            className="p-2.5 bg-gray-800 border border-gray-700 rounded-xl text-gray-400 hover:text-white transition-all shrink-0"
+                            className={`p-2.5 border rounded-xl text-gray-400 hover:text-white transition-all shrink-0 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200 hover:bg-gray-200'}`}
                             title="Reset Filters"
                         >
                             <FaTimes />
@@ -289,11 +296,11 @@ const CashReceive = () => {
                 </div>
 
                 {/* Table View */}
-                <div className="bg-gray-900/40 backdrop-blur-md border border-gray-800 rounded-3xl overflow-hidden shadow-2xl">
+                <div className={`backdrop-blur-md border rounded-3xl overflow-hidden shadow-2xl ${isDarkMode ? 'bg-gray-900/40 border-gray-800' : 'bg-white border-gray-200'}`}>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-gray-800/80 border-b border-gray-700">
+                                <tr className={`border-b ${isDarkMode ? 'bg-gray-800/80 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Serial #</th>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Origin Node</th>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-right">Amount</th>
@@ -305,7 +312,7 @@ const CashReceive = () => {
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-center">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-800">
+                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                 {loading ? (
                                     <tr>
                                         <td colSpan="8" className="p-20 text-center">
@@ -317,24 +324,24 @@ const CashReceive = () => {
                                     </tr>
                                 ) : requests.length > 0 ? (
                                     requests.map((req) => (
-                                        <tr key={req._id} className="hover:bg-gray-800/30 transition-all group">
+                                        <tr key={req._id} className={`transition-all group ${isDarkMode ? 'hover:bg-gray-800/30' : 'hover:bg-gray-50'}`}>
                                             <td className="p-5">
                                                 <span className="text-cyan-400 font-black font-mono">#{req.serialNumber}</span>
                                             </td>
                                             <td className="p-5">
                                                 <div>
-                                                    <span className="text-white font-bold block">{req.fromCentre?.centreName}</span>
+                                                    <span className={`font-bold block ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{req.fromCentre?.centreName}</span>
                                                     <span className="text-[10px] text-gray-500 uppercase flex items-center gap-1 mt-1">
                                                         <FaUser className="text-[8px]" /> {req.transferredBy?.name}
                                                     </span>
                                                 </div>
                                             </td>
                                             <td className="p-5 text-right">
-                                                <span className="text-lg font-black text-white">₹{req.amount.toLocaleString()}</span>
+                                                <span className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{req.amount.toLocaleString()}</span>
                                             </td>
                                             <td className="p-5">
                                                 <div className="space-y-1">
-                                                    <span className="text-gray-300 font-mono text-xs block">{req.referenceNumber || 'N/A'}</span>
+                                                    <span className={`font-mono text-xs block ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{req.referenceNumber || 'N/A'}</span>
                                                     <span className="text-[9px] text-gray-500 uppercase tracking-tighter">A/C: {req.accountNumber}</span>
                                                 </div>
                                             </td>
@@ -358,19 +365,19 @@ const CashReceive = () => {
                                             </td>
                                             <td className="p-5">
                                                 <div className="space-y-1">
-                                                    <span className="text-[10px] text-gray-400 font-bold block">
+                                                    <span className={`text-[10px] font-bold block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                                         {req.fromDate ? new Date(req.fromDate).toLocaleDateString() : 'N/A'}
                                                     </span>
                                                     <span className="text-[8px] text-gray-500 uppercase tracking-widest font-black">TO</span>
-                                                    <span className="text-[10px] text-gray-400 font-bold block">
+                                                    <span className={`text-[10px] font-bold block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                                         {req.toDate ? new Date(req.toDate).toLocaleDateString() : 'N/A'}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="p-5 text-xs text-gray-400 font-bold whitespace-nowrap">
+                                            <td className={`p-5 text-xs font-bold whitespace-nowrap ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                                 {req.debitedDate ? new Date(req.debitedDate).toLocaleDateString() : 'N/A'}
                                             </td>
-                                            <td className="p-5 text-xs text-gray-400 font-bold whitespace-nowrap">
+                                            <td className={`p-5 text-xs font-bold whitespace-nowrap ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                                 {new Date(req.transferDate).toLocaleDateString()}
                                             </td>
                                             <td className="p-5 text-center">
@@ -380,7 +387,7 @@ const CashReceive = () => {
                                                             href={req.receiptFile}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="p-2 bg-gray-800 text-cyan-400 rounded-xl hover:bg-cyan-600 hover:text-white transition-all border border-gray-700"
+                                                            className={`p-2 rounded-xl hover:bg-cyan-600 hover:text-white transition-all border ${isDarkMode ? 'bg-gray-800 text-cyan-400 border-gray-700' : 'bg-gray-100 text-cyan-600 border-gray-200'}`}
                                                             title="View Evidence"
                                                         >
                                                             <FaFileAlt />
@@ -424,20 +431,20 @@ const CashReceive = () => {
 
                 {/* Verification Modal (Passcode) */}
                 {isModalOpen && (
-                    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-                        <div className="bg-gray-900 border border-gray-800 p-8 rounded-[2.5rem] w-full max-w-md shadow-2xl animate-in zoom-in duration-300">
+                    <div className={`fixed inset-0 backdrop-blur-md z-[100] flex items-center justify-center p-4 ${isDarkMode ? 'bg-black/90' : 'bg-gray-900/40'}`}>
+                        <div className={`border p-8 rounded-[2.5rem] w-full max-w-md shadow-2xl animate-in zoom-in duration-300 ${isDarkMode ? 'bg-gray-900 border-gray-800 shadow-[0_0_50px_rgba(6,182,212,0.1)]' : 'bg-white border-gray-200 shadow-cyan-900/10'}`}>
                             <div className="space-y-8">
                                 <div className="flex justify-between items-center">
-                                    <h2 className="text-2xl font-bold text-white">Security Release</h2>
-                                    <button onClick={() => !processing && setIsModalOpen(false)} className="p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white transition-colors">
+                                    <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Security Release</h2>
+                                    <button onClick={() => !processing && setIsModalOpen(false)} className={`p-2 rounded-xl transition-colors ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-white' : 'bg-gray-100 text-gray-500 hover:text-gray-900'}`}>
                                         <FaTimes />
                                     </button>
                                 </div>
 
-                                <div className="bg-cyan-500/5 border border-cyan-500/10 p-6 rounded-3xl space-y-4 text-center">
+                                <div className={`${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/10' : 'bg-cyan-50 border-cyan-100'} border p-6 rounded-3xl space-y-4 text-center`}>
                                     <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest italic">Awaiting Funds From</p>
                                     <h4 className="text-cyan-400 font-black text-lg">{selectedRequest?.fromCentre?.centreName}</h4>
-                                    <div className="text-3xl font-black text-white">₹{selectedRequest?.amount.toLocaleString()}</div>
+                                    <div className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{selectedRequest?.amount.toLocaleString()}</div>
                                 </div>
 
                                 <div className="space-y-3">
@@ -445,7 +452,7 @@ const CashReceive = () => {
                                     <input
                                         type="text"
                                         placeholder="••••••"
-                                        className="w-full bg-gray-800 border-2 border-gray-700 rounded-2xl py-5 text-white text-3xl tracking-[0.6em] font-mono focus:outline-none focus:border-cyan-500 transition-all text-center placeholder:opacity-20"
+                                        className={`w-full border-2 rounded-2xl py-5 text-3xl tracking-[0.6em] font-mono focus:outline-none focus:border-cyan-500 transition-all text-center placeholder:opacity-20 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                         value={passwordInput}
                                         onChange={(e) => setPasswordInput(e.target.value)}
                                         maxLength={6}
@@ -466,26 +473,26 @@ const CashReceive = () => {
 
                 {/* Rejection Modal */}
                 {isRejectModalOpen && (
-                    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-                        <div className="bg-gray-900 border border-gray-800 p-8 rounded-[2.5rem] w-full max-w-md shadow-2xl animate-in zoom-in duration-300">
+                    <div className={`fixed inset-0 backdrop-blur-md z-[100] flex items-center justify-center p-4 ${isDarkMode ? 'bg-black/90' : 'bg-gray-900/40'}`}>
+                        <div className={`border p-8 rounded-[2.5rem] w-full max-w-md shadow-2xl animate-in zoom-in duration-300 ${isDarkMode ? 'bg-gray-900 border-gray-800 shadow-[0_0_50px_rgba(239,68,68,0.1)]' : 'bg-white border-gray-200 shadow-red-900/10'}`}>
                             <div className="space-y-6">
                                 <div className="flex justify-between items-center">
-                                    <h2 className="text-2xl font-bold text-white">Reject Transfer</h2>
-                                    <button onClick={() => !processing && setIsRejectModalOpen(false)} className="p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white transition-colors">
+                                    <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Reject Transfer</h2>
+                                    <button onClick={() => !processing && setIsRejectModalOpen(false)} className={`p-2 rounded-xl transition-colors ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-white' : 'bg-gray-100 text-gray-500 hover:text-gray-900'}`}>
                                         <FaTimes />
                                     </button>
                                 </div>
 
-                                <div className="bg-red-500/5 border border-red-500/10 p-6 rounded-3xl space-y-2 text-center">
+                                <div className={`${isDarkMode ? 'bg-red-500/5 border-red-500/10' : 'bg-red-50 border-red-100'} border p-6 rounded-3xl space-y-2 text-center`}>
                                     <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest italic">Rejecting Amount From</p>
                                     <h4 className="text-red-400 font-black text-lg">{selectedRequest?.fromCentre?.centreName}</h4>
-                                    <div className="text-3xl font-black text-white">₹{selectedRequest?.amount.toLocaleString()}</div>
+                                    <div className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{selectedRequest?.amount.toLocaleString()}</div>
                                 </div>
 
                                 <div className="space-y-3">
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Reason for Rejection</label>
                                     <textarea
-                                        className="w-full bg-gray-800 border border-gray-700 rounded-2xl p-4 text-white text-sm focus:outline-none focus:border-red-500 transition-all resize-none"
+                                        className={`w-full border rounded-2xl p-4 text-sm focus:outline-none focus:border-red-500 transition-all resize-none ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                         rows="3"
                                         placeholder="Explain why this transfer is being rejected..."
                                         value={rejectReason}

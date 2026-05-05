@@ -18,8 +18,7 @@ import {
 import { useTheme } from "../../context/ThemeContext";
 
 const ShiftTimer = ({ checkIn, targetHours }) => {
-    const { theme } = useTheme();
-    const isDarkMode = theme === 'dark';
+    const { isDarkMode } = useTheme();
     const [elapsed, setElapsed] = useState(0);
 
     useEffect(() => {
@@ -65,16 +64,16 @@ const ShiftTimer = ({ checkIn, targetHours }) => {
         <div className="w-full max-w-md">
             <div className="flex justify-between items-end mb-2">
                 <div>
-                    <p className="text-gray-500 dark:text-gray-400 text-[9px] font-black uppercase tracking-widest mb-1">Elapsed</p>
-                    <p className="text-gray-900 dark:text-white font-black text-2xl tracking-tighter tabular-nums drop-shadow-md">{formatTime(elapsed)}</p>
+                    <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Elapsed</p>
+                    <p className={`font-black text-2xl tracking-tighter tabular-nums drop-shadow-md ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{formatTime(elapsed)}</p>
                 </div>
                 <div className="text-right">
-                    <p className="text-gray-500 dark:text-gray-400 text-[9px] font-black uppercase tracking-widest mb-1">{remaining <= 0 ? 'Overtime' : 'Remaining'}</p>
-                    <p className={`font-black text-2xl tracking-tighter tabular-nums drop-shadow-md ${remaining <= 0 ? 'text-indigo-400 animate-pulse' : 'text-gray-600 dark:text-gray-300'}`}>{remainingTimeStr()}</p>
+                    <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{remaining <= 0 ? 'Overtime' : 'Remaining'}</p>
+                    <p className={`font-black text-2xl tracking-tighter tabular-nums drop-shadow-md ${remaining <= 0 ? 'text-indigo-400 animate-pulse' : (isDarkMode ? 'text-gray-300' : 'text-gray-600')}`}>{remainingTimeStr()}</p>
                 </div>
             </div>
             {/* Progress Bar Container */}
-            <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden border border-gray-200 dark:border-gray-700 shadow-inner p-[2px]">
+            <div className={`h-4 rounded-full overflow-hidden border shadow-inner p-[2px] ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
                 <div
                     className={`h-full rounded-full transition-all duration-1000 ease-linear ${getProgressColor()}`}
                     style={{ width: `${progressPercent}%` }}
@@ -91,8 +90,7 @@ const ShiftTimer = ({ checkIn, targetHours }) => {
 };
 
 const CustomTooltip = ({ active, payload, label }) => {
-    const { theme } = useTheme();
-    const isDarkMode = theme === 'dark';
+    const { isDarkMode } = useTheme();
     if (active && payload && payload.length) {
         return (
             <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200 shadow-xl'} border p-3 rounded-[2px]`}>
@@ -111,8 +109,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 const EmployeeAttendance = () => {
-    const { theme } = useTheme();
-    const isDarkMode = theme === 'dark';
+    const { isDarkMode } = useTheme();
     const [attendanceData, setAttendanceData] = useState([]);
     const [holidays, setHolidays] = useState([]);
     const [workingDays, setWorkingDays] = useState({});
@@ -372,7 +369,7 @@ const EmployeeAttendance = () => {
     const DayDetailsModal = ({ data, onClose }) => {
         if (!data) return null;
         const { day, status } = data;
-        const isDark = theme === 'dark';
+        const isDark = isDarkMode;
 
         return (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -748,7 +745,7 @@ const EmployeeAttendance = () => {
                                             } else if (status.type === "Off") {
                                                 colorClass = isDarkMode ? "bg-[#0f1113] text-gray-700 border border-gray-800/50" : "bg-gray-100/30 text-gray-300 border border-gray-100/50";
                                             } else if (status.type === "NA") {
-                                                colorClass = "bg-transparent text-gray-800 dark:text-gray-200";
+                                                colorClass = `bg-transparent ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`;
                                             }
 
                                             return (

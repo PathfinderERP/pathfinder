@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
+import { useTheme } from "../../context/ThemeContext";
 import { FaChartLine, FaMoneyBillWave, FaCalendarAlt, FaFilter, FaArrowUp, FaArrowDown, FaBuilding, FaDownload, FaSync, FaChevronDown, FaSearch } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -11,6 +12,8 @@ import {
 } from 'recharts';
 
 const FinancialAnalysis = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [loading, setLoading] = useState(true);
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedSessions, setSelectedSessions] = useState([]);
@@ -237,10 +240,10 @@ const FinancialAnalysis = () => {
     };
 
     const StatCard = ({ title, amount, subtitle, colorClass, icon, trend }) => (
-        <div className={`bg-[#1a1f24] p-5 rounded-[5px] border border-gray-800 transition-all hover:border-cyan-500/50 group relative overflow-hidden shadow-xl`}>
+        <div className={`p-5 rounded-[5px] border transition-all hover:border-cyan-500/50 group relative overflow-hidden shadow-xl ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
             <div className={`absolute top-0 left-0 w-full h-[2px] ${colorClass}`}></div>
             <div className="flex justify-between items-start mb-4">
-                <div className="p-3 bg-gray-800/50 rounded-[5px] text-cyan-400 group-hover:bg-cyan-500 group-hover:text-white transition-all duration-300">
+                <div className={`p-3 rounded-[5px] transition-all duration-300 ${isDarkMode ? 'bg-gray-800/50 text-cyan-400' : 'bg-cyan-50 text-cyan-600'} group-hover:bg-cyan-500 group-hover:text-white`}>
                     {icon}
                 </div>
                 {trend && (
@@ -252,8 +255,8 @@ const FinancialAnalysis = () => {
             </div>
             <div>
                 <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1">{title}</p>
-                <h3 className="text-2xl font-black text-white mb-1 tracking-tight">{formatCurrency(amount)}</h3>
-                <p className="text-gray-600 text-[10px] font-medium italic">{subtitle}</p>
+                <h3 className={`text-2xl font-black mb-1 tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{formatCurrency(amount)}</h3>
+                <p className={`text-[10px] font-medium italic ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>{subtitle}</p>
             </div>
         </div>
     );
@@ -266,14 +269,14 @@ const FinancialAnalysis = () => {
         if (active && payload && payload.length) {
             const total = payload.reduce((sum, entry) => sum + (entry.value || 0), 0);
             return (
-                <div className="bg-[#11161a] border border-gray-800 p-3 rounded-[5px] shadow-2xl">
+                <div className={`border p-3 rounded-[5px] shadow-2xl backdrop-blur-md ${isDarkMode ? 'bg-[#11161a]/90 border-gray-800' : 'bg-white/90 border-gray-200'}`}>
                     <p className="text-gray-400 text-[10px] uppercase font-black mb-1">{label}</p>
-                    <p className="text-cyan-400 font-bold text-lg">{formatCurrency(total)}</p>
-                    <div className="mt-2 pt-2 border-t border-gray-800 space-y-1">
+                    <p className="text-cyan-500 font-bold text-lg">{formatCurrency(total)}</p>
+                    <div className={`mt-2 pt-2 border-t space-y-1 ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                         {payload.map((entry, idx) => (
                             <div key={idx} className="flex justify-between gap-4 text-[9px] font-bold">
                                 <span className="text-gray-500 uppercase">{entry.name}:</span>
-                                <span className="text-white">{formatCurrency(entry.value)}</span>
+                                <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{formatCurrency(entry.value)}</span>
                             </div>
                         ))}
                     </div>
@@ -285,11 +288,11 @@ const FinancialAnalysis = () => {
 
     return (
         <Layout activePage="Finance & Fees">
-            <div className="p-4 space-y-8 animate-fade-in pb-20">
+            <div className={`p-4 md:p-10 max-w-[1800px] mx-auto min-h-screen pb-20 transition-colors duration-500 ${isDarkMode ? 'bg-[#0d0f11]' : 'bg-gray-50'}`}>
                 <ToastContainer position="top-right" theme="dark" />
 
                 {/* Glassmorphic Header */}
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 bg-[#1a1f24]/50 p-6 rounded-[5px] border border-gray-800 backdrop-blur-xl relative z-50">
+                <div className={`flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 p-6 rounded-[5px] border backdrop-blur-xl relative z-50 transition-all ${isDarkMode ? 'bg-[#1a1f24]/50 border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                     <div className="relative">
                         <div className="absolute -top-10 -left-10 w-32 h-32 bg-cyan-500/10 blur-[50px] rounded-[5px]"></div>
                         <div className="flex items-center gap-4 mb-2 relative z-10">
@@ -297,29 +300,29 @@ const FinancialAnalysis = () => {
                                 <FaChartLine size={28} />
                             </div>
                             <div>
-                                <h1 className="text-3xl font-black text-white tracking-tighter uppercase italic">Payment <span className="text-cyan-400">Analysis</span></h1>
+                                <h1 className={`text-3xl font-black tracking-tighter uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Payment <span className="text-cyan-500">Analysis</span></h1>
                                 <p className="text-gray-500 text-xs font-bold tracking-widest uppercase mt-1">Real-time Financial Intelligence Unit</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-4 bg-gray-900/50 p-3 rounded-[5px] border border-gray-800 backdrop-blur-md relative z-50">
+                    <div className={`flex flex-wrap items-center gap-4 p-3 rounded-[5px] border backdrop-blur-md relative z-50 transition-all ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                         {/* Centres Multi-select */}
                         <div className="relative group">
                             <div
                                 onClick={() => setIsCentreDropdownOpen(!isCentreDropdownOpen)}
-                                className="flex items-center gap-3 px-4 py-2 bg-gray-800/50 rounded-[5px] border border-gray-700 hover:border-cyan-500 transition-all cursor-pointer min-w-[200px]"
+                                className={`flex items-center gap-3 px-4 py-2 rounded-[5px] border transition-all cursor-pointer min-w-[200px] ${isDarkMode ? 'bg-gray-800/50 border-gray-700 hover:border-cyan-500' : 'bg-white border-gray-200 hover:border-cyan-500'}`}
                             >
                                 <FaBuilding className="text-cyan-500 text-sm" />
-                                <span className="text-white text-[10px] font-black uppercase tracking-wider truncate flex-1">
+                                <span className={`text-[10px] font-black uppercase tracking-wider truncate flex-1 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
                                     {selectedCentres.length === 0 ? "All Global Centres" : `${selectedCentres.length} Centres`}
                                 </span>
                                 <FaChevronDown className={`text-gray-500 text-[10px] transform transition-transform ${isCentreDropdownOpen ? 'rotate-180' : ''}`} />
                             </div>
 
                             {isCentreDropdownOpen && (
-                                <div className="absolute top-full left-0 mt-2 w-64 bg-[#1a1f24] border border-gray-800 rounded-[5px] shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
-                                    <div className="p-3 border-b border-gray-800">
+                                <div className={`absolute top-full left-0 mt-2 w-64 border rounded-[5px] shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                                    <div className={`p-3 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                                         <div className="relative">
                                             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-[10px]" />
                                             <input
@@ -327,7 +330,7 @@ const FinancialAnalysis = () => {
                                                 placeholder="SEARCH CENTRES..."
                                                 value={centreSearch}
                                                 onChange={(e) => setCentreSearch(e.target.value)}
-                                                className="w-full bg-gray-900 border border-gray-800 rounded-[5px] py-2 pl-8 pr-3 text-[10px] text-white font-black uppercase outline-none focus:border-cyan-500"
+                                                className={`w-full rounded-[5px] py-2 pl-8 pr-3 text-[10px] font-black uppercase outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-gray-50 border-gray-100 text-gray-900'}`}
                                                 onClick={(e) => e.stopPropagation()}
                                             />
                                         </div>
@@ -337,12 +340,12 @@ const FinancialAnalysis = () => {
                                             <div
                                                 key={c._id}
                                                 onClick={() => toggleCentre(c._id)}
-                                                className="px-4 py-3 hover:bg-cyan-500/10 flex items-center gap-3 cursor-pointer transition-colors border-b border-gray-800/50 last:border-0"
+                                                className={`px-4 py-3 hover:bg-cyan-500/10 flex items-center gap-3 cursor-pointer transition-colors border-b last:border-0 ${isDarkMode ? 'border-gray-800/50' : 'border-gray-50'}`}
                                             >
-                                                <div className={`w-3 h-3 rounded border ${selectedCentres.includes(c._id) ? 'bg-cyan-500 border-cyan-500' : 'border-gray-600'} flex items-center justify-center`}>
+                                                <div className={`w-3 h-3 rounded border ${selectedCentres.includes(c._id) ? 'bg-cyan-500 border-cyan-500' : (isDarkMode ? 'border-gray-600' : 'border-gray-300')} flex items-center justify-center`}>
                                                     {selectedCentres.includes(c._id) && <div className="w-1.5 h-1.5 bg-white rounded-[5px]"></div>}
                                                 </div>
-                                                <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest truncate">{c.centreName}</span>
+                                                <span className={`text-[10px] font-black uppercase tracking-widest truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{c.centreName}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -356,18 +359,18 @@ const FinancialAnalysis = () => {
                         <div className="relative group">
                             <div
                                 onClick={() => setIsSessionDropdownOpen(!isSessionDropdownOpen)}
-                                className="flex items-center gap-3 px-4 py-2 bg-gray-800/50 rounded-[5px] border border-gray-700 hover:border-cyan-500 transition-all cursor-pointer min-w-[180px]"
+                                className={`flex items-center gap-3 px-4 py-2 rounded-[5px] border transition-all cursor-pointer min-w-[180px] ${isDarkMode ? 'bg-gray-800/50 border-gray-700 hover:border-cyan-500' : 'bg-white border-gray-200 hover:border-cyan-500'}`}
                             >
                                 <FaFilter className="text-cyan-500 text-sm" />
-                                <span className="text-white text-[10px] font-black uppercase tracking-wider truncate flex-1">
+                                <span className={`text-[10px] font-black uppercase tracking-wider truncate flex-1 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
                                     {selectedSessions.length === 0 ? "All Sessions" : selectedSessions[0]}
                                 </span>
                                 <FaChevronDown className={`text-gray-500 text-[10px] transform transition-transform ${isSessionDropdownOpen ? 'rotate-180' : ''}`} />
                             </div>
 
                             {isSessionDropdownOpen && (
-                                <div className="absolute top-full left-0 mt-2 w-64 bg-[#1a1f24] border border-gray-800 rounded-[5px] shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
-                                    <div className="p-3 border-b border-gray-800">
+                                <div className={`absolute top-full left-0 mt-2 w-64 border rounded-[5px] shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                                    <div className={`p-3 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                                         <div className="relative">
                                             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-[10px]" />
                                             <input
@@ -375,7 +378,7 @@ const FinancialAnalysis = () => {
                                                 placeholder="SEARCH SESSIONS..."
                                                 value={sessionSearch}
                                                 onChange={(e) => setSessionSearch(e.target.value)}
-                                                className="w-full bg-gray-900 border border-gray-800 rounded-[5px] py-2 pl-8 pr-3 text-[10px] text-white font-black uppercase outline-none focus:border-cyan-500"
+                                                className={`w-full rounded-[5px] py-2 pl-8 pr-3 text-[10px] font-black uppercase outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-gray-50 border-gray-100 text-gray-900'}`}
                                                 onClick={(e) => e.stopPropagation()}
                                             />
                                         </div>
@@ -383,9 +386,9 @@ const FinancialAnalysis = () => {
                                     <div className="max-h-60 overflow-y-auto custom-scrollbar">
                                         <div
                                             onClick={() => { setSelectedSessions([]); setIsSessionDropdownOpen(false); }}
-                                            className="px-4 py-3 hover:bg-cyan-500/10 flex items-center gap-3 cursor-pointer transition-colors border-b border-gray-800/50"
+                                            className={`px-4 py-3 hover:bg-cyan-500/10 flex items-center gap-3 cursor-pointer transition-colors border-b ${isDarkMode ? 'border-gray-800/50' : 'border-gray-50'}`}
                                         >
-                                            <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest truncate italic">Reset to All Sessions</span>
+                                            <span className="text-[10px] font-black text-cyan-500 uppercase tracking-widest truncate italic">Reset to All Sessions</span>
                                         </div>
                                         {sessions.filter(s => (s.sessionName || s.name).toLowerCase().includes(sessionSearch.toLowerCase())).map(s => {
                                             const sName = s.sessionName || s.name;
@@ -393,12 +396,12 @@ const FinancialAnalysis = () => {
                                                 <div
                                                     key={s._id}
                                                     onClick={() => { toggleSession(sName); setIsSessionDropdownOpen(false); }}
-                                                    className="px-4 py-3 hover:bg-cyan-500/10 flex items-center gap-3 cursor-pointer transition-colors border-b border-gray-800/50 last:border-0"
+                                                    className={`px-4 py-3 hover:bg-cyan-500/10 flex items-center gap-3 cursor-pointer transition-colors border-b last:border-0 ${isDarkMode ? 'border-gray-800/50' : 'border-gray-50'}`}
                                                 >
-                                                    <div className={`w-3 h-3 rounded border ${selectedSessions.includes(sName) ? 'bg-cyan-500 border-cyan-500' : 'border-gray-600'} flex items-center justify-center`}>
+                                                    <div className={`w-3 h-3 rounded border ${selectedSessions.includes(sName) ? 'bg-cyan-500 border-cyan-500' : (isDarkMode ? 'border-gray-600' : 'border-gray-300')} flex items-center justify-center`}>
                                                         {selectedSessions.includes(sName) && <div className="w-1.5 h-1.5 bg-white rounded-[5px]"></div>}
                                                     </div>
-                                                    <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest truncate">{sName}</span>
+                                                    <span className={`text-[10px] font-black uppercase tracking-widest truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{sName}</span>
                                                 </div>
                                             );
                                         })}
@@ -415,15 +418,15 @@ const FinancialAnalysis = () => {
                             <select
                                 value={selectedPeriod}
                                 onChange={(e) => setSelectedPeriod(e.target.value)}
-                                className="bg-transparent text-white text-[10px] focus:outline-none cursor-pointer font-black uppercase tracking-wider"
+                                className={`bg-transparent text-[10px] focus:outline-none cursor-pointer font-black uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-gray-800'}`}
                             >
-                                <option value="This Month" className="bg-[#1a1f24]">Reporting Month</option>
-                                <option value="Last Month" className="bg-[#1a1f24]">Previous Month</option>
-                                <option value="This Quarter" className="bg-[#1a1f24]">Quarterly View</option>
-                                <option value="From April 1st" className="bg-[#1a1f24]">Financial Year</option>
-                                <option value="Last Year" className="bg-[#1a1f24]">Last Financial Year</option>
-                                <option value="All Time" className="bg-[#1a1f24]">Historical Data</option>
-                                <option value="Custom" className="bg-[#1a1f24]">Custom Range</option>
+                                <option value="This Month" className={isDarkMode ? "bg-[#1a1f24] text-white" : "bg-white text-gray-800"}>Reporting Month</option>
+                                <option value="Last Month" className={isDarkMode ? "bg-[#1a1f24] text-white" : "bg-white text-gray-800"}>Previous Month</option>
+                                <option value="This Quarter" className={isDarkMode ? "bg-[#1a1f24] text-white" : "bg-white text-gray-800"}>Quarterly View</option>
+                                <option value="From April 1st" className={isDarkMode ? "bg-[#1a1f24] text-white" : "bg-white text-gray-800"}>Financial Year</option>
+                                <option value="Last Year" className={isDarkMode ? "bg-[#1a1f24] text-white" : "bg-white text-gray-800"}>Last Financial Year</option>
+                                <option value="All Time" className={isDarkMode ? "bg-[#1a1f24] text-white" : "bg-white text-gray-800"}>Historical Data</option>
+                                <option value="Custom" className={isDarkMode ? "bg-[#1a1f24] text-white" : "bg-white text-gray-800"}>Custom Range</option>
                             </select>
                         </div>
 
@@ -435,14 +438,14 @@ const FinancialAnalysis = () => {
                                         type="date"
                                         value={startDate}
                                         onChange={(e) => setStartDate(e.target.value)}
-                                        className="bg-gray-800 text-white text-[10px] px-2 py-1 rounded-[5px] border border-gray-700 outline-none focus:border-cyan-500 font-black"
+                                        className={`text-[10px] px-2 py-1 rounded-[5px] border outline-none focus:border-cyan-500 font-black ${isDarkMode ? 'bg-gray-800 text-white border-gray-700' : 'bg-white text-gray-900 border-gray-200'}`}
                                     />
                                     <span className="text-gray-500 text-[10px] font-black">TO</span>
                                     <input
                                         type="date"
                                         value={endDate}
                                         onChange={(e) => setEndDate(e.target.value)}
-                                        className="bg-gray-800 text-white text-[10px] px-2 py-1 rounded-[5px] border border-gray-700 outline-none focus:border-cyan-500 font-black"
+                                        className={`text-[10px] px-2 py-1 rounded-[5px] border outline-none focus:border-cyan-500 font-black ${isDarkMode ? 'bg-gray-800 text-white border-gray-700' : 'bg-white text-gray-900 border-gray-200'}`}
                                     />
                                 </div>
                             </>
@@ -453,7 +456,7 @@ const FinancialAnalysis = () => {
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={fetchAnalytics}
-                                className="p-3 bg-gray-800 hover:bg-gray-700 text-cyan-400 rounded-[5px] border border-gray-700 transition-all group"
+                                className={`p-3 rounded-[5px] border transition-all group ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-cyan-400 border-gray-700' : 'bg-white hover:bg-gray-50 text-cyan-600 border-gray-200'}`}
                                 title="Refresh Data"
                             >
                                 <FaSync className={`group-hover:rotate-180 transition-transform duration-500 ${loading ? 'animate-spin' : ''}`} />
@@ -527,11 +530,11 @@ const FinancialAnalysis = () => {
 
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                             {/* Revenue Trend Chart */}
-                            <div className="lg:col-span-2 bg-[#1a1f24] p-8 rounded-[5px] border border-gray-800 shadow-2xl relative overflow-hidden group">
+                            <div className={`lg:col-span-2 p-8 rounded-[5px] border shadow-2xl relative overflow-hidden group transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 to-transparent opacity-30"></div>
                                 <div className="flex justify-between items-center mb-8">
-                                    <h3 className="text-white font-black uppercase italic tracking-tighter text-lg">Revenue Performance Trend</h3>
-                                    <div className="flex items-center gap-2 text-[10px] font-black text-gray-500 tracking-widest bg-gray-900/50 px-3 py-1 rounded-[5px] border border-gray-800">
+                                    <h3 className={`font-black uppercase italic tracking-tighter text-lg ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Revenue Performance Trend</h3>
+                                    <div className={`flex items-center gap-2 text-[10px] font-black tracking-widest px-3 py-1 rounded-[5px] border ${isDarkMode ? 'text-gray-500 bg-gray-900/50 border-gray-800' : 'text-gray-400 bg-gray-50 border-gray-100'}`}>
                                         <div className="w-2 h-2 rounded-[5px] bg-cyan-500"></div>
                                         MONTHLY GROWTH
                                     </div>
@@ -579,8 +582,8 @@ const FinancialAnalysis = () => {
                             </div>
 
                             {/* Payment Method Distribution */}
-                            <div className="bg-[#1a1f24] p-8 rounded-[5px] border border-gray-800 shadow-2xl flex flex-col h-full">
-                                <h3 className="text-white font-black uppercase italic tracking-tighter text-lg mb-8">Payment Mix</h3>
+                            <div className={`p-8 rounded-[5px] border shadow-2xl flex flex-col h-full transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                                <h3 className={`font-black uppercase italic tracking-tighter text-lg mb-8 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Payment Mix</h3>
                                 <div className="flex-1 min-h-[300px]">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
@@ -608,10 +611,10 @@ const FinancialAnalysis = () => {
                                 </div>
                                 <div className="mt-8 space-y-3">
                                     {paymentBreakdownData.slice(0, 3).map((item, idx) => (
-                                        <div key={idx} className="flex justify-between items-center bg-gray-900/50 p-3 rounded-[5px] border border-gray-800">
+                                        <div key={idx} className={`flex justify-between items-center p-3 rounded-[5px] border transition-all ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{item.name}</span>
-                                            <span className="text-gray-200 font-bold ml-auto mr-4">{Math.round((item.value / analytics.totalAmountCame) * 100)}%</span>
-                                            <span className="text-white font-black">{formatCurrency(item.value)}</span>
+                                            <span className={`font-bold ml-auto mr-4 ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>{Math.round((item.value / analytics.totalAmountCame) * 100)}%</span>
+                                            <span className={`font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{formatCurrency(item.value)}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -619,17 +622,17 @@ const FinancialAnalysis = () => {
                         </div>
 
                         {/* Centre Distribution Stacked Bar Chart */}
-                        <div className="bg-[#1a1f24] p-8 rounded-[5px] border border-gray-800 shadow-2xl relative overflow-hidden group">
+                        <div className={`p-8 rounded-[5px] border shadow-2xl relative overflow-hidden group transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                             <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 blur-[100px]"></div>
                             <div className="flex justify-between items-center mb-8 relative z-10">
                                 <div>
-                                    <h3 className="text-white font-black uppercase italic tracking-tighter text-lg">Revenue Mix by Global Centre</h3>
+                                    <h3 className={`font-black uppercase italic tracking-tighter text-lg ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Revenue Mix by Global Centre</h3>
                                     <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-1">Scroll horizontally to view all centres</p>
                                 </div>
                                 <div className="flex gap-4 items-center">
                                     <div className="flex gap-2">
                                         {['CASH', 'UPI', 'BANK_TRANSFER', 'CHEQUE', 'CHEQUE_PENDING'].map((method, idx) => (
-                                            <div key={method} className="flex items-center gap-1.5 bg-gray-900/50 px-3 py-1.5 rounded-[5px] border border-gray-800">
+                                            <div key={method} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] border ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                                 <div className="w-2 h-2 rounded-[5px]" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
                                                 <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">{method.replace('_', ' ')}</span>
                                             </div>
@@ -690,16 +693,16 @@ const FinancialAnalysis = () => {
                         </div>
 
                         {/* Detailed Table Section (Simulated) */}
-                        <div className="bg-[#1a1f24] p-8 rounded-[5px] border border-gray-800 shadow-2xl relative overflow-hidden">
+                        <div className={`p-8 rounded-[5px] border shadow-2xl relative overflow-hidden transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                             <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 blur-[100px]"></div>
                             <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-8 relative z-10">
                                 <div>
-                                    <h3 className="text-white font-black uppercase italic tracking-tighter text-xl mb-2">Detailed Financial Breakdown</h3>
+                                    <h3 className={`font-black uppercase italic tracking-tighter text-xl mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Detailed Financial Breakdown</h3>
                                     <p className="text-gray-500 text-xs font-bold leading-relaxed">Cross-referenced audit of all financial instruments for the current reporting cycle.</p>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-[10px] font-black text-gray-500 tracking-widest uppercase mb-1">Portfolio Value</p>
-                                    <h2 className="text-4xl font-black text-white tracking-tighter">{formatCurrency(analytics.totalAmountCame)}</h2>
+                                    <h2 className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{formatCurrency(analytics.totalAmountCame)}</h2>
                                 </div>
                             </div>
 
@@ -713,11 +716,11 @@ const FinancialAnalysis = () => {
                                             <th className="py-4 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] text-right">Status</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-800/50">
+                                    <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800/50' : 'divide-gray-100'}`}>
                                         {Object.entries(analytics.paymentBreakdown).map(([key, val], idx) => (
-                                            <tr key={idx} className="hover:bg-gray-800/30 transition-colors group">
+                                            <tr key={idx} className={`transition-all group ${isDarkMode ? 'hover:bg-gray-800/30' : 'hover:bg-gray-50'}`}>
                                                 <td className="py-6">
-                                                    <div className="flex items-center gap-3 font-bold text-white text-sm">
+                                                    <div className={`flex items-center gap-3 font-bold text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                         <div className={`w-2 h-2 rounded-[5px] ${COLORS[idx % COLORS.length]}`}></div>
                                                         {key}
                                                     </div>
@@ -730,7 +733,7 @@ const FinancialAnalysis = () => {
                                                         ></div>
                                                     </div>
                                                 </td>
-                                                <td className="py-6 text-right font-black text-white">{formatCurrency(val)}</td>
+                                                <td className="py-6 text-right font-black transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}">{formatCurrency(val)}</td>
                                                 <td className="py-6 text-right">
                                                     <span className="px-3 py-1 bg-green-500/10 text-green-500 text-[10px] font-black rounded-[5px] uppercase tracking-widest border border-green-500/20">
                                                         Audited

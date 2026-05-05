@@ -54,7 +54,7 @@ const EmployeeList = () => {
     const [jumpPage, setJumpPage] = useState("");
     const [analytics, setAnalytics] = useState(null);
     const [analyticsLoading, setAnalyticsLoading] = useState(true);
-    const { theme, toggleTheme } = useTheme();
+    const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
 
     const location = useLocation();
@@ -587,12 +587,7 @@ const EmployeeList = () => {
                             ))}
                         </div>
                         <div className="flex flex-wrap items-center gap-4">
-                            <button
-                                onClick={toggleTheme}
-                                className={`p-3 rounded-[2px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
-                            >
-                                {isDarkMode ? <><FaSun /> Day Mode</> : <><FaMoon /> Night Mode</>}
-                            </button>
+
 
                             <ExcelImportExport
                                 columns={employeeColumns}

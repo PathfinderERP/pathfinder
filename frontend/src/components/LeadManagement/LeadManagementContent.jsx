@@ -20,7 +20,7 @@ import FollowUpActivityModal from "./FollowUpActivityModal";
 import { CardSkeleton, TableRowSkeleton, FeedItemSkeleton } from "../common/Skeleton";
 const LeadManagementContent = () => {
     const navigate = useNavigate();
-    const { theme, toggleTheme } = useTheme();
+    const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
     const [leads, setLeads] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -633,13 +633,6 @@ const LeadManagementContent = () => {
                     </div>
 
                     <div className="flex flex-wrap items-center justify-center sm:justify-end gap-3 sm:gap-4">
-                        <button
-                            onClick={toggleTheme}
-                            className={`p-3 rounded-[2px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
-                        >
-                            {isDarkMode ? <><FaSun /> Day Mode</> : <><FaMoon /> Night Mode</>}
-                        </button>
-
                         <button
                             onClick={handleExport}
                             className="px-6 py-3 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-[2px] border border-emerald-500/20 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]"

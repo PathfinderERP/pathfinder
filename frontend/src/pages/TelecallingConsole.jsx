@@ -362,7 +362,7 @@ const CustomBarLabel = (props) => {
 };
 
 const TelecallingConsole = () => {
-    const { theme, toggleTheme } = useTheme();
+    const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
 
     const [activeConsole, setActiveConsole] = useState('telecalling');
@@ -753,7 +753,7 @@ const TelecallingConsole = () => {
             const data = await response.json();
             if (response.ok) {
                 let telecallersList = (data.users || []).filter(u =>
-                    ["telecaller", "counsellor", "marketing"].includes(u.role)
+                    ["telecaller", "counsellor", "marketing"].includes(u.role) && u.isActive !== false
                 );
 
                 if (!isSuperAdmin && userCentres.length > 0) {
@@ -949,13 +949,7 @@ const TelecallingConsole = () => {
                         </div>
 
                         <div className="flex items-center gap-4">
-                            <button
-                                onClick={toggleTheme}
-                                className={`p-2.5 rounded-[4px] border transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 text-yellow-400 hover:bg-white/10' : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'}`}
-                                title="Toggle Mode"
-                            >
-                                {isDarkMode ? <FaSun /> : <FaMoon />}
-                            </button>
+
                             <button
                                 onClick={() => telecallerNameFromUrl ? fetchAssignedLeads(telecallerNameFromUrl) : fetchTelecallers()}
                                 className={`p-2.5 rounded-[4px] border transition-all active:scale-95 ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500 hover:text-black' : 'bg-cyan-50 border-cyan-200 text-cyan-600 hover:bg-cyan-100 shadow-sm'}`}
@@ -1541,7 +1535,7 @@ const TelecallingConsole = () => {
                                             </div>
 
                                             <div className="w-full mt-10 overflow-x-auto custom-scrollbar">
-                                                <div className="h-[400px]" style={{ minWidth: (allPerformance.filter(u => ['telecaller', 'counsellor', 'centralizedTelecaller'].includes(u.role)).length * 40) + 'px' }}>
+                                                <div className="h-[400px]" style={{ minWidth: (allPerformance.filter(u => ['telecaller', 'counsellor', 'centralizedTelecaller'].includes(u.role) && u.isActive !== false).length * 40) + 'px' }}>
                                                     <ResponsiveContainer width="100%" height="100%">
                                                         <BarChart
                                                             data={allPerformance.filter(u => {
@@ -1552,8 +1546,9 @@ const TelecallingConsole = () => {
 
                                                                 const combinedSelections = [...(selectedTelecallers || []), ...(selectedCentralizedTelecallers || [])];
                                                                 const matchesTelecaller = combinedSelections.length === 0 || combinedSelections.includes(u._id?.toString() || u.userId?.toString());
+                                                                const isActiveUser = u.isActive !== false;
 
-                                                                return matchesRole && matchesSearch && matchesCenter && matchesTelecaller;
+                                                                return matchesRole && matchesSearch && matchesCenter && matchesTelecaller && isActiveUser;
                                                             })}
                                                             margin={{ top: 20, right: 20, left: 20, bottom: 5 }}
                                                             barGap={2}
@@ -1594,8 +1589,9 @@ const TelecallingConsole = () => {
 
                                                 const combinedSelections = [...(selectedTelecallers || []), ...(selectedCentralizedTelecallers || [])];
                                                 const matchesTelecaller = combinedSelections.length === 0 || combinedSelections.includes(u._id?.toString() || u.userId?.toString());
+                                                const isActiveUser = u.isActive !== false;
 
-                                                return matchesRole && matchesSearch && matchesCenter && matchesTelecaller;
+                                                return matchesRole && matchesSearch && matchesCenter && matchesTelecaller && isActiveUser;
                                             })}
                                             monthlyTrends={globalTrends}
                                             admissionDetail={globalAdmissionDetail}
@@ -1625,8 +1621,9 @@ const TelecallingConsole = () => {
 
                                                 const combinedSelections = [...(selectedTelecallers || []), ...(selectedCentralizedTelecallers || [])];
                                                 const matchesTelecaller = combinedSelections.length === 0 || combinedSelections.includes(tc._id?.toString() || tc.userId?.toString());
+                                                const isActiveUser = tc.isActive !== false;
 
-                                                return matchesRole && matchesSearch && matchesCenter && matchesTelecaller;
+                                                return matchesRole && matchesSearch && matchesCenter && matchesTelecaller && isActiveUser;
                                             })
                                             .map((caller, idx) => (
                                                 <div

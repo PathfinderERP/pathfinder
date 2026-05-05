@@ -104,7 +104,8 @@ export const getAllTelecallerAnalytics = async (req, res) => {
         const isPrivileged = privilegedRoles.includes(userRoleStr);
 
         let userQuery = {
-            role: { $in: ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing', 'admin', 'centerIncharge', 'zonalManager', 'zonalHead', 'hr'] }
+            role: { $in: ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing', 'admin', 'centerIncharge', 'zonalManager', 'zonalHead', 'hr'] },
+            isActive: { $ne: false }
         };
 
         if (userRoleStr !== "superadmin" && userRoleStr !== "super admin") {
@@ -122,6 +123,9 @@ export const getAllTelecallerAnalytics = async (req, res) => {
         }
 
         const telecallers = await User.find(userQuery);
+        const activeUserIds = telecallers.map(u => u._id);
+        const activeUserNames = telecallers.map(u => String(u.name).trim());
+        const activeUserIdentifiers = [...activeUserNames, ...activeUserIds.map(id => id.toString())];
 
         // 2. Aggregate Data
         const [historyAgg, statsAgg, admissionAgg, counselledAgg, trendsAgg, mktLeadsAgg, admissionAggResult, leadsTrendAgg] = await Promise.all([
@@ -188,7 +192,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             LeadManagement.aggregate([
                 { $match: activityMatch },
                 { $unwind: "$followUps" },
-                { $match: { "followUps.date": { $gte: startOfYear } } },
+                { $match: { "followUps.date": { $gte: startOfYear }, "followUps.updatedBy": { $in: activeUserIdentifiers } } },
                 { $group: { _id: { $month: "$followUps.date" }, calls: { $sum: 1 } } }
             ]),
             LeadManagement.aggregate([
@@ -227,7 +231,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                 }
             ]),
             Admission.aggregate([
-                { $match: { ...baseLeadFilters, admissionDate: { $gte: startDate, $lte: endDate } } },
+                { $match: { ...baseLeadFilters, admissionDate: { $gte: startDate, $lte: endDate }, createdBy: { $in: activeUserIds } } },
                 {
                     $facet: {
                         bySource: [
@@ -243,7 +247,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                 }
             ]),
             LeadManagement.aggregate([
-                { $match: { ...specificLeadMatch, createdAt: { $gte: startOfYear } } },
+                { $match: { ...specificLeadMatch, createdAt: { $gte: startOfYear }, createdBy: { $in: activeUserIds } } },
                 { $group: { _id: { $month: "$createdAt" }, count: { $sum: 1 } } }
             ])
         ]);
@@ -365,6 +369,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                 name: u.name,
                 role: u.role,
                 mobNum: u.mobNum,
+                isActive: u.isActive,
                 redFlags: u.redFlags || 0,
                 centres: (u.centres || []).map(id => centreMap[id.toString()]).filter(Boolean),
                 currentCalls: effectiveCurrent,
@@ -390,7 +395,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
 
         // Trends & Admissions Detail
         const admissionTrends = await Admission.aggregate([
-            { $match: { admissionDate: { $gte: startOfYear } } },
+            { $match: { admissionDate: { $gte: startOfYear }, createdBy: { $in: activeUserIds } } },
             { $group: { _id: { $month: "$admissionDate" }, count: { $sum: 1 } } }
         ]);
 

@@ -27,7 +27,7 @@ const TransactionReport = () => {
     const [courses, setCourses] = useState([]);
     const [examTags, setExamTags] = useState([]);
     const [departments, setDepartments] = useState([]);
-    const { theme, toggleTheme } = useTheme();
+    const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
 
     // Filters
@@ -392,15 +392,7 @@ const TransactionReport = () => {
                         </h1>
                     </div>
                     <div className="flex items-center gap-2 bg-gray-100 dark:bg-[#1a1f24] p-1.5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-inner">
-                        <button
-                            onClick={toggleTheme}
-                            className={`p-2.5 rounded-lg border transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-widest ${isDarkMode
-                                ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black'
-                                : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'
-                                }`}
-                        >
-                            {isDarkMode ? <><FaSun /> Day Mode</> : <><FaMoon /> Night Mode</>}
-                        </button>
+
 
                         <button
                             onClick={() => setDisplayMode("chart")}

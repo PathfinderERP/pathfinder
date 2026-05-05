@@ -524,34 +524,45 @@ const CommunityFeed = () => {
                 }}
             >
                 {/* Pinned Messages Bar */}
-                {posts.some(p => p.isPinned) && (
-                    <div className="sticky top-0 z-30 mb-6 -mx-4 md:-mx-8">
-                        <div className={`mx-auto max-w-4xl px-4 md:px-0`}>
-                            <div className={`p-3 rounded-[3px] border-l-4 border-cyan-500 shadow-xl backdrop-blur-md flex items-center gap-4 group cursor-pointer transition-all hover:scale-[1.01] active:scale-100 ${isDark ? 'bg-[#202c33]/90 text-white' : 'bg-white/90 text-gray-800'}`}
-                                 onClick={() => {
-                                     const pinnedPost = posts.find(p => p.isPinned);
-                                     if (pinnedPost) {
-                                         const element = document.getElementById(`post-${pinnedPost._id}`);
+                {(() => {
+                    const pinnedPosts = posts.filter(p => p.isPinned);
+                    if (pinnedPosts.length === 0) return null;
+                    
+                    // We'll use a local state-like approach with a ref or just show the latest and allow clicking to cycle?
+                    // Actually, let's just show the latest but indicate there are more.
+                    const latestPinned = pinnedPosts[0];
+                    
+                    return (
+                        <div className="sticky top-0 z-30 mb-6 -mx-4 md:-mx-8">
+                            <div className="mx-auto max-w-4xl px-4 md:px-0">
+                                <div className={`p-3 rounded-[3px] border-l-4 border-cyan-500 shadow-xl backdrop-blur-md flex items-center gap-4 group cursor-pointer transition-all hover:scale-[1.01] active:scale-100 ${isDark ? 'bg-[#202c33]/90 text-white' : 'bg-white/90 text-gray-800'}`}
+                                     onClick={() => {
+                                         const element = document.getElementById(`post-${latestPinned._id}`);
                                          element?.scrollIntoView({ behavior: "smooth", block: "center" });
-                                     }
-                                 }}
-                            >
-                                <div className="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-500 shrink-0">
-                                    <FaThumbtack size={14} className="rotate-45" />
-                                </div>
-                                <div className="flex-1 overflow-hidden">
-                                    <p className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-0.5">Pinned Message</p>
-                                    <p className="text-xs truncate opacity-80">
-                                        {posts.find(p => p.isPinned)?.content || "Pinned attachment"}
-                                    </p>
-                                </div>
-                                <div className="text-[9px] font-black uppercase tracking-widest text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    View Message
+                                     }}
+                                >
+                                    <div className="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-500 shrink-0">
+                                        <FaThumbtack size={14} className="rotate-45" />
+                                    </div>
+                                    <div className="flex-1 overflow-hidden">
+                                        <div className="flex items-center justify-between mb-0.5">
+                                            <p className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.2em]">Pinned Message {pinnedPosts.length > 1 && `(1 of ${pinnedPosts.length})`}</p>
+                                            {pinnedPosts.length > 1 && (
+                                                <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Tap to view latest</span>
+                                            )}
+                                        </div>
+                                        <p className="text-xs truncate opacity-80">
+                                            {latestPinned.content || "Media attachment"}
+                                        </p>
+                                    </div>
+                                    <div className="text-[9px] font-black uppercase tracking-widest text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        View Message
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
 
                 <div className="max-w-4xl mx-auto space-y-6 relative z-10">
                     {loading ? (

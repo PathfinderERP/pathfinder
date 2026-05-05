@@ -90,7 +90,7 @@ const SearchableDropdown = ({ placeholder, options, selectedValues, onToggle, la
 };
 
 const AdmissionReport = () => {
-    const { theme, toggleTheme } = useTheme();
+    const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
     // ---- State ----
     const [loading, setLoading] = useState(false);
