@@ -148,6 +148,8 @@ export const generateExperienceLetter = async (employee, data) => {
 
             doc.moveDown(1);
 
+            const signatureY = doc.y;
+
             if (data.signatureImage) {
                 try {
                     doc.image(data.signatureImage, centerX, doc.y, { width: 100 });
@@ -157,6 +159,15 @@ export const generateExperienceLetter = async (employee, data) => {
                 }
             } else {
                 doc.text('..........................', centerX, doc.y);
+            }
+
+            if (data.stampImage) {
+                try {
+                    // Calculate Y to align with signature but placed on the right
+                    doc.image(data.stampImage, pageWidth - 150, signatureY, { width: 100 });
+                } catch (e) {
+                    console.error("Error drawing stamp:", e);
+                }
             }
 
             doc.moveDown(1);

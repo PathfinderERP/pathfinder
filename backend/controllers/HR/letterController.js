@@ -88,6 +88,14 @@ const handleGenerateLetter = async (req, res, letterType, generatorFunc, dataMap
             data.signatureImage = req.body.signatureImage; // Already a URL or path
         }
 
+        // Handle Stamp Image
+        if (req.body.stampImage && req.body.stampImage.startsWith("data:image")) {
+            const base64Data = req.body.stampImage.replace(/^data:image\/\w+;base64,/, "");
+            data.stampImage = Buffer.from(base64Data, 'base64');
+        } else if (req.body.stampImage) {
+            data.stampImage = req.body.stampImage;
+        }
+
         const { filePath, fileName } = await generatorFunc(employee, data);
         const finalUrl = await uploadToR2(filePath);
         if (finalUrl) {
